@@ -1,6 +1,7 @@
 # Go Rewrite of webv2 — Implementation Design
 
-> **Status:** approved design (brainstormed 2026-09-07, user decisions recorded in §11).
+> **Status:** approved design (brainstormed 2026-09-07; revised same day with the
+> test-porting + Go-native hardening revision, §11).
 > **Companion contract:** `web3sec-final/docs/GO_REWRITE_SPEC.md` (DRAFT v1) — the behavioral
 > contract. This document decides **how** we build; the spec decides **what** must be true.
 > Where prose and code disagree, the **Python code wins** (spec's own rule).
@@ -28,10 +29,25 @@ load-bearing. The spec's tables are **transcribed, not re-derived**.
 - **Autonomy:** fully autonomous P0→P4. The phase gates (spec §14) are the checkpoints;
   no per-phase user pause is scheduled. A tracked session goal enforces continuation.
 - **Approach A — phase-serial, module-level TDD.** Inside each phase, per module:
-  (1) port the module's Python tests to Go table tests **first** (1:1 file mapping in
-  `testmap.json`); (2) implement the Go package until those tests are green;
-  (3) keep `webv2 verify` (fast) green at all times; (4) at the phase boundary extend
-  the cross-twin golden suite to the phase's modules and run it green — that is the gate.
+  (1) triage the module's Python tests, then port the **invariant tests** as Go table
+  tests first (dispositions recorded in `testmap.json`); (2) implement the Go package
+  until those tests are green; (3) keep `webv2 verify` (fast) green at all times;
+  (4) at the phase boundary extend the cross-twin golden suite to the phase's modules
+  and run it green — that is the gate.
+- **Test-porting philosophy (revision 2026-09-07):** port invariants, not Python
+  implementation details — and **merge aggressively**: the Go suite is expected to be
+  substantially smaller than the Python suite's ~1,052 test functions; a near-1:1
+  function count would be a smell, not an achievement. Before porting, triage:
+  (a) **invariant test** (verifies system behavior) → a case in a Go table test;
+  (b) **implementation-detail test** (pins a Python footgun: local-import cycles,
+  jsonschema's particular error strings, monkeypatch quirks) → adapt to the Go
+  equivalent or drop, reason recorded; (c) **similar tests** (same invariant, different
+  data/setup) → merged into one table test. Accounting unit = the Python test
+  function: every one lands as a Go table case or an explicit disposition
+  (ported / merged-into / adapted / dropped-with-reason) in `testmap.json` — nothing
+  is silently lost, and the manifest gate (§8) remains the floor. **Test count is a
+  floor, not the goal**: Go-specific failure modes (races, map iteration order,
+  goroutine scheduling) get their own coverage in the Go-native hardening suite (§8).
 - **Ponytail discipline** on every implementation choice: YAGNI → stdlib → native platform
   → existing reliable dependency → the one-liner → minimum viable implementation.
   Readability and maintainability win over cleverness. Every deliberate shortcut carries
@@ -138,6 +154,10 @@ Any divergence that cannot be mapped into the `SchemaError` shape escalates to
    fingerprints, and report.md (modulo generated_at and environment_hash);
    Docker-dependent tests skip honestly when no daemon is present (matching Python's
    environment-failure classification — never faked).
+9. **Go-native hardening suite** (beyond the ported suite — revision 2026-09-07):
+   self-consistency determinism runs, crash-consistency fault injection, adversarial
+   argv/shell fixtures, CLI golden tables, and benchmarks with regression thresholds
+   (§8); the race detector is a hard gate.
 
 ## 7. P0 — trust core (the first sub-project, in detail)
 
@@ -179,8 +199,8 @@ Any divergence that cannot be mapped into the `SchemaError` shape escalates to
      budget limit set, note-cap truncation.
   3. webv2 verify (fast) green.
   4. Golden suite v1 green (cross-twin over the P0 surface).
-  5. testmap.json: every Python test file covering validation/state/snapshot/audit
-     ported 1:1 and green.
+  5. testmap.json: every Python test function covering validation/state/snapshot/audit
+     is a Go table case or carries an explicit disposition; its invariant surface green.
   6. OQ3 checkpoint result recorded (v6 accepted, or qri-io decision with evidence).
   7. Python line coverage of validation/state/snapshot/audit measured (pytest-cov) and
      recorded as the Go coverage floor for those packages.
@@ -194,13 +214,44 @@ Any divergence that cannot be mapped into the `SchemaError` shape escalates to
 - **The gate** = scripts/verify-full.sh, run before every phase closes (and before
   any commit that claims a gate):
   1. go vet ./... + go build ./...
-  2. go test ./... (ported suite)
-  3. scripts/golden.sh (cross-twin byte diffs for all gated surfaces)
-  4. testmap.json completeness (no unmapped Python test files — R8)
-  5. embedded assets == web3sec-final sources (R10)
-  6. regex-hazard grep: any lookahead/lookbehind outside the regexp2 allowlist file
+  2. go test ./... (ported suite + Go-native hardening unit tests)
+  3. **go test -race ./... (hard gate, not optional)** — concurrency is a rewrite
+     justification (spec §1.2) and the Python suite cannot catch races
+  4. scripts/golden.sh (cross-twin byte diffs) **plus a Go==Go self-consistency
+     determinism run**: the same seeded op-sequence executed twice by the Go binary
+     alone must be byte-identical (map iteration order, goroutine scheduling, and sync
+     primitives can poison event-log hashes and artifact bytes in ways single-threaded
+     Python never could)
+  5. CLI golden tables: table-driven {command, args, fixture campaign} →
+     {stdout, stderr, exit code} goldens covering every CLI command — the ~70-command
+     parity surface (spec §1.3.3) gets its own harness, not just unit tests underneath
+  6. benchmarks with regression thresholds (testing.B: bulk tree hashing, merkle,
+     snapshot copy, index parse; baselines recorded when first landing, gate fails
+     beyond threshold — "bulk hashing" is a stated reason for Go, so it is measured)
+  7. testmap.json accounting: every Python test function is a Go table case or an
+     explicit disposition (ported / merged-into / adapted / dropped-with-reason) —
+     a floor against silent omissions, not the goal (R8); the Go suite is deliberately
+     much smaller than ~1,052 functions
+  8. embedded assets == web3sec-final sources (R10)
+  9. regex-hazard grep: any lookahead/lookbehind outside the regexp2 allowlist file
      (which carries a comment per entry) fails the gate
-  7. schema compile + KNOWN_SCHEMAS count (27) test
+  10. schema compile + KNOWN_SCHEMAS count (27) test
+- **Crash-consistency fault injection (P0 — the actual disaster scenario):** the store
+  is a hash-chained single-writer ledger. Every write site (event-log append, projection
+  save, artifact write, JSONL appends, snapshot copy) gets a kill-mid-write test: the
+  next audit either repairs cleanly (doctor's sanctioned note-rewrite is the only
+  repair) or fails loudly; a torn write must never silently corrupt the chain.
+- **Argv/shell injection fixtures (P2 — novel, prioritized):** sandbox, sequence_poc,
+  and the docker argv builder construct shell programs and command lines from data that
+  traces back to model output (finding titles, protocol names, PoC parameters). An
+  adversarial fixture set — $(), backticks, quotes, newlines, semicolons, &&, crafted
+  identifiers — feeds through build_container_argv / build_command / the generated sh
+  driver in **both** implementations; byte-parity alone would not catch this, and a
+  security tool skipping it would be an own goal.
+- **Edge-case campaign zoo (testdata):** beyond the MiniVault-style walkthrough fixture,
+  deliberately messy campaign directories checked in as inputs: partial pipeline state,
+  a corrupted event mid-chain, campaigns frozen at each phase, orphan artifacts —
+  regression coverage for audit's detection/repair logic specifically.
 - **Coverage floor:** the trust-core packages (validation, state, plus findings from P1)
   must hold ≥ the recorded Python-suite coverage of the same modules (mechanism measured
   in P0, enforced in every gate thereafter).
@@ -219,7 +270,9 @@ Any divergence that cannot be mapped into the `SchemaError` shape escalates to
 | R5 sequence driver byte-parity | T4 coverage proofs | Go template reproducing build_command exactly + golden test on 3 fixture specs (P2) |
 | R6 docker argv drift | exec records | build_container_argv ported exactly, argv order preserved (P2) |
 | R7 scope creep / entropy | the whole port | 1:1 mapping rule (Appendix A), Python-wins rule, no behavioral changes inside port PRs (changes go through Python first, then port) |
-| R8 silent test-suite shrinkage | parity confidence | testmap.json completeness check in every gate (all phases) |
+| R8 silent test-suite shrinkage | parity confidence | testmap.json function-level accounting in every gate (ported/merged/adapted/dropped-with-reason) — floor, not goal |
+| R13 Go-native nondeterminism (new) | event hashes, artifact bytes | -race hard gate + Go==Go self-consistency determinism runs in every gate |
+| R14 shell/argv injection from model-influenced data (new) | exec records, sequence driver, sandbox | adversarial fixture set through build_container_argv/build_command/sh driver in both implementations (P2) |
 | R9 no external CI (new) | gate enforcement is local | verify-full.sh is the mandatory phase-close gate; script maps 1:1 to GitHub Actions jobs if a remote appears |
 | R10 asset drift vs Python tree | embedded prompts/schemas diverge | scripts/sync-assets.sh + embedded==source assertion in every gate |
 | R11 argparse↔stdlib-CLI divergence | CLI contracts, exit codes | CLI tests ported 1:1; argparse edge semantics pinned by tests, not assumed |
@@ -231,10 +284,15 @@ Any divergence that cannot be mapped into the `SchemaError` shape escalates to
    module-by-module (tests first) → P1 gate → … → P4.
 2. Each gate report lands at `docs/gates/P{n}-gate.md` in this repo: evidence for every
    gate item (commands run, outputs, coverage numbers, OQ3 decision where applicable).
-3. At P4: DoD §1.5 all four items evidenced; Python repo archived (not deleted); the
+3. `KNOWN_DIVERGENCES.md` at the repo root from day one: every deferred Python papercut
+   (OQ6) and every conscious Go-side divergence (test triage drops/merges, validator
+   error-string mapping) is recorded with the Python behavior it departs from — a
+   deferred papercut must never quietly become an undocumented spec by P4. Reviewed at
+   every gate.
+4. At P4: DoD §1.5 all four items evidenced; Python repo archived (not deleted); the
    cross-twin golden suite keeps a pinned Python venv for regression checks; RUNBOOK
    notes the "one binary at a time" rule; README gains the Go install.
-4. A failure at any gate stops the phase; the failure is fixed in Go (Python changes
+5. A failure at any gate stops the phase; the failure is fixed in Go (Python changes
    only for confirmed Python bugs, filed and fixed in **both** implementations per the
    spec's non-goals).
 
@@ -250,7 +308,8 @@ Any divergence that cannot be mapped into the `SchemaError` shape escalates to
 | OQ3 validator | santhosh-tekuri/jsonschema/v6 with P0 prototype checkpoint; qri-io fallback before P1 | spec + ponytail (hand-rolled draft-07 rejected) |
 | OQ4 clock | injected Clock + WEBV2_TEST_CLOCK (testclock tag only; production build refuses) | spec lean |
 | OQ5 Windows | non-goal, documented | spec |
-| OQ6 Python papercuts | no fixes during P0–P3 (parity); post-cutover queue, tests on both sides | spec recommendation |
+| OQ6 Python papercuts | no fixes during P0–P3 (parity); post-cutover queue, tests on both sides, tracked in KNOWN_DIVERGENCES.md | spec recommendation |
+| Test-porting + hardening revision | invariants over 1:1 count; **aggressive merging** of similar tests into table tests (Go suite much smaller than ~1,052 functions, function-level accounting so nothing is silently lost); Go-native suite: -race hard gate, Go==Go determinism runs, crash-consistency fault injection, argv/shell injection fixtures, benchmark thresholds, CLI golden tables, edge-case campaign zoo; KNOWN_DIVERGENCES.md from day one | user, 2026-09-07 |
 
 ---
 
