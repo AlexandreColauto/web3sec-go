@@ -455,12 +455,14 @@
   {
    "python_file": "tests/test_answered.py",
    "python_func": "test_api_mark_answered_unknown_priority_raises",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortMarkAnsweredUnknownPriority"
   },
   {
    "python_file": "tests/test_answered.py",
    "python_func": "test_not_applicable_is_a_valid_status",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/planner_scenario_test.go",
+   "go_func": "TestNotApplicableIsAValidStatus"
   },
   {
    "python_file": "tests/test_answered.py",
@@ -1145,27 +1147,32 @@
   {
    "python_file": "tests/test_completion_proof.py",
    "python_func": "test_loaded_and_seeded_is_done",
-   "status": "deferred-P1"
+   "go_file": "internal/completion/completion_test.go",
+   "go_func": "TestLoadedAndSeededIsDone"
   },
   {
    "python_file": "tests/test_completion_proof.py",
    "python_func": "test_no_model_not_done",
-   "status": "deferred-P1"
+   "go_file": "internal/completion/completion_test.go",
+   "go_func": "TestNoModelNotDone"
   },
   {
    "python_file": "tests/test_completion_proof.py",
    "python_func": "test_partial_seed_names_the_gap",
-   "status": "deferred-P1"
+   "go_file": "internal/completion/completion_test.go",
+   "go_func": "TestPartialSeedNamesTheGap"
   },
   {
    "python_file": "tests/test_completion_proof.py",
    "python_func": "test_saved_but_unseeded_not_done",
-   "status": "deferred-P1"
+   "go_file": "internal/completion/completion_test.go",
+   "go_func": "TestSavedButUnseededNotDone"
   },
   {
    "python_file": "tests/test_completion_proof.py",
    "python_func": "test_zero_invariant_model_not_done",
-   "status": "deferred-P1"
+   "go_file": "internal/completion/completion_test.go",
+   "go_func": "TestZeroInvariantModelNotDone"
   },
   {
    "python_file": "tests/test_corpus_surface_e2e_sharevault.py",
@@ -2852,42 +2859,50 @@
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_confirmed_finding_reopens_the_lens_whose_family_it_hit",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/planner_scenario_test.go",
+   "go_func": "TestConfirmedFindingReopensTheLensWhoseFamilyItHit"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_families_for_finding_collects_verb_and_machine_tokens",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortFamiliesForFindingTokens"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_lens_closed_when_families_covered",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortLensClosedWhenFamiliesCovered"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_lens_families_are_deterministic_and_per_lens",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortLensFamiliesDeterministic"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_lens_open_until_all_seeded_families_attested",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortLensOpenUntilFamiliesAttested"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_lens_schema_has_families_and_reopen_fields",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortLensSchemaHasFamiliesAndReopenFields"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_none_applicable_attestation_closes_a_lens_with_no_real_families",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortNoneApplicableClosesNoFamilyLens"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_none_applicable_does_not_skip_real_families",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortNoneApplicableDoesNotSkipRealFamilies"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
@@ -2904,17 +2919,20 @@
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_round4_lens_entry_still_validates_without_families",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortRound4LensEntryStillValidates"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_seed_lenses_backfills_families_on_existing_entry",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortSeedLensesBackfillsFamilies"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_seed_lenses_leaves_already_closed_lens_family_free",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortSeedLensesGrandfathersClosedLens"
   },
   {
    "python_file": "tests/test_living_artifacts.py",
@@ -3195,17 +3213,20 @@
   {
    "python_file": "tests/test_orchestrator.py",
    "python_func": "test_bounty_gate_requires_policy",
-   "status": "deferred-P1"
+   "go_file": "internal/orchestrator/port_test.go",
+   "go_func": "TestPortBountyGateRequiresPolicy"
   },
   {
    "python_file": "tests/test_orchestrator.py",
    "python_func": "test_full_pipeline_end_to_end",
-   "status": "deferred-P1"
+   "go_file": "internal/orchestrator/port_test.go",
+   "go_func": "TestPortFullPipelineEndToEnd"
   },
   {
    "python_file": "tests/test_orchestrator.py",
    "python_func": "test_next_actions_guidance",
-   "status": "deferred-P1"
+   "go_file": "internal/orchestrator/port_test.go",
+   "go_func": "TestPortNextActionsGuidance"
   },
   {
    "python_file": "tests/test_outcome_events.py",
@@ -3381,17 +3402,20 @@
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_anchor_added_on_confirmed_high",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/planner_scenario_test.go",
+   "go_func": "TestAnchorAddedOnConfirmedHigh"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_anchor_drops_non_canonical_bug_class",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/planner_scenario_test.go",
+   "go_func": "TestAnchorDropsNonCanonicalBugClass"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_anchor_is_idempotent_and_severity_gated",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/planner_scenario_test.go",
+   "go_func": "TestAnchorIsIdempotentAndSeverityGated"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
@@ -3408,7 +3432,8 @@
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_default_plan_seeds_four_lenses",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortDefaultPlanSeedsFourLenses"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
@@ -3428,7 +3453,8 @@
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_divergence_counts_a_reasonless_answer_as_open",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/planner_scenario_test.go",
+   "go_func": "TestDivergenceCountsAReasonlessAnswerAsOpen"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
@@ -3438,27 +3464,32 @@
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_divergence_status_closed_plan",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/planner_scenario_test.go",
+   "go_func": "TestDivergenceStatusClosedPlan"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_divergence_status_open_plan",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/planner_scenario_test.go",
+   "go_func": "TestDivergenceStatusOpenPlan"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_lens_constants",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortLensConstants"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_mark_lens_closure_and_reopen",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortMarkLensClosureAndReopen"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_priority_bug_class_hard_validates",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortPriorityBugClassHardValidates"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
@@ -3475,12 +3506,14 @@
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_seed_lenses_heals_a_pre_lens_plan",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortSeedLensesHealsPreLensPlan"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_seed_lenses_is_idempotent",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortSeedLensesIsIdempotent"
   },
   {
    "python_file": "tests/test_planner_privileged.py",
@@ -6478,6 +6511,547 @@
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_save_index_refuses_pre_v3",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_a_displaced_queue_action_is_re_emitted_right_after_the_lead",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_a_future_per_priority_timestamp_would_beat_the_plan_clock",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_a_stale_lens_never_outranks_a_critical_unverified_invariant",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_age_format_branches",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_age_uses_the_briefs_own_generated_at",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_blocked_is_not_a_disposition",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_brief_json_is_additive",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_brief_without_plan_or_invariants_has_no_debt_line",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_cli_brief_on_empty_campaign_exits_zero_and_prints_no_debt_line",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_cli_brief_prints_the_debt_block",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_closed_campaign_has_no_debt_lines",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_invariant_debt_line_shape_and_command",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_invariant_total_counts_only_dict_entries",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_invariant_verify_exec_falls_back_to_the_stderr_log",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_invariant_verify_exec_happy_path",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_invariant_verify_exec_incomplete_exec_exits_2",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_invariant_verify_exec_rerun_refreshes_the_same_artifact",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_invariant_verify_exec_unknown_exec_exits_2",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_invariant_verify_exec_unknown_invariant_exits_2",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_invariant_verify_exec_without_captured_output_exits_2",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_invariant_verify_rejects_both_options",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_invariant_verify_requires_one_option",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_no_debt_lines_when_nothing_is_untouched",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_oldest_untouched_ties_break_on_the_lowest_id",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_probe_row_queue_command_carries_the_required_anchor_flag",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_queue_debt_line_shape_and_command",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_the_critical_invariant_leads_an_open_lens_line",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_the_queue_leads_both_kinds_when_it_is_high_consequence",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_attention_ledger.py",
+   "python_func": "test_two_highest_consequence_items_lead_the_divergence_gate",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_all_pass_still_exits_zero",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_checklist_fix_line_follows_the_failing_clause",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_checklist_prints_every_clause_with_verdict",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_clause_collector_is_the_only_source",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_delta_lines_are_deterministic_for_multiple_ids",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_delta_none_recorded_without_an_attempt",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_delta_reports_fixed_and_newly_failing",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_dry_run_writes_nothing",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_gate_attempt_event_only_on_refusal",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_gate_detail_byte_identical_to_pre_change_tree",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_gate_detail_identical_with_satisfied_clauses_present",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_named_decision_line_needs_an_economic_clause",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_named_decision_line_prints_for_economic_class",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_answers_priority_closes_the_question",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_enum_walker_resolves_refs_and_array_items",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_example_prints_an_enum_legend_on_stderr",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_flags_absent_leave_the_api_defaults_alone",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_invalid_priority_outcome_exits_2_naming_the_values",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_legend_is_derived_from_the_schema_file",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_legend_order_is_deterministic_and_schema_ordered",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_priority_outcome_without_answers_priority_exits_2",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_unknown_priority_with_a_plan_is_reported_not_swallowed",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_unknown_priority_without_a_plan_keeps_the_orphan_log",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_pipeline.py",
+   "python_func": "test_existing_plan_stage_is_read_only_and_says_so_in_the_note",
+   "go_file": "internal/pipeline/pipeline_test.go",
+   "go_func": "TestExistingPlanStageIsReadOnlyAndSaysSoInTheNote"
+  },
+  {
+   "python_file": "tests/test_plan_rebuild.py",
+   "python_func": "test_bad_file_rebuild_creates_no_archive",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_plan_rebuild.py",
+   "python_func": "test_file_on_existing_plan_without_rebuild_fails_loudly",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_plan_rebuild.py",
+   "python_func": "test_fresh_campaign_plan_and_rebuild_both_write",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_plan_rebuild.py",
+   "python_func": "test_mark_answered_rewrites_in_place_without_archiving",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_plan_rebuild.py",
+   "python_func": "test_no_file_json_on_existing_plan_is_read_only",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_plan_rebuild.py",
+   "python_func": "test_no_file_on_existing_plan_is_read_only",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_plan_rebuild.py",
+   "python_func": "test_probe_emit_still_rewrites_in_place_without_archiving",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_plan_rebuild.py",
+   "python_func": "test_rebuild_archives_outgoing_plan_and_registers_it",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_plan_rebuild.py",
+   "python_func": "test_two_rebuilds_are_monotonic_and_never_clobber",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_attention_debt_does_not_suppress_the_phase_guidance_fallback",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_brief_corpus_command_names_the_campaign_and_counts_extra_findings",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_brief_has_no_corpus_line_without_irrelevant_checks",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_brief_is_clean_on_an_empty_campaign",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_brief_line_names_the_discounted_label_and_never_claims_silence",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_brief_shows_corpus_line_when_checks_are_irrelevant",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_campaign_derived_memory_row_carries_capability_labels",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_capability_label_overlap_is_not_stamped",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_cite_against_a_campaign_derived_row_overlaps_on_capability",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_coarse_class_alone_is_stamped_and_logs_one_gap",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_coarse_class_plus_shared_capability_is_not_stamped",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_cwe_overlap_is_not_stamped",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_discounted_gap_reason_does_not_claim_corpus_silence",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_discriminative_bug_class_alone_is_overlap",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_memory_row_without_capability_labels_keeps_validating",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_mixed_cite_is_not_stamped_and_lists_only_overlapping_rows",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_mixed_cite_where_the_only_shared_class_is_coarse_is_stamped",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_mixed_cite_whose_only_shared_class_is_a_real_lineage_counts",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_nondiscriminative_classes_is_only_the_taxonomy_catch_all",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_pre_existing_check_without_relevance_still_verifies_unchanged",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_prose_only_similarity_scores_zero_overlap",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_recall_cli_does_not_restamp_a_pre_b3_entry",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_recall_cli_label_only_gap_does_not_claim_corpus_silence",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_recall_cli_names_the_discounted_coarse_class",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_recall_cli_reports_the_relevance_verdict",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_repeating_an_identical_check_logs_no_second_gap",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_row_terminal_counts_as_capability_label",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_same_class_cite_counts_for_every_class_but_the_catch_all",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_truly_silent_gap_keeps_the_silence_wording",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_twenty_coarse_class_rows_for_a_rollup_finding_are_all_irrelevant",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_two_identical_coarse_recordings_produce_identical_entries",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_two_identical_recordings_produce_identical_entries",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_zero_overlap_check_is_stamped_logged_and_still_satisfies_gate",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_recall_relevance.py",
+   "python_func": "test_zero_row_check_is_stamped_and_logged",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_unpriceable_impact.py",
+   "python_func": "test_audit_clean_after_decision_and_catches_a_hand_edit",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_unpriceable_impact.py",
+   "python_func": "test_bare_priceable_false_without_a_ceiling_is_not_a_decision",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_unpriceable_impact.py",
+   "python_func": "test_brief_gate_and_report_survive_an_unpriceable_decision",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_unpriceable_impact.py",
+   "python_func": "test_deficit_names_the_unpriceable_option",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_unpriceable_impact.py",
+   "python_func": "test_economic_clause_satisfied_by_named_decision",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_unpriceable_impact.py",
+   "python_func": "test_priced_impact_behaviour_unchanged",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_unpriceable_impact.py",
+   "python_func": "test_priced_impact_reverses_the_decision",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_unpriceable_impact.py",
+   "python_func": "test_report_prints_unpriceable_where_the_number_used_to_go",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_unpriceable_impact.py",
+   "python_func": "test_schema_accepts_priceable_false_with_ceiling",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_unpriceable_impact.py",
+   "python_func": "test_unpriceable_is_mutually_exclusive_with_priced_flags",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_unpriceable_impact.py",
+   "python_func": "test_unpriceable_records_state_and_event",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_unpriceable_impact.py",
+   "python_func": "test_unpriceable_requires_each_named_flag",
    "status": "deferred-P3"
   }
  ]
