@@ -44,7 +44,8 @@
           "closed_at": { "type": "string" },
           "closed_by": { "type": "string" },
           "bug_class": { "type": ["string", "null"] },
-          "anchor_of": { "type": ["string", "null"] }
+          "anchor_of": { "type": ["string", "null"] },
+          "sibling_of": { "type": ["string", "null"] }
         }
       }
     },
@@ -75,7 +76,25 @@
             "description": "families the operator attested as compared/checked when closing"
           },
           "reopen_reason": {"type": ["string", "null"]},
-          "reopened_at": {"type": ["string", "null"]}
+          "reopened_at": {"type": ["string", "null"]},
+          "symmetry": {
+            "type": "array",
+            "description": "primitive-symmetry (L-04) only: the asset-flow pairing per family member — the primitive each sibling uses to move the asset",
+            "items": {
+              "type": "object",
+              "required": ["family", "primitives"],
+              "additionalProperties": false,
+              "properties": {
+                "family": {"type": "string", "minLength": 1},
+                "primitives": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {"type": "string", "minLength": 1},
+                  "description": "the token-movement primitive(s) quoted from source, e.g. burn / safeTransfer / mint"
+                }
+              }
+            }
+          }
         },
         "required": ["id", "lens", "surface", "question", "status"],
         "additionalProperties": false

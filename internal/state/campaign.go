@@ -223,3 +223,103 @@ func ListCampaigns(root string) []string {
 	sort.Strings(out)
 	return out
 }
+
+// --- snapshot pins (Task 11; compat/attach layers land in Task 12) --------
+
+// hasKey reports whether the object carries the key (Python `in`, distinct
+// from a present-but-null value).
+func hasKey(v validation.Value, key string) bool {
+	for _, kv := range v.O {
+		if kv.K == key {
+			return true
+		}
+	}
+	return false
+}
+
+// PinSnapshot is pin_snapshot: schema-validate the snapshot, append its row
+// ({snapshot_id, pass, pinned, registered_at}, exact key order) unless the
+// id is already registered, set it active, save, and log snapshot.pinned on
+// first registration. Returns the snapshot id.
+func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
+	if err := validation.Validate(snap, "snapshot", 1); err != nil {
+		return "", err
+	}
+	sid := objStr(snap, "snapshot_id")
+	st, err := c.State()
+	if err != nil {
+		return "", err
+	}
+	rows := objAt(st, "snapshots")
+	existing := false
+	for _, r := range rows.A {
+		if objStr(r, "snapshot_id") == sid {
+			existing = true
+			break
+		}
+	}
+	if !existing {
+		pass := objAt(objAt(st, "budget"), "pass")
+		if hasKey(snap, "pass") {
+			pass = objAt(snap, "pass")
+		}
+		pinned := validation.VBool(true)
+		if hasKey(snap, "pinned") {
+			pinned = objAt(snap, "pinned")
+		}
+		rows.A = append(rows.A, validation.VObj(
+			kv("snapshot_id", validation.VStr(sid)),
+			kv("pass", pass),
+			kv("pinned", pinned),
+			kv("registered_at", validation.VStr(nowIso())),
+		))
+		st.O = setOrAppend(st.O, "snapshots", rows)
+	}
+	st.O = setOrAppend(st.O, "active_snapshot_id", validation.VStr(sid))
+	if err := c.save(st); err != nil {
+		return "", err
+	}
+	if !existing {
+		data := validation.VObj(
+			kv("ladder", objAt(objAt(snap, "source"), "ladder")),
+		)
+		if _, err := c.Log("snapshot.pinned", &sid, &data); err != nil {
+			return "", err
+		}
+	}
+	return sid, nil
+}
+
+// ActiveSnapshot is active_snapshot: the active snapshots row, or Null when
+// nothing is pinned (or the id has no row).
+func (c *Campaign) ActiveSnapshot() (validation.Value, error) {
+	st, err := c.State()
+	if err != nil {
+		return validation.VNull(), err
+	}
+	sid := objAt(st, "active_snapshot_id")
+	if sid.Kind != validation.Str || sid.S == "" {
+		return validation.VNull(), nil
+	}
+	for _, r := range objAt(st, "snapshots").A {
+		if objStr(r, "snapshot_id") == sid.S {
+			return r, nil
+		}
+	}
+	return validation.VNull(), nil
+}
+
+// ActiveSnapshotIDOrNone is active_snapshot_id_or_none: the active id, or
+// nil when nothing is pinned.
+func (c *Campaign) ActiveSnapshotIDOrNone() (*string, error) {
+	st, err := c.State()
+	if err != nil {
+		return nil, err
+	}
+	sid := objAt(st, "active_snapshot_id")
+	if sid.Kind != validation.Str || sid.S == "" {
+		return nil, nil
+	}
+	out := sid.S
+	return &out, nil
+}
