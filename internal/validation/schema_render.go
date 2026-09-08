@@ -161,7 +161,7 @@ func keywordOf(k any) string {
 // renderLeaf renders a leaf with the ported jsonschema message template.
 func renderLeaf(data Value, l leaf) string {
 	inst := dataAtValue(data, l.path)
-	repr := pyRepr(inst)
+	repr := PyRepr(inst)
 	switch k := l.kind.(type) {
 	case *kind.Type:
 		return fmt.Sprintf("%s is not of type %s", repr, joinRepr(k.Want))
@@ -170,9 +170,9 @@ func renderLeaf(data Value, l leaf) string {
 		for i := range k.Want {
 			want[i] = anyToValue(k.Want[i])
 		}
-		return fmt.Sprintf("%s is not one of %s", repr, pyRepr(VArr(want...)))
+		return fmt.Sprintf("%s is not one of %s", repr, PyRepr(VArr(want...)))
 	case *kind.Const:
-		return fmt.Sprintf("%s was expected", pyRepr(anyToValue(k.Want)))
+		return fmt.Sprintf("%s was expected", PyRepr(anyToValue(k.Want)))
 	case *kind.Pattern:
 		return fmt.Sprintf("%s does not match %s", repr, PyReprStr(k.Want))
 	case *kind.Required:
@@ -207,13 +207,13 @@ func renderLeaf(data Value, l leaf) string {
 		}
 		return fmt.Sprintf("Additional properties are not allowed (%s %s unexpected)", joined, verb)
 	case *kind.Minimum:
-		return fmt.Sprintf("%s is less than the minimum of %s", repr, pyRepr(ratToValue(k.Want)))
+		return fmt.Sprintf("%s is less than the minimum of %s", repr, PyRepr(ratToValue(k.Want)))
 	case *kind.Maximum:
-		return fmt.Sprintf("%s is greater than the maximum of %s", repr, pyRepr(ratToValue(k.Want)))
+		return fmt.Sprintf("%s is greater than the maximum of %s", repr, PyRepr(ratToValue(k.Want)))
 	case *kind.ExclusiveMinimum:
-		return fmt.Sprintf("%s is less than or equal to the minimum of %s", repr, pyRepr(ratToValue(k.Want)))
+		return fmt.Sprintf("%s is less than or equal to the minimum of %s", repr, PyRepr(ratToValue(k.Want)))
 	case *kind.ExclusiveMaximum:
-		return fmt.Sprintf("%s is greater than or equal to the maximum of %s", repr, pyRepr(ratToValue(k.Want)))
+		return fmt.Sprintf("%s is greater than or equal to the maximum of %s", repr, PyRepr(ratToValue(k.Want)))
 	case *kind.MultipleOf:
 		return fmt.Sprintf("%s is not a multiple of %s", repr, ratToString(k.Want))
 	case *kind.OneOf, *kind.AnyOf:
@@ -268,7 +268,7 @@ func ratToString(r *big.Rat) string {
 		return fmt.Sprintf("%d", r.Num().Int64())
 	}
 	f, _ := r.Float64()
-	return pythonFloat(f)
+	return PythonFloat(f)
 }
 
 // dataAtValue walks the instance to the leaf path.

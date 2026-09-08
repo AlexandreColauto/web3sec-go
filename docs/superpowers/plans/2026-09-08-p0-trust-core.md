@@ -357,7 +357,7 @@ git commit -m "P0: hash-chained event log append (Task 6)"
 
 Must **never crash** on a torn log — a verdict is always produced.
 
-- [ ] **Step 1: Write the failing tests** — \`verifylog_test.go\` (port \`test_state_log_chain.py\` + \`test_state_log.py::test_verify_log_detects_*\`):
+- [x] **Step 1: Write the failing tests** — \`verifylog_test.go\` (port \`test_state_log_chain.py\` + \`test_state_log.py::test_verify_log_detects_*\`):
   - clean -> ok, events==1 (campaign.created), chained==1, legacy_unchained==0; after 5 more -> events==6, chained==6.
   - reordered (swap seq of first two on disk) -> not ok, "seq" problem.
   - state tail mismatch (tamper state["events"]) -> not ok, "tail" problem.
@@ -366,10 +366,10 @@ Must **never crash** on a torn log — a verdict is always produced.
   - delete event (drop index 2, renumber) -> not ok; "prev_hash breaks the chain".
   - legacy-only log -> ok, chained==0, legacy_unchained==1; after append prev_hash=="legacy-seq-0", ok, chained==1, legacy_unchained==1.
   - **Go-native hardening:** malformed (non-JSON) middle line -> ok:false, malformed_lines==1, "not valid JSON" problem, no crash.
-- [ ] **Step 2: Run to verify they fail** — \`go test ./internal/state -run VerifyLog\` -> FAIL.
-- [ ] **Step 3: Implement** \`verifylog.go\`.
-- [ ] **Step 4: Run to verify pass** — \`go test ./internal/state\` + \`go test -race ./internal/state\` -> PASS.
-- [ ] **Step 5: Commit**
+- [x] **Step 2: Run to verify they fail** — \`go test ./internal/state -run VerifyLog\` -> FAIL.
+- [x] **Step 3: Implement** \`verifylog.go\`.
+- [x] **Step 4: Run to verify pass** — \`go test ./internal/state\` + \`go test -race ./internal/state\` -> PASS.
+- [x] **Step 5: Commit**
 \`\`\`bash
 git add internal/state/
 git commit -m "P0: verify_log chain/seq/tail integrity (Task 7)"

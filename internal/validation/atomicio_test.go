@@ -142,8 +142,8 @@ func TestWriteJsonBigInt(t *testing.T) {
 	if string(raw) != want {
 		t.Errorf("big-int round-trip:\n got %q\nwant %q", raw, want)
 	}
-	if got := pyRepr(objKey(v, "wei")); got != "12345678901234567890" {
-		t.Errorf("pyRepr big-int: %q", got)
+	if got := PyRepr(objKey(v, "wei")); got != "12345678901234567890" {
+		t.Errorf("PyRepr big-int: %q", got)
 	}
 }
 

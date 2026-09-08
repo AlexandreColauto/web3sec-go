@@ -7,10 +7,10 @@ import (
 	"strings"
 )
 
-// pyRepr renders a Value the way CPython's repr() renders the equivalent
+// PyRepr renders a Value the way CPython's repr() renders the equivalent
 // Python object. jsonschema error messages embed repr() of the instance and
 // of schema values, and that text is part of the ported contract.
-func pyRepr(v Value) string {
+func PyRepr(v Value) string {
 	switch v.Kind {
 	case Null:
 		return "None"
@@ -20,9 +20,9 @@ func pyRepr(v Value) string {
 		}
 		return "False"
 	case Int:
-		return intText(v)
+		return IntText(v)
 	case Flt:
-		return pythonFloat(v.F)
+		return PythonFloat(v.F)
 	case Str:
 		return PyReprStr(v.S)
 	case Arr:
@@ -30,18 +30,18 @@ func pyRepr(v Value) string {
 	case Obj:
 		parts := make([]string, len(v.O))
 		for i, kv := range v.O {
-			parts[i] = PyReprStr(kv.K) + ": " + pyRepr(kv.V)
+			parts[i] = PyReprStr(kv.K) + ": " + PyRepr(kv.V)
 		}
 		return "{" + strings.Join(parts, ", ") + "}"
 	}
-	panic("validation: pyRepr of bad kind " + strconv.Itoa(int(v.Kind)))
+	panic("validation: PyRepr of bad kind " + strconv.Itoa(int(v.Kind)))
 }
 
 // pyReprJoin is the ", "-joined repr list body ("" for empty).
 func pyReprJoin(items []Value) string {
 	parts := make([]string, len(items))
 	for i, v := range items {
-		parts[i] = pyRepr(v)
+		parts[i] = PyRepr(v)
 	}
 	return strings.Join(parts, ", ")
 }

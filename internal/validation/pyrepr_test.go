@@ -67,8 +67,8 @@ func TestPyReprScalars(t *testing.T) {
 		{VObj(KV{"a", VNull()}, KV{"b", VBool(true)}), `{'a': None, 'b': True}`},
 	}
 	for _, c := range cases {
-		if got := pyRepr(c.v); got != c.want {
-			t.Errorf("pyRepr(%v):\n got %q\nwant %q", c.v, got, c.want)
+		if got := PyRepr(c.v); got != c.want {
+			t.Errorf("PyRepr(%v):\n got %q\nwant %q", c.v, got, c.want)
 		}
 	}
 }

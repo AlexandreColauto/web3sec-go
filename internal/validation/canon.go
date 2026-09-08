@@ -56,9 +56,9 @@ func VStr(s string) Value    { return Value{Kind: Str, S: s} }
 func VArr(a ...Value) Value  { return Value{Kind: Arr, A: a} }
 func VObj(o ...KV) Value     { return Value{Kind: Obj, O: o} }
 
-// intText renders an Int Value: the exact decimal text when it exceeds
+// IntText renders an Int Value: the exact decimal text when it exceeds
 // int64, otherwise the int64 digits.
-func intText(v Value) string {
+func IntText(v Value) string {
 	if v.Big != "" {
 		return v.Big
 	}
@@ -149,9 +149,9 @@ func writeCanon(b *strings.Builder, v Value, compact bool) {
 			b.WriteString("false")
 		}
 	case Int:
-		b.WriteString(intText(v))
+		b.WriteString(IntText(v))
 	case Flt:
-		b.WriteString(pythonFloat(v.F))
+		b.WriteString(PythonFloat(v.F))
 	case Str:
 		b.WriteByte('"')
 		writeEscaped(b, v.S)
@@ -265,9 +265,9 @@ func writeIndented(b *strings.Builder, v Value, depth int) {
 			b.WriteString("false")
 		}
 	case Int:
-		b.WriteString(intText(v))
+		b.WriteString(IntText(v))
 	case Flt:
-		b.WriteString(pythonFloat(v.F))
+		b.WriteString(PythonFloat(v.F))
 	case Str:
 		b.WriteByte('"')
 		writeEscapedRaw(b, v.S)
@@ -336,8 +336,8 @@ func writeEscapedRaw(b *strings.Builder, s string) {
 	}
 }
 
-// pythonFloat formats a float64 to match CPython repr exactly.
-func pythonFloat(f float64) string {
+// PythonFloat formats a float64 to match CPython repr exactly.
+func PythonFloat(f float64) string {
 	switch {
 	case math.IsNaN(f):
 		return "NaN"
