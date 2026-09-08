@@ -15,14 +15,20 @@ import (
 	"websec/internal/dedup"
 	"websec/internal/findings"
 	"websec/internal/invariants"
+	"websec/internal/orchestrator"
+	"websec/internal/reproduction"
 	"websec/internal/taxonomy"
 	// init() side effects: taxonomy wires findings.SetClassAdvisory,
 	// floors wires findings.SetEffectiveFloor (Python import-time seams),
 	// completion wires pipeline.SetCompletion + bounty.SetWaivers — without
 	// this import the scheduler would silently auto-complete nothing and the
-	// bounty gate would never see a stage waiver.
+	// bounty gate would never see a stage waiver. immunize wires the T21
+	// seams (bounty.SetForkPocStatus/SetImmunizationDetail,
+	// completion.SetForkPocEvidence); cli already imports it, the blank
+	// import keeps the wiring visible in this one place.
 	_ "websec/internal/completion"
 	_ "websec/internal/floors"
+	_ "websec/internal/immunize"
 )
 
 func init() {
@@ -44,6 +50,17 @@ func init() {
 	})
 	// invariants 2.1 guardrail (Python: _assert_invariants_verified).
 	findings.SetInvariantGuard(invariants.AssertInvariantsVerified)
+	// reproduction -> findings/orchestrator (Python: import-time module
+	// access). Without this the tier ladder is invisible to the gate and E6
+	// minting is the absent-module refusal.
+	findings.SetReproductionTierOrder(func() []string {
+		return reproduction.TierOrder
+	})
+	orchestrator.SetReproduction(orchestrator.ReproductionAPI{
+		TierOf:                  reproduction.TierOf,
+		NextTier:                reproduction.NextTier,
+		MintIndependentEvidence: reproduction.MintIndependentEvidence,
+	})
 	// Golden-suite hook: Python's findings.new_finding_id mints a RAW
 	// uuid4, so the WEBV2_UUID pin never reaches it and the reference twin
 	// emits a fresh finding id per run. The cross-twin golden harness sets

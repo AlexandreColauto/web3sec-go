@@ -20,6 +20,8 @@ import (
 	"websec/internal/dedup"
 	"websec/internal/findings"
 	"websec/internal/invariants"
+	"websec/internal/orchestrator"
+	"websec/internal/reproduction"
 	"websec/internal/state"
 	"websec/internal/taxonomy"
 	"websec/internal/validation"
@@ -114,6 +116,21 @@ var argparseUsageBlocks = map[string]string{
 		"{same,distinct} [--note NOTE]\n" +
 		"                               [--actor ACTOR]\n" +
 		"                               campaign finding of_finding\n",
+	"execs": "usage: webv2 execs [-h] [--id ID] [--json] campaign\n",
+	"exec": "usage: webv2 exec [-h] [--profile PROFILE] [--dry-run] " +
+		"--command COMMAND\n" +
+		"                  [--workdir WORKDIR] [--finding FINDING] " +
+		"[--timeout TIMEOUT]\n" +
+		"                  [--env K=V]\n" +
+		"                  campaign\n",
+	"mint": "usage: webv2 mint [-h] --exec EXEC_ID --description DESCRIPTION\n" +
+		"                  [--tier {T1,T2,T3,T4}]\n" +
+		"                  [--type {balance-delta,differential,fork-test," +
+		"foundry-test,fuzz,historical-analog,invariant-test,manual," +
+		"reachability,reasoning,static-analysis,symbolic-witness,trace," +
+		"unit-test}]\n" +
+		"                  campaign finding\n",
+	"classify": "usage: webv2 classify [-h] campaign exec_id\n",
 }
 
 // argparseError is a usage error whose rendering is argparse's.
@@ -230,6 +247,14 @@ func ensureSeams() {
 	findings.SetDocumentedInvariants(docMapSeam)
 	findings.SetInvariantVerified(invariants.IsVerified)
 	findings.SetIntentClaims(intentMapSeam)
+	findings.SetReproductionTierOrder(func() []string {
+		return reproduction.TierOrder
+	})
+	orchestrator.SetReproduction(orchestrator.ReproductionAPI{
+		TierOf:                  reproduction.TierOf,
+		NextTier:                reproduction.NextTier,
+		MintIndependentEvidence: reproduction.MintIndependentEvidence,
+	})
 }
 
 // docMapSeam adapts invariants.DocumentedInvariants to findings' seam shape.

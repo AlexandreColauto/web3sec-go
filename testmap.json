@@ -1942,12 +1942,16 @@
   {
    "python_file": "tests/test_env_solc.py",
    "python_func": "test_download_failure_classifies_environment_with_fix",
-   "status": "deferred-P3"
+   "go_file": "internal/sandbox/envseam_test.go",
+   "go_func": "TestClassifyFailureVerdicts",
+   "notes": ""
   },
   {
    "python_file": "tests/test_env_solc.py",
    "python_func": "test_plain_logic_failure_stays_logic",
-   "status": "deferred-P3"
+   "go_file": "internal/sandbox/envseam_test.go",
+   "go_func": "TestClassifyFailureVerdicts",
+   "notes": ""
   },
   {
    "python_file": "tests/test_eval_store.py",
@@ -2012,7 +2016,9 @@
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_attempt_and_mint_one_call_for_passing_repro",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestAttemptAndMintOneCallForPassingRepro",
+   "notes": ""
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
@@ -2041,82 +2047,114 @@
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_mint_reject_failing_forge",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestMintRejectFailingForge",
+   "notes": ""
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_mint_reject_forge_no_tests",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestMintRejectForgeNoTests",
+   "notes": ""
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_mint_repro_evidence_is_idempotent",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestMintReproEvidenceIsIdempotent",
+   "notes": ""
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_mint_validates_evidence_type",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestMintValidatesEvidenceType",
+   "notes": ""
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_record_attempt_rejects_reused_exec",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestRecordAttemptRejectsReusedExec",
+   "notes": ""
   },
   {
    "python_file": "tests/test_exec_dry_run.py",
    "python_func": "test_cli_dry_run_host_readonly_shows_e4_note",
-   "status": "deferred-P2"
+   "go_file": "internal/cli/cmd_exec_test.go",
+   "go_func": "TestExecDryRunHost",
+   "notes": ""
   },
   {
    "python_file": "tests/test_exec_dry_run.py",
    "python_func": "test_cli_dry_run_no_record",
-   "status": "deferred-P2"
+   "go_file": "internal/cli/cmd_exec_test.go",
+   "go_func": "TestExecDryRunNoDaemon",
+   "notes": ""
   },
   {
    "python_file": "tests/test_exec_dry_run.py",
    "python_func": "test_cli_exec_help_mentions_e4",
-   "status": "deferred-P2"
+   "go_file": "internal/cli/cmd_exec_test.go",
+   "go_func": "TestExecHelpMentionsE4",
+   "notes": ""
   },
   {
    "python_file": "tests/test_exec_dry_run.py",
    "python_func": "test_host_readonly_run_prints_e4_note",
-   "status": "deferred-P2"
+   "go_file": "internal/cli/cmd_exec_test.go",
+   "go_func": "TestExecHostRun",
+   "notes": ""
   },
   {
    "python_file": "tests/test_exec_dry_run.py",
    "python_func": "test_preview_container_no_daemon",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/ext_test.go",
+   "go_func": "TestPreviewContainerNoDaemon",
+   "notes": ""
   },
   {
    "python_file": "tests/test_exec_dry_run.py",
    "python_func": "test_preview_fork_runner_env_default",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/ext_test.go",
+   "go_func": "TestPreviewForkRunnerEnvDefault",
+   "notes": ""
   },
   {
    "python_file": "tests/test_exec_dry_run.py",
    "python_func": "test_preview_host_readonly_no_argv",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/ext_test.go",
+   "go_func": "TestPreviewHostReadonlyNoArgv",
+   "notes": ""
   },
   {
    "python_file": "tests/test_exec_env.py",
    "python_func": "test_env_bad_key_rejected",
-   "status": "deferred-P2"
+   "go_file": "internal/cli/cmd_exec_test.go",
+   "go_func": "TestExecBadEnv",
+   "notes": ""
   },
   {
    "python_file": "tests/test_exec_env.py",
    "python_func": "test_env_empty_key_rejected",
-   "status": "deferred-P2"
+   "go_file": "internal/cli/cmd_exec_test.go",
+   "go_func": "TestExecEnvEmptyKeyRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_exec_env.py",
    "python_func": "test_env_valid_reaches_sandbox",
-   "status": "deferred-P2"
+   "go_file": "internal/cli/cmd_exec_test.go",
+   "go_func": "TestExecEnvValidReachesSandbox",
+   "notes": ""
   },
   {
    "python_file": "tests/test_exec_env.py",
    "python_func": "test_env_without_equals_rejected",
-   "status": "deferred-P2"
+   "go_file": "internal/cli/cmd_exec_test.go",
+   "go_func": "TestExecBadEnv",
+   "notes": ""
   },
   {
    "python_file": "tests/test_findings.py",
@@ -2513,12 +2551,16 @@
   {
    "python_file": "tests/test_independent_verification.py",
    "python_func": "test_e6_rejects_host_profile_exec",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestE6RejectsHostProfileExec",
+   "notes": ""
   },
   {
    "python_file": "tests/test_independent_verification.py",
    "python_func": "test_e6_unblocks_the_bridge_confirmation",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestE6UnblocksBridgeConfirmation",
+   "notes": ""
   },
   {
    "python_file": "tests/test_independent_verification.py",
@@ -2543,17 +2585,23 @@
   {
    "python_file": "tests/test_independent_verification.py",
    "python_func": "test_mint_e6_needs_a_named_verifier",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestMintE6NeedsNamedVerifier",
+   "notes": ""
   },
   {
    "python_file": "tests/test_independent_verification.py",
    "python_func": "test_mint_e6_requires_a_different_execution",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestMintE6RequiresDifferentExecution",
+   "notes": ""
   },
   {
    "python_file": "tests/test_independent_verification.py",
    "python_func": "test_mint_e6_requires_a_different_reporter",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestMintE6RequiresDifferentReporter",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
@@ -3138,12 +3186,16 @@
   {
    "python_file": "tests/test_mint_citation.py",
    "python_func": "test_guardrail_rejection_preserves_citation",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestGuardrailRejectionPreservesCitation",
+   "notes": ""
   },
   {
    "python_file": "tests/test_mint_citation.py",
    "python_func": "test_rollback_restores_prior_attempt_state",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestRollbackRestoresPriorAttemptState",
+   "notes": ""
   },
   {
    "python_file": "tests/test_model_boundary.py",
@@ -4484,92 +4536,128 @@
   {
    "python_file": "tests/test_runbook_flow.py",
    "python_func": "test_runbook_confirm_flow",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestRunbookConfirmFlow",
+   "notes": ""
   },
   {
    "python_file": "tests/test_runbook_flow.py",
    "python_func": "test_runbook_independent_verification_flow",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestRunbookIndependentVerificationFlow",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_repro.py",
    "python_func": "test_container_profile_requires_runtime",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/ext_test.go",
+   "go_func": "TestContainerProfileRequiresRuntime",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_repro.py",
    "python_func": "test_e4_evidence_rejects_host_profile",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestE4EvidenceRejectsHostProfile",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_repro.py",
    "python_func": "test_fork_runner_default_without_operator_env",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/ext_test.go",
+   "go_func": "TestForkRunnerDefaultWithoutOperatorEnv",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_repro.py",
    "python_func": "test_fork_runner_explicit_env_beats_operator_env",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/ext_test.go",
+   "go_func": "TestForkRunnerExplicitEnvBeatsOperatorEnv",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_repro.py",
    "python_func": "test_fork_runner_inherits_operator_fork_rpc_url",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/ext_test.go",
+   "go_func": "TestForkRunnerInheritsOperatorForkRPCURL",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_repro.py",
    "python_func": "test_policy_check_allows_forge_test",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/ext_test.go",
+   "go_func": "TestPolicyCheckAllowsForgeTest",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_repro.py",
    "python_func": "test_policy_check_denies_egress_tools",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/ext_test.go",
+   "go_func": "TestPolicyCheckDeniesEgressTools",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_repro.py",
    "python_func": "test_policy_check_denies_secret_access",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/ext_test.go",
+   "go_func": "TestPolicyCheckDeniesSecretAccess",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_repro.py",
    "python_func": "test_sandbox_refuses_and_records",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/ext_test.go",
+   "go_func": "TestSandboxRefusesAndRecords",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_repro.py",
    "python_func": "test_sandbox_run_records_execution",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/ext_test.go",
+   "go_func": "TestSandboxRunRecordsExecution",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_repro.py",
    "python_func": "test_t0_static_reachability",
-   "status": "deferred-P2"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestT0StaticReachability",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_solc_dir.py",
    "python_func": "test_existing_dir_is_mounted_and_recorded",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/solcdir_test.go",
+   "go_func": "TestSolcDirExistingIsMountedAndRecorded",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_solc_dir.py",
    "python_func": "test_host_readonly_unaffected",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/solcdir_test.go",
+   "go_func": "TestSolcDirHostReadonlyUnaffected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_solc_dir.py",
    "python_func": "test_missing_dir_treated_as_unset",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/solcdir_test.go",
+   "go_func": "TestSolcDirMissingIsTreatedAsUnset",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_solc_dir.py",
    "python_func": "test_mount_applies_to_fork_runner_too",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/solcdir_test.go",
+   "go_func": "TestSolcDirMountAppliesToForkRunner",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sandbox_solc_dir.py",
    "python_func": "test_unset_env_no_mount",
-   "status": "deferred-P2"
+   "go_file": "internal/sandbox/solcdir_test.go",
+   "go_func": "TestSolcDirUnsetNoMount",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sequence_coverage.py",

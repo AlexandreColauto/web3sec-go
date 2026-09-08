@@ -292,6 +292,26 @@ rows marked as golden-normalized — nothing else.
   live divergence exists.
 - **Unblocks:** permanent (documenting the mechanism, like D1).
 
+## P2 (evidence execution, T20)
+
+### D17 — `webv2.env` is transcribed into `internal/sandbox` (T20 seam)
+- **What:** `exec` and `classify` read three functions from `webv2/env.py`
+  — `classify_failure`, `sandbox_preflight`, `docker_image_probe` — plus
+  the `docker_daemon_ok` probe. `env.py` is P3 scope, so until it is
+  ported `internal/sandbox/envseam.go` carries a faithful transcription
+  as the *seam default*: `SetClassifyFailure` / `SetSandboxPreflight` /
+  `SetDockerImageProbe` / `SetDockerDaemonOK` install a replacement and
+  `nil` restores the transcribed default.
+- **Why:** the alternative — a keyless/no-op seam — would make the two
+  verbs diverge from the reference the moment an exec fails, which is
+  exactly when an operator reads them. The transcription is verified
+  byte-for-byte against the live Python by `.scratch/t20/parity.py`
+  (45/45 cases: the four verbs, the solc-cache preflight refusal, every
+  `classify` verdict, `exec --help` for all four commands).
+- **Unblocks:** the P3 env port installs its own implementation over the
+  seam and deletes this row; the defaults are already equivalent, so no
+  behavior changes when it does.
+
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**
   shape.
