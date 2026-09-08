@@ -228,7 +228,7 @@ func lensCampaign(t *testing.T, _ string) *state.Campaign {
 	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
 	root := t.TempDir()
 	c, err := state.Init(root, "T9 ml", state.InitOpts{
-		CampaignID: "C-a4dbb99c51"})
+		CampaignID: "C-c8536e5f48"})
 	if err != nil {
 		t.Fatalf("init campaign: %v", err)
 	}

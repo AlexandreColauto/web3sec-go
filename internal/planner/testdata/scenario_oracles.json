@@ -1,0 +1,1386 @@
+{
+ "anchor_added_on_confirmed_high": {
+  "finding_id": "F-000000000001",
+  "plan": {
+   "campaign_id": "C-lens1234",
+   "created_at": "2026-09-09T12:00:00.000000+00:00",
+   "snapshot_id": "unpinned",
+   "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
+   "priorities": [
+    {
+     "id": "Q-001",
+     "question": "Economic transform donation-attack: Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-002",
+     "question": "Economic transform flash-loan-amplification: With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-003",
+     "question": "Economic transform liquidity-withdrawal-bounded: What is the realistic extractable ceiling given pool depth, not theoretical exposure?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-004",
+     "question": "Which known exploit patterns apply to this protocol's design (history mining)?",
+     "risk": 0.6,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "historical"
+     ],
+     "recommended_stages": [],
+     "budget_class": "cheap",
+     "status": "open"
+    },
+    {
+     "id": "Q-005",
+     "question": "ANCHOR: F-000000000001 (high, logic-error) is CONFIRMED at Rollup \u2014 re-scan the SAME lifecycle for a non-obvious coordination bug before converging (the loud bug usually hides the subtle one)",
+     "risk": 0.8,
+     "components": [
+      "Rollup"
+     ],
+     "trajectories": [
+      "code"
+     ],
+     "status": "open",
+     "anchor_of": "F-000000000001",
+     "bug_class": "logic-error"
+    }
+   ],
+   "trajectory_matrix": {
+    "A-code": "implementation-centric: find bugs in the code as written",
+    "B-economic": "economic attacker: assume the protocol is economically exploitable and find the imbalance",
+    "C-state-machine": "state-machine attacker: find dangerous call/state sequences and illegal transitions",
+    "D-attacker": "privileged actor: assume the attacker holds each realistic role and abuse it",
+    "E-historical": "historical analog: find variants of known exploits, patches and disclosures",
+    "F-integration": "adversarial integrator: assume every external contract/token behaves unexpectedly",
+    "G-drift": "spec drift: spec vs implementation vs deployment vs config divergence",
+    "H-lifecycle": "consensus/lifecycle game: model the full commit\u2192challenge\u2192finalize (or propose\u2192vote\u2192execute) game and the adversary WINNING it \u2014 a valid transition proven from an invalid claimed root, a challenge that never fires, a finalization that can be blocked"
+   },
+   "coverage_targets": {
+    "min_invariants": 1,
+    "min_trajectories_per_critical_component": 2,
+    "components_must_cover": [
+     "Rollup"
+    ]
+   },
+   "lenses": [
+    {
+     "id": "L-01",
+     "lens": "liveness",
+     "surface": "protocol",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-02",
+     "lens": "incentive-inversion",
+     "surface": "protocol",
+     "question": "INCENTIVE-INVERSION: does the protocol ever PAY an attacker or PUNISH an honest actor (challenge, slash, claim, delegate) under any reachable state? Trace what the honest participant gets for being right. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-03",
+     "lens": "enforcement-timing",
+     "surface": "protocol",
+     "question": "ENFORCEMENT-TIMING: for each security-critical check, is it enforced at the EARLIEST lifecycle stage it could be (intake, not execution)? A check that exists only at finalize/execute time is a candidate. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-04",
+     "lens": "primitive-symmetry",
+     "surface": "protocol",
+     "question": "PRIMITIVE-SYMMETRY: group functions into sibling lifecycle families (deposit <-> withdraw <-> drop <-> refund) and compare primitives + access control across siblings. A family that burns on one path and mints/safeTransfers on another is a candidate. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    }
+   ]
+  },
+  "anchors": [
+   {
+    "id": "Q-005",
+    "question": "ANCHOR: F-000000000001 (high, logic-error) is CONFIRMED at Rollup \u2014 re-scan the SAME lifecycle for a non-obvious coordination bug before converging (the loud bug usually hides the subtle one)",
+    "risk": 0.8,
+    "components": [
+     "Rollup"
+    ],
+    "trajectories": [
+     "code"
+    ],
+    "status": "open",
+    "anchor_of": "F-000000000001",
+    "bug_class": "logic-error"
+   }
+  ]
+ },
+ "anchor_is_idempotent_and_severity_gated": {
+  "fid_low": "F-000000000001",
+  "fid_high": "F-000000000002",
+  "plan_after_low": {
+   "campaign_id": "C-lens1234",
+   "created_at": "2026-09-09T12:00:00.000000+00:00",
+   "snapshot_id": "unpinned",
+   "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
+   "priorities": [
+    {
+     "id": "Q-001",
+     "question": "Economic transform donation-attack: Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-002",
+     "question": "Economic transform flash-loan-amplification: With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-003",
+     "question": "Economic transform liquidity-withdrawal-bounded: What is the realistic extractable ceiling given pool depth, not theoretical exposure?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-004",
+     "question": "Which known exploit patterns apply to this protocol's design (history mining)?",
+     "risk": 0.6,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "historical"
+     ],
+     "recommended_stages": [],
+     "budget_class": "cheap",
+     "status": "open"
+    }
+   ],
+   "trajectory_matrix": {
+    "A-code": "implementation-centric: find bugs in the code as written",
+    "B-economic": "economic attacker: assume the protocol is economically exploitable and find the imbalance",
+    "C-state-machine": "state-machine attacker: find dangerous call/state sequences and illegal transitions",
+    "D-attacker": "privileged actor: assume the attacker holds each realistic role and abuse it",
+    "E-historical": "historical analog: find variants of known exploits, patches and disclosures",
+    "F-integration": "adversarial integrator: assume every external contract/token behaves unexpectedly",
+    "G-drift": "spec drift: spec vs implementation vs deployment vs config divergence",
+    "H-lifecycle": "consensus/lifecycle game: model the full commit\u2192challenge\u2192finalize (or propose\u2192vote\u2192execute) game and the adversary WINNING it \u2014 a valid transition proven from an invalid claimed root, a challenge that never fires, a finalization that can be blocked"
+   },
+   "coverage_targets": {
+    "min_invariants": 1,
+    "min_trajectories_per_critical_component": 2,
+    "components_must_cover": [
+     "Rollup"
+    ]
+   },
+   "lenses": [
+    {
+     "id": "L-01",
+     "lens": "liveness",
+     "surface": "protocol",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-02",
+     "lens": "incentive-inversion",
+     "surface": "protocol",
+     "question": "INCENTIVE-INVERSION: does the protocol ever PAY an attacker or PUNISH an honest actor (challenge, slash, claim, delegate) under any reachable state? Trace what the honest participant gets for being right. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-03",
+     "lens": "enforcement-timing",
+     "surface": "protocol",
+     "question": "ENFORCEMENT-TIMING: for each security-critical check, is it enforced at the EARLIEST lifecycle stage it could be (intake, not execution)? A check that exists only at finalize/execute time is a candidate. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-04",
+     "lens": "primitive-symmetry",
+     "surface": "protocol",
+     "question": "PRIMITIVE-SYMMETRY: group functions into sibling lifecycle families (deposit <-> withdraw <-> drop <-> refund) and compare primitives + access control across siblings. A family that burns on one path and mints/safeTransfers on another is a candidate. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    }
+   ]
+  },
+  "plan": {
+   "campaign_id": "C-lens1234",
+   "created_at": "2026-09-09T12:00:00.000000+00:00",
+   "snapshot_id": "unpinned",
+   "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
+   "priorities": [
+    {
+     "id": "Q-001",
+     "question": "Economic transform donation-attack: Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-002",
+     "question": "Economic transform flash-loan-amplification: With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-003",
+     "question": "Economic transform liquidity-withdrawal-bounded: What is the realistic extractable ceiling given pool depth, not theoretical exposure?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-004",
+     "question": "Which known exploit patterns apply to this protocol's design (history mining)?",
+     "risk": 0.6,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "historical"
+     ],
+     "recommended_stages": [],
+     "budget_class": "cheap",
+     "status": "open"
+    },
+    {
+     "id": "Q-005",
+     "question": "ANCHOR: F-000000000002 (high, logic-error) is CONFIRMED at Rollup \u2014 re-scan the SAME lifecycle for a non-obvious coordination bug before converging (the loud bug usually hides the subtle one)",
+     "risk": 0.8,
+     "components": [
+      "Rollup"
+     ],
+     "trajectories": [
+      "code"
+     ],
+     "status": "open",
+     "anchor_of": "F-000000000002",
+     "bug_class": "logic-error"
+    }
+   ],
+   "trajectory_matrix": {
+    "A-code": "implementation-centric: find bugs in the code as written",
+    "B-economic": "economic attacker: assume the protocol is economically exploitable and find the imbalance",
+    "C-state-machine": "state-machine attacker: find dangerous call/state sequences and illegal transitions",
+    "D-attacker": "privileged actor: assume the attacker holds each realistic role and abuse it",
+    "E-historical": "historical analog: find variants of known exploits, patches and disclosures",
+    "F-integration": "adversarial integrator: assume every external contract/token behaves unexpectedly",
+    "G-drift": "spec drift: spec vs implementation vs deployment vs config divergence",
+    "H-lifecycle": "consensus/lifecycle game: model the full commit\u2192challenge\u2192finalize (or propose\u2192vote\u2192execute) game and the adversary WINNING it \u2014 a valid transition proven from an invalid claimed root, a challenge that never fires, a finalization that can be blocked"
+   },
+   "coverage_targets": {
+    "min_invariants": 1,
+    "min_trajectories_per_critical_component": 2,
+    "components_must_cover": [
+     "Rollup"
+    ]
+   },
+   "lenses": [
+    {
+     "id": "L-01",
+     "lens": "liveness",
+     "surface": "protocol",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-02",
+     "lens": "incentive-inversion",
+     "surface": "protocol",
+     "question": "INCENTIVE-INVERSION: does the protocol ever PAY an attacker or PUNISH an honest actor (challenge, slash, claim, delegate) under any reachable state? Trace what the honest participant gets for being right. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-03",
+     "lens": "enforcement-timing",
+     "surface": "protocol",
+     "question": "ENFORCEMENT-TIMING: for each security-critical check, is it enforced at the EARLIEST lifecycle stage it could be (intake, not execution)? A check that exists only at finalize/execute time is a candidate. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-04",
+     "lens": "primitive-symmetry",
+     "surface": "protocol",
+     "question": "PRIMITIVE-SYMMETRY: group functions into sibling lifecycle families (deposit <-> withdraw <-> drop <-> refund) and compare primitives + access control across siblings. A family that burns on one path and mints/safeTransfers on another is a candidate. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    }
+   ]
+  },
+  "anchors_low": [],
+  "anchors_high": [
+   {
+    "id": "Q-005",
+    "question": "ANCHOR: F-000000000002 (high, logic-error) is CONFIRMED at Rollup \u2014 re-scan the SAME lifecycle for a non-obvious coordination bug before converging (the loud bug usually hides the subtle one)",
+    "risk": 0.8,
+    "components": [
+     "Rollup"
+    ],
+    "trajectories": [
+     "code"
+    ],
+    "status": "open",
+    "anchor_of": "F-000000000002",
+    "bug_class": "logic-error"
+   }
+  ]
+ },
+ "anchor_drops_non_canonical_bug_class": {
+  "finding_id": "F-000000000001",
+  "status": "CONFIRMED",
+  "plan": {
+   "campaign_id": "C-lens1234",
+   "created_at": "2026-09-09T12:00:00.000000+00:00",
+   "snapshot_id": "unpinned",
+   "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
+   "priorities": [
+    {
+     "id": "Q-001",
+     "question": "Economic transform donation-attack: Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-002",
+     "question": "Economic transform flash-loan-amplification: With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-003",
+     "question": "Economic transform liquidity-withdrawal-bounded: What is the realistic extractable ceiling given pool depth, not theoretical exposure?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-004",
+     "question": "Which known exploit patterns apply to this protocol's design (history mining)?",
+     "risk": 0.6,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "historical"
+     ],
+     "recommended_stages": [],
+     "budget_class": "cheap",
+     "status": "open"
+    },
+    {
+     "id": "Q-005",
+     "question": "ANCHOR: F-000000000001 (high, price-oracle-stale) is CONFIRMED at Rollup \u2014 re-scan the SAME lifecycle for a non-obvious coordination bug before converging (the loud bug usually hides the subtle one)",
+     "risk": 0.8,
+     "components": [
+      "Rollup"
+     ],
+     "trajectories": [
+      "code"
+     ],
+     "status": "open",
+     "anchor_of": "F-000000000001"
+    }
+   ],
+   "trajectory_matrix": {
+    "A-code": "implementation-centric: find bugs in the code as written",
+    "B-economic": "economic attacker: assume the protocol is economically exploitable and find the imbalance",
+    "C-state-machine": "state-machine attacker: find dangerous call/state sequences and illegal transitions",
+    "D-attacker": "privileged actor: assume the attacker holds each realistic role and abuse it",
+    "E-historical": "historical analog: find variants of known exploits, patches and disclosures",
+    "F-integration": "adversarial integrator: assume every external contract/token behaves unexpectedly",
+    "G-drift": "spec drift: spec vs implementation vs deployment vs config divergence",
+    "H-lifecycle": "consensus/lifecycle game: model the full commit\u2192challenge\u2192finalize (or propose\u2192vote\u2192execute) game and the adversary WINNING it \u2014 a valid transition proven from an invalid claimed root, a challenge that never fires, a finalization that can be blocked"
+   },
+   "coverage_targets": {
+    "min_invariants": 1,
+    "min_trajectories_per_critical_component": 2,
+    "components_must_cover": [
+     "Rollup"
+    ]
+   },
+   "lenses": [
+    {
+     "id": "L-01",
+     "lens": "liveness",
+     "surface": "protocol",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-02",
+     "lens": "incentive-inversion",
+     "surface": "protocol",
+     "question": "INCENTIVE-INVERSION: does the protocol ever PAY an attacker or PUNISH an honest actor (challenge, slash, claim, delegate) under any reachable state? Trace what the honest participant gets for being right. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-03",
+     "lens": "enforcement-timing",
+     "surface": "protocol",
+     "question": "ENFORCEMENT-TIMING: for each security-critical check, is it enforced at the EARLIEST lifecycle stage it could be (intake, not execution)? A check that exists only at finalize/execute time is a candidate. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-04",
+     "lens": "primitive-symmetry",
+     "surface": "protocol",
+     "question": "PRIMITIVE-SYMMETRY: group functions into sibling lifecycle families (deposit <-> withdraw <-> drop <-> refund) and compare primitives + access control across siblings. A family that burns on one path and mints/safeTransfers on another is a candidate. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    }
+   ]
+  },
+  "anchors": [
+   {
+    "id": "Q-005",
+    "question": "ANCHOR: F-000000000001 (high, price-oracle-stale) is CONFIRMED at Rollup \u2014 re-scan the SAME lifecycle for a non-obvious coordination bug before converging (the loud bug usually hides the subtle one)",
+    "risk": 0.8,
+    "components": [
+     "Rollup"
+    ],
+    "trajectories": [
+     "code"
+    ],
+    "status": "open",
+    "anchor_of": "F-000000000001"
+   }
+  ]
+ },
+ "divergence_counts_a_reasonless_answer_as_open": {
+  "plan": {
+   "campaign_id": "C-lens1234",
+   "created_at": "2026-09-09T12:00:00.000000+00:00",
+   "snapshot_id": "unpinned",
+   "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
+   "priorities": [
+    {
+     "id": "Q-001",
+     "question": "Economic transform donation-attack: Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-002",
+     "question": "Economic transform flash-loan-amplification: With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-003",
+     "question": "Economic transform liquidity-withdrawal-bounded: What is the realistic extractable ceiling given pool depth, not theoretical exposure?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-004",
+     "question": "Which known exploit patterns apply to this protocol's design (history mining)?",
+     "risk": 0.6,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "historical"
+     ],
+     "recommended_stages": [],
+     "budget_class": "cheap",
+     "status": "open"
+    }
+   ],
+   "trajectory_matrix": {
+    "A-code": "implementation-centric: find bugs in the code as written",
+    "B-economic": "economic attacker: assume the protocol is economically exploitable and find the imbalance",
+    "C-state-machine": "state-machine attacker: find dangerous call/state sequences and illegal transitions",
+    "D-attacker": "privileged actor: assume the attacker holds each realistic role and abuse it",
+    "E-historical": "historical analog: find variants of known exploits, patches and disclosures",
+    "F-integration": "adversarial integrator: assume every external contract/token behaves unexpectedly",
+    "G-drift": "spec drift: spec vs implementation vs deployment vs config divergence",
+    "H-lifecycle": "consensus/lifecycle game: model the full commit\u2192challenge\u2192finalize (or propose\u2192vote\u2192execute) game and the adversary WINNING it \u2014 a valid transition proven from an invalid claimed root, a challenge that never fires, a finalization that can be blocked"
+   },
+   "coverage_targets": {
+    "min_invariants": 1,
+    "min_trajectories_per_critical_component": 2,
+    "components_must_cover": [
+     "Rollup"
+    ]
+   },
+   "lenses": [
+    {
+     "id": "L-01",
+     "lens": "liveness",
+     "surface": "protocol",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+     "status": "answered",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-02",
+     "lens": "incentive-inversion",
+     "surface": "protocol",
+     "question": "INCENTIVE-INVERSION: does the protocol ever PAY an attacker or PUNISH an honest actor (challenge, slash, claim, delegate) under any reachable state? Trace what the honest participant gets for being right. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-03",
+     "lens": "enforcement-timing",
+     "surface": "protocol",
+     "question": "ENFORCEMENT-TIMING: for each security-critical check, is it enforced at the EARLIEST lifecycle stage it could be (intake, not execution)? A check that exists only at finalize/execute time is a candidate. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-04",
+     "lens": "primitive-symmetry",
+     "surface": "protocol",
+     "question": "PRIMITIVE-SYMMETRY: group functions into sibling lifecycle families (deposit <-> withdraw <-> drop <-> refund) and compare primitives + access control across siblings. A family that burns on one path and mints/safeTransfers on another is a candidate. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    }
+   ]
+  },
+  "div": {
+   "closed": false,
+   "missing": [
+    {
+     "subject": "L-01",
+     "what": "lens liveness closed but families not attested (missing: protocol) \u2014 webv2 answered C L-01 answered --families protocol --reason R --actor A"
+    },
+    {
+     "subject": "L-02",
+     "what": "lens incentive-inversion (protocol) not resolved \u2014 webv2 answered C L-02 answered|not-applicable --families ... --reason R --actor A"
+    },
+    {
+     "subject": "L-03",
+     "what": "lens enforcement-timing (protocol) not resolved \u2014 webv2 answered C L-03 answered|not-applicable --families ... --reason R --actor A"
+    },
+    {
+     "subject": "L-04",
+     "what": "lens primitive-symmetry (protocol) not resolved \u2014 webv2 answered C L-04 answered|not-applicable --families ... --reason R --actor A"
+    },
+    {
+     "subject": "diversity",
+     "what": "0 distinct bug class(es) named (none); min 4 \u2014 set priorities[].bug_class"
+    }
+   ],
+   "named_classes": [],
+   "lenses": [
+    {
+     "id": "L-01",
+     "lens": "liveness",
+     "status": "answered"
+    },
+    {
+     "id": "L-02",
+     "lens": "incentive-inversion",
+     "status": "open"
+    },
+    {
+     "id": "L-03",
+     "lens": "enforcement-timing",
+     "status": "open"
+    },
+    {
+     "id": "L-04",
+     "lens": "primitive-symmetry",
+     "status": "open"
+    }
+   ]
+  }
+ },
+ "divergence_status_closed_plan": {
+  "plan": {
+   "campaign_id": "C-lens1234",
+   "created_at": "2026-09-09T12:00:00.000000+00:00",
+   "snapshot_id": "unpinned",
+   "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
+   "priorities": [
+    {
+     "id": "Q-001",
+     "question": "Economic transform donation-attack: Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-002",
+     "question": "Economic transform flash-loan-amplification: With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-003",
+     "question": "Economic transform liquidity-withdrawal-bounded: What is the realistic extractable ceiling given pool depth, not theoretical exposure?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-004",
+     "question": "Which known exploit patterns apply to this protocol's design (history mining)?",
+     "risk": 0.6,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "historical"
+     ],
+     "recommended_stages": [],
+     "budget_class": "cheap",
+     "status": "open"
+    },
+    {
+     "id": "Q-001",
+     "question": "shape 1: canonical bug class named",
+     "risk": 0.5,
+     "trajectories": [
+      "code"
+     ],
+     "status": "open",
+     "bug_class": "reentrancy"
+    },
+    {
+     "id": "Q-002",
+     "question": "shape 2: canonical bug class named",
+     "risk": 0.5,
+     "trajectories": [
+      "code"
+     ],
+     "status": "open",
+     "bug_class": "logic-error"
+    },
+    {
+     "id": "Q-003",
+     "question": "shape 3: canonical bug class named",
+     "risk": 0.5,
+     "trajectories": [
+      "code"
+     ],
+     "status": "open",
+     "bug_class": "oracle-manipulation"
+    },
+    {
+     "id": "Q-004",
+     "question": "shape 4: canonical bug class named",
+     "risk": 0.5,
+     "trajectories": [
+      "code"
+     ],
+     "status": "open",
+     "bug_class": "access-control"
+    }
+   ],
+   "trajectory_matrix": {
+    "A-code": "implementation-centric: find bugs in the code as written",
+    "B-economic": "economic attacker: assume the protocol is economically exploitable and find the imbalance",
+    "C-state-machine": "state-machine attacker: find dangerous call/state sequences and illegal transitions",
+    "D-attacker": "privileged actor: assume the attacker holds each realistic role and abuse it",
+    "E-historical": "historical analog: find variants of known exploits, patches and disclosures",
+    "F-integration": "adversarial integrator: assume every external contract/token behaves unexpectedly",
+    "G-drift": "spec drift: spec vs implementation vs deployment vs config divergence",
+    "H-lifecycle": "consensus/lifecycle game: model the full commit\u2192challenge\u2192finalize (or propose\u2192vote\u2192execute) game and the adversary WINNING it \u2014 a valid transition proven from an invalid claimed root, a challenge that never fires, a finalization that can be blocked"
+   },
+   "coverage_targets": {
+    "min_invariants": 1,
+    "min_trajectories_per_critical_component": 2,
+    "components_must_cover": [
+     "Rollup"
+    ]
+   },
+   "lenses": [
+    {
+     "id": "L-01",
+     "lens": "liveness",
+     "surface": "protocol",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+     "status": "not-applicable",
+     "families": [
+      "protocol"
+     ],
+     "closed_reason": "single-module fixture; nothing to check here",
+     "closed_at": "2026-09-09T12:00:00.000000+00:00",
+     "closed_by": "pytest",
+     "families_checked": [
+      "none-applicable"
+     ]
+    },
+    {
+     "id": "L-02",
+     "lens": "incentive-inversion",
+     "surface": "protocol",
+     "question": "INCENTIVE-INVERSION: does the protocol ever PAY an attacker or PUNISH an honest actor (challenge, slash, claim, delegate) under any reachable state? Trace what the honest participant gets for being right. State machines in the model: rollup-lifecycle",
+     "status": "not-applicable",
+     "families": [
+      "protocol"
+     ],
+     "closed_reason": "single-module fixture; nothing to check here",
+     "closed_at": "2026-09-09T12:00:00.000000+00:00",
+     "closed_by": "pytest",
+     "families_checked": [
+      "none-applicable"
+     ]
+    },
+    {
+     "id": "L-03",
+     "lens": "enforcement-timing",
+     "surface": "protocol",
+     "question": "ENFORCEMENT-TIMING: for each security-critical check, is it enforced at the EARLIEST lifecycle stage it could be (intake, not execution)? A check that exists only at finalize/execute time is a candidate. State machines in the model: rollup-lifecycle",
+     "status": "not-applicable",
+     "families": [
+      "protocol"
+     ],
+     "closed_reason": "single-module fixture; nothing to check here",
+     "closed_at": "2026-09-09T12:00:00.000000+00:00",
+     "closed_by": "pytest",
+     "families_checked": [
+      "none-applicable"
+     ]
+    },
+    {
+     "id": "L-04",
+     "lens": "primitive-symmetry",
+     "surface": "protocol",
+     "question": "PRIMITIVE-SYMMETRY: group functions into sibling lifecycle families (deposit <-> withdraw <-> drop <-> refund) and compare primitives + access control across siblings. A family that burns on one path and mints/safeTransfers on another is a candidate. State machines in the model: rollup-lifecycle",
+     "status": "not-applicable",
+     "families": [
+      "protocol"
+     ],
+     "closed_reason": "single-module fixture; nothing to check here",
+     "closed_at": "2026-09-09T12:00:00.000000+00:00",
+     "closed_by": "pytest",
+     "families_checked": [
+      "none-applicable"
+     ]
+    }
+   ]
+  },
+  "div": {
+   "closed": true,
+   "missing": [],
+   "named_classes": [
+    "access-control",
+    "logic-error",
+    "oracle-manipulation",
+    "reentrancy"
+   ],
+   "lenses": [
+    {
+     "id": "L-01",
+     "lens": "liveness",
+     "status": "not-applicable"
+    },
+    {
+     "id": "L-02",
+     "lens": "incentive-inversion",
+     "status": "not-applicable"
+    },
+    {
+     "id": "L-03",
+     "lens": "enforcement-timing",
+     "status": "not-applicable"
+    },
+    {
+     "id": "L-04",
+     "lens": "primitive-symmetry",
+     "status": "not-applicable"
+    }
+   ]
+  }
+ },
+ "divergence_status_open_plan": {
+  "plan": {
+   "campaign_id": "C-lens1234",
+   "created_at": "2026-09-09T12:00:00.000000+00:00",
+   "snapshot_id": "unpinned",
+   "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
+   "priorities": [
+    {
+     "id": "Q-001",
+     "question": "Economic transform donation-attack: Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-002",
+     "question": "Economic transform flash-loan-amplification: With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-003",
+     "question": "Economic transform liquidity-withdrawal-bounded: What is the realistic extractable ceiling given pool depth, not theoretical exposure?",
+     "risk": 0.75,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "economic"
+     ],
+     "recommended_stages": [],
+     "budget_class": "standard",
+     "status": "open"
+    },
+    {
+     "id": "Q-004",
+     "question": "Which known exploit patterns apply to this protocol's design (history mining)?",
+     "risk": 0.6,
+     "components": [],
+     "invariant_ids": [],
+     "required_context": [
+      "structural_index",
+      "protocol_model"
+     ],
+     "trajectories": [
+      "historical"
+     ],
+     "recommended_stages": [],
+     "budget_class": "cheap",
+     "status": "open"
+    }
+   ],
+   "trajectory_matrix": {
+    "A-code": "implementation-centric: find bugs in the code as written",
+    "B-economic": "economic attacker: assume the protocol is economically exploitable and find the imbalance",
+    "C-state-machine": "state-machine attacker: find dangerous call/state sequences and illegal transitions",
+    "D-attacker": "privileged actor: assume the attacker holds each realistic role and abuse it",
+    "E-historical": "historical analog: find variants of known exploits, patches and disclosures",
+    "F-integration": "adversarial integrator: assume every external contract/token behaves unexpectedly",
+    "G-drift": "spec drift: spec vs implementation vs deployment vs config divergence",
+    "H-lifecycle": "consensus/lifecycle game: model the full commit\u2192challenge\u2192finalize (or propose\u2192vote\u2192execute) game and the adversary WINNING it \u2014 a valid transition proven from an invalid claimed root, a challenge that never fires, a finalization that can be blocked"
+   },
+   "coverage_targets": {
+    "min_invariants": 1,
+    "min_trajectories_per_critical_component": 2,
+    "components_must_cover": [
+     "Rollup"
+    ]
+   },
+   "lenses": [
+    {
+     "id": "L-01",
+     "lens": "liveness",
+     "surface": "protocol",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-02",
+     "lens": "incentive-inversion",
+     "surface": "protocol",
+     "question": "INCENTIVE-INVERSION: does the protocol ever PAY an attacker or PUNISH an honest actor (challenge, slash, claim, delegate) under any reachable state? Trace what the honest participant gets for being right. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-03",
+     "lens": "enforcement-timing",
+     "surface": "protocol",
+     "question": "ENFORCEMENT-TIMING: for each security-critical check, is it enforced at the EARLIEST lifecycle stage it could be (intake, not execution)? A check that exists only at finalize/execute time is a candidate. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-04",
+     "lens": "primitive-symmetry",
+     "surface": "protocol",
+     "question": "PRIMITIVE-SYMMETRY: group functions into sibling lifecycle families (deposit <-> withdraw <-> drop <-> refund) and compare primitives + access control across siblings. A family that burns on one path and mints/safeTransfers on another is a candidate. State machines in the model: rollup-lifecycle",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    }
+   ]
+  },
+  "div": {
+   "closed": false,
+   "missing": [
+    {
+     "subject": "L-01",
+     "what": "lens liveness (protocol) not resolved \u2014 webv2 answered C L-01 answered|not-applicable --families ... --reason R --actor A"
+    },
+    {
+     "subject": "L-02",
+     "what": "lens incentive-inversion (protocol) not resolved \u2014 webv2 answered C L-02 answered|not-applicable --families ... --reason R --actor A"
+    },
+    {
+     "subject": "L-03",
+     "what": "lens enforcement-timing (protocol) not resolved \u2014 webv2 answered C L-03 answered|not-applicable --families ... --reason R --actor A"
+    },
+    {
+     "subject": "L-04",
+     "what": "lens primitive-symmetry (protocol) not resolved \u2014 webv2 answered C L-04 answered|not-applicable --families ... --reason R --actor A"
+    },
+    {
+     "subject": "diversity",
+     "what": "0 distinct bug class(es) named (none); min 4 \u2014 set priorities[].bug_class"
+    }
+   ],
+   "named_classes": [],
+   "lenses": [
+    {
+     "id": "L-01",
+     "lens": "liveness",
+     "status": "open"
+    },
+    {
+     "id": "L-02",
+     "lens": "incentive-inversion",
+     "status": "open"
+    },
+    {
+     "id": "L-03",
+     "lens": "enforcement-timing",
+     "status": "open"
+    },
+    {
+     "id": "L-04",
+     "lens": "primitive-symmetry",
+     "status": "open"
+    }
+   ]
+  }
+ },
+ "not_applicable_is_a_valid_status": {
+  "qid": "Q-001",
+  "priority": {
+   "id": "Q-001",
+   "question": "Is the unvalidated trust boundary user -> Vault (user-supplied token) exploitable?",
+   "risk": 0.8,
+   "components": [
+    "Vault"
+   ],
+   "invariant_ids": [],
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "integration",
+    "code"
+   ],
+   "recommended_stages": [],
+   "budget_class": "standard",
+   "status": "not-applicable",
+   "closed_reason": "target has no bridge; cross-chain replay cannot apply",
+   "closed_at": "2026-09-09T12:00:00.000000+00:00",
+   "closed_by": "cli"
+  },
+  "priorities": 9,
+  "on_disk_priority": {
+   "id": "Q-001",
+   "question": "Is the unvalidated trust boundary user -> Vault (user-supplied token) exploitable?",
+   "risk": 0.8,
+   "components": [
+    "Vault"
+   ],
+   "invariant_ids": [],
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "integration",
+    "code"
+   ],
+   "recommended_stages": [],
+   "budget_class": "standard",
+   "status": "not-applicable",
+   "closed_reason": "target has no bridge; cross-chain replay cannot apply",
+   "closed_at": "2026-09-09T12:00:00.000000+00:00",
+   "closed_by": "cli"
+  }
+ },
+ "confirmed_finding_reopens_the_lens_whose_family_it_hit": {
+  "finding_id": "F-000000000001",
+  "plan": {
+   "campaign_id": "C-lens1234",
+   "created_at": "2026-09-07T00:00:00Z",
+   "lenses": [
+    {
+     "id": "L-04",
+     "lens": "primitive-symmetry",
+     "surface": "protocol",
+     "question": "qqqqqqqqqqqqqqqqqqqq",
+     "status": "open",
+     "families": [
+      "withdraw",
+      "mint"
+     ],
+     "reopen_reason": "CONFIRMED F-000000000001 in family withdraw after primitive-symmetry was closed \u2014 re-scan the family",
+     "reopened_at": "2026-09-09T12:00:00.000000+00:00"
+    },
+    {
+     "id": "L-01",
+     "lens": "liveness",
+     "surface": "protocol",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup",
+     "status": "open",
+     "families": [
+      "rollup"
+     ]
+    },
+    {
+     "id": "L-02",
+     "lens": "incentive-inversion",
+     "surface": "protocol",
+     "question": "INCENTIVE-INVERSION: does the protocol ever PAY an attacker or PUNISH an honest actor (challenge, slash, claim, delegate) under any reachable state? Trace what the honest participant gets for being right. State machines in the model: rollup",
+     "status": "open",
+     "families": [
+      "sequencer"
+     ]
+    },
+    {
+     "id": "L-03",
+     "lens": "enforcement-timing",
+     "surface": "protocol",
+     "question": "ENFORCEMENT-TIMING: for each security-critical check, is it enforced at the EARLIEST lifecycle stage it could be (intake, not execution)? A check that exists only at finalize/execute time is a candidate. State machines in the model: rollup",
+     "status": "open",
+     "families": [
+      "rollup"
+     ]
+    }
+   ],
+   "priorities": [
+    {
+     "id": "Q-001",
+     "question": "qqqqqqqqqqqqqqqqqqqq",
+     "risk": 0.5,
+     "trajectories": [
+      "code"
+     ],
+     "bug_class": "logic-error"
+    },
+    {
+     "id": "Q-002",
+     "question": "ANCHOR: F-000000000001 (high, logic-error) is CONFIRMED at L1ERC20Gateway, L1ERC20GatewayReverse \u2014 re-scan the SAME lifecycle for a non-obvious coordination bug before converging (the loud bug usually hides the subtle one)",
+     "risk": 0.8,
+     "components": [
+      "L1ERC20Gateway",
+      "L1ERC20GatewayReverse"
+     ],
+     "trajectories": [
+      "code"
+     ],
+     "status": "open",
+     "anchor_of": "F-000000000001",
+     "bug_class": "logic-error"
+    }
+   ]
+  },
+  "reopened": {
+   "id": "L-04",
+   "lens": "primitive-symmetry",
+   "surface": "protocol",
+   "question": "qqqqqqqqqqqqqqqqqqqq",
+   "status": "open",
+   "families": [
+    "withdraw",
+    "mint"
+   ],
+   "reopen_reason": "CONFIRMED F-000000000001 in family withdraw after primitive-symmetry was closed \u2014 re-scan the family",
+   "reopened_at": "2026-09-09T12:00:00.000000+00:00"
+  }
+ }
+}

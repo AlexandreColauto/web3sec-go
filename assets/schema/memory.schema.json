@@ -25,6 +25,15 @@
     "evidence_summary": { "type": "string" },
     "repro_command": { "type": ["string", "null"] },
 
+    "granted": {
+      "type": "array", "items": { "type": "string" },
+      "description": "Normalized capability labels this row's mechanism grants — stamped at queue time from the source finding's capabilities.granted when the row is derived from one (learning.queue_memory), exactly the list shared_memory.derive_signature computes. The recall relevance test (findings.memory_check_relevance) reads it as the `capability` basis, so a cite against this row can overlap on capability rather than only on bug_class/cwe. OPTIONAL: rows written before this field existed, rows not derived from a finding, and rows with no explicit capabilities carry no key."
+    },
+    "required": {
+      "type": "array", "items": { "type": "string" },
+      "description": "Normalized capability labels this row's mechanism requires — stamped from the source finding's capabilities.required, same rules and same optionality as `granted`."
+    },
+
     "partition": {
       "enum": ["dev", "held-out", "training"],
       "default": "dev",

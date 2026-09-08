@@ -12,7 +12,7 @@
     "backend":      { "enum": ["regex", "grep", "slither", "aderyn", "external"], "description": "the honest name of the extractor that produced this" },
     "parse_version": {
       "type": "string",
-      "description": "parser generation of this index; consumers of guards/uses/contract_closure must require \"2\" and reject older artifacts (StaleIndexError names the rebuild command)"
+      "description": "parser generation of this index; consumers of guards/uses/contract_closure/cast-calls must require \"3\" and reject older artifacts (StaleIndexError names the rebuild command)"
     },
     "created_at":   { "type": "string" },
     "entry_count":  { "type": "integer", "minimum": 0 },

@@ -553,7 +553,10 @@ func IntakeCheckpoint(payload validation.Value, trajectory string) []string {
 		warnings = append(warnings,
 			"trajectory 'economic' but no risk.economic block recorded yet — "+
 				"the CONFIRMED gate for economic classes requires an E7 "+
-				"quantification artifact (balance-delta or manual evidence)")
+				"quantification artifact (balance-delta or manual evidence), or "+
+				"the NAMED DECISION that no figure is defensible "+
+				"(`webv2 impact <campaign> <finding> --unpriceable "+
+				"--ceiling '<capacity basis>' --reason R --actor A`)")
 	}
 	return warnings
 }

@@ -135,8 +135,26 @@ func memoryCheckKey(ids []string, mode validation.Value) string {
 }
 
 // RecordMemoryCheck is record_memory_check: record graph-memory consultations
-// for a finding (the CONFIRMED gate's required evidence). Appends; dedupes on
-// (frozenset(memory_ids), mode); never rewrites prior entries.
+// for a finding (the CONFIRMED gate's required evidence, replacing the dead
+// corpus-check).
+//
+// Each check: {"memory_ids": [str], "mode": "negative"|"comparative",
+// "note"?: str}. Every memory_id must exist in VisibleMemoryRows — ids that
+// were never in the store cannot be recorded. The stamp (row_digest) is
+// computed from the live store at record time; the gate re-verifies it, so a
+// check survives only while the referenced rows are unchanged. Appends;
+// dedupes on (frozenset(memory_ids), mode); never rewrites prior entries.
+//
+// Each NEW entry also carries the relevance verdict (B3/D2): the cited rows
+// that share a structural tag with the finding, and the bases that fired.
+// Zero overlap stamps recalled_irrelevant and logs one corpus.gap — the act
+// still satisfies the gate; the signal is honest. A bug_class that is
+// non-discriminative on its own (see CoarseClassRule) does not count by
+// itself: it is recorded as relevance.discounted and a second basis is
+// required. The gap event says which of those happened (reason_code +
+// reason, see IrrelevantReason) — sharing only the catch-all label is NOT
+// the corpus being silent on the lineage. Entries recorded before B3 are
+// left exactly as they are.
 func RecordMemoryCheck(campaign *state.Campaign, findingID string,
 	checks []validation.Value) (validation.Value, error) {
 	finding, err := LoadFinding(campaign, findingID)
@@ -163,9 +181,10 @@ func RecordMemoryCheck(campaign *state.Campaign, findingID string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	added := 0
+	added, irrelevant := 0, 0
+	var gaps []validation.Value
 	for _, c := range checks {
-		key, entry, err := memoryCheckEntry(c, rowsByID)
+		key, entry, gap, err := memoryCheckEntry(c, rowsByID, finding)
 		if err != nil {
 			return validation.VNull(), err
 		}
@@ -175,32 +194,47 @@ func RecordMemoryCheck(campaign *state.Campaign, findingID string,
 		existing.A = append(existing.A, entry)
 		seen[key] = struct{}{}
 		added++
+		if gap.Kind == validation.Obj {
+			irrelevant++
+			gaps = append(gaps, gap)
+		}
 	}
 	prov.O = setOrAppend(prov.O, "memory_checks", existing)
 	finding.O = setOrAppend(finding.O, "provenance", prov)
 	if err := SaveFinding(campaign, &finding); err != nil {
 		return validation.VNull(), err
 	}
+	// The signal is logged only once the entry that carries it is persisted:
+	// a gap event for a check that never landed would be a lie of its own.
 	data := validation.VObj(
 		validation.KV{K: "added", V: validation.VInt(int64(added))},
+		validation.KV{K: "irrelevant", V: validation.VInt(int64(irrelevant))},
 		validation.KV{K: "modes", V: strArr(checkModes(checks))},
 	)
 	if _, err := campaign.Log("finding.memory_checked", &findingID,
 		&data); err != nil {
 		return validation.VNull(), err
 	}
+	for i := range gaps {
+		if _, err := campaign.Log("corpus.gap", &findingID,
+			&gaps[i]); err != nil {
+			return validation.VNull(), err
+		}
+	}
 	return finding, nil
 }
 
 // memoryCheckEntry validates one check against the visible store and builds
-// its dedup key + stamped entry (Python's in-loop body).
-func memoryCheckEntry(c validation.Value, rowsByID map[string]validation.Value) (
-	string, validation.Value, error) {
+// its dedup key + stamped entry (Python's in-loop body), plus the corpus.gap
+// payload when the check cites no overlapping row (Null otherwise).
+func memoryCheckEntry(c validation.Value,
+	rowsByID map[string]validation.Value, finding validation.Value) (
+	string, validation.Value, validation.Value, error) {
 	ids := valueStrings(objAt(c, "memory_ids"))
 	mode := objAt(c, "mode")
 	if mode.Kind != validation.Str ||
 		(mode.S != "negative" && mode.S != "comparative") {
-		return "", validation.VNull(), fmtUnknownMode(mode)
+		return "", validation.VNull(), validation.VNull(), fmtUnknownMode(mode)
 	}
 	var unknown []string
 	for _, mid := range ids {
@@ -209,19 +243,51 @@ func memoryCheckEntry(c validation.Value, rowsByID map[string]validation.Value) 
 		}
 	}
 	if len(unknown) > 0 {
-		return "", validation.VNull(), fmtUnknownMemoryIDs(unknown)
+		return "", validation.VNull(), validation.VNull(),
+			fmtUnknownMemoryIDs(unknown)
 	}
+	sortedIDs := sortedStrings(ids)
 	entry := validation.VObj(
-		validation.KV{K: "memory_ids", V: strArr(sortedStrings(ids))},
+		validation.KV{K: "memory_ids", V: strArr(sortedIDs)},
 		validation.KV{K: "mode", V: mode},
 		validation.KV{K: "consulted_at", V: validation.VStr(nowIso())},
 		validation.KV{K: "row_digest",
 			V: validation.VStr(ComputeRowDigest(ids, rowsByID))},
 	)
+	relevance := MemoryCheckRelevance(finding, ids, rowsByID)
+	entry.O = append(entry.O, validation.KV{K: "relevance", V: relevance})
+	var gap validation.Value
+	if overlapping := objAt(relevance, "overlapping"); len(overlapping.A) == 0 {
+		entry.O = append(entry.O,
+			validation.KV{K: "recalled_irrelevant", V: validation.VBool(true)})
+		reasonCode, reason := IrrelevantReason(relevance, sortedIDs)
+		gap = validation.VObj(
+			validation.KV{K: "finding", V: validation.VStr(objStr(finding,
+				"finding_id"))},
+			validation.KV{K: "memory_ids", V: strArr(sortedIDs)},
+			validation.KV{K: "mode", V: mode},
+			validation.KV{K: "lineage",
+				V: strArr(LineageTags(finding))},
+			validation.KV{K: "reason_code", V: validation.VStr(reasonCode)},
+			validation.KV{K: "reason", V: validation.VStr(reason)},
+		)
+	}
 	if note := objAt(c, "note"); pyTruthy(note) {
 		entry.O = append(entry.O, validation.KV{K: "note", V: note})
 	}
-	return memoryCheckKey(ids, mode), entry, nil
+	return memoryCheckKey(ids, mode), entry, gap, nil
+}
+
+// joinComma is ", ".join(items).
+func joinComma(items []string) string {
+	out := ""
+	for i, s := range items {
+		if i > 0 {
+			out += ", "
+		}
+		out += s
+	}
+	return out
 }
 
 func fmtUnknownMode(mode validation.Value) error {

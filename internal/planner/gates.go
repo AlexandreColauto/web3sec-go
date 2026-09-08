@@ -44,7 +44,8 @@ func DivergenceStatus(plan validation.Value, opts DivergenceOpts) validation.Val
 		missing = append(missing, validation.VObj(
 			kv("subject", validation.VStr("lenses")),
 			kv("what", validation.VStr("plan predates the lens era — "+
-				"re-save it (webv2 plan C plan.json) to seed L-01..L-04"))))
+				"re-save it (webv2 plan C plan.json --rebuild; the outgoing "+
+				"plan is archived as plan.superseded) to seed L-01..L-04"))))
 	}
 	named := namedClasses(plan)
 	if len(named) < MinDistinctClasses {

@@ -1,5 +1,5 @@
 {
- "campaign_id": "C-259d60d374",
+ "campaign_id": "C-21c42d390b",
  "created_at": "2026-09-09T12:00:00.000000+00:00",
  "snapshot_id": "unpinned",
  "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -104,7 +104,7 @@
     "row_id": "81dfad6492",
     "probe_id": "assertion-strength",
     "axis": "enforcement-timing",
-    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "shape_sha": "6f498a3270b53c6e",
     "risk_band": "high",
     "anchor": {
@@ -134,7 +134,7 @@
     "row_id": "66c7d14d35",
     "probe_id": "assertion-strength",
     "axis": "enforcement-timing",
-    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "shape_sha": "50bd089538a43d00",
     "risk_band": "high",
     "anchor": {
@@ -164,7 +164,7 @@
     "row_id": "b6fe31cdf7",
     "probe_id": "assertion-strength",
     "axis": "enforcement-timing",
-    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "shape_sha": "31dad2d76abf4876",
     "risk_band": "high",
     "anchor": {
@@ -194,7 +194,7 @@
     "row_id": "63904ecbc1",
     "probe_id": "assertion-strength",
     "axis": "enforcement-timing",
-    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "shape_sha": "0f35e0926bcb7cfe",
     "risk_band": "high",
     "anchor": {
@@ -224,7 +224,7 @@
     "row_id": "46ebc2a5a1",
     "probe_id": "assertion-strength",
     "axis": "enforcement-timing",
-    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "shape_sha": "64aa46579809f638",
     "risk_band": "high",
     "anchor": {
@@ -254,7 +254,7 @@
     "row_id": "748abbf715",
     "probe_id": "assertion-strength",
     "axis": "enforcement-timing",
-    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "shape_sha": "70b9cf056b13d139",
     "risk_band": "high",
     "anchor": {
@@ -284,7 +284,7 @@
     "row_id": "d549f9e66a",
     "probe_id": "assertion-strength",
     "axis": "enforcement-timing",
-    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "shape_sha": "b92155f1e2b84b77",
     "risk_band": "medium",
     "anchor": {
@@ -314,7 +314,7 @@
     "row_id": "d6e1821dc6",
     "probe_id": "assertion-strength",
     "axis": "enforcement-timing",
-    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "shape_sha": "a0209a4117d17f80",
     "risk_band": "medium",
     "anchor": {
@@ -344,7 +344,7 @@
     "row_id": "dd489a9a69",
     "probe_id": "assertion-strength",
     "axis": "enforcement-timing",
-    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "shape_sha": "8a777c22fea7d4c0",
     "risk_band": "medium",
     "anchor": {
@@ -374,7 +374,7 @@
     "row_id": "954d79770b",
     "probe_id": "assertion-strength",
     "axis": "enforcement-timing",
-    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "shape_sha": "5efe1c80761fc6f0",
     "risk_band": "medium",
     "anchor": {

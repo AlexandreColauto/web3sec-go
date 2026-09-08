@@ -194,10 +194,14 @@ func LevelIndex(level string) (int, error) {
 }
 
 // Clause is one gate requirement: a set of satisfying evidence types (nil —
-// any type) and a minimum level.
+// any type) and a minimum level. Decision names a NAMED DECISION that stands
+// in for the clause's evidence ("unpriceable": some economic impacts cannot
+// honestly be priced, so inventing a number to satisfy the gate is the
+// failure mode — round-7 D3, risk.RecordUnpriceable).
 type Clause struct {
 	Types    map[string]struct{}
 	MinLevel string
+	Decision string
 }
 
 // GateRequirements is gate_requirements: the gate for *status* as a
@@ -220,16 +224,56 @@ func GateRequirements(status, bugClass string, campaign *state.Campaign) []Claus
 			{Types: copySet(EVIDENCE_TYPE_GROUPS["local-poc"]), MinLevel: "E4"},
 			{Types: mergeSets(EVIDENCE_TYPE_GROUPS["fork-poc"],
 				EVIDENCE_TYPE_GROUPS["independent-repro"]), MinLevel: floor},
-			{Types: copySet(EVIDENCE_TYPE_GROUPS["economic"]), MinLevel: "E7"},
+			// the quantification clause accepts a NAMED DECISION in place of
+			// the artifact: some impacts cannot honestly be priced, and
+			// inventing a number to satisfy the gate is the failure mode
+			// (round-7 D3). See risk.record_unpriceable.
+			{Types: copySet(EVIDENCE_TYPE_GROUPS["economic"]), MinLevel: "E7",
+				Decision: "unpriceable"},
 		}
 	}
 	return []Clause{{Types: nil, MinLevel: floor}}
+}
+
+// UnpriceableDecision is unpriceable_decision: the finding's recorded
+// UNPRICEABLE decision, or nil.
+//
+// economic_impact.priceable ABSENT means priceable — every finding written
+// before this field existed keeps its behaviour — so only an explicit false
+// counts, and only when the decision carries the ceiling basis it was made
+// against (a bare flag is not a decision). risk.RecordUnpriceable is the
+// sole writer; audit cross-checks the projection against the
+// finding.unpriceable log event, so this read stays as cheap as
+// floors.floor_override.
+func UnpriceableDecision(finding validation.Value) *validation.Value {
+	imp := asDict(objAt(finding, "economic_impact"))
+	p := objAt(imp, "priceable")
+	if p.Kind != validation.Bool || p.B {
+		return nil
+	}
+	ceiling := objAt(imp, "ceiling")
+	if ceiling.Kind != validation.Str || strings.TrimSpace(ceiling.S) == "" {
+		return nil
+	}
+	out := validation.VObj(
+		validation.KV{K: "priceable", V: validation.VBool(false)},
+		validation.KV{K: "ceiling", V: ceiling},
+	)
+	return &out
 }
 
 // ClauseMet is _clause_met: does the finding hold an evidence item of one
 // of the clause's types at or above its min level? A level-less or
 // unknown-level item satisfies nothing.
 func ClauseMet(finding validation.Value, clause Clause) bool {
+	// A clause may name a NAMED DECISION that stands in for its evidence
+	// (the economic-class E7 quantification is impossible for some
+	// findings). The decision is recorded state, not a bypass: absent it,
+	// the clause is unmet exactly as before.
+	if clause.Decision == "unpriceable" &&
+		UnpriceableDecision(finding) != nil {
+		return true
+	}
 	need, err := LevelIndex(clause.MinLevel)
 	if err != nil {
 		return false
@@ -314,8 +358,16 @@ func EvidenceDeficit(finding validation.Value, status string, campaign *state.Ca
 			sort.Strings(names)
 			types = listRepr(names)
 		}
-		missing = append(missing,
-			fmt.Sprintf("no evidence of type %s at level >= %s", types, cl.MinLevel))
+		msg := fmt.Sprintf("no evidence of type %s at level >= %s", types,
+			cl.MinLevel)
+		if cl.Decision == "unpriceable" {
+			// the sanctioned alternative is part of the message: the silent
+			// "no evidence" is what pushed operators into invented numbers
+			msg += " and no unpriceable decision recorded (`webv2 impact " +
+				"<campaign> <finding> --unpriceable --ceiling '<capacity " +
+				"basis>' --reason <why no figure is defensible> --actor <you>`)"
+		}
+		missing = append(missing, msg)
 	}
 	if len(missing) == 0 {
 		return nil

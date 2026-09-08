@@ -67,22 +67,42 @@ func LoadPlan(campaign *state.Campaign,
 	return plan, nil
 }
 
-// SavePlan is save_plan: write the plan and keep its artifact registration
-// current. The plan is a LIVING document (mark_answered rewrites it in
-// place); the registry follows the content via a logged refresh instead of
-// accumulating ghost rows. An empty path is Python's `path=None`.
-func SavePlan(campaign *state.Campaign, plan validation.Value,
-	path ...string) (string, error) {
+// ValidatePlan is validate_plan: the plan's write-time checks WITHOUT touching
+// disk — seed the canonical lens entries, reject non-canonical bug classes,
+// validate against the schema. Split out of SavePlan so a rebuild can prove
+// the incoming plan is writable BEFORE it archives the outgoing one (a failed
+// rebuild must not retire a live contract).
+func ValidatePlan(campaign *state.Campaign,
+	plan validation.Value) (validation.Value, error) {
 	_, plan = SeedLenses(plan, ModelOrEmpty(campaign))
 	bad := nonCanonicalClasses(plan)
 	if len(bad) > 0 {
-		return "", errValue("priorities " + strings.Join(bad, ", ") +
+		return validation.VNull(), errValue("priorities " + strings.Join(bad, ", ") +
 			" declare non-canonical bug_class; the canonical class list is " +
 			"what `webv2 floors <campaign>` prints (one row per class, with " +
 			"its CONFIRMED floor) — use a listed class or drop the " +
 			"bug_class key")
 	}
 	if err := validation.Validate(plan, "campaign_plan", 1); err != nil {
+		return validation.VNull(), err
+	}
+	return plan, nil
+}
+
+// SavePlan is save_plan: write the plan and keep its artifact registration
+// current. The plan is a LIVING document (mark_answered rewrites it in
+// place); the registry follows the content via a logged refresh instead of
+// accumulating ghost rows.
+//
+// This is the LIVING-document writer, deliberately without a "does a plan
+// already exist?" guard: `mark_answered`, `--emit`, lens closures and every
+// other sanctioned in-place rewrite go through here. The no-clobber guard for
+// REGENERATION lives in `Orchestrator.plan` (B1) — put it here and the living
+// document freezes. An empty path is Python's `path=None`.
+func SavePlan(campaign *state.Campaign, plan validation.Value,
+	path ...string) (string, error) {
+	plan, err := ValidatePlan(campaign, plan)
+	if err != nil {
 		return "", err
 	}
 	target := filepath.Join(campaign.ArtifactsDir, "campaign_plan.json")

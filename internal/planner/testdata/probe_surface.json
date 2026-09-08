@@ -1,8 +1,8 @@
 {
- "campaign_id": "C-b97c396195",
+ "campaign_id": "C-e8d58aaea4",
  "snapshot_id": "unpinned",
- "parse_version": "2",
- "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+ "parse_version": "3",
+ "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
  "generated_at": "2026-09-09T12:00:00.000000+00:00",
  "per_axis": 12,
  "total": 40,

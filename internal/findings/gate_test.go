@@ -36,8 +36,12 @@ func TestConfirmationGateDetailExactVector(t *testing.T) {
 			"webv2 mint <fid> --exec <EXEC-ID>   (a reproduced attempt, sandboxed)"},
 		{"evidence-floor",
 			"evidence level E0 < required E5 for CONFIRMED",
-			"webv2 mint <fid> --exec <EXEC-ID>   (or, for a NAMED decision: " +
-				"webv2 floors set — an override, logged, never a silent edit)"},
+			"webv2 mint <fid> --exec <EXEC-ID>   (or, for a NAMED " +
+				"decision: webv2 floors set — an override, logged, never a " +
+				"silent edit). Economic-class E7: when no USD figure is " +
+				"defensible, record the decision instead — webv2 impact " +
+				"<campaign> <fid> --unpriceable --ceiling '<capacity basis>' " +
+				"--reason '<why>' --actor <you>"},
 		{"evidence-floor-unreachable",
 			"structurally unreachable in this campaign: no deployment/chain " +
 				"pin on the active snapshot — fork evidence (E5+) has no fork " +

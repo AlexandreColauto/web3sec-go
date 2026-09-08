@@ -1,6 +1,6 @@
 {
- "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
- "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+ "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
+ "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
  "axis_blockers": {
   "accumulator-skew": {
    "none": null
@@ -993,7 +993,7 @@
  ],
  "default_plan": {
   "rich": {
-   "campaign_id": "C-57bc348952",
+   "campaign_id": "C-33b75f6041",
    "created_at": "2026-09-09T12:00:00.000000+00:00",
    "snapshot_id": "unpinned",
    "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -1363,7 +1363,7 @@
    "Do nonstandard token behaviors (share, USDC) break accounting assumptions?"
   ],
   "ranking": {
-   "campaign_id": "C-411b1e641e",
+   "campaign_id": "C-43c4e5ffbb",
    "created_at": "2026-09-09T12:00:00.000000+00:00",
    "snapshot_id": "unpinned",
    "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -1519,7 +1519,7 @@
    ]
   },
   "empty_model": {
-   "campaign_id": "C-066001db16",
+   "campaign_id": "C-73835455cb",
    "created_at": "2026-09-09T12:00:00.000000+00:00",
    "snapshot_id": "unpinned",
    "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -2304,7 +2304,7 @@
  ],
  "work_queue": {
   "plan": {
-   "campaign_id": "C-57bc348952",
+   "campaign_id": "C-33b75f6041",
    "created_at": "2026-09-09T12:00:00.000000+00:00",
    "snapshot_id": "unpinned",
    "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -3146,7 +3146,7 @@
   {
    "name": "open_plan",
    "plan": {
-    "campaign_id": "C-dc3110cad8",
+    "campaign_id": "C-8c69c591d9",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -3631,7 +3631,7 @@
     "missing": [
      {
       "subject": "lenses",
-      "what": "plan predates the lens era \u2014 re-save it (webv2 plan C plan.json) to seed L-01..L-04"
+      "what": "plan predates the lens era \u2014 re-save it (webv2 plan C plan.json --rebuild; the outgoing plan is archived as plan.superseded) to seed L-01..L-04"
      },
      {
       "subject": "diversity",
@@ -3645,7 +3645,7 @@
   {
    "name": "reasonless",
    "plan": {
-    "campaign_id": "C-153dd7d020",
+    "campaign_id": "C-17e11e2e66",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -4062,7 +4062,7 @@
   {
    "name": "fresh_closed",
    "plan": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -4167,7 +4167,7 @@
        "row_id": "81dfad6492",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "6f498a3270b53c6e",
        "risk_band": "high",
        "anchor": {
@@ -4197,7 +4197,7 @@
        "row_id": "66c7d14d35",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "50bd089538a43d00",
        "risk_band": "high",
        "anchor": {
@@ -4227,7 +4227,7 @@
        "row_id": "b6fe31cdf7",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "31dad2d76abf4876",
        "risk_band": "high",
        "anchor": {
@@ -4257,7 +4257,7 @@
        "row_id": "63904ecbc1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "0f35e0926bcb7cfe",
        "risk_band": "high",
        "anchor": {
@@ -4287,7 +4287,7 @@
        "row_id": "46ebc2a5a1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "64aa46579809f638",
        "risk_band": "high",
        "anchor": {
@@ -4317,7 +4317,7 @@
        "row_id": "748abbf715",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "70b9cf056b13d139",
        "risk_band": "high",
        "anchor": {
@@ -4347,7 +4347,7 @@
        "row_id": "d549f9e66a",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "b92155f1e2b84b77",
        "risk_band": "medium",
        "anchor": {
@@ -4377,7 +4377,7 @@
        "row_id": "d6e1821dc6",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "a0209a4117d17f80",
        "risk_band": "medium",
        "anchor": {
@@ -4407,7 +4407,7 @@
        "row_id": "dd489a9a69",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "8a777c22fea7d4c0",
        "risk_band": "medium",
        "anchor": {
@@ -4437,7 +4437,7 @@
        "row_id": "954d79770b",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "5efe1c80761fc6f0",
        "risk_band": "medium",
        "anchor": {
@@ -4541,10 +4541,10 @@
     ]
    },
    "surface": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "snapshot_id": "unpinned",
-    "parse_version": "2",
-    "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "parse_version": "3",
+    "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "generated_at": "2026-09-09T12:00:00.000000+00:00",
     "per_axis": 12,
     "total": 40,
@@ -5043,7 +5043,7 @@
      "missing": 0
     }
    },
-   "sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+   "sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
    "blanks": null,
    "out": {
     "closed": true,
@@ -5158,7 +5158,7 @@
   {
    "name": "stale_sha",
    "plan": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -5263,7 +5263,7 @@
        "row_id": "81dfad6492",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "6f498a3270b53c6e",
        "risk_band": "high",
        "anchor": {
@@ -5293,7 +5293,7 @@
        "row_id": "66c7d14d35",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "50bd089538a43d00",
        "risk_band": "high",
        "anchor": {
@@ -5323,7 +5323,7 @@
        "row_id": "b6fe31cdf7",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "31dad2d76abf4876",
        "risk_band": "high",
        "anchor": {
@@ -5353,7 +5353,7 @@
        "row_id": "63904ecbc1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "0f35e0926bcb7cfe",
        "risk_band": "high",
        "anchor": {
@@ -5383,7 +5383,7 @@
        "row_id": "46ebc2a5a1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "64aa46579809f638",
        "risk_band": "high",
        "anchor": {
@@ -5413,7 +5413,7 @@
        "row_id": "748abbf715",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "70b9cf056b13d139",
        "risk_band": "high",
        "anchor": {
@@ -5443,7 +5443,7 @@
        "row_id": "d549f9e66a",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "b92155f1e2b84b77",
        "risk_band": "medium",
        "anchor": {
@@ -5473,7 +5473,7 @@
        "row_id": "d6e1821dc6",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "a0209a4117d17f80",
        "risk_band": "medium",
        "anchor": {
@@ -5503,7 +5503,7 @@
        "row_id": "dd489a9a69",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "8a777c22fea7d4c0",
        "risk_band": "medium",
        "anchor": {
@@ -5533,7 +5533,7 @@
        "row_id": "954d79770b",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "5efe1c80761fc6f0",
        "risk_band": "medium",
        "anchor": {
@@ -5637,10 +5637,10 @@
     ]
    },
    "surface": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "snapshot_id": "unpinned",
-    "parse_version": "2",
-    "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "parse_version": "3",
+    "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "generated_at": "2026-09-09T12:00:00.000000+00:00",
     "per_axis": 12,
     "total": 40,
@@ -6146,19 +6146,19 @@
     "missing": [
      {
       "subject": "L-01",
-      "what": "probe surface is stale (surface index_sha 3d9f4c47ebe5\u2026 != current 000000000000\u2026) \u2014 run `webv2 probes C-259d60d374 run --emit`"
+      "what": "probe surface is stale (surface index_sha 4649be945ad0\u2026 != current 000000000000\u2026) \u2014 run `webv2 probes C-21c42d390b run --emit`"
      },
      {
       "subject": "L-02",
-      "what": "probe surface is stale (surface index_sha 3d9f4c47ebe5\u2026 != current 000000000000\u2026) \u2014 run `webv2 probes C-259d60d374 run --emit`"
+      "what": "probe surface is stale (surface index_sha 4649be945ad0\u2026 != current 000000000000\u2026) \u2014 run `webv2 probes C-21c42d390b run --emit`"
      },
      {
       "subject": "L-03",
-      "what": "probe surface is stale (surface index_sha 3d9f4c47ebe5\u2026 != current 000000000000\u2026) \u2014 run `webv2 probes C-259d60d374 run --emit`"
+      "what": "probe surface is stale (surface index_sha 4649be945ad0\u2026 != current 000000000000\u2026) \u2014 run `webv2 probes C-21c42d390b run --emit`"
      },
      {
       "subject": "L-04",
-      "what": "probe surface is stale (surface index_sha 3d9f4c47ebe5\u2026 != current 000000000000\u2026) \u2014 run `webv2 probes C-259d60d374 run --emit`"
+      "what": "probe surface is stale (surface index_sha 4649be945ad0\u2026 != current 000000000000\u2026) \u2014 run `webv2 probes C-21c42d390b run --emit`"
      }
     ],
     "named_classes": [
@@ -6271,7 +6271,7 @@
   {
    "name": "no_current_index",
    "plan": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -6376,7 +6376,7 @@
        "row_id": "81dfad6492",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "6f498a3270b53c6e",
        "risk_band": "high",
        "anchor": {
@@ -6406,7 +6406,7 @@
        "row_id": "66c7d14d35",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "50bd089538a43d00",
        "risk_band": "high",
        "anchor": {
@@ -6436,7 +6436,7 @@
        "row_id": "b6fe31cdf7",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "31dad2d76abf4876",
        "risk_band": "high",
        "anchor": {
@@ -6466,7 +6466,7 @@
        "row_id": "63904ecbc1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "0f35e0926bcb7cfe",
        "risk_band": "high",
        "anchor": {
@@ -6496,7 +6496,7 @@
        "row_id": "46ebc2a5a1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "64aa46579809f638",
        "risk_band": "high",
        "anchor": {
@@ -6526,7 +6526,7 @@
        "row_id": "748abbf715",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "70b9cf056b13d139",
        "risk_band": "high",
        "anchor": {
@@ -6556,7 +6556,7 @@
        "row_id": "d549f9e66a",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "b92155f1e2b84b77",
        "risk_band": "medium",
        "anchor": {
@@ -6586,7 +6586,7 @@
        "row_id": "d6e1821dc6",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "a0209a4117d17f80",
        "risk_band": "medium",
        "anchor": {
@@ -6616,7 +6616,7 @@
        "row_id": "dd489a9a69",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "8a777c22fea7d4c0",
        "risk_band": "medium",
        "anchor": {
@@ -6646,7 +6646,7 @@
        "row_id": "954d79770b",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "5efe1c80761fc6f0",
        "risk_band": "medium",
        "anchor": {
@@ -6750,10 +6750,10 @@
     ]
    },
    "surface": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "snapshot_id": "unpinned",
-    "parse_version": "2",
-    "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "parse_version": "3",
+    "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "generated_at": "2026-09-09T12:00:00.000000+00:00",
     "per_axis": 12,
     "total": 40,
@@ -7259,19 +7259,19 @@
     "missing": [
      {
       "subject": "L-01",
-      "what": "no current structural index to check the probe surface against \u2014 run `webv2 index C-259d60d374 --src <target>`"
+      "what": "no current structural index to check the probe surface against \u2014 run `webv2 index C-21c42d390b --src <target>`"
      },
      {
       "subject": "L-02",
-      "what": "no current structural index to check the probe surface against \u2014 run `webv2 index C-259d60d374 --src <target>`"
+      "what": "no current structural index to check the probe surface against \u2014 run `webv2 index C-21c42d390b --src <target>`"
      },
      {
       "subject": "L-03",
-      "what": "no current structural index to check the probe surface against \u2014 run `webv2 index C-259d60d374 --src <target>`"
+      "what": "no current structural index to check the probe surface against \u2014 run `webv2 index C-21c42d390b --src <target>`"
      },
      {
       "subject": "L-04",
-      "what": "no current structural index to check the probe surface against \u2014 run `webv2 index C-259d60d374 --src <target>`"
+      "what": "no current structural index to check the probe surface against \u2014 run `webv2 index C-21c42d390b --src <target>`"
      }
     ],
     "named_classes": [
@@ -7384,7 +7384,7 @@
   {
    "name": "new_row_unemitted",
    "plan": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -7489,7 +7489,7 @@
        "row_id": "81dfad6492",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "6f498a3270b53c6e",
        "risk_band": "high",
        "anchor": {
@@ -7519,7 +7519,7 @@
        "row_id": "66c7d14d35",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "50bd089538a43d00",
        "risk_band": "high",
        "anchor": {
@@ -7549,7 +7549,7 @@
        "row_id": "b6fe31cdf7",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "31dad2d76abf4876",
        "risk_band": "high",
        "anchor": {
@@ -7579,7 +7579,7 @@
        "row_id": "63904ecbc1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "0f35e0926bcb7cfe",
        "risk_band": "high",
        "anchor": {
@@ -7609,7 +7609,7 @@
        "row_id": "46ebc2a5a1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "64aa46579809f638",
        "risk_band": "high",
        "anchor": {
@@ -7639,7 +7639,7 @@
        "row_id": "748abbf715",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "70b9cf056b13d139",
        "risk_band": "high",
        "anchor": {
@@ -7669,7 +7669,7 @@
        "row_id": "d549f9e66a",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "b92155f1e2b84b77",
        "risk_band": "medium",
        "anchor": {
@@ -7699,7 +7699,7 @@
        "row_id": "d6e1821dc6",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "a0209a4117d17f80",
        "risk_band": "medium",
        "anchor": {
@@ -7729,7 +7729,7 @@
        "row_id": "dd489a9a69",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "8a777c22fea7d4c0",
        "risk_band": "medium",
        "anchor": {
@@ -7759,7 +7759,7 @@
        "row_id": "954d79770b",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "5efe1c80761fc6f0",
        "risk_band": "medium",
        "anchor": {
@@ -7863,10 +7863,10 @@
     ]
    },
    "surface": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "snapshot_id": "unpinned",
-    "parse_version": "2",
-    "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "parse_version": "3",
+    "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "generated_at": "2026-09-09T12:00:00.000000+00:00",
     "per_axis": 12,
     "total": 40,
@@ -8401,14 +8401,14 @@
      "missing": 0
     }
    },
-   "sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+   "sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
    "blanks": null,
    "out": {
     "closed": false,
     "missing": [
      {
       "subject": "L-03",
-      "what": "1 surface row(s) not emitted as priorities (deadbeef00) \u2014 run `webv2 probes C-259d60d374 run --emit`"
+      "what": "1 surface row(s) not emitted as priorities (deadbeef00) \u2014 run `webv2 probes C-21c42d390b run --emit`"
      }
     ],
     "named_classes": [
@@ -8521,7 +8521,7 @@
   {
    "name": "axis_absent",
    "plan": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -8626,7 +8626,7 @@
        "row_id": "81dfad6492",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "6f498a3270b53c6e",
        "risk_band": "high",
        "anchor": {
@@ -8656,7 +8656,7 @@
        "row_id": "66c7d14d35",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "50bd089538a43d00",
        "risk_band": "high",
        "anchor": {
@@ -8686,7 +8686,7 @@
        "row_id": "b6fe31cdf7",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "31dad2d76abf4876",
        "risk_band": "high",
        "anchor": {
@@ -8716,7 +8716,7 @@
        "row_id": "63904ecbc1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "0f35e0926bcb7cfe",
        "risk_band": "high",
        "anchor": {
@@ -8746,7 +8746,7 @@
        "row_id": "46ebc2a5a1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "64aa46579809f638",
        "risk_band": "high",
        "anchor": {
@@ -8776,7 +8776,7 @@
        "row_id": "748abbf715",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "70b9cf056b13d139",
        "risk_band": "high",
        "anchor": {
@@ -8806,7 +8806,7 @@
        "row_id": "d549f9e66a",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "b92155f1e2b84b77",
        "risk_band": "medium",
        "anchor": {
@@ -8836,7 +8836,7 @@
        "row_id": "d6e1821dc6",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "a0209a4117d17f80",
        "risk_band": "medium",
        "anchor": {
@@ -8866,7 +8866,7 @@
        "row_id": "dd489a9a69",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "8a777c22fea7d4c0",
        "risk_band": "medium",
        "anchor": {
@@ -8896,7 +8896,7 @@
        "row_id": "954d79770b",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "5efe1c80761fc6f0",
        "risk_band": "medium",
        "anchor": {
@@ -9000,10 +9000,10 @@
     ]
    },
    "surface": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "snapshot_id": "unpinned",
-    "parse_version": "2",
-    "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "parse_version": "3",
+    "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "generated_at": "2026-09-09T12:00:00.000000+00:00",
     "per_axis": 12,
     "total": 40,
@@ -9487,14 +9487,14 @@
      "missing": 0
     }
    },
-   "sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+   "sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
    "blanks": null,
    "out": {
     "closed": false,
     "missing": [
      {
       "subject": "liveness",
-      "what": "probe axis liveness (sequential-cursor, lens L-01) has no surface in probe_surface.json \u2014 run `webv2 probes C-259d60d374 run --emit`"
+      "what": "probe axis liveness (sequential-cursor, lens L-01) has no surface in probe_surface.json \u2014 run `webv2 probes C-21c42d390b run --emit`"
      }
     ],
     "named_classes": [
@@ -9606,7 +9606,7 @@
   {
    "name": "open_row",
    "plan": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -9711,7 +9711,7 @@
        "row_id": "81dfad6492",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "6f498a3270b53c6e",
        "risk_band": "high",
        "anchor": {
@@ -9739,7 +9739,7 @@
        "row_id": "66c7d14d35",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "50bd089538a43d00",
        "risk_band": "high",
        "anchor": {
@@ -9769,7 +9769,7 @@
        "row_id": "b6fe31cdf7",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "31dad2d76abf4876",
        "risk_band": "high",
        "anchor": {
@@ -9799,7 +9799,7 @@
        "row_id": "63904ecbc1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "0f35e0926bcb7cfe",
        "risk_band": "high",
        "anchor": {
@@ -9829,7 +9829,7 @@
        "row_id": "46ebc2a5a1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "64aa46579809f638",
        "risk_band": "high",
        "anchor": {
@@ -9859,7 +9859,7 @@
        "row_id": "748abbf715",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "70b9cf056b13d139",
        "risk_band": "high",
        "anchor": {
@@ -9889,7 +9889,7 @@
        "row_id": "d549f9e66a",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "b92155f1e2b84b77",
        "risk_band": "medium",
        "anchor": {
@@ -9919,7 +9919,7 @@
        "row_id": "d6e1821dc6",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "a0209a4117d17f80",
        "risk_band": "medium",
        "anchor": {
@@ -9949,7 +9949,7 @@
        "row_id": "dd489a9a69",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "8a777c22fea7d4c0",
        "risk_band": "medium",
        "anchor": {
@@ -9979,7 +9979,7 @@
        "row_id": "954d79770b",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "5efe1c80761fc6f0",
        "risk_band": "medium",
        "anchor": {
@@ -10083,10 +10083,10 @@
     ]
    },
    "surface": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "snapshot_id": "unpinned",
-    "parse_version": "2",
-    "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "parse_version": "3",
+    "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "generated_at": "2026-09-09T12:00:00.000000+00:00",
     "per_axis": 12,
     "total": 40,
@@ -10585,7 +10585,7 @@
      "missing": 0
     }
    },
-   "sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+   "sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
    "blanks": null,
    "out": {
     "closed": false,
@@ -10705,7 +10705,7 @@
   {
    "name": "stale_disposition",
    "plan": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -10810,7 +10810,7 @@
        "row_id": "81dfad6492",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "0000000000000000",
        "risk_band": "high",
        "anchor": {
@@ -10840,7 +10840,7 @@
        "row_id": "66c7d14d35",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "50bd089538a43d00",
        "risk_band": "high",
        "anchor": {
@@ -10870,7 +10870,7 @@
        "row_id": "b6fe31cdf7",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "31dad2d76abf4876",
        "risk_band": "high",
        "anchor": {
@@ -10900,7 +10900,7 @@
        "row_id": "63904ecbc1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "0f35e0926bcb7cfe",
        "risk_band": "high",
        "anchor": {
@@ -10930,7 +10930,7 @@
        "row_id": "46ebc2a5a1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "64aa46579809f638",
        "risk_band": "high",
        "anchor": {
@@ -10960,7 +10960,7 @@
        "row_id": "748abbf715",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "70b9cf056b13d139",
        "risk_band": "high",
        "anchor": {
@@ -10990,7 +10990,7 @@
        "row_id": "d549f9e66a",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "b92155f1e2b84b77",
        "risk_band": "medium",
        "anchor": {
@@ -11020,7 +11020,7 @@
        "row_id": "d6e1821dc6",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "a0209a4117d17f80",
        "risk_band": "medium",
        "anchor": {
@@ -11050,7 +11050,7 @@
        "row_id": "dd489a9a69",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "8a777c22fea7d4c0",
        "risk_band": "medium",
        "anchor": {
@@ -11080,7 +11080,7 @@
        "row_id": "954d79770b",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "5efe1c80761fc6f0",
        "risk_band": "medium",
        "anchor": {
@@ -11184,10 +11184,10 @@
     ]
    },
    "surface": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "snapshot_id": "unpinned",
-    "parse_version": "2",
-    "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "parse_version": "3",
+    "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "generated_at": "2026-09-09T12:00:00.000000+00:00",
     "per_axis": 12,
     "total": 40,
@@ -11686,14 +11686,14 @@
      "missing": 0
     }
    },
-   "sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+   "sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
    "blanks": null,
    "out": {
     "closed": false,
     "missing": [
      {
       "subject": "L-03",
-      "what": "1 probe row(s) whose disposition is stale (Q-005 (81dfad6492: disposition is stale \u2014 the row's anchors moved since it was closed)) \u2014 run `webv2 probes C-259d60d374 run --emit`"
+      "what": "1 probe row(s) whose disposition is stale (Q-005 (81dfad6492: disposition is stale \u2014 the row's anchors moved since it was closed)) \u2014 run `webv2 probes C-21c42d390b run --emit`"
      }
     ],
     "named_classes": [
@@ -11806,7 +11806,7 @@
   {
    "name": "parked_row",
    "plan": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -11911,7 +11911,7 @@
        "row_id": "81dfad6492",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "6f498a3270b53c6e",
        "risk_band": "high",
        "anchor": {
@@ -11941,7 +11941,7 @@
        "row_id": "66c7d14d35",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "50bd089538a43d00",
        "risk_band": "high",
        "anchor": {
@@ -11971,7 +11971,7 @@
        "row_id": "b6fe31cdf7",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "31dad2d76abf4876",
        "risk_band": "high",
        "anchor": {
@@ -12001,7 +12001,7 @@
        "row_id": "63904ecbc1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "0f35e0926bcb7cfe",
        "risk_band": "high",
        "anchor": {
@@ -12031,7 +12031,7 @@
        "row_id": "46ebc2a5a1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "64aa46579809f638",
        "risk_band": "high",
        "anchor": {
@@ -12061,7 +12061,7 @@
        "row_id": "748abbf715",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "70b9cf056b13d139",
        "risk_band": "high",
        "anchor": {
@@ -12091,7 +12091,7 @@
        "row_id": "d549f9e66a",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "b92155f1e2b84b77",
        "risk_band": "medium",
        "anchor": {
@@ -12121,7 +12121,7 @@
        "row_id": "d6e1821dc6",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "a0209a4117d17f80",
        "risk_band": "medium",
        "anchor": {
@@ -12151,7 +12151,7 @@
        "row_id": "dd489a9a69",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "8a777c22fea7d4c0",
        "risk_band": "medium",
        "anchor": {
@@ -12181,7 +12181,7 @@
        "row_id": "954d79770b",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "5efe1c80761fc6f0",
        "risk_band": "medium",
        "anchor": {
@@ -12285,10 +12285,10 @@
     ]
    },
    "surface": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "snapshot_id": "unpinned",
-    "parse_version": "2",
-    "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "parse_version": "3",
+    "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "generated_at": "2026-09-09T12:00:00.000000+00:00",
     "per_axis": 12,
     "total": 40,
@@ -12787,7 +12787,7 @@
      "missing": 0
     }
    },
-   "sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+   "sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
    "blanks": null,
    "out": {
     "closed": true,
@@ -12902,7 +12902,7 @@
   {
    "name": "blocked_row",
    "plan": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -13007,7 +13007,7 @@
        "row_id": "81dfad6492",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "6f498a3270b53c6e",
        "risk_band": "high",
        "anchor": {
@@ -13037,7 +13037,7 @@
        "row_id": "66c7d14d35",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "50bd089538a43d00",
        "risk_band": "high",
        "anchor": {
@@ -13067,7 +13067,7 @@
        "row_id": "b6fe31cdf7",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "31dad2d76abf4876",
        "risk_band": "high",
        "anchor": {
@@ -13097,7 +13097,7 @@
        "row_id": "63904ecbc1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "0f35e0926bcb7cfe",
        "risk_band": "high",
        "anchor": {
@@ -13127,7 +13127,7 @@
        "row_id": "46ebc2a5a1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "64aa46579809f638",
        "risk_band": "high",
        "anchor": {
@@ -13157,7 +13157,7 @@
        "row_id": "748abbf715",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "70b9cf056b13d139",
        "risk_band": "high",
        "anchor": {
@@ -13187,7 +13187,7 @@
        "row_id": "d549f9e66a",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "b92155f1e2b84b77",
        "risk_band": "medium",
        "anchor": {
@@ -13217,7 +13217,7 @@
        "row_id": "d6e1821dc6",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "a0209a4117d17f80",
        "risk_band": "medium",
        "anchor": {
@@ -13247,7 +13247,7 @@
        "row_id": "dd489a9a69",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "8a777c22fea7d4c0",
        "risk_band": "medium",
        "anchor": {
@@ -13277,7 +13277,7 @@
        "row_id": "954d79770b",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "5efe1c80761fc6f0",
        "risk_band": "medium",
        "anchor": {
@@ -13381,10 +13381,10 @@
     ]
    },
    "surface": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "snapshot_id": "unpinned",
-    "parse_version": "2",
-    "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "parse_version": "3",
+    "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "generated_at": "2026-09-09T12:00:00.000000+00:00",
     "per_axis": 12,
     "total": 40,
@@ -13883,7 +13883,7 @@
      "missing": 0
     }
    },
-   "sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+   "sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
    "blanks": null,
    "out": {
     "closed": false,
@@ -14003,7 +14003,7 @@
   {
    "name": "blind_no_blank",
    "plan": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -14108,7 +14108,7 @@
        "row_id": "81dfad6492",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "6f498a3270b53c6e",
        "risk_band": "high",
        "anchor": {
@@ -14138,7 +14138,7 @@
        "row_id": "66c7d14d35",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "50bd089538a43d00",
        "risk_band": "high",
        "anchor": {
@@ -14168,7 +14168,7 @@
        "row_id": "b6fe31cdf7",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "31dad2d76abf4876",
        "risk_band": "high",
        "anchor": {
@@ -14198,7 +14198,7 @@
        "row_id": "63904ecbc1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "0f35e0926bcb7cfe",
        "risk_band": "high",
        "anchor": {
@@ -14228,7 +14228,7 @@
        "row_id": "46ebc2a5a1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "64aa46579809f638",
        "risk_band": "high",
        "anchor": {
@@ -14258,7 +14258,7 @@
        "row_id": "748abbf715",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "70b9cf056b13d139",
        "risk_band": "high",
        "anchor": {
@@ -14288,7 +14288,7 @@
        "row_id": "d549f9e66a",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "b92155f1e2b84b77",
        "risk_band": "medium",
        "anchor": {
@@ -14318,7 +14318,7 @@
        "row_id": "d6e1821dc6",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "a0209a4117d17f80",
        "risk_band": "medium",
        "anchor": {
@@ -14348,7 +14348,7 @@
        "row_id": "dd489a9a69",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "8a777c22fea7d4c0",
        "risk_band": "medium",
        "anchor": {
@@ -14378,7 +14378,7 @@
        "row_id": "954d79770b",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "5efe1c80761fc6f0",
        "risk_band": "medium",
        "anchor": {
@@ -14482,10 +14482,10 @@
     ]
    },
    "surface": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "snapshot_id": "unpinned",
-    "parse_version": "2",
-    "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "parse_version": "3",
+    "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "generated_at": "2026-09-09T12:00:00.000000+00:00",
     "per_axis": 12,
     "total": 40,
@@ -14984,7 +14984,7 @@
      "missing": 0
     }
    },
-   "sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+   "sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
    "blanks": null,
    "out": {
     "closed": false,
@@ -15104,7 +15104,7 @@
   {
    "name": "blind_with_blank",
    "plan": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -15209,7 +15209,7 @@
        "row_id": "81dfad6492",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "6f498a3270b53c6e",
        "risk_band": "high",
        "anchor": {
@@ -15239,7 +15239,7 @@
        "row_id": "66c7d14d35",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "50bd089538a43d00",
        "risk_band": "high",
        "anchor": {
@@ -15269,7 +15269,7 @@
        "row_id": "b6fe31cdf7",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "31dad2d76abf4876",
        "risk_band": "high",
        "anchor": {
@@ -15299,7 +15299,7 @@
        "row_id": "63904ecbc1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "0f35e0926bcb7cfe",
        "risk_band": "high",
        "anchor": {
@@ -15329,7 +15329,7 @@
        "row_id": "46ebc2a5a1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "64aa46579809f638",
        "risk_band": "high",
        "anchor": {
@@ -15359,7 +15359,7 @@
        "row_id": "748abbf715",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "70b9cf056b13d139",
        "risk_band": "high",
        "anchor": {
@@ -15389,7 +15389,7 @@
        "row_id": "d549f9e66a",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "b92155f1e2b84b77",
        "risk_band": "medium",
        "anchor": {
@@ -15419,7 +15419,7 @@
        "row_id": "d6e1821dc6",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "a0209a4117d17f80",
        "risk_band": "medium",
        "anchor": {
@@ -15449,7 +15449,7 @@
        "row_id": "dd489a9a69",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "8a777c22fea7d4c0",
        "risk_band": "medium",
        "anchor": {
@@ -15479,7 +15479,7 @@
        "row_id": "954d79770b",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "5efe1c80761fc6f0",
        "risk_band": "medium",
        "anchor": {
@@ -15583,10 +15583,10 @@
     ]
    },
    "surface": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "snapshot_id": "unpinned",
-    "parse_version": "2",
-    "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "parse_version": "3",
+    "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "generated_at": "2026-09-09T12:00:00.000000+00:00",
     "per_axis": 12,
     "total": 40,
@@ -16085,7 +16085,7 @@
      "missing": 0
     }
    },
-   "sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+   "sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
    "blanks": {
     "enforcement-timing": {
      "anchor_blind": "MockRollup::finalizeBatch::batch:index",
@@ -16206,7 +16206,7 @@
   {
    "name": "blind_wrong_key",
    "plan": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -16311,7 +16311,7 @@
        "row_id": "81dfad6492",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "6f498a3270b53c6e",
        "risk_band": "high",
        "anchor": {
@@ -16341,7 +16341,7 @@
        "row_id": "66c7d14d35",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "50bd089538a43d00",
        "risk_band": "high",
        "anchor": {
@@ -16371,7 +16371,7 @@
        "row_id": "b6fe31cdf7",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "31dad2d76abf4876",
        "risk_band": "high",
        "anchor": {
@@ -16401,7 +16401,7 @@
        "row_id": "63904ecbc1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "0f35e0926bcb7cfe",
        "risk_band": "high",
        "anchor": {
@@ -16431,7 +16431,7 @@
        "row_id": "46ebc2a5a1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "64aa46579809f638",
        "risk_band": "high",
        "anchor": {
@@ -16461,7 +16461,7 @@
        "row_id": "748abbf715",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "70b9cf056b13d139",
        "risk_band": "high",
        "anchor": {
@@ -16491,7 +16491,7 @@
        "row_id": "d549f9e66a",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "b92155f1e2b84b77",
        "risk_band": "medium",
        "anchor": {
@@ -16521,7 +16521,7 @@
        "row_id": "d6e1821dc6",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "a0209a4117d17f80",
        "risk_band": "medium",
        "anchor": {
@@ -16551,7 +16551,7 @@
        "row_id": "dd489a9a69",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "8a777c22fea7d4c0",
        "risk_band": "medium",
        "anchor": {
@@ -16581,7 +16581,7 @@
        "row_id": "954d79770b",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "5efe1c80761fc6f0",
        "risk_band": "medium",
        "anchor": {
@@ -16685,10 +16685,10 @@
     ]
    },
    "surface": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "snapshot_id": "unpinned",
-    "parse_version": "2",
-    "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "parse_version": "3",
+    "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "generated_at": "2026-09-09T12:00:00.000000+00:00",
     "per_axis": 12,
     "total": 40,
@@ -17187,7 +17187,7 @@
      "missing": 0
     }
    },
-   "sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+   "sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
    "blanks": {
     "enforcement-timing": {
      "anchor_blind": "no-such-key",
@@ -17313,7 +17313,7 @@
   {
    "name": "under_filled",
    "plan": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -17418,7 +17418,7 @@
        "row_id": "81dfad6492",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "6f498a3270b53c6e",
        "risk_band": "high",
        "anchor": {
@@ -17448,7 +17448,7 @@
        "row_id": "66c7d14d35",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "50bd089538a43d00",
        "risk_band": "high",
        "anchor": {
@@ -17478,7 +17478,7 @@
        "row_id": "b6fe31cdf7",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "31dad2d76abf4876",
        "risk_band": "high",
        "anchor": {
@@ -17508,7 +17508,7 @@
        "row_id": "63904ecbc1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "0f35e0926bcb7cfe",
        "risk_band": "high",
        "anchor": {
@@ -17538,7 +17538,7 @@
        "row_id": "46ebc2a5a1",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "64aa46579809f638",
        "risk_band": "high",
        "anchor": {
@@ -17568,7 +17568,7 @@
        "row_id": "748abbf715",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "70b9cf056b13d139",
        "risk_band": "high",
        "anchor": {
@@ -17598,7 +17598,7 @@
        "row_id": "d549f9e66a",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "b92155f1e2b84b77",
        "risk_band": "medium",
        "anchor": {
@@ -17628,7 +17628,7 @@
        "row_id": "d6e1821dc6",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "a0209a4117d17f80",
        "risk_band": "medium",
        "anchor": {
@@ -17658,7 +17658,7 @@
        "row_id": "dd489a9a69",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "8a777c22fea7d4c0",
        "risk_band": "medium",
        "anchor": {
@@ -17688,7 +17688,7 @@
        "row_id": "954d79770b",
        "probe_id": "assertion-strength",
        "axis": "enforcement-timing",
-       "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+       "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
        "shape_sha": "5efe1c80761fc6f0",
        "risk_band": "medium",
        "anchor": {
@@ -17792,10 +17792,10 @@
     ]
    },
    "surface": {
-    "campaign_id": "C-259d60d374",
+    "campaign_id": "C-21c42d390b",
     "snapshot_id": "unpinned",
-    "parse_version": "2",
-    "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "parse_version": "3",
+    "index_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
     "generated_at": "2026-09-09T12:00:00.000000+00:00",
     "per_axis": 12,
     "total": 40,
@@ -18294,7 +18294,7 @@
      "missing": 0
     }
    },
-   "sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+   "sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
    "blanks": null,
    "out": {
     "closed": false,
@@ -18417,7 +18417,7 @@
   "axis_absent": [
    {
     "subject": "liveness",
-    "what": "probe axis liveness (sequential-cursor, lens L-01) has no surface in probe_surface.json \u2014 run `webv2 probes C-259d60d374 run --emit`"
+    "what": "probe axis liveness (sequential-cursor, lens L-01) has no surface in probe_surface.json \u2014 run `webv2 probes C-21c42d390b run --emit`"
    }
   ]
  },
@@ -18448,7 +18448,7 @@
     },
     "error": null,
     "after": {
-     "campaign_id": "C-259d60d374",
+     "campaign_id": "C-21c42d390b",
      "created_at": "2026-09-09T12:00:00.000000+00:00",
      "snapshot_id": "unpinned",
      "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -18541,7 +18541,7 @@
         "row_id": "81dfad6492",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "6f498a3270b53c6e",
         "risk_band": "high",
         "anchor": {
@@ -18571,7 +18571,7 @@
         "row_id": "66c7d14d35",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "50bd089538a43d00",
         "risk_band": "high"
        }
@@ -18592,7 +18592,7 @@
         "row_id": "b6fe31cdf7",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "31dad2d76abf4876",
         "risk_band": "high"
        }
@@ -18613,7 +18613,7 @@
         "row_id": "63904ecbc1",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "0f35e0926bcb7cfe",
         "risk_band": "high"
        }
@@ -18634,7 +18634,7 @@
         "row_id": "46ebc2a5a1",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "64aa46579809f638",
         "risk_band": "high"
        }
@@ -18655,7 +18655,7 @@
         "row_id": "748abbf715",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "70b9cf056b13d139",
         "risk_band": "high"
        }
@@ -18676,7 +18676,7 @@
         "row_id": "d549f9e66a",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "b92155f1e2b84b77",
         "risk_band": "medium"
        }
@@ -18697,7 +18697,7 @@
         "row_id": "d6e1821dc6",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "a0209a4117d17f80",
         "risk_band": "medium"
        }
@@ -18718,7 +18718,7 @@
         "row_id": "dd489a9a69",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "8a777c22fea7d4c0",
         "risk_band": "medium"
        }
@@ -18739,7 +18739,7 @@
         "row_id": "954d79770b",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "5efe1c80761fc6f0",
         "risk_band": "medium"
        }
@@ -18810,11 +18810,11 @@
       "at": "2026-09-09T12:00:00.000000+00:00",
       "data": {
        "kind": "plan",
-       "path": "/tmp/t9-ma-9oyjr60z/campaigns/C-adaa766df7/artifacts/campaign_plan.json"
+       "path": "/tmp/t9-ma-x_v28psi/campaigns/C-3573863f43/artifacts/campaign_plan.json"
       },
-      "event_hash": "2888a250829789d174d7f303bc9c4bcda336d99052ddeec98d3c33fdf6439d29",
-      "prev_hash": "901664f6820c75fcd6f0db5f7e846a44259b1086b8cc951db9098f925e0731ba",
-      "ref": "PLA-db7f2edf",
+      "event_hash": "dadaecf9fb0d7868af4089b257f00fdcd476df303d4c2704525fd7dfa6ed6eb2",
+      "prev_hash": "0468752a176b23974420a94167a6ddff9d5ac23e71bde34c0c9550ec599dfa3c",
+      "ref": "PLA-0f36cabe",
       "seq": 1,
       "type": "artifact.registered"
      },
@@ -18831,8 +18831,8 @@
        "ref": "Rollup.sol#L45",
        "status": "answered"
       },
-      "event_hash": "5b3d239b1a1f813aac017bd59261c630b9d37577531e4036d71da78bbd58983d",
-      "prev_hash": "2888a250829789d174d7f303bc9c4bcda336d99052ddeec98d3c33fdf6439d29",
+      "event_hash": "ee0db7c9345619c49801acb87d4de5bc1fda2693f2e62b233084b53e5ff0c477",
+      "prev_hash": "dadaecf9fb0d7868af4089b257f00fdcd476df303d4c2704525fd7dfa6ed6eb2",
       "ref": "Q-005",
       "seq": 2,
       "type": "plan.priority_status"
@@ -18894,7 +18894,7 @@
     },
     "error": null,
     "after": {
-     "campaign_id": "C-259d60d374",
+     "campaign_id": "C-21c42d390b",
      "created_at": "2026-09-09T12:00:00.000000+00:00",
      "snapshot_id": "unpinned",
      "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -18987,7 +18987,7 @@
         "row_id": "81dfad6492",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "6f498a3270b53c6e",
         "risk_band": "high"
        },
@@ -19011,7 +19011,7 @@
         "row_id": "66c7d14d35",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "50bd089538a43d00",
         "risk_band": "high"
        }
@@ -19032,7 +19032,7 @@
         "row_id": "b6fe31cdf7",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "31dad2d76abf4876",
         "risk_band": "high"
        }
@@ -19053,7 +19053,7 @@
         "row_id": "63904ecbc1",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "0f35e0926bcb7cfe",
         "risk_band": "high"
        }
@@ -19074,7 +19074,7 @@
         "row_id": "46ebc2a5a1",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "64aa46579809f638",
         "risk_band": "high"
        }
@@ -19095,7 +19095,7 @@
         "row_id": "748abbf715",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "70b9cf056b13d139",
         "risk_band": "high"
        }
@@ -19116,7 +19116,7 @@
         "row_id": "d549f9e66a",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "b92155f1e2b84b77",
         "risk_band": "medium"
        }
@@ -19137,7 +19137,7 @@
         "row_id": "d6e1821dc6",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "a0209a4117d17f80",
         "risk_band": "medium"
        }
@@ -19158,7 +19158,7 @@
         "row_id": "dd489a9a69",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "8a777c22fea7d4c0",
         "risk_band": "medium"
        }
@@ -19179,7 +19179,7 @@
         "row_id": "954d79770b",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "5efe1c80761fc6f0",
         "risk_band": "medium"
        }
@@ -19250,11 +19250,11 @@
       "at": "2026-09-09T12:00:00.000000+00:00",
       "data": {
        "kind": "plan",
-       "path": "/tmp/t9-ma-ieozecn2/campaigns/C-31506c4980/artifacts/campaign_plan.json"
+       "path": "/tmp/t9-ma-ttj_kbzz/campaigns/C-3573863f43/artifacts/campaign_plan.json"
       },
-      "event_hash": "99750acb3c9f646f39a23b25c4bde9381f7be0a574e19e8e636fc8fbc82ce27c",
-      "prev_hash": "8d7556fe63e691771bdc4d244c3b91299c7a508738d84695b4c6f205aaef3386",
-      "ref": "PLA-958627f4",
+      "event_hash": "5008acc65de092bc9b1ee25b1a80b9c02d13ecd09f5f79175e62aa5705afd0c5",
+      "prev_hash": "0468752a176b23974420a94167a6ddff9d5ac23e71bde34c0c9550ec599dfa3c",
+      "ref": "PLA-9de99fbb",
       "seq": 1,
       "type": "artifact.registered"
      },
@@ -19266,8 +19266,8 @@
        "ref": null,
        "status": "blocked"
       },
-      "event_hash": "24d42de73ce851cf7c5cf21da89d8c76dc5acdd50d2aee1e4269506c87eff2a1",
-      "prev_hash": "99750acb3c9f646f39a23b25c4bde9381f7be0a574e19e8e636fc8fbc82ce27c",
+      "event_hash": "83348143e6f36a95a93ac3b32a5408665377b3223c59a611046927e657b11112",
+      "prev_hash": "5008acc65de092bc9b1ee25b1a80b9c02d13ecd09f5f79175e62aa5705afd0c5",
       "ref": "Q-005",
       "seq": 2,
       "type": "plan.priority_status"
@@ -19283,7 +19283,7 @@
     },
     "error": null,
     "after": {
-     "campaign_id": "C-259d60d374",
+     "campaign_id": "C-21c42d390b",
      "created_at": "2026-09-09T12:00:00.000000+00:00",
      "snapshot_id": "unpinned",
      "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -19388,7 +19388,7 @@
         "row_id": "81dfad6492",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "6f498a3270b53c6e",
         "risk_band": "high"
        }
@@ -19409,7 +19409,7 @@
         "row_id": "66c7d14d35",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "50bd089538a43d00",
         "risk_band": "high",
         "anchor": {
@@ -19439,7 +19439,7 @@
         "row_id": "b6fe31cdf7",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "31dad2d76abf4876",
         "risk_band": "high",
         "anchor": {
@@ -19469,7 +19469,7 @@
         "row_id": "63904ecbc1",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "0f35e0926bcb7cfe",
         "risk_band": "high",
         "anchor": {
@@ -19499,7 +19499,7 @@
         "row_id": "46ebc2a5a1",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "64aa46579809f638",
         "risk_band": "high",
         "anchor": {
@@ -19529,7 +19529,7 @@
         "row_id": "748abbf715",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "70b9cf056b13d139",
         "risk_band": "high",
         "anchor": {
@@ -19559,7 +19559,7 @@
         "row_id": "d549f9e66a",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "b92155f1e2b84b77",
         "risk_band": "medium",
         "anchor": {
@@ -19589,7 +19589,7 @@
         "row_id": "d6e1821dc6",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "a0209a4117d17f80",
         "risk_band": "medium",
         "anchor": {
@@ -19619,7 +19619,7 @@
         "row_id": "dd489a9a69",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "8a777c22fea7d4c0",
         "risk_band": "medium",
         "anchor": {
@@ -19649,7 +19649,7 @@
         "row_id": "954d79770b",
         "probe_id": "assertion-strength",
         "axis": "enforcement-timing",
-        "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+        "surface_sha": "4649be945ad02d2b81067a4dc64798537b948163e5516a8a1768458058ca6908",
         "shape_sha": "5efe1c80761fc6f0",
         "risk_band": "medium",
         "anchor": {
@@ -19757,11 +19757,11 @@
       "at": "2026-09-09T12:00:00.000000+00:00",
       "data": {
        "kind": "plan",
-       "path": "/tmp/t9-ma-epg7vxqy/campaigns/C-614745a1bc/artifacts/campaign_plan.json"
+       "path": "/tmp/t9-ma-pe2evbkq/campaigns/C-3573863f43/artifacts/campaign_plan.json"
       },
-      "event_hash": "8a9925384b80beee2b8e68b6506e417615cbc8cdf1496be41055094847d47a3f",
-      "prev_hash": "1bcccd9615dcade13d2d860026862b9a801c5bd728f61d8bbd193d192eb45ac7",
-      "ref": "PLA-88f4132e",
+      "event_hash": "0b93cfa7a879919e0030a7517b32db2e580c57cfb476e0477812dba098ffd443",
+      "prev_hash": "0468752a176b23974420a94167a6ddff9d5ac23e71bde34c0c9550ec599dfa3c",
+      "ref": "PLA-eb0d6a8a",
       "seq": 1,
       "type": "artifact.registered"
      },
@@ -19773,8 +19773,8 @@
        "ref": null,
        "status": "open"
       },
-      "event_hash": "863984c234c27732cee5d9dba960aec0561424d55f5b5bfd7a6717c295a0226d",
-      "prev_hash": "8a9925384b80beee2b8e68b6506e417615cbc8cdf1496be41055094847d47a3f",
+      "event_hash": "853f8e6cab386298d76c0e4238d1cceea17cc1097e1e97ee467a28af6b957427",
+      "prev_hash": "0b93cfa7a879919e0030a7517b32db2e580c57cfb476e0477812dba098ffd443",
       "ref": "Q-005",
       "seq": 2,
       "type": "plan.priority_status"
@@ -19854,7 +19854,7 @@
   {
    "name": "close",
    "plan": {
-    "campaign_id": "C-a4dbb99c51",
+    "campaign_id": "C-c8536e5f48",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -19997,7 +19997,7 @@
   {
    "name": "reopen",
    "plan": {
-    "campaign_id": "C-a4dbb99c51",
+    "campaign_id": "C-c8536e5f48",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -20144,7 +20144,7 @@
   {
    "name": "symmetry",
    "plan": {
-    "campaign_id": "C-a4dbb99c51",
+    "campaign_id": "C-c8536e5f48",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -20305,7 +20305,7 @@
   {
    "name": "families_checked",
    "plan": {
-    "campaign_id": "C-a4dbb99c51",
+    "campaign_id": "C-c8536e5f48",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -20452,11 +20452,11 @@
   "type": "ValueError",
   "msg": "priorities Q-900 (bug_class 'vibes-based') declare non-canonical bug_class; the canonical class list is what `webv2 floors <campaign>` prints (one row per class, with its CONFIRMED floor) \u2014 use a listed class or drop the bug_class key"
  },
- "save_plan_ok_path": "/tmp/t9-sp-h255l4nu/campaigns/C-9f4b547c38/artifacts/campaign_plan.json",
+ "save_plan_ok_path": "/tmp/t9-sp-21h0s8rd/campaigns/C-a97e5d4666/artifacts/campaign_plan.json",
  "load_plan": {
   "priorities": 5,
   "plan": {
-   "campaign_id": "C-9f4b547c38",
+   "campaign_id": "C-a97e5d4666",
    "created_at": "2026-09-09T12:00:00.000000+00:00",
    "snapshot_id": "unpinned",
    "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -20605,11 +20605,11 @@
     "at": "2026-09-09T12:00:00.000000+00:00",
     "data": {
      "kind": "plan",
-     "path": "/tmp/t9-sp-h255l4nu/campaigns/C-9f4b547c38/artifacts/campaign_plan.json"
+     "path": "/tmp/t9-sp-21h0s8rd/campaigns/C-a97e5d4666/artifacts/campaign_plan.json"
     },
-    "event_hash": "f885cb94368c51fc13826cb221fccfb8878a5cb54e1b389b3a4070dc333e2d80",
-    "prev_hash": "db39b902d2689005f7a1a151127748fb733f77899094f6dfbd2007e9d9f4cf10",
-    "ref": "PLA-3c40142e",
+    "event_hash": "7673c299f1027251d3e201182072d2b4a2245ec2c1c10a06369aeceaadea85e7",
+    "prev_hash": "dcd2625098b9ae3cdd6c40152078c439f0ef46d0013884a108fd723a4752754f",
+    "ref": "PLA-442ca643",
     "seq": 1,
     "type": "artifact.registered"
    },
@@ -20618,14 +20618,14 @@
     "data": {
      "actor": "operator",
      "kind": "plan",
-     "new_sha256": "b9125232bf6f406a5676016f137bb97d0f311e39bc4052317475c9f7e95d2cf0",
-     "old_sha256": "b9125232bf6f406a5676016f137bb97d0f311e39bc4052317475c9f7e95d2cf0",
+     "new_sha256": "683d78f5a099db369e173af6c5c8ec6e92c84db9c52d1f5956bf34f33eff8351",
+     "old_sha256": "683d78f5a099db369e173af6c5c8ec6e92c84db9c52d1f5956bf34f33eff8351",
      "reason": "plan saved (5 priorities)",
      "refresh_count": 1
     },
-    "event_hash": "2b7457ad5ea85b0b104f45d0a1fa299102945845daab21bb65ebdb4f42b47b95",
-    "prev_hash": "f885cb94368c51fc13826cb221fccfb8878a5cb54e1b389b3a4070dc333e2d80",
-    "ref": "PLA-3c40142e",
+    "event_hash": "8f436161d95aac14ef647fbffa877d00af837245349e02ab3e72235776ac0ea3",
+    "prev_hash": "7673c299f1027251d3e201182072d2b4a2245ec2c1c10a06369aeceaadea85e7",
+    "ref": "PLA-442ca643",
     "seq": 2,
     "type": "artifact.refreshed"
    },
@@ -20634,14 +20634,14 @@
     "data": {
      "actor": "operator",
      "kind": "plan",
-     "new_sha256": "b9125232bf6f406a5676016f137bb97d0f311e39bc4052317475c9f7e95d2cf0",
-     "old_sha256": "b9125232bf6f406a5676016f137bb97d0f311e39bc4052317475c9f7e95d2cf0",
+     "new_sha256": "683d78f5a099db369e173af6c5c8ec6e92c84db9c52d1f5956bf34f33eff8351",
+     "old_sha256": "683d78f5a099db369e173af6c5c8ec6e92c84db9c52d1f5956bf34f33eff8351",
      "reason": "plan re-loaded (content may have changed)",
      "refresh_count": 2
     },
-    "event_hash": "1ba395014689a37ee7d63ddb284a79f6c3ca425cc7704b00bd94c21913675333",
-    "prev_hash": "2b7457ad5ea85b0b104f45d0a1fa299102945845daab21bb65ebdb4f42b47b95",
-    "ref": "PLA-3c40142e",
+    "event_hash": "471de4d0510c1812fe82045173bc93c196ed63b28197260c9cad6df052938cce",
+    "prev_hash": "8f436161d95aac14ef647fbffa877d00af837245349e02ab3e72235776ac0ea3",
+    "ref": "PLA-442ca643",
     "seq": 3,
     "type": "artifact.refreshed"
    },
@@ -20650,8 +20650,8 @@
     "data": {
      "priorities": 5
     },
-    "event_hash": "9d1b15b31bdbf322a32cc89619a9cfe108187e7603f9122b7aa31f0109883fdd",
-    "prev_hash": "1ba395014689a37ee7d63ddb284a79f6c3ca425cc7704b00bd94c21913675333",
+    "event_hash": "2a6f9800dc5cbc88df675dc15c76f4fd80c2d9a73a9453a1876a00f84767b956",
+    "prev_hash": "471de4d0510c1812fe82045173bc93c196ed63b28197260c9cad6df052938cce",
     "ref": null,
     "seq": 4,
     "type": "plan.loaded"
@@ -20659,11 +20659,11 @@
   ],
   "artifacts": [
    {
-    "artifact_id": "PLA-3c40142e",
+    "artifact_id": "PLA-442ca643",
     "kind": "plan",
-    "path": "campaigns/C-9f4b547c38/artifacts/campaign_plan.json",
+    "path": "campaigns/C-a97e5d4666/artifacts/campaign_plan.json",
     "registered_at": "2026-09-09T12:00:00.000000+00:00",
-    "sha256": "b9125232bf6f406a5676016f137bb97d0f311e39bc4052317475c9f7e95d2cf0",
+    "sha256": "683d78f5a099db369e173af6c5c8ec6e92c84db9c52d1f5956bf34f33eff8351",
     "snapshot_id": null,
     "note": "campaign plan, 5 priorities",
     "refreshed_at": "2026-09-09T12:00:00.000000+00:00",
@@ -20677,11 +20677,11 @@
    "at": "2026-09-09T12:00:00.000000+00:00",
    "data": {
     "kind": "plan",
-    "path": "/tmp/t9-sp-h255l4nu/campaigns/C-9f4b547c38/artifacts/campaign_plan.json"
+    "path": "/tmp/t9-sp-21h0s8rd/campaigns/C-a97e5d4666/artifacts/campaign_plan.json"
    },
-   "event_hash": "f885cb94368c51fc13826cb221fccfb8878a5cb54e1b389b3a4070dc333e2d80",
-   "prev_hash": "db39b902d2689005f7a1a151127748fb733f77899094f6dfbd2007e9d9f4cf10",
-   "ref": "PLA-3c40142e",
+   "event_hash": "7673c299f1027251d3e201182072d2b4a2245ec2c1c10a06369aeceaadea85e7",
+   "prev_hash": "dcd2625098b9ae3cdd6c40152078c439f0ef46d0013884a108fd723a4752754f",
+   "ref": "PLA-442ca643",
    "seq": 1,
    "type": "artifact.registered"
   },
@@ -20690,14 +20690,14 @@
    "data": {
     "actor": "operator",
     "kind": "plan",
-    "new_sha256": "b9125232bf6f406a5676016f137bb97d0f311e39bc4052317475c9f7e95d2cf0",
-    "old_sha256": "b9125232bf6f406a5676016f137bb97d0f311e39bc4052317475c9f7e95d2cf0",
+    "new_sha256": "683d78f5a099db369e173af6c5c8ec6e92c84db9c52d1f5956bf34f33eff8351",
+    "old_sha256": "683d78f5a099db369e173af6c5c8ec6e92c84db9c52d1f5956bf34f33eff8351",
     "reason": "plan saved (5 priorities)",
     "refresh_count": 1
    },
-   "event_hash": "2b7457ad5ea85b0b104f45d0a1fa299102945845daab21bb65ebdb4f42b47b95",
-   "prev_hash": "f885cb94368c51fc13826cb221fccfb8878a5cb54e1b389b3a4070dc333e2d80",
-   "ref": "PLA-3c40142e",
+   "event_hash": "8f436161d95aac14ef647fbffa877d00af837245349e02ab3e72235776ac0ea3",
+   "prev_hash": "7673c299f1027251d3e201182072d2b4a2245ec2c1c10a06369aeceaadea85e7",
+   "ref": "PLA-442ca643",
    "seq": 2,
    "type": "artifact.refreshed"
   },
@@ -20706,14 +20706,14 @@
    "data": {
     "actor": "operator",
     "kind": "plan",
-    "new_sha256": "b9125232bf6f406a5676016f137bb97d0f311e39bc4052317475c9f7e95d2cf0",
-    "old_sha256": "b9125232bf6f406a5676016f137bb97d0f311e39bc4052317475c9f7e95d2cf0",
+    "new_sha256": "683d78f5a099db369e173af6c5c8ec6e92c84db9c52d1f5956bf34f33eff8351",
+    "old_sha256": "683d78f5a099db369e173af6c5c8ec6e92c84db9c52d1f5956bf34f33eff8351",
     "reason": "plan re-loaded (content may have changed)",
     "refresh_count": 2
    },
-   "event_hash": "1ba395014689a37ee7d63ddb284a79f6c3ca425cc7704b00bd94c21913675333",
-   "prev_hash": "2b7457ad5ea85b0b104f45d0a1fa299102945845daab21bb65ebdb4f42b47b95",
-   "ref": "PLA-3c40142e",
+   "event_hash": "471de4d0510c1812fe82045173bc93c196ed63b28197260c9cad6df052938cce",
+   "prev_hash": "8f436161d95aac14ef647fbffa877d00af837245349e02ab3e72235776ac0ea3",
+   "ref": "PLA-442ca643",
    "seq": 3,
    "type": "artifact.refreshed"
   },
@@ -20722,8 +20722,8 @@
    "data": {
     "priorities": 5
    },
-   "event_hash": "9d1b15b31bdbf322a32cc89619a9cfe108187e7603f9122b7aa31f0109883fdd",
-   "prev_hash": "1ba395014689a37ee7d63ddb284a79f6c3ca425cc7704b00bd94c21913675333",
+   "event_hash": "2a6f9800dc5cbc88df675dc15c76f4fd80c2d9a73a9453a1876a00f84767b956",
+   "prev_hash": "471de4d0510c1812fe82045173bc93c196ed63b28197260c9cad6df052938cce",
    "ref": null,
    "seq": 4,
    "type": "plan.loaded"
@@ -20734,7 +20734,7 @@
    "name": "add",
    "pid": "Q-005",
    "plan": {
-    "campaign_id": "C-ab14e814d5",
+    "campaign_id": "C-12ea0e8744",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -20882,7 +20882,7 @@
    "name": "clear",
    "pid": null,
    "plan": {
-    "campaign_id": "C-ab14e814d5",
+    "campaign_id": "C-12ea0e8744",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -21039,7 +21039,7 @@
    "name": "noop",
    "pid": null,
    "plan": {
-    "campaign_id": "C-ab14e814d5",
+    "campaign_id": "C-12ea0e8744",
     "created_at": "2026-09-09T12:00:00.000000+00:00",
     "snapshot_id": "unpinned",
     "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
@@ -21193,6 +21193,120 @@
    "plan": null
   }
  ],
+ "validate_plan": {
+  "seeded": {
+   "campaign_id": "C-09bb627b59",
+   "created_at": "2026-09-09T12:00:00.000000+00:00",
+   "priorities": [
+    {
+     "id": "Q-001",
+     "question": "Can an unprivileged caller drain the vault?",
+     "risk": 0.5,
+     "trajectories": [
+      "code"
+     ]
+    }
+   ],
+   "lenses": [
+    {
+     "id": "L-01",
+     "lens": "liveness",
+     "surface": "protocol",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: protocol (none declared)",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-02",
+     "lens": "incentive-inversion",
+     "surface": "protocol",
+     "question": "INCENTIVE-INVERSION: does the protocol ever PAY an attacker or PUNISH an honest actor (challenge, slash, claim, delegate) under any reachable state? Trace what the honest participant gets for being right. State machines in the model: protocol (none declared)",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-03",
+     "lens": "enforcement-timing",
+     "surface": "protocol",
+     "question": "ENFORCEMENT-TIMING: for each security-critical check, is it enforced at the EARLIEST lifecycle stage it could be (intake, not execution)? A check that exists only at finalize/execute time is a candidate. State machines in the model: protocol (none declared)",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    },
+    {
+     "id": "L-04",
+     "lens": "primitive-symmetry",
+     "surface": "protocol",
+     "question": "PRIMITIVE-SYMMETRY: group functions into sibling lifecycle families (deposit <-> withdraw <-> drop <-> refund) and compare primitives + access control across siblings. A family that burns on one path and mints/safeTransfers on another is a candidate. State machines in the model: protocol (none declared)",
+     "status": "open",
+     "families": [
+      "protocol"
+     ]
+    }
+   ]
+  },
+  "error": {
+   "type": "ValueError",
+   "msg": "priorities Q-001 (bug_class 'vibes-based') declare non-canonical bug_class; the canonical class list is what `webv2 floors <campaign>` prints (one row per class, with its CONFIRMED floor) \u2014 use a listed class or drop the bug_class key"
+  },
+  "plan_exists": false
+ },
+ "archive_plan": {
+  "dest1": "<ROOT>/campaigns/C-09bb627b59/artifacts/superseded/campaign_plan.0001.json",
+  "dest2": "<ROOT>/campaigns/C-09bb627b59/artifacts/superseded/campaign_plan.0002.json",
+  "dest3": "<ROOT>/campaigns/C-09bb627b59/artifacts/superseded/campaign_plan.0003.json",
+  "byte_identical": true,
+  "event": {
+   "seq": 3,
+   "at": "2026-09-09T12:00:00.000000+00:00",
+   "type": "plan.superseded",
+   "ref_kind": "artifact_id",
+   "data": {
+    "path": "<ROOT>/campaigns/C-09bb627b59/artifacts/superseded/campaign_plan.0001.json",
+    "priorities": 4,
+    "reason": "plan superseded by an explicit rebuild",
+    "sha256_of_superseded": "388dd68904d7b43f58e39c5b4ee01acb28d0fc03214af15c66ebaf546898c465",
+    "source_path": "<ROOT>/campaigns/C-09bb627b59/artifacts/campaign_plan.json",
+    "version": "0001"
+   }
+  },
+  "artifacts": [
+   {
+    "kind": "plan.superseded",
+    "path": "campaigns/C-09bb627b59/artifacts/superseded/campaign_plan.0001.json",
+    "note": "superseded campaign plan 0001 (4 priorities)",
+    "sha256": "388dd68904d7b43f58e39c5b4ee01acb28d0fc03214af15c66ebaf546898c465",
+    "snapshot_id": null
+   },
+   {
+    "kind": "plan.superseded",
+    "path": "campaigns/C-09bb627b59/artifacts/superseded/campaign_plan.0002.json",
+    "note": "superseded campaign plan 0002 (4 priorities)",
+    "sha256": "388dd68904d7b43f58e39c5b4ee01acb28d0fc03214af15c66ebaf546898c465",
+    "snapshot_id": null
+   },
+   {
+    "kind": "plan.superseded",
+    "path": "campaigns/C-09bb627b59/artifacts/superseded/campaign_plan.0003.json",
+    "note": "superseded campaign plan 0003 (4 priorities)",
+    "sha256": "388dd68904d7b43f58e39c5b4ee01acb28d0fc03214af15c66ebaf546898c465",
+    "snapshot_id": null
+   }
+  ],
+  "superseded_paths": [
+   "<ROOT>/campaigns/C-09bb627b59/artifacts/superseded/campaign_plan.0002.json",
+   "<ROOT>/campaigns/C-09bb627b59/artifacts/superseded/campaign_plan.0003.json"
+  ],
+  "missing_error": {
+   "type": "FileNotFoundError",
+   "msg": "nothing to archive: no plan at <ROOT>/campaigns/C-f41b989d19/artifacts/campaign_plan.json"
+  }
+ },
  "constants": {
   "LENS_IDS": [
    "liveness",

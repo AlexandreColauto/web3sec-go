@@ -493,6 +493,16 @@ func insolvencyRisk(finding validation.Value) string {
 // numbers on a finding, then recalibrate. Each number is a validation.Value
 // so Python's None (VNull) and the int-vs-float identity of the caller's
 // kwarg survive: the finding stores float(v), the event keeps the literal.
+//
+// The quantification step is a real stage of the workflow (E7 cites it),
+// but nothing before this wrote those numbers through an API — operators
+// hand-edited finding JSON, which the schema only half-guarded.
+//
+// A priced record also REVERSES a previous unpriceable decision (the
+// latest decision wins, the floors pattern): priceable flips back to true,
+// the ceiling basis is dropped, and the log keeps both events. A finding
+// that never carried the decision is written exactly as before — no new
+// key — so old behaviour is byte-identical.
 func RecordEconomicImpact(campaign *state.Campaign, findingID string,
 	extractableUSD, maxLossUSD, requiredCapitalUSD validation.Value) (validation.Value, error) {
 	f, err := findings.LoadFinding(campaign, findingID)
@@ -504,6 +514,14 @@ func RecordEconomicImpact(campaign *state.Campaign, findingID string,
 		return validation.VNull(), err
 	}
 	impact := &f.O[ii].V.O
+	reversedUnpriceable := false
+	if p := objAt(f.O[ii].V, "priceable"); p.Kind == validation.Bool && !p.B {
+		reversedUnpriceable = true
+	}
+	if reversedUnpriceable {
+		*impact = setOrAppend(*impact, "priceable", validation.VBool(true))
+		*impact = popKey(*impact, "ceiling")
+	}
 	if err := setFloatField(impact, "extractable_usd", extractableUSD); err != nil {
 		return validation.VNull(), err
 	}
@@ -530,7 +548,92 @@ func RecordEconomicImpact(campaign *state.Campaign, findingID string,
 		validation.KV{K: "extractable_usd", V: extractableUSD},
 		validation.KV{K: "max_loss_usd", V: maxLossUSD},
 	)
+	if reversedUnpriceable {
+		data.O = append(data.O, validation.KV{K: "reversed_unpriceable",
+			V: validation.VBool(true)})
+	}
 	if _, err := campaign.Log("finding.impact_recorded", &findingID,
+		&data); err != nil {
+		return validation.VNull(), err
+	}
+	return findings.LoadFinding(campaign, findingID)
+}
+
+// RecordUnpriceable is record_unpriceable: record the NAMED DECISION that
+// this impact cannot be priced.
+//
+// PORT-NOTE (b22ca95): two surfaces of the same Python commit are NOT in
+// this port because their Go homes do not exist yet — report.py::generate
+// prints "- economically extractable: UNPRICEABLE (ceiling: ...)" where the
+// figure used to print, and cli.py's `impact --unpriceable` flag surface
+// (exit 2 for a missing --ceiling/--reason/--actor or a priced flag passed
+// alongside) plus `gate --dry-run`'s "satisfied by NAMED DECISION (actor
+// ..., reason: ...)" line belong to the CLI/report tasks. Both read the
+// decision through findings.UnpriceableDecision; the API-level refusal
+// messages below are the same strings those surfaces print.
+//
+// E7 is a quantification, and for some findings the honest quantification
+// is "no defensible number exists" — the run-7 case was a value sitting in
+// an address[255] test constant, where the CLI's demand for a USD figure
+// produced invented precision. This is the sanctioned alternative to that
+// theatre: the decision is DATA (economic_impact.priceable false + the
+// ceiling basis it was made against), attributed to a named actor,
+// reasoned in writing, and logged as one finding.unpriceable event — the
+// same discipline as floors.set_floor_policy and completion.waive.
+//
+// The decision supersedes any earlier figure: an unpriceable finding must
+// not keep a number that costs/bounty severity rules would still treat as
+// confirmed money. The superseded numbers stay recoverable from the
+// finding.impact_recorded events on the log.
+//
+// findings.UnpriceableDecision reads this back (state only, like
+// floors.floor_override); audit cross-checks it against the log, so a
+// hand-edited priceable: false is caught exactly like a hand-edited floor
+// policy.
+func RecordUnpriceable(campaign *state.Campaign, findingID, ceiling, reason,
+	actor string) (validation.Value, error) {
+	ceiling = pyStrip(ceiling)
+	reason = pyStrip(reason)
+	actor = pyStrip(actor)
+	if ceiling == "" {
+		return validation.VNull(), fmt.Errorf("an unpriceable decision " +
+			"must state the capacity basis it was made against (--ceiling)")
+	}
+	if utf8.RuneCountInString(reason) < 10 {
+		return validation.VNull(), fmt.Errorf("an unpriceable decision " +
+			"needs a written reason (>=10 chars): the point is the audit " +
+			"trail, not the bypass")
+	}
+	if actor == "" {
+		return validation.VNull(), fmt.Errorf("an unpriceable decision " +
+			"must name its actor (who decided this)")
+	}
+	f, err := findings.LoadFinding(campaign, findingID)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	ii, err := ensureObjField(&f.O, "economic_impact")
+	if err != nil {
+		return validation.VNull(), err
+	}
+	impact := &f.O[ii].V.O
+	*impact = setOrAppend(*impact, "priceable", validation.VBool(false))
+	*impact = setOrAppend(*impact, "ceiling", validation.VStr(ceiling))
+	*impact = popKey(*impact, "extractable_usd")
+	*impact = popKey(*impact, "max_loss_usd")
+	if err := findings.SaveFinding(campaign, &f); err != nil {
+		return validation.VNull(), err
+	}
+	if _, err := Calibrate(campaign, findingID); err != nil {
+		return validation.VNull(), err
+	}
+	data := validation.VObj(
+		validation.KV{K: "finding", V: validation.VStr(findingID)},
+		validation.KV{K: "ceiling", V: validation.VStr(ceiling)},
+		validation.KV{K: "reason", V: validation.VStr(reason)},
+		validation.KV{K: "actor", V: validation.VStr(actor)},
+	)
+	if _, err := campaign.Log("finding.unpriceable", &findingID,
 		&data); err != nil {
 		return validation.VNull(), err
 	}
@@ -726,6 +829,16 @@ func setOrAppend(o []validation.KV, key string, v validation.Value) []validation
 		}
 	}
 	return append(o, validation.KV{K: key, V: v})
+}
+
+// popKey is dict.pop(key, None): drop the key, keeping the order of the rest.
+func popKey(o []validation.KV, key string) []validation.KV {
+	for i := range o {
+		if o[i].K == key {
+			return append(o[:i:i], o[i+1:]...)
+		}
+	}
+	return o
 }
 
 // optNum is Python Optional[float] as a Value.

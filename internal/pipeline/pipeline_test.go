@@ -8,6 +8,7 @@
 package pipeline
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"testing"
 
 	"websec/internal/findings"
+	"websec/internal/planner"
 	"websec/internal/snapshot"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -38,7 +40,12 @@ func vstr(s string) validation.Value { return validation.VStr(s) }
 
 // ---- stub orchestrator (the Python twin's FakeOrch) -----------------------
 
-type fakeOrch struct{ c *state.Campaign }
+type fakeOrch struct {
+	c *state.Campaign
+	// planReadOnly mirrors Orchestrator.plan()'s read-only branch: a plan
+	// already on disk is returned unchanged (B1/D1).
+	planReadOnly bool
+}
 
 func (o *fakeOrch) Scope() (validation.Value, error) {
 	if err := o.c.SetPhase("SCOPE", "load bounty policy"); err != nil {
@@ -96,6 +103,10 @@ func (o *fakeOrch) Chaining() (validation.Value, error) {
 func (o *fakeOrch) CalibrateAll() (validation.Value, error)  { return validation.VArr(), nil }
 func (o *fakeOrch) BountyGateAll() (validation.Value, error) { return validation.VArr(), nil }
 func (o *fakeOrch) Plan() (validation.Value, error) {
+	if o.planReadOnly {
+		return validation.VObj(kv("plan", vstr("stub")),
+			kv("read_only", validation.VBool(true))), nil
+	}
 	return validation.VObj(kv("plan", vstr("stub"))), nil
 }
 func (o *fakeOrch) ReproductionQueue() (validation.Value, error) {
@@ -187,7 +198,7 @@ func newEnv(t *testing.T) *env {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &env{root: root, c: c, target: target, o: &fakeOrch{c}}
+	return &env{root: root, c: c, target: target, o: &fakeOrch{c: c}}
 }
 
 // snapHandler is the Python tests' `handlers={"snapshot": lambda camp: o.snapshot(target)}`.
@@ -472,6 +483,85 @@ func TestResumeSkipsCompletedStagesAndAdvances(t *testing.T) {
 		"['scope', 'snapshot', 'structural-index']")
 	assertState(t, e, sc.str(t, "state"), "resume")
 	assertEvents(t, e, sc.strs(t, "events"), "resume")
+}
+
+// tests/test_pipeline.py::test_existing_plan_stage_is_read_only_and_says_so_in_the_note
+//
+// B1/D1 resume case: a pipeline run that reaches `campaign-planning` with a
+// plan ALREADY on disk must reuse it read-only (the plan is the campaign's
+// contract — the old builtin regenerated and clobbered it), must complete the
+// stage, and must tell the operator in the stage note how to regenerate. The
+// note is the one-line human remedy, not the capped JSON blob the raw result
+// dict becomes.
+func TestExistingPlanStageIsReadOnlyAndSaysSoInTheNote(t *testing.T) {
+	e := newEnv(t)
+	useDefaultSeams(t)
+	plan := validation.VObj(
+		kv("campaign_id", vstr(e.c.CampaignID)),
+		kv("created_at", vstr("2026-09-08T00:00:00Z")),
+		kv("priorities", validation.VArr(validation.VObj(
+			kv("id", vstr("Q-001")),
+			kv("question", vstr("Can an unprivileged caller drain the vault?")),
+			kv("risk", validation.VFloat(0.9)),
+			kv("trajectories", validation.VArr(vstr("code"))),
+		))),
+	)
+	if _, err := planner.SavePlan(e.c, plan); err != nil {
+		t.Fatal(err)
+	}
+	planPath := filepath.Join(e.c.ArtifactsDir, "campaign_plan.json")
+	beforeBytes, err := os.ReadFile(planPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeInfo, err := os.Stat(planPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeMtime := beforeInfo.ModTime()
+	// the real orchestrator answers `read_only: true` for a plan on disk; the
+	// stub mirrors that one branch so the builtin's note is exercised.
+	e.o.planReadOnly = true
+	until := "campaign-planning"
+	p := New(e.c, e.o, map[string]Handler{"snapshot": e.snapHandler(),
+		"protocol-model": func(*state.Campaign) (validation.Value, error) {
+			return vstr("model loaded"), nil
+		}})
+	summary := run(t, p, RunOpts{Until: &until})
+	ranCampaignPlanning := false
+	for _, sid := range stringsOf(objAt(summary, "ran")) {
+		if sid == "campaign-planning" {
+			ranCampaignPlanning = true
+		}
+	}
+	if !ranCampaignPlanning {
+		t.Errorf("campaign-planning not in ran: %s", validation.DumpIndented(summary))
+	}
+	assertStr(t, "campaign-planning status", e.stageStatus(t, "campaign-planning"),
+		"done")
+	note := e.stageNote(t, "campaign-planning")
+	assertStr(t, "campaign-planning note", note, "existing plan reused read-only "+
+		"— `webv2 plan "+e.c.CampaignID+" --rebuild` to regenerate")
+	if strings.HasPrefix(note, "{") { // not a serialized result dict
+		t.Errorf("stage note is a serialized result dict: %s", note)
+	}
+	afterBytes, err := os.ReadFile(planPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(afterBytes, beforeBytes) {
+		t.Errorf("plan file changed:\n%s", afterBytes)
+	}
+	afterInfo, err := os.Stat(planPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !afterInfo.ModTime().Equal(beforeMtime) {
+		t.Errorf("plan mtime changed: %s != %s", afterInfo.ModTime(), beforeMtime)
+	}
+	if _, err := os.Stat(filepath.Join(e.c.ArtifactsDir, "superseded")); !os.IsNotExist(err) {
+		t.Errorf("superseded/ exists (err=%v)", err)
+	}
 }
 
 // tests/test_pipeline.py::test_failing_stage_halts_the_run_and_is_retryable

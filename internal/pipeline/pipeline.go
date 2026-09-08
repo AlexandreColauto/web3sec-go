@@ -341,6 +341,16 @@ func SetAdapter(a AdapterAPI) {
 	adapterImpl = a
 }
 
+// BuildContext is adapter.build_context through the one adapter seam.
+// orchestrator.discovery_context / critic_context call adapter.build_context
+// directly in Python; the Go port routes them here so there is a single
+// adapter owner (a test fake installed with SetAdapter covers both call
+// sites, and P2 wires the real module once).
+func BuildContext(c *state.Campaign, stage string,
+	extraPaths []string) (validation.Value, error) {
+	return adapterImpl.BuildContext(c, stage, extraPaths)
+}
+
 // CompletionAPI is the completion.py seam (P2, unported). ProofStatus returns
 // the proof dict, or Null when the stage declares no proof (Python's None).
 type CompletionAPI interface {
@@ -1031,7 +1041,7 @@ func (p *Pipeline) builtin(sid string) (validation.Value, error) {
 		}
 		return validation.VStr(path), nil
 	case "campaign-planning":
-		return o.Plan()
+		return p.builtinCampaignPlanning(o)
 	case "snapshot":
 		active, err := p.C.ActiveSnapshotIDOrNone()
 		if err != nil {
@@ -1048,6 +1058,24 @@ func (p *Pipeline) builtin(sid string) (validation.Value, error) {
 	}
 	return validation.VNull(), fmt.Errorf("no builtin for stage %s; register a handler",
 		validation.PyReprStr(sid))
+}
+
+// builtinCampaignPlanning is the campaign-planning builtin (B1/D1): a plan
+// already on disk is the campaign's CONTRACT, so the stage reuses it instead
+// of regenerating it. Returning the raw result would bury that in a capped
+// JSON blob (state cap_note); the operator gets one line saying WHAT
+// happened and HOW to regenerate.
+func (p *Pipeline) builtinCampaignPlanning(
+	o OrchestratorAPI) (validation.Value, error) {
+	res, err := o.Plan()
+	if err != nil {
+		return validation.VNull(), err
+	}
+	if res.Kind == validation.Obj && pyTruthy(objAt(res, "read_only")) {
+		return validation.VStr("existing plan reused read-only — " +
+			"`webv2 plan " + p.C.CampaignID + " --rebuild` to regenerate"), nil
+	}
+	return res, nil
 }
 
 // ModelStagePrompt is _MODEL_STAGE_PROMPT: pipeline stage -> adapter stage id

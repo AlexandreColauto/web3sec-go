@@ -30,7 +30,10 @@ var GATE_REMEDIATION = map[string]string{
 	"reproduction-reproduced": "webv2 mint <fid> --exec <EXEC-ID>   (a " +
 		"reproduced attempt, sandboxed)",
 	"evidence-floor": "webv2 mint <fid> --exec <EXEC-ID>   (or, for a NAMED " +
-		"decision: webv2 floors set — an override, logged, never a silent edit)",
+		"decision: webv2 floors set — an override, logged, never a silent " +
+		"edit). Economic-class E7: when no USD figure is defensible, record " +
+		"the decision instead — webv2 impact <campaign> <fid> --unpriceable " +
+		"--ceiling '<capacity basis>' --reason '<why>' --actor <you>",
 	"evidence-floor-unreachable": "webv2 snap / export FORK_RPC_URL   (make " +
 		"the evidence reachable) — or webv2 floors set to record the override " +
 		"as a decision",

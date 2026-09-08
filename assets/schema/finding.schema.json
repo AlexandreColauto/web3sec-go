@@ -399,6 +399,15 @@
           "type": ["string", "null"],
           "pattern": "^PRC-[a-z0-9]{6,}$",
           "description": "price_id from the campaign price table the USD numbers were computed at — E7 is only reproducible if the basis is recorded, never web-searched mid-run"
+        },
+        "priceable": {
+          "type": "boolean",
+          "description": "false records the NAMED DECISION that this impact cannot honestly be priced (risk.record_unpriceable). ABSENT means priceable — every pre-existing finding keeps its behaviour. The economic-class E7 clause accepts false+ceiling in place of an E7 artifact."
+        },
+        "ceiling": {
+          "type": "string",
+          "minLength": 1,
+          "description": "the capacity basis the unpriceable decision was made against (why no USD figure is defensible). Required in practice whenever priceable is false — the report renders it where the number used to print."
         }
       }
     },
@@ -752,6 +761,48 @@
               },
               "row_digest": {
                 "type": "string"
+              },
+              "relevance": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "B3/D2 structural-overlap verdict for the cite: `overlapping` lists the cited rows sharing at least one structural tag with the finding; `basis` names the tag bases that fired. Prose never counts. `discounted` (with `rule`) is present when a bug_class match on a NON-DISCRIMINATIVE class was set aside — that class cannot carry the overlap alone — and `basis` then names the second basis that did. Absent on checks recorded before this field existed.",
+                "required": [
+                  "overlapping",
+                  "basis"
+                ],
+                "properties": {
+                  "overlapping": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "basis": {
+                    "type": "array",
+                    "items": {
+                      "enum": [
+                        "bug_class",
+                        "capability",
+                        "cwe"
+                      ]
+                    }
+                  },
+                  "discounted": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "sorted `basis=value` strings that matched but were set aside by the coarse-class rule (e.g. bug_class=logic-error); present only when the rule applied."
+                  },
+                  "rule": {
+                    "type": "string",
+                    "description": "the predicate that produced `discounted`, recorded verbatim so a reviewer sees why a cite counted."
+                  }
+                }
+              },
+              "recalled_irrelevant": {
+                "type": "boolean",
+                "description": "true when no cited row shares a structural tag with the finding (relevance.overlapping is empty). The check still satisfies the CONFIRMED gate clause — this is the honest signal, not a new gate — and one `corpus.gap` event was logged with it."
               }
             }
           }
