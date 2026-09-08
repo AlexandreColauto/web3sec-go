@@ -1,0 +1,68 @@
+{
+  "load_event": {
+    "data": {
+      "contracts": 2,
+      "invariants": 0
+    },
+    "ref": "gw",
+    "type": "protocol_model.loaded"
+  },
+  "artifact": {
+    "kind": "protocol-model",
+    "snapshot_id": null,
+    "note": "protocol model for Gateways"
+  },
+  "artifact_kind": "protocol-model",
+  "artifact_path_suffix": "artifacts/protocol_model.json",
+  "note": "protocol model for Gateways",
+  "sha256_matches_file": true,
+  "load_count": 1,
+  "load_count_after_second": 1,
+  "refresh_count": 1,
+  "refresh_reason": "protocol model (re)loaded",
+  "loaded_events": 2,
+  "event_types_after_two_loads": [
+    "campaign.created",
+    "artifact.registered",
+    "protocol_model.loaded",
+    "artifact.refreshed",
+    "protocol_model.loaded"
+  ],
+  "save_path_suffix": "protocol_model.json",
+  "save_path_is_artifacts_dir": true,
+  "save_count_after": 1,
+  "save_reason": "protocol model saved (LLM refinement or operator edit)",
+  "save_events": 6,
+  "event_types": [
+    "campaign.created",
+    "artifact.registered",
+    "protocol_model.loaded",
+    "artifact.refreshed",
+    "protocol_model.loaded",
+    "artifact.refreshed"
+  ],
+  "artifact_row_keys": [
+    "artifact_id",
+    "kind",
+    "path",
+    "registered_at",
+    "sha256",
+    "snapshot_id",
+    "note"
+  ],
+  "fresh_save_count": 1,
+  "fresh_save_reason": null,
+  "fresh_save_event_types": [
+    "campaign.created",
+    "artifact.registered"
+  ],
+  "fresh_save_kind": "protocol-model",
+  "fresh_save_note": "protocol model for Gateways",
+  "fresh_second_save_count": 1,
+  "fresh_second_save_reason": "protocol model saved (LLM refinement or operator edit)",
+  "fresh_second_save_events": 3,
+  "fresh_second_save_refresh_count": 1,
+  "invalid_model_error": "protocol_model validation failed at <root>: 'protocol_id' is a required property (+5 more errors)",
+  "invalid_model_array_error": "protocol_model validation failed at <root>: [] is not of type 'object' (+0 more errors)",
+  "invalid_model_badkind_error": "protocol_model validation failed at assets/0/kind: 'nonsense' is not one of ['token', 'lp', 'share', 'collateral', 'debt', 'reward', 'nft', 'message', 'reserve'] (+0 more errors)"
+}

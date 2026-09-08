@@ -1,0 +1,51 @@
+{
+  "protocol_id": "gw",
+  "name": "Gateways",
+  "contracts": [
+    {
+      "name": "L1ERC20Gateway",
+      "path": "contracts/L1ERC20Gateway.sol",
+      "role": "core",
+      "in_scope": true,
+      "entry_points": [
+        "deposit",
+        "finalizeWithdrawal"
+      ]
+    },
+    {
+      "name": "L1ERC20GatewayReverse",
+      "path": "contracts/L1ERC20GatewayReverse.sol",
+      "role": "core",
+      "in_scope": true,
+      "entry_points": [
+        "withdraw",
+        "drop"
+      ]
+    }
+  ],
+  "actors": [
+    {
+      "id": "sequencer",
+      "kind": "EOA"
+    }
+  ],
+  "assets": [],
+  "relations": [],
+  "state_machines": [
+    {
+      "name": "rollup",
+      "states": [
+        {
+          "id": "open"
+        }
+      ],
+      "transitions": [
+        {
+          "from": "open",
+          "to": "done",
+          "trigger": "withdraw"
+        }
+      ]
+    }
+  ]
+}

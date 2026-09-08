@@ -1,0 +1,25 @@
+{
+  "protocol_id": "share-only",
+  "name": "Share Only",
+  "contracts": [
+    {
+      "name": "Vault",
+      "state_variables": [
+        {
+          "name": "totalAssets",
+          "kind": "balance",
+          "accounting": true
+        }
+      ]
+    }
+  ],
+  "actors": [],
+  "assets": [
+    {
+      "id": "sh",
+      "kind": "share",
+      "decimals": 18
+    }
+  ],
+  "relations": []
+}

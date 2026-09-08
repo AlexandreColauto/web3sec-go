@@ -1,0 +1,62 @@
+[
+  {
+    "index": 1,
+    "name": "donation-attack",
+    "question": "Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?"
+  },
+  {
+    "index": 2,
+    "name": "first-depositor-rounding",
+    "question": "Can the first depositor mint shares at a rounded-down rate and steal the next depositor's rounding dust — or invert it via a donation?"
+  },
+  {
+    "index": 3,
+    "name": "fee-on-transfer-asymmetry",
+    "question": "Does accounting record amountIn while only amountIn-fee arrives?"
+  },
+  {
+    "index": 4,
+    "name": "rebasing-supply-desync",
+    "question": "Does balance-based accounting desync when the token rebases?"
+  },
+  {
+    "index": 5,
+    "name": "erc777-callback-reentrancy",
+    "question": "Do hooks fire during transfers used inside accounting updates?"
+  },
+  {
+    "index": 6,
+    "name": "erc4626-inflation",
+    "question": "Can virtual shares/offset defenses be bypassed by direct asset donation plus precise rounding?"
+  },
+  {
+    "index": 7,
+    "name": "oracle-spot-skew",
+    "question": "Can a single transaction move the price source the protocol reads, then trade against the moved price?"
+  },
+  {
+    "index": 8,
+    "name": "oracle-staleness",
+    "question": "What happens on every stale/zero/sequencer-down path the oracle can return?"
+  },
+  {
+    "index": 9,
+    "name": "flash-loan-amplification",
+    "question": "With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?"
+  },
+  {
+    "index": 10,
+    "name": "liquidity-withdrawal-bounded",
+    "question": "What is the realistic extractable ceiling given pool depth, not theoretical exposure?"
+  },
+  {
+    "index": 11,
+    "name": "odd-decimals-mismatch",
+    "question": "Where do two assets of different decimals meet in one equation?"
+  },
+  {
+    "index": 12,
+    "name": "insolvency-by-withdraw-order",
+    "question": "Can liabilities be withdrawn/liquidated ahead of the assets backing them?"
+  }
+]

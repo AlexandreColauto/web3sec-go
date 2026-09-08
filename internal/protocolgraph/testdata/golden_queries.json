@@ -1,0 +1,497 @@
+{
+  "acme_vault": {
+    "who_can:can_drain": [
+      {
+        "id": "governor",
+        "kind": "ROLE",
+        "trust": "trusted",
+        "can_drain": true,
+        "can_upgrade": true,
+        "can_pause": true
+      }
+    ],
+    "who_can:can_upgrade": [
+      {
+        "id": "governor",
+        "kind": "ROLE",
+        "trust": "trusted",
+        "can_drain": true,
+        "can_upgrade": true,
+        "can_pause": true
+      }
+    ],
+    "who_can:can_pause": [
+      {
+        "id": "governor",
+        "kind": "ROLE",
+        "trust": "trusted",
+        "can_drain": true,
+        "can_upgrade": true,
+        "can_pause": true
+      }
+    ],
+    "who_can:upgrade": [
+      {
+        "id": "governor",
+        "kind": "ROLE",
+        "trust": "trusted",
+        "can_drain": true,
+        "can_upgrade": true,
+        "can_pause": true
+      }
+    ],
+    "who_can:drain": [],
+    "who_can:liquidate": [],
+    "who_can:relay": [],
+    "who_can:message": [],
+    "who_can:role": [],
+    "who_can:missing": [],
+    "who_can:empty": [
+      {
+        "id": "governor",
+        "kind": "ROLE",
+        "trust": "trusted",
+        "can_drain": true,
+        "can_upgrade": true,
+        "can_pause": true
+      }
+    ],
+    "actor_by_id:governor": {
+      "id": "governor",
+      "kind": "ROLE",
+      "trust": "trusted",
+      "can_drain": true,
+      "can_upgrade": true,
+      "can_pause": true
+    },
+    "actor_by_id:user": {
+      "id": "user",
+      "kind": "EOA",
+      "trust": "externally-owned"
+    },
+    "actor_by_id:missing": null,
+    "trust_boundary_gaps": [
+      {
+        "from": "user",
+        "to": "Vault",
+        "crossing": "user-supplied token",
+        "validated": false
+      }
+    ],
+    "accounting_vars": [
+      {
+        "contract": "Vault",
+        "var": "totalAssets",
+        "kind": "balance"
+      },
+      {
+        "contract": "Vault",
+        "var": "balanceOf",
+        "kind": "mapping-balance"
+      }
+    ],
+    "external_assets": [
+      {
+        "asset": "share",
+        "flags": [
+          "erc4626-vault"
+        ]
+      }
+    ],
+    "critical_edges": [
+      {
+        "from": "user",
+        "rel": "DEPOSITS",
+        "to": "Vault",
+        "via": "deposit()"
+      },
+      {
+        "from": "Vault",
+        "rel": "MINTS",
+        "to": "share",
+        "via": "deposit()"
+      }
+    ],
+    "privilege_surface": [
+      {
+        "role": "governor",
+        "capability": "upgrade implementation",
+        "mechanism": "proxy admin",
+        "timelocked": true,
+        "can_drain": false
+      }
+    ],
+    "oracle_chain": [],
+    "state_machines": [
+      {
+        "name": "vault-lifecycle",
+        "states": [
+          {
+            "id": "active"
+          },
+          {
+            "id": "paused",
+            "terminal": false
+          }
+        ],
+        "transitions": [
+          {
+            "from": "active",
+            "to": "paused",
+            "trigger": "pause()",
+            "actor": "governor"
+          }
+        ],
+        "suspect_properties": [
+          "unpause without delay"
+        ]
+      }
+    ]
+  },
+  "gateway": {
+    "who_can:can_drain": [],
+    "who_can:can_upgrade": [],
+    "who_can:can_pause": [],
+    "who_can:upgrade": [],
+    "who_can:drain": [],
+    "who_can:liquidate": [],
+    "who_can:relay": [],
+    "who_can:message": [],
+    "who_can:role": [],
+    "who_can:missing": [],
+    "who_can:empty": [],
+    "actor_by_id:governor": null,
+    "actor_by_id:user": null,
+    "actor_by_id:missing": null,
+    "trust_boundary_gaps": [],
+    "accounting_vars": [],
+    "external_assets": [],
+    "critical_edges": [],
+    "privilege_surface": [],
+    "oracle_chain": [],
+    "state_machines": [
+      {
+        "name": "rollup",
+        "states": [
+          {
+            "id": "open"
+          }
+        ],
+        "transitions": [
+          {
+            "from": "open",
+            "to": "done",
+            "trigger": "withdraw"
+          }
+        ]
+      }
+    ]
+  },
+  "kitchen_sink": {
+    "who_can:can_drain": [
+      {
+        "id": "governor",
+        "kind": "ROLE",
+        "trust": "trusted",
+        "can_drain": true,
+        "can_upgrade": true,
+        "can_pause": true
+      }
+    ],
+    "who_can:can_upgrade": [
+      {
+        "id": "governor",
+        "kind": "ROLE",
+        "trust": "trusted",
+        "can_drain": true,
+        "can_upgrade": true,
+        "can_pause": true
+      }
+    ],
+    "who_can:can_pause": [
+      {
+        "id": "governor",
+        "kind": "ROLE",
+        "trust": "trusted",
+        "can_drain": true,
+        "can_upgrade": true,
+        "can_pause": true
+      }
+    ],
+    "who_can:upgrade": [
+      {
+        "id": "governor",
+        "kind": "ROLE",
+        "trust": "trusted",
+        "can_drain": true,
+        "can_upgrade": true,
+        "can_pause": true
+      }
+    ],
+    "who_can:drain": [],
+    "who_can:liquidate": [
+      {
+        "id": "keeper",
+        "kind": "KEEPER",
+        "trust": "semi-trusted",
+        "can_drain": false
+      }
+    ],
+    "who_can:relay": [
+      {
+        "id": "bridge-admin",
+        "kind": "ROLE",
+        "trust": "trusted",
+        "via": {
+          "role": "bridge-admin",
+          "capability": "relay message",
+          "mechanism": "messenger"
+        }
+      }
+    ],
+    "who_can:message": [
+      {
+        "id": "bridge-admin",
+        "kind": "ROLE",
+        "trust": "trusted",
+        "via": {
+          "role": "bridge-admin",
+          "capability": "relay message",
+          "mechanism": "messenger"
+        }
+      }
+    ],
+    "who_can:role": [],
+    "who_can:missing": [],
+    "who_can:empty": [
+      {
+        "id": "governor",
+        "kind": "ROLE",
+        "trust": "trusted",
+        "can_drain": true,
+        "can_upgrade": true,
+        "can_pause": true
+      },
+      {
+        "id": "keeper",
+        "kind": "KEEPER",
+        "trust": "semi-trusted",
+        "can_drain": false
+      },
+      {
+        "id": "bridge-admin",
+        "kind": "ROLE",
+        "trust": "trusted",
+        "via": {
+          "role": "bridge-admin",
+          "capability": "relay message",
+          "mechanism": "messenger"
+        }
+      }
+    ],
+    "actor_by_id:governor": {
+      "id": "governor",
+      "kind": "ROLE",
+      "trust": "trusted",
+      "can_drain": true,
+      "can_upgrade": true,
+      "can_pause": true
+    },
+    "actor_by_id:user": {
+      "id": "user",
+      "kind": "EOA",
+      "trust": "externally-owned"
+    },
+    "actor_by_id:missing": null,
+    "trust_boundary_gaps": [
+      {
+        "from": "user",
+        "to": "Vault",
+        "crossing": "user-supplied token",
+        "validated": false
+      },
+      {
+        "from": "Vault",
+        "to": "Bridge",
+        "crossing": "message",
+        "validated": false
+      }
+    ],
+    "accounting_vars": [
+      {
+        "contract": "Vault",
+        "var": "totalAssets",
+        "kind": "balance"
+      },
+      {
+        "contract": "Vault",
+        "var": "totalSupply",
+        "kind": "share"
+      }
+    ],
+    "external_assets": [
+      {
+        "asset": "share",
+        "flags": [
+          "erc4626-vault"
+        ]
+      },
+      {
+        "asset": "FEE",
+        "flags": [
+          "fee-on-transfer",
+          "odd-decimals-7"
+        ]
+      },
+      {
+        "asset": "REB",
+        "flags": [
+          "rebasing"
+        ]
+      },
+      {
+        "asset": "ERC777",
+        "flags": [
+          "erc777-callbacks"
+        ]
+      },
+      {
+        "asset": "WEIRD",
+        "flags": [
+          "odd-decimals-12",
+          "hooks-on-transfer",
+          "self-destruct"
+        ]
+      }
+    ],
+    "critical_edges": [
+      {
+        "from": "user",
+        "rel": "DEPOSITS",
+        "to": "Vault",
+        "via": "deposit()"
+      },
+      {
+        "from": "Vault",
+        "rel": "MINTS",
+        "to": "share",
+        "via": "deposit()"
+      },
+      {
+        "from": "Vault",
+        "rel": "BURNS",
+        "to": "share",
+        "via": "withdraw()"
+      },
+      {
+        "from": "Vault",
+        "rel": "WITHDRAWS",
+        "to": "USDC",
+        "via": "withdraw()"
+      },
+      {
+        "from": "Vault",
+        "rel": "BORROWS",
+        "to": "debt",
+        "via": "borrow()"
+      },
+      {
+        "from": "Vault",
+        "rel": "LIQUIDATES",
+        "to": "debt",
+        "via": "liquidate()"
+      },
+      {
+        "from": "governor",
+        "rel": "UPGRADES",
+        "to": "Vault",
+        "via": "proxy admin"
+      },
+      {
+        "from": "Vault",
+        "rel": "BRIDGES",
+        "to": "Bridge",
+        "via": "send()"
+      }
+    ],
+    "privilege_surface": [
+      {
+        "role": "governor",
+        "capability": "upgrade implementation",
+        "mechanism": "proxy admin",
+        "timelocked": true,
+        "can_drain": false
+      },
+      {
+        "role": "governor",
+        "capability": "pause vault",
+        "mechanism": "pause()",
+        "timelocked": false
+      },
+      {
+        "role": "keeper",
+        "capability": "liquidate position",
+        "mechanism": "liquidate()"
+      },
+      {
+        "role": "bridge-admin",
+        "capability": "relay message",
+        "mechanism": "messenger"
+      },
+      {
+        "role": "bridge-admin",
+        "capability": "relay message",
+        "mechanism": "messenger"
+      }
+    ],
+    "oracle_chain": [
+      {
+        "id": "ORC-1",
+        "kind": "chainlink",
+        "feeds": [
+          "ETH/USD"
+        ],
+        "staleness_guard": true,
+        "deviation_guard": false,
+        "manipulable_by": "none"
+      },
+      {
+        "id": "ORC-2",
+        "kind": "spot-amm",
+        "feeds": [
+          "USDC/ETH"
+        ],
+        "staleness_guard": false,
+        "manipulable_by": "flash loan"
+      }
+    ],
+    "state_machines": [
+      {
+        "name": "vault-lifecycle",
+        "states": [
+          {
+            "id": "active"
+          },
+          {
+            "id": "paused"
+          },
+          {
+            "id": "closed",
+            "terminal": true
+          }
+        ],
+        "transitions": [
+          {
+            "from": "active",
+            "to": "paused",
+            "trigger": "pause()",
+            "actor": "governor"
+          }
+        ],
+        "suspect_properties": [
+          "unpause without delay"
+        ]
+      }
+    ]
+  }
+}

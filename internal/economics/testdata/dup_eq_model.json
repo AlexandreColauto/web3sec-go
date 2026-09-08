@@ -1,0 +1,21 @@
+{
+  "protocol_id": "dup-eq",
+  "name": "Dup Equation",
+  "contracts": [],
+  "actors": [],
+  "assets": [
+    {
+      "id": "sh",
+      "kind": "share",
+      "decimals": 18
+    }
+  ],
+  "relations": [],
+  "economic_relations": [
+    {
+      "id": "EQ-001",
+      "equation": "shares_minted <= economically_justified_shares(deposit)",
+      "meaning": "recorded by hand"
+    }
+  ]
+}

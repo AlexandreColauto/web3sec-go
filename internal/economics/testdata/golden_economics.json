@@ -1,0 +1,529 @@
+{
+  "odd_asset": {
+    "build_equations": [],
+    "generate_transforms": [
+      {
+        "transform_id": "TR-001",
+        "name": "donation-attack",
+        "question": "Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?"
+      },
+      {
+        "transform_id": "TR-009",
+        "name": "flash-loan-amplification",
+        "question": "With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?"
+      },
+      {
+        "transform_id": "TR-010",
+        "name": "liquidity-withdrawal-bounded",
+        "question": "What is the realistic extractable ceiling given pool depth, not theoretical exposure?"
+      },
+      {
+        "transform_id": "TR-011",
+        "name": "odd-decimals-mismatch",
+        "question": "Where do two assets of different decimals meet in one equation?"
+      }
+    ],
+    "equation_gaps": [],
+    "economic_summary": {
+      "accounting_vars": [],
+      "risky_assets": [
+        {
+          "asset": "A",
+          "flags": [
+            "odd-decimals-7"
+          ]
+        }
+      ],
+      "oracles": [],
+      "equations": 0,
+      "equation_gaps": [],
+      "transforms": [
+        "donation-attack",
+        "flash-loan-amplification",
+        "liquidity-withdrawal-bounded",
+        "odd-decimals-mismatch"
+      ]
+    }
+  },
+  "debt_asset": {
+    "build_equations": [
+      {
+        "id": "EQ-001",
+        "equation": "collateral_value * liq_threshold >= total_debt",
+        "meaning": "protocol remains solvent under the recorded thresholds",
+        "variables": [
+          "collateral",
+          "debt"
+        ],
+        "enforced_by": [],
+        "breakable_by": [
+          "oracle-spot-skew",
+          "oracle-staleness",
+          "insolvency-by-withdraw-order"
+        ]
+      }
+    ],
+    "generate_transforms": [
+      {
+        "transform_id": "TR-001",
+        "name": "donation-attack",
+        "question": "Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?"
+      },
+      {
+        "transform_id": "TR-009",
+        "name": "flash-loan-amplification",
+        "question": "With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?"
+      },
+      {
+        "transform_id": "TR-010",
+        "name": "liquidity-withdrawal-bounded",
+        "question": "What is the realistic extractable ceiling given pool depth, not theoretical exposure?"
+      },
+      {
+        "transform_id": "TR-012",
+        "name": "insolvency-by-withdraw-order",
+        "question": "Can liabilities be withdrawn/liquidated ahead of the assets backing them?"
+      }
+    ],
+    "equation_gaps": [
+      {
+        "equation_id": "EQ-001",
+        "equation": "collateral_value * liq_threshold >= total_debt",
+        "missing": [
+          "enforced_by"
+        ]
+      }
+    ],
+    "economic_summary": {
+      "accounting_vars": [],
+      "risky_assets": [],
+      "oracles": [],
+      "equations": 1,
+      "equation_gaps": [
+        {
+          "equation_id": "EQ-001",
+          "equation": "collateral_value * liq_threshold >= total_debt",
+          "missing": [
+            "enforced_by"
+          ]
+        }
+      ],
+      "transforms": [
+        "donation-attack",
+        "flash-loan-amplification",
+        "liquidity-withdrawal-bounded",
+        "insolvency-by-withdraw-order"
+      ]
+    }
+  },
+  "share_only": {
+    "build_equations": [
+      {
+        "id": "EQ-001",
+        "equation": "shares_minted <= economically_justified_shares(deposit)",
+        "meaning": "no share can exist without corresponding backing",
+        "variables": [
+          "shares",
+          "deposits"
+        ],
+        "enforced_by": [],
+        "breakable_by": [
+          "donation-attack",
+          "first-depositor-rounding",
+          "erc4626-inflation"
+        ]
+      },
+      {
+        "id": "EQ-002",
+        "equation": "sum(user_claims) + protocol_liabilities <= total_assets",
+        "meaning": "global accounting conservation",
+        "variables": [
+          "user_claims",
+          "liabilities",
+          "total_assets"
+        ],
+        "enforced_by": [],
+        "breakable_by": [
+          "donation-attack",
+          "precision-rounding"
+        ]
+      }
+    ],
+    "generate_transforms": [
+      {
+        "transform_id": "TR-001",
+        "name": "donation-attack",
+        "question": "Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?"
+      },
+      {
+        "transform_id": "TR-002",
+        "name": "first-depositor-rounding",
+        "question": "Can the first depositor mint shares at a rounded-down rate and steal the next depositor's rounding dust — or invert it via a donation?"
+      },
+      {
+        "transform_id": "TR-009",
+        "name": "flash-loan-amplification",
+        "question": "With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?"
+      },
+      {
+        "transform_id": "TR-010",
+        "name": "liquidity-withdrawal-bounded",
+        "question": "What is the realistic extractable ceiling given pool depth, not theoretical exposure?"
+      }
+    ],
+    "equation_gaps": [
+      {
+        "equation_id": "EQ-001",
+        "equation": "shares_minted <= economically_justified_shares(deposit)",
+        "missing": [
+          "enforced_by"
+        ]
+      },
+      {
+        "equation_id": "EQ-002",
+        "equation": "sum(user_claims) + protocol_liabilities <= total_assets",
+        "missing": [
+          "enforced_by"
+        ]
+      }
+    ],
+    "economic_summary": {
+      "accounting_vars": [
+        {
+          "contract": "Vault",
+          "var": "totalAssets",
+          "kind": "balance"
+        }
+      ],
+      "risky_assets": [],
+      "oracles": [],
+      "equations": 2,
+      "equation_gaps": [
+        {
+          "equation_id": "EQ-001",
+          "equation": "shares_minted <= economically_justified_shares(deposit)",
+          "missing": [
+            "enforced_by"
+          ]
+        },
+        {
+          "equation_id": "EQ-002",
+          "equation": "sum(user_claims) + protocol_liabilities <= total_assets",
+          "missing": [
+            "enforced_by"
+          ]
+        }
+      ],
+      "transforms": [
+        "donation-attack",
+        "first-depositor-rounding",
+        "flash-loan-amplification",
+        "liquidity-withdrawal-bounded"
+      ]
+    }
+  },
+  "dup_eq": {
+    "build_equations": [
+      {
+        "id": "EQ-001",
+        "equation": "shares_minted <= economically_justified_shares(deposit)",
+        "meaning": "recorded by hand"
+      }
+    ],
+    "generate_transforms": [
+      {
+        "transform_id": "TR-001",
+        "name": "donation-attack",
+        "question": "Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?"
+      },
+      {
+        "transform_id": "TR-002",
+        "name": "first-depositor-rounding",
+        "question": "Can the first depositor mint shares at a rounded-down rate and steal the next depositor's rounding dust — or invert it via a donation?"
+      },
+      {
+        "transform_id": "TR-009",
+        "name": "flash-loan-amplification",
+        "question": "With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?"
+      },
+      {
+        "transform_id": "TR-010",
+        "name": "liquidity-withdrawal-bounded",
+        "question": "What is the realistic extractable ceiling given pool depth, not theoretical exposure?"
+      }
+    ],
+    "equation_gaps": [
+      {
+        "equation_id": "EQ-001",
+        "equation": "shares_minted <= economically_justified_shares(deposit)",
+        "missing": [
+          "enforced_by",
+          "breakable_by"
+        ]
+      }
+    ],
+    "economic_summary": {
+      "accounting_vars": [],
+      "risky_assets": [],
+      "oracles": [],
+      "equations": 1,
+      "equation_gaps": [
+        {
+          "equation_id": "EQ-001",
+          "equation": "shares_minted <= economically_justified_shares(deposit)",
+          "missing": [
+            "enforced_by",
+            "breakable_by"
+          ]
+        }
+      ],
+      "transforms": [
+        "donation-attack",
+        "first-depositor-rounding",
+        "flash-loan-amplification",
+        "liquidity-withdrawal-bounded"
+      ]
+    }
+  },
+  "kitchen_sink": {
+    "build_equations": [
+      {
+        "id": "EQ-001",
+        "equation": "shares * price == total_assets",
+        "meaning": "share price invariant",
+        "variables": [
+          "shares",
+          "price",
+          "total_assets"
+        ],
+        "enforced_by": [
+          "Vault.sharePrice()"
+        ],
+        "breakable_by": [
+          "donation-attack"
+        ]
+      },
+      {
+        "id": "EQ-002",
+        "equation": "shares_minted <= economically_justified_shares(deposit)",
+        "meaning": "no share can exist without corresponding backing",
+        "variables": [
+          "shares",
+          "deposits"
+        ],
+        "enforced_by": [],
+        "breakable_by": [
+          "donation-attack",
+          "first-depositor-rounding",
+          "erc4626-inflation"
+        ]
+      },
+      {
+        "id": "EQ-003",
+        "equation": "collateral_value * liq_threshold >= total_debt",
+        "meaning": "protocol remains solvent under the recorded thresholds",
+        "variables": [
+          "collateral",
+          "debt"
+        ],
+        "enforced_by": [],
+        "breakable_by": [
+          "oracle-spot-skew",
+          "oracle-staleness",
+          "insolvency-by-withdraw-order"
+        ]
+      },
+      {
+        "id": "EQ-004",
+        "equation": "sum(user_claims) + protocol_liabilities <= total_assets",
+        "meaning": "global accounting conservation",
+        "variables": [
+          "user_claims",
+          "liabilities",
+          "total_assets"
+        ],
+        "enforced_by": [],
+        "breakable_by": [
+          "donation-attack",
+          "precision-rounding"
+        ]
+      }
+    ],
+    "generate_transforms": [
+      {
+        "transform_id": "TR-001",
+        "name": "donation-attack",
+        "question": "Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?"
+      },
+      {
+        "transform_id": "TR-002",
+        "name": "first-depositor-rounding",
+        "question": "Can the first depositor mint shares at a rounded-down rate and steal the next depositor's rounding dust — or invert it via a donation?"
+      },
+      {
+        "transform_id": "TR-003",
+        "name": "fee-on-transfer-asymmetry",
+        "question": "Does accounting record amountIn while only amountIn-fee arrives?"
+      },
+      {
+        "transform_id": "TR-004",
+        "name": "rebasing-supply-desync",
+        "question": "Does balance-based accounting desync when the token rebases?"
+      },
+      {
+        "transform_id": "TR-005",
+        "name": "erc777-callback-reentrancy",
+        "question": "Do hooks fire during transfers used inside accounting updates?"
+      },
+      {
+        "transform_id": "TR-006",
+        "name": "erc4626-inflation",
+        "question": "Can virtual shares/offset defenses be bypassed by direct asset donation plus precise rounding?"
+      },
+      {
+        "transform_id": "TR-007",
+        "name": "oracle-spot-skew",
+        "question": "Can a single transaction move the price source the protocol reads, then trade against the moved price?"
+      },
+      {
+        "transform_id": "TR-008",
+        "name": "oracle-staleness",
+        "question": "What happens on every stale/zero/sequencer-down path the oracle can return?"
+      },
+      {
+        "transform_id": "TR-009",
+        "name": "flash-loan-amplification",
+        "question": "With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?"
+      },
+      {
+        "transform_id": "TR-010",
+        "name": "liquidity-withdrawal-bounded",
+        "question": "What is the realistic extractable ceiling given pool depth, not theoretical exposure?"
+      },
+      {
+        "transform_id": "TR-011",
+        "name": "odd-decimals-mismatch",
+        "question": "Where do two assets of different decimals meet in one equation?"
+      },
+      {
+        "transform_id": "TR-012",
+        "name": "insolvency-by-withdraw-order",
+        "question": "Can liabilities be withdrawn/liquidated ahead of the assets backing them?"
+      }
+    ],
+    "equation_gaps": [
+      {
+        "equation_id": "EQ-002",
+        "equation": "shares_minted <= economically_justified_shares(deposit)",
+        "missing": [
+          "enforced_by"
+        ]
+      },
+      {
+        "equation_id": "EQ-003",
+        "equation": "collateral_value * liq_threshold >= total_debt",
+        "missing": [
+          "enforced_by"
+        ]
+      },
+      {
+        "equation_id": "EQ-004",
+        "equation": "sum(user_claims) + protocol_liabilities <= total_assets",
+        "missing": [
+          "enforced_by"
+        ]
+      }
+    ],
+    "economic_summary": {
+      "accounting_vars": [
+        {
+          "contract": "Vault",
+          "var": "totalAssets",
+          "kind": "balance"
+        },
+        {
+          "contract": "Vault",
+          "var": "totalSupply",
+          "kind": "share"
+        }
+      ],
+      "risky_assets": [
+        {
+          "asset": "share",
+          "flags": [
+            "erc4626-vault"
+          ]
+        },
+        {
+          "asset": "FEE",
+          "flags": [
+            "fee-on-transfer",
+            "odd-decimals-7"
+          ]
+        },
+        {
+          "asset": "REB",
+          "flags": [
+            "rebasing"
+          ]
+        },
+        {
+          "asset": "ERC777",
+          "flags": [
+            "erc777-callbacks"
+          ]
+        },
+        {
+          "asset": "WEIRD",
+          "flags": [
+            "odd-decimals-12",
+            "hooks-on-transfer",
+            "self-destruct"
+          ]
+        }
+      ],
+      "oracles": [
+        "ORC-1",
+        "ORC-2"
+      ],
+      "equations": 4,
+      "equation_gaps": [
+        {
+          "equation_id": "EQ-002",
+          "equation": "shares_minted <= economically_justified_shares(deposit)",
+          "missing": [
+            "enforced_by"
+          ]
+        },
+        {
+          "equation_id": "EQ-003",
+          "equation": "collateral_value * liq_threshold >= total_debt",
+          "missing": [
+            "enforced_by"
+          ]
+        },
+        {
+          "equation_id": "EQ-004",
+          "equation": "sum(user_claims) + protocol_liabilities <= total_assets",
+          "missing": [
+            "enforced_by"
+          ]
+        }
+      ],
+      "transforms": [
+        "donation-attack",
+        "first-depositor-rounding",
+        "fee-on-transfer-asymmetry",
+        "rebasing-supply-desync",
+        "erc777-callback-reentrancy",
+        "erc4626-inflation",
+        "oracle-spot-skew",
+        "oracle-staleness",
+        "flash-loan-amplification",
+        "liquidity-withdrawal-bounded",
+        "odd-decimals-mismatch",
+        "insolvency-by-withdraw-order"
+      ]
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "protocol_id": "P1",
+  "name": "Odd Protocol",
+  "contracts": [],
+  "actors": [],
+  "assets": [
+    {
+      "id": "D",
+      "kind": "debt",
+      "decimals": 18
+    }
+  ],
+  "relations": []
+}
