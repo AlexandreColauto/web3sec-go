@@ -106,6 +106,8 @@ PHASE_BY_FILE = {
     # P3 (probes/structural-index v2 land here too: pure functions over the
     # structural index, the same phase as the index itself)
     "tests/test_probes.py": "deferred-P3",
+    "tests/test_probe_emit.py": "deferred-P3",
+    "tests/test_probes_cli.py": "deferred-P3",
     "tests/test_structural_index_v2.py": "deferred-P3",
 }
 DEFAULT_PHASE = "deferred-P3"

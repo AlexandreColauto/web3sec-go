@@ -97,6 +97,61 @@ func Validate(data Value, name string, maxErrors int) error {
 	return &SchemaError{Msg: assemble(name, data, leaves, maxErrors)}
 }
 
+// DefViolation is one failed $definitions validation: the instance path
+// (jsonschema's absolute_path) and the message rendered exactly as
+// jsonschema's ValidationError.message would be.
+type DefViolation struct {
+	Path    []string
+	Message string
+}
+
+// ValidateDefinition validates one value against a named $definitions entry
+// of a schema — the port of findings._validate_evidence_item, which wraps
+// the definition in a synthetic schema
+// ({"$schema": ..., "$ref": "#/definitions/<def>", "definitions": ...}).
+// It returns nil when the value is valid, a *DefViolation when it is not,
+// and a non-nil error only when the schema itself cannot be built.
+func ValidateDefinition(data Value, name, def string) (*DefViolation, error) {
+	entry, err := loadSchema(name)
+	if err != nil {
+		return nil, err
+	}
+	defs := objKey(entry.doc, "definitions")
+	if objKey(defs, def).Kind != Obj {
+		return nil, fmt.Errorf("schema %s has no definitions.%s", name, def)
+	}
+	wrapper := VObj(
+		KV{K: "$schema", V: objKey(entry.doc, "$schema")},
+		KV{K: "$ref", V: VStr("#/definitions/" + def)},
+		KV{K: "definitions", V: defs},
+	)
+	loc := "https://web3sec.local/schema/" + name + ".schema.json"
+	compiler := v6.NewCompiler()
+	if err := compiler.AddResource(loc, toAny(wrapper)); err != nil {
+		return nil, err
+	}
+	sc, err := compiler.Compile(loc)
+	if err != nil {
+		return nil, err
+	}
+	ve := sc.Validate(toAny(data))
+	if ve == nil {
+		return nil, nil
+	}
+	leaves := flattenError(ve.(*v6.ValidationError))
+	if len(leaves) == 0 {
+		return &DefViolation{Message: "is invalid"}, nil
+	}
+	// The definition node is the instance root here: walk from it (with the
+	// wrapper as the $ref resolution root) so each leaf carries the schema
+	// node jsonschema would have reported from.
+	leaves = orderLeavesFrom(wrapper, objKey(defs, def), data, leaves)
+	// jsonschema raises the FIRST error its walk produces; the leaf order
+	// here is that same file order over the same instance.
+	return &DefViolation{Path: leaves[0].path,
+		Message: renderLeaf(data, leaves[0])}, nil
+}
+
 // toAny converts an ordered Value into the plain any v6 validates.
 func toAny(v Value) any {
 	switch v.Kind {
@@ -137,9 +192,12 @@ func toAny(v Value) any {
 
 // leaf is one jsonschema-shaped error: a path plus the v6 kind that carries
 // the rendering parameters (expanded: one leaf per missing required prop).
+// node is the schema node that produced it, when the ordering walk could
+// match one (renderLeaf needs it for schema-order message rendering).
 type leaf struct {
 	path []string
 	kind any
+	node Value
 }
 
 // flattenError maps v6's error tree onto jsonschema's flat iter_errors set:
@@ -170,7 +228,10 @@ func flattenCause(e *v6.ValidationError) []leaf {
 			out = append(out, flattenCause(c)...)
 		}
 		return out
-	case *kind.AllOf, *kind.Schema:
+	case *kind.AllOf, *kind.Schema, *kind.Group:
+		// AllOf/Schema are composition wrappers; Group is how v6 bundles
+		// several failing keywords at the same level (jsonschema's
+		// iter_errors yields them flat, so expand).
 		var out []leaf
 		for _, c := range e.Causes {
 			out = append(out, flattenCause(c)...)

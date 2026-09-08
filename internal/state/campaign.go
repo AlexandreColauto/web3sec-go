@@ -156,6 +156,7 @@ func Init(root, program string, opts InitOpts) (*Campaign, error) {
 		kv("events", validation.VArr()),
 		kv("policy_path", validation.VNull()),
 		kv("floor_policy", validation.VArr()),
+		kv("probe_blanks", validation.VArr()),
 	)
 	if err := validation.WriteJson(c.StatePath, state, "campaign_state"); err != nil {
 		return nil, err

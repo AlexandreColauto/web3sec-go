@@ -154,12 +154,19 @@ func nodeAt(node, inst Value, root Value, enum []int, ifConds *map[*Value]*v6.Sc
 // candidatesAt descends from the schema root along the instance path and
 // returns the candidate nodes at the end, sorted by enumeration order.
 func candidatesAt(doc, data Value, path []string) []cand {
+	return candidatesAtFrom(doc, doc, data, path)
+}
+
+// candidatesAtFrom is candidatesAt with a separate descent start: root is the
+// document $refs resolve against, start the node the walk begins at (a
+// $definitions entry, when validating a definition on its own).
+func candidatesAtFrom(root, start, data Value, path []string) []cand {
 	ifConds := map[*Value]*v6.Schema{}
 	compiler := v6.NewCompiler()
 	var out []cand
 	var rec func(node, inst Value, path []string, enum []int)
 	rec = func(node, inst Value, path []string, enum []int) {
-		cands := nodeAt(node, inst, doc, enum, &ifConds, compiler)
+		cands := nodeAt(node, inst, root, enum, &ifConds, compiler)
 		if len(path) == 0 {
 			out = append(out, cands...)
 			return
@@ -175,7 +182,7 @@ func candidatesAt(doc, data Value, path []string) []cand {
 			}
 		}
 	}
-	rec(doc, data, path, []int{})
+	rec(start, data, path, []int{})
 	sort.SliceStable(out, func(a, b int) bool {
 		return ordKey{enum: out[a].enum}.less(ordKey{enum: out[b].enum})
 	})

@@ -106,6 +106,23 @@
       }
     },
 
+    "probe_blanks": {
+      "type": "array",
+      "description": "BLANK ATTESTATIONS for the mechanical candidate plane: one named decision per probe lens whose axis is blind (sites > 0, rows = 0). Each entry cites a key the probe actually published in that axis's blind[] list, so 'the tree is clean' and 'the probe saw nothing it could rank' stay different, checkable claims. Written by `webv2 probes blank`; read by planner.divergence_status_for.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["axis", "anchor_blind", "reason", "actor", "at"],
+        "properties": {
+          "axis":         { "type": "string", "pattern": "^L-0[0-9]$" },
+          "anchor_blind": { "type": "string", "minLength": 1 },
+          "reason":       { "type": "string", "minLength": 10 },
+          "actor":        { "type": "string", "minLength": 1 },
+          "at":           { "type": "string" }
+        }
+      }
+    },
+
     "stages": {
       "type": "object",
       "description": "per-stage execution ledger: status, attempts, last model/stage ids. Discovery-stage sweep keys may name any discovery trajectory (code, economic, state-machine, attacker, historical, integration, drift, lifecycle, chain).",

@@ -2035,12 +2035,16 @@
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_discovery_budget_enforced",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/ingest_test.go",
+   "go_func": "TestDiscoveryBudgetEnforced",
+   "notes": ""
   },
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_e7_is_analysis_evidence_not_execution",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/ingest_test.go",
+   "go_func": "TestE7IsAnalysisEvidenceNotExecution",
+   "notes": ""
   },
   {
    "python_file": "tests/test_findings.py",
@@ -2056,7 +2060,9 @@
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_exec_profile_mismatch_is_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/ingest_test.go",
+   "go_func": "TestExecProfileMismatchIsRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_findings.py",
@@ -2066,7 +2072,9 @@
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_host_readonly_profile_cannot_back_e4",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/ingest_test.go",
+   "go_func": "TestHostReadonlyProfileCannotBackE4",
+   "notes": ""
   },
   {
    "python_file": "tests/test_findings.py",
@@ -2081,7 +2089,9 @@
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_ingest_stamps_provenance_and_signature",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/ingest_test.go",
+   "go_func": "TestIngestStampsProvenanceAndSignature",
+   "notes": ""
   },
   {
    "python_file": "tests/test_findings.py",
@@ -2092,12 +2102,16 @@
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_missing_exec_reference_is_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/ingest_test.go",
+   "go_func": "TestMissingExecReferenceIsRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_produced_at_defaults_before_validation",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/ingest_test.go",
+   "go_func": "TestProducedAtDefaultsBeforeValidation",
+   "notes": ""
   },
   {
    "python_file": "tests/test_findings.py",
@@ -2667,7 +2681,9 @@
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_ingest_rejects_preloaded_execution_evidence",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/ingest_test.go",
+   "go_func": "TestIngestRejectsPreloadedExecutionEvidence",
+   "notes": "invariant seed in the Python test is setup noise: the at-ingest exec rejection fires before the guardrail"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
@@ -3884,7 +3900,9 @@
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_b2_uncited_e4_rejected_when_matching_exec_exists",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/ingest_test.go",
+   "go_func": "TestUncitedExecIsRejectedWhenOneExists",
+   "notes": "merged: no-exec half is covered by TestE5WithoutProfileIsRejected (2nd case)"
   },
   {
    "python_file": "tests/test_review_fixes.py",
@@ -3975,7 +3993,9 @@
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_s4_claim_drift_accepts_any_matching_figure",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/ingest_test.go",
+   "go_func": "TestClaimDriftAcceptsAnyMatchingFigure",
+   "notes": ""
   },
   {
    "python_file": "tests/test_review_fixes.py",
@@ -5535,7 +5555,9 @@
   {
    "python_file": "tests/test_tier1_minor_sweep.py",
    "python_func": "test_s1_ingest_rejects_preloaded_e7_without_artifact_like_add_path",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/ingest_test.go",
+   "go_func": "TestIngestE7NeedsArtifact",
+   "notes": "merged: add-path half is TestE7IsAnalysisEvidenceNotExecution"
   },
   {
    "python_file": "tests/test_tier1_minor_sweep.py",
@@ -5875,6 +5897,301 @@
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_v2_index_validates_against_schema",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_a_deprioritized_row_discharges_its_axis_but_blocked_does_not",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_a_moved_anchor_without_a_reemit_leaves_the_lens_open",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_a_new_surface_row_reopens_a_closed_lens",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_a_registered_axis_absent_from_the_surface_is_one_missing_entry",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_a_sibling_gain_reopens_a_dispositioned_row",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_blind_axis_needs_a_blank_attestation_to_close",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_completion_discovery_depends_on_dispositioned_rows",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_divergence_status_for_reads_the_campaign_surface_and_index",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_emit_creates_one_priority_per_row_even_if_a_row_repeats",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_emit_creates_one_priority_per_row_with_probe_provenance",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_emit_twice_creates_no_duplicates",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_grandfathered_campaign_without_a_surface_closes_as_before",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_plan_schema_accepts_probe_provenance_and_rejects_drift",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_probe_risk_maps_rank_onto_the_existing_band_vocabulary",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_reemit_does_not_clobber_answered_unless_the_shape_changed",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_registered_axes_covers_every_probe_and_its_lens",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_row_question_is_deterministic_and_names_file_line_anchors",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_row_shape_sha_tracks_the_anchor_tuple_not_the_row_id",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_row_shape_sha_tracks_the_sibling_set_and_stranded_entry",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probe_emit.py",
+   "python_func": "test_stale_surface_leaves_the_lens_open",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_index_sha_changes_when_a_guard_changes_in_the_tree",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_index_sha_ignores_exactly_the_volatile_index_keys",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_index_sha_is_rebuild_stable_for_an_unchanged_tree",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_surface_stamps_the_tree_hash_and_the_schema_stays_closed",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_a_campaign_without_a_surface_is_unaffected",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_a_direct_library_closure_of_a_probe_row_must_name_its_anchor",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_a_grandfathered_brief_does_not_gain_phase_guidance",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_answered_on_a_probe_row_requires_an_anchor",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_answered_records_the_rows_real_anchor_value",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_answered_rejects_a_probe_row_the_surface_no_longer_carries",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_answered_rejects_a_ref_that_is_not_the_anchor_it_claims",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_answered_rejects_an_anchor_the_probe_never_produced",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_answered_still_works_for_non_probe_priorities",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_audit_detects_a_stale_surface_and_a_hand_edited_attestation",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_audit_detects_probe_row_drift_in_both_directions",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_audit_flags_a_blank_attestation_for_an_axis_that_is_not_blind",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_audit_flags_surface_rows_that_were_never_emitted",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_blank_attestation_closes_a_blind_axis",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_blank_attestation_requires_a_blind_axis",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_blank_rejects_a_key_the_probe_never_published",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_blank_rejects_an_unregistered_axis_and_a_missing_surface",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_blank_requires_a_written_reason_and_an_actor",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_brief_feeds_open_probe_rows_ahead_of_generic_items",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_brief_marks_a_stale_surface",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_brief_prints_the_surface_line_and_counts_dispositions",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_ingest_cannot_close_a_probe_row_without_an_anchor",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_next_actions_ranks_probe_rows_by_the_probe_rank_key",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_probes_list_all_shows_blind_keys_and_empty_axes",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_probes_list_axis_filter_accepts_lens_and_axis_name",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_probes_list_json_is_machine_readable_and_tracks_staleness",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_probes_list_shows_rows_anchors_and_dispositions",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_probes_list_without_a_surface_fails_loudly",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_probes_run_emit_mints_priorities_and_is_idempotent",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_probes_run_emit_without_a_plan_fails_loudly",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_probes_run_per_axis_quota_is_honoured",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_probes_run_without_an_index_names_the_rebuild_command",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_probes_run_writes_the_surface_and_reports_every_axis",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_report_marks_a_stale_surface",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_report_renders_the_mechanical_candidate_surface",
    "status": "deferred-P3"
   }
  ]

@@ -45,7 +45,35 @@
           "closed_by": { "type": "string" },
           "bug_class": { "type": ["string", "null"] },
           "anchor_of": { "type": ["string", "null"] },
-          "sibling_of": { "type": ["string", "null"] }
+          "sibling_of": { "type": ["string", "null"] },
+          "probe": {
+            "type": "object",
+            "description": "the mechanical candidate row this priority was emitted from (A3). row_id is the idempotency key; shape_sha detects a changed anchor tuple, which is the only thing that may reopen a dispositioned row; surface_sha is the index_sha the surface was built from",
+            "additionalProperties": false,
+            "required": ["row_id", "probe_id", "axis", "surface_sha", "shape_sha"],
+            "properties": {
+              "row_id": { "type": "string", "pattern": "^[0-9a-f]{10}$" },
+              "probe_id": { "type": "string", "minLength": 1,
+                            "description": "the registered probe that produced the row; the probe_surface schema pins the enum" },
+              "axis": { "type": "string", "minLength": 1 },
+              "surface_sha": { "type": "string", "minLength": 1,
+                               "description": "index_sha of the surface this row was emitted from" },
+              "shape_sha": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+              "risk_band": { "enum": ["high", "medium", "low"],
+                             "description": "the probe rank band the numeric risk was mapped from" },
+              "anchor": {
+                "type": "object",
+                "description": "the disposition anchor a probe-row closure cites: the field name from the probe's own anchor enum, its REAL value on the row (probes.row_anchor_value), and the rendered file#L/value citation the closure records as closed_ref. Rejected when the field is outside the probe's enum, so a disposition cannot name a part the probe never produced.",
+                "additionalProperties": false,
+                "required": ["field", "value", "ref"],
+                "properties": {
+                  "field": { "type": "string", "minLength": 1 },
+                  "value": { "type": ["string", "array", "boolean", "number", "null"] },
+                  "ref":   { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
         }
       }
     },

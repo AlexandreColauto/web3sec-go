@@ -43,6 +43,12 @@ func splitFragment(s string) []string {
 // orderLeaves assigns each leaf its file-order enumeration position and
 // sorts the leaves the way validate() does: stable sort by absolute_path.
 func orderLeaves(entry *schemaEntry, data Value, leaves []leaf) []leaf {
+	return orderLeavesFrom(entry.doc, entry.doc, data, leaves)
+}
+
+// orderLeavesFrom is orderLeaves with a separate descent start (root is the
+// document $refs resolve against, start the node the walk begins at).
+func orderLeavesFrom(root, start Value, data Value, leaves []leaf) []leaf {
 	type slot struct {
 		ord ordKey
 		ok  bool
@@ -55,7 +61,7 @@ func orderLeaves(entry *schemaEntry, data Value, leaves []leaf) []leaf {
 		pkey := strings.Join(leaves[li].path, "\x00")
 		cands, ok := candsByPath[pkey]
 		if !ok {
-			cands = candidatesAt(entry.doc, data, leaves[li].path)
+			cands = candidatesAtFrom(root, start, data, leaves[li].path)
 			candsByPath[pkey] = cands
 		}
 		found := false
@@ -68,6 +74,7 @@ func orderLeaves(entry *schemaEntry, data Value, leaves []leaf) []leaf {
 				continue
 			}
 			usedCand[uid] = true
+			leaves[li].node = c.node // for schema-order message rendering
 			ords[li] = slot{ord: ordKey{enum: c.enum, file: indexOfKey(c.node, kw)}, ok: true}
 			found = true
 			break
@@ -158,13 +165,32 @@ func keywordOf(k any) string {
 	return ""
 }
 
+// typeNames renders a type error's expected names the way jsonschema does:
+// in the SCHEMA's declared order. v6 sorts its Want list, so when the
+// producing node is known its own "type" keyword is authoritative; the
+// sorted list is the fallback for an unmatched leaf.
+func typeNames(l leaf, k *kind.Type) string {
+	decl := objKey(l.node, "type")
+	switch decl.Kind {
+	case Str:
+		return PyReprStr(decl.S)
+	case Arr:
+		names := make([]string, len(decl.A))
+		for i := range decl.A {
+			names[i] = decl.A[i].S
+		}
+		return joinRepr(names)
+	}
+	return joinRepr(k.Want)
+}
+
 // renderLeaf renders a leaf with the ported jsonschema message template.
 func renderLeaf(data Value, l leaf) string {
 	inst := dataAtValue(data, l.path)
 	repr := PyRepr(inst)
 	switch k := l.kind.(type) {
 	case *kind.Type:
-		return fmt.Sprintf("%s is not of type %s", repr, joinRepr(k.Want))
+		return fmt.Sprintf("%s is not of type %s", repr, typeNames(l, k))
 	case *kind.Enum:
 		want := make([]Value, len(k.Want))
 		for i := range k.Want {
