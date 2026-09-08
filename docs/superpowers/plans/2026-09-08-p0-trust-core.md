@@ -801,10 +801,10 @@ git commit -m "P0: snapshot content_hash + merkle + canonical (Task 10)"
 7. Python coverage floor measured (a line reading: the P0 slice of Python tests, run with coverage, must be >= the recorded floor %; the subset the Go port is accountable for).
 Each item: PASS/FAIL + the command whose output is the evidence. The gate opens only when all seven PASS.
 
-- [ ] **Step 1: Add P0 deps** to go.mod; \`go mod tidy\`; commit go.mod + go.sum.
-- [ ] **Step 2: Create KNOWN_DIVERGENCES.md** with the first entries above; commit.
-- [ ] **Step 3: Run verify-full.sh** and confirm it exits 0.
-- [ ] **Step 4: Fill docs/gates/P0-gate.md** — run each checklist command, paste the on-disk evidence paths, mark PASS/FAIL. Commit.
-- [ ] **Step 5: Commit** — git add go.mod go.sum KNOWN_DIVERGENCES.md docs/gates/P0-gate.md && git commit -m "P0: deps, KNOWN_DIVERGENCES, P0 gate report (Task 19)"
+- [x] **Step 1: Add P0 deps** to go.mod; \`go mod tidy\`; commit go.mod + go.sum.
+- [x] **Step 2: Create KNOWN_DIVERGENCES.md** with the first entries above; commit.
+- [x] **Step 3: Run verify-full.sh** and confirm it exits 0.
+- [x] **Step 4: Fill docs/gates/P0-gate.md** — run each checklist command, paste the on-disk evidence paths, mark PASS/FAIL. Commit.
+- [x] **Step 5: Commit** — git add go.mod go.sum KNOWN_DIVERGENCES.md docs/gates/P0-gate.md && git commit -m "P0: deps, KNOWN_DIVERGENCES, P0 gate report (Task 19)"
 
 ---
