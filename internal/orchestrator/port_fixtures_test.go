@@ -1,0 +1,211 @@
+// port_fixtures_test.go: the MODEL and POLICY literals of
+// tests/test_orchestrator.py, byte-for-byte (generated from the Python
+// source; JSON-encoded so the Go twin feeds the same documents).
+package orchestrator
+
+const portModel = `{
+ "protocol_id": "acme-vault",
+ "name": "Acme Vault",
+ "snapshot_id": "unpinned",
+ "chains": [
+  "ethereum"
+ ],
+ "subsystems": [
+  "defi-vault"
+ ],
+ "contracts": [
+  {
+   "name": "Vault",
+   "path": "src/Vault.sol",
+   "role": "core",
+   "in_scope": true,
+   "entry_points": [
+    "deposit",
+    "withdraw"
+   ],
+   "state_variables": [
+    {
+     "name": "totalAssets",
+     "kind": "balance",
+     "accounting": true
+    },
+    {
+     "name": "balanceOf",
+     "kind": "mapping-balance",
+     "accounting": true
+    }
+   ]
+  },
+  {
+   "name": "VaultProxy",
+   "path": "src/VaultProxy.sol",
+   "role": "proxy",
+   "in_scope": false
+  }
+ ],
+ "actors": [
+  {
+   "id": "governor",
+   "kind": "ROLE",
+   "trust": "trusted",
+   "can_drain": true,
+   "can_upgrade": true,
+   "can_pause": true
+  },
+  {
+   "id": "user",
+   "kind": "EOA",
+   "trust": "externally-owned"
+  }
+ ],
+ "assets": [
+  {
+   "id": "share",
+   "kind": "share",
+   "erc": "4626",
+   "decimals": 18
+  },
+  {
+   "id": "USDC",
+   "kind": "token",
+   "decimals": 6
+  }
+ ],
+ "liabilities": [
+  {
+   "id": "user-deposits",
+   "description": "deposits owed to users",
+   "counterparty": "user",
+   "bounded": false
+  }
+ ],
+ "privileges": [
+  {
+   "role": "governor",
+   "capability": "upgrade implementation",
+   "mechanism": "proxy admin",
+   "timelocked": true,
+   "can_drain": false
+  }
+ ],
+ "trust_boundaries": [
+  {
+   "from": "user",
+   "to": "Vault",
+   "crossing": "user-supplied token",
+   "validated": false
+  }
+ ],
+ "relations": [
+  {
+   "from": "user",
+   "rel": "DEPOSITS",
+   "to": "Vault",
+   "via": "deposit()"
+  },
+  {
+   "from": "Vault",
+   "rel": "MINTS",
+   "to": "share",
+   "via": "deposit()"
+  }
+ ],
+ "state_machines": [
+  {
+   "name": "vault-lifecycle",
+   "states": [
+    {
+     "id": "active"
+    },
+    {
+     "id": "paused",
+     "terminal": false
+    }
+   ],
+   "transitions": [
+    {
+     "from": "active",
+     "to": "paused",
+     "trigger": "pause()",
+     "actor": "governor"
+    }
+   ],
+   "suspect_properties": [
+    "unpause without delay"
+   ]
+  }
+ ],
+ "economic_relations": [],
+ "invariants": [
+  {
+   "id": "INV-001",
+   "statement": "share redeem value is fully backed by vault assets",
+   "applies_to": [
+    "Vault"
+   ],
+   "kind": "economic",
+   "severity_if_broken": "critical"
+  },
+  {
+   "id": "INV-002",
+   "statement": "only governor can upgrade the implementation",
+   "applies_to": [
+    "VaultProxy"
+   ],
+   "kind": "authorization",
+   "severity_if_broken": "critical"
+  }
+ ],
+ "oracles": [],
+ "upgrade_paths": [
+  {
+   "mechanism": "uups",
+   "admin": "governor",
+   "initializer": "initialize"
+  }
+ ],
+ "open_questions": [
+  {
+   "question": "is the proxy admin a timelock or an EOA?"
+  }
+ ]
+}`
+
+const portPolicy = `{
+ "program": "Acme Protocol Immunefi",
+ "program_url": "https://immunefi.com/acme",
+ "platform": "immunefi",
+ "chains": [
+  "ethereum"
+ ],
+ "scope": [
+  {
+   "target": "Vault",
+   "kind": "contract"
+  }
+ ],
+ "exclusions": [
+  {
+   "pattern": "rounding dust",
+   "kind": "known-issue"
+  }
+ ],
+ "severity_rules": [
+  {
+   "severity": "critical",
+   "match": {
+    "bug_classes": [
+     "access-control"
+    ],
+    "require_invariant_violation": true
+   }
+  }
+ ],
+ "poc_requirements": {
+  "min_evidence_level": "E4",
+  "require_fork_repro": false
+ },
+ "reporting": {
+  "contact": "immunefi"
+ }
+}`

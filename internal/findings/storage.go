@@ -4,11 +4,13 @@ package findings
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"time"
 
 	"websec/internal/state"
@@ -95,6 +97,24 @@ func LoadLiveFindings(campaign *state.Campaign) ([]validation.Value, error) {
 // uuid4. Python mints this from raw uuid.uuid4(), NOT state.new_id, so the
 // WEBV2_UUID golden pin does not apply — in either twin.
 func NewFindingID() string {
+	return findingIDSource()
+}
+
+// findingIDSource is the id minter. The cross-twin golden harness installs a
+// deterministic one so both twins mint the same finding ids (Python's
+// new_finding_id is a raw uuid4, so its golden generator patches the same
+// sequence in).
+var findingIDSource = newRandomFindingID
+
+// SetFindingIDSource installs a finding-id minter; nil restores uuid4.
+func SetFindingIDSource(f func() string) {
+	if f == nil {
+		f = newRandomFindingID
+	}
+	findingIDSource = f
+}
+
+func newRandomFindingID() string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
 		panic("findings: uuid4: " + err.Error())
@@ -125,4 +145,22 @@ func setOrAppend(o []validation.KV, key string, v validation.Value) []validation
 		}
 	}
 	return append(o, validation.KV{K: key, V: v})
+}
+
+// PinnedFindingID and ResetPinnedFindingIDs are the cross-twin golden harness'
+// deterministic id stream: F-<sha256("task13-finding:<n>")[:12]>. The Python
+// twin's generator patches new_finding_id with the same derivation, so both
+// sides mint identical ids and the id-dependent orderings (findings are sorted
+// by file name) coincide.
+var pinnedFindingCounter int
+
+// ResetPinnedFindingIDs rewinds the pinned finding-id stream.
+func ResetPinnedFindingIDs() { pinnedFindingCounter = 0 }
+
+// PinnedFindingID mints the next deterministic finding id.
+func PinnedFindingID() string {
+	h := sha256.Sum256([]byte("task13-finding:" +
+		strconv.Itoa(pinnedFindingCounter)))
+	pinnedFindingCounter++
+	return "F-" + hex.EncodeToString(h[:])[:12]
 }

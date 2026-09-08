@@ -55,6 +55,11 @@ func newId(prefix string, n int) string {
 	return prefix + "-" + h[:n]
 }
 
+// ResetIDStream rewinds the pinned uuid stream to its first draw. The
+// cross-twin golden harness replays each scenario from the same stream
+// position, so it must be able to rewind; production code never calls it.
+func ResetIDStream() { uuidPinCounter = 0 }
+
 // NewID is the exported alias of new_id for call sites outside this package
 // (pricing.set_price mints PRC- ids, risk.mint_impact_evidence mints EV-
 // ids). Additive only: same WEBV2_UUID pin stream, same derivation.
