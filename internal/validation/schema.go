@@ -105,6 +105,15 @@ func toAny(v Value) any {
 	case Bool:
 		return v.B
 	case Int:
+		if v.Big != "" {
+			// v6 cannot see *big.Int; the float64 approximation keeps the
+			// integer/number verdicts (the 27 schemas' bounds are small)
+			f, err := strconv.ParseFloat(v.Big, 64)
+			if err != nil {
+				return f
+			}
+			return f
+		}
 		return v.I
 	case Flt:
 		return v.F

@@ -43,8 +43,9 @@ func parseValue(dec *json.Decoder, tok json.Token) (Value, error) {
 			if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 				return VInt(i), nil
 			}
-			// exceeds int64: fall through to float (documented P0
-			// limitation, same as FromAny)
+			// exceeds int64: Python ints are arbitrary precision, keep
+			// the exact decimal text
+			return VBigInt(s), nil
 		}
 		f, err := strconv.ParseFloat(s, 64)
 		if err != nil {

@@ -20,7 +20,7 @@ func pyRepr(v Value) string {
 		}
 		return "False"
 	case Int:
-		return strconv.FormatInt(v.I, 10)
+		return intText(v)
 	case Flt:
 		return pythonFloat(v.F)
 	case Str:

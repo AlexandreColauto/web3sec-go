@@ -30,10 +30,14 @@ type Value struct {
 	Kind Kind
 	B    bool
 	I    int64
-	F    float64
-	S    string
-	A    []Value
-	O    []KV
+	// Big holds the decimal text of an integer that does not fit in int64
+	// (I is 0 then). Python ints are arbitrary precision; preserving the
+	// literal keeps read->write round-trips exact.
+	Big string
+	F   float64
+	S   string
+	A   []Value
+	O   []KV
 }
 
 // KV is an ordered key/value pair inside an object.
@@ -46,10 +50,20 @@ type KV struct {
 func VNull() Value           { return Value{Kind: Null} }
 func VBool(b bool) Value     { return Value{Kind: Bool, B: b} }
 func VInt(i int64) Value     { return Value{Kind: Int, I: i} }
+func VBigInt(s string) Value { return Value{Kind: Int, Big: s} }
 func VFloat(f float64) Value { return Value{Kind: Flt, F: f} }
 func VStr(s string) Value    { return Value{Kind: Str, S: s} }
 func VArr(a ...Value) Value  { return Value{Kind: Arr, A: a} }
 func VObj(o ...KV) Value     { return Value{Kind: Obj, O: o} }
+
+// intText renders an Int Value: the exact decimal text when it exceeds
+// int64, otherwise the int64 digits.
+func intText(v Value) string {
+	if v.Big != "" {
+		return v.Big
+	}
+	return strconv.FormatInt(v.I, 10)
+}
 
 // FromAny converts a decoded any (json.Number-aware) into a Value, preserving
 // the int vs float distinction that json.Number carries.
@@ -73,10 +87,8 @@ func FromAny(v any) Value {
 			if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 				return VInt(i)
 			}
-			// exceeds int64: keep as float (documented P0 limitation)
-			if f, err := strconv.ParseFloat(s, 64); err == nil {
-				return VFloat(f)
-			}
+			// exceeds int64: keep the exact decimal text
+			return VBigInt(s)
 		}
 		if f, err := strconv.ParseFloat(s, 64); err == nil {
 			return VFloat(f)
@@ -137,7 +149,7 @@ func writeCanon(b *strings.Builder, v Value, compact bool) {
 			b.WriteString("false")
 		}
 	case Int:
-		b.WriteString(strconv.FormatInt(v.I, 10))
+		b.WriteString(intText(v))
 	case Flt:
 		b.WriteString(pythonFloat(v.F))
 	case Str:
@@ -229,6 +241,99 @@ func writeU4(b *strings.Builder, r rune) {
 	b.WriteByte(hexd[(r>>8)&0xf])
 	b.WriteByte(hexd[(r>>4)&0xf])
 	b.WriteByte(hexd[r&0xf])
+}
+
+// DumpIndented renders json.dumps(v, indent=2, ensure_ascii=False):
+// insertion order, 2-space indent, raw non-ASCII, no trailing newline
+// (writeJson adds it).
+func DumpIndented(v Value) string {
+	var b strings.Builder
+	writeIndented(&b, v, 0)
+	return b.String()
+}
+
+func writeIndented(b *strings.Builder, v Value, depth int) {
+	pad := strings.Repeat("  ", depth)
+	inner := pad + "  "
+	switch v.Kind {
+	case Null:
+		b.WriteString("null")
+	case Bool:
+		if v.B {
+			b.WriteString("true")
+		} else {
+			b.WriteString("false")
+		}
+	case Int:
+		b.WriteString(intText(v))
+	case Flt:
+		b.WriteString(pythonFloat(v.F))
+	case Str:
+		b.WriteByte('"')
+		writeEscapedRaw(b, v.S)
+		b.WriteByte('"')
+	case Arr:
+		if len(v.A) == 0 {
+			b.WriteString("[]")
+			return
+		}
+		b.WriteString("[\n")
+		for i, e := range v.A {
+			if i > 0 {
+				b.WriteString(",\n")
+			}
+			b.WriteString(inner)
+			writeIndented(b, e, depth+1)
+		}
+		b.WriteString("\n" + pad + "]")
+	case Obj:
+		if len(v.O) == 0 {
+			b.WriteString("{}")
+			return
+		}
+		b.WriteString("{\n")
+		for i, kv := range v.O {
+			if i > 0 {
+				b.WriteString(",\n")
+			}
+			b.WriteString(inner)
+			b.WriteByte('"')
+			writeEscapedRaw(b, kv.K)
+			b.WriteString("\": ")
+			writeIndented(b, kv.V, depth+1)
+		}
+		b.WriteString("\n" + pad + "}")
+	}
+}
+
+// writeEscapedRaw writes s with CPython ensure_ascii=False escaping: named
+// escapes for " \ b f n r t, \uXXXX for other control chars (< 0x20);
+// 0x7f and all non-ASCII stay raw.
+func writeEscapedRaw(b *strings.Builder, s string) {
+	for i := 0; i < len(s); {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		switch {
+		case r == '"':
+			b.WriteString("\\\"")
+		case r == '\\':
+			b.WriteString("\\\\")
+		case r == '\b':
+			b.WriteString("\\b")
+		case r == '\f':
+			b.WriteString("\\f")
+		case r == '\n':
+			b.WriteString("\\n")
+		case r == '\r':
+			b.WriteString("\\r")
+		case r == '\t':
+			b.WriteString("\\t")
+		case r < 0x20:
+			writeU4(b, r)
+		default:
+			b.WriteRune(r)
+		}
+		i += size
+	}
 }
 
 // pythonFloat formats a float64 to match CPython repr exactly.
