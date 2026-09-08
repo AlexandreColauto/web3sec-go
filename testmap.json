@@ -2795,37 +2795,44 @@
   {
    "python_file": "tests/test_living_artifacts.py",
    "python_func": "test_audit_flags_hand_edit_even_after_refresh",
-   "status": "deferred-P0"
+   "go_file": "internal/audit/living_artifacts_test.go",
+   "go_func": "TestLivingAuditFlagsHandEditEvenAfterRefresh"
   },
   {
    "python_file": "tests/test_living_artifacts.py",
    "python_func": "test_audit_green_after_sanctioned_refresh",
-   "status": "deferred-P0"
+   "go_file": "internal/audit/living_artifacts_test.go",
+   "go_func": "TestLivingAuditGreenAfterSanctionedRefresh"
   },
   {
    "python_file": "tests/test_living_artifacts.py",
    "python_func": "test_different_kind_same_path_registers_new",
-   "status": "deferred-P0"
+   "go_file": "internal/state/living_artifacts_test.go",
+   "go_func": "TestLivingDifferentKindSamePathRegistersNew"
   },
   {
    "python_file": "tests/test_living_artifacts.py",
    "python_func": "test_log_records_old_new_hashes",
-   "status": "deferred-P0"
+   "go_file": "internal/state/living_artifacts_test.go",
+   "go_func": "TestLivingLogRecordsOldNewHashes"
   },
   {
    "python_file": "tests/test_living_artifacts.py",
    "python_func": "test_refresh_requires_reason",
-   "status": "deferred-P0"
+   "go_file": "internal/state/living_artifacts_test.go",
+   "go_func": "TestLivingRefreshRequiresReason"
   },
   {
    "python_file": "tests/test_living_artifacts.py",
    "python_func": "test_register_or_refresh_reuses_row",
-   "status": "deferred-P0"
+   "go_file": "internal/state/living_artifacts_test.go",
+   "go_func": "TestLivingRegisterOrRefreshReusesRow"
   },
   {
    "python_file": "tests/test_living_artifacts.py",
    "python_func": "test_register_or_refresh_updates_hash",
-   "status": "deferred-P0"
+   "go_file": "internal/state/living_artifacts_test.go",
+   "go_func": "TestLivingRegisterOrRefreshUpdatesHash"
   },
   {
    "python_file": "tests/test_memory_check_gate.py",
