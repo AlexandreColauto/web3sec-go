@@ -201,6 +201,77 @@ func (g GateFailure) Value() validation.Value {
 	)
 }
 
+// Clause is one live CONFIRMED-gate clause with its verdict
+// (confirmation_gate_clauses' dict). Subject is Python's optional "subject"
+// key: a clause that is ONE of several sharing a check id (an invariant id)
+// carries it, so the checklist and the delta can tell them apart.
+type Clause struct {
+	CheckID     string
+	OK          bool
+	Message     string
+	Remediation string
+	Subject     *string
+}
+
+// Value renders the clause as the Python dict in key order:
+// {check_id, ok, message, remediation} (+ subject when truthy).
+func (cl Clause) Value() validation.Value {
+	out := validation.VObj(
+		validation.KV{K: "check_id", V: validation.VStr(cl.CheckID)},
+		validation.KV{K: "ok", V: validation.VBool(cl.OK)},
+		validation.KV{K: "message", V: validation.VStr(cl.Message)},
+		validation.KV{K: "remediation", V: validation.VStr(cl.Remediation)},
+	)
+	if cl.Subject != nil && *cl.Subject != "" {
+		out.O = append(out.O, validation.KV{K: "subject",
+			V: validation.VStr(*cl.Subject)})
+	}
+	return out
+}
+
+// ID is findings.clause_id: the check id, qualified by its subject.
+func (cl Clause) ID() string {
+	if cl.Subject != nil && *cl.Subject != "" {
+		return cl.CheckID + "[" + *cl.Subject + "]"
+	}
+	return cl.CheckID
+}
+
+// ClauseID is findings.clause_id for a clause value.
+func ClauseID(cl Clause) string { return cl.ID() }
+
+// FailingCheckIDs is _failing_check_ids: the failing clause ids, first
+// appearance order, de-duplicated — what a refused CONFIRMED transition
+// records so the next dry run can show the delta.
+func FailingCheckIDs(clauses []Clause) []string {
+	seen := []string{}
+	for _, cl := range clauses {
+		cid := cl.ID()
+		if !cl.OK && !containsStr(seen, cid) {
+			seen = append(seen, cid)
+		}
+	}
+	return seen
+}
+
+// EconomicClausePresent is economic_clause_present: this finding's CONFIRMED
+// gate HAS an economic-class clause — the E7 quantification a recorded
+// UNPRICEABLE decision can satisfy (identified by its own `decision` marker
+// in gate_requirements, the same live logic the gate uses).
+func EconomicClausePresent(campaign *state.Campaign, finding validation.Value) bool {
+	cls := ""
+	if v := objAt(asDict(objAt(finding, "root_cause")), "class"); v.Kind ==
+		validation.Str {
+		cls = v.S
+	}
+	for _, cl := range GateRequirements("CONFIRMED", cls, campaign) {
+		if cl.Decision == "unpriceable" {
+			return true
+		}
+	}
+	return false
+}
+
 // asDict is _as_dict: fail-closed normalization for unvalidated on-disk
 // blocks — a non-dict block behaves as an absent block so gate checks fail
 // closed instead of raising AttributeError (the load path does not validate).
@@ -357,11 +428,17 @@ func indexOfStr(items []string, want string) int {
 	return -1
 }
 
-// ConfirmationGateDetail is confirmation_gate_detail: the CONFIRMED gate as
-// structured failures, in the contractual check order.
-func ConfirmationGateDetail(campaign *state.Campaign,
-	finding validation.Value) ([]GateFailure, error) {
-	g := &gateRun{campaign: campaign, finding: finding, out: []GateFailure{}}
+// ConfirmationGateClauses is confirmation_gate_clauses: the CONFIRMED gate
+// as EVERY live clause with its verdict, in gate order. This is the single
+// source of the clause set — ConfirmationGateDetail is the failing-only view
+// built from it, ConfirmationGates renders those failures for the transition
+// error message, and `gate --dry-run` prints the whole checklist. A clause
+// appears only when it APPLIES to this finding (the invariant shield clause,
+// the on-chain sequence clause) — the live set the transition itself uses,
+// never a hand-maintained list.
+func ConfirmationGateClauses(campaign *state.Campaign,
+	finding validation.Value) ([]Clause, error) {
+	g := &gateRun{campaign: campaign, finding: finding, out: []Clause{}}
 	ver := asDict(objAt(finding, "verification"))
 	repro := asDict(objAt(ver, "reproduction"))
 	g.criticVerdict(ver)
@@ -387,25 +464,52 @@ func ConfirmationGateDetail(campaign *state.Campaign,
 	return g.claimDrift(finding)
 }
 
+// ConfirmationGateDetail is confirmation_gate_detail: the CONFIRMED gate as
+// structured failures, in the contractual check order — the failing-only view
+// of ConfirmationGateClauses.
+func ConfirmationGateDetail(campaign *state.Campaign,
+	finding validation.Value) ([]GateFailure, error) {
+	clauses, err := ConfirmationGateClauses(campaign, finding)
+	if err != nil {
+		return nil, err
+	}
+	out := []GateFailure{}
+	for _, cl := range clauses {
+		if cl.OK {
+			continue
+		}
+		out = append(out, GateFailure{CheckID: cl.CheckID, Message: cl.Message,
+			Remediation: cl.Remediation})
+	}
+	return out, nil
+}
+
 // gateRun carries the gate state across the per-check helpers so each stays
 // well under the length limit.
 type gateRun struct {
 	campaign *state.Campaign
 	finding  validation.Value
-	out      []GateFailure
+	out      []Clause
 }
 
-func (g *gateRun) fail(checkID, message string) {
-	g.out = append(g.out, GateFailure{CheckID: checkID, Message: message,
-		Remediation: GATE_REMEDIATION[checkID]})
+func (g *gateRun) fail(checkID, message string, subject *string) {
+	g.out = append(g.out, Clause{CheckID: checkID, OK: false, Message: message,
+		Remediation: GATE_REMEDIATION[checkID], Subject: subject})
+}
+
+func (g *gateRun) satisfied(checkID string, subject *string) {
+	g.out = append(g.out, Clause{CheckID: checkID, OK: true,
+		Remediation: GATE_REMEDIATION[checkID], Subject: subject})
 }
 
 func (g *gateRun) criticVerdict(ver validation.Value) {
 	v := objAt(ver, "critic_verdict")
 	if v.Kind != validation.Str || v.S != "confirmed" {
 		g.fail("critic-verdict", "hostile critic verdict is "+
-			validation.PyRepr(v)+", need 'confirmed'")
+			validation.PyRepr(v)+", need 'confirmed'", nil)
+		return
 	}
+	g.satisfied("critic-verdict", nil)
 }
 
 func (g *gateRun) memoryCheck(finding validation.Value) error {
@@ -414,8 +518,10 @@ func (g *gateRun) memoryCheck(finding validation.Value) error {
 		return err
 	}
 	if msg != nil {
-		g.fail("memory-check", *msg)
+		g.fail("memory-check", *msg, nil)
+		return nil
 	}
+	g.satisfied("memory-check", nil)
 	return nil
 }
 
@@ -423,8 +529,10 @@ func (g *gateRun) reproduction(repro validation.Value) {
 	if s := objAt(repro, "status"); s.Kind != validation.Str ||
 		s.S != "reproduced" {
 		g.fail("reproduction-reproduced", "reproduction status is "+
-			validation.PyRepr(s)+", need 'reproduced'")
+			validation.PyRepr(s)+", need 'reproduced'", nil)
+		return
 	}
+	g.satisfied("reproduction-reproduced", nil)
 }
 
 // evidenceFloor appends evidence-floor (and the unreachable diagnostic) and
@@ -438,9 +546,10 @@ func (g *gateRun) evidenceFloor(finding validation.Value) (string, error) {
 	floor := RequiredLevelForCampaign(g.campaign, "CONFIRMED", bugClass)
 	deficit := EvidenceDeficit(finding, "CONFIRMED", g.campaign)
 	if deficit == nil {
+		g.satisfied("evidence-floor", nil)
 		return floor, nil
 	}
-	g.fail("evidence-floor", *deficit)
+	g.fail("evidence-floor", *deficit, nil)
 	fi, err := LevelIndex(floor)
 	if err != nil {
 		return floor, err
@@ -458,7 +567,7 @@ func (g *gateRun) evidenceFloor(finding validation.Value) (string, error) {
 			"structurally unreachable in this campaign: "+
 				strings.Join(diag, "; ")+" — if the target truly cannot produce "+
 				"that evidence, record the decision with `webv2 floors set` "+
-				"instead of editing the framework's floor table")
+				"instead of editing the framework's floor table", nil)
 	}
 	return floor, nil
 }
@@ -477,12 +586,13 @@ func (g *gateRun) reproductionTier(repro validation.Value, floor string) {
 		tier = validation.VStr("none")
 	}
 	if !tierBelowT3(tier, reproductionTierOrderFunc()) {
+		g.satisfied("reproduction-tier", nil)
 		return
 	}
 	g.fail("reproduction-tier", fmt.Sprintf("evidence floor %s demands a "+
 		"fork-level reproduction (T3+), but tier_reached is %s — record the "+
 		"fork-tier attempt (record_attempt / attempt_and_mint) before "+
-		"confirming", floor, validation.PyRepr(tier)))
+		"confirming", floor, validation.PyRepr(tier)), nil)
 }
 
 func (g *gateRun) sequenceCoverage(repro validation.Value) error {
@@ -513,12 +623,13 @@ func (g *gateRun) sequenceCoverage(repro validation.Value) error {
 		}
 		if covered, _ := verifySequenceCoverageFunc(g.campaign, g.finding,
 			rec); covered {
+			g.satisfied("sequence-coverage", nil)
 			return nil
 		}
 	}
 	g.fail("sequence-coverage", "declared exploit_sequence needs a multi-tx "+
 		"PoC — no recorded attempt traces to an exec with verified sequence "+
-		"coverage (single-call PoCs cannot cover it)")
+		"coverage (single-call PoCs cannot cover it)", nil)
 	return nil
 }
 
@@ -527,8 +638,10 @@ func (g *gateRun) snapshotCompatible() {
 	// strict default (True) and folds the mismatch into a gate failure.
 	if _, err := snapshot.AssertSnapshotCompatible(g.campaign, g.finding,
 		true); err != nil {
-		g.fail("snapshot-compatible", err.Error())
+		g.fail("snapshot-compatible", err.Error(), nil)
+		return
 	}
+	g.satisfied("snapshot-compatible", nil)
 }
 
 func (g *gateRun) shield(ver validation.Value) error {
@@ -541,12 +654,16 @@ func (g *gateRun) shield(ver validation.Value) error {
 		return err
 	}
 	claim, ok := claims[normalizeInvIDFunc(iid.S)]
-	if !ok || !pyTruthy(claim) || pyTruthy(objAt(ver, "shield_adjudication")) {
+	if !ok || !pyTruthy(claim) {
+		return nil
+	}
+	if pyTruthy(objAt(ver, "shield_adjudication")) {
+		g.satisfied("shield-adjudication", nil)
 		return nil
 	}
 	g.fail("shield-adjudication", fmt.Sprintf("invariant %s is documented as "+
 		"intended (%s) — record the extraction adjudication before CONFIRMED",
-		iid.S, firstRunes(objStr(claim, "intent_line"), 100)))
+		iid.S, firstRunes(objStr(claim, "intent_line"), 100)), nil)
 	return nil
 }
 
@@ -571,31 +688,38 @@ func (g *gateRun) invariants(finding validation.Value) error {
 		return err
 	}
 	for _, iid := range invariantIDs(finding) {
+		subj := iid
 		e, ok := normReg[iid]
 		if !ok {
 			g.fail("invariant-unverified", "invariant-unverified: "+iid+
-				" not in registry — seed it or correct the id")
+				" not in registry — seed it or correct the id", &subj)
 			continue
 		}
 		if _, isDoc := doc[iid]; isDoc || objStr(e, "source") == "documented" {
+			g.satisfied("invariant-unverified", &subj)
 			continue
 		}
 		if !invariantVerifiedFunc(e, g.campaign, iid, events) {
 			g.fail("invariant-unverified", fmt.Sprintf("invariant %s has "+
 				"status %s — verify it against code before CONFIRMED", iid,
-				validation.PyRepr(objAt(e, "status"))))
+				validation.PyRepr(objAt(e, "status"))), &subj)
+			continue
 		}
+		g.satisfied("invariant-unverified", &subj)
 	}
 	return nil
 }
 
-func (g *gateRun) claimDrift(finding validation.Value) ([]GateFailure, error) {
+func (g *gateRun) claimDrift(finding validation.Value) ([]Clause, error) {
 	problems, err := ClaimDriftProblems(finding)
 	if err != nil {
 		return nil, err
 	}
 	for _, p := range problems {
-		g.fail("claim-drift", p)
+		g.fail("claim-drift", p, nil)
+	}
+	if len(problems) == 0 {
+		g.satisfied("claim-drift", nil)
 	}
 	return g.out, nil
 }

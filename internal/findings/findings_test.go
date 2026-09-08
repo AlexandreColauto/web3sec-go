@@ -266,14 +266,14 @@ func TestEconomicClassDemandsForkEvidence(t *testing.T) {
 
 func TestClauseMet(t *testing.T) {
 	low := genFinding(ev("E1", "manual"))
-	if ClauseMet(low, Clause{Types: nil, MinLevel: "E2"}) {
+	if ClauseMet(low, GateRequirement{Types: nil, MinLevel: "E2"}) {
 		t.Error("E1 should not satisfy an E2 any-type clause")
 	}
 	high := genFinding(ev("E3", "manual"))
-	if !ClauseMet(high, Clause{Types: nil, MinLevel: "E2"}) {
+	if !ClauseMet(high, GateRequirement{Types: nil, MinLevel: "E2"}) {
 		t.Error("E3 should satisfy an E2 any-type clause")
 	}
-	restricted := Clause{Types: setOf("foundry-test", "fuzz"), MinLevel: "E4"}
+	restricted := GateRequirement{Types: setOf("foundry-test", "fuzz"), MinLevel: "E4"}
 	ok := genFinding(ev("E5", "fuzz"))
 	if !ClauseMet(ok, restricted) {
 		t.Error("E5 fuzz should satisfy the foundry/fuzz E4 clause")
@@ -287,7 +287,7 @@ func TestClauseMet(t *testing.T) {
 		t.Error("E2 fuzz must NOT satisfy an E4 clause")
 	}
 	junk := genFinding(validation.VObj(kv("description", validation.VStr("no level"))))
-	if ClauseMet(junk, Clause{Types: nil, MinLevel: "E0"}) {
+	if ClauseMet(junk, GateRequirement{Types: nil, MinLevel: "E0"}) {
 		t.Error("level-less item must not satisfy any clause")
 	}
 }

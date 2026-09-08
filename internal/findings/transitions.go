@@ -160,11 +160,33 @@ func transition(campaign *state.Campaign, findingID, toStatus, reason string,
 			toStatus, listRepr(legal))}
 	}
 	if toStatus == "CONFIRMED" {
-		failures, err := ConfirmationGates(campaign, finding)
+		clauses, err := ConfirmationGateClauses(campaign, finding)
 		if err != nil {
 			return validation.VNull(), err
 		}
+		failures := []string{}
+		for _, cl := range clauses {
+			if !cl.OK {
+				failures = append(failures, cl.CheckID+": "+cl.Message)
+			}
+		}
 		if len(failures) > 0 {
+			// A refusal is RECORDED (round-7 D4): the next `gate --dry-run`
+			// can say which clause you just fixed. One additive event, the
+			// failing ids only — the event log is the state, there is no
+			// gate-attempt file.
+			ids := FailingCheckIDs(clauses)
+			items := make([]validation.Value, 0, len(ids))
+			for _, id := range ids {
+				items = append(items, validation.VStr(id))
+			}
+			data := validation.VObj(
+				validation.KV{K: "finding", V: validation.VStr(findingID)},
+				validation.KV{K: "check_ids", V: validation.VArr(items...)})
+			if _, err := campaign.Log("finding.gate_attempt", &findingID,
+				&data); err != nil {
+				return validation.VNull(), err
+			}
 			return validation.VNull(), &IllegalTransition{Msg: "CONFIRMED gate " +
 				"failed for " + findingID + ": " + strings.Join(failures, "; ")}
 		}

@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"sync"
 
-	"websec/assets"
-
 	v6 "github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/santhosh-tekuri/jsonschema/v6/kind"
 )
@@ -52,7 +50,7 @@ func loadSchema(name string) (*schemaEntry, error) {
 		return nil, fmt.Errorf("unknown schema %s; known: %s",
 			PyReprStr(name), pyReprTuple(knownSchemas))
 	}
-	raw, err := assets.FS.ReadFile("schema/" + name + ".schema.json")
+	raw, err := ReadSchemaFile(name)
 	if err != nil {
 		// unreachable: the embedded FS is built from the same 27 files
 		return nil, fmt.Errorf("schema file missing: schema/%s.schema.json", name)

@@ -1,0 +1,148 @@
+package cli
+
+// cmd_model: `webv2 model <campaign> [file] [--json]` — load a protocol
+// model from a JSON file (seeds the invariant registry, reconciles against
+// documented INV ids), or show the loaded one (cli.py cmd_model verbatim).
+
+import (
+	"fmt"
+	"io"
+	"path/filepath"
+	"strings"
+
+	"websec/internal/orchestrator"
+	"websec/internal/protocolgraph"
+	"websec/internal/state"
+)
+
+const t14ModelUsage = `usage: webv2 model [-h] [--json] campaign [file]
+`
+
+const t14ModelHelp = `usage: webv2 model [-h] [--json] campaign [file]
+
+positional arguments:
+  campaign
+  file
+
+options:
+  -h, --help  show this help message and exit
+  --json
+`
+
+func runModel(root string, args []string, r *Runner) error {
+	var pos []string
+	asJSON := false
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "-h" || a == "--help":
+			fmt.Fprint(r.Out, t14ModelHelp)
+			return nil
+		case a == "--json":
+			asJSON = true
+		case strings.HasPrefix(a, "-"):
+			return t14Unrecognized(a)
+		default:
+			pos = append(pos, a)
+		}
+	}
+	if len(pos) < 1 {
+		return t14ArgparseErr(t14ModelUsage, "model",
+			"the following arguments are required: campaign")
+	}
+	if len(pos) > 2 {
+		return t14Unrecognized(strings.Join(pos[2:], " "))
+	}
+	c, err := t14Open(root, pos[0])
+	if err != nil {
+		return err
+	}
+	if len(pos) == 1 {
+		return showLoadedModel(c, r.Out, asJSON)
+	}
+	return loadModelFile(c, pos[1], r.Out, asJSON)
+}
+
+// showLoadedModel is the no-file branch: print the artifact already loaded.
+// PG.load_model re-registers and re-logs the load (cli.py does the same).
+func showLoadedModel(c *state.Campaign, stdout io.Writer, asJSON bool) error {
+	pm := filepath.Join(c.ArtifactsDir, "protocol_model.json")
+	if !t14Exists(pm) {
+		fmt.Fprintln(stdout, "no protocol model loaded yet "+
+			"(webv2 model <campaign> model.json)")
+		return nil
+	}
+	m, err := protocolgraph.LoadModel(c, pm)
+	if err != nil {
+		return err
+	}
+	if asJSON {
+		t14PrintJSON(stdout, m)
+		return nil
+	}
+	fmt.Fprintf(stdout, "model: %d actors, %d assets, %d invariants, "+
+		"%d relations\n", t14PyLen(objAt(m, "actors")),
+		t14PyLen(objAt(m, "assets")), t14PyLen(objAt(m, "invariants")),
+		t14PyLen(objAt(m, "relations")))
+	return nil
+}
+
+// loadModelFile is the file branch: read, load into the orchestrator, report.
+func loadModelFile(c *state.Campaign, path string, stdout io.Writer,
+	asJSON bool) error {
+	text, err := t14ReadText(path)
+	if err != nil {
+		return err
+	}
+	model, err := t14ParseJSON(text)
+	if err != nil {
+		return err
+	}
+	res, err := orchestrator.New(c).LoadProtocolModel(model)
+	if err != nil {
+		return t14ExitErr(2, "model load failed: %s\n", err)
+	}
+	if asJSON {
+		t14PrintJSON(stdout, res)
+		return nil
+	}
+	m := objAt(res, "model")
+	fmt.Fprintf(stdout, "model loaded: %d actors, %d assets, %d invariants\n",
+		t14PyLen(objAt(m, "actors")), t14PyLen(objAt(m, "assets")),
+		t14PyLen(objAt(m, "invariants")))
+	seeded := objInt(res, "invariants_seeded")
+	registered := objInt(res, "invariants_registered")
+	if seeded == 0 {
+		fmt.Fprintln(stdout, "  WARNING: the model declares no invariants — "+
+			"the invariant registry was seeded with NOTHING "+
+			"(invariants.seed_empty logged). Every evidence level rise will "+
+			"be guardrail-blocked until the model is refined.")
+	} else {
+		fmt.Fprintf(stdout, "  invariant registry: %d invariant(s) "+
+			"(%d from this load)\n", registered, seeded)
+	}
+	recon := objAt(res, "invariant_reconciliation")
+	missing := objAt(recon, "missing_from_model")
+	if t14PyLen(missing) > 0 {
+		names := make([]string, 0, len(missing.A))
+		for _, v := range missing.A {
+			names = append(names, scalarStr(v))
+		}
+		fmt.Fprintf(stdout, "  RECONCILIATION: documented invariants missing "+
+			"from the model: %s\n", strings.Join(names, ", "))
+		fmt.Fprintf(stdout, "      %s\n", objStr(recon, "note"))
+	} else {
+		fmt.Fprintf(stdout, "  reconciliation: %s\n", objStr(recon, "note"))
+	}
+	return nil
+}
+
+func init() {
+	register(command{ord: 33, name: "model",
+		line: `model <campaign> [file] [--json]   load/show the protocol model`,
+		run: func(root string, args []string, r *Runner) int {
+			return t14Dispatch(root, r, func() error {
+				return runModel(root, args, r)
+			})
+		}})
+}

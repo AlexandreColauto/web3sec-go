@@ -278,9 +278,17 @@ func TestGateBlocksWithoutCheck(t *testing.T) {
 	}
 	want := "no verified graph-memory recall recorded — none recorded, or " +
 		"every recorded check is stale (a referenced row changed or left " +
-		"the store) — run `webv2 recall --finding " + objStr(f, "finding_id") + "`"
+		"the store) — run `webv2 recall " + c.CampaignID + " --finding " +
+		objStr(f, "finding_id") + "`"
 	if *msg != want {
 		t.Fatalf("message = %q, want %q", *msg, want)
+	}
+	// the printed remedy must be a COMPLETE executable command: the campaign
+	// positional and the finding are both present (Wave-B review follow-up;
+	// Python's test_every_printed_recall_remedy_is_executable is P3/briefing).
+	if !strings.Contains(*msg, "webv2 recall "+c.CampaignID+" --finding "+
+		objStr(f, "finding_id")) {
+		t.Fatalf("remedy is not an executable command: %q", *msg)
 	}
 }
 

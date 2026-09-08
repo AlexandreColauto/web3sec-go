@@ -193,12 +193,12 @@ func LevelIndex(level string) (int, error) {
 		validation.PyReprStr(level), strings.Join(EVIDENCE_ORDER, "/"))
 }
 
-// Clause is one gate requirement: a set of satisfying evidence types (nil —
-// any type) and a minimum level. Decision names a NAMED DECISION that stands
-// in for the clause's evidence ("unpriceable": some economic impacts cannot
-// honestly be priced, so inventing a number to satisfy the gate is the
+// GateRequirement is one gate requirement: a set of satisfying evidence types
+// (nil — any type) and a minimum level. Decision names a NAMED DECISION that
+// stands in for the clause's evidence ("unpriceable": some economic impacts
+// cannot honestly be priced, so inventing a number to satisfy the gate is the
 // failure mode — round-7 D3, risk.RecordUnpriceable).
-type Clause struct {
+type GateRequirement struct {
 	Types    map[string]struct{}
 	MinLevel string
 	Decision string
@@ -217,10 +217,10 @@ type Clause struct {
 // substitute for a missing clause — a clause is satisfied only by an item
 // of one of its types at or above its level, regardless of how much or how
 // strong the finding's other evidence is.
-func GateRequirements(status, bugClass string, campaign *state.Campaign) []Clause {
+func GateRequirements(status, bugClass string, campaign *state.Campaign) []GateRequirement {
 	floor := RequiredLevelForCampaign(campaign, status, bugClass)
 	if status == "CONFIRMED" && bugClass != "" && inSet(ECONOMIC_CONFIRMATION_CLASSES, bugClass) {
-		return []Clause{
+		return []GateRequirement{
 			{Types: copySet(EVIDENCE_TYPE_GROUPS["local-poc"]), MinLevel: "E4"},
 			{Types: mergeSets(EVIDENCE_TYPE_GROUPS["fork-poc"],
 				EVIDENCE_TYPE_GROUPS["independent-repro"]), MinLevel: floor},
@@ -232,7 +232,7 @@ func GateRequirements(status, bugClass string, campaign *state.Campaign) []Claus
 				Decision: "unpriceable"},
 		}
 	}
-	return []Clause{{Types: nil, MinLevel: floor}}
+	return []GateRequirement{{Types: nil, MinLevel: floor}}
 }
 
 // UnpriceableDecision is unpriceable_decision: the finding's recorded
@@ -265,7 +265,7 @@ func UnpriceableDecision(finding validation.Value) *validation.Value {
 // ClauseMet is _clause_met: does the finding hold an evidence item of one
 // of the clause's types at or above its min level? A level-less or
 // unknown-level item satisfies nothing.
-func ClauseMet(finding validation.Value, clause Clause) bool {
+func ClauseMet(finding validation.Value, clause GateRequirement) bool {
 	// A clause may name a NAMED DECISION that stands in for its evidence
 	// (the economic-class E7 quantification is impossible for some
 	// findings). The decision is recorded state, not a bypass: absent it,

@@ -366,6 +366,7 @@ func MemoryCheckFails(campaign *state.Campaign,
 	}
 	msg := "no verified graph-memory recall recorded — none recorded, or " +
 		"every recorded check is stale (a referenced row changed or left " +
-		"the store) — run `webv2 recall --finding " + findingID + "`"
+		"the store) — run `webv2 recall " + campaign.CampaignID + " --finding " +
+		findingID + "`"
 	return &msg, nil
 }

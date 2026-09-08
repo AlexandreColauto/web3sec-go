@@ -27,8 +27,8 @@ func TestConfirmationGateDetailExactVector(t *testing.T) {
 		{"memory-check",
 			"no verified graph-memory recall recorded — none recorded, or " +
 				"every recorded check is stale (a referenced row changed or " +
-				"left the store) — run `webv2 recall --finding " +
-				objStr(got, "finding_id") + "`",
+				"left the store) — run `webv2 recall " + c.CampaignID +
+				" --finding " + objStr(got, "finding_id") + "`",
 			"webv2 recall <campaign> --finding <fid>   (records a " +
 				"graph-memory consultation)"},
 		{"reproduction-reproduced",

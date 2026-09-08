@@ -1,0 +1,558 @@
+package cli
+
+// cmd_answered: `webv2 answered <campaign> <priority> <status> [--reason R]
+// [--ref R] [--families F] [--symmetry S] [--anchor A] [--actor A]` — set a
+// plan priority's (Q-*) or lens entry's (L-*) status WITH closure provenance.
+// cli.py cmd_answered verbatim: closing statuses REQUIRE --reason, L-* ids
+// route to planner.mark_lens, and a probe row's disposition must name its
+// anchor.
+
+import (
+	"fmt"
+	"path/filepath"
+	"strings"
+
+	"websec/internal/planner"
+	"websec/internal/state"
+	"websec/internal/validation"
+)
+
+const t14AnsweredUsage = `usage: webv2 answered [-h] [--reason REASON] [--ref REF] [--families FAMILIES]
+                      [--symmetry SYMMETRY] [--anchor ANCHOR] [--actor ACTOR]
+                      campaign priority
+                      {open,assigned,answered,not-applicable,deprioritized,blocked}
+`
+
+const t14AnsweredHelp = `usage: webv2 answered [-h] [--reason REASON] [--ref REF] [--families FAMILIES]
+                      [--symmetry SYMMETRY] [--anchor ANCHOR] [--actor ACTOR]
+                      campaign priority
+                      {open,assigned,answered,not-applicable,deprioritized,blocked}
+
+positional arguments:
+  campaign
+  priority
+  {open,assigned,answered,not-applicable,deprioritized,blocked}
+
+options:
+  -h, --help            show this help message and exit
+  --reason REASON       why (required for closing statuses)
+  --ref REF             evidence ref: finding/exec/artifact id or file#L
+                        anchor
+  --families FAMILIES   comma-separated lens families attested as checked
+                        (required to close an L-* lens)
+  --symmetry SYMMETRY   L-04 only: family=primitive[|primitive];... quoting
+                        the token-movement primitive per seeded family
+  --anchor ANCHOR       probe rows only: the field this disposition claims is
+                        safe — one of the row's probe's own anchor enum
+                        (anchors: accumulator, actor, asserter, base,
+                        companion, concept, consumer, cursor, custody, guard,
+                        invariant, plain, rounded, safety, sentinel, sibling,
+                        stranded_entry). Required to disposition a probe row;
+                        the value recorded is the row's real anchor
+  --actor ACTOR         who is closing it (default: cli)
+`
+
+// answeredArgs is the parsed command line.
+type answeredArgs struct {
+	campaign string
+	priority string
+	status   string
+	reason   *string
+	ref      *string
+	families *string
+	symmetry *string
+	anchor   *string
+	actor    string
+}
+
+var answeredStatuses = []string{"open", "assigned", "answered",
+	"not-applicable", "deprioritized", "blocked"}
+
+func runAnswered(root string, args []string, r *Runner) error {
+	a, err := parseAnswered(args, r)
+	if err != nil || a == nil {
+		return err
+	}
+	c, err := t14Open(root, a.campaign)
+	if err != nil {
+		return err
+	}
+	planPath := filepath.Join(c.ArtifactsDir, "campaign_plan.json")
+	if !t14Exists(planPath) {
+		return t14ExitErr(2, "no campaign plan loaded (webv2 plan <campaign>)\n")
+	}
+	closing := a.status == "answered" || a.status == "not-applicable" ||
+		a.status == "deprioritized" || a.status == "blocked"
+	if closing && (a.reason == nil || strings.TrimSpace(*a.reason) == "") {
+		return t14ExitErr(2, "answered: %s requires --reason (why). "+
+			"Pass --ref too when the answer rests on evidence "+
+			"(finding/exec/artifact/file#L).\n", validation.PyReprStr(a.status))
+	}
+	if strings.HasPrefix(a.priority, "L-") {
+		return answeredLens(c, a, closing, r)
+	}
+	return answeredPriority(c, a, closing, r)
+}
+
+// parseAnswered is the argparse layer. A nil *answeredArgs with a nil error
+// means --help was printed.
+func parseAnswered(args []string, r *Runner) (*answeredArgs, error) {
+	a := &answeredArgs{}
+	var pos []string
+	for i := 0; i < len(args); i++ {
+		consumed, done, handled, err := answeredFlag(args, i, a, r)
+		if err != nil {
+			return nil, err
+		}
+		if done {
+			return nil, nil
+		}
+		if handled {
+			i += consumed
+			continue
+		}
+		pos = append(pos, args[i])
+	}
+	return finishAnswered(a, pos)
+}
+
+// answeredFlag consumes one option (and its value). done means --help was
+// printed; handled=false means the argument is positional. argparse order is
+// preserved: the exact-match value flags first, then --actor and the
+// --flag=value spellings, then an unrecognized option.
+func answeredFlag(args []string, i int, a *answeredArgs,
+	r *Runner) (consumed int, done, handled bool, err error) {
+	arg := args[i]
+	if arg == "-h" || arg == "--help" {
+		fmt.Fprint(r.Out, t14AnsweredHelp)
+		return 0, true, true, nil
+	}
+	if arg == "--actor" {
+		if i+1 >= len(args) {
+			return 0, false, true, t14ArgparseErr(t14AnsweredUsage,
+				"answered", "argument --actor: expected one argument")
+		}
+		a.actor = args[i+1]
+		return 1, false, true, nil
+	}
+	if dst, name := answeredDst(a, arg); dst != nil {
+		if i+1 >= len(args) {
+			return 0, false, true, t14ArgparseErr(t14AnsweredUsage,
+				"answered", "argument --%s: expected one argument", name)
+		}
+		v := args[i+1]
+		*dst = &v
+		return 1, false, true, nil
+	}
+	if handled, err := answeredEq(a, arg); handled || err != nil {
+		return 0, false, handled, err
+	}
+	if strings.HasPrefix(arg, "-") {
+		return 0, false, true, t14Unrecognized(arg)
+	}
+	return 0, false, false, nil
+}
+
+// answeredDst maps a value-taking flag (space-separated form) to its field.
+func answeredDst(a *answeredArgs, arg string) (**string, string) {
+	switch arg {
+	case "--reason":
+		return &a.reason, "reason"
+	case "--ref":
+		return &a.ref, "ref"
+	case "--families":
+		return &a.families, "families"
+	case "--symmetry":
+		return &a.symmetry, "symmetry"
+	case "--anchor":
+		return &a.anchor, "anchor"
+	}
+	return nil, ""
+}
+
+// answeredEq handles the --flag=value spellings (--actor= included).
+func answeredEq(a *answeredArgs, arg string) (bool, error) {
+	for _, f := range []struct {
+		name string
+		dst  **string
+	}{
+		{"--reason", &a.reason}, {"--ref", &a.ref},
+		{"--families", &a.families}, {"--symmetry", &a.symmetry},
+		{"--anchor", &a.anchor},
+	} {
+		if strings.HasPrefix(arg, f.name+"=") {
+			v := strings.TrimPrefix(arg, f.name+"=")
+			*f.dst = &v
+			return true, nil
+		}
+	}
+	if strings.HasPrefix(arg, "--actor=") {
+		a.actor = strings.TrimPrefix(arg, "--actor=")
+		return true, nil
+	}
+	return false, nil
+}
+
+// finishAnswered enforces the required positionals and the status enum.
+func finishAnswered(a *answeredArgs, pos []string) (*answeredArgs, error) {
+	var missing []string
+	for i, name := range []string{"campaign", "priority", "status"} {
+		if len(pos) < i+1 {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		return nil, t14ArgparseErr(t14AnsweredUsage, "answered",
+			"the following arguments are required: %s",
+			strings.Join(missing, ", "))
+	}
+	if len(pos) > 3 {
+		return nil, t14Unrecognized(strings.Join(pos[3:], " "))
+	}
+	a.campaign, a.priority, a.status = pos[0], pos[1], pos[2]
+	if !t14InList(a.status, answeredStatuses) {
+		return nil, t14ArgparseErr(t14AnsweredUsage, "answered",
+			"argument status: invalid choice: %s (choose from %s)",
+			validation.PyReprStr(a.status),
+			"'"+strings.Join(answeredStatuses, "', '")+"'")
+	}
+	return a, nil
+}
+
+// answeredLens is the L-* route: the plan's lens entries, same verb, same
+// reason enforcement, plus the family/symmetry attestations.
+func answeredLens(c *state.Campaign, a *answeredArgs, closing bool,
+	r *Runner) error {
+	plan, err := planner.LoadPlanReadonly(c)
+	if err != nil {
+		return t14ExitErr(2, "answered failed: %s\n", err)
+	}
+	target, ok := t14FindByID(t14List(plan, "lenses"), a.priority)
+	if !ok {
+		return t14ExitErr(2, "answered: unknown lens %s\n", a.priority)
+	}
+	fams := splitFamilies(a.families)
+	seeded := t14Strings(t14List(target, "families"))
+	if closing {
+		if err := checkLensFamilies(a, fams, seeded); err != nil {
+			return err
+		}
+	}
+	sym, err := lensSymmetry(a, target, seeded, closing)
+	if err != nil {
+		return err
+	}
+	actor := a.actor
+	if actor == "" {
+		actor = "cli"
+	}
+	updated, err := planner.MarkLens(c, plan, a.priority, a.status,
+		planner.LensOpts{Reason: a.reason, Ref: a.ref, Actor: actor,
+			FamiliesChecked: famPtr(fams, a.families), Symmetry: sym})
+	if err != nil {
+		return t14ExitErr(2, "answered failed: %s\n", err)
+	}
+	printAnsweredLens(c, a, updated, closing, r)
+	return nil
+}
+
+// splitFamilies is the Python list comprehension over --families.
+func splitFamilies(families *string) []string {
+	if families == nil {
+		return nil
+	}
+	var out []string
+	for _, f := range strings.Split(*families, ",") {
+		if f = strings.TrimSpace(f); f != "" {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// checkLensFamilies enforces the attestation: every seeded family must be
+// named, unless the lens is degenerate and the operator attests none apply.
+func checkLensFamilies(a *answeredArgs, fams, seeded []string) error {
+	checked := map[string]struct{}{}
+	for _, f := range fams {
+		checked[f] = struct{}{}
+	}
+	var missing []string
+	for _, f := range seeded {
+		if _, ok := checked[f]; !ok {
+			missing = append(missing, f)
+		}
+	}
+	degenerate := len(seeded) == 0 || (len(seeded) == 1 && seeded[0] == "protocol")
+	_, noneApplicable := checked["none-applicable"]
+	if len(missing) > 0 && !(degenerate && noneApplicable) {
+		return t14ExitErr(2, "answered: %s has unattested families "+
+			"(missing: %s). Pass --families %s (or attest none apply) "+
+			"with --reason (why).\n", a.priority,
+			strings.Join(missing, ", "), strings.Join(missing, ","))
+	}
+	return nil
+}
+
+// lensSymmetry parses and validates --symmetry for a primitive-symmetry lens.
+func lensSymmetry(a *answeredArgs, target validation.Value, seeded []string,
+	closing bool) (*[]validation.Value, error) {
+	if objStr(target, "lens") != "primitive-symmetry" || !closing ||
+		len(seeded) == 0 || (len(seeded) == 1 && seeded[0] == "protocol") {
+		return nil, nil
+	}
+	parsed := parseSymmetry(a.symmetry)
+	have := map[string]int{}
+	for _, s := range parsed {
+		n := 0
+		for _, p := range t14List(s, "primitives").A {
+			if strings.TrimSpace(scalarStr(p)) != "" {
+				n++
+			}
+		}
+		have[objStr(s, "family")] = n
+	}
+	var missing []string
+	for _, f := range seeded {
+		if have[f] == 0 {
+			missing = append(missing, f)
+		}
+	}
+	if len(missing) > 0 {
+		parts := make([]string, 0, len(missing))
+		for _, f := range missing {
+			parts = append(parts, f+"=burn")
+		}
+		return nil, t14ExitErr(2, "answered: %s has unattested symmetry "+
+			"primitives (missing: %s). Pass --symmetry '%s' "+
+			"(family=primitive[|primitive];...) with --reason (why).\n",
+			a.priority, strings.Join(missing, ", "), strings.Join(parts, ";"))
+	}
+	return &parsed, nil
+}
+
+// printAnsweredLens reports the closure and, for a closing lens, the probe
+// surface rows it dispositioned.
+func printAnsweredLens(c *state.Campaign, a *answeredArgs,
+	updated validation.Value, closing bool, r *Runner) {
+	lens, _ := t14FindByID(t14List(updated, "lenses"), a.priority)
+	ref := ""
+	if cr := objAt(lens, "closed_ref"); t14Truthy(cr) {
+		ref = " (ref: " + scalarStr(cr) + ")"
+	}
+	fmt.Fprintf(r.Out, "%s: status -> %s%s\n", a.priority, a.status, ref)
+	if closing {
+		printProbeClosure(c, updated, map[string]struct{}{
+			objStr(lens, "lens"): {}}, r.Out)
+	}
+}
+
+// answeredPriority is the Q-* route.
+func answeredPriority(c *state.Campaign, a *answeredArgs, closing bool,
+	r *Runner) error {
+	planPath := filepath.Join(c.ArtifactsDir, "campaign_plan.json")
+	plan, err := validation.ReadJson(planPath)
+	if err != nil {
+		return t14ExitErr(2, "answered failed: %s\n", err)
+	}
+	target, ok := t14FindByID(t14List(plan, "priorities"), a.priority)
+	if !ok {
+		return t14ExitErr(2, "answered failed: no priority %s in the "+
+			"campaign plan\n", validation.PyReprStr(a.priority))
+	}
+	probe := objAt(target, "probe")
+	if probe.Kind == validation.Obj &&
+		t14InList(a.status, planner.ProbeRowDispositioned) {
+		if err := checkProbeAnchor(c, a, target, probe); err != nil {
+			return err
+		}
+	}
+	actor := a.actor
+	if actor == "" {
+		actor = "cli"
+	}
+	updated, err := planner.MarkAnswered(c, plan, a.priority, a.status,
+		planner.AnsweredOpts{Reason: a.reason, Ref: a.ref, Actor: actor,
+			Anchor: a.anchor})
+	if err != nil {
+		return t14ExitErr(2, "answered failed: %s\n", err)
+	}
+	p, _ := t14FindByID(t14List(updated, "priorities"), a.priority)
+	ref := ""
+	if cr := objAt(p, "closed_ref"); t14Truthy(cr) {
+		ref = " (ref: " + scalarStr(cr) + ")"
+	}
+	if anchor := objAt(objAt(p, "probe"), "anchor"); t14Truthy(anchor) {
+		ref += " [anchor " + objStr(anchor, "field") + "]"
+	}
+	fmt.Fprintf(r.Out, "%s: status -> %s%s\n", a.priority, a.status, ref)
+	if closing && objAt(p, "probe").Kind == validation.Obj {
+		lensName := ""
+		if spec, ok := planner.PB().Probes[objStr(probe, "probe_id")]; ok {
+			lensName = spec.Lens
+		}
+		var lensSet map[string]struct{}
+		if lensName != "" {
+			lensSet = map[string]struct{}{lensName: {}}
+		}
+		printProbeClosure(c, updated, lensSet, r.Out)
+	}
+	return nil
+}
+
+// checkProbeAnchor is the A4 operator-facing requirement: a probe closure
+// without an anchor is not a disposition, it is a shrug.
+func checkProbeAnchor(c *state.Campaign, a *answeredArgs, target,
+	probe validation.Value) error {
+	row, err := probeSurfaceRow(c, target)
+	if err != nil {
+		return t14ExitErr(2, "answered failed: %s\n", err)
+	}
+	if row == nil {
+		return t14ExitErr(2, "answered: probe row %s is not in the current "+
+			"surface — re-run `webv2 probes %s run --emit`\n",
+			validation.PyReprStr(objStr(probe, "row_id")), c.CampaignID)
+	}
+	var allowed []string
+	if spec, ok := planner.PB().Probes[objStr(*row, "probe")]; ok &&
+		spec.Anchors != nil {
+		allowed = *spec.Anchors
+	}
+	if a.anchor == nil || *a.anchor == "" {
+		return t14ExitErr(2, "answered: %s is probe row %s — a probe "+
+			"disposition must name the field it claims is safe: "+
+			"--anchor <field> (one of %s)\n", a.priority,
+			objStr(probe, "row_id"), strings.Join(allowed, ", "))
+	}
+	if !t14InList(*a.anchor, allowed) {
+		return t14ExitErr(2, "answered: --anchor %s is not produced by "+
+			"probe %s; allowed: %s\n", validation.PyReprStr(*a.anchor),
+			validation.PyReprStr(objStr(*row, "probe")),
+			strings.Join(allowed, ", "))
+	}
+	return nil
+}
+
+// probeSurfaceRow is cli.py's _probe_surface_row: the surface row a probe
+// priority points at, or nil when the campaign has no surface / the row is
+// absent. The probes module is unported (P3), so CampaignSurface is the
+// "feature absent" reader and this is nil in practice.
+func probeSurfaceRow(c *state.Campaign,
+	target validation.Value) (*validation.Value, error) {
+	surface, err := planner.PB().CampaignSurface(c)
+	if err != nil || surface == nil {
+		return nil, err
+	}
+	rid := objStr(objAt(target, "probe"), "row_id")
+	for _, row := range t14List(*surface, "rows").A {
+		if objStr(row, "row_id") == rid {
+			row := row
+			return &row, nil
+		}
+	}
+	return nil, nil
+}
+
+// printProbeClosure is cli.py's _print_probe_closure: the probe clause of a
+// lens as a sentence with counts (only_closed=True). With the probes module
+// unported there is no surface, so divergence_status emits no probe entry and
+// this prints nothing — exactly what Python prints for a campaign with no
+// probe artifact.
+func printProbeClosure(c *state.Campaign, plan validation.Value,
+	lensNames map[string]struct{}, stdout interface{ Write([]byte) (int, error) }) {
+	div, err := planner.DivergenceStatusFor(c, plan, nil)
+	if err != nil {
+		return
+	}
+	for _, entry := range t14List(div, "lenses").A {
+		probe := objAt(entry, "probe")
+		if probe.Kind != validation.Obj || !t14Truthy(objAt(probe, "message")) {
+			continue
+		}
+		if lensNames != nil {
+			_, a := lensNames[objStr(entry, "lens")]
+			_, b := lensNames[objStr(entry, "id")]
+			if !a && !b {
+				continue
+			}
+		}
+		if !t14Truthy(objAt(probe, "closed")) {
+			continue
+		}
+		fmt.Fprintf(stdout, "%s\n", objStr(probe, "message"))
+	}
+}
+
+// parseSymmetry is _parse_symmetry: "family=primitive[|primitive];...".
+func parseSymmetry(spec *string) []validation.Value {
+	out := []validation.Value{}
+	if spec == nil || *spec == "" {
+		return out
+	}
+	for _, part := range strings.Split(*spec, ";") {
+		if strings.TrimSpace(part) == "" {
+			continue
+		}
+		fam, prims, _ := strings.Cut(part, "=")
+		var list []validation.Value
+		for _, p := range strings.Split(prims, "|") {
+			if p = strings.TrimSpace(p); p != "" {
+				list = append(list, validation.VStr(p))
+			}
+		}
+		out = append(out, validation.VObj(
+			validation.KV{K: "family", V: validation.VStr(strings.TrimSpace(fam))},
+			validation.KV{K: "primitives", V: validation.VArr(list...)},
+		))
+	}
+	return out
+}
+
+// famPtr renders cli.py's `families_checked=fams`: None when --families was
+// absent, the (possibly empty) list otherwise.
+func famPtr(fams []string, given *string) *[]string {
+	if given == nil {
+		return nil
+	}
+	return &fams
+}
+
+// t14FindByID is next((x for x in items if x["id"] == id), None).
+func t14FindByID(items validation.Value, id string) (validation.Value, bool) {
+	for _, it := range items.A {
+		if objStr(it, "id") == id {
+			return it, true
+		}
+	}
+	return validation.VNull(), false
+}
+
+// t14Strings renders a list value as Go strings.
+func t14Strings(v validation.Value) []string {
+	out := make([]string, 0, len(v.A))
+	for _, it := range v.A {
+		out = append(out, scalarStr(it))
+	}
+	return out
+}
+
+// t14InList is `x in items`.
+func t14InList(x string, items []string) bool {
+	for _, it := range items {
+		if it == x {
+			return true
+		}
+	}
+	return false
+}
+
+func init() {
+	register(command{ord: 35, name: "answered",
+		line: `answered <campaign> <priority> <status> [--reason R] [--ref R]
+                        close/open a plan priority or lens with provenance`,
+		run: func(root string, args []string, r *Runner) int {
+			return t14Dispatch(root, r, func() error {
+				return runAnswered(root, args, r)
+			})
+		}})
+}

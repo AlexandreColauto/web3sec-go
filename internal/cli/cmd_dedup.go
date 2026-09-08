@@ -1,0 +1,259 @@
+package cli
+
+// cmd_dedup: `webv2 dedup <campaign>` — the deterministic dedup sweep,
+// report printed as indent-2 JSON (cli.py cmd_dedup verbatim: it calls
+// dedup.run_dedup directly, NOT the orchestrator's phase-setting wrapper).
+//
+// This file also carries the shared helpers the P1b command files use
+// (Python float formatting, padding, the argparse error surface) and the
+// findings<->invariants seam wiring the CLI needs: Python connects those at
+// import time (findings imports invariants), and cmd/webv2/main.go wires the
+// rest. The CLI is driven directly by tests, so the connections live here
+// too — idempotent, same targets.
+
+import (
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"websec/internal/dedup"
+	"websec/internal/findings"
+	"websec/internal/invariants"
+	"websec/internal/state"
+	"websec/internal/taxonomy"
+	"websec/internal/validation"
+)
+
+func runDedup(root string, args []string, r *Runner) int {
+	ensureSeams()
+	pos, err := plainPositionals(args, "dedup", 1, "campaign")
+	if err != nil {
+		return r.fail(root, err)
+	}
+	c, err := state.Open(root, pos[0])
+	if err != nil {
+		return r.withErr(root, func() error { return err })
+	}
+	report, err := dedup.RunDedup(c, true)
+	if err != nil {
+		return r.withErr(root, func() error { return err })
+	}
+	fmt.Fprintln(r.Out, prettyASCII(report))
+	return 0
+}
+
+func init() {
+	register(command{ord: 5, name: "dedup",
+		line: "dedup <campaign>                    deterministic dedup sweep",
+		run:  runDedup})
+}
+
+// --- shared helpers (P1b wave) ---------------------------------------------
+
+// plainPositionals rejects any flag and requires exactly n positionals. A
+// missing required positional is an argparse error (per-subcommand usage
+// block); an unexpected flag or extra positional is raised by Python's ROOT
+// parser, so it keeps the D11 global-usage rendering.
+func plainPositionals(args []string, cmd string, n int, names ...string) ([]string, error) {
+	var pos []string
+	for _, a := range args {
+		if strings.HasPrefix(a, "-") {
+			return nil, usageErrf("unrecognized arguments: %s", a)
+		}
+		pos = append(pos, a)
+		if len(pos) > n {
+			return nil, usageErrf("unrecognized arguments: %s", pos[n])
+		}
+	}
+	if len(pos) != n {
+		return nil, requiredErrf(cmd, names...)
+	}
+	return pos, nil
+}
+
+// --- argparse error surface (D11 refinement) --------------------------------
+
+// cli.py's usage errors come from argparse: the subcommand's usage block,
+// then `webv2 <cmd>: error: <message>`. The P0 commands render Go's own
+// usage block instead (D11); the P1b commands reproduce argparse's block
+// byte-for-byte — every block below is captured from the Python reference
+// by .scratch/t15/usage_blocks.py — for the errors argparse raises INSIDE a
+// subparser (missing required arguments, invalid choice, expected one
+// argument). An unrecognized extra positional is raised by the ROOT parser
+// in Python (`webv2: error: unrecognized arguments: X` + a usage block
+// listing every command); that one keeps the D11 rendering, because Go's
+// global usage deliberately lists only the implemented commands.
+var argparseUsageBlocks = map[string]string{
+	"dedup":       "usage: webv2 dedup [-h] campaign\n",
+	"prioritize":  "usage: webv2 prioritize [-h] campaign\n",
+	"repro-queue": "usage: webv2 repro-queue [-h] campaign\n",
+	"invariant-verify": "usage: webv2 invariant-verify [-h] " +
+		"[--artifact ARTIFACT] [--exec EXEC-*]\n" +
+		"                              campaign inv_id\n",
+	"artifact-register": "usage: webv2 artifact-register [-h] [--kind KIND] " +
+		"[--note NOTE] campaign path\n",
+	"artifact-list": "usage: webv2 artifact-list [-h] [--kind KIND] campaign\n",
+	"invariant-contradict": "usage: webv2 invariant-contradict [-h] " +
+		"--evidence EVIDENCE campaign inv_id\n",
+	"verdict": "usage: webv2 verdict [-h]\n" +
+		"                     --verdict {pending,confirmed,possible,disproved," +
+		"duplicate,out_of_scope,informational}\n" +
+		"                     --reason REASON\n" +
+		"                     campaign finding\n",
+	"recall": "usage: webv2 recall [-h] --finding FINDING " +
+		"[--mode {negative,comparative}]\n" +
+		"                    [--note NOTE]\n" +
+		"                    campaign\n",
+	"waive": "usage: webv2 waive [-h] [--subject SUBJECT] --reason REASON " +
+		"--actor ACTOR\n" +
+		"                   campaign stage\n",
+	"prove": "usage: webv2 prove [-h] [--stage STAGE] campaign\n",
+	"gate":  "usage: webv2 gate [-h] [--explain CHECK] [campaign] [finding]\n",
+	"resolve-candidate": "usage: webv2 resolve-candidate [-h] --verdict " +
+		"{same,distinct} [--note NOTE]\n" +
+		"                               [--actor ACTOR]\n" +
+		"                               campaign finding of_finding\n",
+}
+
+// argparseError is a usage error whose rendering is argparse's.
+type argparseError struct{ cmd, msg string }
+
+func (e *argparseError) Error() string { return e.msg }
+
+func argErrf(cmd, format string, a ...any) error {
+	return &argparseError{cmd: cmd, msg: fmt.Sprintf(format, a...)}
+}
+
+// requiredErrf is argparse's "the following arguments are required: a, b"
+// (the names appear in the parser's action order: positionals first).
+func requiredErrf(cmd string, names ...string) error {
+	return argErrf(cmd, "the following arguments are required: %s",
+		strings.Join(names, ", "))
+}
+
+// fail renders an argparse usage error byte-for-byte, or falls back to the
+// shared error handler for every other error.
+func (r *Runner) fail(root string, err error) int {
+	var ae *argparseError
+	if errors.As(err, &ae) {
+		fmt.Fprint(r.Err, argparseUsageBlocks[ae.cmd])
+		fmt.Fprintf(r.Err, "webv2 %s: error: %s\n", ae.cmd, ae.msg)
+		return 2
+	}
+	return r.withErr(root, func() error { return err })
+}
+
+// --- value helpers ---------------------------------------------------------
+
+// pyFixed2 is Python's f"{x:.2f}": two decimals, correctly rounded (Go's
+// strconv and CPython both round the exact binary value to nearest-even).
+func pyFixed2(f float64) string {
+	return strconv.FormatFloat(f, 'f', 2, 64)
+}
+
+// pyRight is Python's f"{s:>{width}}" for strings (pad only, never cut).
+func pyRight(s string, width int) string {
+	if n := width - len([]rune(s)); n > 0 {
+		return strings.Repeat(" ", n) + s
+	}
+	return s
+}
+
+// pyScore2 renders a JSON number the way f"{x:.2f}" does.
+func pyScore2(v validation.Value) string {
+	switch v.Kind {
+	case validation.Int:
+		if v.Big != "" {
+			f, _ := strconv.ParseFloat(v.Big, 64)
+			return pyFixed2(f)
+		}
+		return pyFixed2(float64(v.I))
+	case validation.Flt:
+		return pyFixed2(v.F)
+	default:
+		return pyFixed2(0)
+	}
+}
+
+// pyHead is Python's s[:n]: the first n RUNES (never splitting a code point).
+func pyHead(s string, n int) string {
+	rs := []rune(s)
+	if len(rs) <= n {
+		return s
+	}
+	return string(rs[:n])
+}
+
+// pyFloatOf is Python's float(x) for the JSON shapes the CLI formats.
+func pyFloatOf(v validation.Value) float64 {
+	switch v.Kind {
+	case validation.Flt:
+		return v.F
+	case validation.Int:
+		if v.Big != "" {
+			f, _ := strconv.ParseFloat(v.Big, 64)
+			return f
+		}
+		return float64(v.I)
+	default:
+		return 0
+	}
+}
+
+// ensureSeams installs the cross-module connections the CLI's commands read
+// through (Python: import-time). Idempotent; every setter simply replaces
+// the seam target.
+var seamsInstalled bool
+
+func ensureSeams() {
+	if seamsInstalled {
+		return
+	}
+	seamsInstalled = true
+	dedup.SetMarkDuplicate(findings.MarkDuplicate)
+	dedup.SetFlagPossibleDuplicate(findings.FlagPossibleDuplicate)
+	dedup.SetFoldIntoLineage(findings.FoldIntoLineage)
+	taxonomy.SetCompatClasses(func() []string {
+		out := []string{}
+		for _, g := range dedup.EconomicCompatGroups {
+			out = append(out, g...)
+		}
+		for _, names := range dedup.AssetClassHints {
+			out = append(out, names...)
+		}
+		return out
+	})
+	findings.SetInvariantGuard(invariants.AssertInvariantsVerified)
+	findings.SetNormalizeInvID(invariants.NormalizeInvID)
+	findings.SetLoadInvariantLinks(invariants.LoadLinks)
+	findings.SetDocumentedInvariants(docMapSeam)
+	findings.SetInvariantVerified(invariants.IsVerified)
+	findings.SetIntentClaims(intentMapSeam)
+}
+
+// docMapSeam adapts invariants.DocumentedInvariants to findings' seam shape.
+func docMapSeam(c *state.Campaign) (map[string]validation.Value, error) {
+	doc, err := invariants.DocumentedInvariants(c, nil)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]validation.Value, len(doc.O))
+	for _, e := range doc.O {
+		out[e.K] = e.V
+	}
+	return out, nil
+}
+
+// intentMapSeam adapts invariants.IntentClaims to findings' seam shape.
+func intentMapSeam(c *state.Campaign) (map[string]validation.Value, error) {
+	claims, err := invariants.IntentClaims(c, nil)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]validation.Value, len(claims.O))
+	for _, e := range claims.O {
+		out[e.K] = e.V
+	}
+	return out, nil
+}
