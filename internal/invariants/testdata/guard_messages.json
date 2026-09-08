@@ -1,0 +1,46 @@
+[
+  {
+    "label": "unverified_model",
+    "error": "level rise blocked: invariant(s) INV-2 (UNVERIFIED) are not CHECKED_AGAINST_CODE — verify the statement against code (invariants.verify_invariant_statement with a registered artifact) before adding evidence that raises this finding's level"
+  },
+  {
+    "label": "unknown_id",
+    "error": "level rise blocked: invariant(s) invariant-unverified: INV-999 not in registry — seed it or correct the id are not CHECKED_AGAINST_CODE — verify the statement against code (invariants.verify_invariant_statement with a registered artifact) before adding evidence that raises this finding's level"
+  },
+  {
+    "label": "zero_padded_unknown",
+    "error": "level rise blocked: invariant(s) invariant-unverified: INV-9990 not in registry — seed it or correct the id are not CHECKED_AGAINST_CODE — verify the statement against code (invariants.verify_invariant_statement with a registered artifact) before adding evidence that raises this finding's level"
+  },
+  {
+    "label": "documented_exempt",
+    "error": null
+  },
+  {
+    "label": "documented_zero_padded",
+    "error": null
+  },
+  {
+    "label": "no_invariants",
+    "error": null
+  },
+  {
+    "label": "singular_invariant",
+    "error": "level rise blocked: invariant(s) INV-2 (UNVERIFIED) are not CHECKED_AGAINST_CODE — verify the statement against code (invariants.verify_invariant_statement with a registered artifact) before adding evidence that raises this finding's level"
+  },
+  {
+    "label": "both_halves",
+    "error": "level rise blocked: invariant(s) INV-2 (UNVERIFIED) are not CHECKED_AGAINST_CODE — verify the statement against code (invariants.verify_invariant_statement with a registered artifact) before adding evidence that raises this finding's level"
+  },
+  {
+    "label": "non_dict_entries",
+    "error": null
+  },
+  {
+    "label": "no_sec_key",
+    "error": null
+  },
+  {
+    "label": "verified_passes",
+    "error": null
+  }
+]

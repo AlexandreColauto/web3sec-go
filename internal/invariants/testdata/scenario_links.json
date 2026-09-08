@@ -1,0 +1,76 @@
+{
+  "invariants": {
+    "INV-1": {
+      "statement": "totalAssets never decreases except via withdraw",
+      "kind": "security",
+      "severity_if_broken": "critical",
+      "applies_to": [],
+      "test_status": "untested",
+      "status": "CONTRADICTED",
+      "model_belief": null,
+      "depends_on": [],
+      "modified_by": "2026-02-01T00:00:00.000000+00:00",
+      "source": "documented",
+      "findings": [
+        "F-bbbbbbbbbbbb"
+      ],
+      "tests": [],
+      "detectors": [],
+      "updated_at": "2026-02-01T00:00:00.000000+00:00",
+      "contradiction": "src/V.sol#L40"
+    },
+    "INV-2": {
+      "statement": "fee accumulator cannot be set backwards",
+      "kind": "security",
+      "severity_if_broken": "high",
+      "applies_to": [],
+      "test_status": "violated",
+      "status": "CHECKED_AGAINST_CODE",
+      "model_belief": 0.6,
+      "depends_on": [
+        "INV-1"
+      ],
+      "modified_by": "2026-02-01T00:00:00.000000+00:00",
+      "source": "model",
+      "findings": [
+        "F-aaaaaaaaaaaa"
+      ],
+      "tests": [
+        "OTH-fixed002"
+      ],
+      "detectors": [],
+      "updated_at": "2026-02-01T00:00:00.000000+00:00",
+      "violated_by": "F-aaaaaaaaaaaa",
+      "verified_by": "OTH-fixed001"
+    },
+    "INV-3": {
+      "statement": "only the owner may pause",
+      "kind": "access",
+      "severity_if_broken": "high",
+      "applies_to": [],
+      "test_status": "untested",
+      "status": "CONTRADICTED",
+      "model_belief": null,
+      "depends_on": [],
+      "modified_by": "2026-02-01T00:00:00.000000+00:00",
+      "source": "model",
+      "findings": [],
+      "tests": [],
+      "detectors": [],
+      "updated_at": "2026-02-01T00:00:00.000000+00:00",
+      "contradiction": "src/V.sol#L1"
+    },
+    "INV-4": {
+      "statement": "legacy claim",
+      "status": "UNVERIFIED",
+      "findings": [],
+      "tests": [
+        "OTH-fixed002"
+      ],
+      "detectors": [],
+      "test_status": "held",
+      "source": "model",
+      "updated_at": "2026-02-01T00:00:00.000000+00:00"
+    }
+  }
+}

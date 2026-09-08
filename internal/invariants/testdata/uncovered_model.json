@@ -1,0 +1,56 @@
+{
+  "invariants": [
+    {
+      "id": "INV-1",
+      "statement": "a",
+      "severity_if_broken": "critical"
+    },
+    {
+      "id": "INV-2",
+      "statement": "b",
+      "severity_if_broken": "high"
+    },
+    {
+      "id": "INV-3",
+      "statement": "c",
+      "severity_if_broken": "critical"
+    },
+    {
+      "id": "INV-4",
+      "statement": "d",
+      "severity_if_broken": "high"
+    },
+    {
+      "id": "INV-5",
+      "statement": "e",
+      "severity_if_broken": "critical",
+      "applies_to": [
+        "vault"
+      ]
+    },
+    {
+      "id": "INV-6",
+      "statement": "f",
+      "severity_if_broken": "critical"
+    },
+    {
+      "id": "INV-7",
+      "statement": "g",
+      "severity_if_broken": "medium"
+    },
+    {
+      "id": "INV-8",
+      "statement": "h"
+    },
+    {
+      "id": "INV-9",
+      "statement": "i",
+      "severity_if_broken": "critical"
+    },
+    {
+      "id": "INV-010",
+      "statement": "k",
+      "severity_if_broken": "high"
+    }
+  ]
+}

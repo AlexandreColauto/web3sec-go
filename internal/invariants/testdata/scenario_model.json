@@ -1,0 +1,36 @@
+{
+  "invariants": [
+    {
+      "id": "INV-1",
+      "statement": "totalAssets never decreases except via withdraw",
+      "severity_if_broken": "critical"
+    },
+    {
+      "id": "INV-2",
+      "statement": "fee accumulator cannot be set backwards",
+      "severity_if_broken": "high",
+      "model_belief": 0.6,
+      "depends_on": [
+        "INV-1"
+      ],
+      "modified_by": "model-proposer pass 2",
+      "status": "CHECKED_AGAINST_CODE"
+    },
+    {
+      "id": "INV-3",
+      "statement": "only the owner may pause",
+      "kind": "access"
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "rollup"
+    },
+    {
+      "name": "vault"
+    },
+    {
+      "name": ""
+    }
+  ]
+}

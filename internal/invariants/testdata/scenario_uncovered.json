@@ -1,0 +1,7 @@
+[
+  {
+    "invariant_id": "INV-1",
+    "statement": "totalAssets never decreases except via withdraw",
+    "applies_to": []
+  }
+]

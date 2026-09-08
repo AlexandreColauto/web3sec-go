@@ -1,0 +1,297 @@
+{
+  "INV-1": {
+    "file": "README.md",
+    "line": 2,
+    "context": "INV-1 balances move atomically"
+  },
+  "INV-2": {
+    "file": "README.md",
+    "line": 3,
+    "context": "INV-002 fees accrue to the treasury"
+  },
+  "INV-3": {
+    "file": "README.md",
+    "line": 4,
+    "context": "prefix INV-0003 with leading text"
+  },
+  "INV-8": {
+    "file": "README.md",
+    "line": 11,
+    "context": "INV-8: colon boundary"
+  },
+  "INV-9": {
+    "file": "README.md",
+    "line": 12,
+    "context": "INV-9\t tab boundary"
+  },
+  "INV-21": {
+    "file": "a/b.md",
+    "line": 1,
+    "context": "INV-21 in subdir"
+  },
+  "INV-20": {
+    "file": "a/b.md",
+    "line": 2,
+    "context": "INV-20 duplicate later file"
+  },
+  "INV-46": {
+    "file": "crlf.txt",
+    "line": 1,
+    "context": "INV-46 crlf line"
+  },
+  "INV-47": {
+    "file": "crlf.txt",
+    "line": 2,
+    "context": "INV-47 next line"
+  },
+  "INV-41": {
+    "file": "docs/UPPER.MD",
+    "line": 1,
+    "context": "INV-41 upper suffix"
+  },
+  "INV-37": {
+    "file": "docs/notes.txt",
+    "line": 1,
+    "context": "INV-37 invalid utf8 follows �� end"
+  },
+  "INV-38": {
+    "file": "docs/notes.txt",
+    "line": 2,
+    "context": "INV-38 truncated � end"
+  },
+  "INV-39": {
+    "file": "docs/notes.txt",
+    "line": 3,
+    "context": "INV-39 overlong �� end"
+  },
+  "INV-40": {
+    "file": "docs/page.adoc",
+    "line": 1,
+    "context": "INV-40 adoc"
+  },
+  "INV-30": {
+    "file": "docs/spec.rst",
+    "line": 1,
+    "context": "INV-30 in rst"
+  },
+  "INV-32": {
+    "file": "docs/spec.rst",
+    "line": 3,
+    "context": "INV-32 vertical tab break"
+  },
+  "INV-33": {
+    "file": "docs/spec.rst",
+    "line": 5,
+    "context": "INV-33 fs break"
+  },
+  "INV-34": {
+    "file": "docs/spec.rst",
+    "line": 6,
+    "context": "�INV-34 nel break"
+  },
+  "INV-35": {
+    "file": "docs/spec.rst",
+    "line": 8,
+    "context": "INV-35 line separator"
+  },
+  "INV-36": {
+    "file": "docs/spec.rst",
+    "line": 9,
+    "context": "INV-36 café ok"
+  },
+  "INV-50": {
+    "file": "intent.md",
+    "line": 2,
+    "context": "INV-50 the fee accrual is by design"
+  },
+  "INV-51": {
+    "file": "intent.md",
+    "line": 3,
+    "context": "INV-51 stakers get the donation which accrues pro rata"
+  },
+  "INV-52": {
+    "file": "intent.md",
+    "line": 4,
+    "context": "INV-52 this is expected behavior"
+  },
+  "INV-53": {
+    "file": "intent.md",
+    "line": 5,
+    "context": "INV-53 meant to be harmless"
+  },
+  "INV-54": {
+    "file": "intent.md",
+    "line": 6,
+    "context": "INV-54 not a bug"
+  },
+  "INV-55": {
+    "file": "intent.md",
+    "line": 7,
+    "context": "INV-55 accrue"
+  },
+  "INV-56": {
+    "file": "intent.md",
+    "line": 8,
+    "context": "INV-56 intentional"
+  },
+  "INV-57": {
+    "file": "intent.md",
+    "line": 9,
+    "context": "INV-57 intentionally broken"
+  },
+  "INV-58": {
+    "file": "intent.md",
+    "line": 10,
+    "context": "INV-58 designed to help"
+  },
+  "INV-59": {
+    "file": "intent.md",
+    "line": 11,
+    "context": "INV-59 as intended"
+  },
+  "INV-60": {
+    "file": "intent.md",
+    "line": 12,
+    "context": "INV-60 expected outcome"
+  },
+  "INV-61": {
+    "file": "intent.md",
+    "line": 13,
+    "context": "INV-61 by-design choice"
+  },
+  "INV-62": {
+    "file": "intent.md",
+    "line": 14,
+    "context": "INV-62 by design choice"
+  },
+  "INV-63": {
+    "file": "intent.md",
+    "line": 15,
+    "context": "INV-63 donation that accrue"
+  },
+  "INV-64": {
+    "file": "intent.md",
+    "line": 16,
+    "context": "INV-64 donation accrues to staker"
+  },
+  "INV-65": {
+    "file": "intent.md",
+    "line": 17,
+    "context": "INV-65 donations accrue"
+  },
+  "INV-66": {
+    "file": "intent.md",
+    "line": 18,
+    "context": "INV-66 donation yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy accrue"
+  },
+  "INV-67": {
+    "file": "intent.md",
+    "line": 19,
+    "context": "INV-67 no intent here at all"
+  },
+  "INV-68": {
+    "file": "intent.md",
+    "line": 20,
+    "context": "INV-68 account accrues value"
+  },
+  "INV-69": {
+    "file": "intent.md",
+    "line": 21,
+    "context": "INV-69 donated to charity"
+  },
+  "INV-70": {
+    "file": "intent.md",
+    "line": 22,
+    "context": "INV-70 intentIOnAlly done"
+  },
+  "INV-71": {
+    "file": "intent2.md",
+    "line": 3,
+    "context": "INV-71 window intent"
+  },
+  "INV-72": {
+    "file": "intent2.md",
+    "line": 4,
+    "context": "INV-72"
+  },
+  "INV-73": {
+    "file": "intent2.md",
+    "line": 6,
+    "context": "INV-73"
+  },
+  "INV-74": {
+    "file": "intent2.md",
+    "line": 11,
+    "context": "INV-74"
+  },
+  "INV-90": {
+    "file": "intent3.md",
+    "line": 1,
+    "context": "INV-90 donation yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy staker"
+  },
+  "INV-91": {
+    "file": "intent3.md",
+    "line": 5,
+    "context": "INV-91 donation yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy staker"
+  },
+  "INV-92": {
+    "file": "intent3.md",
+    "line": 9,
+    "context": "INV-92 donationX staker"
+  },
+  "INV-93": {
+    "file": "intent3.md",
+    "line": 13,
+    "context": "INV-93 donation-s staker"
+  },
+  "INV-94": {
+    "file": "intent3.md",
+    "line": 17,
+    "context": "INV-94 donationsX staker"
+  },
+  "INV-95": {
+    "file": "intent3.md",
+    "line": 21,
+    "context": "INV-95 accrueé"
+  },
+  "INV-96": {
+    "file": "intent3.md",
+    "line": 25,
+    "context": "INV-96 éaccrue"
+  },
+  "INV-97": {
+    "file": "intent3.md",
+    "line": 29,
+    "context": "INV-97 not a vulnerability"
+  },
+  "INV-98": {
+    "file": "intent3.md",
+    "line": 33,
+    "context": "INV-98 not a concern"
+  },
+  "INV-99": {
+    "file": "intent3.md",
+    "line": 37,
+    "context": "INV-99 BY DESIGN"
+  },
+  "INV-100": {
+    "file": "intent3.md",
+    "line": 41,
+    "context": "INV-100 ACCRUE"
+  },
+  "INV-31": {
+    "file": "long.md",
+    "line": 1,
+    "context": "INV-31 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  "INV-48": {
+    "file": "long.md",
+    "line": 2,
+    "context": "INV-48 short"
+  },
+  "INV-49": {
+    "file": "ws.md",
+    "line": 1,
+    "context": "INV-49 spaced"
+  }
+}

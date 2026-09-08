@@ -1,0 +1,17 @@
+{
+  "total": 4,
+  "statuses": {
+    "untested": 2,
+    "violated": 1,
+    "held": 1,
+    "untestable": 0
+  },
+  "test_coverage_ratio": 0.5,
+  "violated_invariants": [
+    "INV-2"
+  ],
+  "uncovered": [
+    "INV-1",
+    "INV-3"
+  ]
+}

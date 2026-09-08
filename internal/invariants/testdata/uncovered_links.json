@@ -1,0 +1,68 @@
+{
+  "invariants": {
+    "INV-1": {
+      "statement": "a",
+      "status": "UNVERIFIED",
+      "source": "model",
+      "findings": [],
+      "tests": [],
+      "detectors": [],
+      "test_status": "untested"
+    },
+    "INV-2": {
+      "statement": "b",
+      "status": "UNVERIFIED",
+      "source": "model",
+      "findings": [],
+      "tests": [],
+      "detectors": [],
+      "test_status": "untestable"
+    },
+    "INV-3": {
+      "statement": "c",
+      "status": "UNVERIFIED",
+      "source": "model",
+      "findings": [],
+      "tests": [],
+      "detectors": [],
+      "test_status": "held"
+    },
+    "INV-4": {
+      "statement": "d",
+      "status": "UNVERIFIED",
+      "source": "model",
+      "findings": [],
+      "tests": [],
+      "detectors": [],
+      "test_status": "violated"
+    },
+    "INV-005": {
+      "statement": "e",
+      "status": "UNVERIFIED",
+      "source": "model",
+      "findings": [],
+      "tests": [],
+      "detectors": [],
+      "test_status": "untested"
+    },
+    "INV-6": {
+      "statement": "f",
+      "status": "UNVERIFIED",
+      "source": "model",
+      "findings": [],
+      "tests": [],
+      "detectors": [],
+      "test_status": "untested",
+      "updated_at": "2026-02-01T00:00:00.000000+00:00"
+    },
+    "INV-10": {
+      "statement": "k",
+      "status": "UNVERIFIED",
+      "source": "model",
+      "findings": [],
+      "tests": [],
+      "detectors": [],
+      "test_status": "untested"
+    }
+  }
+}

@@ -1,0 +1,1072 @@
+[
+  {
+    "label": "seed",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "totalAssets never decreases except via withdraw",
+          "kind": "security",
+          "severity_if_broken": "critical",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "documented",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-2": {
+          "statement": "fee accumulator cannot be set backwards",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": 0.6,
+          "depends_on": [
+            "INV-1"
+          ],
+          "modified_by": "model-proposer pass 2",
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-3": {
+          "statement": "only the owner may pause",
+          "kind": "access",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-4": {
+          "statement": "LIVENESS: every modeled state machine must be able to advance to its terminal/finalized state; no reachable state may permanently block finalize/withdraw/challenge/claim. Machines: rollup, vault",
+          "kind": "liveness",
+          "severity_if_broken": "critical",
+          "applies_to": [
+            "rollup",
+            "vault"
+          ],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "synthesized": "liveness-template"
+        }
+      }
+    }
+  },
+  {
+    "label": "link_finding_violated",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "totalAssets never decreases except via withdraw",
+          "kind": "security",
+          "severity_if_broken": "critical",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "documented",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-2": {
+          "statement": "fee accumulator cannot be set backwards",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "UNVERIFIED",
+          "model_belief": 0.6,
+          "depends_on": [
+            "INV-1"
+          ],
+          "modified_by": "model-proposer pass 2",
+          "source": "model",
+          "findings": [
+            "F-aaaaaaaaaaaa"
+          ],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "violated_by": "F-aaaaaaaaaaaa"
+        },
+        "INV-3": {
+          "statement": "only the owner may pause",
+          "kind": "access",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-4": {
+          "statement": "LIVENESS: every modeled state machine must be able to advance to its terminal/finalized state; no reachable state may permanently block finalize/withdraw/challenge/claim. Machines: rollup, vault",
+          "kind": "liveness",
+          "severity_if_broken": "critical",
+          "applies_to": [
+            "rollup",
+            "vault"
+          ],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "synthesized": "liveness-template"
+        }
+      }
+    }
+  },
+  {
+    "label": "link_finding_dup",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "totalAssets never decreases except via withdraw",
+          "kind": "security",
+          "severity_if_broken": "critical",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "documented",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-2": {
+          "statement": "fee accumulator cannot be set backwards",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "UNVERIFIED",
+          "model_belief": 0.6,
+          "depends_on": [
+            "INV-1"
+          ],
+          "modified_by": "model-proposer pass 2",
+          "source": "model",
+          "findings": [
+            "F-aaaaaaaaaaaa"
+          ],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "violated_by": "F-aaaaaaaaaaaa"
+        },
+        "INV-3": {
+          "statement": "only the owner may pause",
+          "kind": "access",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-4": {
+          "statement": "LIVENESS: every modeled state machine must be able to advance to its terminal/finalized state; no reachable state may permanently block finalize/withdraw/challenge/claim. Machines: rollup, vault",
+          "kind": "liveness",
+          "severity_if_broken": "critical",
+          "applies_to": [
+            "rollup",
+            "vault"
+          ],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "synthesized": "liveness-template"
+        }
+      }
+    }
+  },
+  {
+    "label": "link_finding_inv1",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "totalAssets never decreases except via withdraw",
+          "kind": "security",
+          "severity_if_broken": "critical",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "documented",
+          "findings": [
+            "F-bbbbbbbbbbbb"
+          ],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-2": {
+          "statement": "fee accumulator cannot be set backwards",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "UNVERIFIED",
+          "model_belief": 0.6,
+          "depends_on": [
+            "INV-1"
+          ],
+          "modified_by": "model-proposer pass 2",
+          "source": "model",
+          "findings": [
+            "F-aaaaaaaaaaaa"
+          ],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "violated_by": "F-aaaaaaaaaaaa"
+        },
+        "INV-3": {
+          "statement": "only the owner may pause",
+          "kind": "access",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-4": {
+          "statement": "LIVENESS: every modeled state machine must be able to advance to its terminal/finalized state; no reachable state may permanently block finalize/withdraw/challenge/claim. Machines: rollup, vault",
+          "kind": "liveness",
+          "severity_if_broken": "critical",
+          "applies_to": [
+            "rollup",
+            "vault"
+          ],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "synthesized": "liveness-template"
+        }
+      }
+    }
+  },
+  {
+    "label": "link_test",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "totalAssets never decreases except via withdraw",
+          "kind": "security",
+          "severity_if_broken": "critical",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "documented",
+          "findings": [
+            "F-bbbbbbbbbbbb"
+          ],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-2": {
+          "statement": "fee accumulator cannot be set backwards",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "UNVERIFIED",
+          "model_belief": 0.6,
+          "depends_on": [
+            "INV-1"
+          ],
+          "modified_by": "model-proposer pass 2",
+          "source": "model",
+          "findings": [
+            "F-aaaaaaaaaaaa"
+          ],
+          "tests": [
+            "OTH-fixed002"
+          ],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "violated_by": "F-aaaaaaaaaaaa"
+        },
+        "INV-3": {
+          "statement": "only the owner may pause",
+          "kind": "access",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-4": {
+          "statement": "LIVENESS: every modeled state machine must be able to advance to its terminal/finalized state; no reachable state may permanently block finalize/withdraw/challenge/claim. Machines: rollup, vault",
+          "kind": "liveness",
+          "severity_if_broken": "critical",
+          "applies_to": [
+            "rollup",
+            "vault"
+          ],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "synthesized": "liveness-template"
+        }
+      }
+    }
+  },
+  {
+    "label": "verify",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "totalAssets never decreases except via withdraw",
+          "kind": "security",
+          "severity_if_broken": "critical",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "documented",
+          "findings": [
+            "F-bbbbbbbbbbbb"
+          ],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-2": {
+          "statement": "fee accumulator cannot be set backwards",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "CHECKED_AGAINST_CODE",
+          "model_belief": 0.6,
+          "depends_on": [
+            "INV-1"
+          ],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "model",
+          "findings": [
+            "F-aaaaaaaaaaaa"
+          ],
+          "tests": [
+            "OTH-fixed002"
+          ],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "violated_by": "F-aaaaaaaaaaaa",
+          "verified_by": "OTH-fixed001"
+        },
+        "INV-3": {
+          "statement": "only the owner may pause",
+          "kind": "access",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-4": {
+          "statement": "LIVENESS: every modeled state machine must be able to advance to its terminal/finalized state; no reachable state may permanently block finalize/withdraw/challenge/claim. Machines: rollup, vault",
+          "kind": "liveness",
+          "severity_if_broken": "critical",
+          "applies_to": [
+            "rollup",
+            "vault"
+          ],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "synthesized": "liveness-template"
+        }
+      }
+    }
+  },
+  {
+    "label": "contradict",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "totalAssets never decreases except via withdraw",
+          "kind": "security",
+          "severity_if_broken": "critical",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "CONTRADICTED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "documented",
+          "findings": [
+            "F-bbbbbbbbbbbb"
+          ],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "contradiction": "src/V.sol#L40"
+        },
+        "INV-2": {
+          "statement": "fee accumulator cannot be set backwards",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "CHECKED_AGAINST_CODE",
+          "model_belief": 0.6,
+          "depends_on": [
+            "INV-1"
+          ],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "model",
+          "findings": [
+            "F-aaaaaaaaaaaa"
+          ],
+          "tests": [
+            "OTH-fixed002"
+          ],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "violated_by": "F-aaaaaaaaaaaa",
+          "verified_by": "OTH-fixed001"
+        },
+        "INV-3": {
+          "statement": "only the owner may pause",
+          "kind": "access",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-4": {
+          "statement": "LIVENESS: every modeled state machine must be able to advance to its terminal/finalized state; no reachable state may permanently block finalize/withdraw/challenge/claim. Machines: rollup, vault",
+          "kind": "liveness",
+          "severity_if_broken": "critical",
+          "applies_to": [
+            "rollup",
+            "vault"
+          ],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "synthesized": "liveness-template"
+        }
+      }
+    }
+  },
+  {
+    "label": "verify_inv3",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "totalAssets never decreases except via withdraw",
+          "kind": "security",
+          "severity_if_broken": "critical",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "CONTRADICTED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "documented",
+          "findings": [
+            "F-bbbbbbbbbbbb"
+          ],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "contradiction": "src/V.sol#L40"
+        },
+        "INV-2": {
+          "statement": "fee accumulator cannot be set backwards",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "CHECKED_AGAINST_CODE",
+          "model_belief": 0.6,
+          "depends_on": [
+            "INV-1"
+          ],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "model",
+          "findings": [
+            "F-aaaaaaaaaaaa"
+          ],
+          "tests": [
+            "OTH-fixed002"
+          ],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "violated_by": "F-aaaaaaaaaaaa",
+          "verified_by": "OTH-fixed001"
+        },
+        "INV-3": {
+          "statement": "only the owner may pause",
+          "kind": "access",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "CHECKED_AGAINST_CODE",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "verified_by": "OTH-fixed001"
+        },
+        "INV-4": {
+          "statement": "LIVENESS: every modeled state machine must be able to advance to its terminal/finalized state; no reachable state may permanently block finalize/withdraw/challenge/claim. Machines: rollup, vault",
+          "kind": "liveness",
+          "severity_if_broken": "critical",
+          "applies_to": [
+            "rollup",
+            "vault"
+          ],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "synthesized": "liveness-template"
+        }
+      }
+    }
+  },
+  {
+    "label": "verify_inv3_again",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "totalAssets never decreases except via withdraw",
+          "kind": "security",
+          "severity_if_broken": "critical",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "CONTRADICTED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "documented",
+          "findings": [
+            "F-bbbbbbbbbbbb"
+          ],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "contradiction": "src/V.sol#L40"
+        },
+        "INV-2": {
+          "statement": "fee accumulator cannot be set backwards",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "CHECKED_AGAINST_CODE",
+          "model_belief": 0.6,
+          "depends_on": [
+            "INV-1"
+          ],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "model",
+          "findings": [
+            "F-aaaaaaaaaaaa"
+          ],
+          "tests": [
+            "OTH-fixed002"
+          ],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "violated_by": "F-aaaaaaaaaaaa",
+          "verified_by": "OTH-fixed001"
+        },
+        "INV-3": {
+          "statement": "only the owner may pause",
+          "kind": "access",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "CHECKED_AGAINST_CODE",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "verified_by": "OTH-fixed002"
+        },
+        "INV-4": {
+          "statement": "LIVENESS: every modeled state machine must be able to advance to its terminal/finalized state; no reachable state may permanently block finalize/withdraw/challenge/claim. Machines: rollup, vault",
+          "kind": "liveness",
+          "severity_if_broken": "critical",
+          "applies_to": [
+            "rollup",
+            "vault"
+          ],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "synthesized": "liveness-template"
+        }
+      }
+    }
+  },
+  {
+    "label": "contradict_inv3",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "totalAssets never decreases except via withdraw",
+          "kind": "security",
+          "severity_if_broken": "critical",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "CONTRADICTED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "documented",
+          "findings": [
+            "F-bbbbbbbbbbbb"
+          ],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "contradiction": "src/V.sol#L40"
+        },
+        "INV-2": {
+          "statement": "fee accumulator cannot be set backwards",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "CHECKED_AGAINST_CODE",
+          "model_belief": 0.6,
+          "depends_on": [
+            "INV-1"
+          ],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "model",
+          "findings": [
+            "F-aaaaaaaaaaaa"
+          ],
+          "tests": [
+            "OTH-fixed002"
+          ],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "violated_by": "F-aaaaaaaaaaaa",
+          "verified_by": "OTH-fixed001"
+        },
+        "INV-3": {
+          "statement": "only the owner may pause",
+          "kind": "access",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "CONTRADICTED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "contradiction": "src/V.sol#L1"
+        },
+        "INV-4": {
+          "statement": "LIVENESS: every modeled state machine must be able to advance to its terminal/finalized state; no reachable state may permanently block finalize/withdraw/challenge/claim. Machines: rollup, vault",
+          "kind": "liveness",
+          "severity_if_broken": "critical",
+          "applies_to": [
+            "rollup",
+            "vault"
+          ],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "synthesized": "liveness-template"
+        }
+      }
+    }
+  },
+  {
+    "label": "legacy_raw",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "totalAssets never decreases except via withdraw",
+          "kind": "security",
+          "severity_if_broken": "critical",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "CONTRADICTED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "documented",
+          "findings": [
+            "F-bbbbbbbbbbbb"
+          ],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "contradiction": "src/V.sol#L40"
+        },
+        "INV-2": {
+          "statement": "fee accumulator cannot be set backwards",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "CHECKED_AGAINST_CODE",
+          "model_belief": 0.6,
+          "depends_on": [
+            "INV-1"
+          ],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "model",
+          "findings": [
+            "F-aaaaaaaaaaaa"
+          ],
+          "tests": [
+            "OTH-fixed002"
+          ],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "violated_by": "F-aaaaaaaaaaaa",
+          "verified_by": "OTH-fixed001"
+        },
+        "INV-3": {
+          "statement": "only the owner may pause",
+          "kind": "access",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "CONTRADICTED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "contradiction": "src/V.sol#L1"
+        },
+        "INV-4": {
+          "statement": "legacy claim",
+          "status": "UNVERIFIED",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "test_status": "held",
+          "source": "model",
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        }
+      }
+    }
+  },
+  {
+    "label": "legacy_migrated",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "totalAssets never decreases except via withdraw",
+          "kind": "security",
+          "severity_if_broken": "critical",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "CONTRADICTED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "documented",
+          "findings": [
+            "F-bbbbbbbbbbbb"
+          ],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "contradiction": "src/V.sol#L40"
+        },
+        "INV-2": {
+          "statement": "fee accumulator cannot be set backwards",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "CHECKED_AGAINST_CODE",
+          "model_belief": 0.6,
+          "depends_on": [
+            "INV-1"
+          ],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "model",
+          "findings": [
+            "F-aaaaaaaaaaaa"
+          ],
+          "tests": [
+            "OTH-fixed002"
+          ],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "violated_by": "F-aaaaaaaaaaaa",
+          "verified_by": "OTH-fixed001"
+        },
+        "INV-3": {
+          "statement": "only the owner may pause",
+          "kind": "access",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "CONTRADICTED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "contradiction": "src/V.sol#L1"
+        },
+        "INV-4": {
+          "statement": "legacy claim",
+          "status": "UNVERIFIED",
+          "findings": [],
+          "tests": [
+            "OTH-fixed002"
+          ],
+          "detectors": [],
+          "test_status": "held",
+          "source": "model",
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        }
+      }
+    }
+  },
+  {
+    "label": "legacy_second_read",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "totalAssets never decreases except via withdraw",
+          "kind": "security",
+          "severity_if_broken": "critical",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "CONTRADICTED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "documented",
+          "findings": [
+            "F-bbbbbbbbbbbb"
+          ],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "contradiction": "src/V.sol#L40"
+        },
+        "INV-2": {
+          "statement": "fee accumulator cannot be set backwards",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "CHECKED_AGAINST_CODE",
+          "model_belief": 0.6,
+          "depends_on": [
+            "INV-1"
+          ],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "model",
+          "findings": [
+            "F-aaaaaaaaaaaa"
+          ],
+          "tests": [
+            "OTH-fixed002"
+          ],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "violated_by": "F-aaaaaaaaaaaa",
+          "verified_by": "OTH-fixed001"
+        },
+        "INV-3": {
+          "statement": "only the owner may pause",
+          "kind": "access",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "CONTRADICTED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": "2026-02-01T00:00:00.000000+00:00",
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "contradiction": "src/V.sol#L1"
+        },
+        "INV-4": {
+          "statement": "legacy claim",
+          "status": "UNVERIFIED",
+          "findings": [],
+          "tests": [
+            "OTH-fixed002"
+          ],
+          "detectors": [],
+          "test_status": "held",
+          "source": "model",
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,130 @@
+[
+  {
+    "ids": [
+      "INV-1",
+      "INV-2"
+    ],
+    "rep": {
+      "documented": [
+        "INV-1",
+        "INV-2"
+      ],
+      "in_model": [
+        "INV-1",
+        "INV-2"
+      ],
+      "missing_from_model": [],
+      "extra_in_model": [],
+      "documentation": {
+        "INV-1": {
+          "file": "README.md",
+          "line": 1,
+          "context": "INV-1 balances move atomically"
+        },
+        "INV-2": {
+          "file": "README.md",
+          "line": 2,
+          "context": "INV-002 fees accrue to the treasury"
+        }
+      },
+      "note": "model covers every documented invariant id"
+    }
+  },
+  {
+    "ids": [
+      "INV-1"
+    ],
+    "rep": {
+      "documented": [
+        "INV-1",
+        "INV-2"
+      ],
+      "in_model": [
+        "INV-1"
+      ],
+      "missing_from_model": [
+        "INV-2"
+      ],
+      "extra_in_model": [],
+      "documentation": {
+        "INV-1": {
+          "file": "README.md",
+          "line": 1,
+          "context": "INV-1 balances move atomically"
+        },
+        "INV-2": {
+          "file": "README.md",
+          "line": 2,
+          "context": "INV-002 fees accrue to the treasury"
+        }
+      },
+      "note": "the model should inherit the protocol's documented invariant ids (INV-1..N) so findings and the spec point at the same invariant"
+    }
+  },
+  {
+    "ids": [
+      "INV-1",
+      "INV-2",
+      "INV-9"
+    ],
+    "rep": {
+      "documented": [
+        "INV-1",
+        "INV-2"
+      ],
+      "in_model": [
+        "INV-1",
+        "INV-2",
+        "INV-9"
+      ],
+      "missing_from_model": [],
+      "extra_in_model": [
+        "INV-9"
+      ],
+      "documentation": {
+        "INV-1": {
+          "file": "README.md",
+          "line": 1,
+          "context": "INV-1 balances move atomically"
+        },
+        "INV-2": {
+          "file": "README.md",
+          "line": 2,
+          "context": "INV-002 fees accrue to the treasury"
+        }
+      },
+      "note": "model covers every documented invariant id"
+    }
+  },
+  {
+    "ids": [
+      "INV-001",
+      "INV-2"
+    ],
+    "rep": {
+      "documented": [
+        "INV-1",
+        "INV-2"
+      ],
+      "in_model": [
+        "INV-1",
+        "INV-2"
+      ],
+      "missing_from_model": [],
+      "extra_in_model": [],
+      "documentation": {
+        "INV-1": {
+          "file": "README.md",
+          "line": 1,
+          "context": "INV-1 balances move atomically"
+        },
+        "INV-2": {
+          "file": "README.md",
+          "line": 2,
+          "context": "INV-002 fees accrue to the treasury"
+        }
+      },
+      "note": "model covers every documented invariant id"
+    }
+  }
+]

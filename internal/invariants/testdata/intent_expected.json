@@ -1,0 +1,206 @@
+{
+  "INV-1": {
+    "file": "README.md",
+    "line": 2,
+    "context": "INV-1 balances move atomically",
+    "intent_line": "INV-002 fees accrue to the treasury"
+  },
+  "INV-2": {
+    "file": "README.md",
+    "line": 3,
+    "context": "INV-002 fees accrue to the treasury",
+    "intent_line": "INV-002 fees accrue to the treasury"
+  },
+  "INV-3": {
+    "file": "README.md",
+    "line": 4,
+    "context": "prefix INV-0003 with leading text",
+    "intent_line": "INV-002 fees accrue to the treasury"
+  },
+  "INV-50": {
+    "file": "intent.md",
+    "line": 2,
+    "context": "INV-50 the fee accrual is by design",
+    "intent_line": "INV-50 the fee accrual is by design"
+  },
+  "INV-51": {
+    "file": "intent.md",
+    "line": 3,
+    "context": "INV-51 stakers get the donation which accrues pro rata",
+    "intent_line": "INV-50 the fee accrual is by design"
+  },
+  "INV-52": {
+    "file": "intent.md",
+    "line": 4,
+    "context": "INV-52 this is expected behavior",
+    "intent_line": "INV-50 the fee accrual is by design"
+  },
+  "INV-53": {
+    "file": "intent.md",
+    "line": 5,
+    "context": "INV-53 meant to be harmless",
+    "intent_line": "INV-50 the fee accrual is by design"
+  },
+  "INV-54": {
+    "file": "intent.md",
+    "line": 6,
+    "context": "INV-54 not a bug",
+    "intent_line": "INV-52 this is expected behavior"
+  },
+  "INV-55": {
+    "file": "intent.md",
+    "line": 7,
+    "context": "INV-55 accrue",
+    "intent_line": "INV-52 this is expected behavior"
+  },
+  "INV-56": {
+    "file": "intent.md",
+    "line": 8,
+    "context": "INV-56 intentional",
+    "intent_line": "INV-53 meant to be harmless"
+  },
+  "INV-57": {
+    "file": "intent.md",
+    "line": 9,
+    "context": "INV-57 intentionally broken",
+    "intent_line": "INV-54 not a bug"
+  },
+  "INV-58": {
+    "file": "intent.md",
+    "line": 10,
+    "context": "INV-58 designed to help",
+    "intent_line": "INV-55 accrue"
+  },
+  "INV-59": {
+    "file": "intent.md",
+    "line": 11,
+    "context": "INV-59 as intended",
+    "intent_line": "INV-56 intentional"
+  },
+  "INV-60": {
+    "file": "intent.md",
+    "line": 12,
+    "context": "INV-60 expected outcome",
+    "intent_line": "INV-57 intentionally broken"
+  },
+  "INV-61": {
+    "file": "intent.md",
+    "line": 13,
+    "context": "INV-61 by-design choice",
+    "intent_line": "INV-58 designed to help"
+  },
+  "INV-62": {
+    "file": "intent.md",
+    "line": 14,
+    "context": "INV-62 by design choice",
+    "intent_line": "INV-59 as intended"
+  },
+  "INV-63": {
+    "file": "intent.md",
+    "line": 15,
+    "context": "INV-63 donation that accrue",
+    "intent_line": "INV-60 expected outcome"
+  },
+  "INV-64": {
+    "file": "intent.md",
+    "line": 16,
+    "context": "INV-64 donation accrues to staker",
+    "intent_line": "INV-61 by-design choice"
+  },
+  "INV-65": {
+    "file": "intent.md",
+    "line": 17,
+    "context": "INV-65 donations accrue",
+    "intent_line": "INV-62 by design choice"
+  },
+  "INV-66": {
+    "file": "intent.md",
+    "line": 18,
+    "context": "INV-66 donation yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy accrue",
+    "intent_line": "INV-63 donation that accrue"
+  },
+  "INV-67": {
+    "file": "intent.md",
+    "line": 19,
+    "context": "INV-67 no intent here at all",
+    "intent_line": "INV-64 donation accrues to staker"
+  },
+  "INV-68": {
+    "file": "intent.md",
+    "line": 20,
+    "context": "INV-68 account accrues value",
+    "intent_line": "INV-65 donations accrue"
+  },
+  "INV-69": {
+    "file": "intent.md",
+    "line": 21,
+    "context": "INV-69 donated to charity",
+    "intent_line": "INV-66 donation yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy accrue"
+  },
+  "INV-70": {
+    "file": "intent.md",
+    "line": 22,
+    "context": "INV-70 intentIOnAlly done",
+    "intent_line": "INV-70 intentIOnAlly done"
+  },
+  "INV-71": {
+    "file": "intent2.md",
+    "line": 3,
+    "context": "INV-71 window intent",
+    "intent_line": "by design"
+  },
+  "INV-72": {
+    "file": "intent2.md",
+    "line": 4,
+    "context": "INV-72",
+    "intent_line": "by design"
+  },
+  "INV-73": {
+    "file": "intent2.md",
+    "line": 6,
+    "context": "INV-73",
+    "intent_line": "intentional"
+  },
+  "INV-74": {
+    "file": "intent2.md",
+    "line": 11,
+    "context": "INV-74",
+    "intent_line": "by design"
+  },
+  "INV-90": {
+    "file": "intent3.md",
+    "line": 1,
+    "context": "INV-90 donation yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy staker",
+    "intent_line": "INV-90 donation yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy staker"
+  },
+  "INV-93": {
+    "file": "intent3.md",
+    "line": 13,
+    "context": "INV-93 donation-s staker",
+    "intent_line": "INV-93 donation-s staker"
+  },
+  "INV-97": {
+    "file": "intent3.md",
+    "line": 29,
+    "context": "INV-97 not a vulnerability",
+    "intent_line": "INV-97 not a vulnerability"
+  },
+  "INV-98": {
+    "file": "intent3.md",
+    "line": 33,
+    "context": "INV-98 not a concern",
+    "intent_line": "INV-98 not a concern"
+  },
+  "INV-99": {
+    "file": "intent3.md",
+    "line": 37,
+    "context": "INV-99 BY DESIGN",
+    "intent_line": "INV-99 BY DESIGN"
+  },
+  "INV-100": {
+    "file": "intent3.md",
+    "line": 41,
+    "context": "INV-100 ACCRUE",
+    "intent_line": "INV-100 ACCRUE"
+  }
+}

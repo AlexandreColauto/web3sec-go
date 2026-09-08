@@ -1,0 +1,138 @@
+[
+  {
+    "in": "INV-1",
+    "out": "INV-1"
+  },
+  {
+    "in": "INV-001",
+    "out": "INV-1"
+  },
+  {
+    "in": "INV-0000",
+    "out": "INV-0"
+  },
+  {
+    "in": "INV-0",
+    "out": "INV-0"
+  },
+  {
+    "in": "INV-000000000000000000001",
+    "out": "INV-1"
+  },
+  {
+    "in": "INV-12345",
+    "out": "INV-12345"
+  },
+  {
+    "in": "INV-1234",
+    "out": "INV-1234"
+  },
+  {
+    "in": "INV-",
+    "out": "INV-"
+  },
+  {
+    "in": "INV-1a",
+    "out": "INV-1a"
+  },
+  {
+    "in": "inv-1",
+    "out": "inv-1"
+  },
+  {
+    "in": "INV-1 ",
+    "out": "INV-1 "
+  },
+  {
+    "in": " INV-1",
+    "out": " INV-1"
+  },
+  {
+    "in": "INV-1\n",
+    "out": "INV-1"
+  },
+  {
+    "in": "INV-1\n\n",
+    "out": "INV-1\n\n"
+  },
+  {
+    "in": "INV-1\r",
+    "out": "INV-1\r"
+  },
+  {
+    "in": "INV-1\r\n",
+    "out": "INV-1\r\n"
+  },
+  {
+    "in": "INV-12-3",
+    "out": "INV-12-3"
+  },
+  {
+    "in": "INV-1.0",
+    "out": "INV-1.0"
+  },
+  {
+    "in": "INV-١٢",
+    "out": "INV-12"
+  },
+  {
+    "in": "INV-١٢٣",
+    "out": "INV-123"
+  },
+  {
+    "in": "INV-000١",
+    "out": "INV-1"
+  },
+  {
+    "in": "INV-²",
+    "out": "INV-²"
+  },
+  {
+    "in": "INV-٠٠١",
+    "out": "INV-1"
+  },
+  {
+    "in": "INV-1é",
+    "out": "INV-1é"
+  },
+  {
+    "in": "éINV-1",
+    "out": "éINV-1"
+  },
+  {
+    "in": "XINV-1",
+    "out": "XINV-1"
+  },
+  {
+    "in": "INV-1_",
+    "out": "INV-1_"
+  },
+  {
+    "in": "INV-1_2",
+    "out": "INV-1_2"
+  },
+  {
+    "in": "INV-99999999",
+    "out": "INV-99999999"
+  },
+  {
+    "in": "",
+    "out": ""
+  },
+  {
+    "in": "INV",
+    "out": "INV"
+  },
+  {
+    "in": "-INV-1",
+    "out": "-INV-1"
+  },
+  {
+    "in": "INV-INV-1",
+    "out": "INV-INV-1"
+  },
+  {
+    "in": "INV-1INV-2",
+    "out": "INV-1INV-2"
+  }
+]

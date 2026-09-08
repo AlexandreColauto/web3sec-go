@@ -1,0 +1,697 @@
+[
+  {
+    "name": "empty",
+    "links": {
+      "invariants": {}
+    },
+    "expected": {
+      "total": 0,
+      "statuses": {
+        "untested": 0,
+        "violated": 0,
+        "held": 0,
+        "untestable": 0
+      },
+      "test_coverage_ratio": 0.0,
+      "violated_invariants": [],
+      "uncovered": []
+    }
+  },
+  {
+    "name": "mixed",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "held",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-002": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-3": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-4": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untestable",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-5": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "weird",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-6": {}
+      }
+    },
+    "expected": {
+      "total": 6,
+      "statuses": {
+        "untested": 2,
+        "violated": 1,
+        "held": 1,
+        "untestable": 1,
+        "weird": 1
+      },
+      "test_coverage_ratio": 0.333,
+      "violated_invariants": [
+        "INV-002"
+      ],
+      "uncovered": [
+        "INV-3",
+        "INV-4",
+        "INV-6"
+      ]
+    }
+  },
+  {
+    "name": "thirds",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "held",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-2": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-3": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        }
+      }
+    },
+    "expected": {
+      "total": 3,
+      "statuses": {
+        "untested": 2,
+        "violated": 0,
+        "held": 1,
+        "untestable": 0
+      },
+      "test_coverage_ratio": 0.333,
+      "violated_invariants": [],
+      "uncovered": [
+        "INV-2",
+        "INV-3"
+      ]
+    }
+  },
+  {
+    "name": "sixteenth",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "held",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-2": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-3": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-4": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-5": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-6": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-7": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-8": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-9": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-10": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-11": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-12": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-13": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-14": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-15": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-16": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        }
+      }
+    },
+    "expected": {
+      "total": 16,
+      "statuses": {
+        "untested": 15,
+        "violated": 0,
+        "held": 1,
+        "untestable": 0
+      },
+      "test_coverage_ratio": 0.062,
+      "violated_invariants": [],
+      "uncovered": [
+        "INV-10",
+        "INV-11",
+        "INV-12",
+        "INV-13",
+        "INV-14",
+        "INV-15",
+        "INV-16",
+        "INV-2",
+        "INV-3",
+        "INV-4",
+        "INV-5",
+        "INV-6",
+        "INV-7",
+        "INV-8",
+        "INV-9"
+      ]
+    }
+  },
+  {
+    "name": "eighths",
+    "links": {
+      "invariants": {
+        "INV-1": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "held",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-2": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "held",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-3": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-4": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-5": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-6": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-7": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-8": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "untested",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        }
+      }
+    },
+    "expected": {
+      "total": 8,
+      "statuses": {
+        "untested": 5,
+        "violated": 1,
+        "held": 2,
+        "untestable": 0
+      },
+      "test_coverage_ratio": 0.375,
+      "violated_invariants": [
+        "INV-3"
+      ],
+      "uncovered": [
+        "INV-4",
+        "INV-5",
+        "INV-6",
+        "INV-7",
+        "INV-8"
+      ]
+    }
+  },
+  {
+    "name": "all_violated",
+    "links": {
+      "invariants": {
+        "INV-2": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        },
+        "INV-1": {
+          "statement": "s",
+          "kind": "security",
+          "severity_if_broken": "high",
+          "applies_to": [],
+          "test_status": "violated",
+          "status": "UNVERIFIED",
+          "model_belief": null,
+          "depends_on": [],
+          "modified_by": null,
+          "source": "model",
+          "findings": [],
+          "tests": [],
+          "detectors": [],
+          "updated_at": "2026-02-01T00:00:00.000000+00:00"
+        }
+      }
+    },
+    "expected": {
+      "total": 2,
+      "statuses": {
+        "untested": 0,
+        "violated": 2,
+        "held": 0,
+        "untestable": 0
+      },
+      "test_coverage_ratio": 1.0,
+      "violated_invariants": [
+        "INV-1",
+        "INV-2"
+      ],
+      "uncovered": []
+    }
+  }
+]
