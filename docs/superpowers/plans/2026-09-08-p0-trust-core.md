@@ -434,7 +434,7 @@ git commit -m "P0: phase machine + budget + complete (Task 8)"
 - \`refresh_artifact(id, reason, actor="operator")\`: find (miss->KeyError); resolve path; missing file -> \`FileNotFoundError(f"artifact file missing, cannot refresh: {p}")\`; empty reason -> \`ValueError("refresh_artifact requires a written reason")\`; old=a.sha256; a.sha256=sha256File; a.refreshed_at=nowIso(); a.refresh_reason=str(reason); a.refresh_count=int(a.refresh_count or 0)+1; save; log \`artifact.refreshed ref=id data={kind, actor, reason, old_sha256, new_sha256, refresh_count}\`.
 - \`register_or_refresh(kind, path, note="", snapshot_id=None, reason="re-registered (content may have changed)")\`: resolved path; find existing artifacts with same resolved path; none -> register; found and kind set and differs -> register (new row); else refresh(latest, reason) and return its id. "latest" = max by registered_at.
 
-- [ ] **Step 1: Write the failing tests** (port \`test_state.py::test_artifact_registration_hashes_content\`, \`test_stage_ledger_attempts\` + new):
+- [x] **Step 1: Write the failing tests** (port \`test_state.py::test_artifact_registration_hashes_content\`, \`test_stage_ledger_attempts\` + new):
   - register -> sha256 len 64; artifact(id) returns it; path stored resolved; event logged.
   - register missing file -> FileNotFoundError.
   - setStage "done" twice -> attempts 2; note capped; executor set.
@@ -443,10 +443,10 @@ git commit -m "P0: phase machine + budget + complete (Task 8)"
   - prune -> removed, event logged, returns record.
   - refresh: content changed -> new sha256, refresh_count 1, old/new in log; missing file -> FileNotFoundError; empty reason -> ValueError.
   - registerOrRefresh: same-path re-register -> refresh (single row, refresh_count 1); different path -> new row; different kind same path -> new row.
-- [ ] **Step 2: Run to verify they fail** — \`go test ./internal/state -run Artifacts\` -> FAIL.
-- [ ] **Step 3: Implement** \`artifacts.go\` (setStage/stages live here per layout).
-- [ ] **Step 4: Run to verify pass** — \`go test ./internal/state\` -> PASS. \`go test -race ./internal/state\` -> PASS.
-- [ ] **Step 5: Commit**
+- [x] **Step 2: Run to verify they fail** — \`go test ./internal/state -run Artifacts\` -> FAIL.
+- [x] **Step 3: Implement** \`artifacts.go\` (setStage/stages live here per layout).
+- [x] **Step 4: Run to verify pass** — \`go test ./internal/state\` -> PASS. \`go test -race ./internal/state\` -> PASS.
+- [x] **Step 5: Commit**
 \`\`\`bash
 git add internal/state/
 git commit -m "P0: stage ledger + artifact register/prune/refresh (Task 9)"
