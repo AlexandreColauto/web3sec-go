@@ -955,27 +955,39 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_answered_l04_requires_symmetry_primitives",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_answered_test.go",
+   "go_func": "TestAnsweredLensSymmetry",
+   "notes": "symmetry attestation success path; the missing---symmetry refusal is implemented in cmd_answered.go but not asserted by a Go test"
   },
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_answered_lens_rejects_invalid_status",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_answered_test.go",
+   "go_func": "TestAnsweredInvalidStatus",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_answered_lens_requires_and_records_families",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_answered_test.go",
+   "go_func": "TestAnsweredLensFamilies",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_answered_lens_requires_reason",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_answered_test.go",
+   "go_func": "TestAnsweredRequiresReason",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_answered_routes_lens_ids",
-   "status": "deferred-P1"
+   "merged_into": {
+    "go_file": "internal/cli/cmd_answered_test.go",
+    "go_func": "TestAnsweredLensFamilies"
+   },
+   "notes": "L-* route + closure; the persisted closed_by/closed_ref are pinned by internal/planner/ports_test.go::TestPortMarkLensClosureAndReopen and the --ref echo by TestAnsweredPriorityClosure"
   },
   {
    "python_file": "tests/test_cli.py",
@@ -990,7 +1002,11 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_budget_show_set_and_ceiling_halt",
-   "status": "deferred-P1"
+   "merged_into": {
+    "go_file": "internal/cli/cmd_budget_test.go",
+    "go_func": "TestBudgetNoCeiling"
+   },
+   "notes": "show half (NO CEILING) is TestBudgetNoCeiling; set half (--set 1000 -> within) is TestBudgetSetCeiling, same file. Python body asserts exactly those two halves; the name's 'ceiling_halt' is not exercised by the Python body either."
   },
   {
    "python_file": "tests/test_cli.py",
@@ -1000,12 +1016,18 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_floors_list_and_set",
-   "status": "deferred-P1"
+   "merged_into": {
+    "go_file": "internal/cli/cmd_floors_test.go",
+    "go_func": "TestFloorsSetUnset"
+   },
+   "notes": "list+set+unset; the bare table is TestFloorsListTable and the --json view is TestFloorsJSONAfterCampaign"
   },
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_floors_set_requires_reason",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_floors_test.go",
+   "go_func": "TestFloorsSetValidation",
+   "notes": "covers the short-reason refusal (and the kebab-case class error)"
   },
   {
    "python_file": "tests/test_cli.py",
@@ -1015,12 +1037,15 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_gate_empty_message",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_gate_test.go",
+   "go_func": "TestGateAllRequiresPolicy",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_ingest_json_outputs_advisory_and_warnings",
-   "status": "deferred-P1"
+   "status": "deferred-P1",
+   "notes": "the CLI --json envelope is untested; the advisory/intake-warning VALUES are covered by internal/findings/ingest_test.go::TestIntakeCheckpointSeamAdvisory and taxonomy.ClassAdvisory"
   },
   {
    "python_file": "tests/test_cli.py",
@@ -1060,7 +1085,9 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_plan_display_shows_lenses_and_gate",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_plan_test.go",
+   "go_func": "TestPlanJSON",
+   "notes": "lenses + divergence in --json; the checklist/divergence-gate text is in TestPlanBootstrapView"
   },
   {
    "python_file": "tests/test_cli.py",
@@ -1070,7 +1097,9 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_scope_loads_policy",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_scope_test.go",
+   "go_func": "TestScopeLoadPolicy",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli.py",
@@ -1080,34 +1109,44 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_unknown_campaign_is_a_clean_error",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_dedup_test.go",
+   "go_func": "TestDedupUnknownCampaign",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_verdict_prints_full_reason",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_verdict_test.go",
+   "go_func": "TestVerdictPrintsFullReason",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli_e2e_confirm.py",
    "python_func": "test_cli_confirm_flow_with_shield",
    "go_file": "internal/findings/transitions_test.go",
    "go_func": "TestConfirmedFlowStateEffectsWithShield",
-   "notes": "partial: state-effect half ported; CLI wiring is P1 task 14"
+   "notes": "partial: state-effect half ported here; CLI half (verdict/recall/gate) in internal/cli/cmd_gate_test.go::TestGateDryrunAllChecksPass"
   },
   {
    "python_file": "tests/test_cli_gate_dryrun.py",
    "python_func": "test_dryrun_lists_failing_checks_with_fixes",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_gate_test.go",
+   "go_func": "TestGateDryrunListsFailingChecksWithFixes",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli_gate_dryrun.py",
    "python_func": "test_dryrun_passes_when_all_checks_met",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_gate_test.go",
+   "go_func": "TestGateDryrunAllChecksPass",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli_gate_dryrun.py",
    "python_func": "test_dryrun_unknown_finding_exit2",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_gate_test.go",
+   "go_func": "TestGateDryrunUnknownFindingExits2",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli_privileged.py",
@@ -1127,22 +1166,30 @@
   {
    "python_file": "tests/test_cli_recall.py",
    "python_func": "test_recall_comparative_requires_note",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_recall_test.go",
+   "go_func": "TestRecallComparativeRequiresNote",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli_recall.py",
    "python_func": "test_recall_prints_rows_and_records",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_recall_test.go",
+   "go_func": "TestRecallPrintsRowsAndRecordsCheck",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli_recall.py",
    "python_func": "test_recall_rag_subcommand_gone",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_recall_test.go",
+   "go_func": "TestRecallRagSubcommandGone",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli_recall.py",
    "python_func": "test_recall_records_dedupe",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_recall_test.go",
+   "go_func": "TestRecallRecordsDedupe",
+   "notes": ""
   },
   {
    "python_file": "tests/test_completion_proof.py",
@@ -2510,7 +2557,9 @@
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_cli_example_stdout_is_pure_json",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_ingest_test.go",
+   "go_func": "TestIngestExampleStdoutIsPureJSON",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
@@ -2530,17 +2579,27 @@
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_example_file_validates_with_computed_fields",
-   "status": "deferred-P1"
+   "merged_into": {
+    "go_file": "internal/cli/cmd_ingest_test.go",
+    "go_func": "TestIngestExamplePipeRoundTrip"
+   },
+   "notes": "the example ingests through the computed-field path, so schema validation of the filled payload is exercised"
   },
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_example_is_ingestable_end_to_end",
-   "status": "deferred-P1"
+   "merged_into": {
+    "go_file": "internal/cli/cmd_ingest_test.go",
+    "go_func": "TestIngestExamplePipeRoundTrip"
+   },
+   "notes": "the example payload ingests end-to-end through the CLI (same path)"
   },
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_example_pipe_round_trip_ingests",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_ingest_test.go",
+   "go_func": "TestIngestExamplePipeRoundTrip",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
@@ -2550,7 +2609,9 @@
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_multi_error_reporting_lists_paths",
-   "status": "deferred-P1"
+   "go_file": "internal/validation/schema_golden_test.go",
+   "go_func": "TestGoldenOQ3",
+   "notes": "generic max_errors listing: the expect3 vectors render every offending path with the 'also at' form"
   },
   {
    "python_file": "tests/test_ingest.py",
@@ -2605,12 +2666,16 @@
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_shape_confusion_hint_on_assumptions",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_ingest_test.go",
+   "go_func": "TestIngestShapeSwapHint",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_shape_confusion_hint_on_preconditions",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_ingest_test.go",
+   "go_func": "TestIngestShapeHint",
+   "notes": "hint-function half (the CLI calls the same t14IngestShapeHint); the CLI-level swap is pinned for the assumptions direction by TestIngestShapeSwapHint"
   },
   {
    "python_file": "tests/test_ingest.py",
@@ -2630,7 +2695,11 @@
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_unrelated_error_gets_contract_hint_not_shape_hint",
-   "status": "deferred-P1"
+   "merged_into": {
+    "go_file": "internal/cli/cmd_ingest_test.go",
+    "go_func": "TestIngestShapeHint"
+   },
+   "notes": "no-shape-hint half; the contract-hint wording is asserted only on the --example path (TestIngestExampleStdoutIsPureJSON)"
   },
   {
    "python_file": "tests/test_invariants.py",
@@ -4205,12 +4274,16 @@
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_cli_invariant_contradict_and_verify_paths",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_invariant_contradict_test.go",
+   "go_func": "TestInvariantContradict",
+   "notes": "verify happy path is TestInvariantVerifyArtifact in cmd_invariant_verify_test.go"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_cli_invariant_verify_unknown_id_errors",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_invariant_verify_test.go",
+   "go_func": "TestInvariantVerifyUnknownIDExits2OneLine",
+   "notes": ""
   },
   {
    "python_file": "tests/test_role_isolation.py",
@@ -6581,47 +6654,65 @@
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_invariant_verify_exec_falls_back_to_the_stderr_log",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_invariant_verify_exec_test.go",
+   "go_func": "TestInvariantVerifyExecFallsBackToTheStderrLog",
+   "notes": ""
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_invariant_verify_exec_happy_path",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_invariant_verify_exec_test.go",
+   "go_func": "TestInvariantVerifyExecHappyPath",
+   "notes": ""
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_invariant_verify_exec_incomplete_exec_exits_2",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_invariant_verify_exec_test.go",
+   "go_func": "TestInvariantVerifyExecIncompleteExecExits2",
+   "notes": ""
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_invariant_verify_exec_rerun_refreshes_the_same_artifact",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_invariant_verify_exec_test.go",
+   "go_func": "TestInvariantVerifyExecRerunRefreshesTheSameArtifact",
+   "notes": ""
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_invariant_verify_exec_unknown_exec_exits_2",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_invariant_verify_exec_test.go",
+   "go_func": "TestInvariantVerifyExecUnknownExecExits2",
+   "notes": ""
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_invariant_verify_exec_unknown_invariant_exits_2",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_invariant_verify_exec_test.go",
+   "go_func": "TestInvariantVerifyExecUnknownInvariantExits2",
+   "notes": ""
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_invariant_verify_exec_without_captured_output_exits_2",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_invariant_verify_exec_test.go",
+   "go_func": "TestInvariantVerifyExecWithoutCapturedOutputExits2",
+   "notes": ""
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_invariant_verify_rejects_both_options",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_invariant_verify_exec_test.go",
+   "go_func": "TestInvariantVerifyRejectsBothOptions",
+   "notes": ""
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_invariant_verify_requires_one_option",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_invariant_verify_exec_test.go",
+   "go_func": "TestInvariantVerifyRequiresOneOption",
+   "notes": ""
   },
   {
    "python_file": "tests/test_attention_ledger.py",
@@ -6661,117 +6752,165 @@
   {
    "python_file": "tests/test_gate_checklist.py",
    "python_func": "test_all_pass_still_exits_zero",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestAllPassStillExitsZero",
+   "notes": ""
   },
   {
    "python_file": "tests/test_gate_checklist.py",
    "python_func": "test_checklist_fix_line_follows_the_failing_clause",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestChecklistFixLineFollowsTheFailingClause",
+   "notes": ""
   },
   {
    "python_file": "tests/test_gate_checklist.py",
    "python_func": "test_checklist_prints_every_clause_with_verdict",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestChecklistPrintsEveryClauseWithVerdict",
+   "notes": ""
   },
   {
    "python_file": "tests/test_gate_checklist.py",
    "python_func": "test_clause_collector_is_the_only_source",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/gate_clauses_test.go",
+   "go_func": "TestClauseCollectorIsTheOnlySource",
+   "notes": ""
   },
   {
    "python_file": "tests/test_gate_checklist.py",
    "python_func": "test_delta_lines_are_deterministic_for_multiple_ids",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestDeltaLinesAreDeterministicForMultipleIDs",
+   "notes": ""
   },
   {
    "python_file": "tests/test_gate_checklist.py",
    "python_func": "test_delta_none_recorded_without_an_attempt",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestDeltaNoneRecordedWithoutAnAttempt",
+   "notes": ""
   },
   {
    "python_file": "tests/test_gate_checklist.py",
    "python_func": "test_delta_reports_fixed_and_newly_failing",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestDeltaReportsFixedAndNewlyFailing",
+   "notes": ""
   },
   {
    "python_file": "tests/test_gate_checklist.py",
    "python_func": "test_dry_run_writes_nothing",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestDryRunWritesNothing",
+   "notes": ""
   },
   {
    "python_file": "tests/test_gate_checklist.py",
    "python_func": "test_gate_attempt_event_only_on_refusal",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestGateAttemptEventOnlyOnRefusal",
+   "notes": ""
   },
   {
    "python_file": "tests/test_gate_checklist.py",
    "python_func": "test_gate_detail_byte_identical_to_pre_change_tree",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/gate_clauses_test.go",
+   "go_func": "TestGateDetailByteIdenticalToPreChangeTree",
+   "notes": ""
   },
   {
    "python_file": "tests/test_gate_checklist.py",
    "python_func": "test_gate_detail_identical_with_satisfied_clauses_present",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/gate_clauses_test.go",
+   "go_func": "TestGateDetailIdenticalWithSatisfiedClausesPresent",
+   "notes": ""
   },
   {
    "python_file": "tests/test_gate_checklist.py",
    "python_func": "test_named_decision_line_needs_an_economic_clause",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestNamedDecisionLineNeedsAnEconomicClause",
+   "notes": "CLI half; the library half is internal/findings/gate_clauses_test.go::TestNamedDecisionLineNeedsAnEconomicClause"
   },
   {
    "python_file": "tests/test_gate_checklist.py",
    "python_func": "test_named_decision_line_prints_for_economic_class",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestNamedDecisionLinePrintsForEconomicClass",
+   "notes": "the Python driver `webv2 impact --unpriceable` is unported (P3); the decision is recorded through risk.RecordUnpriceable, the same state function, and the gate output is asserted"
   },
   {
    "python_file": "tests/test_ingest_discoverability.py",
    "python_func": "test_answers_priority_closes_the_question",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_ingest_legend_test.go",
+   "go_func": "TestAnswersPriorityClosesTheQuestion",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest_discoverability.py",
    "python_func": "test_enum_walker_resolves_refs_and_array_items",
-   "status": "deferred-P3"
+   "go_file": "internal/validation/schema_enum_test.go",
+   "go_func": "TestEnumWalkerResolvesRefsAndArrayItems",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest_discoverability.py",
    "python_func": "test_example_prints_an_enum_legend_on_stderr",
-   "status": "deferred-P3"
+   "merged_into": {
+    "go_file": "internal/cli/cmd_ingest_test.go",
+    "go_func": "TestIngestExampleStdoutIsPureJSON"
+   },
+   "notes": "stderr legend for --example; the complete line set (incl. dedup/candidate_verdicts/additionalProperties and the absence of root_cause/class) is pinned by TestIngestExampleLegendMatchesSchema"
   },
   {
    "python_file": "tests/test_ingest_discoverability.py",
    "python_func": "test_flags_absent_leave_the_api_defaults_alone",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_ingest_legend_test.go",
+   "go_func": "TestFlagsAbsentLeaveTheAPIDefaultsAlone",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest_discoverability.py",
    "python_func": "test_invalid_priority_outcome_exits_2_naming_the_values",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_ingest_legend_test.go",
+   "go_func": "TestInvalidPriorityOutcomeExits2NamingTheValues",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest_discoverability.py",
    "python_func": "test_legend_is_derived_from_the_schema_file",
-   "status": "deferred-P3"
+   "go_file": "internal/validation/schema_enum_test.go",
+   "go_func": "TestSchemaEnumLegendIsDerivedFromTheSchemaFile",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest_discoverability.py",
    "python_func": "test_legend_order_is_deterministic_and_schema_ordered",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_ingest_legend_test.go",
+   "go_func": "TestLegendOrderIsDeterministicAndSchemaOrdered",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest_discoverability.py",
    "python_func": "test_priority_outcome_without_answers_priority_exits_2",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_ingest_test.go",
+   "go_func": "TestIngestPriorityOutcomeNeedsAnswers",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest_discoverability.py",
    "python_func": "test_unknown_priority_with_a_plan_is_reported_not_swallowed",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_ingest_legend_test.go",
+   "go_func": "TestUnknownPriorityWithAPlanIsReportedNotSwallowed",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest_discoverability.py",
    "python_func": "test_unknown_priority_without_a_plan_keeps_the_orphan_log",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_ingest_legend_test.go",
+   "go_func": "TestUnknownPriorityWithoutAPlanKeepsTheOrphanLog",
+   "notes": ""
   },
   {
    "python_file": "tests/test_pipeline.py",
@@ -6932,22 +7071,30 @@
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_recall_cli_does_not_restamp_a_pre_b3_entry",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_recall_test.go",
+   "go_func": "TestRecallCLILegacyEntryIsNotRestamped",
+   "notes": ""
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_recall_cli_label_only_gap_does_not_claim_corpus_silence",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_recall_test.go",
+   "go_func": "TestRecallCLILabelOnlyGapDoesNotClaimCorpusSilence",
+   "notes": ""
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_recall_cli_names_the_discounted_coarse_class",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_recall_test.go",
+   "go_func": "TestRecallCLINamesTheDiscountedCoarseClass",
+   "notes": ""
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_recall_cli_reports_the_relevance_verdict",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_recall_test.go",
+   "go_func": "TestRecallCLIReportsTheRelevanceVerdict",
+   "notes": ""
   },
   {
    "python_file": "tests/test_recall_relevance.py",
@@ -7053,6 +7200,238 @@
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_unpriceable_requires_each_named_flag",
    "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_briefing_memory.py",
+   "python_func": "test_every_printed_recall_remedy_is_executable",
+   "go_file": "internal/findings/memory_test.go",
+   "go_func": "TestGateBlocksWithoutCheck",
+   "notes": "the gate-message remedy is asserted to be a complete executable command (campaign positional + finding); the brief next-action and the cmd_brief printed line are unported briefing (P3)"
+  },
+  {
+   "python_file": "tests/test_cli.py",
+   "python_func": "test_plan_text_queue_shows_priority_ids",
+   "go_file": "internal/cli/cmd_plan_test.go",
+   "go_func": "TestPlanTextQueueShowsPriorityIDs",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_delta_uses_the_latest_recorded_attempt",
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestDeltaUsesTheLatestRecordedAttempt",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_gate_delta_lines_tolerate_unhashable_recorded_ids",
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestGateDeltaLinesTolerateUnhashableRecordedIDs",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_invariant_clauses_are_qualified_by_their_id",
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestInvariantClausesAreQualifiedByTheirID",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_invariant_delta_distinguishes_fixed_from_broken",
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestInvariantDeltaDistinguishesFixedFromBroken",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_gate_checklist.py",
+   "python_func": "test_unreadable_check_ids_are_reported_not_crashed",
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestUnreadableCheckIDsAreReportedNotCrashed",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_corrupt_plan_is_reported_not_a_traceback",
+   "go_file": "internal/cli/cmd_ingest_test.go",
+   "go_func": "TestIngestCorruptPlanIsReportedNotATraceback",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_enum_walker_descends_into_dict_valued_map_schemas",
+   "go_file": "internal/validation/schema_enum_test.go",
+   "go_func": "TestEnumWalkerDescendsIntoDictValuedMapSchemas",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_enum_walker_finds_every_enum_in_the_schema",
+   "go_file": "internal/validation/schema_enum_test.go",
+   "go_func": "TestEnumWalkerFindsEveryEnumInTheSchema",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_example_does_not_silently_ignore_priority_outcome",
+   "go_file": "internal/cli/cmd_ingest_legend_test.go",
+   "go_func": "TestExampleDoesNotSilentlyIgnorePriorityOutcome",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_probe_row_priority_exits_2_before_the_ingest",
+   "go_file": "internal/cli/cmd_ingest_legend_test.go",
+   "go_func": "TestProbeRowPriorityExits2BeforeTheIngest",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_ingest_discoverability.py",
+   "python_func": "test_probe_row_refusal_emits_an_executable_command",
+   "go_file": "internal/cli/cmd_ingest_legend_test.go",
+   "go_func": "TestProbeRowRefusalEmitsAnExecutableCommand",
+   "notes": "the probes surface is injected through planner.SetProbes (probes module unported, P3); the refusal and the replayed remedy are asserted"
+  },
+  {
+   "python_file": "tests/test_noop_reporting.py",
+   "python_func": "test_brief_has_no_problem_line_on_a_closed_campaign",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_noop_reporting.py",
+   "python_func": "test_brief_has_no_problem_line_when_only_junk_findings_exist",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_noop_reporting.py",
+   "python_func": "test_brief_has_no_problem_line_when_the_graph_has_edges",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_noop_reporting.py",
+   "python_func": "test_brief_has_no_problem_line_without_findings",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_noop_reporting.py",
+   "python_func": "test_brief_problems_names_the_unwritten_graph",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_noop_reporting.py",
+   "python_func": "test_cli_brief_prints_the_problem_line",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_noop_reporting.py",
+   "python_func": "test_memory_listing_unchanged_with_rows",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_noop_reporting.py",
+   "python_func": "test_memory_no_rows_says_so_and_names_the_next_command",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_noop_reporting.py",
+   "python_func": "test_memory_promoted_row_says_already_promoted",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_noop_reporting.py",
+   "python_func": "test_memory_reapprove_is_explicit_and_writes_nothing",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_noop_reporting.py",
+   "python_func": "test_memory_reapprove_of_held_out_row_still_refuses",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_noop_reporting.py",
+   "python_func": "test_publish_noop_names_the_reason_and_the_command",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_noop_reporting.py",
+   "python_func": "test_publish_noop_when_everything_is_already_published",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_noop_reporting.py",
+   "python_func": "test_publish_that_adds_rows_keeps_todays_output",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_work_order.py",
+   "python_func": "test_band_breaks_ties_after_blast_and_privilege",
+   "go_file": "internal/risk/workorder_test.go",
+   "go_func": "TestBandBreaksTiesAfterBlastAndPrivilege",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_work_order.py",
+   "python_func": "test_blast_rank_dominates_higher_blast_first",
+   "go_file": "internal/risk/workorder_test.go",
+   "go_func": "TestBlastRankDominatesHigherBlastFirst",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_work_order.py",
+   "python_func": "test_brief_json_stays_additive_and_parses",
+   "status": "deferred-P3",
+   "notes": "PORT-NOTE: the briefing work-list rendering is unported (P3); the shared key it sorts by is ported in internal/risk/workorder_test.go"
+  },
+  {
+   "python_file": "tests/test_work_order.py",
+   "python_func": "test_confirmed_queue_and_bounty_list_are_work_ordered",
+   "status": "deferred-P3",
+   "notes": "PORT-NOTE: the briefing work-list rendering is unported (P3); the shared key it sorts by is ported in internal/risk/workorder_test.go"
+  },
+  {
+   "python_file": "tests/test_work_order.py",
+   "python_func": "test_e6_view_keeps_mandatory_work_first",
+   "status": "deferred-P3",
+   "notes": "PORT-NOTE: the briefing work-list rendering is unported (P3); the shared key it sorts by is ported in internal/risk/workorder_test.go"
+  },
+  {
+   "python_file": "tests/test_work_order.py",
+   "python_func": "test_exact_ties_keep_finding_id_order",
+   "go_file": "internal/risk/workorder_test.go",
+   "go_func": "TestExactTiesKeepFindingIDOrder",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_work_order.py",
+   "python_func": "test_gate_deficits_are_work_ordered",
+   "status": "deferred-P3",
+   "notes": "PORT-NOTE: the briefing work-list rendering is unported (P3); the shared key it sorts by is ported in internal/risk/workorder_test.go"
+  },
+  {
+   "python_file": "tests/test_work_order.py",
+   "python_func": "test_key_is_total_and_deterministic_across_runs",
+   "go_file": "internal/risk/workorder_test.go",
+   "go_func": "TestWorkOrderKeyIsTotalAndDeterministic",
+   "notes": ""
+  },
+  {
+   "python_file": "tests/test_work_order.py",
+   "python_func": "test_memory_recall_pending_is_work_ordered",
+   "status": "deferred-P3",
+   "notes": "PORT-NOTE: the briefing work-list rendering is unported (P3); the shared key it sorts by is ported in internal/risk/workorder_test.go"
+  },
+  {
+   "python_file": "tests/test_work_order.py",
+   "python_func": "test_structurally_unreachable_is_work_ordered",
+   "status": "deferred-P3",
+   "notes": "PORT-NOTE: the briefing work-list rendering is unported (P3); the shared key it sorts by is ported in internal/risk/workorder_test.go"
+  },
+  {
+   "python_file": "tests/test_work_order.py",
+   "python_func": "test_unprivileged_beats_privileged_at_equal_blast_and_band",
+   "go_file": "internal/risk/workorder_test.go",
+   "go_func": "TestUnprivilegedBeatsPrivilegedAtEqualBlastAndBand",
+   "notes": ""
   }
  ]
 }

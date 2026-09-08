@@ -79,6 +79,8 @@ PHASE_BY_FILE = {
     "tests/test_cli_e2e_confirm.py": "deferred-P1",
     "tests/test_cli_gate_dryrun.py": "deferred-P1",
     "tests/test_cli_recall.py": "deferred-P1",
+    "tests/test_gate_checklist.py": "deferred-P1",
+    "tests/test_ingest_discoverability.py": "deferred-P1",
     "tests/test_design_upgrades.py": "deferred-P1",
     "tests/test_review_fixes.py": "deferred-P1",
     "tests/test_severity_split.py": "deferred-P1",
@@ -105,6 +107,10 @@ PHASE_BY_FILE = {
     "tests/test_cli_privileged.py": "deferred-P2",
     # P3 (probes/structural-index v2 land here too: pure functions over the
     # structural index, the same phase as the index itself)
+    "tests/test_attention_ledger.py": "deferred-P3",
+    "tests/test_briefing_memory.py": "deferred-P3",
+    "tests/test_work_order.py": "deferred-P3",
+    "tests/test_noop_reporting.py": "deferred-P3",
     "tests/test_probes.py": "deferred-P3",
     "tests/test_probe_emit.py": "deferred-P3",
     "tests/test_probes_cli.py": "deferred-P3",
