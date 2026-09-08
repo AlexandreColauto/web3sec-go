@@ -1,0 +1,102 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/memory.schema.json",
+  "title": "WebSec Learning Memory Candidate",
+  "description": "Positive AND negative security memory. Nothing enters long-term memory automatically: candidates queue here with promotion_status=pending until human approval is recorded.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["memory_id", "campaign_id", "kind", "status", "pattern", "created_at", "promotion_status"],
+  "properties": {
+    "memory_id":   { "type": "string", "pattern": "^MEM-[0-9a-zA-Z_-]{1,48}$" },
+    "campaign_id": { "type": "string" },
+    "finding_id":  { "type": ["string", "null"] },
+    "snapshot_id": { "type": ["string", "null"] },
+    "created_at":  { "type": "string" },
+
+    "kind": { "enum": ["confirmed", "disproved", "detector", "benchmark", "reflection", "drift", "regression"] },
+    "status": {
+      "enum": ["CONFIRMED", "DISPROVED", "DUPLICATE", "OUT_OF_SCOPE",
+               "INTENDED_BEHAVIOR", "UNREACHABLE", "NON-ECONOMIC", "TEST-HARNESS-ONLY"]
+    },
+
+    "pattern":     { "type": "string", "minLength": 15, "description": "abstracted root-cause pattern, target-agnostic" },
+    "bug_class":   { "type": ["string", "null"] },
+    "cwe":         { "type": ["string", "null"] },
+    "evidence_summary": { "type": "string" },
+    "repro_command": { "type": ["string", "null"] },
+
+    "partition": {
+      "enum": ["dev", "held-out", "training"],
+      "default": "dev",
+      "description": "Leakage partition (dataset-ingestion sprint, constraint 4): which evaluation split the row's source record belongs to. 'held-out'/'training' rows are EVAL-ONLY data — the partition guards refuse to inject them as proposer context (roles._known_non_issues), approve them (learning.approve_memory) or publish them to the shared store (shared_memory.publish_campaign). Absent == 'dev' for every row written before this field existed; 'dev' behaves like today's shared rows."
+    },
+
+    "schema_version": {
+      "type": "integer", "minimum": 1,
+      "description": "shape version stamped at write time. 1 = pre-decomposition rows (no assumption structure); 2 = rows that can carry rejection_class + deciding_propositions. Retrieval treats v1 rows as having no proposition structure (match on class/pattern only) instead of assuming the new fields."
+    },
+    "rejection_class": {
+      "enum": ["invalid-hypothesis", "not-exploitable", "below-threshold", null],
+      "description": "THREE-WAY rejection class for negative rows — retrieval and retention policies differ per class, not just the status label. invalid-hypothesis: the model was wrong about the mechanism; durable, the misconception does not expire. not-exploitable: a real weakness the attacker cannot reach/trigger; contingent on the code, so staleness follows the snapshot pin. below-threshold: exploitable but below the program's economic/scope bar; policy-contingent — it goes stale when the bounty threshold or the protocol's TVL moves, in a way the other two never do. Mapping from status when unset: DISPROVED -> invalid-hypothesis; UNREACHABLE|INTENDED_BEHAVIOR|TEST-HARNESS-ONLY -> not-exploitable; NON-ECONOMIC|OUT_OF_SCOPE -> below-threshold."
+    },
+    "deciding_propositions": {
+      "type": "array",
+      "description": "the SPECIFIC, NAMED propositions the rejection turned on — not the verdict. Storing 'TWAP window exceeds the manipulation horizon' as a proposition (rather than 'oracle manipulation: rejected') lets a new hypothesis that differs on exactly that proposition be recognized as materially different AT MATCH TIME, instead of requiring the model to notice the difference in prose. The structural defense against negative-memory overreach.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["statement"],
+        "properties": {
+          "type": {
+            "enum": ["reachability", "authority", "control", "state",
+                     "invariant", "economic", "environment", "temporal",
+                     "cross_domain"]
+          },
+          "statement": { "type": "string", "minLength": 10, "maxLength": 500 }
+        }
+      },
+      "maxItems": 16
+    },
+
+    "negative_mode": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "for disproved candidates: what made the plausible-looking pattern actually safe",
+      "properties": {
+        "why_safe": { "type": "string" },
+        "compensating_controls": { "type": "array", "items": { "type": "string" } },
+        "false_positive_signature": { "type": "string" }
+      }
+    },
+
+    "detector": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "extracted reusable detector (regex, invariant test, fuzz property)",
+      "properties": {
+        "kind": { "enum": ["grep-regex", "slither-rule", "foundry-invariant", "echidna-property", "medusa-property", "scribble-annotation", "checklist-item"] },
+        "body": { "type": "string" },
+        "language": { "type": "string" },
+        "validated_on": { "type": "array", "items": { "type": "string" }, "description": "campaigns where the detector fired correctly" }
+      }
+    },
+
+    "regression": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "test_path": { "type": "string" },
+        "command":   { "type": "string" },
+        "last_run":  { "type": ["string", "null"] },
+        "last_result": { "enum": ["pass", "fail", "not-run"] }
+      }
+    },
+
+    "promotion_status": {
+      "enum": ["pending", "human-approved", "promoted", "rejected"],
+      "description": "approved_by + approved_at are mandatory once human-approved"
+    },
+    "approved_by": { "type": ["string", "null"] },
+    "approved_at": { "type": ["string", "null"] }
+  }
+}

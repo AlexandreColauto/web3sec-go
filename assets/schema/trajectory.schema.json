@@ -1,0 +1,278 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/trajectory.schema.json",
+  "title": "Trajectory event family (data payloads of the model.* events + the outcome carrier)",
+  "description": "The data contracts for the model.* event family in the campaign event log plus the harness-written outcome event (the training-metadata carrier, written by trajectory.record_outcome). The model boundary (model_boundary.py) writes the model.* events directly and its payloads already conform; this schema makes the contracts CHECKABLE after the fact: trajectory.verify_trajectory re-validates every registered event's data against its definition, so a hand-written or drifted event that skips the version stamps (prompt_version, context_hash, payload_sha256, request_sha256) is flagged even though the hash chain itself still verifies. Definitions only — one per event type; the envelope definition documents the hash-chained frame Campaign.log produces and is not enforced per event.",
+  "definitions": {
+    "model_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "model_id",
+        "prompt_version",
+        "response_schema",
+        "context_hash"
+      ],
+      "properties": {
+        "role": {
+          "enum": ["proposer", "critic", "reproducer"]
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "checkpoint/endpoint identity, e.g. qwen3-14b:local"
+        },
+        "prompt_version": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$",
+          "description": "sha256[:16] of the system prompt file actually sent (model_boundary.prompt_version)"
+        },
+        "playbook_id": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z0-9_.-]{3,80}$",
+          "description": "e.g. oracle_manipulation.v1, or null when no playbook matched"
+        },
+        "visibility_policy": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "the role's field allow-list name, e.g. [\"critic-allowlist-v1\"]"
+        },
+        "response_schema": {
+          "enum": ["hypothesis", "plan", "critic_verdict", "reproducer_request"],
+          "description": "the contract the model's output must satisfy (model_response.schema.json definitions)"
+        },
+        "context_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 of the canonical serialization of the context bundle actually sent"
+        },
+        "campaign_id": { "type": ["string", "null"] },
+        "finding_id": { "type": ["string", "null"] }
+      }
+    },
+    "model_rejected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "kind", "error", "payload_sha256"],
+      "properties": {
+        "role": {
+          "enum": ["proposer", "critic", "reproducer"]
+        },
+        "kind": {
+          "enum": ["hypothesis", "plan", "critic_verdict", "reproducer_request"],
+          "description": "the response kind that failed its contract"
+        },
+        "error": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "the first failure pointer (record_rejection truncates at 1000 chars)"
+        },
+        "payload_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "hash of the rejected payload — the content is the model's, the log records it by hash only"
+        },
+        "action": {
+          "type": "string",
+          "description": "the re-request instruction, e.g. record_rejection's 're-request against the response contract; do not coerce'"
+        }
+      }
+    },
+    "model_response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "response_schema", "payload_sha256", "applied_ref"],
+      "properties": {
+        "role": {
+          "enum": ["proposer", "critic", "reproducer"]
+        },
+        "response_schema": {
+          "enum": ["hypothesis", "plan", "critic_verdict", "reproducer_request"],
+          "description": "the contract the accepted payload satisfied"
+        },
+        "payload_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "hash of the accepted payload as applied"
+        },
+        "applied_ref": {
+          "type": ["string", "null"],
+          "description": "the finding id the response was applied to, or null when nothing was applied"
+        },
+        "finding_id": {
+          "type": "string",
+          "description": "the finding the response was produced for, when one exists"
+        }
+      }
+    },
+    "model_plan_received": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["steps", "tools"],
+      "properties": {
+        "steps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32,
+          "description": "number of plan steps received (mirrors the plan contract's bounds)"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+          },
+          "description": "the distinct tool ids the plan cites; membership in the tool registry was checked at the boundary"
+        }
+      }
+    },
+    "model_reproducer_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshot_id", "execution_profile", "min_evidence_level", "request_sha256"],
+      "properties": {
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 8,
+          "description": "the EXACT pinned snapshot; the request must not drift the deployment"
+        },
+        "execution_profile": {
+          "enum": ["host-readonly", "docker-networkless", "docker-gvisor",
+                   "vm-snapshot", "fork-runner"],
+          "description": "one of the five sandbox profiles the harness executes under"
+        },
+        "min_evidence_level": {
+          "enum": ["E0", "E1", "E2", "E3", "E4", "E5", "E6", "E7"]
+        },
+        "request_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 of the canonical serialization of the exact validated request handed to the harness"
+        },
+        "finding_id": {
+          "type": "string",
+          "pattern": "^F-[0-9a-f]{12}$",
+          "description": "the finding the reproducer run is for (also carried as the event ref)"
+        },
+        "notes": {
+          "type": ["string", "null"],
+          "maxLength": 2000
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The training-metadata carrier (trajectory.record_outcome): the gold outcome a campaign run concluded for one finding, with the training-partition decision derived from the linked eval case. Unlike the model_* definitions it is harness-written, not model traffic, but it is registered in the same event-type map (trajectory.MODEL_EVENT_TYPES), so model_trajectory projects it (role: null) and verify_trajectory validates it with the same machinery.",
+      "required": [
+        "campaign_id",
+        "outcome",
+        "final_status",
+        "final_evidence_tier"
+      ],
+      "properties": {
+        "campaign_id": { "type": ["string", "null"] },
+        "outcome": {
+          "enum": [
+            "confirmed-exploitable",
+            "confirmed-not-exploitable",
+            "disproved",
+            "out-of-scope",
+            "duplicate",
+            "economic-no-go",
+            "unfinished"
+          ],
+          "description": "the gold outcome label the run concluded — the evaluation_case gold.outcome enum plus 'unfinished' for a run that reached no verdict"
+        },
+        "final_status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "the finding's status in the findings.py state machine when the outcome was recorded (terminal for a concluded run; the schema cannot check the vocabulary — record_outcome does)"
+        },
+        "final_evidence_tier": {
+          "enum": ["E0", "E1", "E2", "E3", "E4", "E5", "E6", "E7"],
+          "description": "the evidence-ladder level the finding had reached when the outcome was recorded"
+        },
+        "finding_id": {
+          "type": "string",
+          "pattern": "^F-[0-9a-f]{12}$",
+          "description": "the finding the outcome closes (also carried as the event ref)"
+        },
+        "case_id": {
+          "type": ["string", "null"],
+          "description": "the eval-store case the campaign is linked to, when one exists; null for a standalone campaign. A present-but-unreadable case fails CLOSED (training excluded) — the leakage partition is hard."
+        },
+        "training": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "the training-usability decision for this outcome row, derived by record_outcome from the linked case's partition (held-out/training -> hidden + excluded; dev or no case id -> visible; unreadable -> fail closed)",
+          "required": ["visibility", "excluded"],
+          "properties": {
+            "visibility": {
+              "enum": ["visible", "hidden"],
+              "description": "whether the row may surface in default training exports"
+            },
+            "excluded": { "type": "boolean" },
+            "exclude_reason": {
+              "type": ["string", "null"],
+              "maxLength": 500,
+              "description": "why the row is kept out of training; required non-null when excluded is true (if/then below)"
+            }
+          },
+          "if": {
+            "required": ["excluded"],
+            "properties": { "excluded": { "const": true } }
+          },
+          "then": {
+            "required": ["exclude_reason"],
+            "properties": { "exclude_reason": { "type": "string", "minLength": 1 } }
+          }
+        },
+        "at": {
+          "type": "string",
+          "description": "UTC ISO-8601 timestamp when the outcome was recorded"
+        }
+      }
+    },
+    "event_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "DOCUMENTATION ONLY — the hash-chained envelope Campaign.log produces around every event (state.py _event_hash). The data payload inside is validated against one of the model_* definitions above, or against the outcome definition for the harness-written outcome event.",
+      "required": ["seq", "at", "type", "ref", "data", "prev_hash", "event_hash"],
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0-based position in events.jsonl"
+        },
+        "at": {
+          "type": "string",
+          "description": "UTC ISO-8601 timestamp"
+        },
+        "type": {
+          "type": "string",
+          "description": "event type, e.g. model.request"
+        },
+        "ref": {
+          "type": ["string", "null"],
+          "description": "optional primary reference id (e.g. the finding id)"
+        },
+        "data": {
+          "type": "object",
+          "description": "the event payload — one of the model_* definitions above for model.* events"
+        },
+        "prev_hash": {
+          "type": "string",
+          "description": "event_hash of the predecessor (genesis: 64 zeros)"
+        },
+        "event_hash": {
+          "type": "string",
+          "description": "canonical sha256 over every other field"
+        }
+      }
+    }
+  }
+}

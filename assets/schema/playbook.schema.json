@@ -1,0 +1,218 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/playbook.schema.json",
+  "title": "Hunting playbook (one per canonical bug class)",
+  "description": "A playbook is the framework's PRIOR for one bug class: what invariants to extract, how a claim decomposes into assumptions (templates the proposer instantiates per target), the prioritized hunt order, how attempts at this class typically die, and the prior rejections most likely to be re-raised. It is context for the proposer — never a verdict, never an instruction to the orchestrator. Every tool id must exist in the tool registry (sandbox profiles + analysis tools).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["bug_class", "title", "description", "invariants",
+               "assumption_templates", "hunt_order"],
+  "properties": {
+    "bug_class": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]{3,64}$",
+      "description": "the canonical class (taxonomy.known_classes) this playbook serves"
+    },
+    "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+    "description": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 2000,
+      "description": "what this class attacks and what a genuine instance looks like"
+    },
+    "evidence_floor": {
+      "enum": ["E0", "E1", "E2", "E3", "E4", "E5", "E6", "E7"],
+      "description": "informational: the class's default CONFIRMED floor; the campaign's floor policy governs"
+    },
+    "investigation_mode": {
+     "type": ["string", "null"],
+     "enum": ["code-reading", "adversarial-simulation", null],
+     "description": "how this class is hunted: code-reading (default; legacy playbooks omit it) or adversarial-simulation — game-theoretic multi-actor modeling, requires the simulation block"
+    },
+    "simulation": {
+     "type": ["object", "null"],
+     "additionalProperties": false,
+     "required": ["actors", "action_space", "ordering_freedoms", "expectation_violated"],
+     "properties": {
+      "actors": {
+       "type": "array",
+       "minItems": 2,
+       "maxItems": 8,
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "behavior_class", "capital", "behavior"],
+        "properties": {
+         "name": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{1,32}$"},
+         "behavior_class": {"enum": ["adversarial", "benign-rational"]},
+         "capital": {"type": "string", "minLength": 1, "maxLength": 300},
+         "behavior": {"type": "string", "minLength": 1, "maxLength": 300}
+        }
+       }
+      },
+      "action_space": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 600,
+       "description": "the moves available to the cast: entry points plus off-path actions (direct transfers, mempool timing)"
+      },
+      "ordering_freedoms": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 400,
+       "description": "which orders of the cast's moves are free (cross-tx / intra-block) and which are fixed"
+      },
+      "expectation_violated": {
+       "type": "string",
+       "pattern": "^INV-[A-Z0-9-]{1,48}$",
+       "description": "invariant-id reference into this playbook's invariants list — the documented expectation the strategy profile violates; a reference cannot drift from the statement it names"
+      }
+     },
+     "description": "the game-theoretic prior for adversarial-simulation playbooks: the cast with behavior classes, action space, ordering freedoms, and the violated expectation as an invariant-id reference"
+    },
+    "invariants": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "statement"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^INV-[A-Z0-9-]{1,48}$" },
+          "statement": { "type": "string", "minLength": 15, "maxLength": 600 },
+          "typical_documentation": {
+            "type": ["string", "null"],
+            "maxLength": 200,
+            "description": "where protocols usually document this property (README anchor, NatSpec convention)"
+          }
+        }
+      }
+    },
+    "assumption_templates": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "description": "the decomposition skeleton the proposer instantiates per target; {placeholders} mark target-specific values",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "type", "statement", "blocking"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^AT-[A-Z0-9-]{1,24}$" },
+          "type": {
+            "enum": ["reachability", "authority", "control", "state",
+                     "invariant", "economic", "environment", "temporal",
+                     "cross_domain"]
+          },
+          "statement": { "type": "string", "minLength": 10, "maxLength": 600 },
+          "blocking": { "type": "boolean" },
+          "preferred_tools": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$" },
+            "maxItems": 8,
+            "description": "must come from the tool registry"
+          }
+        }
+      }
+    },
+    "hunt_order": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "description": "the prioritized investigation sequence — cheap falsification first",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step", "tool_id", "purpose"],
+        "properties": {
+          "step": { "type": "integer", "minimum": 1 },
+          "tool_id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$" },
+          "purpose": { "type": "string", "minLength": 10, "maxLength": 400 },
+          "stop_if": {
+            "type": ["string", "null"],
+            "maxLength": 300,
+            "description": "the observation that kills this hypothesis early"
+          }
+        }
+      }
+    },
+    "failure_modes": {
+      "type": "array",
+      "maxItems": 16,
+      "description": "how attempts at this class typically fail or die — the cheapest lessons available",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["statement"],
+        "properties": {
+          "statement": { "type": "string", "minLength": 10, "maxLength": 500 },
+          "typical_rejection_class": {
+            "enum": ["invalid-hypothesis", "not-exploitable",
+                     "below-threshold", null],
+            "description": "which rejection class this failure mode most often produces"
+          }
+        }
+      }
+    },
+    "negative_memory_hooks": {
+      "type": "array",
+      "maxItems": 8,
+      "description": "the prior rejections most likely to be re-raised for this class, and the proposition each turned on — pre-filled so the proposer can override with a materially different hypothesis",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rejection_class", "proposition"],
+        "properties": {
+          "rejection_class": {
+            "enum": ["invalid-hypothesis", "not-exploitable",
+                     "below-threshold"]
+          },
+          "proposition": { "type": "string", "minLength": 10, "maxLength": 400 }
+        }
+      }
+    },
+    "exploit_shape": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "description": "the canonical economic/technical shape of an instance of this class",
+      "properties": {
+        "attacker_profile": { "type": ["string", "null"], "maxLength": 200 },
+        "capital_profile": { "type": ["string", "null"], "maxLength": 300 },
+        "settlement_window": { "type": ["string", "null"], "maxLength": 200 },
+        "value_moved": { "type": ["string", "null"], "maxLength": 300 }
+      }
+    },
+    "amplifiers": {
+      "type": "array",
+      "maxItems": 7,
+      "items": {
+        "enum": ["flash-loan", "oracle", "bridge", "delegatecall",
+                 "arbitrary-call", "cross-chain", "rebasing-fee-accounting"]
+      },
+      "description": "risk-multiplier primitives that make an instance of this class pay more; pre-screen metadata, never evidence"
+    }
+  },
+  "allOf": [
+   {
+    "if": {
+     "required": ["investigation_mode"],
+     "properties": {"investigation_mode": {"const": "adversarial-simulation"}}
+    },
+    "then": {
+     "required": ["simulation"],
+     "properties": {"simulation": {"type": "object"}}
+    }
+   },
+   {
+    "if": {
+     "required": ["simulation"],
+     "properties": {"simulation": {"type": "object"}}
+    },
+    "then": {
+     "required": ["investigation_mode"],
+     "properties": {"investigation_mode": {"const": "adversarial-simulation"}}
+    }
+   }
+  ]
+}

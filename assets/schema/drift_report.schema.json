@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/drift_report.schema.json",
+  "title": "WebSec Spec-Drift Report",
+  "description": "Divergences between what docs/NatSpec/tests/config PROMISE and what the implementation/deployment DOES. Each divergence becomes a prioritized hypothesis.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["campaign_id", "snapshot_id", "drifts"],
+  "properties": {
+    "campaign_id": { "type": "string" },
+    "snapshot_id": { "type": "string" },
+    "created_at":  { "type": "string" },
+
+    "drifts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "layer", "claim", "reality", "direction"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^DRIFT-[0-9]{3}$" },
+          "layer": {
+            "enum": ["spec-vs-implementation", "natspec-vs-implementation", "test-vs-implementation",
+                     "config-vs-implementation", "deployment-vs-source", "history-vs-current", "docs-vs-code"]
+          },
+          "direction": { "enum": ["implementation-weaker", "implementation-stronger", "divergent"] },
+          "claim":     { "type": "string", "minLength": 10, "description": "what the spec/test/config/deployment promises" },
+          "reality":   { "type": "string", "minLength": 10, "description": "what the implementation actually does" },
+          "evidence_claim":   { "type": "string", "description": "file:line or artifact backing the claim" },
+          "evidence_reality": { "type": "string" },
+          "risk":      { "type": "number", "minimum": 0, "maximum": 1 },
+          "converted_to_finding": { "type": ["string", "null"], "pattern": "^F-[0-9a-f]{12}$" }
+        }
+      }
+    }
+  }
+}

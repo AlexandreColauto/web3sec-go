@@ -43,13 +43,13 @@ type KV struct {
 }
 
 // Constructors.
-func VNull() Value         { return Value{Kind: Null} }
-func VBool(b bool) Value   { return Value{Kind: Bool, B: b} }
-func VInt(i int64) Value   { return Value{Kind: Int, I: i} }
+func VNull() Value           { return Value{Kind: Null} }
+func VBool(b bool) Value     { return Value{Kind: Bool, B: b} }
+func VInt(i int64) Value     { return Value{Kind: Int, I: i} }
 func VFloat(f float64) Value { return Value{Kind: Flt, F: f} }
-func VStr(s string) Value  { return Value{Kind: Str, S: s} }
-func VArr(a ...Value) Value { return Value{Kind: Arr, A: a} }
-func VObj(o ...KV) Value   { return Value{Kind: Obj, O: o} }
+func VStr(s string) Value    { return Value{Kind: Str, S: s} }
+func VArr(a ...Value) Value  { return Value{Kind: Arr, A: a} }
+func VObj(o ...KV) Value     { return Value{Kind: Obj, O: o} }
 
 // FromAny converts a decoded any (json.Number-aware) into a Value, preserving
 // the int vs float distinction that json.Number carries.
@@ -278,7 +278,7 @@ func parseFloatShortest(s string) (digits string, e int) {
 	}
 	if intm != "0" {
 		digits = intm + fracm
-		e = len(intm)-1 + exp
+		e = len(intm) - 1 + exp
 	} else {
 		digits = strings.TrimLeft(fracm, "0")
 		e = -(len(fracm) - len(digits)) - 1 + exp

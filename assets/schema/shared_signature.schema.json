@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/shared_signature.schema.json",
+  "title": "WebSec Shared Capability Signature",
+  "description": "A DERIVED capability signature of a CONFIRMED finding or materialized chain, published to the cross-campaign shared store so a later campaign on the same program can recognize the primitive. Deliberately capability-level only: no finding text, evidence, economic impact, or cost data ever crosses into the shared store — the source pointer lets the operator open the origin campaign if they want the full record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "signature_id", "program_key", "program", "bug_class",
+    "granted", "required", "code_sourced_required", "terminal",
+    "capability_signature", "source", "created_at"
+  ],
+  "properties": {
+    "signature_id": { "type": "string", "pattern": "^SIG-[0-9a-f]{8}$" },
+    "program_key": { "type": "string", "minLength": 3, "description": "normalized program|platform|chains key — the recall filter" },
+    "scope": {
+      "enum": ["program", "global"],
+      "description": "visibility rule: 'program' (the default when absent) recalls only for the matching program key; 'global' recalls for EVERY campaign. Changed only via set_scope / `webv2 globalize`, which logs a manifest record."
+    },
+    "program": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["program", "platform", "chains"],
+      "properties": {
+        "program": { "type": "string" },
+        "platform": { "type": ["string", "null"] },
+        "chains": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "bug_class": { "type": "string", "pattern": "^[a-z0-9-]{3,64}$" },
+    "granted": { "type": "array", "items": { "type": "string", "minLength": 5, "maxLength": 160 } },
+    "required": { "type": "array", "items": { "type": "string", "minLength": 5, "maxLength": 160 } },
+    "code_sourced_required": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 5, "maxLength": 160 },
+      "description": "the subset of `required` that some finding in the primitive's campaign grants — i.e. capabilities the code is (or was) the source of. Only these can legitimately be 'missing' after a patch; required caps no finding grants are attacker-held (exogenous) and their absence is not a patch signal. Computed at publish time, since the primitive's campaign is the only place that knowledge exists."
+    },
+    "terminal": { "type": ["string", "null"], "description": "the economic terminal capability this primitive reaches, or null" },
+    "capability_signature": { "type": "string", "pattern": "^[0-9a-f]{16}$", "description": "order-invariant hash over program_key + granted + required + terminal; the idempotency key" },
+    "title": { "type": ["string", "null"], "minLength": 10, "description": "the ONE human-readable field carried across; evidence/PoC/impact stay in the origin campaign" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["campaign_id", "finding_id"],
+      "properties": {
+        "campaign_id": { "type": "string" },
+        "finding_id": { "type": "string" }
+      }
+    },
+    "created_at": { "type": "string" }
+  }
+}

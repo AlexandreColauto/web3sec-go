@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/model_request.schema.json",
+  "title": "Model request record",
+  "description": "What the framework RECORDS about a model call before it happens: who (role, model), which prompt/playbook versions, which visibility policy (the role allow-list), which response contract the output must satisfy, and a hash of the exact context bundle sent. These are the version stamps the trajectory log needs so any decision is reproducible against its inputs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "model_id",
+    "prompt_version",
+    "response_schema",
+    "context_hash"
+  ],
+  "properties": {
+    "role": {
+      "enum": ["proposer", "critic", "reproducer"]
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "checkpoint/endpoint identity, e.g. qwen3-14b:local"
+    },
+    "prompt_version": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16}$",
+      "description": "sha256[:16] of the system prompt file actually sent (model_boundary.prompt_version)"
+    },
+    "playbook_id": {
+      "type": ["string", "null"],
+      "pattern": "^[a-z0-9_.-]{3,80}$",
+      "description": "e.g. oracle_manipulation.v1, or null when no playbook matched"
+    },
+    "visibility_policy": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "the role's field allow-list name, e.g. [\"critic-allowlist-v1\"]"
+    },
+    "response_schema": {
+      "enum": ["hypothesis", "plan", "critic_verdict", "reproducer_request"],
+      "description": "the contract the model's output must satisfy (model_response.schema.json definitions)"
+    },
+    "context_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "sha256 of the canonical serialization of the context bundle actually sent"
+    },
+    "campaign_id": { "type": ["string", "null"] },
+    "finding_id": { "type": ["string", "null"] }
+  }
+}

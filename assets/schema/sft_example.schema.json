@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "sft_example",
+  "description": "One SFT training example for critical-bug reasoning: chat-format messages (system byte-identical to the production proposer prompt) plus a structured block mirroring the finding shape. See docs/superpowers/specs/2026-07-15-sft-critical-bug-reasoning-dataset-design.md",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "version", "source", "taxonomy", "status", "rejection_reasons", "partition", "messages", "structured", "provenance", "created_at"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^SFT-[0-9]{4,}$"},
+    "version": {"type": "integer", "minimum": 1},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "ref", "cluster"],
+      "properties": {
+        "kind": {"enum": ["backfill", "historical", "synthetic"]},
+        "ref": {"type": "string", "minLength": 1},
+        "cluster": {"type": "string", "minLength": 1,
+                    "description": "split key: the whole cluster goes to one partition"}
+      }
+    },
+    "taxonomy": {"type": ["string", "null"],
+                 "enum": ["confirmed-critical", "real-weakness-non-exploitable",
+                          "invalid-hypothesis", "exploitable-below-threshold", null]},
+    "status": {"enum": ["draft", "curated", "rejected"]},
+    "rejection_reasons": {"type": "array", "items": {"type": "string", "minLength": 3}},
+    "partition": {"type": ["string", "null"], "enum": ["training", "held-out", null]},
+    "messages": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["role", "content"],
+        "properties": {
+          "role": {"enum": ["system", "user", "assistant"]},
+          "content": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "structured": {
+      "type": "object", "additionalProperties": false,
+      "required": ["bug_class", "claim", "assumptions", "invariants", "pivot_count"],
+      "properties": {
+        "bug_class": {"type": "string", "minLength": 2},
+        "claim": {"type": "string", "minLength": 10},
+        "assumptions": {
+          "type": "array", "maxItems": 64,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["id", "text", "status", "reason"],
+            "properties": {
+              "id": {"type": "string", "pattern": "^A[0-9]{1,4}$"},
+              "text": {"type": "string", "minLength": 10},
+              "status": {"enum": ["CONFIRMED", "REFUTED", "OPEN"]},
+              "reason": {"type": "string"}
+            }
+          }
+        },
+        "invariants": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["statement", "status"],
+            "properties": {
+              "statement": {"type": "string", "minLength": 15},
+              "status": {"enum": ["VIOLATED", "HOLDS", "UNCHECKED"]},
+              "depends_on": {"type": "array", "items": {"type": "string"}}
+            }
+          }
+        },
+        "expected_impact": {"type": "string"},
+        "next_test": {"type": "string"},
+        "pivot_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["bundle_provenance"],
+      "properties": {
+        "bundle_provenance": {"enum": ["hash-verified", "reconstructed", "hand-written"]},
+        "context_hash": {"type": ["string", "null"]},
+        "trajectory_refs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "created_at": {"type": "string"},
+    "curated_by": {"type": ["string", "null"]}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "draft"}}, "required": ["status"]},
+      "then": {"properties": {"taxonomy": {"type": ["string", "null"],
+        "enum": ["confirmed-critical", "real-weakness-non-exploitable",
+                 "invalid-hypothesis", "exploitable-below-threshold", null]}}}
+    },
+    {
+      "if": {"properties": {"status": {"enum": ["curated", "rejected"]}}, "required": ["status"]},
+      "then": {"properties": {"taxonomy": {"enum": ["confirmed-critical",
+        "real-weakness-non-exploitable", "invalid-hypothesis",
+        "exploitable-below-threshold"]}}}
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/sandbox_execution.schema.json",
+  "title": "WebSec Sandbox Execution Record",
+  "description": "Every execution of an LLM-produced artifact is recorded: policy verdict, environment, hashes, captured output. Evidence at level >= E4 is only accepted if its artifact traces to one of these records.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["exec_id", "campaign_id", "profile", "command", "policy_verdict", "started_at"],
+  "properties": {
+    "exec_id":     { "type": "string", "pattern": "^EXEC-[0-9a-zA-Z_-]{1,48}$" },
+    "campaign_id": { "type": "string" },
+    "profile": {
+      "enum": ["host-readonly", "docker-networkless", "docker-gvisor", "vm-snapshot", "fork-runner"],
+      "description": "host-readonly may only host evidence at or below E3; E4+ requires a container/VM profile"
+    },
+    "finding_id":  { "type": ["string", "null"] },
+    "artifact_id": { "type": ["string", "null"] },
+    "command":     { "type": "string", "minLength": 1 },
+    "workdir":     { "type": ["string", "null"] },
+    "policy_verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed"],
+      "properties": {
+        "allowed": { "type": "boolean" },
+        "violations": { "type": "array", "items": { "type": "string" } },
+        "checked_rules": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tool_versions": { "type": "object", "additionalProperties": { "type": "string" } },
+        "env_keys": { "type": "array", "items": { "type": "string" }, "description": "names only, never values" },
+        "network_access": { "enum": ["none", "fork-rpc-only", "bridge-host-gateway", "full"] },
+        "filesystem":     { "enum": ["readonly", "sandbox-tmp", "workspace"] }
+      }
+    },
+    "container": {
+      "type": ["object", "null"],
+      "description": "Present and non-null only for container profiles run by sandbox.Sandbox: the exact isolation the command actually got. null (or absent for externally-reported records) means the isolation, if any, lives in the operator's harness.",
+      "additionalProperties": false,
+      "properties": {
+        "image":    { "type": "string", "minLength": 1 },
+        "runtime":  { "type": ["string", "null"] },
+        "network":  { "enum": ["none", "bridge-host-gateway"] },
+        "workdir":  { "enum": ["bind", "tmpfs", "none"] },
+        "env_keys": { "type": "array", "items": { "type": "string" }, "description": "names only, never values" },
+        "svm_mount": {
+          "type": ["string", "null"],
+          "description": "host directory bind-mounted to /home/foundry/.svm (WEBV2_SOLC_DIR); null when unset"
+        }
+      },
+      "required": ["image", "network", "workdir"]
+    },
+    "input_hashes": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "path -> sha256 of every input file the command read"
+    },
+    "origin": {
+      "enum": ["locally-executed", "externally-reported"],
+      "description": "locally-executed: run by sandbox.Sandbox in this process. externally-reported: run by the operator's harness elsewhere and registered via sandbox.register_exec — trusted only as far as its reporter"
+    },
+    "reported_by": { "type": ["string", "null"] },
+    "started_at":  { "type": "string" },
+    "finished_at": { "type": ["string", "null"] },
+    "exit_status": { "type": ["integer", "null"] },
+    "stdout_path": { "type": ["string", "null"] },
+    "stderr_path": { "type": ["string", "null"] },
+    "artifact_hashes": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "produced artifacts: path -> sha256"
+    }
+  }
+}

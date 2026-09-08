@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/relation.schema.json",
+  "title": "WebSec Relation Edge (research memory graph)",
+  "description": "One typed edge of the campaign's research memory graph. Deterministic kinds must carry a support anchor the audit can re-derive from; human-gated kinds must carry the attesting actor; 'resembles' is a derived query and must never appear here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "relation_id",
+    "kind",
+    "src",
+    "dst",
+    "support",
+    "actor",
+    "note",
+    "created_at"
+  ],
+  "properties": {
+    "relation_id": {
+      "type": "string",
+      "pattern": "^REL-[0-9a-f]{8}$"
+    },
+    "kind": {
+      "enum": [
+        "chained_with",
+        "validated_by",
+        "observed_in",
+        "disproved_by",
+        "fixed_by",
+        "reintroduced_by",
+        "caused_by",
+        "resembles"
+      ]
+    },
+    "src": {
+      "$ref": "#/definitions/node"
+    },
+    "dst": {
+      "$ref": "#/definitions/node"
+    },
+    "support": {
+      "type": ["object", "null"],
+      "description": "The anchor the edge is derived from (chain_id / evidence_id / pin / memory_id / commit). Required for deterministic kinds; the audit re-runs the derivation against it.",
+      "additionalProperties": true
+    },
+    "actor": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "null for deterministic edges minted by the harness; a recorded human identity for human-gated kinds (caused_by)."
+    },
+    "note": {
+      "type": ["string", "null"]
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 8
+    }
+  },
+  "definitions": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": {
+          "enum": ["finding", "snapshot", "exec", "memory", "commit"]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

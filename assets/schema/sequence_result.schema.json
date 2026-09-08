@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Sequence PoC result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["spec_hash", "steps", "final_assertions", "overall", "generated_at"],
+  "properties": {
+    "spec_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step", "status"],
+        "properties": {
+          "step": {"type": "integer", "minimum": 1},
+          "actor": {"type": "string"},
+          "tx_hash": {"type": ["string", "null"]},
+          "status": {"enum": ["success", "revert", "error"]},
+          "revert_reason": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "final_assertions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "passed"],
+        "properties": {
+          "id": {"type": "string"},
+          "kind": {"enum": ["balance", "storage", "call"]},
+          "observed": {"type": "string"},
+          "expected": {"type": "string"},
+          "passed": {"type": "boolean"}
+        }
+      }
+    },
+    "overall": {"enum": ["pass", "fail"]},
+    "generated_at": {"type": "string"}
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/archetype.schema.json",
+  "title": "WebSec Critical Archetype",
+  "description": "A deterministic pre-screen predicate over the structural index: if every check holds, this shape of critical bug is structurally present. HINT-only — a match is a search directive, never evidence. Each check type carries exactly the discriminator keys it consumes (oneOf per type): a key a type ignores is rejected, never silently filtered.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "criticality", "checks"],
+  "definitions": {
+    "names": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "pattern": {"type": "string"},
+    "var_pattern": {"type": "string"}
+  },
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,40}$"},
+    "name": {"type": "string", "minLength": 3},
+    "criticality": {"enum": ["critical", "high"]},
+    "description": {"type": "string"},
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type"],
+            "properties": {
+              "type": {"const": "state_var_exists"},
+              "names": {"$ref": "#/definitions/names"},
+              "pattern": {"$ref": "#/definitions/pattern"}
+            },
+            "anyOf": [{"required": ["names"]}, {"required": ["pattern"]}]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type"],
+            "properties": {
+              "type": {"const": "function_exists"},
+              "names": {"$ref": "#/definitions/names"},
+              "pattern": {"$ref": "#/definitions/pattern"}
+            },
+            "anyOf": [{"required": ["names"]}, {"required": ["pattern"]}]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "names"],
+            "properties": {
+              "type": {"const": "unguarded_function_exists"},
+              "names": {"$ref": "#/definitions/names"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type"],
+            "properties": {
+              "type": {"const": "delegatecall_present"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "var_pattern"],
+            "properties": {
+              "type": {"const": "unguarded_entry_writes"},
+              "var_pattern": {"$ref": "#/definitions/var_pattern"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "pattern"],
+            "properties": {
+              "type": {"const": "external_call_pattern"},
+              "pattern": {"$ref": "#/definitions/pattern"}
+            }
+          }
+        ]
+      }
+    },
+    "playbook_hint": {"type": ["string", "null"]}
+  }
+}

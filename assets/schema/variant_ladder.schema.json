@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "webv2/variant_ladder",
+  "title": "Variant ladder: base -> amplified -> maximal exploitation of ONE finding",
+  "description": "The maximal-exploitation stage's artifact. Chaining composes ACROSS confirmed findings; this ladder searches WITHIN one: capital minimization, precondition removal, role conflation, ordering permutation, payout-cap saturation. Every rung above base counts only if reproduced (its own EXEC record); the finding's claim pins to the highest reproduced rung.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ladder_id", "finding_id", "campaign_id", "created_at", "updated_at", "variants", "disposition"],
+  "properties": {
+    "ladder_id": {"type": "string", "pattern": "^LAD-[a-z0-9]{6,}$"},
+    "finding_id": {"type": "string", "pattern": "^F-[a-z0-9]{6,}$"},
+    "campaign_id": {"type": "string"},
+    "created_at": {"type": "string"},
+    "updated_at": {"type": "string"},
+    "axes_explored": {
+      "type": "array",
+      "items": {"enum": ["capital-minimization", "precondition-removal", "role-conflation", "ordering-permutation", "cap-saturation"]},
+      "description": "an axis is explored when it was CONSIDERED and its outcome recorded (a variant rung or a disproved rung with reason); not-applicable still needs the recorded note"
+    },
+    "axis_notes": {
+      "type": "object",
+      "additionalProperties": {"type": "string"},
+      "description": "per-axis operator note: what was considered and why the outcome stands"
+    },
+    "variants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rung_id", "name", "description", "axes", "status", "created_at"],
+        "properties": {
+          "rung_id": {"type": "string", "pattern": "^R-[a-z0-9]{4,}$"},
+          "name": {"type": "string", "minLength": 3},
+          "description": {"type": "string", "minLength": 10},
+          "axes": {"type": "array", "items": {"enum": ["capital-minimization", "precondition-removal", "role-conflation", "ordering-permutation", "cap-saturation"]}},
+          "capital_usd": {"type": ["number", "null"], "minimum": 0, "description": "attacker capital this rung needs, priced at the campaign price table"},
+          "extraction_ratio": {"type": ["number", "null"], "minimum": 0, "maximum": 1, "description": "share of the exploitable pool this rung extracts (1.0 = 100%)"},
+          "removed_preconditions": {"type": "array", "items": {"type": "string"}, "description": "base preconditions this rung does NOT need (e.g. 'victim stakes' — the depositor only deposits)"},
+          "added_preconditions": {"type": "array", "items": {"type": "string"}},
+          "status": {"enum": ["assumed", "reproduced", "disproved"]},
+          "exec_id": {"type": ["string", "null"], "description": "EXEC record backing this rung; required for status=reproduced"},
+          "evidence_id": {"type": ["string", "null"], "description": "evidence item minted from exec_id onto the finding"},
+          "reason": {"type": "string", "description": "why disproved / why assumed; required for disproved rungs"},
+          "created_at": {"type": "string"},
+          "reproduced_at": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "maximal_rung_id": {"type": ["string", "null"], "description": "the reproduced rung the finding's claim pins to; must have status=reproduced"},
+    "disposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": {"enum": ["open", "complete", "waived"]},
+        "reason": {"type": ["string", "null"]},
+        "actor": {"type": ["string", "null"]},
+        "at": {"type": ["string", "null"]}
+      }
+    },
+    "history": {"type": "array", "items": {"type": "object"}}
+  }
+}

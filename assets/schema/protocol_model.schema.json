@@ -1,0 +1,285 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/protocol_model.schema.json",
+  "title": "WebSec Protocol Knowledge Model",
+  "description": "The structured semantic layer every agent consumes: actors, assets, privileges, trust boundaries, state machines, economic relations, invariants. Prose recon artifacts feed it; nothing else consumes prose.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol_id", "name", "contracts", "actors", "assets", "relations"],
+  "properties": {
+    "protocol_id": { "type": "string" },
+    "name":        { "type": "string", "minLength": 2 },
+    "snapshot_id": { "type": "string" },
+    "chains":      { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "subsystems":  { "type": "array", "items": { "type": "string" }, "description": "e.g. defi-vault, bridge, staking, governance, l2" },
+
+    "contracts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name":        { "type": "string" },
+          "path":        { "type": "string" },
+          "role":        { "enum": ["core", "periphery", "proxy", "implementation", "library", "token", "oracle", "governance", "factory", "mock", "test"] },
+          "in_scope":    { "type": "boolean" },
+          "entry_points": { "type": "array", "items": { "type": "string" } },
+          "state_variables": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name"],
+              "properties": {
+                "name":  { "type": "string" },
+                "kind":  { "enum": ["balance", "mapping-balance", "share", "price", "config", "role", "counter", "flag", "queue", "other"] },
+                "accounting": { "type": "boolean", "description": "true for variables that carry economic value" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "actors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind"],
+        "properties": {
+          "id":    { "type": "string" },
+          "kind":  { "enum": ["EOA", "CONTRACT", "ROLE", "EXTERNAL-PROTOCOL", "MEV", "SEQUENCER", "KEEPER", "BRIDGE-MESSENGER"] },
+          "trust": { "enum": ["trusted", "semi-trusted", "adversarial", "externally-owned"] },
+          "assumed_behavior": { "type": "string" },
+          "can_drain":   { "type": "boolean" },
+          "can_upgrade": { "type": "boolean" },
+          "can_pause":   { "type": "boolean" }
+        }
+      }
+    },
+
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind"],
+        "properties": {
+          "id":       { "type": "string" },
+          "kind":     { "enum": ["token", "lp", "share", "collateral", "debt", "reward", "nft", "message", "reserve"] },
+          "decimals": { "type": ["integer", "null"], "minimum": 0, "maximum": 30 },
+          "fee_on_transfer": { "type": ["boolean", "null"] },
+          "rebasing": { "type": ["boolean", "null"] },
+          "erc":      { "type": ["string", "null"], "description": "20/4626/721/1155/777/2612/permit2" },
+          "held_by":  { "type": "array", "items": { "type": "string" } },
+          "nonstandard_behaviors": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+
+    "liabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "description"],
+        "properties": {
+          "id":          { "type": "string" },
+          "description": { "type": "string" },
+          "counterparty": { "type": "string" },
+          "bounded":     { "type": "boolean" }
+        }
+      }
+    },
+
+    "privileges": {
+      "type": "array",
+      "description": "who can do what, via which mechanism",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "capability"],
+        "properties": {
+          "role":       { "type": "string" },
+          "capability": { "type": "string" },
+          "mechanism":  { "type": "string", "description": "modifier, AccessControl role, owner check, timelock queue" },
+          "timelocked": { "type": ["boolean", "null"] },
+          "multisig_threshold": { "type": ["integer", "null"], "minimum": 1 },
+          "can_drain":  { "type": "boolean" }
+        }
+      }
+    },
+
+    "trust_boundaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to", "crossing"],
+        "properties": {
+          "from":     { "type": "string" },
+          "to":       { "type": "string" },
+          "crossing": { "type": "string", "description": "e.g. user-supplied token, callback, oracle read, message acceptance" },
+          "validated": { "type": "boolean" }
+        }
+      }
+    },
+
+    "relations": {
+      "type": "array",
+      "description": "typed edges: OWNS CALLS AUTHORIZES UPGRADES MINTS BURNS DEPOSITS WITHDRAWS BORROWS LIQUIDATES PRICES BRIDGES DELEGATES CALLBACKS DEPENDS_ON",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "rel", "to"],
+        "properties": {
+          "from":  { "type": "string" },
+          "rel":   { "enum": ["OWNS", "CALLS", "DELEGATES", "AUTHORIZES", "UPGRADES", "MINTS", "BURNS", "DEPOSITS", "WITHDRAWS",
+                              "BORROWS", "LIQUIDATES", "PRICES", "BRIDGES", "DELEGATES-VOTES", "CALLBACKS", "DEPENDS_ON"] },
+          "to":    { "type": "string" },
+          "via":   { "type": "string" },
+          "evidence": { "type": "string" }
+        }
+      }
+    },
+
+    "state_machines": {
+      "type": "array",
+      "description": "explicit protocol state machines (liquidation, bridge, epochs, queues, vesting, auctions)",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "states", "transitions"],
+        "properties": {
+          "name":   { "type": "string" },
+          "states": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id"],
+              "properties": {
+                "id": { "type": "string" },
+                "description": { "type": "string" },
+                "terminal": { "type": "boolean" }
+              }
+            }
+          },
+          "transitions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["from", "to", "trigger"],
+              "properties": {
+                "from":    { "type": "string" },
+                "to":      { "type": "string" },
+                "trigger": { "type": "string" },
+                "actor":   { "type": "string" },
+                "guards":  { "type": "array", "items": { "type": "string" } },
+                "reversible": { "type": "boolean" }
+              }
+            }
+          },
+          "suspect_properties": {
+            "type": "array",
+            "description": "illegal/missing/reordered/repeated transitions worth hunting",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "economic_relations": {
+      "type": "array",
+      "description": "accounting equations and price/valuation dependencies, each mapped to code",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "equation", "meaning"],
+        "properties": {
+          "id":        { "type": "string" },
+          "equation":  { "type": "string", "description": "e.g. total_assets >= sum(user_claims) + protocol_liabilities" },
+          "meaning":   { "type": "string" },
+          "variables": { "type": "array", "items": { "type": "string" } },
+          "enforced_by": { "type": "array", "items": { "type": "string" } },
+          "breakable_by": { "type": "array", "items": { "type": "string" }, "description": "known ways it could be violated (donation, rounding, oracle)" }
+        }
+      }
+    },
+
+    "invariants": {
+      "type": "array",
+      "description": "the audit's central object; each gets an INV id and links to hypotheses/tests/detectors later",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "statement", "severity_if_broken"],
+        "properties": {
+          "id":        { "type": "string", "pattern": "^INV-[0-9]{1,4}$", "description": "inherit the protocol's documented invariant ids (README INV-1..N) when present; mint 1..N for undocumented invariants" },
+          "name":      { "type": "string" },
+          "statement": { "type": "string", "minLength": 15 },
+          "applies_to": { "type": "array", "items": { "type": "string" } },
+          "state_variables": { "type": "array", "items": { "type": "string" } },
+          "kind":      { "enum": ["security", "economic", "accounting", "authorization", "liveness"] },
+          "severity_if_broken": { "enum": ["critical", "high", "medium", "low"] },
+          "model_belief": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+          "status": {"enum": ["UNVERIFIED", "CHECKED_AGAINST_CODE", "CONTRADICTED"]},
+          "depends_on": {"type": "array", "items": {"type": "string"}},
+          "modified_by": {"type": ["string", "null"]},
+          "test_strategy": { "type": "string" },
+          "assumptions": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+
+    "oracles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "enum": ["chainlink", "twap", "spot-amm", "pyth", "custom", "manual", "sequencer-uptime"] },
+          "feeds": { "type": "array", "items": { "type": "string" } },
+          "staleness_guard": { "type": ["boolean", "null"] },
+          "deviation_guard": { "type": ["boolean", "null"] },
+          "manipulable_by":  { "type": "string" }
+        }
+      }
+    },
+
+    "upgrade_paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mechanism"],
+        "properties": {
+          "mechanism": { "enum": ["uups", "transparent", "beacon", "eternal-storage", "diamond", "none", "other"] },
+          "admin":     { "type": "string" },
+          "timelock":  { "type": ["string", "null"] },
+          "initializer": { "type": ["string", "null"] },
+          "gap_risk":  { "type": "string" }
+        }
+      }
+    },
+
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["question"],
+        "properties": {
+          "question": { "type": "string" },
+          "blocks":   { "type": "array", "items": { "type": "string" } },
+          "resolved": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

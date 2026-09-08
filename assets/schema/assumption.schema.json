@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/assumption.schema.json",
+  "title": "Assumption (one independently checkable proposition under a hypothesis)",
+  "description": "A finding's monolithic claim decomposed into propositions the control plane can check one at a time. `status` is authoritative ONLY when backed by an artifact/exec id that exists in the campaign evidence store; `model_belief` is advisory and can never advance status. Transitions happen exclusively through findings.assumption_transition, which hard-asserts the provenance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "type",
+    "claim",
+    "status",
+    "model_belief",
+    "blocking"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^A[0-9]{1,4}$",
+      "description": "stable within the finding; dependencies reference these ids"
+    },
+    "type": {
+      "enum": [
+        "reachability",
+        "authority",
+        "control",
+        "state",
+        "invariant",
+        "economic",
+        "environment",
+        "temporal",
+        "cross_domain"
+      ],
+      "description": "drives deterministic verification routing (preferred tools per assumption type)"
+    },
+    "claim": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 1000,
+      "description": "one checkable proposition, phrased so a tool can answer yes/no"
+    },
+    "status": {
+      "enum": ["UNKNOWN", "SUPPORTED", "REFUTED"],
+      "description": "UNKNOWN is first-class; an unresolved assumption is never implicitly true"
+    },
+    "model_belief": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "ADVISORY ONLY. Never advances status or evidence tiers; recorded for training data"
+    },
+    "blocking": {
+      "type": "boolean",
+      "description": "true = the claim cannot hold while this is REFUTED; gates confirmation routing"
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^A[0-9]{1,4}$"
+      },
+      "description": "assumption ids that must hold before this one is meaningful"
+    },
+    "verification_options": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+      },
+      "description": "tool ids the orchestrator may dispatch to resolve this assumption (model recommends, framework chooses)"
+    },
+    "support": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "artifact/exec/evidence ids that back a SUPPORTED status; only ever written by the transition API"
+    },
+    "contradictions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "artifact/exec/evidence ids that back a REFUTED status; only ever written by the transition API"
+    }
+  }
+}

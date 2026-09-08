@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/shared_memory_row.schema.json",
+  "title": "WebSec Shared Memory Row Wrapper",
+  "description": "A thin wrapper around a within-campaign memory row so it can be published to the cross-campaign store. The `row` is validated against the unchanged `memory` schema; the wrapper only adds the program_key recall filter, an optional visibility scope, and a publish timestamp. Nothing about the memory row's shape changes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["program_key", "published_at", "row"],
+  "properties": {
+    "program_key": { "type": "string", "minLength": 3 },
+    "published_at": { "type": "string" },
+    "scope": {
+      "enum": ["program", "global"],
+      "description": "visibility rule: 'program' (the default when absent) recalls only for campaigns whose policy derives the same program_key; 'global' recalls for EVERY campaign — prior-knowledge datasets belong to no single program. Changed only via set_scope / `webv2 globalize`, which logs a manifest record."
+    },
+    "row": { "type": "object" }
+  }
+}

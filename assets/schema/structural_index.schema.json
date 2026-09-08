@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/structural_index.schema.json",
+  "title": "WebSec Structural Index",
+  "description": "Content-addressed Web3 program graph: contract nodes, call/delegatecall edges, storage reads/writes, external surface, inheritance. HINT-only: it never gates findings, and the fallback path is grep.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["campaign_id", "snapshot_id", "backend", "nodes"],
+  "properties": {
+    "campaign_id":  { "type": "string" },
+    "snapshot_id":  { "type": "string" },
+    "backend":      { "enum": ["regex", "grep", "slither", "aderyn", "external"], "description": "the honest name of the extractor that produced this" },
+    "created_at":   { "type": "string" },
+    "entry_count":  { "type": "integer", "minimum": 0 },
+
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "name"],
+        "properties": {
+          "id":   { "type": "string", "description": "path#Contract or path#Contract.function" },
+          "kind": { "enum": ["contract", "interface", "library", "function", "modifier", "state-variable", "event", "error"] },
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "line": { "type": ["integer", "null"] },
+          "visibility": { "enum": ["external", "public", "internal", "private", "unknown"] },
+          "is_entry_point": { "type": "boolean" },
+          "modifiers": { "type": "array", "items": { "type": "string" } },
+          "reads_storage":  { "type": "array", "items": { "type": "string" } },
+          "writes_storage": { "type": "array", "items": { "type": "string" } },
+          "calls_internal": { "type": "array", "items": { "type": "string" } },
+          "calls_external": { "type": "array", "items": { "type": "string" } },
+          "delegatecalls":  { "type": "array", "items": { "type": "string" } },
+          "guarded_by":     { "type": "array", "items": { "type": "string" }, "description": "role/modifier guards" },
+    "selector": {
+      "type": ["string", "null"],
+      "description": "name(param_types) for external/public functions; T0 parse, null otherwise"
+    },
+          "emits":          { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+
+    "edges": {
+      "type": "array",
+      "description": "graph edges between nodes: calls, inherits, delegates, guards",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "rel", "to"],
+        "properties": {
+          "from": { "type": "string" },
+          "rel":  { "enum": ["calls", "delegatecalls", "inherits", "guards", "reads", "writes", "extends-interface"] },
+          "to":   { "type": "string" }
+        }
+      }
+    },
+
+    "stats": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    }
+  }
+}

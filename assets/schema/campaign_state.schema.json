@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/campaign_state.schema.json",
+  "title": "WebSec Campaign State",
+  "description": "Campaign state. Current phase, active snapshots, artifact registry and counters are a working PROJECTION written alongside the append-only, hash-chained event log (events.jsonl) — hand-editing the projection is caught by audit_campaign (state tail vs log suffix, chain check, artifact re-hash).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["campaign_id", "program", "created_at", "phase", "events"],
+  "properties": {
+    "campaign_id": { "type": "string", "pattern": "^C-[0-9a-z]{8,16}$" },
+    "program":     { "type": "string", "minLength": 3 },
+    "created_at":  { "type": "string" },
+    "updated_at":  { "type": "string" },
+
+    "phase": {
+      "enum": [
+        "SCOPE", "SNAPSHOT", "STRUCTURAL_INDEX", "PROTOCOL_INTELLIGENCE",
+        "CAMPAIGN_PLANNING", "DISCOVERY", "CANDIDATE_INTEL", "HOSTILE_REVIEW",
+        "REPRODUCTION", "CHAINING", "MAXIMAL_EXPLOITATION", "INDEPENDENT_VERIFICATION",
+        "RISK_CALIBRATION", "MAINNET_FORK_POC", "BOUNTY_GATE", "REPORTING", "LEARNING",
+        "HALTED", "COMPLETE"
+      ]
+    },
+    "phase_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["at", "from", "to"],
+        "properties": {
+          "at": { "type": "string" },
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "halt_reason": { "type": ["string", "null"] },
+    "completed_by": { "type": ["string", "null"], "description": "actor who marked the pass COMPLETE (webv2 complete); the decision itself is on the event log (campaign.completed)" },
+    "completed_reason": { "type": ["string", "null"], "description": "written reason the pass was closed (webv2 complete)" },
+    "policy_path": { "type": ["string", "null"], "description": "path to the bounty policy file for this program" },
+
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "deterministic budget accounting; stages may be skipped when their budget class is exhausted",
+      "properties": {
+        "max_discovery_findings":   { "type": "integer", "minimum": 1 },
+        "max_repro_attempts_per_finding": { "type": "integer", "minimum": 1 },
+        "max_fresh_context_retries": { "type": "integer", "minimum": 0 },
+        "max_passes":               { "type": "integer", "minimum": 1 },
+        "pass":                     { "type": "integer", "minimum": 1 },
+        "discovery_findings_so_far": { "type": "integer", "minimum": 0 },
+        "max_total_cost_usd":       { "type": ["number", "null"], "minimum": 0, "description": "optional cost ceiling (operator-set). When set and exceeded, the pipeline halts: a cost overrun is a decision the operator must make explicitly, not a silent overrun." }
+      }
+    },
+
+    "snapshots": {
+      "type": "array",
+      "description": "append-only: one entry per pinned snapshot, in pass order",
+      "items": { "type": "object" }
+    },
+    "active_snapshot_id": { "type": ["string", "null"] },
+
+    "artifacts": {
+      "type": "array",
+      "description": "registry of every durable artifact with its id, kind and path — agents reference artifacts by id, never by pasting content",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_id", "kind", "path", "registered_at"],
+        "properties": {
+          "artifact_id": { "type": "string" },
+          "kind": {
+            "enum": ["recon", "protocol-model", "structural-index", "economics", "state-machine", "invariants",
+                     "plan", "hypothesis", "finding", "poc", "trace", "coverage", "report", "policy",
+                     "deployment-map", "drift-report", "history-mining", "detector", "benchmark",
+                     "economic-impact", "value-flow", "archetype-prescreen", "fork-diff", "recency", "sequence-poc", "sequence-result", "corpus-surface", "other"]
+          },
+          "path":          { "type": "string" },
+          "registered_at": { "type": "string" },
+          "sha256":        { "type": ["string", "null"] },
+          "snapshot_id":   { "type": ["string", "null"] },
+          "note":          { "type": "string" },
+          "refreshed_at":  { "type": ["string", "null"], "description": "last sanctioned re-hash; the artifact.refreshed log event carries the old->new hashes" },
+          "refresh_reason": { "type": ["string", "null"] },
+          "refresh_count": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+
+    "floor_policy": {
+      "type": "array",
+      "description": "INSTANCE-LEVEL evidence floor overrides: operator-stated policy data for THIS campaign (actor + reason + logged event), never a framework source edit. Consulted by findings.required_level_for_campaign for the CONFIRMED gate.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["class", "floor", "actor", "reason", "at"],
+        "properties": {
+          "class":  { "type": "string", "pattern": "^[a-z0-9-]{3,64}$" },
+          "floor":  { "type": "string", "enum": ["E0", "E1", "E2", "E3", "E4", "E5", "E6", "E7"] },
+          "actor":  { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 10 },
+          "at":     { "type": "string" }
+        }
+      }
+    },
+
+    "stages": {
+      "type": "object",
+      "description": "per-stage execution ledger: status, attempts, last model/stage ids. Discovery-stage sweep keys may name any discovery trajectory (code, economic, state-machine, attacker, historical, integration, drift, lifecycle, chain).",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status"],
+        "properties": {
+          "status": { "enum": ["pending", "ready", "needs-model", "done", "skipped", "failed"] },
+          "attempts": { "type": "integer", "minimum": 0 },
+          "last_run_at": { "type": ["string", "null"] },
+          "note": { "type": "string" },
+          "executor": { "type": ["string", "null"], "description": "'deterministic' when the orchestrator ran it in-process" }
+        }
+      }
+    },
+
+    "events": {
+      "type": "array",
+      "description": "append-only, hash-chained event log; the source of truth for what happened. prev_hash/event_hash are optional only for logs written before the chain existed.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "at", "type"],
+        "properties": {
+          "seq":  { "type": "integer", "minimum": 0 },
+          "at":   { "type": "string" },
+          "type": { "type": "string" },
+          "ref":  { "type": ["string", "null"] },
+          "data": { "type": ["object", "null"] },
+          "prev_hash":  { "type": "string", "description": "event_hash of the previous event, GENESIS (64 zeros) for the first, or a legacy-seq-N anchor over pre-chain events" },
+          "event_hash": { "type": "string", "description": "sha256 over {seq,at,type,ref,data,prev_hash}, canonical JSON, ensure_ascii, sorted keys" }
+        }
+      }
+    }
+  }
+}

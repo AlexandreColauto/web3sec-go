@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/snapshot.schema.json",
+  "title": "WebSec Audit-Reality Snapshot",
+  "description": "Four immutable pins: source tree, deployed bytecode/proxy reality, chain state, and toolchain/config. A finding is only trusted against a campaign when its pins match the campaign's active pins; otherwise it must be re-verified, never silently trusted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["snapshot_id", "campaign_id", "created_at", "source"],
+  "properties": {
+    "snapshot_id":  { "type": "string", "minLength": 8, "description": "sha256 over the source pin — the canonical pin id all findings reference" },
+    "campaign_id":  { "type": "string" },
+    "created_at":   { "type": "string" },
+    "pass":         { "type": "integer", "minimum": 1 },
+    "pinned":       { "type": "boolean", "description": "false => HALT mode: discovery allowed, but no CONFIRMED verdicts may be issued" },
+
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ladder", "content_hash"],
+      "properties": {
+        "ladder": {
+          "enum": ["git-clean", "git-dirty", "no-vcs", "artifact", "live"],
+          "description": "git-clean => commit_hash alone; git-dirty => commit_hash+content_hash; no-vcs => content hash only; artifact => file hash; live => timestamp (unpinned)"
+        },
+        "git_commit":    { "type": ["string", "null"] },
+        "git_dirty":     { "type": ["boolean", "null"] },
+        "content_hash":  { "type": "string", "description": "sha256 over every file in the pinned copy, path-sorted, path prefixed" },
+        "root":          { "type": "string", "description": "filesystem path of the immutable pinned copy" },
+        "file_count":    { "type": "integer", "minimum": 0 },
+        "excluded":      { "type": "array", "items": { "type": "string" }, "description": "top-level names pruned from this pin by the bulk-default or --exclude sets — an audit pin that silently drops scope is a scope-drift bug, so the prune is recorded, not hidden" }
+      }
+    },
+
+    "deployment": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["network", "contracts"],
+      "description": "what is ACTUALLY deployed — never assumed to match source for unverified contracts",
+      "properties": {
+        "network":        { "type": "string", "description": "chain id or name, e.g. ethereum-mainnet, base-sepolia" },
+        "chain_id":       { "type": ["integer", "string"] },
+        "verification_ratio": { "type": ["number", "null"], "minimum": 0, "maximum": 1, "description": "fraction of in-scope contracts with verified source" },
+        "contracts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["address"],
+            "properties": {
+              "name":              { "type": "string" },
+              "address":           { "type": "string", "pattern": "^0x[a-fA-F0-9]{40}$" },
+              "role":              { "enum": ["core", "proxy", "implementation", "periphery", "token", "oracle", "governance", "other"] },
+              "proxy_admin":       { "type": ["string", "null"] },
+              "implementation_address": { "type": ["string", "null"] },
+              "bytecode_hash":     { "type": ["string", "null"], "description": "sha256 of on-chain extcodehash/code" },
+              "source_match":      { "enum": ["verified", "mismatch", "unverified", "not-applicable"], "description": "does deployed bytecode match locally compiled source?" },
+              "initializer_executed": { "type": ["boolean", "null"] },
+              "metadata":          { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } }
+            }
+          }
+        }
+      }
+    },
+
+    "chain": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "description": "fork/state pin: a bug reproducible at block N may not exist at N+50000",
+      "properties": {
+        "network":   { "type": "string" },
+        "chain_id":  { "type": ["integer", "string"] },
+        "fork_block": { "type": "integer", "minimum": 0 },
+        "fork_block_hash": { "type": ["string", "null"] },
+        "fork_timestamp": { "type": ["string", "null"] },
+        "rpc":       { "type": ["string", "null"], "description": "rpc endpoint label (never embed secrets)" },
+        "state_refs": {
+          "type": "array",
+          "description": "named on-chain state values this audit depends on (prices, totals, roles)",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "value"],
+            "properties": {
+              "name":    { "type": "string" },
+              "target":  { "type": "string" },
+              "slot":    { "type": "string" },
+              "value":   { "type": "string" },
+              "queried_at_block": { "type": ["integer", "null"] }
+            }
+          }
+        }
+      }
+    },
+
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_merkle_root", "manifest_hash"],
+      "description": "cryptographically self-describing summary of the snapshot: finding -> evidence -> snapshot -> exact artifact/environment becomes independently verifiable. manifest_hash is a digest over the manifest's own fields, so the manifest cannot be edited after the fact. Absent on legacy pins (pre-manifest); the audit verifies it wherever present.",
+      "properties": {
+        "source_merkle_root":    { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Merkle root over every file in the pinned tree — supports path membership proofs" },
+        "deployment_merkle_root": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "Merkle root over per-contract identity+bytecode hashes" },
+        "chain_fingerprint":     { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "canonical hash of chain id + fork block + fork block hash" },
+        "toolchain_fingerprint": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "canonical hash of the recorded toolchain config" },
+        "dependency_lock_hash":  { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "Merkle root over the dependency lockfiles present in the pinned tree" },
+        "environment_hash":      { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "python version + platform the pin was produced under" },
+        "manifest_hash":         { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "digest over the manifest's own fields (self-anchoring)" }
+      }
+    },
+
+    "config": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "description": "toolchain + environment versions; required for reproducibility of any produced evidence",
+      "properties": {
+        "compiler":     { "type": ["string", "null"] },
+        "build_system": { "type": ["string", "null"] },
+        "foundry":      { "type": ["string", "null"] },
+        "analyzer_versions": { "type": "object", "additionalProperties": { "type": "string" } },
+        "notes":        { "type": "string" }
+      }
+    }
+  }
+}

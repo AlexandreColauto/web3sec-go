@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/coverage.schema.json",
+  "title": "WebSec Coverage Accounting",
+  "description": "What has been swept, from which trajectory, with what density — and what is explicitly UNKNOWN. Unknown is a legitimate status that must never silently become secure.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["campaign_id", "snapshot_id", "contracts", "updated_at"],
+  "properties": {
+    "campaign_id": { "type": "string" },
+    "snapshot_id": { "type": "string" },
+    "updated_at":  { "type": "string" },
+
+    "contracts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "status"],
+        "properties": {
+          "path":   { "type": "string" },
+          "status": { "enum": ["unknown", "in-progress", "swept", "excluded"] },
+          "exclusion_reason": { "type": "string" },
+          "trajectory_counts": {
+            "type": "object",
+            "additionalProperties": { "type": "integer", "minimum": 0 },
+            "description": "how many specialist passes swept this contract per trajectory"
+          },
+          "entry_points_total":  { "type": ["integer", "null"], "minimum": 0 },
+          "entry_points_reviewed": { "type": ["integer", "null"], "minimum": 0 },
+          "functions_total":     { "type": ["integer", "null"], "minimum": 0 },
+          "functions_reviewed":  { "type": ["integer", "null"], "minimum": 0 },
+          "invariant_ids":       { "type": "array", "items": { "type": "string" } },
+          "findings_ids":        { "type": "array", "items": { "type": "string" } },
+          "thoroughness": {
+            "type": ["number", "null"],
+            "minimum": 0, "maximum": 1,
+            "description": "reviewed/total entry points, deterministic computation"
+          }
+        }
+      }
+    },
+
+    "surfaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "cross-cutting surfaces tracked beyond per-contract review",
+      "properties": {
+        "privilege_paths":   { "$ref": "#/definitions/surface" },
+        "oracle_surfaces":   { "$ref": "#/definitions/surface" },
+        "upgrade_paths":     { "$ref": "#/definitions/surface" },
+        "cross_contract_paths": { "$ref": "#/definitions/surface" },
+        "external_call_sites": { "$ref": "#/definitions/surface" },
+        "state_machines":    { "$ref": "#/definitions/surface" }
+      }
+    },
+
+    "funnel": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "candidate funnel counters, projected from the event log",
+      "properties": {
+        "hypotheses_generated": { "type": "integer", "minimum": 0 },
+        "after_dedupe":         { "type": "integer", "minimum": 0 },
+        "after_review":         { "type": "integer", "minimum": 0 },
+        "reproduced":           { "type": "integer", "minimum": 0 },
+        "confirmed":            { "type": "integer", "minimum": 0 },
+        "disproved":            { "type": "integer", "minimum": 0 },
+        "submission_ready":     { "type": "integer", "minimum": 0 }
+      }
+    },
+
+    "gaps": {
+      "type": "array",
+      "description": "explicit unknowns to carry into the next planning round",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description"],
+        "properties": {
+          "description": { "type": "string" },
+          "kind": { "enum": ["unswept-contract", "thin-trajectory", "unverified-deployment", "no-fork-access", "tool-missing", "open-question"] },
+          "component": { "type": "string" },
+          "priority": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+
+    "summary": {
+      "type": "object",
+      "additionalProperties": { "type": ["number", "string"] },
+      "description": "final one-glance numbers for the report: contracts analyzed 47/47, invariants 74, hypotheses 213, ... "
+    }
+  },
+
+  "definitions": {
+    "surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total"],
+      "properties": {
+        "total":    { "type": "integer", "minimum": 0 },
+        "reviewed": { "type": "integer", "minimum": 0 },
+        "listing_note": { "type": "string" }
+      }
+    }
+  }
+}

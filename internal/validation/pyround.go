@@ -27,7 +27,7 @@ func pythonRound(x float64, n int) float64 {
 	}
 	bits := math.Float64bits(x)
 	neg := bits>>63 == 1
-	exp := int(bits>>52 & 0x7ff)
+	exp := int(bits >> 52 & 0x7ff)
 	m := big.NewInt(int64(bits & (1<<52 - 1)))
 	e := -1074
 	if exp != 0 {

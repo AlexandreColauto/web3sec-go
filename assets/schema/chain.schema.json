@@ -1,0 +1,252 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/chain.schema.json",
+  "title": "WebSec Exploit Chain (Super-Finding)",
+  "description": "A chain composes confirmed findings by matching granted capabilities to required capabilities. Every constituent must be independently CONFIRMED; the chain itself is only as strong as its weakest member.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "chain_id",
+    "chain_signature",
+    "campaign_id",
+    "title",
+    "members",
+    "capability_links",
+    "evidence_floor",
+    "created_at"
+  ],
+  "properties": {
+    "chain_id": {
+      "type": "string",
+      "pattern": "^CHAIN-[0-9a-f]{8}$"
+    },
+    "chain_signature": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16}$",
+      "description": "order-invariant hash of the member set; duplicate materializations are rejected on collision"
+    },
+    "campaign_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 10
+    },
+    "narrative": {
+      "type": "string",
+      "description": "capability A -> state transition -> capability B -> ... -> extraction"
+    },
+    "members": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/definitions/finding_id"
+      }
+    },
+    "capability_links": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_finding",
+          "granted",
+          "to_finding",
+          "required"
+        ],
+        "properties": {
+          "from_finding": {
+            "$ref": "#/definitions/finding_id"
+          },
+          "granted": {
+            "type": "string"
+          },
+          "to_finding": {
+            "$ref": "#/definitions/finding_id"
+          },
+          "required": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "combined_impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_loss_usd": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "extractable_usd": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "blast_radius": {
+          "enum": [
+            "single-user",
+            "subset-of-users",
+            "all-users",
+            "protocol-solvency",
+            "bridge-canonical"
+          ]
+        },
+        "mechanism": {
+          "type": "string"
+        }
+      }
+    },
+    "terminal": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "capability"
+      ],
+      "description": "present when the chain reaches a REACHABLE ECONOMIC TERMINAL STATE: the last finding grants an asset-kind capability (value extractable). The capability claim is verified against the via_finding at materialization time.",
+      "properties": {
+        "capability": {
+          "type": "string",
+          "minLength": 3,
+          "description": "the terminal (asset-kind) capability, e.g. drain_treasury"
+        },
+        "via_finding": {
+          "$ref": "#/definitions/finding_id"
+        },
+        "total_capital_required_usd": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "capital the attacker must bring; capital is a cost, never a capability"
+        },
+        "capital_breakdown": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "description": "capital aggregated over the terminal path (sum of each member's reported capital_profile; atomic_usd is a conservative upper bound). Distinguishes 'requires $5k' from 'requires $5k, gets it back in the same transaction' via net_at_risk_usd.",
+          "properties": {
+            "required_usd": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "recoverable_usd": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "irrecoverable_cost_usd": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "atomic_usd": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "borrowable_usd": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "net_at_risk_usd": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "evidence_floor": {
+      "type": "string",
+      "description": "minimum evidence level across all members at chain creation \u2014 the chain inherits this ceiling",
+      "enum": [
+        "E0",
+        "E1",
+        "E2",
+        "E3",
+        "E4",
+        "E5",
+        "E6",
+        "E7"
+      ]
+    },
+    "severity": {
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "informational"
+      ]
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "validated",
+        "reproduced",
+        "rejected"
+      ],
+      "default": "proposed"
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repro_tier_reached": {
+          "enum": [
+            "none",
+            "T0",
+            "T1",
+            "T2",
+            "T3",
+            "T4"
+          ]
+        },
+        "artifact_id": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "finding_id": {
+      "type": "string",
+      "pattern": "^F-[0-9a-f]{12}$"
+    }
+  }
+}

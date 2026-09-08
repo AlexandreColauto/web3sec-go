@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/campaign_plan.schema.json",
+  "title": "WebSec Campaign Plan",
+  "description": "The contract between strategy and execution: the planner (LLM) proposes prioritized questions with trajectories and budgets; the deterministic orchestrator decides whether/when/where each stage runs. The plan is data, never a script the model executes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["campaign_id", "created_at", "priorities"],
+  "properties": {
+    "campaign_id": { "type": "string" },
+    "created_at":  { "type": "string" },
+    "snapshot_id": { "type": "string" },
+    "strategy_note": { "type": "string" },
+
+    "priorities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "question", "risk", "trajectories"],
+        "properties": {
+          "id":       { "type": "string", "pattern": "^Q-[0-9]{3}$" },
+          "question": { "type": "string", "minLength": 15 },
+          "risk":     { "type": "number", "minimum": 0, "maximum": 1 },
+          "components": { "type": "array", "items": { "type": "string" } },
+          "invariant_ids": { "type": "array", "items": { "type": "string" } },
+          "required_context": {
+            "type": "array",
+            "description": "artifact ids the specialist pass must be given",
+            "items": { "type": "string" }
+          },
+          "trajectories": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "enum": ["code", "economic", "state-machine", "attacker", "historical", "integration", "drift", "lifecycle", "chain"] }
+          },
+          "recommended_stages": { "type": "array", "items": { "type": "string" } },
+          "budget_class": { "enum": ["cheap", "standard", "expensive"], "description": "cheap = local/static, standard = mid model, expensive = frontier model" },
+          "success_signal": { "type": "string" },
+          "status": { "enum": ["open", "assigned", "answered", "not-applicable", "deprioritized", "blocked"], "default": "open" },
+          "closed_reason": { "type": "string", "description": "WHY the priority was closed — required by the CLI for any closing status; 'answered' with no reason or evidence ref is the run-2 hole (Q-004 closed with a sentence instead of a probe)" },
+          "closed_ref": { "type": "string", "description": "evidence the closure rests on: a finding id (F-...), exec id (EXEC-...), artifact id, or file#L anchor. An 'answered' priority with no closed_ref is flagged in the report's answer-quality section" },
+          "closed_at": { "type": "string" },
+          "closed_by": { "type": "string" },
+          "bug_class": { "type": ["string", "null"] },
+          "anchor_of": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "lenses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "pattern": "^L-[0-9]{2}$"},
+          "lens": {"type": "string", "enum": ["liveness", "incentive-inversion",
+                                              "enforcement-timing", "primitive-symmetry"]},
+          "surface": {"type": "string"},
+          "question": {"type": "string"},
+          "status": {"type": "string", "enum": ["open", "answered", "not-applicable"]},
+          "closed_reason": {"type": ["string", "null"]},
+          "closed_ref": {"type": ["string", "null"]},
+          "closed_at": {"type": ["string", "null"]},
+          "closed_by": {"type": ["string", "null"]},
+          "families": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "candidate families seeded from the model — the checklist a closure must attest against"
+          },
+          "families_checked": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "families the operator attested as compared/checked when closing"
+          },
+          "reopen_reason": {"type": ["string", "null"]},
+          "reopened_at": {"type": ["string", "null"]}
+        },
+        "required": ["id", "lens", "surface", "question", "status"],
+        "additionalProperties": false
+      }
+    },
+
+    "trajectory_matrix": {
+      "type": "object",
+      "description": "enforces orthogonality: each trajectory gets its own perspective contract, and thin-coverage components get re-pointed",
+      "additionalProperties": false,
+      "properties": {
+        "A-code":        { "type": "string", "description": "implementation-centric: bugs in the code as written" },
+        "B-economic":    { "type": "string", "description": "assume the protocol is economically exploitable; find the imbalance" },
+        "C-state-machine": { "type": "string", "description": "find dangerous call/state sequences and illegal transitions" },
+        "D-attacker":    { "type": "string", "description": "assume the attacker holds each realistic role; find role-abuse" },
+        "E-historical":  { "type": "string", "description": "find variants of known exploits, patches and disclosures" },
+        "F-integration": { "type": "string", "description": "assume every external contract/token behaves unexpectedly" },
+        "G-drift":       { "type": "string", "description": "spec vs implementation vs deployment vs config divergence" },
+        "H-lifecycle":   { "type": "string", "description": "consensus/lifecycle game: the adversary WINNING the commit→challenge→finalize game" }
+      }
+    },
+
+    "coverage_targets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_invariants":       { "type": "integer", "minimum": 1 },
+        "min_trajectories_per_critical_component": { "type": "integer", "minimum": 1 },
+        "components_must_cover": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

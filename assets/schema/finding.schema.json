@@ -1,0 +1,1205 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/finding.schema.json",
+  "title": "WebSec Finding (canonical Finding IR)",
+  "description": "The single source of truth for a candidate, hypothesis, or confirmed finding. Markdown reports are views generated FROM this object, never the reverse.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "finding_id",
+    "campaign_id",
+    "snapshot_ids",
+    "title",
+    "status",
+    "trajectory",
+    "root_cause",
+    "attacker",
+    "evidence",
+    "risk",
+    "dedup",
+    "history",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "finding_id": {
+      "$ref": "#/definitions/finding_id"
+    },
+    "campaign_id": {
+      "$ref": "#/definitions/campaign_id"
+    },
+    "snapshot_ids": {
+      "$ref": "#/definitions/snapshot_pins"
+    },
+    "created_at": {
+      "$ref": "#/definitions/timestamp"
+    },
+    "updated_at": {
+      "$ref": "#/definitions/timestamp"
+    },
+    "pass": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "campaign pass number in which this finding was discovered"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 300
+    },
+    "status": {
+      "enum": [
+        "HYPOTHESIS",
+        "NEEDS_RESEARCH",
+        "PROVISIONALLY_VALID",
+        "POSSIBLE",
+        "CONFIRMED",
+        "DISPROVED",
+        "DUPLICATE",
+        "OUT_OF_SCOPE",
+        "INFORMATIONAL",
+        "CHAIN"
+      ]
+    },
+    "trajectory": {
+      "$ref": "#/definitions/trajectory"
+    },
+    "root_cause": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "class",
+        "description"
+      ],
+      "properties": {
+        "class": {
+          "$ref": "#/definitions/bug_class"
+        },
+        "cwe": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^CWE-[0-9]+$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 20
+        },
+        "mechanism": {
+          "type": "string",
+          "description": "one normalized sentence: what precisely breaks and why"
+        }
+      }
+    },
+    "affected": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contract": {
+            "type": "string"
+          },
+          "function": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minItems": 1
+          },
+          "entry_point": {
+            "type": "boolean",
+            "description": "true if externally reachable without privileges"
+          }
+        }
+      }
+    },
+    "attacker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "capabilities"
+      ],
+      "properties": {
+        "profile": {
+          "type": "string",
+          "description": "e.g. arbitrary EOA, token holder, keeper, governor"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_privileges": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_capital_usd": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "contract_deployed_by_attacker": {
+          "type": "boolean"
+        },
+        "capital_profile": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "description": "reported breakdown of the attacker capital this finding requires \u2014 reported, never inferred. required = capital that must be in place to execute; recoverable = returned by the end of the exploit path (same transaction or via the extraction itself); irrecoverable_cost = what is lost either way (gas, bribes, burned funds); atomic = must exist inside a single transaction, cannot be staged across several; borrowable = can come from a flash loan rather than the attacker's own balance. net_at_risk = required - recoverable. Summed atomic_usd across a multi-step path is a CONSERVATIVE UPPER BOUND (per-step atomicity is not modeled).",
+          "properties": {
+            "required_usd": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "recoverable_usd": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "irrecoverable_cost_usd": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "atomic_usd": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "borrowable_usd": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "claim_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "bumped whenever the claim or its assumption set is materially re-stated, so critic verdicts and trajectory records can be pinned to the claim version they were made against"
+    },
+    "assumptions": {
+      "type": "array",
+      "description": "the claim decomposed into independently checkable propositions; status transitions only through findings.assumption_transition with evidence-store provenance. NOT to be confused with `preconditions` (exploit world state).",
+      "items": {
+        "$ref": "#/definitions/assumption"
+      },
+      "maxItems": 64
+    },
+    "security_invariants": {
+      "type": "array",
+      "description": "first-class proof obligations for this claim: the stated invariant plus the observed path that would violate it (see invariant block for the single headline invariant)",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "statement"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/definitions/invariant_id"
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 15
+          },
+          "documented_ref": {
+            "type": ["string", "null"]
+          },
+          "violation_path": {
+            "type": "string",
+            "description": "the observed/claimed path that would violate the invariant"
+          },
+          "demonstrated": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "preconditions": {
+      "type": "array",
+      "description": "Exploit preconditions: the world state the attacker must arrange BEFORE the exploit (who/what must be true, and how it is satisfied). NOT the claim's assumptions \u2014 those are checkable propositions about the claim itself (see `assumptions` / definitions.assumption).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "description"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "state",
+              "external",
+              "time",
+              "privilege",
+              "market",
+              "configuration"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 5
+          },
+          "satisfied_by": {
+            "type": "string",
+            "description": "how the attacker satisfies it (flash loan, donation, wait, ...)"
+          },
+          "enforced_by_poc": {
+            "enum": ["true", "false", "unknown", null],
+            "description": "assumption audit (run-1 lesson: the PoC assumed the victim must stake; the code never required it, and the claim under-reached by half). true = the PoC setup actually establishes this precondition; false = the claim assumes it but the PoC does not establish it — a removable candidate the maximal-exploitation stage must address; unknown = not yet checked"
+          }
+        }
+      }
+    },
+    "invariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/invariant_id"
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 15
+        },
+        "documented_ref": {
+          "type": ["string", "null"],
+          "description": "canonical anchor to the protocol's OWN documentation for this invariant id (file#line from documented_invariants), so findings and the spec point at the same invariant instead of diverging (run-1: model minted INV-1..8 while the README said INV-5)"
+        },
+        "violation_demonstrated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "exploit_sequence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step",
+          "action"
+        ],
+        "properties": {
+          "step": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "actor": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "minLength": 5
+          },
+          "state_effect": {
+            "type": "string"
+          },
+          "calls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/evidence_item"
+      }
+    },
+    "economic_impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "asset": {
+          "type": "string"
+        },
+        "max_loss_usd": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "theoretical exposure"
+        },
+        "extractable_usd": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "realistically extractable given on-chain liquidity"
+        },
+        "blast_radius": {
+          "enum": [
+            "single-user",
+            "subset-of-users",
+            "all-users",
+            "protocol-solvency",
+            "bridge-canonical"
+          ]
+        },
+        "mechanism": {
+          "type": "string",
+          "description": "the economic mechanism by which value moves"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "extraction_ratio": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "share of the exploitable pool the claim extracts (1.0 = 100%). Structured, so the report renders the claim FROM the measurement — '~half' beside a measured 100% becomes unrepresentable."
+        },
+        "price_basis": {
+          "type": ["string", "null"],
+          "pattern": "^PRC-[a-z0-9]{6,}$",
+          "description": "price_id from the campaign price table the USD numbers were computed at — E7 is only reproducible if the basis is recorded, never web-searched mid-run"
+        }
+      }
+    },
+    "reported_severity": {
+      "enum": ["low", "medium", "high", "critical"],
+      "description": "what the model/operator REPORTED before calibration; kept so divergence from the computed band is visible"
+    },
+    "fork_diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "matched_baseline": {"type": ["string", "null"]},
+        "score": {"type": "number", "minimum": 0, "maximum": 1},
+        "verdict": {"enum": ["strong", "partial", "none"]},
+        "extra_selectors": {"type": "array", "items": {"type": "string"}, "maxItems": 50},
+        "missing_selectors": {"type": "array", "items": {"type": "string"}, "maxItems": 50}
+      }
+    },
+    "maximization": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Pointer to the variant ladder (base -> amplified -> maximal) and the maximal-exploitation disposition. The ladder artifact itself lives in ladders/<finding>.json.",
+      "properties": {
+        "ladder_id": {"type": ["string", "null"]},
+        "maximal_rung_id": {"type": ["string", "null"]},
+        "claim_from": {"type": ["string", "null"]},
+        "disposition": {"enum": ["open", "complete", "waived", null]}
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Exploit Capability Graph node: what this finding grants, and what it needs. Chains are edges between granted and required.",
+      "properties": {
+        "granted": {
+          "type": "array",
+          "description": "Capabilities this finding grants to an attacker who exploits it. A bounded privileged role is declared as the capability label \"role_<normalized role id>\" (see webv2.capabilities.role_label); the EOA terminal baseline never holds such a label, which keeps the privileged track (webv2.privileged) separate.",
+          "items": {
+            "$ref": "#/definitions/capability"
+          }
+        },
+        "required": {
+          "type": "array",
+          "description": "Capabilities an attacker must already hold to exploit this finding. A bounded privileged role is declared as the capability label \"role_<normalized role id>\" (see webv2.capabilities.role_label); the EOA terminal baseline never holds such a label, which keeps the privileged track (webv2.privileged) separate.",
+          "items": {
+            "$ref": "#/definitions/capability"
+          }
+        }
+      }
+    },
+    "risk": {
+      "$ref": "#/definitions/risk"
+    },
+    "dedup": {
+      "$ref": "#/definitions/dedup"
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reproduction": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tier_reached": {
+              "enum": [
+                "none",
+                "T0",
+                "T1",
+                "T2",
+                "T3",
+                "T4"
+              ]
+            },
+            "status": {
+              "enum": [
+                "not_attempted",
+                "attempted",
+                "reproduced",
+                "failed",
+                "blocked",
+                "falsified"
+              ]
+            },
+            "attempts": {
+              "type": "array",
+              "description": "append-only; fresh-context retries each get their own attempt",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "attempt_id",
+                  "outcome"
+                ],
+                "properties": {
+                  "attempt_id": {
+                    "type": "string"
+                  },
+                  "fresh_context": {
+                    "type": "boolean"
+                  },
+                  "outcome": {
+                    "enum": [
+                      "reproduced",
+                      "failed",
+                      "blocked",
+                      "falsified"
+                    ]
+                  },
+                  "failure_class": {
+                    "enum": [
+                      "environment",
+                      "setup",
+                      "logic",
+                      "precondition-unmet",
+                      "hypothesis-wrong",
+                      "unknown",
+                      null
+                    ]
+                  },
+                  "command": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "artifact_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "critic_verdict": {
+          "enum": [
+            "pending",
+            "confirmed",
+            "possible",
+            "disproved",
+            "duplicate",
+            "out_of_scope",
+            "informational"
+          ]
+        },
+        "independent_reproduction": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "not_attempted",
+                "matches",
+                "differs",
+                "failed",
+                "contradicts"
+              ]
+            },
+            "discrepancies": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "artifact_id": {
+              "type": "string",
+              "description": "the EXEC record of the independent run"
+            },
+            "verifier": {
+              "type": "string",
+              "description": "named identity of the independent verifier (agent/model/operator)"
+            }
+          }
+        },
+        "shield_adjudication": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "plausibility-shield audit (run-1 lesson): the docs call the mechanism INTENTIONAL — 'donations accrue to stakers' — and that is the shield. Required when the violated invariant is a documented one with intent language. Intent is not immunity: the adjudication answers whether the ECONOMIC EFFECT still constitutes extraction.",
+          "required": ["extraction_despite_intent", "reasoning"],
+          "properties": {
+            "extraction_despite_intent": {
+              "type": "boolean",
+              "description": "true = the effect is extraction even though documented as intended (pro-rata accrual does not equal a first-staker's 1:1 claim capturing the pool)"
+            },
+            "reasoning": {
+              "type": "string",
+              "minLength": 15
+            },
+            "at": {
+              "type": "string"
+            },
+            "actor": {
+              "type": "string",
+              "description": "who recorded the adjudication. Every write to a finding's verification record is attributed; the API writes this, so the schema must accept it (run-2: the shield subcommand wrote a record its own schema then rejected, so it could never succeed)"
+            }
+          }
+        },
+        "patch_verified": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "immunization: the patch BLOCKS the finding's mainnet FORK PoC (never a unit test) and all 3 boundary mutations; artifact_id is the fork-runner exec the verification ran against",
+          "required": [
+            "patch_blocks_poc",
+            "boundary_mutations_tested",
+            "boundary_bypass_found",
+            "artifact_id"
+          ],
+          "properties": {
+            "patch_blocks_poc": {
+              "type": "boolean"
+            },
+            "boundary_mutations_tested": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            },
+            "boundary_bypass_found": {
+              "type": "boolean"
+            },
+            "artifact_id": {
+              "type": "string"
+            },
+            "patch": {
+              "type": "string",
+              "minLength": 10
+            },
+            "mutations": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "string",
+                "minLength": 5
+              }
+            },
+            "bypass": {
+              "type": "string"
+            },
+            "actor": {
+              "type": "string"
+            },
+            "at": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "bounty": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eligible": {
+          "type": "boolean"
+        },
+        "submission_ready": {
+          "type": "boolean"
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "policy_checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "check",
+              "result"
+            ],
+            "properties": {
+              "check": {
+                "type": "string"
+              },
+              "result": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "unknown",
+                  "human-review"
+                ]
+              },
+              "detail": {
+                "type": "string"
+              },
+              "remediation": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "discovered_by": {
+          "type": "string",
+          "description": "stage/agent id, e.g. traj-A/stage-05"
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "prompt_stage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "memory_checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "memory_ids",
+              "mode",
+              "row_digest"
+            ],
+            "properties": {
+              "memory_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "mode": {
+                "enum": [
+                  "negative",
+                  "comparative"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "consulted_at": {
+                "type": "string"
+              },
+              "row_digest": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "sast_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "dedup_meta": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "bookkeeping extras; capability_links is a JSON-encoded array for schema simplicity"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "history": {
+      "type": "array",
+      "description": "append-only status transition log; also mirrored into the campaign event log",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "at",
+          "from",
+          "to",
+          "reason"
+        ],
+        "properties": {
+          "at": {
+            "$ref": "#/definitions/timestamp"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3
+          },
+          "actor": {
+            "type": "string"
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "finding_id": {
+      "type": "string",
+      "pattern": "^F-[0-9a-f]{12}$"
+    },
+    "campaign_id": {
+      "type": "string",
+      "pattern": "^C-[0-9a-z]{8,16}$"
+    },
+    "invariant_id": {
+      "type": "string",
+      "pattern": "^INV-[0-9]{1,4}$",
+      "description": "prefer the protocol's OWN documented ids (INV-1..INV-N from its README/spec) over freshly minted ones — findings, plan priorities and benchmark truth then point at the same invariant"
+    },
+    "artifact_id": {
+      "type": "string",
+      "pattern": "^[A-Z]{2,5}-[0-9a-zA-Z_-]{1,64}$"
+    },
+    "trajectory": {
+      "enum": [
+        "code",
+        "economic",
+        "state-machine",
+        "attacker",
+        "historical",
+        "integration",
+        "drift",
+        "lifecycle",
+        "chain",
+        "model"
+      ],
+      "description": "provenance of the finding: which deterministic specialist pass found it, or 'model' when it arrived through the model boundary (ingest_model_hypothesis)"
+    },
+    "bug_class": {
+      "type": "string",
+      "description": "free-form but normalized snake_case; the compat groups in dedup.py know the common ones",
+      "pattern": "^[a-z0-9-]{3,64}$"
+    },
+    "capability": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 160,
+      "description": "normalized lowercase phrase, e.g. 'control perceived asset price', 'extract protocol liquidity'"
+    },
+    "evidence_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "level",
+        "type",
+        "description"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "string",
+          "pattern": "^EV-[0-9a-zA-Z_-]{1,48}$"
+        },
+        "level": {
+          "enum": [
+            "E0",
+            "E1",
+            "E2",
+            "E3",
+            "E4",
+            "E5",
+            "E6",
+            "E7"
+          ],
+          "description": "E0 idea, E1 code suspiciousness, E2 reachability, E3 invariant violation shown, E4 local repro, E5 fork repro, E6 independent repro, E7 economic impact quantified"
+        },
+        "type": {
+          "enum": [
+            "reasoning",
+            "static-analysis",
+            "reachability",
+            "unit-test",
+            "foundry-test",
+            "fuzz",
+            "invariant-test",
+            "symbolic-witness",
+            "fork-test",
+            "trace",
+            "balance-delta",
+            "differential",
+            "historical-analog",
+            "manual"
+          ]
+        },
+        "artifact_id": {
+          "$ref": "#/definitions/artifact_id"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 5
+        },
+        "command": {
+          "type": "string"
+        },
+        "produced_at": {
+          "$ref": "#/definitions/timestamp"
+        },
+        "sandbox_profile": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "REQUIRED for level >= E4: the sandbox profile id the artifact was produced under"
+        },
+        "snapshot_id": {
+          "type": "string",
+          "description": "snapshot this evidence was produced against"
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prior": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "factors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "validated": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "score": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "band": {
+              "enum": [
+                "critical",
+                "high",
+                "medium",
+                "low",
+                "informational"
+              ]
+            },
+            "rationale": {
+              "type": "string"
+            }
+          }
+        },
+        "economic": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "extractable_usd": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "capital_required_usd": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "leverage_ratio": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "notes": {
+              "type": "string"
+            }
+          }
+        },
+        "impact_vector": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "asset_exposure": {"enum": ["none", "lt_100k", "100k_1m", "1m_10m", "gt_10m"]},
+            "privilege_class": {"enum": ["unprivileged", "semi-privileged", "role", "owner"]},
+            "recoverability": {"enum": ["unknown", "low", "medium", "high"]},
+            "insolvency_risk": {"enum": ["low", "medium", "high"]},
+            "score": {"type": "number", "minimum": 0}
+          }
+        },
+        "bounty_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "advisory prioritization score only \u2014 never a substitute for the evidence gate"
+        }
+      }
+    },
+    "dedup": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "technical_signature": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "root_cause_signature": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "economic_signature": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "lineage_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^LIN-[0-9a-f]{8}$"
+        },
+        "duplicate_of": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "$ref": "#/definitions/finding_id"
+        },
+        "possible_duplicate_of": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/finding_id"
+          }
+        },
+        "chain_member_of": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^CHAIN-[0-9a-f]{8}$"
+        },
+        "candidate_verdicts": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": ["same", "distinct"]
+          },
+          "description": "LLM-normalization verdicts for each flagged near-duplicate candidate: of_finding_id -> same|distinct. A candidate without a verdict blocks the younger finding from burning a PoC cycle (dedup stage completion proof)."
+        }
+      }
+    },
+    "snapshot_pins": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 8
+        },
+        "deployment": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 8
+        },
+        "chain": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 8
+        }
+      }
+    },
+    "assumption": {
+      "description": "Inlined from schema/assumption.schema.json (the canonical standalone form, validated per-assumption by findings.set_assumptions). A test asserts the two cannot drift.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "claim",
+        "status",
+        "model_belief",
+        "blocking"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^A[0-9]{1,4}$",
+          "description": "stable within the finding; dependencies reference these ids"
+        },
+        "type": {
+          "enum": [
+            "reachability",
+            "authority",
+            "control",
+            "state",
+            "invariant",
+            "economic",
+            "environment",
+            "temporal",
+            "cross_domain"
+          ],
+          "description": "drives deterministic verification routing (preferred tools per assumption type)"
+        },
+        "claim": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 1000,
+          "description": "one checkable proposition, phrased so a tool can answer yes/no"
+        },
+        "status": {
+          "enum": [
+            "UNKNOWN",
+            "SUPPORTED",
+            "REFUTED"
+          ],
+          "description": "UNKNOWN is first-class; an unresolved assumption is never implicitly true"
+        },
+        "model_belief": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "ADVISORY ONLY. Never advances status or evidence tiers; recorded for training data"
+        },
+        "blocking": {
+          "type": "boolean",
+          "description": "true = the claim cannot hold while this is REFUTED; gates confirmation routing"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^A[0-9]{1,4}$"
+          },
+          "description": "assumption ids that must hold before this one is meaningful"
+        },
+        "verification_options": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+          },
+          "description": "tool ids the orchestrator may dispatch to resolve this assumption (model recommends, framework chooses)"
+        },
+        "support": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "artifact/exec/evidence ids that back a SUPPORTED status; only ever written by the transition API"
+        },
+        "contradictions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "artifact/exec/evidence ids that back a REFUTED status; only ever written by the transition API"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "webv2/price_table",
+  "title": "Campaign asset-price table: E7 USD numbers must be reproducible",
+  "description": "USD quantification is only reproducible if the price basis is recorded, not improvised mid-run (run 1: the operator web-searched an ETH price while minting E7). Every price row carries value + source + as_of + the actor who set it. E7 impact numbers cite a price_id; the report renders the basis next to every USD figure.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["campaign_id", "updated_at", "prices"],
+  "properties": {
+    "campaign_id": {"type": "string"},
+    "updated_at": {"type": "string"},
+    "prices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["price_id", "asset", "usd", "source", "as_of", "set_by", "set_at"],
+        "properties": {
+          "price_id": {"type": "string", "pattern": "^PRC-[a-z0-9]{6,}$"},
+          "asset": {"type": "string", "minLength": 1, "description": "canonical ticker/symbol, e.g. ETH"},
+          "usd": {"type": "number", "exclusiveMinimum": 0},
+          "source": {"type": "string", "minLength": 3, "description": "where the number came from (coinmetrics, operator, exchange page ...) — never 'web search mid-run'"},
+          "as_of": {"type": "string", "description": "date/time the quote refers to"},
+          "set_by": {"type": "string", "description": "named actor who recorded it"},
+          "set_at": {"type": "string"}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,258 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/model_response.schema.json",
+  "title": "Model response contracts (one definition per role output)",
+  "description": "Every model output is validated against exactly one of these definitions at the model boundary BEFORE it may touch orchestrator state. Validation is fail-closed: a malformed response is rejected and logged as a rejected generation, never coerced, never partially applied. The definitions are self-contained (no $ref) so the boundary can validate them without a schema store. Cross-field rules the schema cannot express (cited evidence must exist in the campaign store, tool ids must exist in the registry, plan must reference a real finding) are enforced in model_boundary.py.",
+  "definitions": {
+    "finding_id": {
+      "type": "string",
+      "pattern": "^F-[0-9a-f]{12}$"
+    },
+    "memory_id": {
+      "type": "string",
+      "pattern": "^MEM-[0-9a-zA-Z_-]{1,48}$"
+    },
+    "assumption_id": {
+      "type": "string",
+      "pattern": "^A[0-9]{1,4}$"
+    },
+    "tool_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+      "description": "membership in the tool registry (sandbox profiles + analysis tools) is checked at the boundary, not by pattern"
+    },
+    "plan_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step", "tool_id", "expected_observation"],
+      "properties": {
+        "step": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "tool_id": { "$ref": "#/definitions/tool_id" },
+        "target_assumptions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/assumption_id" },
+          "maxItems": 16
+        },
+        "expected_observation": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 1000,
+          "description": "what would be observed if the assumption holds — makes the step falsifiable"
+        }
+      }
+    },
+    "hypothesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bug_class", "claim", "target", "assumptions", "initial_plan", "uncertainty"],
+      "properties": {
+        "bug_class": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]{3,64}$"
+        },
+        "claim": {
+          "type": "string",
+          "minLength": 30,
+          "maxLength": 2000,
+          "description": "the falsifiable security claim, one paragraph"
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path"],
+          "properties": {
+            "path": { "type": "string", "minLength": 1, "maxLength": 300 },
+            "function": { "type": "string", "maxLength": 200 }
+          }
+        },
+        "attacker": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "the attacker baseline for this claim; defaults to arbitrary EOA when absent",
+          "properties": {
+            "profile": { "type": "string", "minLength": 3, "maxLength": 200 },
+            "capabilities": { "type": "array", "items": { "type": "string" } },
+            "required_privileges": { "type": "array", "items": { "type": "string" } },
+            "required_capital_usd": { "type": ["number", "null"], "minimum": 0 }
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "type", "claim", "status", "model_belief", "blocking"],
+            "properties": {
+              "id": { "$ref": "#/definitions/assumption_id" },
+              "type": {
+                "enum": ["reachability", "authority", "control", "state",
+                         "invariant", "economic", "environment", "temporal",
+                         "cross_domain"]
+              },
+              "claim": { "type": "string", "minLength": 10, "maxLength": 1000 },
+              "status": { "enum": ["UNKNOWN"], "description": "a NEW hypothesis's assumptions are all UNKNOWN by construction; any other status here is a contract violation" },
+              "model_belief": { "type": "number", "minimum": 0, "maximum": 1 },
+              "blocking": { "type": "boolean" },
+              "dependencies": { "type": "array", "items": { "$ref": "#/definitions/assumption_id" }, "maxItems": 16 },
+              "verification_options": { "type": "array", "items": { "$ref": "#/definitions/tool_id" }, "maxItems": 8 }
+            }
+          }
+        },
+        "initial_plan": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "$ref": "#/definitions/plan_step" }
+        },
+        "uncertainty": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["open_questions"],
+          "properties": {
+            "open_questions": { "type": "array", "items": { "type": "string", "minLength": 5 } },
+            "risk_of_false_positive": { "type": ["string", "null"], "minLength": 5 }
+          }
+        },
+        "differs_from_memory": {
+          "type": "array",
+          "maxItems": 8,
+          "description": "the negative-memory override mechanism: when a surfaced prior is believed not to apply, name the prior and the assumption that differs from it. A materially different hypothesis is never suppressed; this is how it says so.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["memory_id", "assumption_id", "how_it_differs"],
+            "properties": {
+              "memory_id": { "$ref": "#/definitions/memory_id" },
+              "assumption_id": { "$ref": "#/definitions/assumption_id" },
+              "how_it_differs": { "type": "string", "minLength": 10, "maxLength": 500 }
+            }
+          }
+        },
+        "exploit_sequence": {
+          "type": "array",
+          "description": "multi-actor exploit sequence for an adversarial-simulation class hypothesis; passed through verbatim to the finding",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["step", "action"],
+            "properties": {
+              "step": { "type": "integer", "minimum": 1 },
+              "actor": { "type": "string" },
+              "action": { "type": "string", "minLength": 5 },
+              "state_effect": { "type": "string" },
+              "calls": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finding_id", "steps"],
+      "properties": {
+        "finding_id": { "$ref": "#/definitions/finding_id" },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "$ref": "#/definitions/plan_step" }
+        }
+      }
+    },
+    "critic_verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finding_id", "per_assumption", "verdict", "missing_proof"],
+      "properties": {
+        "finding_id": { "$ref": "#/definitions/finding_id" },
+        "claim_version": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "the claim version this verdict addresses; a stale version is rejected at the boundary"
+        },
+        "per_assumption": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["assumption_id", "status", "evidence_cited", "note"],
+            "properties": {
+              "assumption_id": { "$ref": "#/definitions/assumption_id" },
+              "status": { "enum": ["SUPPORTED", "REFUTED", "UNKNOWN"] },
+              "evidence_cited": {
+                "type": "array",
+                "items": { "type": "string" },
+                "maxItems": 16,
+                "description": "artifact/exec/evidence ids the classification rests on; must exist in the campaign evidence store (checked at the boundary); empty only for UNKNOWN"
+              },
+              "note": { "type": "string", "minLength": 5, "maxLength": 1000 }
+            }
+          }
+        },
+        "verdict": {
+          "enum": ["confirmed", "possible", "disproved", "duplicate",
+                   "out_of_scope", "informational"],
+          "description": "the FINAL question answered: does the verified assumption set imply the claimed violation and attacker outcome?"
+        },
+        "missing_proof": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 5 },
+          "description": "the smallest set of propositions/evidence that would close the gap, if any"
+        },
+        "recommended_checks": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tool_id", "target_assumptions"],
+            "properties": {
+              "tool_id": { "$ref": "#/definitions/tool_id" },
+              "target_assumptions": { "type": "array", "items": { "$ref": "#/definitions/assumption_id" } }
+            }
+          }
+        }
+      }
+    },
+    "reproducer_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finding_id", "snapshot_id", "execution_profile", "success_criteria", "program"],
+      "properties": {
+        "finding_id": { "$ref": "#/definitions/finding_id" },
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 8,
+          "description": "the EXACT pinned snapshot; the request must not drift the deployment"
+        },
+        "execution_profile": {
+          "enum": ["host-readonly", "docker-networkless", "docker-gvisor",
+                   "vm-snapshot", "fork-runner"],
+          "description": "must be a permitted profile for the finding's evidence target (checked against the sandbox registry)"
+        },
+        "success_criteria": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exit_status", "min_evidence_level"],
+          "properties": {
+            "exit_status": { "type": "integer", "minimum": 0 },
+            "min_evidence_level": {
+              "enum": ["E0", "E1", "E2", "E3", "E4", "E5", "E6", "E7"]
+            },
+            "requires_captured_output": { "type": "boolean" }
+          }
+        },
+        "program": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 100000,
+          "description": "the execution program / PoC"
+        },
+        "notes": { "type": ["string", "null"], "maxLength": 2000 }
+      }
+    }
+  }
+}
