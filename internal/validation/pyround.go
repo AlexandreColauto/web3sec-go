@@ -84,3 +84,8 @@ func scaledToFloat64(r *big.Int, n int) float64 {
 }
 
 var pow10 = [7]int64{1, 10, 100, 1000, 10000, 100000, 1000000}
+
+// PythonRound is the exported alias of pythonRound for call sites outside
+// this package (webv2 uses round(x, 3) in invariants.coverage and elsewhere).
+// Additive only: same CPython semantics, same panic contract.
+func PythonRound(x float64, n int) float64 { return pythonRound(x, n) }

@@ -54,3 +54,8 @@ func newId(prefix string, n int) string {
 	}
 	return prefix + "-" + h[:n]
 }
+
+// NewID is the exported alias of new_id for call sites outside this package
+// (pricing.set_price mints PRC- ids, risk.mint_impact_evidence mints EV-
+// ids). Additive only: same WEBV2_UUID pin stream, same derivation.
+func NewID(prefix string, n int) string { return newId(prefix, n) }
