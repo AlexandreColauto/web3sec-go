@@ -13,7 +13,11 @@ import (
 	"websec/internal/invariants"
 	"websec/internal/taxonomy"
 	// init() side effects: taxonomy wires findings.SetClassAdvisory,
-	// floors wires findings.SetEffectiveFloor (Python import-time seams).
+	// floors wires findings.SetEffectiveFloor (Python import-time seams),
+	// completion wires pipeline.SetCompletion + bounty.SetWaivers — without
+	// this import the scheduler would silently auto-complete nothing and the
+	// bounty gate would never see a stage waiver.
+	_ "websec/internal/completion"
 	_ "websec/internal/floors"
 )
 
