@@ -1,0 +1,795 @@
+// Package dedup ports webv2.dedup: three-tier, Web3-aware deduplication.
+//
+// Mantis-style dedup collapses findings that share a technical signature or a
+// normalized root-cause sentence. Web3 adds a nastier phenomenon: findings
+// that are technically unrelated — different files, different bug classes —
+// can be the SAME economic vulnerability (missing validation in function A,
+// manipulated accounting through function B, and a withdrawal-path bypass
+// through function C can all reduce to "attacker-controlled exchange rate
+// creates unbacked withdrawal value").
+//
+// Tiers, cheapest/most-certain first:
+//
+//  1. technical_signature  — hash(class, path, function, invariant).
+//     TRUE duplicate: auto-merge (mark DUPLICATE).
+//  2. root_cause_signature — hash of a normalized one-sentence root cause +
+//     CWE, set by an LLM normalization pass (this module never generates the
+//     sentence). Clusters into a lineage; auto-merge only when the file and
+//     function also match.
+//  3. economic_signature   — hash of a normalized statement of what the
+//     attacker ultimately gains/breaks. NEVER auto-merged: flagged as
+//     possible_duplicate_of for critic/human decision, and guarded by a
+//     class-compatibility table (incompatible classes cannot be the same
+//     economic bug no matter how similar the text looks).
+package dedup
+
+import (
+	"fmt"
+	"math/big"
+	"sort"
+	"strings"
+	"unicode"
+
+	"websec/internal/findings"
+	"websec/internal/snapshot"
+	"websec/internal/state"
+	"websec/internal/validation"
+)
+
+// kv is the vet-clean keyed KV constructor (unkeyed cross-package literals
+// are rejected by go vet). Shared by the tests in this package.
+func kv(k string, v validation.Value) validation.KV {
+	return validation.KV{K: k, V: v}
+}
+
+// EconomicCompatGroups is _ECONOMIC_COMPAT_GROUPS: classes that can plausibly
+// share an economic effect. Two classes absent from a common group cannot
+// tier-3-match. Exported because taxonomy.py unions these groups when it
+// builds the canonical class list (_compat_classes).
+var EconomicCompatGroups = [][]string{
+	{"oracle-manipulation", "flash-loan", "economic-invariant",
+		"share-price-inflation", "precision-rounding", "token-integration",
+		"logic-error"},
+	{"access-control", "authorization", "upgrade-initializer",
+		"centralization-risk", "signature-replay"},
+	{"reentrancy", "unchecked-external-call", "logic-error", "dos-griefing"},
+	{"bridge-message", "cross-chain-replay", "signature-replay"},
+	{"liquidation-logic", "oracle-manipulation", "economic-invariant"},
+}
+
+// AssetClassHints is _ASSET_CLASS_HINTS: E-classes that are only meaningful
+// when both findings' economic impact touches the same asset-class bucket.
+// Exported because taxonomy.py unions these values too. Go maps have no
+// iteration order; taxonomy only unions the values into a set, so order is
+// not observable.
+var AssetClassHints = map[string][]string{
+	"share-price": {"share-price-inflation", "precision-rounding", "donation"},
+	"liquidation": {"liquidation-logic", "oracle-manipulation"},
+	"bridge":      {"bridge-message", "cross-chain-replay"},
+	"accounting":  {"economic-invariant", "logic-error", "precision-rounding"},
+	"authz":       {"access-control", "authorization", "signature-replay"},
+}
+
+// ClassesCompatible is classes_compatible: the same class always matches;
+// otherwise both classes must sit in one common compatibility group.
+func ClassesCompatible(classA, classB string) bool {
+	if classA == classB {
+		return true
+	}
+	for _, group := range EconomicCompatGroups {
+		if containsStr(group, classA) && containsStr(group, classB) {
+			return true
+		}
+	}
+	return false
+}
+
+// ---- seams into findings.py helpers internal/findings does not export yet ----
+//
+// mark_duplicate (findings.py:1458), flag_possible_duplicate (:1467) and
+// fold_into_lineage (:1451) are not ported. The defaults FAIL LOUDLY: a sweep
+// that cannot record its own decision must not look successful. The real
+// implementations are installed with the Set* functions once findings exports
+// them (they need findings.transition, which is also not ported yet).
+
+// dedupHelperFn is the shared shape of the three findings.py helpers this
+// package calls back into.
+type dedupHelperFn func(*state.Campaign, string, string) (validation.Value, error)
+
+// notWired is a seam default that fails loudly until a real helper is
+// installed: a sweep that cannot record its own decision must not look
+// successful.
+func notWired(name string) dedupHelperFn {
+	return func(*state.Campaign, string, string) (validation.Value, error) {
+		return validation.VNull(), fmt.Errorf("dedup: %s is not wired", name)
+	}
+}
+
+// markDuplicateFunc is the findings.mark_duplicate seam.
+var markDuplicateFunc = notWired("findings.mark_duplicate")
+
+// SetMarkDuplicate installs findings.mark_duplicate; nil restores the
+// fail-loud default.
+func SetMarkDuplicate(fn dedupHelperFn) {
+	if fn == nil {
+		markDuplicateFunc = notWired("findings.mark_duplicate")
+		return
+	}
+	markDuplicateFunc = fn
+}
+
+// flagPossibleDuplicateFunc is the findings.flag_possible_duplicate seam.
+var flagPossibleDuplicateFunc = notWired("findings.flag_possible_duplicate")
+
+// SetFlagPossibleDuplicate installs findings.flag_possible_duplicate; nil
+// restores the fail-loud default.
+func SetFlagPossibleDuplicate(fn dedupHelperFn) {
+	if fn == nil {
+		flagPossibleDuplicateFunc = notWired("findings.flag_possible_duplicate")
+		return
+	}
+	flagPossibleDuplicateFunc = fn
+}
+
+// foldIntoLineageFunc is the findings.fold_into_lineage seam.
+var foldIntoLineageFunc = notWired("findings.fold_into_lineage")
+
+// SetFoldIntoLineage installs findings.fold_into_lineage; nil restores the
+// fail-loud default.
+func SetFoldIntoLineage(fn dedupHelperFn) {
+	if fn == nil {
+		foldIntoLineageFunc = notWired("findings.fold_into_lineage")
+		return
+	}
+	foldIntoLineageFunc = fn
+}
+
+// SetRootCauseSignature is set_root_cause_signature: record tier-2 after an
+// LLM normalization pass. The sentence must be target-agnostic
+// ('attacker-controlled exchange rate creates unbacked withdrawal value'),
+// not a restatement of the file name. cwe nil/"" is Python's falsy check.
+func SetRootCauseSignature(campaign *state.Campaign, findingID, normalizedSentence string,
+	cwe *string) (validation.Value, error) {
+	f, err := findings.LoadFinding(campaign, findingID)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	sig := findings.TextSignature(normalizedSentence)
+	f = setDeep(f, validation.VStr(sig), "dedup", "root_cause_signature")
+	if cwe != nil && *cwe != "" {
+		f = setDeep(f, validation.VStr(*cwe), "root_cause", "cwe")
+	}
+	f = setDeep(f, validation.VStr(normalizedSentence), "dedup_meta", "root_cause_sentence")
+	if err := findings.SaveFinding(campaign, &f); err != nil {
+		return validation.VNull(), err
+	}
+	if _, err := campaign.Log("dedup.root_cause_set", &findingID, nil); err != nil {
+		return validation.VNull(), err
+	}
+	return f, nil
+}
+
+// SetEconomicSignature is set_economic_signature: record tier-3 after an LLM
+// normalization pass over the attacker's ultimate economic effect.
+func SetEconomicSignature(campaign *state.Campaign, findingID,
+	normalizedEffect string) (validation.Value, error) {
+	f, err := findings.LoadFinding(campaign, findingID)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	sig := findings.TextSignature(normalizedEffect)
+	f = setDeep(f, validation.VStr(sig), "dedup", "economic_signature")
+	f = setDeep(f, validation.VStr(normalizedEffect), "dedup_meta", "economic_effect_sentence")
+	if err := findings.SaveFinding(campaign, &f); err != nil {
+		return validation.VNull(), err
+	}
+	if _, err := campaign.Log("dedup.economic_set", &findingID, nil); err != nil {
+		return validation.VNull(), err
+	}
+	return f, nil
+}
+
+// LineageIDFor is lineage_id_for: a deterministic lineage id, so the same
+// cluster gets the same id on every run (a uuid4 id churned on every sweep,
+// which made re-runs look like new discoveries).
+func LineageIDFor(signature string, memberIDs []string) string {
+	sorted := append([]string(nil), memberIDs...)
+	sort.Strings(sorted)
+	digest := findings.TextSignature("lineage|" + signature + "|" + strings.Join(sorted, "|"))
+	if len(digest) > 8 {
+		digest = digest[:8]
+	}
+	return "LIN-" + digest
+}
+
+// ---- the sweep -------------------------------------------------------------
+
+type tier1Merge struct{ kept, merged, signature string }
+type crossFlag struct{ kept, flagged string }
+type tier3Flag struct{ a, b, signature string }
+type tier2Cluster struct {
+	lineageID  string
+	members    []string
+	autoMerged []string
+}
+
+type sigGroup struct {
+	sig     string
+	members []validation.Value
+}
+
+// RunDedup is run_dedup(campaign, *, auto_merge=True): a full dedup sweep over
+// all findings, returning the report dict.
+//
+// Order stability: findings are processed by created_at then finding_id
+// (load_all_findings already returns this order; the explicit re-sort pins the
+// contract) — so "the earliest finding is kept" really means earliest-created.
+//
+// Idempotence: already-terminal findings are excluded from grouping, so a
+// second sweep reproduces the first sweep's decisions instead of adding new
+// ones.
+func RunDedup(campaign *state.Campaign, autoMerge bool) (validation.Value, error) {
+	all, err := findings.LoadAllFindings(campaign)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	live := make([]validation.Value, 0, len(all))
+	for _, f := range all {
+		if s := objStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" {
+			continue
+		}
+		live = append(live, f)
+	}
+	sort.SliceStable(live, func(i, j int) bool {
+		ci, cj := objStr(live[i], "created_at"), objStr(live[j], "created_at")
+		if ci != cj {
+			return ci < cj
+		}
+		return objStr(live[i], "finding_id") < objStr(live[j], "finding_id")
+	})
+
+	merged := map[string]bool{}
+	tier1, cross, err := tier1Sweep(campaign, live, merged, autoMerge)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	tier2, err := tier2Sweep(campaign, live, merged, autoMerge)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	tier3, err := tier3Sweep(campaign, live, merged)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	untouched := 0
+	for _, f := range live {
+		if !merged[objStr(f, "finding_id")] {
+			untouched++
+		}
+	}
+	report := buildReport(tier1, cross, tier2, tier3, untouched)
+	data := validation.VObj(
+		kv("tier1", validation.VInt(int64(len(tier1)))),
+		kv("tier2_clusters", validation.VInt(int64(len(tier2)))),
+		kv("tier3_flags", validation.VInt(int64(len(tier3)))),
+	)
+	if _, err := campaign.Log("dedup.run", nil, &data); err != nil {
+		return validation.VNull(), err
+	}
+	return report, nil
+}
+
+// tier1Sweep is the technical-signature pass: the first finding of each
+// signature group is kept, later members are auto-merged (or, across
+// snapshots, flagged and left LIVE so later tiers can still adjudicate them).
+func tier1Sweep(campaign *state.Campaign, live []validation.Value, merged map[string]bool,
+	autoMerge bool) ([]tier1Merge, []crossFlag, error) {
+	var merges []tier1Merge
+	var cross []crossFlag
+	for _, g := range groupBySig(live, "technical_signature", nil) {
+		if len(g.members) < 2 {
+			continue
+		}
+		keep := g.members[0]
+		keepID := objStr(keep, "finding_id")
+		for _, dup := range g.members[1:] {
+			dupID := objStr(dup, "finding_id")
+			if merged[dupID] || !autoMerge {
+				continue
+			}
+			didMerge, err := autoMergePair(campaign, keep, dup)
+			if err != nil {
+				return nil, nil, err
+			}
+			if didMerge {
+				merges = append(merges, tier1Merge{kept: keepID, merged: dupID, signature: g.sig})
+				merged[dupID] = true
+				continue
+			}
+			// flagged, not merged: the pair needs re-verification against
+			// different snapshots — it stays LIVE and still participates in
+			// tier-2/3 analysis. Conflating flagged with merged (the old
+			// unconditional add) dropped it from every later tier, so a
+			// cross-snapshot duplicate could never be adjudicated by the
+			// sweep.
+			cross = append(cross, crossFlag{kept: keepID, flagged: dupID})
+		}
+	}
+	return merges, cross, nil
+}
+
+// tier2Sweep is the root-cause pass: every member of a group is folded into
+// one deterministic lineage; members that also share file+function are
+// auto-merged into the group's first finding.
+func tier2Sweep(campaign *state.Campaign, live []validation.Value, merged map[string]bool,
+	autoMerge bool) ([]tier2Cluster, error) {
+	var clusters []tier2Cluster
+	for _, g := range groupBySig(live, "root_cause_signature", merged) {
+		if len(g.members) < 2 {
+			continue
+		}
+		memberIDs := make([]string, 0, len(g.members))
+		for _, f := range g.members {
+			memberIDs = append(memberIDs, objStr(f, "finding_id"))
+		}
+		lineage := LineageIDFor(g.sig, memberIDs)
+		keep := g.members[0]
+		for _, f := range g.members {
+			if _, err := foldIntoLineageFunc(campaign, objStr(f, "finding_id"), lineage); err != nil {
+				return nil, err
+			}
+		}
+		cluster := tier2Cluster{lineageID: lineage, members: memberIDs, autoMerged: []string{}}
+		if autoMerge {
+			for _, dup := range g.members[1:] {
+				if !sameSpot(dup, keep) {
+					continue
+				}
+				didMerge, err := autoMergePair(campaign, keep, dup)
+				if err != nil {
+					return nil, err
+				}
+				if didMerge {
+					dupID := objStr(dup, "finding_id")
+					cluster.autoMerged = append(cluster.autoMerged, dupID)
+					merged[dupID] = true
+				}
+			}
+		}
+		clusters = append(clusters, cluster)
+	}
+	return clusters, nil
+}
+
+// tier3Sweep is the economic-signature pass: flag-only. Class compatibility
+// gates the pair (text similarity between incompatible classes is noise) and
+// cross-snapshot pairs are skipped until re-verification.
+func tier3Sweep(campaign *state.Campaign, live []validation.Value,
+	merged map[string]bool) ([]tier3Flag, error) {
+	var flags []tier3Flag
+	for _, g := range groupBySig(live, "economic_signature", merged) {
+		if len(g.members) < 2 {
+			continue
+		}
+		for i, a := range g.members {
+			for _, b := range g.members[i+1:] {
+				classA := objStr(objAt(a, "root_cause"), "class")
+				classB := objStr(objAt(b, "root_cause"), "class")
+				if !ClassesCompatible(classA, classB) {
+					continue // incompatible classes: text similarity is noise
+				}
+				// Python reads the active id once per side (short-circuit
+				// `or`); the state cannot change mid-sweep, so one read is
+				// equivalent.
+				active, err := campaign.ActiveSnapshotIDOrNone()
+				if err != nil {
+					return nil, err
+				}
+				if snapshot.ReverifyRequired(a, active) || snapshot.ReverifyRequired(b, active) {
+					continue // cross-snapshot economic matches need re-verification
+				}
+				aID, bID := objStr(a, "finding_id"), objStr(b, "finding_id")
+				if _, err := flagPossibleDuplicateFunc(campaign, aID, bID); err != nil {
+					return nil, err
+				}
+				if _, err := flagPossibleDuplicateFunc(campaign, bID, aID); err != nil {
+					return nil, err
+				}
+				flags = append(flags, tier3Flag{a: aID, b: bID, signature: g.sig})
+			}
+		}
+	}
+	return flags, nil
+}
+
+// autoMergePair is _auto_merge_pair: the later finding becomes DUPLICATE of
+// keep. Cross-snapshot duplicates are flagged, not merged — evidence was
+// gathered against different code, so the dedup call itself needs
+// re-verification. The bool reports whether a merge (as opposed to a
+// cross-snapshot flag) happened — Python's `res is not None`.
+func autoMergePair(campaign *state.Campaign, keep, dup validation.Value) (bool, error) {
+	active, err := campaign.ActiveSnapshotIDOrNone()
+	if err != nil {
+		return false, err
+	}
+	if snapshot.ReverifyRequired(dup, active) {
+		dupID, keepID := objStr(dup, "finding_id"), objStr(keep, "finding_id")
+		ids := valueStrings(getDeep(dup, "dedup", "possible_duplicate_of"))
+		if !containsStr(ids, keepID) {
+			ids = append(ids, keepID)
+		}
+		dup = setDeep(dup, strArray(ids), "dedup", "possible_duplicate_of")
+		if err := findings.SaveFinding(campaign, &dup); err != nil {
+			return false, err
+		}
+		data := validation.VObj(kv("of", validation.VStr(keepID)))
+		if _, err := campaign.Log("dedup.cross_snapshot_flagged", &dupID, &data); err != nil {
+			return false, err
+		}
+		return false, nil
+	}
+	if _, err := markDuplicateFunc(campaign, objStr(dup, "finding_id"),
+		objStr(keep, "finding_id")); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// buildReport assembles the report in Python's dict-literal key order.
+func buildReport(tier1 []tier1Merge, cross []crossFlag, tier2 []tier2Cluster,
+	tier3 []tier3Flag, untouched int) validation.Value {
+	merges := validation.VArr()
+	for _, m := range tier1 {
+		merges.A = append(merges.A, validation.VObj(
+			kv("kept", validation.VStr(m.kept)),
+			kv("merged", validation.VStr(m.merged)),
+			kv("signature", validation.VStr(m.signature)),
+		))
+	}
+	clusters := validation.VArr()
+	for _, cl := range tier2 {
+		members := validation.VArr()
+		for _, id := range cl.members {
+			members.A = append(members.A, validation.VStr(id))
+		}
+		merged := validation.VArr()
+		for _, id := range cl.autoMerged {
+			merged.A = append(merged.A, validation.VStr(id))
+		}
+		clusters.A = append(clusters.A, validation.VObj(
+			kv("lineage_id", validation.VStr(cl.lineageID)),
+			kv("members", members),
+			kv("auto_merged", merged),
+		))
+	}
+	flags := validation.VArr()
+	for _, fl := range tier3 {
+		flags.A = append(flags.A, validation.VObj(
+			kv("a", validation.VStr(fl.a)),
+			kv("b", validation.VStr(fl.b)),
+			kv("signature", validation.VStr(fl.signature)),
+		))
+	}
+	crossFlags := validation.VArr()
+	for _, cf := range cross {
+		crossFlags.A = append(crossFlags.A, validation.VObj(
+			kv("kept", validation.VStr(cf.kept)),
+			kv("flagged", validation.VStr(cf.flagged)),
+		))
+	}
+	return validation.VObj(
+		kv("tier1_merges", merges),
+		kv("tier2_clusters", clusters),
+		kv("tier3_flags", flags),
+		kv("cross_snapshot_flags", crossFlags),
+		kv("untouched", validation.VInt(int64(untouched))),
+	)
+}
+
+// ResolveCandidate is resolve_candidate: adjudicate ONE flagged
+// near-duplicate pair (a tier-3 flag) — "same" or "distinct".
+//
+// The sweep FLAGGED near-duplicate pairs and nothing consumed the flags —
+// every candidate still burned a full PoC cycle until a human noticed. This
+// is the missing verdict step. The judgment is recorded on BOTH sides of the
+// pair (one call resolves the pair), which is what the dedup completion proof
+// tracks. "same" additionally merges the younger finding into the older one
+// (mark_duplicate) — the expensive cycle is skipped. "distinct" leaves both
+// open; the note is the record of why.
+func ResolveCandidate(campaign *state.Campaign, findingID, ofFindingID, verdict, note,
+	actor string) (validation.Value, error) {
+	if verdict != "same" && verdict != "distinct" {
+		return validation.VNull(), fmt.Errorf(
+			"verdict must be 'same' or 'distinct', got %s", validation.PyReprStr(verdict))
+	}
+	f, err := findings.LoadFinding(campaign, findingID)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	if !containsStr(valueStrings(getDeep(f, "dedup", "possible_duplicate_of")), ofFindingID) {
+		// Python raises KeyError(inner); str(KeyError) is repr(inner), which
+		// is what the CLI prints, so the error text is that repr.
+		inner := fmt.Sprintf("%s has no candidate flag for %s; run the dedup sweep first",
+			findingID, validation.PyReprStr(ofFindingID))
+		return validation.VNull(), fmt.Errorf("%s", validation.PyReprStr(inner))
+	}
+	stripped := pyStrip(note)
+	if note != "" && len([]rune(stripped)) < 5 {
+		return validation.VNull(), fmt.Errorf("a candidate verdict note, when given, must be substantive")
+	}
+	// Both sides are loaded before either is saved (Python builds the whole
+	// ((f, of), (load(of), id)) tuple first).
+	other, err := findings.LoadFinding(campaign, ofFindingID)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	sides := []struct {
+		side    validation.Value
+		otherID string
+	}{{f, ofFindingID}, {other, findingID}}
+	for _, s := range sides {
+		side := setDeep(s.side, validation.VStr(verdict), "dedup", "candidate_verdicts", s.otherID)
+		if note != "" {
+			side = setDeep(side, validation.VStr(stripped), "dedup_meta", "candidate_notes", s.otherID)
+		}
+		if err := findings.SaveFinding(campaign, &side); err != nil {
+			return validation.VNull(), err
+		}
+	}
+	data := validation.VObj(
+		kv("of", validation.VStr(ofFindingID)),
+		kv("verdict", validation.VStr(verdict)),
+		kv("actor", validation.VStr(actor)),
+	)
+	if _, err := campaign.Log("dedup.candidate_resolved", &findingID, &data); err != nil {
+		return validation.VNull(), err
+	}
+	if verdict == "same" {
+		if err := mergeYounger(campaign, f, ofFindingID); err != nil {
+			return validation.VNull(), err
+		}
+	}
+	return f, nil
+}
+
+// mergeYounger is resolve_candidate's `same` tail: reload the flagged
+// partner, pick the younger side by created_at (ties keep f), and merge it
+// into the older one unless it is already DUPLICATE.
+func mergeYounger(campaign *state.Campaign, f validation.Value, ofFindingID string) error {
+	other, err := findings.LoadFinding(campaign, ofFindingID)
+	if err != nil {
+		return err
+	}
+	younger, older := f, other
+	if objStr(f, "created_at") < objStr(other, "created_at") {
+		younger, older = other, f
+	}
+	if objStr(younger, "status") == "DUPLICATE" {
+		return nil
+	}
+	_, err = markDuplicateFunc(campaign, objStr(younger, "finding_id"), objStr(older, "finding_id"))
+	return err
+}
+
+// ---- local Value helpers (findings' equivalents are unexported) -------------
+
+// objAt is the findings-local dict lookup: the value for key, or Null when
+// the key is absent (or the receiver is not an object).
+func objAt(v validation.Value, key string) validation.Value {
+	if v.Kind != validation.Obj {
+		return validation.VNull()
+	}
+	for _, kv := range v.O {
+		if kv.K == key {
+			return kv.V
+		}
+	}
+	return validation.VNull()
+}
+
+// objStr is the string flavor of objAt ("" when absent or not a string).
+func objStr(v validation.Value, key string) string {
+	return objAt(v, key).S
+}
+
+// getDeep is a chain of dict.get: Null as soon as a step is missing or is not
+// an object (Python's (d.get(k1) or {}).get(k2)).
+func getDeep(root validation.Value, keys ...string) validation.Value {
+	cur := root
+	for _, k := range keys {
+		if cur.Kind != validation.Obj {
+			return validation.VNull()
+		}
+		cur = objAt(cur, k)
+	}
+	return cur
+}
+
+// setDeep is Python's d.setdefault(k1, {})[k2] = v chain: missing
+// intermediate objects are created, an existing key keeps its position.
+func setDeep(root validation.Value, v validation.Value, keys ...string) validation.Value {
+	if len(keys) == 0 {
+		return v
+	}
+	child := validation.VObj()
+	for _, kv := range root.O {
+		if kv.K == keys[0] && kv.V.Kind == validation.Obj {
+			child = kv.V
+			break
+		}
+	}
+	child = setDeep(child, v, keys[1:]...)
+	root.O = setOrAppendKV(root.O, keys[0], child)
+	return root
+}
+
+// setOrAppendKV mirrors Python dict assignment: an existing key is replaced
+// in place (position kept), a new key is appended at the end.
+func setOrAppendKV(o []validation.KV, key string, v validation.Value) []validation.KV {
+	for i := range o {
+		if o[i].K == key {
+			o[i].V = v
+			return o
+		}
+	}
+	return append(o, validation.KV{K: key, V: v})
+}
+
+// sigAt is (f.get("dedup") or {}).get(key) when truthy: the signature string,
+// or "" for a falsy value (absent, null, empty).
+func sigAt(f validation.Value, key string) string {
+	if v := getDeep(f, "dedup", key); v.Kind == validation.Str {
+		return v.S
+	}
+	return ""
+}
+
+// groupBySig buckets findings by one dedup signature, preserving the first
+// appearance order of each signature (Python dict iteration order).
+func groupBySig(live []validation.Value, key string, exclude map[string]bool) []sigGroup {
+	var groups []sigGroup
+	index := map[string]int{}
+	for _, f := range live {
+		sig := sigAt(f, key)
+		if sig == "" {
+			continue
+		}
+		if exclude != nil && exclude[objStr(f, "finding_id")] {
+			continue
+		}
+		i, ok := index[sig]
+		if !ok {
+			i = len(groups)
+			index[sig] = i
+			groups = append(groups, sigGroup{sig: sig})
+		}
+		groups[i].members = append(groups[i].members, f)
+	}
+	return groups
+}
+
+// valueStrings is the string elements of a list value (finding ids; a
+// non-list or non-string element cannot pass the finding schema).
+func valueStrings(v validation.Value) []string {
+	if v.Kind != validation.Arr {
+		return nil
+	}
+	out := make([]string, 0, len(v.A))
+	for _, e := range v.A {
+		if e.Kind == validation.Str {
+			out = append(out, e.S)
+		}
+	}
+	return out
+}
+
+// strArray builds a JSON array value from strings.
+func strArray(items []string) validation.Value {
+	arr := validation.VArr()
+	for _, s := range items {
+		arr.A = append(arr.A, validation.VStr(s))
+	}
+	return arr
+}
+
+// containsStr is Python's `x in list`.
+func containsStr(items []string, want string) bool {
+	for _, s := range items {
+		if s == want {
+			return true
+		}
+	}
+	return false
+}
+
+// sameSpot is the tier-2 same_spot test: the first affected path AND function
+// match ((f.get("affected") or [{}])[0] on both sides).
+func sameSpot(dup, keep validation.Value) bool {
+	dupFirst, keepFirst := firstAffected(dup), firstAffected(keep)
+	return pyEqual(objAt(dupFirst, "path"), objAt(keepFirst, "path")) &&
+		pyEqual(objAt(dupFirst, "function"), objAt(keepFirst, "function"))
+}
+
+// firstAffected is (f.get("affected") or [{}])[0]: the first affected entry,
+// or an empty object when affected is missing or empty (both fields then
+// compare as Python None).
+func firstAffected(f validation.Value) validation.Value {
+	arr := objAt(f, "affected")
+	if arr.Kind == validation.Arr && len(arr.A) > 0 {
+		return arr.A[0]
+	}
+	return validation.VObj()
+}
+
+// pyEqual is Python == on two decoded JSON values: numbers compare across
+// int/float, containers element-wise, objects key-insensitively to order.
+func pyEqual(a, b validation.Value) bool {
+	if isNum(a) && isNum(b) {
+		return ratOf(a).Cmp(ratOf(b)) == 0
+	}
+	if a.Kind != b.Kind {
+		return false
+	}
+	switch a.Kind {
+	case validation.Null:
+		return true
+	case validation.Bool:
+		return a.B == b.B
+	case validation.Str:
+		return a.S == b.S
+	case validation.Arr:
+		if len(a.A) != len(b.A) {
+			return false
+		}
+		for i := range a.A {
+			if !pyEqual(a.A[i], b.A[i]) {
+				return false
+			}
+		}
+		return true
+	case validation.Obj:
+		if len(a.O) != len(b.O) {
+			return false
+		}
+		for _, kv := range a.O {
+			if !pyEqual(kv.V, objAt(b, kv.K)) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// isNum reports whether v is an int or a float (Python's numeric kinds).
+func isNum(v validation.Value) bool {
+	return v.Kind == validation.Int || v.Kind == validation.Flt
+}
+
+// ratOf is the exact rational value of a number (big ints included).
+func ratOf(v validation.Value) *big.Rat {
+	if v.Kind == validation.Flt {
+		return new(big.Rat).SetFloat64(v.F)
+	}
+	text := validation.IntText(v)
+	if r, ok := new(big.Rat).SetString(text); ok {
+		return r
+	}
+	return new(big.Rat)
+}
+
+// pyStrip is Python's str.strip() with no argument: trim str.isspace()
+// characters from both ends.
+func pyStrip(s string) string {
+	return strings.TrimFunc(s, pySpace)
+}
+
+// pySpace is Py_UNICODE_ISSPACE: the Unicode White_Space property plus the
+// ASCII file separators U+001C-U+001F (Python's str.isspace() says true
+// there, unicode.IsSpace does not).
+func pySpace(r rune) bool {
+	if r >= 0x1c && r <= 0x1f {
+		return true
+	}
+	return unicode.IsSpace(r)
+}
