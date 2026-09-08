@@ -479,7 +479,7 @@ git commit -m "P0: stage ledger + artifact register/prune/refresh (Task 9)"
 - \`_pinned_files(snap_dir)\`: SOURCE_EXCLUDES on parts + skip root snapshot.json.
 - \`source_merkle_root(snap_dir)\`: merkle over [fileLeaf(p) for p in pinnedFiles].
 
-- [ ] **Step 1: Write the failing tests** (port \`test_snapshot_integrity.py::test_content_hash_is_length_prefixed_and_order_invariant\`, hashing parts):
+- [x] **Step 1: Write the failing tests** (port \`test_snapshot_integrity.py::test_content_hash_is_length_prefixed_and_order_invariant\`, hashing parts):
   - contentHash small tree == known, count correct.
   - rename a->b same content -> hash changes (length-prefix), count stable.
   - new file -> new hash.
@@ -488,10 +488,10 @@ git commit -m "P0: stage ledger + artifact register/prune/refresh (Task 9)"
   - contentHash skips root snapshot.json but includes nested ones.
   - SOURCE_EXCLUDES honored at any depth.
   - canonical matches Task 1 compact.
-- [ ] **Step 2: Run to verify they fail** — \`go test ./internal/snapshot -run Hashing\` -> FAIL.
-- [ ] **Step 3: Implement** \`hashing.go\`.
-- [ ] **Step 4: Run to verify pass** — \`go test ./internal/snapshot\` -> PASS.
-- [ ] **Step 5: Commit**
+- [x] **Step 2: Run to verify they fail** — \`go test ./internal/snapshot -run Hashing\` -> FAIL.
+- [x] **Step 3: Implement** \`hashing.go\`.
+- [x] **Step 4: Run to verify pass** — \`go test ./internal/snapshot\` -> PASS.
+- [x] **Step 5: Commit**
 \`\`\`bash
 git add internal/snapshot/
 git commit -m "P0: snapshot content_hash + merkle + canonical (Task 10)"
