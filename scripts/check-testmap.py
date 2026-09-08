@@ -32,6 +32,10 @@ P0_FILES = [
     "tests/test_snap_toolchain.py",
     "tests/test_audit.py",
     "tests/test_root_default.py",
+    # P0 addendum (tagged 2026-09-08): register_or_refresh behavior,
+    # already implemented in P0 (state/artifacts.go); the 7 tests are
+    # ported as the first task of the P1 plan.
+    "tests/test_living_artifacts.py",
 ]
 
 FAIL = []
@@ -116,11 +120,11 @@ def check_p0_cover(doc):
 def index_go_tests():
     pat = re.compile(r"func\s+(Test\w+)\s*\(")
     idx = {}
-    for sub in ("internal/state", "internal/snapshot",
-                "internal/audit", "internal/cli"):
-        for f in (GO_ROOT / sub).glob("*_test.go"):
-            rel = str(f.relative_to(GO_ROOT))
-            idx[rel] = set(pat.findall(f.read_text(encoding="utf-8")))
+    # All Go test files under internal/ (P0: state/snapshot/audit/cli;
+    # P1+ adds findings/planner/pipeline/... — walk, don't enumerate).
+    for f in sorted((GO_ROOT / "internal").rglob("*_test.go")):
+        rel = str(f.relative_to(GO_ROOT))
+        idx[rel] = set(pat.findall(f.read_text(encoding="utf-8")))
     # flatten with file context for better errors
     func_to_files = {}
     for gf, funcs in idx.items():
@@ -180,13 +184,16 @@ def main():
     n_deferred = len(rows) - n_real
     n_merged = sum(1 for r in rows if "status" not in r and "merged_into" in r)
     n_1to1 = n_real - n_merged
+    from collections import Counter
+    buckets = Counter(r["status"] for r in rows if "status" in r)
     print("testmap.json reconciled OK")
     print(f"  rows total           : {len(rows)} (matches count-python-tests.py grand total {grand})")
     print(f"  real rows (P0 slice) : {n_real}  [1:1={n_1to1}, merged={n_merged}]")
-    print(f"  deferred stubs       : {n_deferred}")
+    print(f"  deferred stubs       : {n_deferred}  "
+          + "  ".join(f"{k}={buckets[k]}" for k in sorted(buckets)))
     print(f"  distinct py funcs    : {n_mapped}")
-    print("  P0 9-file slice       : fully real (no deferred stubs)")
-    print("  go_file/go_func refs  : all exist in internal/{state,snapshot,audit,cli}")
+    print(f"  P0 {len(P0_FILES)}-file slice     : fully real (no deferred stubs)")
+    print("  go_file/go_func refs  : all exist in the Go test tree")
     return 0
 
 
