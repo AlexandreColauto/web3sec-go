@@ -8,10 +8,10 @@ import (
 	"strconv"
 )
 
-// parseOrdered decodes JSON into an ordered Value, preserving object key
+// ParseOrdered decodes JSON into an ordered Value, preserving object key
 // order (the on-disk writer and the schema file-order walk depend on it)
 // and the int vs float distinction (json.Number, as in CPython's json.load).
-func parseOrdered(data []byte) (Value, error) {
+func ParseOrdered(data []byte) (Value, error) {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.UseNumber()
 	tok, err := dec.Token()

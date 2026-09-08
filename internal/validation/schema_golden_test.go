@@ -466,7 +466,7 @@ var goldenRows = []goldenRow{
 func TestGoldenOQ3(t *testing.T) {
 	for _, g := range goldenRows {
 		t.Run(g.schema+"/"+g.label, func(t *testing.T) {
-			v, err := parseOrdered([]byte(g.data))
+			v, err := ParseOrdered([]byte(g.data))
 			if err != nil {
 				t.Fatalf("fixture parse: %v", err)
 			}

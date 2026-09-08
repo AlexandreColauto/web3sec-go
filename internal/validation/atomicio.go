@@ -10,22 +10,22 @@ import (
 	"path/filepath"
 )
 
-// readJson is Python's read_json: parse a UTF-8 JSON file into an ordered
+// ReadJson is Python's read_json: parse a UTF-8 JSON file into an ordered
 // Value (key order and the int/float distinction preserved).
-func readJson(path string) (Value, error) {
+func ReadJson(path string) (Value, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return VNull(), err
 	}
-	return parseOrdered(raw)
+	return ParseOrdered(raw)
 }
 
-// writeJson is Python's write_json: validate when schemaName is set,
+// WriteJson is Python's write_json: validate when schemaName is set,
 // create parent dirs, dump with indent=2 / ensure_ascii=False (raw
 // UTF-8) plus a trailing newline to a tmp file, then atomically rename.
 // The tmp name mirrors Path.with_suffix(suffix + ".tmp"): foo.json ->
 // foo.json.tmp, foo -> foo.tmp.
-func writeJson(path string, data Value, schemaName string) error {
+func WriteJson(path string, data Value, schemaName string) error {
 	if schemaName != "" {
 		if err := Validate(data, schemaName, 1); err != nil {
 			return err
@@ -57,17 +57,17 @@ func tmpName(path string) string {
 	return filepath.Join(dir, base[:len(base)-len(ext)]+ext+".tmp")
 }
 
-// appendJsonl appends one line + "\n" (raw UTF-8; used by the non-ASCII
+// AppendJsonl appends one line + "\n" (raw UTF-8; used by the non-ASCII
 // logs: learnings, planner_hints, benchmarks, waivers).
-func appendJsonl(path, line string) error {
+func AppendJsonl(path, line string) error {
 	return appendJsonlChecked(path, line, true)
 }
 
-// appendJsonlAscii is the events/costs log writer: the JSONL split policy
+// AppendJsonlAscii is the events/costs log writer: the JSONL split policy
 // requires those files to be pure ASCII (framing/hash determinism), so a
 // non-ASCII line is rejected before anything is written (Go-native
 // hardening over the Python port, which trusted its callers).
-func appendJsonlAscii(path, line string) error {
+func AppendJsonlAscii(path, line string) error {
 	return appendJsonlChecked(path, line, false)
 }
 
@@ -95,14 +95,14 @@ func isASCII(s string) bool {
 	return true
 }
 
-// sha256Hex is hashlib.sha256(data).hexdigest().
-func sha256Hex(data []byte) string {
+// Sha256Hex is hashlib.sha256(data).hexdigest().
+func Sha256Hex(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
 }
 
-// sha256File is sha256_path: stream the file in 64KiB chunks.
-func sha256File(path string) (string, error) {
+// Sha256File is sha256_path: stream the file in 64KiB chunks.
+func Sha256File(path string) (string, error) {
 	fh, err := os.Open(path)
 	if err != nil {
 		return "", err

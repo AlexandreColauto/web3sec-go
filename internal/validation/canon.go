@@ -245,7 +245,7 @@ func writeU4(b *strings.Builder, r rune) {
 
 // DumpIndented renders json.dumps(v, indent=2, ensure_ascii=False):
 // insertion order, 2-space indent, raw non-ASCII, no trailing newline
-// (writeJson adds it).
+// (WriteJson adds it).
 func DumpIndented(v Value) string {
 	var b strings.Builder
 	writeIndented(&b, v, 0)

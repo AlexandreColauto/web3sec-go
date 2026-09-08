@@ -277,7 +277,7 @@ git commit -m "P0: atomic JSON IO + JSONL split policy (Task 4)"
 
 **Time/ids:** \`nowIso\` = UTC + 6-digit microseconds + \`+00:00\` (never \`Z\`), nanoseconds truncated. \`newId(prefix,n=12)\` = \`prefix + "-" + uuid4().hex[:n]\`. \`capNote\`: None->""; non-str -> \`json.dumps(note, sort_keys=True, default=str)\` (on TypeError/ValueError -> \`str(note)\`); if len <= 4096 return; else \`note[:4096] + " …[truncated {len-4096} chars — full content must live in an artifact, not a stage note]"\` (space + ellipsis U+2026).
 
-- [ ] **Step 1: Write the failing tests** — \`campaign_test.go\` (port \`test_state.py\` init/layout/ids):
+- [x] **Step 1: Write the failing tests** — \`campaign_test.go\` (port \`test_state.py\` init/layout/ids):
   - init creates 6 dirs, campaign_state.json, events.jsonl; listCampaigns == [id].
   - init duplicate id -> FileExistsError with exact message.
   - bad id -> message \`malformed campaign id: 'INVALID ID'\`.
@@ -286,10 +286,10 @@ git commit -m "P0: atomic JSON IO + JSONL split policy (Task 4)"
   - newId("C",10) matches \`^C-[0-9a-f]{10}$\`.
   - capNote: None->""; str 5->same; dict->sorted serialized; long->truncated \`…[truncated N chars\` suffix; exact 4096 ok.
   - sha256File == known hash.
-- [ ] **Step 2: Run to verify they fail** — \`go test ./internal/state -run Campaign\` -> FAIL.
-- [ ] **Step 3: Implement** \`campaign.go\`, \`id.go\`, \`note.go\`.
-- [ ] **Step 4: Run to verify pass** — \`go test ./internal/state\` -> PASS.
-- [ ] **Step 5: Commit**
+- [x] **Step 2: Run to verify they fail** — \`go test ./internal/state -run Campaign\` -> FAIL.
+- [x] **Step 3: Implement** \`campaign.go\`, \`id.go\`, \`note.go\`.
+- [x] **Step 4: Run to verify pass** — \`go test ./internal/state\` -> PASS.
+- [x] **Step 5: Commit**
 \`\`\`bash
 git add internal/state/
 git commit -m "P0: Campaign skeleton init/open + ids/notes (Task 5)"
@@ -320,7 +320,7 @@ git commit -m "P0: Campaign skeleton init/open + ids/notes (Task 5)"
 
 **ASCII (spec §5.4):** events.jsonl lines must be ASCII-clean. Non-ASCII (U+2028 etc.) escaped on disk as \`\\u2028\` so JSONL stays one-event-per-line and hash is independent of line separators. \`test_non_ascii_payload_cannot_break_framing_or_alias\` encodes this.
 
-- [ ] **Step 1: Write the failing tests** — port \`test_state_log.py\`, \`test_state_log_chain.py\` (non-verify_log parts):
+- [x] **Step 1: Write the failing tests** — port \`test_state_log.py\`, \`test_state_log_chain.py\` (non-verify_log parts):
   - first event prev_hash == GENESIS_HASH; event_hash == eventHash(first).
   - 4 appends chain (each prev_hash == prior event_hash).
   - seq contiguity from 0; jsonl replay strictly increasing.
@@ -328,10 +328,10 @@ git commit -m "P0: Campaign skeleton init/open + ids/notes (Task 5)"
   - data with \`\\u2028\` writes \`\\\\u2028\` on disk; identical payload different seq/time -> distinct hashes.
   - None ref/data -> ref:null, data:{}.
   - legacy: pre-chain first event no event_hash -> next prev_hash == "legacy-seq-0".
-- [ ] **Step 2: Run to verify they fail** — \`go test ./internal/state -run EventLog\` -> FAIL.
-- [ ] **Step 3: Implement** \`eventlog.go\` (\`log/nextSeq/events/logLines/lastEvent\`) + \`chain.go\` (eventHash/legacyAnchor). Single-writer P0 CLI; still make \`log\` re-entrant-safe under one mutex now (\`go test -race\` is a hard gate from day one).
-- [ ] **Step 4: Run to verify pass** — \`go test ./internal/state\` -> PASS.
-- [ ] **Step 5: Commit**
+- [x] **Step 2: Run to verify they fail** — \`go test ./internal/state -run EventLog\` -> FAIL.
+- [x] **Step 3: Implement** \`eventlog.go\` (\`log/nextSeq/events/logLines/lastEvent\`) + \`chain.go\` (eventHash/legacyAnchor). Single-writer P0 CLI; still make \`log\` re-entrant-safe under one mutex now (\`go test -race\` is a hard gate from day one).
+- [x] **Step 4: Run to verify pass** — \`go test ./internal/state\` -> PASS.
+- [x] **Step 5: Commit**
 \`\`\`bash
 git add internal/state/
 git commit -m "P0: hash-chained event log append (Task 6)"

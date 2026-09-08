@@ -50,14 +50,14 @@ func loadSchema(name string) (*schemaEntry, error) {
 	}
 	if !slices.Contains(knownSchemas, name) {
 		return nil, fmt.Errorf("unknown schema %s; known: %s",
-			pyReprStr(name), pyReprTuple(knownSchemas))
+			PyReprStr(name), pyReprTuple(knownSchemas))
 	}
 	raw, err := assets.FS.ReadFile("schema/" + name + ".schema.json")
 	if err != nil {
 		// unreachable: the embedded FS is built from the same 27 files
 		return nil, fmt.Errorf("schema file missing: schema/%s.schema.json", name)
 	}
-	doc, err := parseOrdered(raw)
+	doc, err := ParseOrdered(raw)
 	if err != nil {
 		return nil, err
 	}

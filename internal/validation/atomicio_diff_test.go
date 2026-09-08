@@ -17,7 +17,7 @@ func TestDumpIndentedMatchesCPython(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			v, err := readJson(p)
+			v, err := ReadJson(p)
 			if err != nil {
 				t.Fatal(err)
 			}

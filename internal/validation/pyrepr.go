@@ -24,13 +24,13 @@ func pyRepr(v Value) string {
 	case Flt:
 		return pythonFloat(v.F)
 	case Str:
-		return pyReprStr(v.S)
+		return PyReprStr(v.S)
 	case Arr:
 		return "[" + pyReprJoin(v.A) + "]"
 	case Obj:
 		parts := make([]string, len(v.O))
 		for i, kv := range v.O {
-			parts[i] = pyReprStr(kv.K) + ": " + pyRepr(kv.V)
+			parts[i] = PyReprStr(kv.K) + ": " + pyRepr(kv.V)
 		}
 		return "{" + strings.Join(parts, ", ") + "}"
 	}
@@ -50,17 +50,17 @@ func pyReprJoin(items []Value) string {
 func pyReprTuple(items []string) string {
 	parts := make([]string, len(items))
 	for i, s := range items {
-		parts[i] = pyReprStr(s)
+		parts[i] = PyReprStr(s)
 	}
 	return "(" + strings.Join(parts, ", ") + ")"
 }
 
-// pyReprStr is CPython str repr: single-quoted unless the string contains a
+// PyReprStr is CPython str repr: single-quoted unless the string contains a
 // single quote and no double quote, then double-quoted. Escape rules pinned
 // against CPython 3.14: \\, the active quote, \n \t \r get named escapes,
 // every other non-printable gets \xNN / \uNNNN / \UNNNNNNNN, and all
 // printable non-ASCII passes through raw.
-func pyReprStr(s string) string {
+func PyReprStr(s string) string {
 	q := byte('\'')
 	if strings.IndexByte(s, '\'') >= 0 && strings.IndexByte(s, '"') < 0 {
 		q = '"'

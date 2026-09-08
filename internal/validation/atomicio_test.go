@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// TestReadJsonRoundTrip: readJson preserves key order and the int/float
+// TestReadJsonRoundTrip: ReadJson preserves key order and the int/float
 // distinction (json.load semantics).
 func TestReadJsonRoundTrip(t *testing.T) {
 	dir := t.TempDir()
@@ -15,7 +15,7 @@ func TestReadJsonRoundTrip(t *testing.T) {
 	if err := os.WriteFile(p, []byte(`{"b": 1, "a": 1.5, "c": null}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	v, err := readJson(p)
+	v, err := ReadJson(p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestReadJsonNonASCII(t *testing.T) {
 	if err := os.WriteFile(p, []byte(`{"s": "café \u0627"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	v, err := readJson(p)
+	v, err := ReadJson(p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestWriteJsonFormat(t *testing.T) {
 		KV{"b", VObj()},
 		KV{"d", VStr("é")},
 	)
-	if err := writeJson(p, data, ""); err != nil {
+	if err := WriteJson(p, data, ""); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(p)
@@ -83,7 +83,7 @@ func TestWriteJsonValidation(t *testing.T) {
 	bad := VObj(
 		KV{"finding_id", VStr("nope")},
 	)
-	err := writeJson(p, bad, "finding")
+	err := WriteJson(p, bad, "finding")
 	var se *SchemaError
 	if !asSchemaError(err, &se) {
 		t.Fatalf("expected *SchemaError, got %v", err)
@@ -101,7 +101,7 @@ func TestWriteJsonValidation(t *testing.T) {
 func TestWriteJsonAtomic(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "f.json")
-	if err := writeJson(p, VInt(1), ""); err != nil {
+	if err := WriteJson(p, VInt(1), ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(p + ".tmp"); !os.IsNotExist(err) {
@@ -113,7 +113,7 @@ func TestWriteJsonAtomic(t *testing.T) {
 	}
 	// No-suffix path: foo -> foo.tmp
 	p2 := filepath.Join(dir, "bare")
-	if err := writeJson(p2, VInt(2), ""); err != nil {
+	if err := WriteJson(p2, VInt(2), ""); err != nil {
 		t.Fatal(err)
 	}
 	raw2, _ := os.ReadFile(p2)
@@ -130,11 +130,11 @@ func TestWriteJsonAtomic(t *testing.T) {
 func TestWriteJsonBigInt(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "big.json")
-	v, err := parseOrdered([]byte(`{"wei": 12345678901234567890, "neg": -115792089237316195423570985008687907853269984665640564039457584007913129639935}`))
+	v, err := ParseOrdered([]byte(`{"wei": 12345678901234567890, "neg": -115792089237316195423570985008687907853269984665640564039457584007913129639935}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := writeJson(p, v, ""); err != nil {
+	if err := WriteJson(p, v, ""); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(p)
@@ -154,7 +154,7 @@ func TestSha256File(t *testing.T) {
 	if err := os.WriteFile(p, []byte("abc"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	h, err := sha256File(p)
+	h, err := Sha256File(p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,8 +163,8 @@ func TestSha256File(t *testing.T) {
 	if h != want {
 		t.Errorf("sha256: got %s want %s", h, want)
 	}
-	if got := sha256Hex([]byte("abc")); got != want {
-		t.Errorf("sha256Hex: %s", got)
+	if got := Sha256Hex([]byte("abc")); got != want {
+		t.Errorf("Sha256Hex: %s", got)
 	}
 }
 
@@ -173,10 +173,10 @@ func TestSha256File(t *testing.T) {
 func TestAppendJsonl(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "x.jsonl")
-	if err := appendJsonl(p, `{"a": 1}`); err != nil {
+	if err := AppendJsonl(p, `{"a": 1}`); err != nil {
 		t.Fatal(err)
 	}
-	if err := appendJsonl(p, `{"a": 2}`); err != nil {
+	if err := AppendJsonl(p, `{"a": 2}`); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(p)
@@ -193,10 +193,10 @@ func TestAppendJsonl(t *testing.T) {
 func TestAppendJsonlAscii(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "e.jsonl")
-	if err := appendJsonlAscii(p, `{"a": 1}`); err != nil {
+	if err := AppendJsonlAscii(p, `{"a": 1}`); err != nil {
 		t.Fatal(err)
 	}
-	if err := appendJsonlAscii(p, `{"s": "é"}`); err == nil {
+	if err := AppendJsonlAscii(p, `{"s": "é"}`); err == nil {
 		t.Error("non-ascii line must be rejected")
 	}
 	raw, _ := os.ReadFile(p)

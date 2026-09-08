@@ -174,9 +174,9 @@ func renderLeaf(data Value, l leaf) string {
 	case *kind.Const:
 		return fmt.Sprintf("%s was expected", pyRepr(anyToValue(k.Want)))
 	case *kind.Pattern:
-		return fmt.Sprintf("%s does not match %s", repr, pyReprStr(k.Want))
+		return fmt.Sprintf("%s does not match %s", repr, PyReprStr(k.Want))
 	case *kind.Required:
-		return fmt.Sprintf("%s is a required property", pyReprStr(k.Missing[0]))
+		return fmt.Sprintf("%s is a required property", PyReprStr(k.Missing[0]))
 	case *kind.MinLength:
 		return fmt.Sprintf("%s %s", repr, shortLong(k.Want, true))
 	case *kind.MinItems:
@@ -240,7 +240,7 @@ func shortLong(want int, isMin bool) string {
 func joinRepr(items []string) string {
 	parts := make([]string, len(items))
 	for i, s := range items {
-		parts[i] = pyReprStr(s)
+		parts[i] = PyReprStr(s)
 	}
 	return strings.Join(parts, ", ")
 }

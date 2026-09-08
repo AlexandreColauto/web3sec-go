@@ -30,7 +30,7 @@ func TestUnknownSchema(t *testing.T) {
 
 // TestValidFinding: the OQ3 base finding is schema-valid.
 func TestValidFinding(t *testing.T) {
-	v, err := parseOrdered([]byte(`{
+	v, err := ParseOrdered([]byte(`{
  "finding_id": "F-0123456789ab",
  "campaign_id": "C-abc123def456",
  "snapshot_ids": {"source": "abc123def456"},
@@ -60,7 +60,7 @@ func TestValidFinding(t *testing.T) {
 func TestSingleErrorPapercut(t *testing.T) {
 	// Build a finding with exactly one violation: bad status.
 	mut := strings.Replace(validFindingJSON, `"status": "HYPOTHESIS"`, `"status": "BOGUS"`, 1)
-	d, _ := parseOrdered([]byte(mut))
+	d, _ := ParseOrdered([]byte(mut))
 	err := Validate(d, "finding", 1)
 	var se *SchemaError
 	if asSchemaError(err, &se) {

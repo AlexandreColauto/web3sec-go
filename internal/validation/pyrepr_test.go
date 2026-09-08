@@ -40,8 +40,8 @@ func TestPyReprString(t *testing.T) {
 		{"both'and\"", `'both\'and"'`},
 	}
 	for _, c := range cases {
-		if got := pyReprStr(c.in); got != c.want {
-			t.Errorf("pyReprStr(%q):\n got %q\nwant %q", c.in, got, c.want)
+		if got := PyReprStr(c.in); got != c.want {
+			t.Errorf("PyReprStr(%q):\n got %q\nwant %q", c.in, got, c.want)
 		}
 	}
 }
