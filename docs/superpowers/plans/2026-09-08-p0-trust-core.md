@@ -521,7 +521,7 @@ git commit -m "P0: snapshot content_hash + merkle + canonical (Task 10)"
 
 **BULK_SOURCE_EXCLUDES** = {"data","datasets","data-raw",".scratch","webv2-workspace",".pytest_cache",".mypy_cache",".ruff_cache",".tox","build","dist"}.
 
-- [ ] **Step 1: Write the failing tests** (port \`test_snapshot.py\` non-hash parts, \`test_snapshot_integrity.py\` integrity, \`test_snap_exclude.py\`):
+- [x] **Step 1: Write the failing tests** (port \`test_snapshot.py\` non-hash parts, \`test_snapshot_integrity.py\` integrity, \`test_snap_exclude.py\`):
   - no-vcs ladder; pinned root has src/Vault.sol and snapshot.json.
   - re-pin identical -> same snapshot_id + content_hash; changed content -> different id, old dir immutable.
   - git-dirty ladder (init+commit+dirty) -> "git-dirty", content_hash 64, id form "src-<7>-content-...".
@@ -530,10 +530,10 @@ git commit -m "P0: snapshot content_hash + merkle + canonical (Task 10)"
   - tampered immutable copy -> RuntimeError "no longer matches", file NOT repaired.
   - repin identical content -> noop (same id).
   - toolchain detection test data (Task 12) not here.
-- [ ] **Step 2: Run to verify they fail** — \`go test ./internal/snapshot -run Pin\` -> FAIL.
-- [ ] **Step 3: Implement** \`ladder.go\` + \`pin.go\`. **git is a runtime dependency** (like Python subprocess) — probe-guard it; missing git degrades git-clean/git-dirty to no-vcs fallback exactly like Python (\`_git\` returns "" and worktree_added stays false).
-- [ ] **Step 4: Run to verify pass** — \`go test ./internal/snapshot\` -> PASS.
-- [ ] **Step 5: Commit** — \`git add internal/snapshot/ && git commit -m "P0: snapshot ladder + pin_source_snapshot (Task 11)"\`
+- [x] **Step 2: Run to verify they fail** — \`go test ./internal/snapshot -run Pin\` -> FAIL.
+- [x] **Step 3: Implement** \`ladder.go\` + \`pin.go\`. **git is a runtime dependency** (like Python subprocess) — probe-guard it; missing git degrades git-clean/git-dirty to no-vcs fallback exactly like Python (\`_git\` returns "" and worktree_added stays false).
+- [x] **Step 4: Run to verify pass** — \`go test ./internal/snapshot\` -> PASS.
+- [x] **Step 5: Commit** — \`git add internal/snapshot/ && git commit -m "P0: snapshot ladder + pin_source_snapshot (Task 11)"\`
 
 ---
 
@@ -570,7 +570,7 @@ git commit -m "P0: snapshot content_hash + merkle + canonical (Task 10)"
 
 **Ponytail note:** foundry.toml parse uses \`pelletier/go-toml/v2\` (native TOML, deterministic); but Python \`tomllib\` is a TOML 1.0 parser — verify go-toml accepts the same grammar for the foundry subset. Any divergence from tomllib on the foundry files is a KNOWN_DIVERGENCES entry.
 
-- [ ] **Step 1: Write the failing tests** (port \`test_snap_toolchain.py\` + manifest/compat portions of \`test_snapshot_integrity.py\`):
+- [x] **Step 1: Write the failing tests** (port \`test_snap_toolchain.py\` + manifest/compat portions of \`test_snapshot_integrity.py\`):
   - detectToolchain on a tree with foundry.toml sol="0.8.24" -> {compiler:"0.8.24", build_system:"foundry"}; sol list -> comma-joined; no foundry.toml -> None; bad TOML -> None (no crash).
   - CLI snap on a foundry target prints \`toolchain: foundry — solc 0.8.24\` (after Task 17 wires cli).
   - activeSnapshot None then set; pinSnapshot sets id.
@@ -579,10 +579,10 @@ git commit -m "P0: snapshot content_hash + merkle + canonical (Task 10)"
   - attachDeploymentPin: builds deployment set; logs snapshot.deployment_pinned.
   - attachChainPin: writes chain record + log.
   - manifestHash self-anchors; merkleRootOfVisibleLockfiles matches a known vector.
-- [ ] **Step 2: Run to verify they fail** — \`go test ./internal/snapshot -run Toolchain\` and \`-run Compat\`, \`-run Manifest\` -> FAIL.
-- [ ] **Step 3: Implement** \`manifest.go\`, \`toolchain.go\`, \`compat.go\` + extend campaign pins.
-- [ ] **Step 4: Run to verify pass** — full \`go test ./internal/snapshot ./internal/state\` -> PASS.
-- [ ] **Step 5: Commit** — \`git add internal/snapshot/ internal/state/ && git commit -m "P0: snapshot manifest/toolchain/pins/compat (Task 12)"\`
+- [x] **Step 2: Run to verify they fail** — \`go test ./internal/snapshot -run Toolchain\` and \`-run Compat\`, \`-run Manifest\` -> FAIL.
+- [x] **Step 3: Implement** \`manifest.go\`, \`toolchain.go\`, \`compat.go\` + extend campaign pins.
+- [x] **Step 4: Run to verify pass** — full \`go test ./internal/snapshot ./internal/state\` -> PASS.
+- [x] **Step 5: Commit** — \`git add internal/snapshot/ internal/state/ && git commit -m "P0: snapshot manifest/toolchain/pins/compat (Task 12)"\`
 
 ---
 
@@ -611,7 +611,7 @@ git commit -m "P0: snapshot content_hash + merkle + canonical (Task 10)"
 
 **Later phases** register sections 7-12 (relations, floor_policy, stage_completions, baselines, invariant_verification, sequence_coverage) by extending the registry — do NOT stub them always-pass in P0; a missing section is simply absent until its phase. Record the "audit backward-compat" note in \`KNOWN_DIVERGENCES.md\`: the P0 gate's golden campaign recipe must not depend on P1+ sections being green.
 
-- [ ] **Step 1: Write the failing tests** — \`audit_test.go\` (port \`test_audit.py\` P0-reachable cases; P1+ rows explicitly deferred):
+- [x] **Step 1: Write the failing tests** — \`audit_test.go\` (port \`test_audit.py\` P0-reachable cases; P1+ rows explicitly deferred):
   - fresh campaign audit -> ok true, present sections ok.
   - tamper an artifact file on disk -> artifacts problem, ok false.
   - tamper the event log (Task 7 style) -> event_log problem, ok false.
@@ -621,10 +621,10 @@ git commit -m "P0: snapshot content_hash + merkle + canonical (Task 10)"
   - snapshot pin then mutate pinned tree -> snapshots problem.
   - auditSummaryLine exact: \`audit FAIL: artifacts=1 problem(s), ...\`.
   - registry lists exactly the six names in deterministic order.
-- [ ] **Step 2: Run to verify they fail** — \`go test ./internal/audit\` -> FAIL.
-- [ ] **Step 3: Implement** registry + six sections + \`state/execs.go :: allExecs\`.
-- [ ] **Step 4: Run to verify pass** — \`go test ./internal/audit ./internal/state\` -> PASS; \`go test -race ./internal/audit\` -> PASS.
-- [ ] **Step 5: Commit** — \`git add internal/audit/ internal/state/execs.go && git commit -m "P0: audit section registry + sections 1-6 + allExecs (Task 13)"\`
+- [x] **Step 2: Run to verify they fail** — \`go test ./internal/audit\` -> FAIL.
+- [x] **Step 3: Implement** registry + six sections + \`state/execs.go :: allExecs\`.
+- [x] **Step 4: Run to verify pass** — \`go test ./internal/audit ./internal/state\` -> PASS; \`go test -race ./internal/audit\` -> PASS.
+- [x] **Step 5: Commit** — \`git add internal/audit/ internal/state/execs.go && git commit -m "P0: audit section registry + sections 1-6 + allExecs (Task 13)"\`
 
 ---
 ### Task 14: CLI — init / status / snap / log / audit / verify + --root
@@ -648,7 +648,7 @@ git commit -m "P0: snapshot content_hash + merkle + canonical (Task 10)"
 
 **Ponytail CLI note:** stdlib \`flag\` only (no cobra). \`--root\` is a persistent flag every subcommand parses first. All printing goes through a [bytes buffer]/\`io.Writer\` on the run struct so tests capture output without exec'ing the binary.
 
-- [ ] **Step 1: Write the failing tests** — \`cli_test.go\` (port \`test_root_default.py\` + cli golden):
+- [x] **Step 1: Write the failing tests** — \`cli_test.go\` (port \`test_root_default.py\` + cli golden):
   - init then status: status output contains campaign id and SCOPE.
   - status --json parses as canonical JSON with expected fields.
   - log --tail 2 after 4 events prints last 2.
@@ -659,10 +659,10 @@ git commit -m "P0: snapshot content_hash + merkle + canonical (Task 10)"
   - snap on a tiny foundry target -> prints \`toolchain: foundry — solc 0.8.24\`; snap --json valid.
   - --root honored: init --root tmp, then status --root tmp reads it.
   - help lists six subcommands.
-- [ ] **Step 2: Run to verify they fail** — \`go test ./internal/cli\` -> FAIL.
-- [ ] **Step 3: Implement** \`cmd/webv2/main.go\` + \`internal/cli\` dispatch + six commands. Wire \`internal/snapshot\` pin path into snap cmd per Task 12. **Do not** wire P1+ flags yet.
-- [ ] **Step 4: Run to verify pass** — \`go test ./...\` -> PASS; \`go test -race ./...\` -> PASS; \`go build ./cmd/webv2\` -> binary builds.
-- [ ] **Step 5: Commit** — \`git add cmd/ internal/cli/ && git commit -m "P0: CLI init/status/snap/log/audit/verify + --root (Task 14)"\`
+- [x] **Step 2: Run to verify they fail** — \`go test ./internal/cli\` -> FAIL.
+- [x] **Step 3: Implement** \`cmd/webv2/main.go\` + \`internal/cli\` dispatch + six commands. Wire \`internal/snapshot\` pin path into snap cmd per Task 12. **Do not** wire P1+ flags yet.
+- [x] **Step 4: Run to verify pass** — \`go test ./...\` -> PASS; \`go test -race ./...\` -> PASS; \`go build ./cmd/webv2\` -> binary builds.
+- [x] **Step 5: Commit** — \`git add cmd/ internal/cli/ && git commit -m "P0: CLI init/status/snap/log/audit/verify + --root (Task 14)"\`
 
 ---
 
@@ -682,11 +682,11 @@ git commit -m "P0: snapshot content_hash + merkle + canonical (Task 10)"
 
 **Contract:** the 27 embedded schemas must be **byte-identical** to the Python repo's \`schema/\` directory (spec §data). \`internal/validation\` loads schemas from the embedded FS (same set/names as Task 3; Task 3 may have read from a temp dir — this task finalizes the embedded source). Nothing else in the binary reads schema files from disk at runtime.
 
-- [ ] **Step 1: Write a failing test** — \`assets_test.go\`: embedded FS exposes all 27 schema names; each is valid JSON; \`campaign_state\`, \`snapshot\`, \`finding\`, \`sandbox_execution\` present.
-- [ ] **Step 2: Run to verify it fails** — \`go test ./internal/validation -run Assets\` -> FAIL (embedded FS empty until sync).
-- [ ] **Step 3: Write** \`scripts/sync-assets.sh\`: \`cp web3sec-final/schema/*.json assets/schema/\` then verify byte equality; run it.
-- [ ] **Step 4: Run to verify pass** — \`go test ./internal/validation\` -> PASS; \`diff -r web3sec-final/schema assets/schema\` clean.
-- [ ] **Step 5: Commit** — \`git add assets/ scripts/sync-assets.sh internal/validation/schemas.go && git commit -m "P0: sync 27 embedded schemas + sync-assets.sh (Task 15)"\`
+- [x] **Step 1: Write a failing test** — \`assets_test.go\`: embedded FS exposes all 27 schema names; each is valid JSON; \`campaign_state\`, \`snapshot\`, \`finding\`, \`sandbox_execution\` present.
+- [x] **Step 2: Run to verify it fails** — \`go test ./internal/validation -run Assets\` -> FAIL (embedded FS empty until sync).
+- [x] **Step 3: Write** \`scripts/sync-assets.sh\`: \`cp web3sec-final/schema/*.json assets/schema/\` then verify byte equality; run it.
+- [x] **Step 4: Run to verify pass** — \`go test ./internal/validation\` -> PASS; \`diff -r web3sec-final/schema assets/schema\` clean.
+- [x] **Step 5: Commit** — \`git add assets/ scripts/sync-assets.sh internal/validation/schemas.go && git commit -m "P0: sync 27 embedded schemas + sync-assets.sh (Task 15)"\`
 
 ---
 

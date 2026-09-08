@@ -306,6 +306,27 @@ func TestSnapExcludedReported(t *testing.T) {
 	}
 }
 
+// Port of test_cli_snap_exclude_flag: --exclude GLOB drops that top-level
+// name from the pin and the report names it.
+func TestSnapExcludeFlag(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	tgt := writeFoundryTarget(t, root)
+	if err := os.MkdirAll(filepath.Join(tgt, "generated"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tgt, "generated", "x.bin"), []byte("0"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", root, "snap", cid, tgt, "--exclude", "generated")
+	if code != 0 {
+		t.Fatalf("snap --exclude exit %d: %q", code, errS)
+	}
+	if !strings.Contains(out, "generated") {
+		t.Fatalf("exclusion report must name the excluded dir: %q", out)
+	}
+}
+
 func TestRootDefaultAndHint(t *testing.T) {
 	// (a) --root defaults to cwd when run from the workspace.
 	root := mkroot(t)

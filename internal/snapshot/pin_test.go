@@ -4,6 +4,7 @@
 package snapshot
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -284,6 +285,37 @@ func TestGitCleanWorktreeAlsoPruned(t *testing.T) {
 	}
 	if !strListContains(t, src, "excluded", "data") {
 		t.Fatal("excluded must contain data on the worktree path")
+	}
+}
+
+// A pruned pin of a dirty tree must hash exactly like a pin of the clean
+// tree — the prune changes nothing about what the audit covers.
+func TestPruneMakesPinEquivalentToCleanTree(t *testing.T) {
+	base := t.TempDir()
+	mkTree := func(name string, withData bool) string {
+		target := filepath.Join(base, name, "target")
+		files := map[string]string{
+			"app.py":       "print('hi')\n",
+			"src/vault.py": "x = 1\n",
+		}
+		if withData {
+			for i := 0; i < 200; i++ {
+				files[fmt.Sprintf("data/f%04d.dat", i)] = strings.Repeat("x", 32)
+			}
+		}
+		writeFiles(t, target, files)
+		return target
+	}
+	c1 := pinCampaign(t, filepath.Join(base, "c1"), "C-pineqtest00001")
+	c2 := pinCampaign(t, filepath.Join(base, "c2"), "C-pineqtest00002")
+	s1 := mustPin(t, c1, mkTree("dirty", true), nil, nil)
+	s2 := mustPin(t, c2, mkTree("clean", false), nil, nil)
+	src1, src2 := objField(t, s1, "source"), objField(t, s2, "source")
+	if got, want := strField(t, src1, "content_hash"), strField(t, src2, "content_hash"); got != want {
+		t.Errorf("content_hash: pruned-dirty %s != clean %s", got, want)
+	}
+	if got, want := intField(t, src1, "file_count"), intField(t, src2, "file_count"); got != want {
+		t.Errorf("file_count: %d != %d", got, want)
 	}
 }
 
