@@ -2,8 +2,11 @@ package state
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 )
 
@@ -11,7 +14,13 @@ import (
 // +00:00 offset (never "Z"). Microsecond precision keeps same-second
 // findings in true creation order (the (created_at, finding_id) sort
 // contract would otherwise tie-break on random UUIDs).
+// Golden-suite hook: when WEBV2_NOW is set (the cross-twin golden harness
+// pins the clock so both implementations emit byte-identical artifacts),
+// it is returned verbatim. Unset: real clock, no behavior change.
 func nowIso() string {
+	if v := os.Getenv("WEBV2_NOW"); v != "" {
+		return v
+	}
 	now := time.Now().UTC()
 	return fmt.Sprintf("%s.%06d+00:00",
 		now.Format("2006-01-02T15:04:05"), now.Nanosecond()/1000)
@@ -19,9 +28,22 @@ func nowIso() string {
 
 // newId is Python's new_id: prefix + "-" + the first n hex chars of a
 // fresh uuid4 (version and variant bits set, as uuid.uuid4 does).
+// uuidPinCounter advances once per pinned id; it is the deterministic
+// stream position shared with the Python twin's new_id (same seed ->
+// same bytes, so campaign/artifact ids match across implementations).
+var uuidPinCounter int
+
+// Golden-suite hook: when WEBV2_UUID is set, the "uuid4" is
+// sha256("<seed>:<counter>")[:16] with the version/variant bits forced —
+// the exact same derivation the Python twin performs, so the ids are
+// reproducible and cross-implementation identical. Unset: crypto/rand.
 func newId(prefix string, n int) string {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
+	b := make([]byte, 16)
+	if seed := os.Getenv("WEBV2_UUID"); seed != "" {
+		h := sha256.Sum256([]byte(seed + ":" + strconv.Itoa(uuidPinCounter)))
+		copy(b, h[:16])
+		uuidPinCounter++
+	} else if _, err := rand.Read(b); err != nil {
 		panic("state: uuid4: " + err.Error())
 	}
 	b[6] = (b[6] & 0x0f) | 0x40 // version 4

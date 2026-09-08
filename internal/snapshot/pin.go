@@ -36,6 +36,11 @@ func resolveSnap(p string) string {
 // (Mirrors state.nowIso; unexported there, and the staging-dir name needs
 // the exact format.)
 func snapNowIso() string {
+	// WEBV2_NOW: the golden-suite clock pin (same contract as
+	// state.nowIso — both twins honor it, unset = real clock).
+	if v := os.Getenv("WEBV2_NOW"); v != "" {
+		return v
+	}
 	now := time.Now().UTC()
 	return fmt.Sprintf("%s.%06d+00:00",
 		now.Format("2006-01-02T15:04:05"), now.Nanosecond()/1000)
