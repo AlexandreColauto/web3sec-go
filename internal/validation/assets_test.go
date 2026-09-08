@@ -8,28 +8,50 @@ import (
 	"websec/assets"
 )
 
-// TestAssetsEmbeddedCount: the embedded FS exposes exactly the 27 schema
-// files, each named <name>.schema.json. This is the binary-side guard that
-// the sync-assets.sh copy (and the Python tree) has not drifted.
+// TestAssetsEmbeddedCount: the embedded FS exposes exactly one
+// <name>.schema.json per knownSchemas entry — no more, no less. This is the
+// binary-side guard that the sync-assets.sh copy (and the parallel-developed
+// Python tree) has not drifted. The expected count is DERIVED from
+// knownSchemas, so adding a schema is a one-line change (plus sync-assets),
+// never a magic number to hunt down.
 func TestAssetsEmbeddedCount(t *testing.T) {
 	names, err := assets.FS.ReadDir("schema")
 	if err != nil {
 		t.Fatalf("read embedded schema dir: %v", err)
 	}
-	var files []string
+	got := map[string]bool{}
 	for _, d := range names {
 		if !d.IsDir() {
-			files = append(files, d.Name())
+			got[d.Name()] = true
 		}
 	}
-	if len(files) != 27 {
-		t.Fatalf("embedded FS exposes %d files, want 27:\n%s", len(files), strings.Join(files, "\n"))
+	want := map[string]bool{}
+	for _, name := range knownSchemas {
+		want[name+".schema.json"] = true
 	}
-	for _, f := range files {
-		if !strings.HasSuffix(f, ".schema.json") {
-			t.Errorf("schema file %q does not match <name>.schema.json form", f)
+	if len(got) != len(want) {
+		t.Fatalf("embedded FS exposes %d files, want %d:\n%s", len(got), len(want),
+			strings.Join(namesOf(got), "\n"))
+	}
+	for f := range want {
+		if !got[f] {
+			t.Errorf("known schema %q has no embedded file", f)
 		}
 	}
+	for f := range got {
+		if !want[f] {
+			t.Errorf("embedded file %q is not in knownSchemas", f)
+		}
+	}
+}
+
+func namesOf(set map[string]bool) []string {
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // TestAssetsEmbeddedParse: every embedded schema parses as ordered JSON.

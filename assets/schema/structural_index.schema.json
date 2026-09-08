@@ -10,6 +10,10 @@
     "campaign_id":  { "type": "string" },
     "snapshot_id":  { "type": "string" },
     "backend":      { "enum": ["regex", "grep", "slither", "aderyn", "external"], "description": "the honest name of the extractor that produced this" },
+    "parse_version": {
+      "type": "string",
+      "description": "parser generation of this index; consumers of guards/uses/contract_closure must require \"2\" and reject older artifacts (StaleIndexError names the rebuild command)"
+    },
     "created_at":   { "type": "string" },
     "entry_count":  { "type": "integer", "minimum": 0 },
 
@@ -38,7 +42,84 @@
       "type": ["string", "null"],
       "description": "name(param_types) for external/public functions; T0 parse, null otherwise"
     },
-          "emits":          { "type": "array", "items": { "type": "string" } }
+          "emits":          { "type": "array", "items": { "type": "string" } },
+
+          "guards": {
+            "type": "array",
+            "description": "v2: require/assert/reverting-if conditions in statement order",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["line", "concept_keys", "class", "text"],
+              "properties": {
+                "line": { "type": "integer" },
+                "concept_keys": { "type": "array", "items": { "type": "string" } },
+                "class": {
+                  "type": "integer", "minimum": 0, "maximum": 4,
+                  "description": "0 none, 1 sanity/non-zero, 2 bound, 3 membership, 4 equality-to-persisted/keccak"
+                },
+                "text": { "type": "string", "description": "raw condition text, whitespace-normalized" }
+              }
+            }
+          },
+
+          "uses": {
+            "type": "array",
+            "description": "v2: statement-order use sites",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["line", "concept_keys", "kind"],
+              "properties": {
+                "line": { "type": "integer" },
+                "concept_keys": { "type": "array", "items": { "type": "string" } },
+                "kind": { "enum": ["read", "write", "param", "emit"] }
+              }
+            }
+          },
+
+          "contract_closure": {
+            "type": "array",
+            "description": "v2: transitive inheritance expansion; own definitions win, every entry keeps the DEFINING contract",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "defining_contract", "path", "line", "guards", "uses"],
+              "properties": {
+                "name": { "type": "string" },
+                "defining_contract": { "type": "string" },
+                "path": { "type": ["string", "null"] },
+                "line": { "type": ["integer", "null"] },
+                "guards": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["line", "concept_keys", "class", "text"],
+                    "properties": {
+                      "line": { "type": "integer" },
+                      "concept_keys": { "type": "array", "items": { "type": "string" } },
+                      "class": { "type": "integer", "minimum": 0, "maximum": 4 },
+                      "text": { "type": "string" }
+                    }
+                  }
+                },
+                "uses": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["line", "concept_keys", "kind"],
+                    "properties": {
+                      "line": { "type": "integer" },
+                      "concept_keys": { "type": "array", "items": { "type": "string" } },
+                      "kind": { "enum": ["read", "write", "param", "emit"] }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },

@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/probe_surface.schema.json",
+  "title": "WebSec Probe Surface",
+  "description": "Deterministic candidate rows from the four shipped probes, per axis: sites (raw pre-discriminator hits), rows (post-discriminator candidates), emitted, tail, blind keys and quota bookkeeping. Rows are obligations to look, never claims; the surface is stamped with the index_sha it was derived from so a stale surface can be detected.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["campaign_id", "snapshot_id", "parse_version", "index_sha",
+               "generated_at", "per_axis", "total", "floor", "axes", "rows",
+               "missing", "stats"],
+  "properties": {
+    "campaign_id": { "type": "string" },
+    "snapshot_id": { "type": ["string", "null"] },
+    "parse_version": { "const": "2", "description": "the index parse version this surface required" },
+    "index_sha": { "type": "string", "pattern": "^[0-9a-f]{64}$",
+                   "description": "content hash of the structural index the rows were derived from" },
+    "generated_at": { "type": "string" },
+    "per_axis": { "type": "integer", "minimum": 0 },
+    "total": { "type": "integer", "minimum": 0 },
+    "floor": { "type": "integer", "minimum": 0 },
+
+    "axes": {
+      "type": "array",
+      "description": "one entry per registered probe: the four-state surface that makes closure non-vacuous",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["probe", "axis", "lens", "sites", "rows", "emitted",
+                     "tail", "wanted", "floor", "per_axis", "status",
+                     "blind", "blind_total"],
+        "properties": {
+          "probe": { "enum": ["assertion-strength", "custody-primitive",
+                              "sequential-cursor", "trust-assumption"] },
+          "axis": { "type": "string" },
+          "lens": { "type": "string", "pattern": "^L-0[0-9]$" },
+          "sites": { "type": "integer", "minimum": 0,
+                     "description": "raw hits before the shape discriminator" },
+          "rows": { "type": "integer", "minimum": 0,
+                    "description": "post-discriminator candidates (after sibling collapse)" },
+          "emitted": { "type": "integer", "minimum": 0 },
+          "tail": { "type": "integer", "minimum": 0 },
+          "wanted": { "type": "integer", "minimum": 0,
+                      "description": "min(per_axis, rows) before the total ceiling" },
+          "floor": { "type": "integer", "minimum": 0,
+                     "description": "min(floor, rows): the reserved quota the ceiling may not trim" },
+          "per_axis": { "type": "integer", "minimum": 0 },
+          "status": { "enum": ["emitted", "no-sites", "blind", "under-filled"] },
+          "blind": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "key", "reason"],
+              "properties": {
+                "kind": { "type": "string" },
+                "key": { "type": "string" },
+                "near": { "type": ["string", "null"] },
+                "contract": { "type": ["string", "null"] },
+                "function": { "type": ["string", "null"] },
+                "line": { "type": ["integer", "null"] },
+                "actor": { "type": ["string", "null"] },
+                "invariant": { "type": ["string", "null"] },
+                "trust": { "type": ["string", "null"] },
+                "reason": { "type": "string", "minLength": 10 }
+              }
+            }
+          },
+          "blind_total": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+
+    "rows": {
+      "type": "array",
+      "description": "emitted candidates, ranked (tier, -assertion_gap, siblings, name) within their axis; probe-specific fields are the disposition anchor enum for that probe",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["row_id", "probe", "axis", "lens", "tier", "rank",
+                     "assertion_gap", "gate", "why", "siblings"],
+        "properties": {
+          "row_id": { "type": "string", "pattern": "^[0-9a-f]{10}$" },
+          "probe": { "enum": ["assertion-strength", "custody-primitive",
+                              "sequential-cursor", "trust-assumption"] },
+          "axis": { "type": "string" },
+          "lens": { "type": "string", "pattern": "^L-0[0-9]$" },
+          "tier": { "type": "integer", "minimum": 0, "maximum": 2 },
+          "rank": { "type": "integer", "minimum": 1 },
+          "assertion_gap": { "type": "integer", "minimum": 0, "maximum": 4 },
+          "gate": { "type": "string" },
+          "why": { "type": "string", "minLength": 10 },
+          "siblings": {
+            "type": "array", "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["contract", "line"],
+              "properties": {
+                "contract": { "type": "string" },
+                "line": { "type": "integer", "minimum": 0 }
+              }
+            }
+          },
+          "contract": { "type": "string" },
+          "consumer": { "type": "string" },
+          "consumer_line": { "type": "integer", "minimum": 0 },
+          "asserter": { "type": "string" },
+          "asserter_line": { "type": "integer", "minimum": 0 },
+          "concept_keys": { "type": "array", "items": { "type": "string" } },
+          "own_class": { "type": "integer", "minimum": 0, "maximum": 4 },
+          "assert_class": { "type": "integer", "minimum": 0, "maximum": 4 },
+          "base": { "type": "string" },
+          "base_line": { "type": "integer", "minimum": 0 },
+          "custody": { "enum": ["burns", "mints"] },
+          "forward": { "type": "array", "items": { "type": "string" } },
+          "inherited": { "type": "boolean" },
+          "actor": { "type": "string" },
+          "invariant": { "type": "string" },
+          "trust": { "type": "string" },
+          "kind": { "enum": ["invariant", "equation"] },
+          "statement": { "type": "string" },
+          "guard": { "type": "string" },
+          "guard_line": { "type": "integer", "minimum": 0 },
+          "cursor": { "type": "string" },
+          "stranded_entry": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+
+    "missing": {
+      "type": "array",
+      "description": "axes whose quota was trimmed by the campaign ceiling: emitted < min(per_axis, rows). A silent 14th-place eviction is not a disposition",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["axis", "probe", "lens", "rows", "sites", "emitted",
+                     "wanted", "floor", "reason"],
+        "properties": {
+          "axis": { "type": "string" },
+          "probe": { "enum": ["assertion-strength", "custody-primitive",
+                              "sequential-cursor", "trust-assumption"] },
+          "lens": { "type": "string", "pattern": "^L-0[0-9]$" },
+          "rows": { "type": "integer", "minimum": 0 },
+          "sites": { "type": "integer", "minimum": 0 },
+          "emitted": { "type": "integer", "minimum": 0 },
+          "wanted": { "type": "integer", "minimum": 0 },
+          "floor": { "type": "integer", "minimum": 0 },
+          "reason": { "type": "string", "minLength": 10 }
+        }
+      }
+    },
+
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["probes", "axes_with_rows", "sites", "rows", "emitted",
+                   "tail", "blind", "missing"],
+      "properties": {
+        "probes": { "type": "integer", "minimum": 0 },
+        "axes_with_rows": { "type": "integer", "minimum": 0 },
+        "sites": { "type": "integer", "minimum": 0 },
+        "rows": { "type": "integer", "minimum": 0 },
+        "emitted": { "type": "integer", "minimum": 0 },
+        "tail": { "type": "integer", "minimum": 0 },
+        "blind": { "type": "integer", "minimum": 0 },
+        "missing": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

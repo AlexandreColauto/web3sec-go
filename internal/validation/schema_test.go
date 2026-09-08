@@ -19,7 +19,7 @@ func TestUnknownSchema(t *testing.T) {
 		"'relation', 'shared_signature', 'shared_memory_row', 'variant_ladder', " +
 		"'price_table', 'assumption', 'model_request', 'model_response', " +
 		"'trajectory', 'playbook', 'evaluation_case', 'archetype', " +
-		"'sequence_poc', 'sequence_result', 'sft_example')"
+		"'sequence_poc', 'sequence_result', 'sft_example', 'probe_surface')"
 	if err.Error() != want {
 		t.Errorf("unknown-schema text:\n got %q\nwant %q", err.Error(), want)
 	}

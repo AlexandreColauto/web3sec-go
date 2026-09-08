@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """OQ3 checkpoint (Task 19): does santhosh-tekuri/jsonschema/v6 agree
-with Python jsonschema on the 27 schemas?
+with Python jsonschema on every known schema?
 
 Corpus: real documents from the golden run (campaign_state.json, every
 events.jsonl line, snapshot.json) plus deterministic mutations of each
@@ -211,7 +211,7 @@ def main() -> None:
             print("  " + line)
         sys.exit(1)
     print("OQ3 GREEN: Go jsonschema/v6 and Python jsonschema agree on "
-          "every (doc, schema) pair across all 27 schemas")
+          f"every (doc, schema) pair across all {len(KNOWN_SCHEMAS)} schemas")
 
 
 if __name__ == "__main__":

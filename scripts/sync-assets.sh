@@ -5,9 +5,11 @@
 #
 # Contract (docs/superpowers/plans/2026-09-08-p0-trust-core.md, Task 15):
 #   * copies web3sec-final/schema/*.json -> assets/schema/
-#   * verifies ALL 27 files are byte-identical (diff -r)
+#   * verifies every file is byte-identical (diff -r)
+#   * the expected set is derived from the reference's KNOWN_SCHEMAS tuple
+#     (single source of truth — the reference is developed in parallel, so
+#     a hardcoded count drifts every time a schema is added)
 #   * exits non-zero with a clear message on any drift or count mismatch
-#     (must be exactly 27 files)
 #
 # Paths are resolved relative to the repo root, so this works when run from
 # anywhere (it locates the repo root by walking up from this script's own
@@ -25,27 +27,57 @@ if [ ! -d "$SRC" ]; then
 fi
 DEST="$ROOT/assets/schema"
 
-# --- 1. Source count must be exactly 27.
+# --- 1. The expected schema set comes from the reference's KNOWN_SCHEMAS.
 if [ ! -d "$SRC" ]; then
     echo "error: reference schema dir not found: $SRC" >&2
     echo "error: expected web3sec-final/schema next to the repo root" >&2
     exit 1
 fi
 
-src_count="$(ls "$SRC"/*.json 2>/dev/null | wc -l)"
-if [ "$src_count" -ne 27 ]; then
-    echo "error: source schema dir has $src_count .json files, want exactly 27: $SRC" >&2
+VALIDATION_PY="$SRC/../src/webv2/validation.py"
+if [ ! -f "$VALIDATION_PY" ]; then
+    echo "error: reference validation.py not found: $VALIDATION_PY" >&2
     exit 1
 fi
 
+known_names="$(python3 - "$VALIDATION_PY" <<'PY'
+import re, sys
+src = open(sys.argv[1], encoding="utf-8").read()
+m = re.search(r"KNOWN_SCHEMAS\s*=\s*\((.*?)\)", src, re.S)
+if not m:
+    sys.exit("error: KNOWN_SCHEMAS tuple not found in validation.py")
+for name in re.findall(r'"([^"]+)"', m.group(1)):
+    print(name)
+PY
+)" || exit 1
+want_count="$(printf '%s\n' "$known_names" | wc -l)"
+
+src_count="$(ls "$SRC"/*.json 2>/dev/null | wc -l)"
+if [ "$src_count" -ne "$want_count" ]; then
+    echo "error: source schema dir has $src_count .json files, but" \
+         "KNOWN_SCHEMAS lists $want_count: $SRC" >&2
+    exit 1
+fi
+# every KNOWN_SCHEMAS entry must have a file (a name without a schema
+# would validate at runtime in Python and silently miss in Go).
+while IFS= read -r name; do
+    [ -f "$SRC/$name.schema.json" ] || {
+        echo "error: KNOWN_SCHEMAS names '$name' but" \
+             "$SRC/$name.schema.json does not exist" >&2
+        exit 1
+    }
+done <<< "$known_names"
+
 # --- 2. Copy every schema into the destination.
 mkdir -p "$DEST"
+rm -f "$DEST"/*.json
 cp "$SRC"/*.json "$DEST"/
 
-# --- 3. Destination must hold exactly 27 .json files.
+# --- 3. Destination must hold exactly the expected number.
 dest_count="$(ls "$DEST"/*.json 2>/dev/null | wc -l)"
-if [ "$dest_count" -ne 27 ]; then
-    echo "error: destination schema dir has $dest_count .json files, want exactly 27: $DEST" >&2
+if [ "$dest_count" -ne "$want_count" ]; then
+    echo "error: destination schema dir has $dest_count .json files," \
+         "want exactly $want_count: $DEST" >&2
     exit 1
 fi
 
@@ -58,4 +90,4 @@ if ! diff -rq "$SRC" "$DEST" >/tmp/sync-assets-diff.$$ 2>&1; then
 fi
 rm -f /tmp/sync-assets-diff.$$
 
-echo "ok: assets/schema is byte-identical to $SRC ($src_count/27 schemas)"
+echo "ok: assets/schema is byte-identical to $SRC ($src_count/$want_count schemas)"

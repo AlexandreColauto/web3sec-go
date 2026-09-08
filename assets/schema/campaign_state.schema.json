@@ -75,7 +75,7 @@
             "enum": ["recon", "protocol-model", "structural-index", "economics", "state-machine", "invariants",
                      "plan", "hypothesis", "finding", "poc", "trace", "coverage", "report", "policy",
                      "deployment-map", "drift-report", "history-mining", "detector", "benchmark",
-                     "economic-impact", "value-flow", "archetype-prescreen", "fork-diff", "recency", "sequence-poc", "sequence-result", "corpus-surface", "other"]
+                     "economic-impact", "value-flow", "archetype-prescreen", "fork-diff", "recency", "sequence-poc", "sequence-result", "corpus-surface", "probe-surface", "other"]
           },
           "path":          { "type": "string" },
           "registered_at": { "type": "string" },

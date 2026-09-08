@@ -1910,52 +1910,56 @@
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_attempt_and_mint_one_call_for_passing_repro",
-   "status": "deferred-P1"
+   "status": "deferred-P2"
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_exec_output_problem_null_for_non_forge",
-   "status": "deferred-P1"
+   "go_file": "internal/sandbox/sandbox_test.go",
+   "go_func": "TestExecOutputProblemNullForNonForge"
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_forge_no_tests_is_a_problem",
-   "status": "deferred-P1"
+   "go_file": "internal/sandbox/sandbox_test.go",
+   "go_func": "TestForgeNoTestsIsAProblem"
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_forge_passing_output_is_not_a_problem",
-   "status": "deferred-P1"
+   "go_file": "internal/sandbox/sandbox_test.go",
+   "go_func": "TestForgePassingOutputIsNotAProblem"
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_forge_test_summary_parses_counters",
-   "status": "deferred-P1"
+   "go_file": "internal/sandbox/sandbox_test.go",
+   "go_func": "TestForgeTestSummaryParsesCounters"
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_mint_reject_failing_forge",
-   "status": "deferred-P1"
+   "status": "deferred-P2"
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_mint_reject_forge_no_tests",
-   "status": "deferred-P1"
+   "status": "deferred-P2"
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_mint_repro_evidence_is_idempotent",
-   "status": "deferred-P1"
+   "status": "deferred-P2"
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_mint_validates_evidence_type",
-   "status": "deferred-P1"
+   "status": "deferred-P2"
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
    "python_func": "test_record_attempt_rejects_reused_exec",
-   "status": "deferred-P1"
+   "status": "deferred-P2"
   },
   {
    "python_file": "tests/test_exec_dry_run.py",
@@ -2015,7 +2019,8 @@
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_class_specific_evidence_floor",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/findings_test.go",
+   "go_func": "TestClassSpecificEvidenceFloor"
   },
   {
    "python_file": "tests/test_findings.py",
@@ -2040,7 +2045,8 @@
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_economic_class_demands_fork_evidence",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/findings_test.go",
+   "go_func": "TestEconomicClassDemandsForkEvidence"
   },
   {
    "python_file": "tests/test_findings.py",
@@ -2080,7 +2086,8 @@
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_load_all_findings_orders_by_created_at_then_id",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/findings_test.go",
+   "go_func": "TestLoadAllFindingsOrdersByCreatedAtThenID"
   },
   {
    "python_file": "tests/test_findings.py",
@@ -3882,7 +3889,8 @@
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_b3_bare_pass_word_is_not_a_forge_marker",
-   "status": "deferred-P1"
+   "go_file": "internal/sandbox/sandbox_test.go",
+   "go_func": "TestForgeTestSummaryPassMarkerIsExplicit"
   },
   {
    "python_file": "tests/test_review_fixes.py",
@@ -5618,6 +5626,256 @@
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_verify_trajectory_survives_torn_log",
    "status": "deferred-P1"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_anchors_are_per_probe_and_name_real_row_fields",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_assertion_strength_fires_on_buggy_and_is_blind_on_clean",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_axis_bookkeeping_records_sites_rows_emitted_tail",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_blind_axis_always_publishes_a_citable_key",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_collapsed_row_keeps_the_weakest_gate_and_its_own_site_first",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_custody_primitive_fires_inherited_and_is_blind_on_clean",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_morph_regression_rows_exist_in_fixtures",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_noisy_axis_cannot_evict_a_sparse_axis",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_pre_v2_index_is_rejected_loudly_by_every_entry_point",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_quota_ceiling_trims_from_the_noisy_axis_and_records_missing",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_ranking_regression_commitBatch_rank_1_and_sibling_collapse",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_registry_ships_the_four_probes_with_rank_and_anchors",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_reserved_floor_is_never_trimmed_by_the_ceiling",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_resolve_gate_reports_actor_and_mechanism",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_row_ids_are_stable_across_line_moves",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_row_ids_follow_the_declared_hash",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_run_probes_registers_surface_and_logs_event",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_sequential_cursor_fires_with_stranded_entry",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_sibling_collapse_is_one_obligation_on_the_repo_fixture",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_surface_blockers_are_the_four_state_closure",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_surface_is_deterministic",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_surface_validates_against_schema_and_rejects_row_drift",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_trust_assumption_joins_assumption_carrying_actors",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_trust_join_maps_modifier_to_actor_trust",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_closure_entries_sorted_and_shaped",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_closure_is_transitive",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_closure_keeps_defining_contract_and_override_wins",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_closure_uses_the_defining_bodys_facts",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_concept_keys_fold_address_into_addr",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_concept_keys_fold_prev_state_root_into_hash",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_ensure_fresh_index_rebuilds_pre_v2_and_reuses_v2",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_guard_class_is_independent_of_concept_keys",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_guard_class_scale_zero_to_four",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_guard_concept_keys_fold_identifiers",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_guard_with_nested_commas_is_not_truncated",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_guards_are_sorted_and_normalized",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_guards_statement_order_line_and_class",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_if_guard_only_when_it_reverts",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_index_is_deterministic_across_runs_and_paths",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_parse_version_is_v2_and_every_node_is_an_index",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_pre_v2_index_is_rejected_loudly",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_save_index_refuses_pre_v2",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_saved_artifacts_are_byte_identical",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_schema_rejects_malformed_v2_facts",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_sibling_fixture_is_seven_identical_signatures",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_uses_cover_compound_write_as_read_and_write",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_uses_exclude_modifier_bodies",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_uses_kinds_and_concepts",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_v1_consumers_still_see_the_old_surface",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_v2_index_validates_against_schema",
+   "status": "deferred-P3"
   }
  ]
 }

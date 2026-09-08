@@ -14,7 +14,8 @@
 #       (Go==Go determinism run — design 7.1)
 #   6.  scripts/sync-assets.sh then diff -r <py>/schema assets/schema
 #   7.  python -m pytest <py>/tests -q (reference baseline still green)
-#   8.  scripts/check-testmap.py reconciles with count-python-tests.py
+#   8.  testmap reconciles with the live Python tree (sync-testmap --check,
+#       then check-testmap.py against count-python-tests.py)
 #   9.  scripts/golden.sh green (Task 17)
 #  10.  crash smoke: audit/verify on a truncated events.jsonl must
 #       produce a verdict, not a panic (Task 7 + hardening 7.2)
@@ -100,6 +101,10 @@ echo "ok: reference suite green"
 
 # 8. testmap ------------------------------------------------------------
 step 8 "check-testmap"
+# 8a. the live reference must have no unabsorbed Python tests (web3sec-final
+#     is developed in parallel; run scripts/sync-testmap.py to absorb them).
+python3 scripts/sync-testmap.py --check \
+  || fail 8 "sync-testmap --check (new python tests not in testmap.json)"
 python3 scripts/check-testmap.py || fail 8 "check-testmap"
 
 # 9. golden suite ---------------------------------------------------------
