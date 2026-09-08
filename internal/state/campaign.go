@@ -63,6 +63,16 @@ type InitOpts struct {
 	Budget     *validation.Value
 }
 
+// objStr returns a string field's value ("" when absent/non-string).
+func objStr(v validation.Value, key string) string {
+	for _, kv := range v.O {
+		if kv.K == key {
+			return kv.V.S
+		}
+	}
+	return ""
+}
+
 // kv is the vet-clean keyed KV constructor (unkeyed cross-package
 // literals are rejected by go vet).
 func kv(k string, v validation.Value) validation.KV {

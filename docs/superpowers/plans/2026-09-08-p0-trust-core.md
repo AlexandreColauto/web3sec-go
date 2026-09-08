@@ -397,7 +397,7 @@ git commit -m "P0: verify_log chain/seq/tail integrity (Task 7)"
 
 **Note:** \`setStage\` is Task 9. \`complete\`'s COMPLETE-phase story and "closure stays on log" are contract — port verbatim.
 
-- [ ] **Step 1: Write the failing tests** (port \`test_state.py::test_phase_transitions_recorded\`, \`test_budget_consumption\`):
+- [x] **Step 1: Write the failing tests** (port \`test_state.py::test_phase_transitions_recorded\`, \`test_budget_consumption\`):
   - init phase SCOPE; setPhase SNAPSHOT then STRUCTURAL_INDEX -> history "to" == [SNAPSHOT, STRUCTURAL_INDEX]; unknown -> ValueError.
   - setPhase same -> no-op (no extra history entry).
   - consumeDiscoverySlot increments.
@@ -405,10 +405,10 @@ git commit -m "P0: verify_log chain/seq/tail integrity (Task 7)"
   - setCostCeiling(100.0,"op") -> budget.max_total_cost_usd==100; setCostCeiling(None,"op") clears; log records budget.limit_set.
   - halt("x") -> halt_reason set + phase HALTED with history entry.
   - complete: empty actor -> ValueError; short reason -> ValueError; valid -> completed_by/reason set, phase COMPLETE, history entry "op: reason", campaign.completed event with data.actor.
-- [ ] **Step 2: Run to verify they fail** — \`go test ./internal/state -run Phases\` -> FAIL.
-- [ ] **Step 3: Implement** \`phases.go\`.
-- [ ] **Step 4: Run to verify pass** — \`go test ./internal/state\` -> PASS.
-- [ ] **Step 5: Commit**
+- [x] **Step 2: Run to verify they fail** — \`go test ./internal/state -run Phases\` -> FAIL.
+- [x] **Step 3: Implement** \`phases.go\`.
+- [x] **Step 4: Run to verify pass** — \`go test ./internal/state\` -> PASS.
+- [x] **Step 5: Commit**
 \`\`\`bash
 git add internal/state/phases.go
 git commit -m "P0: phase machine + budget + complete (Task 8)"

@@ -250,30 +250,54 @@ func TestEventLegacyAnchor(t *testing.T) {
 	}
 }
 
-// TestStateMirrorTail: the state file keeps only the last 1000 events.
+// TestStateMirrorTail: the state mirror equals the full log while the
+// log is under 1000 events (the cap itself is covered by
+// TestTailEventsCap without the O(n^2) file churn).
 func TestStateMirrorTail(t *testing.T) {
 	root := t.TempDir()
 	c, err := Init(root, "Acme", InitOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 1002; i++ {
+	for i := 0; i < 10; i++ {
 		if _, err := c.Log("flood", nil, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
 	st := mustState(t, c)
-	if v := objVal(st, "events"); len(v.A) != 1000 {
-		t.Errorf("tail: %d", len(v.A))
+	if v := objVal(st, "events"); len(v.A) != 11 {
+		t.Errorf("mirror: %d events", len(v.A))
 	}
-	// the full log is intact
 	events, _ := c.Events()
-	if len(events) != 1003 {
-		t.Errorf("full log: %d", len(events))
+	if !arraysEq(objVal(st, "events").A, events) {
+		t.Error("mirror must equal the full log under 1000")
 	}
-	// the mirrored tail starts at seq 3
-	if got := objVal(objVal(st, "events").A[0], "seq").I; got != 3 {
-		t.Errorf("tail head seq: %d", got)
+}
+
+// TestTailEventsCap: the pure mirror rule at and past the 1000 boundary.
+func TestTailEventsCap(t *testing.T) {
+	mk := func(n int) []validation.Value {
+		out := make([]validation.Value, n)
+		for i := range out {
+			out[i] = validation.VObj(kv("seq", validation.VInt(int64(i))))
+		}
+		return out
+	}
+	got := tailEvents(mk(1002), validation.VObj(kv("seq", validation.VInt(1002))))
+	if len(got) != 1000 {
+		t.Fatalf("cap: %d", len(got))
+	}
+	if v := objVal(got[0], "seq"); v.I != 3 {
+		t.Errorf("head seq: %d", v.I)
+	}
+	if v := objVal(got[999], "seq"); v.I != 1002 {
+		t.Errorf("tail seq: %d", v.I)
+	}
+	if got := tailEvents(mk(999), validation.VObj(kv("seq", validation.VInt(999)))); len(got) != 1000 {
+		t.Errorf("999+1: %d", len(got))
+	}
+	if got := tailEvents(nil, validation.VObj(kv("seq", validation.VInt(0)))); len(got) != 1 {
+		t.Errorf("empty: %d", len(got))
 	}
 }
 
@@ -286,15 +310,6 @@ func mustState(t *testing.T, c *Campaign) validation.Value {
 		t.Fatal(err)
 	}
 	return st
-}
-
-func objStr(v validation.Value, key string) string {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V.S
-		}
-	}
-	return ""
 }
 
 func objVal(v validation.Value, key string) validation.Value {

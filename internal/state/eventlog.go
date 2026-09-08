@@ -82,25 +82,25 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 		return validation.VNull(), err
 	}
 	existing := objAt(st, "events")
-	tail := []validation.Value{}
+	var have []validation.Value
 	if existing.Kind == validation.Arr {
-		if len(existing.A) > 999 {
-			tail = existing.A[len(existing.A)-999:]
-		} else {
-			tail = existing.A
-		}
+		have = existing.A
 	}
-	tail = append(tail, event)
-	for i, kv := range st.O {
-		if kv.K == "events" {
-			st.O[i].V = validation.Value{Kind: validation.Arr, A: tail}
-			break
-		}
-	}
+	st.O = setOrAppend(st.O, "events", validation.Value{Kind: validation.Arr,
+		A: tailEvents(have, event)})
 	if err := c.save(st); err != nil {
 		return validation.VNull(), err
 	}
 	return event, nil
+}
+
+// tailEvents is the state-mirror rule: the state file keeps the last
+// 1000 events (prior 999 + the new one); the log keeps everything.
+func tailEvents(have []validation.Value, add validation.Value) []validation.Value {
+	if len(have) > 999 {
+		return append(have[len(have)-999:], add)
+	}
+	return append(have, add)
 }
 
 // NextSeq is next_seq: the number of log lines.
