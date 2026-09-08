@@ -204,6 +204,94 @@ rows marked as golden-normalized — nothing else.
 - **Unblocks:** the P3 port wires the real implementations behind the
   same seams.
 
+## P1 (CLI wave, wave 3)
+
+### D11 — Usage block lists implemented commands only
+- **What:** `webv2` with no command (or an unknown one) prints the usage
+  block. Python's argparse usage lists *all* 66 registered subcommands;
+  the Go twin lists the 28 implemented ones (P0 7 + P1 21) in the same
+  registration order, with the same two-line wrap style for long entries.
+- **Why:** listing unimplemented commands would be a lie; the block is a
+  menu of what the binary can do. Per-command argparse errors (missing
+  required args, invalid choices, unrecognized arguments on the
+  subcommand) are byte-exact to Python — only the root-level
+  all-commands menu differs.
+- **Golden:** not exercised (the golden recipe never triggers root
+  usage).
+- **Unblocks:** permanent until the final wave implements all 66; the
+  block re-pads dynamically as commands register.
+
+### D12 — Non-object ingest payload: Python's `dict(payload)` crash vs Go's schema error
+- **What:** `ingest --json-file` with a JSON payload that is not an
+  object (e.g. `"a"`). Python's `findings.ingest` does
+  `payload = dict(payload)`, which raises
+  `ingest failed: dictionary update sequence element #0 has length 1;
+  2 is required` (exit 1). Go's `findings.IngestHypothesis` treats the
+  non-object as an empty object and the schema validator reports the
+  missing required fields (exit 1, `ingest failed: ...` with the schema
+  error list).
+- **Why:** the exit code and the `ingest failed:` framing match; only the
+  inner wording differs, and Python's is an interpreter artifact of
+  `dict()` on a string, not a designed message. No reference test
+  exercises this payload.
+- **Unblocks:** none planned (pathological payload; both twins reject).
+
+### D13 — `Infinity` / `NaN` JSON literals
+- **What:** CPython's `json.loads` accepts the non-standard literals
+  `Infinity`, `-Infinity`, `NaN`; on a hypothesis payload the reference
+  then dies with an *uncaught traceback* (exit 1). Go's
+  `encoding/json` rejects the literal:
+  `error: json: invalid character 'I' looking for beginning of value`
+  (exit 1).
+- **Why:** exit code matches; the text cannot match a traceback by
+  design (D5 convention: a verdict, not a stack dump). No reference test
+  exercises these literals.
+- **Unblocks:** none planned (pathological payload).
+
+### D14 — `resolve-candidate --note`: the reference bug, faithfully reproduced
+- **What:** `resolve-candidate … --verdict same|distinct --note N` fails
+  in *both* twins with the identical byte-exact error
+  `finding validation failed at dedup_meta/candidate_notes:
+  {'F-…': '…'} is not of type 'string'` (exit 2). The reference's
+  `dedup.py` writes `dedup_meta.candidate_notes` as a dict
+  `{other_finding_id: note}` while `finding.schema.json` declares
+  `dedup_meta.additionalProperties: {"type": "string"}` — the reference
+  validates its own write and rejects it.
+- **Why:** PYTHON WINS includes reproducing reference bugs; "fixing" only
+  the Go side would create a divergence. The golden recipe and the
+  verify-full P1 smoke deliberately omit `--note` (documented in
+  `scripts/golden-run.py` and `scripts/verify-full.sh` step 13).
+- **Unblocks:** an upstream Python fix to the schema or the writer; then
+  the `--note` path is ported back and this row is deleted.
+
+### D15 — `WEBV2_GLOBAL_MEMORY_DIR` is honoured by the Python twin only
+- **What:** the Python reference's `recall` consults the user-global
+  shared-memory store (`~/.webv2/...`), overridable via
+  `WEBV2_GLOBAL_MEMORY_DIR`. The Go twin's `recall` reads only the
+  campaign tier — the shared/published tiers live in the unported P3
+  `shared_memory` module.
+- **Why:** without the P3 port the Go twin has no global store to read;
+  reading an empty one would be honest but is indistinguishable from
+  having none, so the seam is simply absent. The golden suite and
+  verify-full pin `WEBV2_GLOBAL_MEMORY_DIR` to an empty directory for
+  *both* twins so the operator's real store can never mask a divergence.
+- **Unblocks:** the P3 shared-memory port wires the real store behind a
+  seam and this row closes.
+
+### D16 — Finding-id pin is a harness mechanism, not a live difference
+- **What:** under the golden pins (`WEBV2_UUID` seed), the Python
+  reference's `new_finding_id` still uses raw `uuid.uuid4()` (it does
+  not consult the pin), while the Go twin's minter does. Left alone,
+  every run would mint different `F-…` ids in the Python twin and every
+  event hash would diverge.
+- **Rule:** the harness reroutes *both* twins to the same derivation
+  (sha256 of seed + counter, first 16 hex): Python via
+  `scripts/golden/sitecustomize.py` (installed by `golden-run.py`), Go
+  via the `WEBV2_FINDING_IDS=pin` switch in `cmd/webv2/main.go` (off by
+  default). Outside the harness both twins mint random uuid4 ids — no
+  live divergence exists.
+- **Unblocks:** permanent (documenting the mechanism, like D1).
+
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**
   shape.
