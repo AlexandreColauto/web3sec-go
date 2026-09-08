@@ -63,3 +63,11 @@ func runLog(root string, args []string, stdout io.Writer) error {
 	}
 	return nil
 }
+
+func init() {
+	register(command{ord: 50, name: "log",
+		line: "log <campaign> [--tail N]            tail the event log",
+		run: func(root string, args []string, r *Runner) int {
+			return r.withErr(root, func() error { return runLog(root, args, r.Out) })
+		}})
+}

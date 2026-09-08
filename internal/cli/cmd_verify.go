@@ -52,3 +52,11 @@ func runVerify(root string, args []string, stdout io.Writer) error {
 	}
 	return nil
 }
+
+func init() {
+	register(command{ord: 51, name: "verify",
+		line: "verify <campaign>                    event-log integrity check",
+		run: func(root string, args []string, r *Runner) int {
+			return r.withErr(root, func() error { return runVerify(root, args, r.Out) })
+		}})
+}

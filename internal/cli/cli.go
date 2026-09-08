@@ -37,6 +37,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -58,47 +59,85 @@ func Run(argv []string, stdout, stderr io.Writer) int {
 	return r.run(argv)
 }
 
-// usage lists the six P0 subcommands in fixed order.
-const usage = `usage: webv2 [--root DIR] <command> [args]
+// command is one registered subcommand. Each cmd_*.go file registers its
+// command from an init() so new commands never touch this file (the P1 CLI
+// waves add files only).
+type command struct {
+	ord  int    // registration order in cli.py main() — usage display order
+	name string // subcommand name
+	line string // usage-block text after the padded name
+	run  func(root string, args []string, r *Runner) int
+}
 
-P0 commands (in fixed order):
-  init     init --program PROG                  create a campaign
-  status   status <campaign> [--verbose]        campaign status (JSON)
-  snap     snap <campaign> <target> [--deployment F] [--chain F] [--exclude GLOB]
-                                                pin a source snapshot
-  log      log <campaign> [--tail N]            tail the event log
-  audit    audit <campaign> [--json]            full integrity audit
-  verify   verify <campaign>                    event-log integrity check
-  help                                          this usage
-`
+// registered collects the subcommands in init() order; usageText sorts by
+// ord (Python's add_parser order) before rendering.
+var registered []command
+
+// register adds a subcommand. Called from init() in each cmd_*.go.
+func register(c command) { registered = append(registered, c) }
+
+func commandByName(name string) (command, bool) {
+	for _, c := range registered {
+		if c.name == name {
+			return c, true
+		}
+	}
+	return command{}, false
+}
+
+// usageText renders the usage block: the implemented commands in
+// cli.py registration order, then help. (Go lists only the implemented
+// commands; cli.py's argparse usage lists every registered command —
+// D11, a documented deviation.)
+func usageText() string {
+	cmds := make([]command, len(registered))
+	copy(cmds, registered)
+	sort.Slice(cmds, func(i, j int) bool { return cmds[i].ord < cmds[j].ord })
+	width := 0
+	for _, c := range cmds {
+		if len(c.name) > width {
+			width = len(c.name)
+		}
+	}
+	var b strings.Builder
+	b.WriteString("usage: webv2 [--root DIR] <command> [args]\n\n")
+	b.WriteString("Commands (in fixed order):\n")
+	cont := strings.Repeat(" ", 2+width+2)
+	for _, c := range cmds {
+		// Continuation lines of a wrapped usage entry re-pad to the
+		// current column (the stored padding may target a wider set).
+		for i, ln := range strings.Split(c.line, "\n") {
+			if i > 0 {
+				ln = strings.TrimLeft(ln, " ")
+			}
+			if i == 0 {
+				fmt.Fprintf(&b, "  %-*s  %s", width, c.name, ln)
+			} else {
+				fmt.Fprintf(&b, "\n%s%s", cont, ln)
+			}
+		}
+		b.WriteString("\n")
+	}
+	b.WriteString("  help  this usage\n")
+	return b.String()
+}
 
 func (r *Runner) run(argv []string) int {
 	root, rest := splitRoot(argv)
 	if len(rest) == 0 {
-		fmt.Fprint(r.Err, usage)
+		fmt.Fprint(r.Err, usageText())
 		return 2
 	}
 	cmd, args := rest[0], rest[1:]
-	switch cmd {
-	case "init":
-		return r.withErr(root, func() error { return runInit(root, args, r.Out) })
-	case "status":
-		return r.withErr(root, func() error { return runStatus(root, args, r.Out) })
-	case "snap":
-		return r.withErr(root, func() error { return runSnap(root, args, r.Out) })
-	case "log":
-		return r.withErr(root, func() error { return runLog(root, args, r.Out) })
-	case "audit":
-		return r.withErr(root, func() error { return runAudit(root, args, r.Out) })
-	case "verify":
-		return r.withErr(root, func() error { return runVerify(root, args, r.Out) })
-	case "help", "--help", "-h":
-		fmt.Fprint(r.Out, usage)
+	if cmd == "help" || cmd == "--help" || cmd == "-h" {
+		fmt.Fprint(r.Out, usageText())
 		return 0
-	default:
-		fmt.Fprintf(r.Err, "error: unknown command %q\n%s", cmd, usage)
-		return 2
 	}
+	if c, ok := commandByName(cmd); ok {
+		return c.run(root, args, r)
+	}
+	fmt.Fprintf(r.Err, "error: unknown command %q\n%s", cmd, usageText())
+	return 2
 }
 
 // splitRoot pulls --root/--root=DIR out of argv (leading or trailing;
@@ -134,7 +173,7 @@ func (r *Runner) withErr(root string, fn func() error) int {
 	}
 	var ue *usageError
 	if errors.As(err, &ue) {
-		fmt.Fprintf(r.Err, "error: %s\n%s", ue.msg, usage)
+		fmt.Fprintf(r.Err, "error: %s\n%s", ue.msg, usageText())
 		return 2
 	}
 	var fs failSilent

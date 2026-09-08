@@ -125,3 +125,12 @@ func attachChain(c *state.Campaign, snap validation.Value, path string) (validat
 	}
 	return snapshot.AttachChainPin(c, objStr(snap, "snapshot_id"), ch)
 }
+
+func init() {
+	register(command{ord: 48, name: "snap",
+		line: `snap <campaign> <target> [--deployment F] [--chain F] [--exclude GLOB]
+                        pin a source snapshot`,
+		run: func(root string, args []string, r *Runner) int {
+			return r.withErr(root, func() error { return runSnap(root, args, r.Out) })
+		}})
+}

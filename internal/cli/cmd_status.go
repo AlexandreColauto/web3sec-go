@@ -170,3 +170,11 @@ func statusStages(st validation.Value, verbose bool) validation.Value {
 func runeLen(s string) int {
 	return len([]rune(s))
 }
+
+func init() {
+	register(command{ord: 2, name: "status",
+		line: "status <campaign> [--verbose]        campaign status (JSON)",
+		run: func(root string, args []string, r *Runner) int {
+			return r.withErr(root, func() error { return runStatus(root, args, r.Out) })
+		}})
+}

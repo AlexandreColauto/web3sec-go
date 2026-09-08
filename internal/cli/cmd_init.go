@@ -44,3 +44,11 @@ func runInit(root string, args []string, stdout io.Writer) error {
 	fmt.Fprintln(stdout, "next: webv2 snap <campaign> <target>  (or use the Python API for pins)")
 	return nil
 }
+
+func init() {
+	register(command{ord: 1, name: "init",
+		line: "init --program PROG                  create a campaign",
+		run: func(root string, args []string, r *Runner) int {
+			return r.withErr(root, func() error { return runInit(root, args, r.Out) })
+		}})
+}

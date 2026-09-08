@@ -54,3 +54,11 @@ func runAudit(root string, args []string, stdout io.Writer) error {
 	}
 	return nil
 }
+
+func init() {
+	register(command{ord: 52, name: "audit",
+		line: "audit <campaign> [--json]            full integrity audit",
+		run: func(root string, args []string, r *Runner) int {
+			return r.withErr(root, func() error { return runAudit(root, args, r.Out) })
+		}})
+}
