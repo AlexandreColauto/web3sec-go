@@ -1,0 +1,17 @@
+{
+  "title": "Spot price read from a single manipulable pool",
+  "root_cause": {
+    "class": "oracle-manipulation",
+    "cwe": "CWE-829",
+    "description": "the vault prices shares from one pool's spot reserves, so a flash-loan swap moves the price and mints unbacked value",
+    "mechanism": "the price helper reads the pool's instantaneous reserves instead of a time-weighted average"
+  },
+  "affected": [
+    {"path": "src/Vault.sol", "contract": "Vault", "function": "deposit",
+     "lines": [1, 2], "entry_point": true}
+  ],
+  "attacker": {"profile": "flash-loan funded EOA",
+               "capabilities": ["flash-loan", "swap"],
+               "required_capital_usd": 0},
+  "dedup": {"economic_signature": "2222222222222222"}
+}

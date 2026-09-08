@@ -1,0 +1,24 @@
+{
+  "title": "Redeem preview rounds the payout down to zero for small positions",
+  "root_cause": {
+    "class": "logic-error",
+    "cwe": "CWE-191",
+    "description": "previewRedeem() truncates the assets-per-share division before multiplying, so a small holder's previewed payout is zero while redeem() pays the untruncated amount",
+    "mechanism": "the preview divides then multiplies, losing the fractional part the settle path keeps"
+  },
+  "affected": [
+    {"path": "src/Vault.sol", "contract": "Vault", "function": "previewRedeem",
+     "lines": [1, 2], "entry_point": false}
+  ],
+  "attacker": {"profile": "arbitrary EOA", "capabilities": ["redeem"]},
+  "verification": {
+    "reproduction": {"status": "reproduced", "tier_reached": "T1"}
+  },
+  "evidence": [
+    {"evidence_id": "EV-golden-gatepass",
+     "level": "E7",
+     "type": "manual",
+     "description": "the quantified payout delta carried by the registered report",
+     "artifact_id": "REP-00000000"}
+  ]
+}

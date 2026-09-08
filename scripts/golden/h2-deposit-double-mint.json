@@ -1,0 +1,15 @@
+{
+  "title": "Deposit path credits shares twice on the same call",
+  "root_cause": {
+    "class": "logic-error",
+    "cwe": "CWE-682",
+    "description": "deposit() mints shares from the pre-deposit total and again from the post-deposit total, so a single deposit mints more shares than the assets paid in",
+    "mechanism": "deposit() recomputes the share amount after updating totalAssets and mints both results"
+  },
+  "affected": [
+    {"path": "src/Vault.sol", "contract": "Vault", "function": "deposit",
+     "lines": [1, 2], "entry_point": true}
+  ],
+  "attacker": {"profile": "arbitrary EOA", "capabilities": ["deposit"]},
+  "dedup": {"economic_signature": "1111111111111111"}
+}

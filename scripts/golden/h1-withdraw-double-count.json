@@ -1,0 +1,19 @@
+{
+  "title": "Withdraw path double-counts the caller's shares",
+  "root_cause": {
+    "class": "logic-error",
+    "cwe": "CWE-682",
+    "description": "withdraw() credits the caller's shares to the payout before burning them, so one withdrawal can drain more assets than the caller owns",
+    "mechanism": "withdraw() adds the caller's share balance to the payout amount and only then subtracts it from the balance"
+  },
+  "affected": [
+    {"path": "src/Vault.sol", "contract": "Vault", "function": "withdraw",
+     "lines": [1, 2], "entry_point": true}
+  ],
+  "attacker": {"profile": "arbitrary EOA", "capabilities": ["withdraw"]},
+  "preconditions": [
+    {"kind": "state", "description": "the attacker holds any positive share balance",
+     "satisfied_by": "deposit one wei"}
+  ],
+  "dedup": {"economic_signature": "1111111111111111"}
+}

@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"websec/internal/findings"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -256,20 +257,19 @@ func t14BudgetStatus(c *state.Campaign) (validation.Value, error) {
 	), nil
 }
 
-// t14TotalCost is yield_report(c)["totals"]["total_cost_usd"]. Python's
-// sum() over an empty generator is the INT 0, so a campaign with no cost row
-// reports spent_usd as 0 (not 0.0) — the JSON dump shows the difference.
+// t14TotalCost is yield_report(c)["totals"]["total_cost_usd"]. Python builds
+// one trajectory row per cost entry AND per CONFIRMED finding (its kinds
+// default to 0.0), then sums the rows; sum() over NO rows at all is the INT
+// 0, so a campaign with neither a cost row nor a CONFIRMED finding reports
+// spent_usd as 0 (not 0.0) — the JSON dump shows the difference.
 func t14TotalCost(c *state.Campaign) (validation.Value, error) {
+	trajs := map[string]struct{}{}
+	total := 0.0
 	path := filepath.Join(c.Dir, "costs.jsonl")
 	raw, err := os.ReadFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return validation.VInt(0), nil
-		}
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return validation.VNull(), err
 	}
-	total := 0.0
-	rows := 0
 	for _, line := range strings.Split(string(raw), "\n") {
 		if strings.TrimSpace(line) == "" {
 			continue
@@ -278,13 +278,47 @@ func t14TotalCost(c *state.Campaign) (validation.Value, error) {
 		if perr != nil {
 			return validation.VNull(), perr
 		}
-		total += objFlt(row, "amount_usd")
-		rows++
+		// d[e["kind"]] only counts the kinds COST_KINDS names; a row of any
+		// other kind still creates the trajectory row (with 0.0 kinds).
+		if t14CostKind(objStr(row, "kind")) {
+			total += objFlt(row, "amount_usd")
+		}
+		trajs[t14TrajectoryOf(objStr(row, "trajectory"))] = struct{}{}
 	}
-	if rows == 0 {
+	all, err := findings.LoadAllFindings(c)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	for _, f := range all {
+		if objStr(f, "status") != "CONFIRMED" {
+			continue
+		}
+		trajs[t14TrajectoryOf(objStr(f, "trajectory"))] = struct{}{}
+	}
+	if len(trajs) == 0 {
 		return validation.VInt(0), nil
 	}
 	return validation.VFloat(total), nil
+}
+
+// t14CostKinds is costs.COST_KINDS.
+var t14CostKinds = []string{"model", "compute", "human-review"}
+
+func t14CostKind(kind string) bool {
+	for _, k := range t14CostKinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
+}
+
+// t14TrajectoryOf is `e.get("trajectory") or "unattributed"`.
+func t14TrajectoryOf(traj string) string {
+	if traj == "" {
+		return "unattributed"
+	}
+	return traj
 }
 
 // t14ValueFlt widens an Int/Flt value to float64.

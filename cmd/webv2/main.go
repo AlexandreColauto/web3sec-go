@@ -5,7 +5,11 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"os"
+	"strconv"
 
 	"websec/internal/cli"
 	"websec/internal/dedup"
@@ -40,6 +44,24 @@ func init() {
 	})
 	// invariants 2.1 guardrail (Python: _assert_invariants_verified).
 	findings.SetInvariantGuard(invariants.AssertInvariantsVerified)
+	// Golden-suite hook: Python's findings.new_finding_id mints a RAW
+	// uuid4, so the WEBV2_UUID pin never reaches it and the reference twin
+	// emits a fresh finding id per run. The cross-twin golden harness sets
+	// WEBV2_FINDING_IDS=pin plus WEBV2_FINDING_ID_SEQ (the running count of
+	// finding ids the recipe has minted, since each CLI command is a fresh
+	// process) and patches the identical minter into Python via
+	// scripts/golden/sitecustomize.py: sha256("<seed>:fid:<n>")[:12].
+	// Unset: plain uuid4, no behavior change.
+	if os.Getenv("WEBV2_FINDING_IDS") == "pin" {
+		base, _ := strconv.Atoi(os.Getenv("WEBV2_FINDING_ID_SEQ"))
+		draw := 0
+		seed := os.Getenv("WEBV2_UUID")
+		findings.SetFindingIDSource(func() string {
+			sum := sha256.Sum256([]byte(fmt.Sprintf("%s:fid:%d", seed, base+draw)))
+			draw++
+			return "F-" + hex.EncodeToString(sum[:])[:12]
+		})
+	}
 }
 
 func main() {

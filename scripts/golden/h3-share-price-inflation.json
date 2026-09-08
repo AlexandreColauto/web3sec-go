@@ -1,0 +1,19 @@
+{
+  "title": "Out-of-band transfer inflates the per-share price",
+  "root_cause": {
+    "class": "share-price-inflation",
+    "cwe": "CWE-682",
+    "description": "a direct transfer to the vault raises totalAssets without minting shares, so the redemption price of every existing share rises at the depositors' expense",
+    "mechanism": "totalAssets is read from the live token balance, and a plain transfer is never accounted for as a deposit"
+  },
+  "affected": [
+    {"path": "src/Vault.sol", "contract": "Vault", "function": "deposit",
+     "lines": [1, 2], "entry_point": true}
+  ],
+  "attacker": {"profile": "arbitrary EOA", "capabilities": ["transfer"]},
+  "invariant": {
+    "id": "INV-4",
+    "statement": "the share price must not move in favor of existing shares from out-of-band transfers"
+  },
+  "dedup": {"economic_signature": "2222222222222222"}
+}

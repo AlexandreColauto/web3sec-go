@@ -1070,17 +1070,23 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_move_disproof_adjacent_clear_succeeds",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_move_test.go",
+   "go_func": "TestMoveDisproofAdjacentClearSucceeds",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_move_disproof_lifecycle_adjacent",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_move_test.go",
+   "go_func": "TestMoveDisproofLifecycleAdjacent",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_move_illegal_transition_fails",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_move_test.go",
+   "go_func": "TestMoveIllegalTransitionFails",
+   "notes": ""
   },
   {
    "python_file": "tests/test_cli.py",
