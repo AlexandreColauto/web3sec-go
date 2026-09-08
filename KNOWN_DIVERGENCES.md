@@ -23,23 +23,31 @@ rows marked as golden-normalized — nothing else.
 - **Status:** closed by design — the Go twin deliberately matches
   CPython, so this row documents the *mechanism*, not a live divergence.
 
-### D2 — Audit section set: 6 (Go) vs 12 (Python) (Task 13)
+### D2 — Audit section set: 13 (Go) vs 14 (Python) (Task 13, t15)
 - **What:** `audit` (plain and `--json`) reports every section the
-  implementation has. The Go audit registry (P0) registers six sections —
-  `event_log`, `artifacts`, `execs`, `findings`, `projection`,
-  `snapshots` — while the Python reference has twelve (the extra six are
-  P1+ territory: `relations`, `floor_policy`, …).
+  implementation has. The Go registry now carries thirteen sections in
+  the Python `audit.py` code order — `event_log`, `artifacts`, `execs`,
+  `findings`, `projection`, `snapshots`, `relations`, `floor_policy`,
+  `stage_completions`, `baselines`, `invariant_verification`,
+  `probe_surface`, `unpriceable` — while the Python reference has
+  fourteen. The missing one is `sequence_coverage` (Python's section
+  12), which the P0 plan reserves for a later phase.
 - **Surface:** the plain `audit` summary line lists all sections
   (`audit PASS: event_log=0 problem(s), …`); `audit --json` carries a
   `sections` object with the same set.
-- **Why:** the P1+ sections need P1+ state that does not exist in the Go
-  port yet; stubbing them would be dishonest (they would report
-  "0 problems" over data the implementation does not model).
+- **Why:** `sequence_coverage` reads coverage state (P2) that the Go
+  port does not model yet; stubbing it would be dishonest (it would
+  report "0 problems" over data the implementation does not have).
+- **Parity:** `internal/audit/testdata/p1_audit_vectors.json` holds 21
+  scenarios whose expected bytes were produced by the LIVE Python twin
+  (`.scratch/t15/gen_vectors.py`), and `.scratch/t15/parity_check.py`
+  builds the same P1 campaign independently in both twins, audits it in
+  both, and diffs the full report after id/hash normalization. The only
+  delta is the `sequence_coverage` token/section.
 - **Golden:** the golden checker compares the six P0 section tokens in
-  order and drops the Python-only P1+ tokens (plain line) / compares
-  `ok` + the six P0 sections only (`--json`).
-- **Unblocks:** P1 (audit registry grows section by section as each P1
-  module lands; the golden comparison then widens automatically).
+  order and drops the Python-only tokens (plain line) / compares `ok` +
+  the six P0 sections only (`--json`); unchanged by this row.
+- **Unblocks:** the phase that ports `sequence_coverage`; D2 then closes.
 
 ### D3 — `environment_hash` / derived `manifest_hash` (Task 11)
 - **What:** `snapshot.json` carries `manifest.environment_hash` (a
@@ -155,8 +163,48 @@ rows marked as golden-normalized — nothing else.
 - **Unblocks:** permanent (deliberate fail-safe; revisit if Python adopts
   the same guard).
 
-## Conventions for future rows
+### D9 — `baselines` problem text embeds the parser's wording (t15)
+- **What:** when a baseline's JSON is unreadable, the audit reports
+  `baseline '<name>': unreadable (<decoder message>)` (and
+  `baseline manifest unreadable (manifest.json): <decoder message>`).
+  The ported prefix is byte-identical; the embedded `<decoder message>`
+  is the host parser's: CPython `json` says `Expecting property name
+  enclosed in double quotes: line 1 column 2 (char 1)`, Go
+  `encoding/json` says `invalid character 'b' looking for beginning of
+  object key string`.
+- **Why:** same shape as D5 — the contract for corrupted input is a
+  verdict, not a panic, and the diagnostic wording is not part of the
+  state contract. Everything else about the row (checked count, `ok`,
+  the prefix) is compared byte-for-byte by
+  `TestBaselinesUnreadableJSONTextIsHostSpecific`.
+- **Golden:** not exercised — the golden corpus writes only
+  well-formed baselines.
+- **Unblocks:** none planned (surface-level diagnostic).
 
+### D10 — P1 audit seams: relations / probe_surface / forkdiff (t15)
+- **What:** `relations` and `probe_surface` are P3 modules (not ported)
+  and the forkdiff T0 fingerprint parser is a separate port, so the
+  three audit sections reach them through seams
+  (`sections.SetRelations`, `sections.SetProbeSurfaceAudit`,
+  `sections.SetForkdiff`) whose defaults are "absent":
+  `relations` → `{"checked":0,"problems":[],"ok":true}`; `probe_surface`
+  → the exact no-artifact dict Python emits, including the note text
+  ``no probe surface artifact (campaign predates or has not run `webv2
+  probes`)``; forkdiff → no baselines directory.
+- **Why:** rule 5 (an unported module becomes an interface seam with a
+  safe "absent" default). These are not stubs over modelled data: each
+  default is exactly what the Python twin reports when the artifact or
+  directory is missing, and the oracle suite pins that byte-for-byte
+  (`TestRelationsSeam`, `TestProbeSurfaceSeam`,
+  `TestP1EmptyCampaignSectionsMatchPython`).
+- **Golden:** not exercised for relations/probe_surface (the golden
+  recipe creates neither artifact); baselines fixtures are exercised by
+  the vector suite with fingerprints recorded from the LIVE Python
+  parser, and the live driver shares one fixture with both twins.
+- **Unblocks:** the P3 port wires the real implementations behind the
+  same seams.
+
+## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**
   shape.
 - A row may be added by any phase, but a row may only be *removed* when
