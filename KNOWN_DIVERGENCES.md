@@ -83,6 +83,78 @@ rows marked as golden-normalized — nothing else.
 - **Unblocks:** none planned (surface-level); may be aligned to a
   fixed wording in a future polish pass.
 
+## P1 (risk / pricing)
+
+### D6 — Unicode `\b` word boundary in regexes (risk, findings, sandbox)
+- **What:** `webv2.risk._INSOLVENCY_RE` contains `\bpools?\b`. Python's
+  `\b` is Unicode-aware (a word char is `str.isalnum()` or `_`); RE2 has
+  no Unicode word boundary, so the Go twin spells it as
+  `(?:^|[^\p{L}\p{N}\p{Pc}])pools?(?:$|[^\p{L}\p{N}\p{Pc}])` — the
+  convention already used by `internal/findings` (`claimHalfRe`),
+  `internal/sandbox` and `internal/validation/atomicio`.
+- **Exact divergence:** under `(?i)` RE2 expands a negated class to the
+  case-fold closure of `\p{L}\p{N}\p{Pc}`, which is a strict superset of
+  Python's word set, so Go can only *miss* a boundary Python sees, never
+  invent one. Concrete bytes (`impact_vector({"title": …})
+  ["insolvency_risk"]`): `"pool\u0345"` → Python `"high"`, Go `"low"`
+  (U+0345 COMBINING GREEK YPOGEGRAMMENI folds with U+03B9, so `(?i)`
+  pulls it into `\p{L}`); `"pool\u203F"` and `"pool\u2054"` (connector
+  punctuation other than `_`) → Python `"high"`, Go `"low"`. All other
+  probed boundary characters agree (`poolſ`, `pool\u0301`, `pool\u212A`,
+  `pool\u00B2`, `pool\u00AA`, `pool_`, `pool-`, `épool`, …), and the
+  410-vector differential run against the Python twin is 410/410.
+- **Why:** RE2 exposes no Unicode word-boundary primitive; a hand-rolled
+  boundary scan would fork the `pool` alternation from the other four
+  and from the three other modules using the same convention.
+- **Golden:** not exercised — the golden corpus is ASCII free text, and
+  nothing is normalized for this row.
+- **Unblocks:** permanent (justified above); closable by a per-rune
+  Python-`isalnum` boundary scan if a real campaign ever puts U+0345 /
+  U+203F / U+2054 next to "pool"/"pools".
+
+### D7 — Numeric argument typing in risk / pricing
+- **What:** Python's duck-typed publics accept ints where floats are
+  expected, keep the caller's int/float identity in the output, and raise
+  `TypeError`/`ValueError` on non-numbers. Go has no int/float union, so
+  the port narrows at the API boundary: `risk.EconomicRisk` and
+  `risk.RecordEconomicImpact` take `validation.Value` (int/float identity
+  preserved — differential-verified), `risk.EconomicRiskFloat` takes
+  `*float64`, and `pricing.SetPrice` takes `float64`.
+- **Exact divergence:** `pricing.SetPrice(c, "ETH", 0, …)` with a Python
+  *int* raises `usd must be a positive number, got 0`; Go's `float64`
+  parameter renders `got 0.0` (byte-identical to Python when the caller
+  passes `0.0`, and the CLI's argparse always yields a float).
+  `risk.BountyScore` / the `insolvency_risk` ratio return `0` instead of
+  raising on a schema-invalid non-numeric field (Python `TypeError`);
+  unreachable for schema-valid findings.
+- **Why:** the alternative is a `validation.Value` parameter on every
+  numeric entry point, which would make the CLI-facing API unusable.
+- **Golden:** not exercised (both twins' CLIs pass floats).
+- **Unblocks:** permanent.
+
+### D8 — Malformed invariant registry: Python raises, Go fails safe
+- **What:** `webv2.invariants.load_links` / `seed_from_model` / `coverage`
+  read `links.get("invariants", {})` and then call `.items()` / index it.
+  A registry whose `invariants` value is not an object (a list, a string,
+  `null`) raises `AttributeError: 'list' object has no attribute 'items'`
+  (or `TypeError`) out of `load_links`. `internal/invariants` instead
+  treats a non-object registry as the empty registry (`regOf`,
+  `internal/invariants/invariants.go`) and returns empty-registry results.
+- **Exact divergence:** `invariant_links.json` containing
+  `{"invariants": []}` → Python `load_links(camp)` raises `AttributeError`;
+  Go `LoadLinks(camp)` returns the document unchanged. Unreachable for
+  schema-valid campaign state: every writer in both twins emits an object
+  (`{}` or a dict of entries), so this only fires on hand-corrupted
+  registries.
+- **Why:** a corrupted registry is exactly when an operator wants the rest
+  of the run to keep working; crashing on a hand-edit is the wrong failure
+  mode, and the fail-safe keeps the guardrail's "unknown id" remediation
+  (not a panic) in charge.
+- **Golden:** not exercised — the golden corpus only writes registries the
+  twins themselves produced.
+- **Unblocks:** permanent (deliberate fail-safe; revisit if Python adopts
+  the same guard).
+
 ## Conventions for future rows
 
 - One row per divergence; keep the **What / Why / Golden / Unblocks**

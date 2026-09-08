@@ -115,6 +115,7 @@
         "required": ["axis", "anchor_blind", "reason", "actor", "at"],
         "properties": {
           "axis":         { "type": "string", "pattern": "^L-0[0-9]$" },
+          "probe_axis":   { "type": "string", "minLength": 1, "description": "the probe AXIS NAME the attestation is for. A6: one lens may carry several probes (L-01 has three), so the schema-pinned `axis` field - the lens id - no longer identifies the axis; absent on entries written before the field existed." },
           "anchor_blind": { "type": "string", "minLength": 1 },
           "reason":       { "type": "string", "minLength": 10 },
           "actor":        { "type": "string", "minLength": 1 },

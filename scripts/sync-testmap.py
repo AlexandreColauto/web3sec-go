@@ -51,7 +51,7 @@ PHASE_BY_FILE = {
     "tests/test_capabilities.py": "deferred-P1",
     "tests/test_cap_role_labels.py": "deferred-P1",
     "tests/test_dedup_determinism.py": "deferred-P1",
-    "tests/test_partition_guards.py": "deferred-P1",
+    "tests/test_partition_guards.py": "deferred-P3",  # memory-store partition = P3
     "tests/test_risk_amplifiers.py": "deferred-P1",
     "tests/test_bounty_policy.py": "deferred-P1",
     "tests/test_invariants.py": "deferred-P1",

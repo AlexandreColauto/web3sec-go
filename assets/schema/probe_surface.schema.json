@@ -29,8 +29,10 @@
                      "tail", "wanted", "floor", "per_axis", "status",
                      "blind", "blind_total"],
         "properties": {
-          "probe": { "enum": ["assertion-strength", "custody-primitive",
-                              "sequential-cursor", "trust-assumption"] },
+          "probe": { "enum": ["accumulator-basis-skew", "assertion-strength",
+                              "custody-primitive", "sequential-cursor",
+                              "short-circuitable-guard",
+                              "trust-assumption"] },
           "axis": { "type": "string" },
           "lens": { "type": "string", "pattern": "^L-0[0-9]$" },
           "sites": { "type": "integer", "minimum": 0,
@@ -80,8 +82,10 @@
                      "assertion_gap", "gate", "why", "siblings"],
         "properties": {
           "row_id": { "type": "string", "pattern": "^[0-9a-f]{10}$" },
-          "probe": { "enum": ["assertion-strength", "custody-primitive",
-                              "sequential-cursor", "trust-assumption"] },
+          "probe": { "enum": ["accumulator-basis-skew", "assertion-strength",
+                              "custody-primitive", "sequential-cursor",
+                              "short-circuitable-guard",
+                              "trust-assumption"] },
           "axis": { "type": "string" },
           "lens": { "type": "string", "pattern": "^L-0[0-9]$" },
           "tier": { "type": "integer", "minimum": 0, "maximum": 2 },
@@ -122,7 +126,13 @@
           "guard": { "type": "string" },
           "guard_line": { "type": "integer", "minimum": 0 },
           "cursor": { "type": "string" },
-          "stranded_entry": { "type": "array", "items": { "type": "string" } }
+          "stranded_entry": { "type": "array", "items": { "type": "string" } },
+          "sentinel": { "type": "string" },
+          "safety": { "type": "string" },
+          "rounded_line": { "type": "integer", "minimum": 0 },
+          "plain_line": { "type": "integer", "minimum": 0 },
+          "accumulator": { "type": "string" },
+          "companion": { "type": "string" }
         }
       }
     },
@@ -137,8 +147,10 @@
                      "wanted", "floor", "reason"],
         "properties": {
           "axis": { "type": "string" },
-          "probe": { "enum": ["assertion-strength", "custody-primitive",
-                              "sequential-cursor", "trust-assumption"] },
+          "probe": { "enum": ["accumulator-basis-skew", "assertion-strength",
+                              "custody-primitive", "sequential-cursor",
+                              "short-circuitable-guard",
+                              "trust-assumption"] },
           "lens": { "type": "string", "pattern": "^L-0[0-9]$" },
           "rows": { "type": "integer", "minimum": 0 },
           "sites": { "type": "integer", "minimum": 0 },

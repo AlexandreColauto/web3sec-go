@@ -500,67 +500,80 @@
   {
    "python_file": "tests/test_assumptions.py",
    "python_func": "test_assumption_schema_rejects_unknown_type_and_bad_belief",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/assumptions_test.go",
+   "go_func": "TestAssumptionSchemaRejectsUnknownTypeAndBadBelief"
   },
   {
    "python_file": "tests/test_assumptions.py",
    "python_func": "test_exec_record_always_satisfies_provenance",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/assumptions_test.go",
+   "go_func": "TestExecRecordAlwaysSatisfiesProvenance"
   },
   {
    "python_file": "tests/test_assumptions.py",
    "python_func": "test_existing_findings_load_without_migration_errors",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/assumptions_test.go",
+   "go_func": "TestExistingFindingsLoadWithoutMigrationErrors"
   },
   {
    "python_file": "tests/test_assumptions.py",
    "python_func": "test_flip_with_hallucinated_artifact_is_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/assumptions_test.go",
+   "go_func": "TestFlipWithHallucinatedArtifactIsRejected"
   },
   {
    "python_file": "tests/test_assumptions.py",
    "python_func": "test_flip_with_only_model_belief_is_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/assumptions_test.go",
+   "go_func": "TestFlipWithOnlyModelBeliefIsRejected"
   },
   {
    "python_file": "tests/test_assumptions.py",
    "python_func": "test_flip_with_real_evidence_succeeds_and_records_provenance",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/assumptions_test.go",
+   "go_func": "TestFlipWithRealEvidenceSucceedsAndRecordsProvenance"
   },
   {
    "python_file": "tests/test_assumptions.py",
    "python_func": "test_illegal_moves_and_unknown_ids_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/assumptions_test.go",
+   "go_func": "TestIllegalMovesAndUnknownIDsRejected"
   },
   {
    "python_file": "tests/test_assumptions.py",
    "python_func": "test_refuted_to_supported_is_legal_with_new_provenance",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/assumptions_test.go",
+   "go_func": "TestRefutedToSupportedIsLegalWithNewProvenance"
   },
   {
    "python_file": "tests/test_assumptions.py",
    "python_func": "test_set_assumptions_installs_and_validates",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/assumptions_test.go",
+   "go_func": "TestSetAssumptionsInstallsAndValidates"
   },
   {
    "python_file": "tests/test_assumptions.py",
    "python_func": "test_set_assumptions_rejects_pre_evidenced_status",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/assumptions_test.go",
+   "go_func": "TestSetAssumptionsRejectsPreEvidencedStatus"
   },
   {
    "python_file": "tests/test_assumptions.py",
    "python_func": "test_standalone_and_inlined_assumption_schemas_cannot_drift",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/assumptions_test.go",
+   "go_func": "TestStandaloneAndInlinedAssumptionSchemasCannotDrift"
   },
   {
    "python_file": "tests/test_assumptions.py",
    "python_func": "test_supported_to_refuted_requires_contradiction",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/assumptions_test.go",
+   "go_func": "TestSupportedToRefutedRequiresContradiction"
   },
   {
    "python_file": "tests/test_assumptions.py",
    "python_func": "test_transition_event_carries_versions_and_kinds",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/assumptions_test.go",
+   "go_func": "TestTransitionEventCarriesVersionsAndKinds"
   },
   {
    "python_file": "tests/test_audit_sequence_coverage.py",
@@ -580,37 +593,44 @@
   {
    "python_file": "tests/test_bounty_policy.py",
    "python_func": "test_evidence_floor_blocks",
-   "status": "deferred-P1"
+   "go_file": "internal/bounty/bounty_test.go",
+   "go_func": "TestEvidenceFloorBlocks"
   },
   {
    "python_file": "tests/test_bounty_policy.py",
    "python_func": "test_full_submission_ready",
-   "status": "deferred-P1"
+   "go_file": "internal/bounty/bounty_test.go",
+   "go_func": "TestFullSubmissionReady"
   },
   {
    "python_file": "tests/test_bounty_policy.py",
    "python_func": "test_known_issue_blocks",
-   "status": "deferred-P1"
+   "go_file": "internal/bounty/bounty_test.go",
+   "go_func": "TestKnownIssueBlocks"
   },
   {
    "python_file": "tests/test_bounty_policy.py",
    "python_func": "test_missing_fork_repro_blocks",
-   "status": "deferred-P1"
+   "go_file": "internal/bounty/bounty_test.go",
+   "go_func": "TestMissingForkReproBlocks"
   },
   {
    "python_file": "tests/test_bounty_policy.py",
    "python_func": "test_out_of_scope_target_blocks",
-   "status": "deferred-P1"
+   "go_file": "internal/bounty/bounty_test.go",
+   "go_func": "TestOutOfScopeTargetBlocks"
   },
   {
    "python_file": "tests/test_bounty_policy.py",
    "python_func": "test_severity_rule_matching",
-   "status": "deferred-P1"
+   "go_file": "internal/bounty/bounty_test.go",
+   "go_func": "TestSeverityRuleMatching"
   },
   {
    "python_file": "tests/test_bounty_policy.py",
    "python_func": "test_unconfirmed_never_ready",
-   "status": "deferred-P1"
+   "go_file": "internal/bounty/bounty_test.go",
+   "go_func": "TestUnconfirmedNeverReady"
   },
   {
    "python_file": "tests/test_briefing.py",
@@ -830,47 +850,56 @@
   {
    "python_file": "tests/test_cap_role_labels.py",
    "python_func": "test_is_role_label",
-   "status": "deferred-P1"
+   "go_file": "internal/capabilities/capabilities_test.go",
+   "go_func": "TestIsRoleLabel"
   },
   {
    "python_file": "tests/test_cap_role_labels.py",
    "python_func": "test_kind_of_classifies_role_labels_as_authority",
-   "status": "deferred-P1"
+   "go_file": "internal/capabilities/capabilities_test.go",
+   "go_func": "TestKindOfClassifiesRoleLabelsAsAuthority"
   },
   {
    "python_file": "tests/test_cap_role_labels.py",
    "python_func": "test_role_from_label_roundtrip",
-   "status": "deferred-P1"
+   "go_file": "internal/capabilities/capabilities_test.go",
+   "go_func": "TestRoleFromLabelRoundtrip"
   },
   {
    "python_file": "tests/test_cap_role_labels.py",
    "python_func": "test_role_label_normalization",
-   "status": "deferred-P1"
+   "go_file": "internal/capabilities/capabilities_test.go",
+   "go_func": "TestRoleLabelNormalization"
   },
   {
    "python_file": "tests/test_capabilities.py",
    "python_func": "test_capability_delta_separates_gained_from_required",
-   "status": "deferred-P1"
+   "go_file": "internal/capabilities/capabilities_test.go",
+   "go_func": "TestCapabilityDeltaSeparatesGainedFromRequired"
   },
   {
    "python_file": "tests/test_capabilities.py",
    "python_func": "test_kind_of_uses_the_taxonomy_and_admits_free_text",
-   "status": "deferred-P1"
+   "go_file": "internal/capabilities/capabilities_test.go",
+   "go_func": "TestKindOfUsesTheTaxonomyAndAdmitsFreeText"
   },
   {
    "python_file": "tests/test_capabilities.py",
    "python_func": "test_normalize_label_collapses_every_spelling",
-   "status": "deferred-P1"
+   "go_file": "internal/capabilities/capabilities_test.go",
+   "go_func": "TestNormalizeLabelCollapsesEverySpelling"
   },
   {
    "python_file": "tests/test_capabilities.py",
    "python_func": "test_normalize_labels_dedupes_and_sorts",
-   "status": "deferred-P1"
+   "go_file": "internal/capabilities/capabilities_test.go",
+   "go_func": "TestNormalizeLabelsDedupesAndSorts"
   },
   {
    "python_file": "tests/test_capabilities.py",
    "python_func": "test_required_falls_back_to_preconditions",
-   "status": "deferred-P1"
+   "go_file": "internal/capabilities/capabilities_test.go",
+   "go_func": "TestRequiredFallsBackToPreconditions"
   },
   {
    "python_file": "tests/test_chain_engine.py",
@@ -910,12 +939,15 @@
   {
    "python_file": "tests/test_chain_engine.py",
    "python_func": "test_prior_risk_decision_rule",
-   "status": "deferred-P2"
+   "go_file": "internal/risk/risk_test.go",
+   "go_func": "TestPriorRiskDecisionRuleBountyHalf",
+   "notes": "partial: the bounty_score half is ported; the planner.decision_rule half needs webv2.planner (unported)"
   },
   {
    "python_file": "tests/test_chain_engine.py",
    "python_func": "test_validated_risk_bands",
-   "status": "deferred-P2"
+   "go_file": "internal/risk/risk_test.go",
+   "go_func": "TestValidatedRiskBands"
   },
   {
    "python_file": "tests/test_cli.py",
@@ -1055,7 +1087,9 @@
   {
    "python_file": "tests/test_cli_e2e_confirm.py",
    "python_func": "test_cli_confirm_flow_with_shield",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/transitions_test.go",
+   "go_func": "TestConfirmedFlowStateEffectsWithShield",
+   "notes": "partial: state-effect half ported; CLI wiring is P1 task 14"
   },
   {
    "python_file": "tests/test_cli_gate_dryrun.py",
@@ -1475,17 +1509,20 @@
   {
    "python_file": "tests/test_dedup_determinism.py",
    "python_func": "test_earliest_created_finding_is_kept",
-   "status": "deferred-P1"
+   "go_file": "internal/dedup/dedup_test.go",
+   "go_func": "TestEarliestCreatedFindingIsKept"
   },
   {
    "python_file": "tests/test_dedup_determinism.py",
    "python_func": "test_lineage_id_is_stable_across_runs",
-   "status": "deferred-P1"
+   "go_file": "internal/dedup/dedup_test.go",
+   "go_func": "TestLineageIDIsStableAcrossRuns"
   },
   {
    "python_file": "tests/test_dedup_determinism.py",
    "python_func": "test_repeated_sweeps_are_idempotent",
-   "status": "deferred-P1"
+   "go_file": "internal/dedup/dedup_test.go",
+   "go_func": "TestRepeatedSweepsAreIdempotent"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
@@ -1800,22 +1837,26 @@
   {
    "python_file": "tests/test_economics_transforms.py",
    "python_func": "test_debt_asset_adds_the_solvency_equation",
-   "status": "deferred-P1"
+   "go_file": "internal/economics/economics_test.go",
+   "go_func": "TestDebtAssetAddsSolvencyEquation"
   },
   {
    "python_file": "tests/test_economics_transforms.py",
    "python_func": "test_odd_decimals_family_flag_is_emitted",
-   "status": "deferred-P1"
+   "go_file": "internal/economics/economics_test.go",
+   "go_func": "TestOddDecimalsFamilyFlagIsEmitted"
   },
   {
    "python_file": "tests/test_economics_transforms.py",
    "python_func": "test_odd_decimals_transform_fires_on_the_parameterized_flag",
-   "status": "deferred-P1"
+   "go_file": "internal/economics/economics_test.go",
+   "go_func": "TestOddDecimalsTransformFiresOnParameterizedFlag"
   },
   {
    "python_file": "tests/test_economics_transforms.py",
    "python_func": "test_odd_decimals_transform_is_quiet_for_standard_decimals",
-   "status": "deferred-P1"
+   "go_file": "internal/economics/economics_test.go",
+   "go_func": "TestOddDecimalsTransformQuietForStandardDecimals"
   },
   {
    "python_file": "tests/test_env_solc.py",
@@ -2025,12 +2066,14 @@
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_confirmation_gate_failures_are_enumerated",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/transitions_test.go",
+   "go_func": "TestConfirmationGateFailuresAreEnumerated"
   },
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_confirmed_requires_full_gate_bundle",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/transitions_test.go",
+   "go_func": "TestConfirmedRequiresFullGateBundle"
   },
   {
    "python_file": "tests/test_findings.py",
@@ -2055,7 +2098,8 @@
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_evidence_rejected_on_terminal_finding",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/transitions_test.go",
+   "go_func": "TestEvidenceRejectedOnTerminalFinding"
   },
   {
    "python_file": "tests/test_findings.py",
@@ -2067,7 +2111,8 @@
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_fresh_context_guidance",
-   "status": "deferred-P1"
+   "status": "deferred-P1",
+   "notes": "blocked: reproduction.record_attempt (P2) renders the guidance"
   },
   {
    "python_file": "tests/test_findings.py",
@@ -2079,12 +2124,14 @@
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_illegal_jump_hypothesis_to_confirmed",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/transitions_test.go",
+   "go_func": "TestIllegalJumpHypothesisToConfirmed"
   },
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_incompatible_classes_never_tier3",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/transitions_test.go",
+   "go_func": "TestIncompatibleClassesNeverTier3"
   },
   {
    "python_file": "tests/test_findings.py",
@@ -2116,72 +2163,86 @@
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_terminal_duplicate_freezes",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/transitions_test.go",
+   "go_func": "TestTerminalDuplicateFreezes"
   },
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_terminal_states_are_absorbing",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/transitions_test.go",
+   "go_func": "TestTerminalStatesAreAbsorbing"
   },
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_tier1_auto_merge",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/transitions_test.go",
+   "go_func": "TestTier1AutoMerge"
   },
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_tier3_flag_never_auto_merges",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/transitions_test.go",
+   "go_func": "TestTier3FlagNeverAutoMerges"
   },
   {
    "python_file": "tests/test_floors.py",
    "python_func": "test_audit_catches_hand_edited_policy",
-   "status": "deferred-P1"
+   "go_file": "internal/floors/floors_test.go",
+   "go_func": "TestAuditCatchesHandEditedPolicy"
   },
   {
    "python_file": "tests/test_floors.py",
    "python_func": "test_audit_catches_projection_drift",
-   "status": "deferred-P1"
+   "go_file": "internal/floors/floors_test.go",
+   "go_func": "TestAuditCatchesProjectionDrift"
   },
   {
    "python_file": "tests/test_floors.py",
    "python_func": "test_clear_unknown_class_raises",
-   "status": "deferred-P1"
+   "go_file": "internal/floors/floors_test.go",
+   "go_func": "TestClearUnknownClassRaises"
   },
   {
    "python_file": "tests/test_floors.py",
    "python_func": "test_effective_floor_ignores_override_for_other_statuses",
-   "status": "deferred-P1"
+   "go_file": "internal/floors/floors_test.go",
+   "go_func": "TestEffectiveFloorIgnoresOverrideForOtherStatuses"
   },
   {
    "python_file": "tests/test_floors.py",
    "python_func": "test_floor_table_report_mixes_defaults_and_overrides",
-   "status": "deferred-P1"
+   "go_file": "internal/floors/floors_test.go",
+   "go_func": "TestFloorTableReportMixesDefaultsAndOverrides"
   },
   {
    "python_file": "tests/test_floors.py",
    "python_func": "test_gate_requirements_use_effective_floor",
-   "status": "deferred-P1"
+   "go_file": "internal/floors/floors_test.go",
+   "go_func": "TestGateRequirementsUseEffectiveFloor"
   },
   {
    "python_file": "tests/test_floors.py",
    "python_func": "test_policy_file_seeds_at_init",
-   "status": "deferred-P1"
+   "go_file": "internal/floors/floors_test.go",
+   "go_func": "TestPolicyFileSeedsAtInit"
   },
   {
    "python_file": "tests/test_floors.py",
    "python_func": "test_set_clear_effective",
-   "status": "deferred-P1"
+   "go_file": "internal/floors/floors_test.go",
+   "go_func": "TestSetClearEffective"
   },
   {
    "python_file": "tests/test_floors.py",
    "python_func": "test_set_requires_actor_and_reason",
-   "status": "deferred-P1"
+   "go_file": "internal/floors/floors_test.go",
+   "go_func": "TestSetRequiresActorAndReason"
   },
   {
    "python_file": "tests/test_floors.py",
    "python_func": "test_state_schema_accepts_floor_policy",
-   "status": "deferred-P1"
+   "go_file": "internal/floors/floors_test.go",
+   "go_func": "TestStateSchemaAcceptsFloorPolicy"
   },
   {
    "python_file": "tests/test_fork_poc_immunize.py",
@@ -2566,117 +2627,141 @@
   {
    "python_file": "tests/test_invariants.py",
    "python_func": "test_seed_synthesizes_liveness_invariant_for_state_machines",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/invariants_test.go",
+   "go_func": "TestSeedSynthesizesLivenessInvariantForStateMachines"
   },
   {
    "python_file": "tests/test_invariants_doc.py",
    "python_func": "test_documented_invariants_from_snapshot",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/docscan_test.go",
+   "go_func": "TestDocumentedInvariantsFromSnapshot"
   },
   {
    "python_file": "tests/test_invariants_doc.py",
    "python_func": "test_model_invented_invariant_stays_guarded",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/docscan_test.go",
+   "go_func": "TestModelInventedInvariantStaysGuarded"
   },
   {
    "python_file": "tests/test_invariants_doc.py",
    "python_func": "test_no_snapshot_means_empty",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/docscan_test.go",
+   "go_func": "TestNoSnapshotMeansEmpty"
   },
   {
    "python_file": "tests/test_invariants_doc.py",
    "python_func": "test_playbook_invariant_seeds_as_documented_with_provenance",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/docscan_test.go",
+   "go_func": "TestPlaybookInvariantSeedsAsDocumentedWithProvenance"
   },
   {
    "python_file": "tests/test_invariants_doc.py",
    "python_func": "test_reconcile_no_divergence",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/docscan_test.go",
+   "go_func": "TestReconcileNoDivergence"
   },
   {
    "python_file": "tests/test_invariants_doc.py",
    "python_func": "test_reconcile_notes_undocumented_extras",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/docscan_test.go",
+   "go_func": "TestReconcileNotesUndocumentedExtras"
   },
   {
    "python_file": "tests/test_invariants_doc.py",
    "python_func": "test_reconcile_reports_documented_but_missing",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/docscan_test.go",
+   "go_func": "TestReconcileReportsDocumentedButMissing"
   },
   {
    "python_file": "tests/test_invariants_doc.py",
    "python_func": "test_seed_from_model_then_reconcile",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/docscan_test.go",
+   "go_func": "TestSeedFromModelThenReconcile"
   },
   {
    "python_file": "tests/test_invariants_doc.py",
    "python_func": "test_target_doc_still_wins_and_has_no_playbook_provenance",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/docscan_test.go",
+   "go_func": "TestTargetDocStillWinsAndHasNoPlaybookProvenance"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_audit_flags_unregistered_verification_artifact",
-   "status": "deferred-P1"
+   "status": "deferred-P1",
+   "notes": "blocked: audit section 11 invariant_verification (P1 gate task)"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_confirmation_gate_reports_invariant_unverified",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestConfirmationGateReportsInvariantUnverified"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_contradict_sets_status",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/invariants_test.go",
+   "go_func": "TestContradictSetsStatus"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_contradicted_invariant_blocks_confirmation_gate",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestContradictedInvariantBlocksConfirmationGate"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_gate_exempts_documented_invariants",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestGateExemptsDocumentedInvariants"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_guardrail_blocks_level_rise_on_unverified_model_invariant",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestGuardrailBlocksLevelRiseOnUnverifiedModelInvariant"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_guardrail_exempts_documented_invariants",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestGuardrailExemptsDocumentedInvariants"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_guardrail_passes_after_verification",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestGuardrailPassesAfterVerification"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_hand_edited_checked_with_registered_artifact_blocked",
-   "status": "deferred-P1"
+   "notes": "partial: gate half ported; audit half needs audit section 11",
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestHandEditedCheckedWithRegisteredArtifactBlocked"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_ingest_accepts_level_neutral_note_on_unverified_invariant",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestIngestAcceptsLevelNeutralNoteOnUnverifiedInvariant"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_ingest_accepts_low_level_evidence_on_documented_invariant",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestIngestAcceptsLowLevelEvidenceOnDocumentedInvariant"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_ingest_blocks_rise_on_unknown_invariant",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestIngestBlocksRiseOnUnknownInvariant"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_ingest_blocks_rise_on_unverified_model_invariant",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestIngestBlocksRiseOnUnverifiedModelInvariant"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
@@ -2688,62 +2773,74 @@
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_legacy_entry_migrates_on_read",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestLegacyEntryMigratesOnRead"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_level_neutral_add_on_unverified_model_invariant_allowed",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestLevelNeutralAddOnUnverifiedModelInvariantAllowed"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_reseed_refreshes_model_to_documented",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/invariants_test.go",
+   "go_func": "TestReseedRefreshesModelToDocumented"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_seed_derives_documented_source",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/invariants_test.go",
+   "go_func": "TestSeedDerivesDocumentedSource"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_seed_normalizes_verification_status",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/invariants_test.go",
+   "go_func": "TestSeedNormalizesVerificationStatus"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_sub_e4_rise_on_unverified_model_invariant_blocked",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestSubE4RiseOnUnverifiedModelInvariantBlocked"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_test_status_axis_is_orthogonal",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/invariants_test.go",
+   "go_func": "TestTestStatusAxisIsOrthogonal"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_unknown_invariant_id_blocks_both_halves",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestUnknownInvariantIDBlocksBothHalves"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_verify_requires_registered_artifact",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/invariants_test.go",
+   "go_func": "TestVerifyRequiresRegisteredArtifact"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_zero_padded_citation_gets_documented_exemption",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestZeroPaddedCitationGetsDocumentedExemption"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_zero_padded_citation_still_blocked_when_unverified",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestZeroPaddedCitationStillBlockedWhenUnverified"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_zero_padded_registry_key_matches_normalized_doc",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/guard_test.go",
+   "go_func": "TestZeroPaddedRegistryKeyMatchesNormalizedDoc"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
@@ -2860,47 +2957,56 @@
   {
    "python_file": "tests/test_memory_check_gate.py",
    "python_func": "test_gate_accepts_valid_negative_check",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/memory_test.go",
+   "go_func": "TestGateAcceptsValidNegativeCheck"
   },
   {
    "python_file": "tests/test_memory_check_gate.py",
    "python_func": "test_gate_blocks_legacy_rag_refs",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/memory_test.go",
+   "go_func": "TestGateBlocksLegacyRagRefs"
   },
   {
    "python_file": "tests/test_memory_check_gate.py",
    "python_func": "test_gate_blocks_stale_store",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/memory_test.go",
+   "go_func": "TestGateBlocksStaleStore"
   },
   {
    "python_file": "tests/test_memory_check_gate.py",
    "python_func": "test_gate_blocks_without_check",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/memory_test.go",
+   "go_func": "TestGateBlocksWithoutCheck"
   },
   {
    "python_file": "tests/test_memory_check_gate.py",
    "python_func": "test_record_dedupes_on_ids_and_mode",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/memory_test.go",
+   "go_func": "TestRecordDedupesOnIDsAndMode"
   },
   {
    "python_file": "tests/test_memory_check_gate.py",
    "python_func": "test_record_rejects_unknown_id",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/memory_test.go",
+   "go_func": "TestRecordRejectsUnknownID"
   },
   {
    "python_file": "tests/test_memory_check_gate.py",
    "python_func": "test_record_validates_ids_and_stamps",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/memory_test.go",
+   "go_func": "TestRecordValidatesIDsAndStamps"
   },
   {
    "python_file": "tests/test_memory_check_gate.py",
    "python_func": "test_visible_rows_include_root_tier_shared_store",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/memory_test.go",
+   "go_func": "TestVisibleRowsIncludeRootTierSharedStore"
   },
   {
    "python_file": "tests/test_memory_check_gate.py",
    "python_func": "test_visible_rows_merge_both_sources",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/memory_test.go",
+   "go_func": "TestVisibleRowsMergeBothSources"
   },
   {
    "python_file": "tests/test_metrics.py",
@@ -3200,37 +3306,37 @@
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_approve_memory_allows_dev_row",
-   "status": "deferred-P1"
+   "status": "deferred-P3"
   },
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_approve_memory_rejects_non_dev_rows",
-   "status": "deferred-P1"
+   "status": "deferred-P3"
   },
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_held_out_and_training_rows_absent_from_proposer_context",
-   "status": "deferred-P1"
+   "status": "deferred-P3"
   },
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_publish_allows_dev_row",
-   "status": "deferred-P1"
+   "status": "deferred-P3"
   },
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_publish_rejects_non_dev_row_without_store_entry",
-   "status": "deferred-P1"
+   "status": "deferred-P3"
   },
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_publish_rejects_training_row",
-   "status": "deferred-P1"
+   "status": "deferred-P3"
   },
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_shared_store_held_out_row_absent_dev_row_present",
-   "status": "deferred-P1"
+   "status": "deferred-P3"
   },
   {
    "python_file": "tests/test_pipeline.py",
@@ -4005,12 +4111,14 @@
   {
    "python_file": "tests/test_risk_amplifiers.py",
    "python_func": "test_amplifier_bonus_math",
-   "status": "deferred-P1"
+   "go_file": "internal/risk/risk_test.go",
+   "go_func": "TestAmplifierBonusMath"
   },
   {
    "python_file": "tests/test_risk_amplifiers.py",
    "python_func": "test_bounty_score_accepts_amplifier_bonus",
-   "status": "deferred-P1"
+   "go_file": "internal/risk/risk_test.go",
+   "go_func": "TestBountyScoreAcceptsAmplifierBonus"
   },
   {
    "python_file": "tests/test_risk_amplifiers.py",
@@ -4760,12 +4868,14 @@
   {
    "python_file": "tests/test_severity_split.py",
    "python_func": "test_asset_exposure_bands",
-   "status": "deferred-P1"
+   "go_file": "internal/risk/risk_test.go",
+   "go_func": "TestAssetExposureBands"
   },
   {
    "python_file": "tests/test_severity_split.py",
    "python_func": "test_calibrate_writes_impact_vector",
-   "status": "deferred-P1"
+   "go_file": "internal/risk/risk_test.go",
+   "go_func": "TestCalibrateWritesImpactVector"
   },
   {
    "python_file": "tests/test_severity_split.py",
@@ -4775,32 +4885,39 @@
   {
    "python_file": "tests/test_severity_split.py",
    "python_func": "test_impact_vector_null_fields_fall_back_to_defaults",
-   "status": "deferred-P1"
+   "go_file": "internal/risk/risk_test.go",
+   "go_func": "TestImpactVectorNullFieldsFallBackToDefaults"
   },
   {
    "python_file": "tests/test_severity_split.py",
    "python_func": "test_impact_vector_score_is_band_weight_sum",
-   "status": "deferred-P1"
+   "go_file": "internal/risk/risk_test.go",
+   "go_func": "TestImpactVectorScoreIsBandWeightSum"
   },
   {
    "python_file": "tests/test_severity_split.py",
    "python_func": "test_null_fields_still_fail_at_validation",
-   "status": "deferred-P1"
+   "go_file": "internal/risk/risk_test.go",
+   "go_func": "TestNullFieldsStillFailAtValidation"
   },
   {
    "python_file": "tests/test_severity_split.py",
    "python_func": "test_privilege_class_mapping",
-   "status": "deferred-P1"
+   "go_file": "internal/risk/risk_test.go",
+   "go_func": "TestPrivilegeClassMapping"
   },
   {
    "python_file": "tests/test_severity_split.py",
    "python_func": "test_recoverability_and_insolvency",
-   "status": "deferred-P1"
+   "go_file": "internal/risk/risk_test.go",
+   "go_func": "TestRecoverabilityAndInsolvency"
   },
   {
    "python_file": "tests/test_severity_split.py",
    "python_func": "test_reported_severity_is_inert",
-   "status": "deferred-P1"
+   "go_file": "internal/risk/risk_test.go",
+   "go_func": "TestReportedSeverityIsInert",
+   "notes": "partial: the unit half (validated_risk/impact_vector ignore the claim) is ported; the campaign half needs findings.confirmation_gate_detail + bounty_policy.severity_for (unported)"
   },
   {
    "python_file": "tests/test_sft_backfill.py",
@@ -5455,102 +5572,122 @@
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_bad_map_file_fails_loud",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestBadMapFileFailsLoud"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_canonical_classes_is_the_known_set",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestCanonicalClassesIsTheKnownSet"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_canonical_self_name_maps_even_without_alias",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestCanonicalSelfNameMapsEvenWithoutAlias"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_class_advisory_unknown_names_conservative_floor",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestClassAdvisoryUnknownNamesConservativeFloor"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_class_report_for_known",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestClassReportForKnown"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_class_report_for_unknown_suggests_matches",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestClassReportForUnknownSuggestsMatches"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_dataset_specific_alias_wins_over_common",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestDatasetSpecificAliasWinsOverCommon"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_explicit_unmapped_alias_is_a_recorded_decision",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestExplicitUnmappedAliasIsARecordedDecision"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_known_classes_is_complete_and_stable",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestKnownClassesIsCompleteAndStable"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_map_file_with_bad_yaml_fails_loud",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestMapFileWithBadYAMLFailsLoud"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_missing_dataset_file_is_a_normal_miss",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestMissingDatasetFileIsANormalMiss"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_normalize_is_case_whitespace_and_punctuation_insensitive",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestNormalizeIsCaseWhitespaceAndPunctuationInsensitive"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_normalize_mapped_aliases",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestNormalizeMappedAliases"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_normalize_unknown_falls_back_to_unmapped",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestNormalizeUnknownFallsBackToUnmapped"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_seeded_map_files_are_valid",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestSeededMapFilesAreValid"
   },
   {
    "python_file": "tests/test_taxonomy.py",
    "python_func": "test_simulation_mode_classes_confirm_at_e6",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestSimulationModeClassesConfirmAtE6"
   },
   {
    "python_file": "tests/test_taxonomy_seed_alignment.py",
    "python_func": "test_example_ingest_round_trips_without_advisory",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestExampleIngestRoundTripsWithoutAdvisory"
   },
   {
    "python_file": "tests/test_taxonomy_seed_alignment.py",
    "python_func": "test_example_uses_a_canonical_class",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestExampleUsesACanonicalClass"
   },
   {
    "python_file": "tests/test_taxonomy_seed_alignment.py",
    "python_func": "test_seed_dataset_carries_labels",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestSeedDatasetCarriesLabels"
   },
   {
    "python_file": "tests/test_taxonomy_seed_alignment.py",
    "python_func": "test_seed_labels_resolve_to_canonical_classes",
-   "status": "deferred-P1"
+   "go_file": "internal/taxonomy/taxonomy_test.go",
+   "go_func": "TestSeedLabelsResolveToCanonicalClasses"
   },
   {
    "python_file": "tests/test_tier1_minor_sweep.py",
@@ -5702,11 +5839,6 @@
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_ranking_regression_commitBatch_rank_1_and_sibling_collapse",
-   "status": "deferred-P3"
-  },
-  {
-   "python_file": "tests/test_probes.py",
-   "python_func": "test_registry_ships_the_four_probes_with_rank_and_anchors",
    "status": "deferred-P3"
   },
   {
@@ -6192,6 +6324,106 @@
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_report_renders_the_mechanical_candidate_surface",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_accumulator_basis_skew_fires_on_buggy_and_is_silent_on_clean",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_accumulator_companion_is_not_the_accumulators_own_persistence",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_accumulator_persists_through_a_plain_copy",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_accumulator_recognizes_state_declared_in_a_base_contract",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_axis_names_are_unique_even_when_a_lens_carries_several_probes",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_blank_store_keys_the_axis_when_three_probes_share_the_lens",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_every_new_probe_anchor_field_moves_the_row_shape",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_legacy_lens_attestation_survives_a_sibling_axis_attestation",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_new_axes_publish_sites_rows_and_the_four_state_status",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_new_probe_shape_follows_the_anchor_line_but_row_id_does_not",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_registry_ships_the_six_probes_with_rank_and_anchors",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_short_circuitable_guard_fires_on_the_buggy_guard_and_blinds_on_clean",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_two_rows_of_each_new_probe_get_distinct_row_ids",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_anchor_help_is_derived_from_the_registry",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_blank_axis_help_advertises_the_lens_spelling",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_blank_lens_spelling_resolves_to_the_axis_that_published_the_key",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_probes_list_axis_filter_by_lens_shows_every_probe_on_it",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_no_axis_with_rows_can_report_emitted_with_zero_obligations",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_quota_knobs_that_would_rebuild_a_vacuous_closure_are_rejected",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_probes_run_rejects_a_quota_that_obliges_nothing",
    "status": "deferred-P3"
   }
  ]
