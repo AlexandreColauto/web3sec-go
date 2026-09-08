@@ -465,7 +465,8 @@
   {
    "python_file": "tests/test_answered.py",
    "python_func": "test_report_flags_unreferenced_answers",
-   "status": "deferred-P1"
+   "status": "deferred-P3",
+   "notes": "report/briefing modules = P3"
   },
   {
    "python_file": "tests/test_archetypes.py",
@@ -2845,7 +2846,8 @@
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_brief_next_action_names_unattested_family",
-   "status": "deferred-P1"
+   "status": "deferred-P3",
+   "notes": "report/briefing modules = P3"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
@@ -2890,12 +2892,14 @@
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_report_lists_lens_families",
-   "status": "deferred-P1"
+   "status": "deferred-P3",
+   "notes": "report/briefing modules = P3"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_report_marks_reopened_lens",
-   "status": "deferred-P1"
+   "status": "deferred-P3",
+   "notes": "report/briefing modules = P3"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
@@ -3341,32 +3345,38 @@
   {
    "python_file": "tests/test_pipeline.py",
    "python_func": "test_builtin_without_orchestrator_or_target_fails_loudly",
-   "status": "deferred-P1"
+   "go_file": "internal/pipeline/pipeline_test.go",
+   "go_func": "TestBuiltinWithoutOrchestratorOrTargetFailsLoudly"
   },
   {
    "python_file": "tests/test_pipeline.py",
    "python_func": "test_failing_stage_halts_the_run_and_is_retryable",
-   "status": "deferred-P1"
+   "go_file": "internal/pipeline/pipeline_test.go",
+   "go_func": "TestFailingStageHaltsTheRunAndIsRetryable"
   },
   {
    "python_file": "tests/test_pipeline.py",
    "python_func": "test_halts_at_first_model_stage_with_a_context_bundle",
-   "status": "deferred-P1"
+   "go_file": "internal/pipeline/pipeline_test.go",
+   "go_func": "TestHaltsAtFirstModelStageWithAContextBundle"
   },
   {
    "python_file": "tests/test_pipeline.py",
    "python_func": "test_pipeline_halt_is_written_to_the_event_log",
-   "status": "deferred-P1"
+   "go_file": "internal/pipeline/pipeline_test.go",
+   "go_func": "TestPipelineHaltIsWrittenToTheEventLog"
   },
   {
    "python_file": "tests/test_pipeline.py",
    "python_func": "test_resume_skips_completed_stages_and_advances",
-   "status": "deferred-P1"
+   "go_file": "internal/pipeline/pipeline_test.go",
+   "go_func": "TestResumeSkipsCompletedStagesAndAdvances"
   },
   {
    "python_file": "tests/test_pipeline.py",
    "python_func": "test_until_stops_after_the_named_stage",
-   "status": "deferred-P1"
+   "go_file": "internal/pipeline/pipeline_test.go",
+   "go_func": "TestUntilStopsAfterTheNamedStage"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
@@ -3386,12 +3396,14 @@
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_brief_carries_divergence_and_next_action",
-   "status": "deferred-P1"
+   "status": "deferred-P3",
+   "notes": "report/briefing modules = P3"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_brief_no_plan_is_unchanged",
-   "status": "deferred-P1"
+   "status": "deferred-P3",
+   "notes": "report/briefing modules = P3"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
@@ -3451,12 +3463,14 @@
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_report_renders_hypothesis_lenses",
-   "status": "deferred-P1"
+   "status": "deferred-P3",
+   "notes": "report/briefing modules = P3"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_report_without_plan_is_unchanged",
-   "status": "deferred-P1"
+   "status": "deferred-P3",
+   "notes": "report/briefing modules = P3"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
@@ -5933,11 +5947,6 @@
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
-   "python_func": "test_ensure_fresh_index_rebuilds_pre_v2_and_reuses_v2",
-   "status": "deferred-P3"
-  },
-  {
-   "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_guard_class_is_independent_of_concept_keys",
    "status": "deferred-P3"
   },
@@ -5974,21 +5983,6 @@
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_index_is_deterministic_across_runs_and_paths",
-   "status": "deferred-P3"
-  },
-  {
-   "python_file": "tests/test_structural_index_v2.py",
-   "python_func": "test_parse_version_is_v2_and_every_node_is_an_index",
-   "status": "deferred-P3"
-  },
-  {
-   "python_file": "tests/test_structural_index_v2.py",
-   "python_func": "test_pre_v2_index_is_rejected_loudly",
-   "status": "deferred-P3"
-  },
-  {
-   "python_file": "tests/test_structural_index_v2.py",
-   "python_func": "test_save_index_refuses_pre_v2",
    "status": "deferred-P3"
   },
   {
@@ -6424,6 +6418,66 @@
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_probes_run_rejects_a_quota_that_obliges_nothing",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_custody_primitive_fires_on_cast_form_calls_only",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_floor_reserve_larger_than_total_is_a_loud_warning",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes.py",
+   "python_func": "test_test_double_paths_are_recognized_and_rank_neutral",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_a_shrunken_quota_cannot_close_a_lens_on_its_tail",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_audit_re_derives_rows_and_catches_a_hand_edited_anchor",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_lens_probe_closure_message_carries_the_counts",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_probes_cli.py",
+   "python_func": "test_probes_run_and_list_surface_the_floor_overrun_warning",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_cast_and_chained_calls_are_indexed_in_statement_order",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_ensure_fresh_index_rebuilds_pre_v3_and_reuses_v3",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_parse_version_is_v3_and_every_node_is_an_index",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_pre_v3_index_is_rejected_loudly",
+   "status": "deferred-P3"
+  },
+  {
+   "python_file": "tests/test_structural_index_v2.py",
+   "python_func": "test_save_index_refuses_pre_v3",
    "status": "deferred-P3"
   }
  ]

@@ -1,0 +1,349 @@
+{
+ "campaign_id": "C-259d60d374",
+ "created_at": "2026-09-09T12:00:00.000000+00:00",
+ "snapshot_id": "unpinned",
+ "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
+ "priorities": [
+  {
+   "id": "Q-001",
+   "question": "Economic transform donation-attack: Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?",
+   "risk": 0.75,
+   "components": [],
+   "invariant_ids": [],
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "economic"
+   ],
+   "recommended_stages": [],
+   "budget_class": "standard",
+   "status": "open",
+   "bug_class": "logic-error"
+  },
+  {
+   "id": "Q-002",
+   "question": "Economic transform flash-loan-amplification: With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?",
+   "risk": 0.75,
+   "components": [],
+   "invariant_ids": [],
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "economic"
+   ],
+   "recommended_stages": [],
+   "budget_class": "standard",
+   "status": "open",
+   "bug_class": "access-control"
+  },
+  {
+   "id": "Q-003",
+   "question": "Economic transform liquidity-withdrawal-bounded: What is the realistic extractable ceiling given pool depth, not theoretical exposure?",
+   "risk": 0.75,
+   "components": [],
+   "invariant_ids": [],
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "economic"
+   ],
+   "recommended_stages": [],
+   "budget_class": "standard",
+   "status": "open",
+   "bug_class": "oracle-manipulation"
+  },
+  {
+   "id": "Q-004",
+   "question": "Which known exploit patterns apply to this protocol's design (history mining)?",
+   "risk": 0.6,
+   "components": [],
+   "invariant_ids": [],
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "historical"
+   ],
+   "recommended_stages": [],
+   "budget_class": "cheap",
+   "status": "open",
+   "bug_class": "reentrancy"
+  },
+  {
+   "id": "Q-005",
+   "question": "['batch:index', 'prev:state', 'prev:state:root', 'state:root'] is asserted as equality-to-persisted-state in finalizeBatch#66 (class 4) but consumed by commitBatch#45 under a class-0 guard \u2014 does commitBatch verify ['batch:index', 'prev:state', 'prev:state:root', 'state:root'] itself? [anchors: Rollup.sol#L45, Rollup.sol#L66]",
+   "risk": 0.9,
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "lifecycle"
+   ],
+   "status": "open",
+   "probe": {
+    "row_id": "81dfad6492",
+    "probe_id": "assertion-strength",
+    "axis": "enforcement-timing",
+    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "shape_sha": "6f498a3270b53c6e",
+    "risk_band": "high"
+   }
+  },
+  {
+   "id": "Q-006",
+   "question": "['batch:index', 'dropped:msg', 'dropped:msg:root', 'msg:root'] is asserted as equality-to-persisted-state in auditDrop#97 (class 4) but consumed by dropMessage#49 under a class-0 guard \u2014 does dropMessage verify ['batch:index', 'dropped:msg', 'dropped:msg:root', 'msg:root'] itself? [anchors: Rollup.sol#L49, Rollup.sol#L97]",
+   "risk": 0.9,
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "lifecycle"
+   ],
+   "status": "open",
+   "probe": {
+    "row_id": "66c7d14d35",
+    "probe_id": "assertion-strength",
+    "axis": "enforcement-timing",
+    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "shape_sha": "50bd089538a43d00",
+    "risk_band": "high"
+   }
+  },
+  {
+   "id": "Q-007",
+   "question": "['active:staker', 'active:staker:root', 'batch:index', 'staker:root'] is asserted as equality-to-persisted-state in auditStakers#105 (class 4) but consumed by getActiveStakers#61 under a class-0 guard \u2014 does getActiveStakers verify ['active:staker', 'active:staker:root', 'batch:index', 'staker:root'] itself? [anchors: Rollup.sol#L61, Rollup.sol#L105]",
+   "risk": 0.9,
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "lifecycle"
+   ],
+   "status": "open",
+   "probe": {
+    "row_id": "b6fe31cdf7",
+    "probe_id": "assertion-strength",
+    "axis": "enforcement-timing",
+    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "shape_sha": "31dad2d76abf4876",
+    "risk_band": "high"
+   }
+  },
+  {
+   "id": "Q-008",
+   "question": "['batch:index', 'proof:root', 'proven:proof', 'proven:proof:root'] is asserted as equality-to-persisted-state in auditProof#93 (class 4) but consumed by proveState#53 under a class-0 guard \u2014 does proveState verify ['batch:index', 'proof:root', 'proven:proof', 'proven:proof:root'] itself? [anchors: Rollup.sol#L53, Rollup.sol#L93]",
+   "risk": 0.9,
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "lifecycle"
+   ],
+   "status": "open",
+   "probe": {
+    "row_id": "63904ecbc1",
+    "probe_id": "assertion-strength",
+    "axis": "enforcement-timing",
+    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "shape_sha": "0f35e0926bcb7cfe",
+    "risk_band": "high"
+   }
+  },
+  {
+   "id": "Q-009",
+   "question": "['batch:index', 'receipt:root', 'replayed:receipt', 'replayed:receipt:root'] is asserted as equality-to-persisted-state in auditReplay#101 (class 4) but consumed by replayMessage#57 under a class-0 guard \u2014 does replayMessage verify ['batch:index', 'receipt:root', 'replayed:receipt', 'replayed:receipt:root'] itself? [anchors: Rollup.sol#L57, Rollup.sol#L101]",
+   "risk": 0.9,
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "lifecycle"
+   ],
+   "status": "open",
+   "probe": {
+    "row_id": "46ebc2a5a1",
+    "probe_id": "assertion-strength",
+    "axis": "enforcement-timing",
+    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "shape_sha": "64aa46579809f638",
+    "risk_band": "high"
+   }
+  },
+  {
+   "id": "Q-010",
+   "question": "['batch:index'] is asserted as equality-to-persisted-state in auditChallenge#121 (class 4) but consumed by setLastFinalizedBatchIndex#15 under a class-0 guard \u2014 does setLastFinalizedBatchIndex verify ['batch:index'] itself? [anchors: contracts/mock/MockRollup.sol#L15, contracts/mock/MockRollup.sol#L121]",
+   "risk": 0.9,
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "lifecycle"
+   ],
+   "status": "open",
+   "probe": {
+    "row_id": "748abbf715",
+    "probe_id": "assertion-strength",
+    "axis": "enforcement-timing",
+    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "shape_sha": "70b9cf056b13d139",
+    "risk_band": "high"
+   }
+  },
+  {
+   "id": "Q-011",
+   "question": "['batch:index', 'challenged:claim', 'challenged:claim:root', 'claim:root'] is asserted as equality-to-persisted-state in auditChallenge#121 (class 4) but consumed by challengeState#73 under a class-0 guard \u2014 does challengeState verify ['batch:index', 'challenged:claim', 'challenged:claim:root', 'claim:root'] itself? [anchors: Rollup.sol#L73, Rollup.sol#L121]",
+   "risk": 0.7,
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "lifecycle"
+   ],
+   "status": "open",
+   "probe": {
+    "row_id": "d549f9e66a",
+    "probe_id": "assertion-strength",
+    "axis": "enforcement-timing",
+    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "shape_sha": "b92155f1e2b84b77",
+    "risk_band": "medium"
+   }
+  },
+  {
+   "id": "Q-012",
+   "question": "['batch:index', 'genesis:root'] is asserted as equality-to-persisted-state in auditGenesis#109 (class 4) but consumed by importGenesisBatch#79 under a class-0 guard \u2014 does importGenesisBatch verify ['batch:index', 'genesis:root'] itself? [anchors: Rollup.sol#L79, Rollup.sol#L109]",
+   "risk": 0.7,
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "lifecycle"
+   ],
+   "status": "open",
+   "probe": {
+    "row_id": "d6e1821dc6",
+    "probe_id": "assertion-strength",
+    "axis": "enforcement-timing",
+    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "shape_sha": "a0209a4117d17f80",
+    "risk_band": "medium"
+   }
+  },
+  {
+   "id": "Q-013",
+   "question": "['batch:index', 'batch:root', 'reverted:batch', 'reverted:batch:root'] is asserted as equality-to-persisted-state in auditRevert#113 (class 4) but consumed by revertBatch#83 under a class-0 guard \u2014 does revertBatch verify ['batch:index', 'batch:root', 'reverted:batch', 'reverted:batch:root'] itself? [anchors: Rollup.sol#L83, Rollup.sol#L113]",
+   "risk": 0.7,
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "lifecycle"
+   ],
+   "status": "open",
+   "probe": {
+    "row_id": "dd489a9a69",
+    "probe_id": "assertion-strength",
+    "axis": "enforcement-timing",
+    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "shape_sha": "8a777c22fea7d4c0",
+    "risk_band": "medium"
+   }
+  },
+  {
+   "id": "Q-014",
+   "question": "['batch:index', 'lock:root', 'withdraw:lock', 'withdraw:lock:root'] is asserted as equality-to-persisted-state in auditLock#117 (class 4) but consumed by updateWithdrawLock#87 under a class-0 guard \u2014 does updateWithdrawLock verify ['batch:index', 'lock:root', 'withdraw:lock', 'withdraw:lock:root'] itself? [anchors: Rollup.sol#L87, Rollup.sol#L117]",
+   "risk": 0.7,
+   "required_context": [
+    "structural_index",
+    "protocol_model"
+   ],
+   "trajectories": [
+    "lifecycle"
+   ],
+   "status": "open",
+   "probe": {
+    "row_id": "954d79770b",
+    "probe_id": "assertion-strength",
+    "axis": "enforcement-timing",
+    "surface_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+    "shape_sha": "5efe1c80761fc6f0",
+    "risk_band": "medium"
+   }
+  }
+ ],
+ "trajectory_matrix": {
+  "A-code": "implementation-centric: find bugs in the code as written",
+  "B-economic": "economic attacker: assume the protocol is economically exploitable and find the imbalance",
+  "C-state-machine": "state-machine attacker: find dangerous call/state sequences and illegal transitions",
+  "D-attacker": "privileged actor: assume the attacker holds each realistic role and abuse it",
+  "E-historical": "historical analog: find variants of known exploits, patches and disclosures",
+  "F-integration": "adversarial integrator: assume every external contract/token behaves unexpectedly",
+  "G-drift": "spec drift: spec vs implementation vs deployment vs config divergence",
+  "H-lifecycle": "consensus/lifecycle game: model the full commit\u2192challenge\u2192finalize (or propose\u2192vote\u2192execute) game and the adversary WINNING it \u2014 a valid transition proven from an invalid claimed root, a challenge that never fires, a finalization that can be blocked"
+ },
+ "coverage_targets": {
+  "min_invariants": 1,
+  "min_trajectories_per_critical_component": 2,
+  "components_must_cover": [
+   "Rollup"
+  ]
+ },
+ "lenses": [
+  {
+   "id": "L-01",
+   "lens": "liveness",
+   "surface": "protocol",
+   "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+   "status": "open",
+   "families": [
+    "protocol"
+   ]
+  },
+  {
+   "id": "L-02",
+   "lens": "incentive-inversion",
+   "surface": "protocol",
+   "question": "INCENTIVE-INVERSION: does the protocol ever PAY an attacker or PUNISH an honest actor (challenge, slash, claim, delegate) under any reachable state? Trace what the honest participant gets for being right. State machines in the model: rollup-lifecycle",
+   "status": "open",
+   "families": [
+    "protocol"
+   ]
+  },
+  {
+   "id": "L-03",
+   "lens": "enforcement-timing",
+   "surface": "protocol",
+   "question": "ENFORCEMENT-TIMING: for each security-critical check, is it enforced at the EARLIEST lifecycle stage it could be (intake, not execution)? A check that exists only at finalize/execute time is a candidate. State machines in the model: rollup-lifecycle",
+   "status": "open",
+   "families": [
+    "protocol"
+   ]
+  },
+  {
+   "id": "L-04",
+   "lens": "primitive-symmetry",
+   "surface": "protocol",
+   "question": "PRIMITIVE-SYMMETRY: group functions into sibling lifecycle families (deposit <-> withdraw <-> drop <-> refund) and compare primitives + access control across siblings. A family that burns on one path and mints/safeTransfers on another is a candidate. State machines in the model: rollup-lifecycle",
+   "status": "open",
+   "families": [
+    "protocol"
+   ]
+  }
+ ]
+}

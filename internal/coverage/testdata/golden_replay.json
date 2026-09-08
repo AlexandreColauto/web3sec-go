@@ -1,0 +1,482 @@
+{
+  "campaign_id": "C-covgold001",
+  "coverage_json": "{\n  \"campaign_id\": \"C-covgold001\",\n  \"snapshot_id\": \"SNAP-covt10\",\n  \"updated_at\": \"2026-02-01T00:00:00.000000+00:00\",\n  \"contracts\": [\n    {\n      \"path\": \"src/Vault.sol\",\n      \"status\": \"swept\",\n      \"trajectory_counts\": {\n        \"code\": 1,\n        \"economic\": 1\n      },\n      \"entry_points_total\": 4,\n      \"entry_points_reviewed\": 3,\n      \"functions_total\": 5,\n      \"functions_reviewed\": 1,\n      \"invariant_ids\": [\n        \"INV-1\",\n        \"INV-2\"\n      ],\n      \"findings_ids\": [],\n      \"thoroughness\": 0.75\n    },\n    {\n      \"path\": \"src/Vault.sol\",\n      \"status\": \"unknown\",\n      \"trajectory_counts\": {},\n      \"entry_points_total\": 0,\n      \"entry_points_reviewed\": 0,\n      \"functions_total\": 0,\n      \"functions_reviewed\": 0,\n      \"invariant_ids\": [],\n      \"findings_ids\": [],\n      \"thoroughness\": null\n    },\n    {\n      \"path\": \"src/Math.sol\",\n      \"status\": \"unknown\",\n      \"trajectory_counts\": {},\n      \"entry_points_total\": 0,\n      \"entry_points_reviewed\": 0,\n      \"functions_total\": 1,\n      \"functions_reviewed\": 0,\n      \"invariant_ids\": [],\n      \"findings_ids\": [],\n      \"thoroughness\": null\n    },\n    {\n      \"path\": \"src/Oracle.sol\",\n      \"status\": \"in-progress\",\n      \"trajectory_counts\": {\n        \"economic\": 1\n      },\n      \"entry_points_total\": 2,\n      \"entry_points_reviewed\": 0,\n      \"functions_total\": 2,\n      \"functions_reviewed\": 0,\n      \"invariant_ids\": [\n        \"INV-3\"\n      ],\n      \"findings_ids\": [],\n      \"thoroughness\": 0.0\n    },\n    {\n      \"path\": \"src/Proxy.sol\",\n      \"status\": \"unknown\",\n      \"trajectory_counts\": {},\n      \"entry_points_total\": 1,\n      \"entry_points_reviewed\": 0,\n      \"functions_total\": 1,\n      \"functions_reviewed\": 0,\n      \"invariant_ids\": [\n        \"INV-4\"\n      ],\n      \"findings_ids\": [],\n      \"thoroughness\": null\n    }\n  ],\n  \"surfaces\": {\n    \"privilege_paths\": {\n      \"total\": 3,\n      \"reviewed\": 2\n    },\n    \"oracle_surfaces\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"upgrade_paths\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    },\n    \"cross_contract_paths\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"external_call_sites\": {\n      \"total\": 4,\n      \"reviewed\": 1\n    },\n    \"state_machines\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    }\n  },\n  \"funnel\": {\n    \"hypotheses_generated\": 8,\n    \"after_dedupe\": 7,\n    \"after_review\": 4,\n    \"reproduced\": 3,\n    \"confirmed\": 2,\n    \"disproved\": 1,\n    \"submission_ready\": 2\n  },\n  \"gaps\": [\n    {\n      \"description\": \"src/Vault.sol has never been swept\",\n      \"kind\": \"unswept-contract\",\n      \"component\": \"src/Vault.sol\",\n      \"priority\": 0.5\n    },\n    {\n      \"description\": \"src/Math.sol has never been swept\",\n      \"kind\": \"unswept-contract\",\n      \"component\": \"src/Math.sol\",\n      \"priority\": 0.5\n    },\n    {\n      \"description\": \"src/Oracle.sol swept from only 1 trajectory(ies)\",\n      \"kind\": \"thin-trajectory\",\n      \"component\": \"src/Oracle.sol\",\n      \"priority\": 0.6\n    },\n    {\n      \"description\": \"src/Proxy.sol has never been swept\",\n      \"kind\": \"unswept-contract\",\n      \"component\": \"src/Proxy.sol\",\n      \"priority\": 0.9\n    },\n    {\n      \"description\": \"2 deployed contracts have unverified source\",\n      \"kind\": \"unverified-deployment\",\n      \"component\": \"mainnet\",\n      \"priority\": 0.8\n    },\n    {\n      \"description\": \"open question: is the oracle heartbeat enforced on every read?\",\n      \"kind\": \"open-question\",\n      \"component\": \"INV-3; ORC-1\",\n      \"priority\": 0.4\n    },\n    {\n      \"description\": \"open question: does the router sit in scope?\",\n      \"kind\": \"open-question\",\n      \"component\": \"\",\n      \"priority\": 0.4\n    }\n  ],\n  \"summary\": {\n    \"contracts_analyzed\": \"2/5\",\n    \"contracts_unknown\": 3,\n    \"entry_points\": \"3/7\",\n    \"functions\": \"1/9\",\n    \"invariants\": \"2/4\",\n    \"invariant_coverage_ratio\": 0.5,\n    \"privilege_paths\": \"2/3\",\n    \"oracle_surfaces\": \"0/2\",\n    \"unknown_note\": \"contracts with status 'unknown' are NOT secure \u2014 they are unexamined\"\n  }\n}\n",
+  "deployment": {
+    "contracts": [
+      {
+        "address": "0x1",
+        "source_match": "verified"
+      },
+      {
+        "address": "0x2",
+        "source_match": "unverified"
+      },
+      {
+        "address": "0x3",
+        "source_match": "unverified"
+      }
+    ],
+    "network": "mainnet"
+  },
+  "events_jsonl": "{\"at\": \"2026-02-01T00:00:00.000000+00:00\", \"data\": {\"program\": \"Acme Program\"}, \"event_hash\": \"750104b7880708f4c44aea3b0034ca22dcd478f405ae3b521c4e9652640efba8\", \"prev_hash\": \"0000000000000000000000000000000000000000000000000000000000000000\", \"ref\": \"C-covgold001\", \"seq\": 0, \"type\": \"campaign.created\"}\n{\"at\": \"2026-02-01T00:00:00.000000+00:00\", \"data\": {\"complete\": false, \"contract\": \"Vault\", \"trajectory\": \"code\"}, \"event_hash\": \"a4c248ca45b83f16d5f69443791133dc96775dab93a724226efa099da9c18229\", \"prev_hash\": \"750104b7880708f4c44aea3b0034ca22dcd478f405ae3b521c4e9652640efba8\", \"ref\": null, \"seq\": 1, \"type\": \"coverage.sweep\"}\n{\"at\": \"2026-02-01T00:00:00.000000+00:00\", \"data\": {\"complete\": true, \"contract\": \"Vault.sol\", \"trajectory\": \"economic\"}, \"event_hash\": \"0f07d330c6010f9ea11448f687bf12dfeaaef61ab813cd7cda8688a01d82e212\", \"prev_hash\": \"a4c248ca45b83f16d5f69443791133dc96775dab93a724226efa099da9c18229\", \"ref\": null, \"seq\": 2, \"type\": \"coverage.sweep\"}\n{\"at\": \"2026-02-01T00:00:00.000000+00:00\", \"data\": {\"complete\": false, \"contract\": \"src/Oracle.sol\", \"trajectory\": \"economic\"}, \"event_hash\": \"c32e7101588a1c96f141323cd49d0f92fe0968b26d0b773c0913fe7e70c33156\", \"prev_hash\": \"0f07d330c6010f9ea11448f687bf12dfeaaef61ab813cd7cda8688a01d82e212\", \"ref\": null, \"seq\": 3, \"type\": \"coverage.sweep\"}\n",
+  "findings": [
+    {
+      "created_at": "2026-02-01T00:00:01.000000+00:00",
+      "finding_id": "F-000000000001",
+      "status": "NEW"
+    },
+    {
+      "created_at": "2026-02-01T00:00:02.000000+00:00",
+      "finding_id": "F-000000000002",
+      "status": "POSSIBLE",
+      "verification": {
+        "reproduction": {
+          "status": "reproduced"
+        }
+      }
+    },
+    {
+      "bounty": {
+        "submission_ready": true
+      },
+      "created_at": "2026-02-01T00:00:03.000000+00:00",
+      "finding_id": "F-000000000003",
+      "status": "CONFIRMED",
+      "verification": {
+        "reproduction": {
+          "status": "reproduced"
+        }
+      }
+    },
+    {
+      "bounty": {
+        "submission_ready": false
+      },
+      "created_at": "2026-02-01T00:00:04.000000+00:00",
+      "finding_id": "F-000000000004",
+      "status": "CHAIN",
+      "verification": {
+        "reproduction": {
+          "status": "partial"
+        }
+      }
+    },
+    {
+      "created_at": "2026-02-01T00:00:05.000000+00:00",
+      "finding_id": "F-000000000005",
+      "status": "DUPLICATE"
+    },
+    {
+      "created_at": "2026-02-01T00:00:06.000000+00:00",
+      "finding_id": "F-000000000006",
+      "status": "DISPROVED"
+    },
+    {
+      "bounty": {
+        "submission_ready": 1
+      },
+      "created_at": "2026-02-01T00:00:07.000000+00:00",
+      "finding_id": "F-000000000007",
+      "status": "CONFIRMED",
+      "verification": null
+    },
+    {
+      "bounty": {},
+      "created_at": "2026-02-01T00:00:08.000000+00:00",
+      "finding_id": "F-000000000008",
+      "status": "OUT_OF_SCOPE",
+      "verification": {
+        "reproduction": {
+          "status": "reproduced"
+        }
+      }
+    }
+  ],
+  "index": {
+    "backend": "regex",
+    "campaign_id": "C-covgold001",
+    "edges": [
+      {
+        "from": "src/Vault.sol#Vault.deposit",
+        "rel": "calls",
+        "to": "src/Math.sol#MathLib.mulDiv"
+      },
+      {
+        "from": "src/Vault.sol#Vault.withdraw",
+        "rel": "calls",
+        "to": "*#low-level.call"
+      },
+      {
+        "from": "src/Vault.sol#Vault.rescue",
+        "rel": "calls",
+        "to": "*#external-token.transfer"
+      },
+      {
+        "from": "src/Vault.sol#Vault",
+        "rel": "inherits",
+        "to": "src/Vault.sol#IVault"
+      },
+      {
+        "from": "src/Proxy.sol#Proxy.fallback",
+        "rel": "calls",
+        "to": "*#low-level.delegatecall"
+      },
+      {
+        "from": "src/Oracle.sol#Oracle.latestAnswer",
+        "rel": "calls",
+        "to": "*#external-oracle.latestRoundData"
+      }
+    ],
+    "entry_count": 5,
+    "nodes": [
+      {
+        "id": "src/Vault.sol#Vault",
+        "kind": "contract",
+        "line": 1,
+        "name": "Vault",
+        "path": "src/Vault.sol"
+      },
+      {
+        "calls_external": [
+          "IERC20.transfer"
+        ],
+        "id": "src/Vault.sol#Vault.deposit",
+        "is_entry_point": true,
+        "kind": "function",
+        "line": 12,
+        "modifiers": [
+          "nonReentrant"
+        ],
+        "name": "deposit",
+        "path": "src/Vault.sol",
+        "visibility": "external"
+      },
+      {
+        "delegatecalls": [
+          "delegate"
+        ],
+        "id": "src/Vault.sol#Vault.withdraw",
+        "is_entry_point": true,
+        "kind": "function",
+        "line": 20,
+        "name": "withdraw",
+        "path": "src/Vault.sol",
+        "visibility": "external"
+      },
+      {
+        "id": "src/Vault.sol#Vault._accrue",
+        "is_entry_point": false,
+        "kind": "function",
+        "line": 30,
+        "name": "_accrue",
+        "path": "src/Vault.sol",
+        "visibility": "internal"
+      },
+      {
+        "id": "src/Vault.sol#Vault.rescue",
+        "is_entry_point": true,
+        "kind": "function",
+        "line": 40,
+        "modifiers": [
+          "onlyOwner"
+        ],
+        "name": "rescue",
+        "path": "src/Vault.sol",
+        "visibility": "external"
+      },
+      {
+        "id": "src/Vault.sol#Vault.deposit",
+        "is_entry_point": true,
+        "kind": "function",
+        "line": 12,
+        "name": "deposit",
+        "path": "src/Vault.sol",
+        "visibility": "external"
+      },
+      {
+        "id": "src/Vault.sol#Vault",
+        "kind": "contract",
+        "line": 1,
+        "name": "Vault",
+        "path": "src/Vault.sol"
+      },
+      {
+        "id": "src/Vault.sol#IVault",
+        "kind": "interface",
+        "line": 90,
+        "name": "IVault",
+        "path": "src/Vault.sol"
+      },
+      {
+        "id": "src/Math.sol#MathLib",
+        "kind": "library",
+        "line": 5,
+        "name": "MathLib",
+        "path": "src/Math.sol"
+      },
+      {
+        "id": "src/Math.sol#MathLib.mulDiv",
+        "is_entry_point": false,
+        "kind": "function",
+        "line": 9,
+        "name": "mulDiv",
+        "path": "src/Math.sol",
+        "visibility": "internal"
+      },
+      {
+        "id": "src/Oracle.sol#Oracle",
+        "kind": "contract",
+        "line": 1,
+        "name": "Oracle",
+        "path": "src/Oracle.sol"
+      },
+      {
+        "calls_external": [
+          "AggregatorV3Interface.latestRoundData"
+        ],
+        "id": "src/Oracle.sol#Oracle.latestAnswer",
+        "is_entry_point": true,
+        "kind": "function",
+        "line": 8,
+        "name": "latestAnswer",
+        "path": "src/Oracle.sol",
+        "visibility": "external"
+      },
+      {
+        "id": "src/Oracle.sol#Oracle.setAdmin",
+        "is_entry_point": true,
+        "kind": "function",
+        "line": 16,
+        "name": "setAdmin",
+        "path": "src/Oracle.sol",
+        "visibility": "external"
+      },
+      {
+        "id": "src/Proxy.sol#Proxy",
+        "kind": "contract",
+        "line": 1,
+        "name": "Proxy",
+        "path": "src/Proxy.sol"
+      },
+      {
+        "delegatecalls": [
+          "impl"
+        ],
+        "id": "src/Proxy.sol#Proxy.fallback",
+        "is_entry_point": true,
+        "kind": "function",
+        "line": 6,
+        "name": "fallback",
+        "path": "src/Proxy.sol",
+        "visibility": "external"
+      },
+      {
+        "id": "src/Proxy.sol#Proxy.admin",
+        "kind": "state-variable",
+        "line": 4,
+        "name": "admin",
+        "path": "src/Proxy.sol"
+      }
+    ],
+    "parse_version": "2",
+    "snapshot_id": "SNAP-covt10"
+  },
+  "links": {
+    "invariants": {
+      "INV-1": {
+        "applies_to": [],
+        "depends_on": [],
+        "detectors": [],
+        "findings": [],
+        "kind": "security",
+        "model_belief": null,
+        "modified_by": null,
+        "severity_if_broken": "critical",
+        "source": "documented",
+        "statement": "totalAssets never decreases except via withdraw",
+        "status": "UNVERIFIED",
+        "test_status": "violated",
+        "tests": [],
+        "updated_at": "2026-02-01T00:00:00.000000+00:00"
+      },
+      "INV-2": {
+        "applies_to": [],
+        "depends_on": [],
+        "detectors": [],
+        "findings": [],
+        "kind": "access",
+        "model_belief": null,
+        "modified_by": null,
+        "severity_if_broken": "high",
+        "source": "documented",
+        "statement": "only the owner may pause the vault",
+        "status": "VERIFIED",
+        "test_status": "held",
+        "tests": [],
+        "updated_at": "2026-02-01T00:00:00.000000+00:00"
+      },
+      "INV-3": {
+        "applies_to": [],
+        "depends_on": [],
+        "detectors": [],
+        "findings": [],
+        "kind": "security",
+        "model_belief": null,
+        "modified_by": null,
+        "severity_if_broken": "high",
+        "source": "documented",
+        "statement": "the oracle answer is never stale on read",
+        "status": "UNVERIFIED",
+        "test_status": "untested",
+        "tests": [],
+        "updated_at": "2026-02-01T00:00:00.000000+00:00"
+      },
+      "INV-4": {
+        "applies_to": [],
+        "depends_on": [],
+        "detectors": [],
+        "findings": [],
+        "kind": "security",
+        "model_belief": null,
+        "modified_by": null,
+        "severity_if_broken": "critical",
+        "source": "documented",
+        "statement": "the proxy admin slot is never attacker-writable",
+        "status": "UNVERIFIED",
+        "test_status": "untestable",
+        "tests": [],
+        "updated_at": "2026-02-01T00:00:00.000000+00:00"
+      }
+    }
+  },
+  "model": {
+    "contracts": [
+      {
+        "in_scope": true,
+        "name": "Vault",
+        "path": "src/Vault.sol",
+        "role": "core"
+      },
+      {
+        "in_scope": true,
+        "name": "Oracle",
+        "path": "src/Oracle.sol",
+        "role": "oracle"
+      },
+      {
+        "in_scope": true,
+        "name": "Proxy",
+        "path": "src/Proxy.sol",
+        "role": "proxy"
+      },
+      {
+        "in_scope": true,
+        "name": "MathLib",
+        "path": "src/Math.sol",
+        "role": "library"
+      },
+      {
+        "in_scope": false,
+        "name": "Router",
+        "path": "src/Router.sol",
+        "role": "periphery"
+      }
+    ],
+    "invariants": [
+      {
+        "applies_to": [
+          "src/Vault.sol#Vault"
+        ],
+        "id": "INV-1",
+        "severity_if_broken": "critical",
+        "statement": "totalAssets never decreases except via withdraw"
+      },
+      {
+        "applies_to": [
+          "Vault.pause"
+        ],
+        "id": "INV-2",
+        "severity_if_broken": "high",
+        "statement": "only the owner may pause the vault"
+      },
+      {
+        "applies_to": [
+          "src/Oracle.sol#Oracle"
+        ],
+        "id": "INV-3",
+        "severity_if_broken": "high",
+        "statement": "the oracle answer is never stale on read"
+      },
+      {
+        "applies_to": [
+          "src/Proxy.sol#Proxy"
+        ],
+        "id": "INV-4",
+        "severity_if_broken": "critical",
+        "statement": "the proxy admin slot is never attacker-writable"
+      }
+    ],
+    "name": "Acme Vault",
+    "open_questions": [
+      {
+        "blocks": [
+          "INV-3",
+          "ORC-1"
+        ],
+        "question": "is the oracle heartbeat enforced on every read?",
+        "resolved": false
+      },
+      {
+        "blocks": [
+          "INV-4"
+        ],
+        "question": "who can rotate the proxy admin?",
+        "resolved": true
+      },
+      {
+        "question": "does the router sit in scope?"
+      }
+    ],
+    "oracles": [
+      {
+        "id": "ORC-1",
+        "kind": "price"
+      },
+      {
+        "id": "ORC-2",
+        "kind": "liveness"
+      }
+    ],
+    "privileges": [
+      {
+        "capability": "can_pause",
+        "role": "owner"
+      },
+      {
+        "capability": "can_upgrade",
+        "role": "owner"
+      },
+      {
+        "capability": "can_drain",
+        "role": "governance"
+      }
+    ],
+    "protocol_id": "proto-covt10",
+    "snapshot_id": "SNAP-covt10",
+    "state_machines": [
+      {
+        "name": "vault-lifecycle"
+      }
+    ],
+    "upgrade_paths": [
+      {
+        "from": "Proxy",
+        "to": "VaultImpl"
+      }
+    ]
+  },
+  "now": "2026-02-01T00:00:00.000000+00:00",
+  "program": "Acme Program",
+  "summary": "{\"contracts_analyzed\":\"2/5\",\"contracts_unknown\":3,\"entry_points\":\"3/7\",\"functions\":\"1/9\",\"invariant_coverage_ratio\":0.5,\"invariants\":\"2/4\",\"oracle_surfaces\":\"0/2\",\"privilege_paths\":\"2/3\",\"unknown_note\":\"contracts with status 'unknown' are NOT secure \\u2014 they are unexamined\"}",
+  "thin_coverage": "[{\"path\":\"src/Vault.sol\",\"status\":\"unknown\",\"thoroughness\":null,\"trajectories\":[]},{\"path\":\"src/Math.sol\",\"status\":\"unknown\",\"thoroughness\":null,\"trajectories\":[]},{\"path\":\"src/Oracle.sol\",\"status\":\"in-progress\",\"thoroughness\":0.0,\"trajectories\":[\"economic\"]},{\"path\":\"src/Proxy.sol\",\"status\":\"unknown\",\"thoroughness\":null,\"trajectories\":[]}]"
+}

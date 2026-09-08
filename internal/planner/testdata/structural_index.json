@@ -1,0 +1,3723 @@
+{
+ "campaign_id": "C-b97c396195",
+ "snapshot_id": "unpinned",
+ "backend": "regex",
+ "parse_version": "2",
+ "created_at": "2026-09-09T12:00:00.000000+00:00",
+ "entry_count": 58,
+ "nodes": [
+  {
+   "id": "Rollup.sol#Rollup",
+   "kind": "contract",
+   "name": "Rollup",
+   "path": "Rollup.sol",
+   "line": 11,
+   "contract_closure": [
+    {
+     "name": "auditChallenge",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 121,
+     "guards": [
+      {
+       "line": 122,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "challenged",
+        "challenged:claim",
+        "challenged:claim:root",
+        "claim",
+        "claim:root",
+        "index",
+        "root"
+       ],
+       "class": 4,
+       "text": "challengedClaimRoot[batchIndex] == claimRoot"
+      }
+     ],
+     "uses": [
+      {
+       "line": 122,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 122,
+       "concept_keys": [
+        "claim",
+        "claim:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 122,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "challenged",
+        "challenged:claim",
+        "challenged:claim:root",
+        "claim",
+        "claim:root",
+        "index",
+        "root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "auditDrop",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 97,
+     "guards": [
+      {
+       "line": 98,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "dropped",
+        "dropped:msg",
+        "dropped:msg:root",
+        "index",
+        "msg",
+        "msg:root",
+        "root"
+       ],
+       "class": 4,
+       "text": "droppedMessageRoot[batchIndex] == messageRoot"
+      }
+     ],
+     "uses": [
+      {
+       "line": 98,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 98,
+       "concept_keys": [
+        "msg",
+        "msg:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 98,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "dropped",
+        "dropped:msg",
+        "dropped:msg:root",
+        "index",
+        "msg",
+        "msg:root",
+        "root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "auditGenesis",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 109,
+     "guards": [
+      {
+       "line": 110,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "genesis",
+        "genesis:root",
+        "index",
+        "root"
+       ],
+       "class": 4,
+       "text": "genesisRoot[batchIndex] == root"
+      }
+     ],
+     "uses": [
+      {
+       "line": 110,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 110,
+       "concept_keys": [
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 110,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "genesis",
+        "genesis:root",
+        "index",
+        "root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "auditLock",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 117,
+     "guards": [
+      {
+       "line": 118,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "lock",
+        "lock:root",
+        "root",
+        "withdraw",
+        "withdraw:lock",
+        "withdraw:lock:root"
+       ],
+       "class": 4,
+       "text": "withdrawLockRoot[batchIndex] == root"
+      }
+     ],
+     "uses": [
+      {
+       "line": 118,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 118,
+       "concept_keys": [
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 118,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "lock",
+        "lock:root",
+        "root",
+        "withdraw",
+        "withdraw:lock",
+        "withdraw:lock:root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "auditProof",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 93,
+     "guards": [
+      {
+       "line": 94,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "proof",
+        "proof:root",
+        "proven",
+        "proven:proof",
+        "proven:proof:root",
+        "root"
+       ],
+       "class": 4,
+       "text": "provenProofRoot[batchIndex] == proofRoot"
+      }
+     ],
+     "uses": [
+      {
+       "line": 94,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 94,
+       "concept_keys": [
+        "proof",
+        "proof:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 94,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "proof",
+        "proof:root",
+        "proven",
+        "proven:proof",
+        "proven:proof:root",
+        "root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "auditReplay",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 101,
+     "guards": [
+      {
+       "line": 102,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "receipt",
+        "receipt:root",
+        "replayed",
+        "replayed:receipt",
+        "replayed:receipt:root",
+        "root"
+       ],
+       "class": 4,
+       "text": "replayedReceiptRoot[batchIndex] == receiptRoot"
+      }
+     ],
+     "uses": [
+      {
+       "line": 102,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 102,
+       "concept_keys": [
+        "receipt",
+        "receipt:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 102,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "receipt",
+        "receipt:root",
+        "replayed",
+        "replayed:receipt",
+        "replayed:receipt:root",
+        "root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "auditRevert",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 113,
+     "guards": [
+      {
+       "line": 114,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "batch:root",
+        "index",
+        "reverted",
+        "reverted:batch",
+        "reverted:batch:root",
+        "root"
+       ],
+       "class": 4,
+       "text": "revertedBatchRoot[batchIndex] == root"
+      }
+     ],
+     "uses": [
+      {
+       "line": 114,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 114,
+       "concept_keys": [
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 114,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "batch:root",
+        "index",
+        "reverted",
+        "reverted:batch",
+        "reverted:batch:root",
+        "root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "auditStakers",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 105,
+     "guards": [
+      {
+       "line": 106,
+       "concept_keys": [
+        "active",
+        "active:staker",
+        "active:staker:root",
+        "batch",
+        "batch:index",
+        "index",
+        "root",
+        "staker",
+        "staker:root"
+       ],
+       "class": 4,
+       "text": "activeStakerRoot[batchIndex] == stakerRoot"
+      }
+     ],
+     "uses": [
+      {
+       "line": 106,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 106,
+       "concept_keys": [
+        "root",
+        "staker",
+        "staker:root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 106,
+       "concept_keys": [
+        "active",
+        "active:staker",
+        "active:staker:root",
+        "batch",
+        "batch:index",
+        "index",
+        "root",
+        "staker",
+        "staker:root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "challengeState",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 73,
+     "guards": [],
+     "uses": [
+      {
+       "line": 74,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 74,
+       "concept_keys": [
+        "claim",
+        "claim:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 74,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "challenged",
+        "challenged:claim",
+        "challenged:claim:root",
+        "claim",
+        "claim:root",
+        "index",
+        "root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 74,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "challenged",
+        "challenged:claim",
+        "challenged:claim:root",
+        "claim",
+        "claim:root",
+        "index",
+        "root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "commitBatch",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 45,
+     "guards": [],
+     "uses": [
+      {
+       "line": 46,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 46,
+       "concept_keys": [
+        "root",
+        "state",
+        "state:root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 46,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "prev",
+        "prev:state",
+        "prev:state:root",
+        "root",
+        "state",
+        "state:root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 46,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "prev",
+        "prev:state",
+        "prev:state:root",
+        "root",
+        "state",
+        "state:root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "dropMessage",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 49,
+     "guards": [],
+     "uses": [
+      {
+       "line": 50,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 50,
+       "concept_keys": [
+        "msg",
+        "msg:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 50,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "dropped",
+        "dropped:msg",
+        "dropped:msg:root",
+        "index",
+        "msg",
+        "msg:root",
+        "root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 50,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "dropped",
+        "dropped:msg",
+        "dropped:msg:root",
+        "index",
+        "msg",
+        "msg:root",
+        "root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "finalizeBatch",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 66,
+     "guards": [
+      {
+       "line": 67,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "prev",
+        "prev:state",
+        "prev:state:root",
+        "root",
+        "state",
+        "state:root"
+       ],
+       "class": 4,
+       "text": "prevStateRoot[batchIndex] == stateRoot"
+      }
+     ],
+     "uses": [
+      {
+       "line": 67,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 67,
+       "concept_keys": [
+        "root",
+        "state",
+        "state:root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 67,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "prev",
+        "prev:state",
+        "prev:state:root",
+        "root",
+        "state",
+        "state:root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 68,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 68,
+       "concept_keys": [
+        "count",
+        "finalized",
+        "finalized:count"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "getActiveStakers",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 61,
+     "guards": [],
+     "uses": [
+      {
+       "line": 62,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 62,
+       "concept_keys": [
+        "root",
+        "staker",
+        "staker:root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 62,
+       "concept_keys": [
+        "active",
+        "active:staker",
+        "active:staker:root",
+        "batch",
+        "batch:index",
+        "index",
+        "root",
+        "staker",
+        "staker:root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 62,
+       "concept_keys": [
+        "active",
+        "active:staker",
+        "active:staker:root",
+        "batch",
+        "batch:index",
+        "index",
+        "root",
+        "staker",
+        "staker:root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "importGenesisBatch",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 79,
+     "guards": [],
+     "uses": [
+      {
+       "line": 80,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 80,
+       "concept_keys": [
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 80,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "genesis",
+        "genesis:root",
+        "index",
+        "root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 80,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "genesis",
+        "genesis:root",
+        "index",
+        "root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "proveState",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 53,
+     "guards": [],
+     "uses": [
+      {
+       "line": 54,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 54,
+       "concept_keys": [
+        "proof",
+        "proof:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 54,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "proof",
+        "proof:root",
+        "proven",
+        "proven:proof",
+        "proven:proof:root",
+        "root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 54,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "proof",
+        "proof:root",
+        "proven",
+        "proven:proof",
+        "proven:proof:root",
+        "root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "replayMessage",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 57,
+     "guards": [],
+     "uses": [
+      {
+       "line": 58,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 58,
+       "concept_keys": [
+        "receipt",
+        "receipt:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 58,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "receipt",
+        "receipt:root",
+        "replayed",
+        "replayed:receipt",
+        "replayed:receipt:root",
+        "root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 58,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "receipt",
+        "receipt:root",
+        "replayed",
+        "replayed:receipt",
+        "replayed:receipt:root",
+        "root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "revertBatch",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 83,
+     "guards": [],
+     "uses": [
+      {
+       "line": 84,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 84,
+       "concept_keys": [
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 84,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "batch:root",
+        "index",
+        "reverted",
+        "reverted:batch",
+        "reverted:batch:root",
+        "root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 84,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "batch:root",
+        "index",
+        "reverted",
+        "reverted:batch",
+        "reverted:batch:root",
+        "root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "updateWithdrawLock",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 87,
+     "guards": [],
+     "uses": [
+      {
+       "line": 88,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 88,
+       "concept_keys": [
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 88,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "lock",
+        "lock:root",
+        "root",
+        "withdraw",
+        "withdraw:lock",
+        "withdraw:lock:root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 88,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "lock",
+        "lock:root",
+        "root",
+        "withdraw",
+        "withdraw:lock",
+        "withdraw:lock:root"
+       ],
+       "kind": "write"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.owner",
+   "kind": "state-variable",
+   "name": "owner",
+   "path": "Rollup.sol",
+   "line": null
+  },
+  {
+   "id": "Rollup.sol#Rollup.guardian",
+   "kind": "state-variable",
+   "name": "guardian",
+   "path": "Rollup.sol",
+   "line": null
+  },
+  {
+   "id": "Rollup.sol#Rollup.stakers",
+   "kind": "state-variable",
+   "name": "stakers",
+   "path": "Rollup.sol",
+   "line": null
+  },
+  {
+   "id": "Rollup.sol#Rollup.prevStateRoot",
+   "kind": "state-variable",
+   "name": "prevStateRoot",
+   "path": "Rollup.sol",
+   "line": null
+  },
+  {
+   "id": "Rollup.sol#Rollup.droppedMessageRoot",
+   "kind": "state-variable",
+   "name": "droppedMessageRoot",
+   "path": "Rollup.sol",
+   "line": null
+  },
+  {
+   "id": "Rollup.sol#Rollup.provenProofRoot",
+   "kind": "state-variable",
+   "name": "provenProofRoot",
+   "path": "Rollup.sol",
+   "line": null
+  },
+  {
+   "id": "Rollup.sol#Rollup.replayedReceiptRoot",
+   "kind": "state-variable",
+   "name": "replayedReceiptRoot",
+   "path": "Rollup.sol",
+   "line": null
+  },
+  {
+   "id": "Rollup.sol#Rollup.activeStakerRoot",
+   "kind": "state-variable",
+   "name": "activeStakerRoot",
+   "path": "Rollup.sol",
+   "line": null
+  },
+  {
+   "id": "Rollup.sol#Rollup.genesisRoot",
+   "kind": "state-variable",
+   "name": "genesisRoot",
+   "path": "Rollup.sol",
+   "line": null
+  },
+  {
+   "id": "Rollup.sol#Rollup.revertedBatchRoot",
+   "kind": "state-variable",
+   "name": "revertedBatchRoot",
+   "path": "Rollup.sol",
+   "line": null
+  },
+  {
+   "id": "Rollup.sol#Rollup.withdrawLockRoot",
+   "kind": "state-variable",
+   "name": "withdrawLockRoot",
+   "path": "Rollup.sol",
+   "line": null
+  },
+  {
+   "id": "Rollup.sol#Rollup.challengedClaimRoot",
+   "kind": "state-variable",
+   "name": "challengedClaimRoot",
+   "path": "Rollup.sol",
+   "line": null
+  },
+  {
+   "id": "Rollup.sol#Rollup.finalizedCount",
+   "kind": "state-variable",
+   "name": "finalizedCount",
+   "path": "Rollup.sol",
+   "line": null
+  },
+  {
+   "id": "Rollup.sol#Rollup.onlyActiveStaker",
+   "kind": "modifier",
+   "name": "onlyActiveStaker",
+   "path": "Rollup.sol",
+   "line": 27,
+   "reads_storage": [],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": []
+  },
+  {
+   "id": "Rollup.sol#Rollup.onlyOwner",
+   "kind": "modifier",
+   "name": "onlyOwner",
+   "path": "Rollup.sol",
+   "line": 32,
+   "reads_storage": [],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": []
+  },
+  {
+   "id": "Rollup.sol#Rollup.onlyGuardian",
+   "kind": "modifier",
+   "name": "onlyGuardian",
+   "path": "Rollup.sol",
+   "line": 37,
+   "reads_storage": [],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": []
+  },
+  {
+   "id": "Rollup.sol#Rollup.commitBatch",
+   "kind": "function",
+   "name": "commitBatch",
+   "path": "Rollup.sol",
+   "line": 45,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [
+    "onlyActiveStaker"
+   ],
+   "guarded_by": [
+    "onlyActiveStaker"
+   ],
+   "selector": "commitBatch(uint256,bytes32)",
+   "reads_storage": [
+    "stakers",
+    "prevStateRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [],
+   "uses": [
+    {
+     "line": 46,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 46,
+     "concept_keys": [
+      "root",
+      "state",
+      "state:root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 46,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "prev",
+      "prev:state",
+      "prev:state:root",
+      "root",
+      "state",
+      "state:root"
+     ],
+     "kind": "read"
+    },
+    {
+     "line": 46,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "prev",
+      "prev:state",
+      "prev:state:root",
+      "root",
+      "state",
+      "state:root"
+     ],
+     "kind": "write"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.dropMessage",
+   "kind": "function",
+   "name": "dropMessage",
+   "path": "Rollup.sol",
+   "line": 49,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [],
+   "guarded_by": [],
+   "selector": "dropMessage(uint256,bytes32)",
+   "reads_storage": [
+    "droppedMessageRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [],
+   "uses": [
+    {
+     "line": 50,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 50,
+     "concept_keys": [
+      "msg",
+      "msg:root",
+      "root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 50,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "dropped",
+      "dropped:msg",
+      "dropped:msg:root",
+      "index",
+      "msg",
+      "msg:root",
+      "root"
+     ],
+     "kind": "read"
+    },
+    {
+     "line": 50,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "dropped",
+      "dropped:msg",
+      "dropped:msg:root",
+      "index",
+      "msg",
+      "msg:root",
+      "root"
+     ],
+     "kind": "write"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.proveState",
+   "kind": "function",
+   "name": "proveState",
+   "path": "Rollup.sol",
+   "line": 53,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [],
+   "guarded_by": [],
+   "selector": "proveState(uint256,bytes32)",
+   "reads_storage": [
+    "provenProofRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [],
+   "uses": [
+    {
+     "line": 54,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 54,
+     "concept_keys": [
+      "proof",
+      "proof:root",
+      "root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 54,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "proof",
+      "proof:root",
+      "proven",
+      "proven:proof",
+      "proven:proof:root",
+      "root"
+     ],
+     "kind": "read"
+    },
+    {
+     "line": 54,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "proof",
+      "proof:root",
+      "proven",
+      "proven:proof",
+      "proven:proof:root",
+      "root"
+     ],
+     "kind": "write"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.replayMessage",
+   "kind": "function",
+   "name": "replayMessage",
+   "path": "Rollup.sol",
+   "line": 57,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [],
+   "guarded_by": [],
+   "selector": "replayMessage(uint256,bytes32)",
+   "reads_storage": [
+    "replayedReceiptRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [],
+   "uses": [
+    {
+     "line": 58,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 58,
+     "concept_keys": [
+      "receipt",
+      "receipt:root",
+      "root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 58,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "receipt",
+      "receipt:root",
+      "replayed",
+      "replayed:receipt",
+      "replayed:receipt:root",
+      "root"
+     ],
+     "kind": "read"
+    },
+    {
+     "line": 58,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "receipt",
+      "receipt:root",
+      "replayed",
+      "replayed:receipt",
+      "replayed:receipt:root",
+      "root"
+     ],
+     "kind": "write"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.getActiveStakers",
+   "kind": "function",
+   "name": "getActiveStakers",
+   "path": "Rollup.sol",
+   "line": 61,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [],
+   "guarded_by": [],
+   "selector": "getActiveStakers(uint256,bytes32)",
+   "reads_storage": [
+    "activeStakerRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [],
+   "uses": [
+    {
+     "line": 62,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 62,
+     "concept_keys": [
+      "root",
+      "staker",
+      "staker:root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 62,
+     "concept_keys": [
+      "active",
+      "active:staker",
+      "active:staker:root",
+      "batch",
+      "batch:index",
+      "index",
+      "root",
+      "staker",
+      "staker:root"
+     ],
+     "kind": "read"
+    },
+    {
+     "line": 62,
+     "concept_keys": [
+      "active",
+      "active:staker",
+      "active:staker:root",
+      "batch",
+      "batch:index",
+      "index",
+      "root",
+      "staker",
+      "staker:root"
+     ],
+     "kind": "write"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.finalizeBatch",
+   "kind": "function",
+   "name": "finalizeBatch",
+   "path": "Rollup.sol",
+   "line": 66,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [
+    "onlyActiveStaker"
+   ],
+   "guarded_by": [
+    "onlyActiveStaker"
+   ],
+   "selector": "finalizeBatch(uint256,bytes32)",
+   "reads_storage": [
+    "stakers",
+    "prevStateRoot",
+    "finalizedCount"
+   ],
+   "writes_storage": [
+    "finalizedCount"
+   ],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [
+    {
+     "line": 67,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "prev",
+      "prev:state",
+      "prev:state:root",
+      "root",
+      "state",
+      "state:root"
+     ],
+     "class": 4,
+     "text": "prevStateRoot[batchIndex] == stateRoot"
+    }
+   ],
+   "uses": [
+    {
+     "line": 67,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 67,
+     "concept_keys": [
+      "root",
+      "state",
+      "state:root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 67,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "prev",
+      "prev:state",
+      "prev:state:root",
+      "root",
+      "state",
+      "state:root"
+     ],
+     "kind": "read"
+    },
+    {
+     "line": 68,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 68,
+     "concept_keys": [
+      "count",
+      "finalized",
+      "finalized:count"
+     ],
+     "kind": "write"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.challengeState",
+   "kind": "function",
+   "name": "challengeState",
+   "path": "Rollup.sol",
+   "line": 73,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [
+    "onlyGuardian"
+   ],
+   "guarded_by": [
+    "onlyGuardian"
+   ],
+   "selector": "challengeState(uint256,bytes32)",
+   "reads_storage": [
+    "guardian",
+    "challengedClaimRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [],
+   "uses": [
+    {
+     "line": 74,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 74,
+     "concept_keys": [
+      "claim",
+      "claim:root",
+      "root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 74,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "challenged",
+      "challenged:claim",
+      "challenged:claim:root",
+      "claim",
+      "claim:root",
+      "index",
+      "root"
+     ],
+     "kind": "read"
+    },
+    {
+     "line": 74,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "challenged",
+      "challenged:claim",
+      "challenged:claim:root",
+      "claim",
+      "claim:root",
+      "index",
+      "root"
+     ],
+     "kind": "write"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.importGenesisBatch",
+   "kind": "function",
+   "name": "importGenesisBatch",
+   "path": "Rollup.sol",
+   "line": 79,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "guarded_by": [
+    "onlyOwner"
+   ],
+   "selector": "importGenesisBatch(uint256,bytes32)",
+   "reads_storage": [
+    "owner",
+    "genesisRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [],
+   "uses": [
+    {
+     "line": 80,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 80,
+     "concept_keys": [
+      "root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 80,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "genesis",
+      "genesis:root",
+      "index",
+      "root"
+     ],
+     "kind": "read"
+    },
+    {
+     "line": 80,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "genesis",
+      "genesis:root",
+      "index",
+      "root"
+     ],
+     "kind": "write"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.revertBatch",
+   "kind": "function",
+   "name": "revertBatch",
+   "path": "Rollup.sol",
+   "line": 83,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "guarded_by": [
+    "onlyOwner"
+   ],
+   "selector": "revertBatch(uint256,bytes32)",
+   "reads_storage": [
+    "owner",
+    "revertedBatchRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [],
+   "uses": [
+    {
+     "line": 84,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 84,
+     "concept_keys": [
+      "root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 84,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "batch:root",
+      "index",
+      "reverted",
+      "reverted:batch",
+      "reverted:batch:root",
+      "root"
+     ],
+     "kind": "read"
+    },
+    {
+     "line": 84,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "batch:root",
+      "index",
+      "reverted",
+      "reverted:batch",
+      "reverted:batch:root",
+      "root"
+     ],
+     "kind": "write"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.updateWithdrawLock",
+   "kind": "function",
+   "name": "updateWithdrawLock",
+   "path": "Rollup.sol",
+   "line": 87,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [
+    "onlyOwner"
+   ],
+   "guarded_by": [
+    "onlyOwner"
+   ],
+   "selector": "updateWithdrawLock(uint256,bytes32)",
+   "reads_storage": [
+    "owner",
+    "withdrawLockRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [],
+   "uses": [
+    {
+     "line": 88,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 88,
+     "concept_keys": [
+      "root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 88,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "lock",
+      "lock:root",
+      "root",
+      "withdraw",
+      "withdraw:lock",
+      "withdraw:lock:root"
+     ],
+     "kind": "read"
+    },
+    {
+     "line": 88,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "lock",
+      "lock:root",
+      "root",
+      "withdraw",
+      "withdraw:lock",
+      "withdraw:lock:root"
+     ],
+     "kind": "write"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.auditProof",
+   "kind": "function",
+   "name": "auditProof",
+   "path": "Rollup.sol",
+   "line": 93,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [],
+   "guarded_by": [],
+   "selector": "auditProof(uint256,bytes32)",
+   "reads_storage": [
+    "provenProofRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [
+    {
+     "line": 94,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "proof",
+      "proof:root",
+      "proven",
+      "proven:proof",
+      "proven:proof:root",
+      "root"
+     ],
+     "class": 4,
+     "text": "provenProofRoot[batchIndex] == proofRoot"
+    }
+   ],
+   "uses": [
+    {
+     "line": 94,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 94,
+     "concept_keys": [
+      "proof",
+      "proof:root",
+      "root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 94,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "proof",
+      "proof:root",
+      "proven",
+      "proven:proof",
+      "proven:proof:root",
+      "root"
+     ],
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.auditDrop",
+   "kind": "function",
+   "name": "auditDrop",
+   "path": "Rollup.sol",
+   "line": 97,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [],
+   "guarded_by": [],
+   "selector": "auditDrop(uint256,bytes32)",
+   "reads_storage": [
+    "droppedMessageRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [
+    {
+     "line": 98,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "dropped",
+      "dropped:msg",
+      "dropped:msg:root",
+      "index",
+      "msg",
+      "msg:root",
+      "root"
+     ],
+     "class": 4,
+     "text": "droppedMessageRoot[batchIndex] == messageRoot"
+    }
+   ],
+   "uses": [
+    {
+     "line": 98,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 98,
+     "concept_keys": [
+      "msg",
+      "msg:root",
+      "root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 98,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "dropped",
+      "dropped:msg",
+      "dropped:msg:root",
+      "index",
+      "msg",
+      "msg:root",
+      "root"
+     ],
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.auditReplay",
+   "kind": "function",
+   "name": "auditReplay",
+   "path": "Rollup.sol",
+   "line": 101,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [],
+   "guarded_by": [],
+   "selector": "auditReplay(uint256,bytes32)",
+   "reads_storage": [
+    "replayedReceiptRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [
+    {
+     "line": 102,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "receipt",
+      "receipt:root",
+      "replayed",
+      "replayed:receipt",
+      "replayed:receipt:root",
+      "root"
+     ],
+     "class": 4,
+     "text": "replayedReceiptRoot[batchIndex] == receiptRoot"
+    }
+   ],
+   "uses": [
+    {
+     "line": 102,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 102,
+     "concept_keys": [
+      "receipt",
+      "receipt:root",
+      "root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 102,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "receipt",
+      "receipt:root",
+      "replayed",
+      "replayed:receipt",
+      "replayed:receipt:root",
+      "root"
+     ],
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.auditStakers",
+   "kind": "function",
+   "name": "auditStakers",
+   "path": "Rollup.sol",
+   "line": 105,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [],
+   "guarded_by": [],
+   "selector": "auditStakers(uint256,bytes32)",
+   "reads_storage": [
+    "activeStakerRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [
+    {
+     "line": 106,
+     "concept_keys": [
+      "active",
+      "active:staker",
+      "active:staker:root",
+      "batch",
+      "batch:index",
+      "index",
+      "root",
+      "staker",
+      "staker:root"
+     ],
+     "class": 4,
+     "text": "activeStakerRoot[batchIndex] == stakerRoot"
+    }
+   ],
+   "uses": [
+    {
+     "line": 106,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 106,
+     "concept_keys": [
+      "root",
+      "staker",
+      "staker:root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 106,
+     "concept_keys": [
+      "active",
+      "active:staker",
+      "active:staker:root",
+      "batch",
+      "batch:index",
+      "index",
+      "root",
+      "staker",
+      "staker:root"
+     ],
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.auditGenesis",
+   "kind": "function",
+   "name": "auditGenesis",
+   "path": "Rollup.sol",
+   "line": 109,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [],
+   "guarded_by": [],
+   "selector": "auditGenesis(uint256,bytes32)",
+   "reads_storage": [
+    "genesisRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [
+    {
+     "line": 110,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "genesis",
+      "genesis:root",
+      "index",
+      "root"
+     ],
+     "class": 4,
+     "text": "genesisRoot[batchIndex] == root"
+    }
+   ],
+   "uses": [
+    {
+     "line": 110,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 110,
+     "concept_keys": [
+      "root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 110,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "genesis",
+      "genesis:root",
+      "index",
+      "root"
+     ],
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.auditRevert",
+   "kind": "function",
+   "name": "auditRevert",
+   "path": "Rollup.sol",
+   "line": 113,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [],
+   "guarded_by": [],
+   "selector": "auditRevert(uint256,bytes32)",
+   "reads_storage": [
+    "revertedBatchRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [
+    {
+     "line": 114,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "batch:root",
+      "index",
+      "reverted",
+      "reverted:batch",
+      "reverted:batch:root",
+      "root"
+     ],
+     "class": 4,
+     "text": "revertedBatchRoot[batchIndex] == root"
+    }
+   ],
+   "uses": [
+    {
+     "line": 114,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 114,
+     "concept_keys": [
+      "root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 114,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "batch:root",
+      "index",
+      "reverted",
+      "reverted:batch",
+      "reverted:batch:root",
+      "root"
+     ],
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.auditLock",
+   "kind": "function",
+   "name": "auditLock",
+   "path": "Rollup.sol",
+   "line": 117,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [],
+   "guarded_by": [],
+   "selector": "auditLock(uint256,bytes32)",
+   "reads_storage": [
+    "withdrawLockRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [
+    {
+     "line": 118,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "lock",
+      "lock:root",
+      "root",
+      "withdraw",
+      "withdraw:lock",
+      "withdraw:lock:root"
+     ],
+     "class": 4,
+     "text": "withdrawLockRoot[batchIndex] == root"
+    }
+   ],
+   "uses": [
+    {
+     "line": 118,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 118,
+     "concept_keys": [
+      "root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 118,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index",
+      "lock",
+      "lock:root",
+      "root",
+      "withdraw",
+      "withdraw:lock",
+      "withdraw:lock:root"
+     ],
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "id": "Rollup.sol#Rollup.auditChallenge",
+   "kind": "function",
+   "name": "auditChallenge",
+   "path": "Rollup.sol",
+   "line": 121,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [],
+   "guarded_by": [],
+   "selector": "auditChallenge(uint256,bytes32)",
+   "reads_storage": [
+    "challengedClaimRoot"
+   ],
+   "writes_storage": [],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [
+    {
+     "line": 122,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "challenged",
+      "challenged:claim",
+      "challenged:claim:root",
+      "claim",
+      "claim:root",
+      "index",
+      "root"
+     ],
+     "class": 4,
+     "text": "challengedClaimRoot[batchIndex] == claimRoot"
+    }
+   ],
+   "uses": [
+    {
+     "line": 122,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 122,
+     "concept_keys": [
+      "claim",
+      "claim:root",
+      "root"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 122,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "challenged",
+      "challenged:claim",
+      "challenged:claim:root",
+      "claim",
+      "claim:root",
+      "index",
+      "root"
+     ],
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "id": "contracts/mock/MockRollup.sol#MockRollup",
+   "kind": "contract",
+   "name": "MockRollup",
+   "path": "contracts/mock/MockRollup.sol",
+   "line": 12,
+   "contract_closure": [
+    {
+     "name": "auditChallenge",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 121,
+     "guards": [
+      {
+       "line": 122,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "challenged",
+        "challenged:claim",
+        "challenged:claim:root",
+        "claim",
+        "claim:root",
+        "index",
+        "root"
+       ],
+       "class": 4,
+       "text": "challengedClaimRoot[batchIndex] == claimRoot"
+      }
+     ],
+     "uses": [
+      {
+       "line": 122,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 122,
+       "concept_keys": [
+        "claim",
+        "claim:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 122,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "challenged",
+        "challenged:claim",
+        "challenged:claim:root",
+        "claim",
+        "claim:root",
+        "index",
+        "root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "auditDrop",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 97,
+     "guards": [
+      {
+       "line": 98,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "dropped",
+        "dropped:msg",
+        "dropped:msg:root",
+        "index",
+        "msg",
+        "msg:root",
+        "root"
+       ],
+       "class": 4,
+       "text": "droppedMessageRoot[batchIndex] == messageRoot"
+      }
+     ],
+     "uses": [
+      {
+       "line": 98,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 98,
+       "concept_keys": [
+        "msg",
+        "msg:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 98,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "dropped",
+        "dropped:msg",
+        "dropped:msg:root",
+        "index",
+        "msg",
+        "msg:root",
+        "root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "auditGenesis",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 109,
+     "guards": [
+      {
+       "line": 110,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "genesis",
+        "genesis:root",
+        "index",
+        "root"
+       ],
+       "class": 4,
+       "text": "genesisRoot[batchIndex] == root"
+      }
+     ],
+     "uses": [
+      {
+       "line": 110,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 110,
+       "concept_keys": [
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 110,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "genesis",
+        "genesis:root",
+        "index",
+        "root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "auditLock",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 117,
+     "guards": [
+      {
+       "line": 118,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "lock",
+        "lock:root",
+        "root",
+        "withdraw",
+        "withdraw:lock",
+        "withdraw:lock:root"
+       ],
+       "class": 4,
+       "text": "withdrawLockRoot[batchIndex] == root"
+      }
+     ],
+     "uses": [
+      {
+       "line": 118,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 118,
+       "concept_keys": [
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 118,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "lock",
+        "lock:root",
+        "root",
+        "withdraw",
+        "withdraw:lock",
+        "withdraw:lock:root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "auditProof",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 93,
+     "guards": [
+      {
+       "line": 94,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "proof",
+        "proof:root",
+        "proven",
+        "proven:proof",
+        "proven:proof:root",
+        "root"
+       ],
+       "class": 4,
+       "text": "provenProofRoot[batchIndex] == proofRoot"
+      }
+     ],
+     "uses": [
+      {
+       "line": 94,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 94,
+       "concept_keys": [
+        "proof",
+        "proof:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 94,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "proof",
+        "proof:root",
+        "proven",
+        "proven:proof",
+        "proven:proof:root",
+        "root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "auditReplay",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 101,
+     "guards": [
+      {
+       "line": 102,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "receipt",
+        "receipt:root",
+        "replayed",
+        "replayed:receipt",
+        "replayed:receipt:root",
+        "root"
+       ],
+       "class": 4,
+       "text": "replayedReceiptRoot[batchIndex] == receiptRoot"
+      }
+     ],
+     "uses": [
+      {
+       "line": 102,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 102,
+       "concept_keys": [
+        "receipt",
+        "receipt:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 102,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "receipt",
+        "receipt:root",
+        "replayed",
+        "replayed:receipt",
+        "replayed:receipt:root",
+        "root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "auditRevert",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 113,
+     "guards": [
+      {
+       "line": 114,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "batch:root",
+        "index",
+        "reverted",
+        "reverted:batch",
+        "reverted:batch:root",
+        "root"
+       ],
+       "class": 4,
+       "text": "revertedBatchRoot[batchIndex] == root"
+      }
+     ],
+     "uses": [
+      {
+       "line": 114,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 114,
+       "concept_keys": [
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 114,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "batch:root",
+        "index",
+        "reverted",
+        "reverted:batch",
+        "reverted:batch:root",
+        "root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "auditStakers",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 105,
+     "guards": [
+      {
+       "line": 106,
+       "concept_keys": [
+        "active",
+        "active:staker",
+        "active:staker:root",
+        "batch",
+        "batch:index",
+        "index",
+        "root",
+        "staker",
+        "staker:root"
+       ],
+       "class": 4,
+       "text": "activeStakerRoot[batchIndex] == stakerRoot"
+      }
+     ],
+     "uses": [
+      {
+       "line": 106,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 106,
+       "concept_keys": [
+        "root",
+        "staker",
+        "staker:root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 106,
+       "concept_keys": [
+        "active",
+        "active:staker",
+        "active:staker:root",
+        "batch",
+        "batch:index",
+        "index",
+        "root",
+        "staker",
+        "staker:root"
+       ],
+       "kind": "read"
+      }
+     ]
+    },
+    {
+     "name": "challengeState",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 73,
+     "guards": [],
+     "uses": [
+      {
+       "line": 74,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 74,
+       "concept_keys": [
+        "claim",
+        "claim:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 74,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "challenged",
+        "challenged:claim",
+        "challenged:claim:root",
+        "claim",
+        "claim:root",
+        "index",
+        "root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 74,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "challenged",
+        "challenged:claim",
+        "challenged:claim:root",
+        "claim",
+        "claim:root",
+        "index",
+        "root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "commitBatch",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 45,
+     "guards": [],
+     "uses": [
+      {
+       "line": 46,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 46,
+       "concept_keys": [
+        "root",
+        "state",
+        "state:root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 46,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "prev",
+        "prev:state",
+        "prev:state:root",
+        "root",
+        "state",
+        "state:root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 46,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "prev",
+        "prev:state",
+        "prev:state:root",
+        "root",
+        "state",
+        "state:root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "dropMessage",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 49,
+     "guards": [],
+     "uses": [
+      {
+       "line": 50,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 50,
+       "concept_keys": [
+        "msg",
+        "msg:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 50,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "dropped",
+        "dropped:msg",
+        "dropped:msg:root",
+        "index",
+        "msg",
+        "msg:root",
+        "root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 50,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "dropped",
+        "dropped:msg",
+        "dropped:msg:root",
+        "index",
+        "msg",
+        "msg:root",
+        "root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "finalizeBatch",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 66,
+     "guards": [
+      {
+       "line": 67,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "prev",
+        "prev:state",
+        "prev:state:root",
+        "root",
+        "state",
+        "state:root"
+       ],
+       "class": 4,
+       "text": "prevStateRoot[batchIndex] == stateRoot"
+      }
+     ],
+     "uses": [
+      {
+       "line": 67,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 67,
+       "concept_keys": [
+        "root",
+        "state",
+        "state:root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 67,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "prev",
+        "prev:state",
+        "prev:state:root",
+        "root",
+        "state",
+        "state:root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 68,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 68,
+       "concept_keys": [
+        "count",
+        "finalized",
+        "finalized:count"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "getActiveStakers",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 61,
+     "guards": [],
+     "uses": [
+      {
+       "line": 62,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 62,
+       "concept_keys": [
+        "root",
+        "staker",
+        "staker:root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 62,
+       "concept_keys": [
+        "active",
+        "active:staker",
+        "active:staker:root",
+        "batch",
+        "batch:index",
+        "index",
+        "root",
+        "staker",
+        "staker:root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 62,
+       "concept_keys": [
+        "active",
+        "active:staker",
+        "active:staker:root",
+        "batch",
+        "batch:index",
+        "index",
+        "root",
+        "staker",
+        "staker:root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "importGenesisBatch",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 79,
+     "guards": [],
+     "uses": [
+      {
+       "line": 80,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 80,
+       "concept_keys": [
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 80,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "genesis",
+        "genesis:root",
+        "index",
+        "root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 80,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "genesis",
+        "genesis:root",
+        "index",
+        "root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "proveState",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 53,
+     "guards": [],
+     "uses": [
+      {
+       "line": 54,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 54,
+       "concept_keys": [
+        "proof",
+        "proof:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 54,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "proof",
+        "proof:root",
+        "proven",
+        "proven:proof",
+        "proven:proof:root",
+        "root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 54,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "proof",
+        "proof:root",
+        "proven",
+        "proven:proof",
+        "proven:proof:root",
+        "root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "replayMessage",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 57,
+     "guards": [],
+     "uses": [
+      {
+       "line": 58,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 58,
+       "concept_keys": [
+        "receipt",
+        "receipt:root",
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 58,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "receipt",
+        "receipt:root",
+        "replayed",
+        "replayed:receipt",
+        "replayed:receipt:root",
+        "root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 58,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "receipt",
+        "receipt:root",
+        "replayed",
+        "replayed:receipt",
+        "replayed:receipt:root",
+        "root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "revertBatch",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 83,
+     "guards": [],
+     "uses": [
+      {
+       "line": 84,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 84,
+       "concept_keys": [
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 84,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "batch:root",
+        "index",
+        "reverted",
+        "reverted:batch",
+        "reverted:batch:root",
+        "root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 84,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "batch:root",
+        "index",
+        "reverted",
+        "reverted:batch",
+        "reverted:batch:root",
+        "root"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "setLastFinalizedBatchIndex",
+     "defining_contract": "MockRollup",
+     "path": "contracts/mock/MockRollup.sol",
+     "line": 15,
+     "guards": [],
+     "uses": [
+      {
+       "line": 16,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 16,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "finalized",
+        "finalized:batch",
+        "finalized:batch:index",
+        "index",
+        "last",
+        "last:finalized",
+        "last:finalized:batch"
+       ],
+       "kind": "write"
+      }
+     ]
+    },
+    {
+     "name": "updateWithdrawLock",
+     "defining_contract": "Rollup",
+     "path": "Rollup.sol",
+     "line": 87,
+     "guards": [],
+     "uses": [
+      {
+       "line": 88,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 88,
+       "concept_keys": [
+        "root"
+       ],
+       "kind": "param"
+      },
+      {
+       "line": 88,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "lock",
+        "lock:root",
+        "root",
+        "withdraw",
+        "withdraw:lock",
+        "withdraw:lock:root"
+       ],
+       "kind": "read"
+      },
+      {
+       "line": 88,
+       "concept_keys": [
+        "batch",
+        "batch:index",
+        "index",
+        "lock",
+        "lock:root",
+        "root",
+        "withdraw",
+        "withdraw:lock",
+        "withdraw:lock:root"
+       ],
+       "kind": "write"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "contracts/mock/MockRollup.sol#MockRollup.lastFinalizedBatchIndex",
+   "kind": "state-variable",
+   "name": "lastFinalizedBatchIndex",
+   "path": "contracts/mock/MockRollup.sol",
+   "line": null
+  },
+  {
+   "id": "contracts/mock/MockRollup.sol#MockRollup.setLastFinalizedBatchIndex",
+   "kind": "function",
+   "name": "setLastFinalizedBatchIndex",
+   "path": "contracts/mock/MockRollup.sol",
+   "line": 15,
+   "visibility": "external",
+   "is_entry_point": true,
+   "modifiers": [],
+   "guarded_by": [],
+   "selector": "setLastFinalizedBatchIndex(uint256)",
+   "reads_storage": [
+    "lastFinalizedBatchIndex"
+   ],
+   "writes_storage": [
+    "lastFinalizedBatchIndex"
+   ],
+   "calls_internal": [],
+   "calls_external": [],
+   "delegatecalls": [],
+   "guards": [],
+   "uses": [
+    {
+     "line": 16,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "index"
+     ],
+     "kind": "param"
+    },
+    {
+     "line": 16,
+     "concept_keys": [
+      "batch",
+      "batch:index",
+      "finalized",
+      "finalized:batch",
+      "finalized:batch:index",
+      "index",
+      "last",
+      "last:finalized",
+      "last:finalized:batch"
+     ],
+     "kind": "write"
+    }
+   ]
+  }
+ ],
+ "edges": [
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.commitBatch"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.dropMessage"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.proveState"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.replayMessage"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.getActiveStakers"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.finalizeBatch"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.challengeState"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.importGenesisBatch"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.revertBatch"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.updateWithdrawLock"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.auditProof"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.auditDrop"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.auditReplay"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.auditStakers"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.auditGenesis"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.auditRevert"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.auditLock"
+  },
+  {
+   "from": "Rollup.sol#Rollup",
+   "rel": "extends-interface",
+   "to": "Rollup.sol#Rollup.auditChallenge"
+  },
+  {
+   "from": "contracts/mock/MockRollup.sol#MockRollup",
+   "rel": "inherits",
+   "to": "*#Rollup"
+  },
+  {
+   "from": "contracts/mock/MockRollup.sol#MockRollup",
+   "rel": "extends-interface",
+   "to": "contracts/mock/MockRollup.sol#MockRollup.setLastFinalizedBatchIndex"
+  }
+ ],
+ "stats": {
+  "solidity_files": 2,
+  "other_files_listed": 1,
+  "contracts": 2,
+  "functions": 19,
+  "state_variables": 14,
+  "entry_points": 19,
+  "external_call_edges": 1
+ }
+}

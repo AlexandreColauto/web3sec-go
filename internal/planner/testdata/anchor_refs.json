@@ -1,0 +1,52 @@
+{
+ "81dfad6492": {
+  "consumer": "Rollup.sol#L45",
+  "asserter": "Rollup.sol#L66",
+  "concept": "batch:index, prev:state, prev:state:root, state:root"
+ },
+ "66c7d14d35": {
+  "consumer": "Rollup.sol#L49",
+  "asserter": "Rollup.sol#L97",
+  "concept": "batch:index, dropped:msg, dropped:msg:root, msg:root"
+ },
+ "b6fe31cdf7": {
+  "consumer": "Rollup.sol#L61",
+  "asserter": "Rollup.sol#L105",
+  "concept": "active:staker, active:staker:root, batch:index, staker:root"
+ },
+ "63904ecbc1": {
+  "consumer": "Rollup.sol#L53",
+  "asserter": "Rollup.sol#L93",
+  "concept": "batch:index, proof:root, proven:proof, proven:proof:root"
+ },
+ "46ebc2a5a1": {
+  "consumer": "Rollup.sol#L57",
+  "asserter": "Rollup.sol#L101",
+  "concept": "batch:index, receipt:root, replayed:receipt, replayed:receipt:root"
+ },
+ "748abbf715": {
+  "consumer": "contracts/mock/MockRollup.sol#L15",
+  "asserter": "contracts/mock/MockRollup.sol#L121",
+  "concept": "batch:index"
+ },
+ "d549f9e66a": {
+  "consumer": "Rollup.sol#L73",
+  "asserter": "Rollup.sol#L121",
+  "concept": "batch:index, challenged:claim, challenged:claim:root, claim:root"
+ },
+ "d6e1821dc6": {
+  "consumer": "Rollup.sol#L79",
+  "asserter": "Rollup.sol#L109",
+  "concept": "batch:index, genesis:root"
+ },
+ "dd489a9a69": {
+  "consumer": "Rollup.sol#L83",
+  "asserter": "Rollup.sol#L113",
+  "concept": "batch:index, batch:root, reverted:batch, reverted:batch:root"
+ },
+ "954d79770b": {
+  "consumer": "Rollup.sol#L87",
+  "asserter": "Rollup.sol#L117",
+  "concept": "batch:index, lock:root, withdraw:lock, withdraw:lock:root"
+ }
+}

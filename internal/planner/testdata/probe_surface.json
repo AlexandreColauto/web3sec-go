@@ -1,0 +1,503 @@
+{
+ "campaign_id": "C-b97c396195",
+ "snapshot_id": "unpinned",
+ "parse_version": "2",
+ "index_sha": "3d9f4c47ebe56c546c1328d231315109ff2fa56dea693db944db11374b676e83",
+ "generated_at": "2026-09-09T12:00:00.000000+00:00",
+ "per_axis": 12,
+ "total": 40,
+ "floor": 3,
+ "axes": [
+  {
+   "probe": "accumulator-basis-skew",
+   "axis": "accumulator-skew",
+   "lens": "L-01",
+   "sites": 0,
+   "rows": 0,
+   "blind": [],
+   "blind_total": 0,
+   "per_axis": 12,
+   "floor": 0,
+   "wanted": 0,
+   "emitted": 0,
+   "tail": 0,
+   "status": "no-sites"
+  },
+  {
+   "probe": "assertion-strength",
+   "axis": "enforcement-timing",
+   "lens": "L-03",
+   "sites": 77,
+   "rows": 10,
+   "blind": [
+    {
+     "kind": "rejected-site",
+     "key": "MockRollup::finalizeBatch::batch:index",
+     "near": null,
+     "contract": "MockRollup",
+     "function": "finalizeBatch",
+     "line": 66,
+     "reason": "finalizeBatch guards batch:index at class 4; the strongest assertion (class 4) adds nothing"
+    },
+    {
+     "kind": "rejected-site",
+     "key": "MockRollup::finalizeBatch::prev:state",
+     "near": null,
+     "contract": "MockRollup",
+     "function": "finalizeBatch",
+     "line": 66,
+     "reason": "finalizeBatch asserts prev:state itself (class 4) \u2014 no asymmetry"
+    },
+    {
+     "kind": "rejected-site",
+     "key": "MockRollup::finalizeBatch::prev:state:root",
+     "near": null,
+     "contract": "MockRollup",
+     "function": "finalizeBatch",
+     "line": 66,
+     "reason": "finalizeBatch asserts prev:state:root itself (class 4) \u2014 no asymmetry"
+    },
+    {
+     "kind": "rejected-site",
+     "key": "MockRollup::finalizeBatch::state:root",
+     "near": null,
+     "contract": "MockRollup",
+     "function": "finalizeBatch",
+     "line": 66,
+     "reason": "finalizeBatch asserts state:root itself (class 4) \u2014 no asymmetry"
+    }
+   ],
+   "blind_total": 4,
+   "per_axis": 12,
+   "floor": 3,
+   "wanted": 10,
+   "emitted": 10,
+   "tail": 0,
+   "status": "emitted"
+  },
+  {
+   "probe": "custody-primitive",
+   "axis": "primitive-symmetry",
+   "lens": "L-04",
+   "sites": 0,
+   "rows": 0,
+   "blind": [],
+   "blind_total": 0,
+   "per_axis": 12,
+   "floor": 0,
+   "wanted": 0,
+   "emitted": 0,
+   "tail": 0,
+   "status": "no-sites"
+  },
+  {
+   "probe": "sequential-cursor",
+   "axis": "liveness",
+   "lens": "L-01",
+   "sites": 0,
+   "rows": 0,
+   "blind": [],
+   "blind_total": 0,
+   "per_axis": 12,
+   "floor": 0,
+   "wanted": 0,
+   "emitted": 0,
+   "tail": 0,
+   "status": "no-sites"
+  },
+  {
+   "probe": "short-circuitable-guard",
+   "axis": "guard-short-circuit",
+   "lens": "L-01",
+   "sites": 0,
+   "rows": 0,
+   "blind": [],
+   "blind_total": 0,
+   "per_axis": 12,
+   "floor": 0,
+   "wanted": 0,
+   "emitted": 0,
+   "tail": 0,
+   "status": "no-sites"
+  },
+  {
+   "probe": "trust-assumption",
+   "axis": "incentive-inversion",
+   "lens": "L-02",
+   "sites": 0,
+   "rows": 0,
+   "blind": [],
+   "blind_total": 0,
+   "per_axis": 12,
+   "floor": 0,
+   "wanted": 0,
+   "emitted": 0,
+   "tail": 0,
+   "status": "no-sites"
+  }
+ ],
+ "rows": [
+  {
+   "row_id": "81dfad6492",
+   "probe": "assertion-strength",
+   "axis": "enforcement-timing",
+   "lens": "L-03",
+   "tier": 0,
+   "rank": 1,
+   "assertion_gap": 4,
+   "gate": "onlyActiveStaker",
+   "why": "['batch:index', 'prev:state', 'prev:state:root', 'state:root'] is asserted as equality-to-persisted-state in finalizeBatch#66 (class 4) but consumed by commitBatch#45 under a class-0 guard \u2014 does commitBatch verify ['batch:index', 'prev:state', 'prev:state:root', 'state:root'] itself?",
+   "siblings": [
+    {
+     "contract": "Rollup",
+     "line": 45,
+     "test_double": false
+    },
+    {
+     "contract": "MockRollup",
+     "line": 45,
+     "test_double": true
+    }
+   ],
+   "contract": "Rollup",
+   "consumer": "commitBatch",
+   "consumer_line": 45,
+   "asserter": "finalizeBatch",
+   "asserter_line": 66,
+   "concept_keys": [
+    "batch:index",
+    "prev:state",
+    "prev:state:root",
+    "state:root"
+   ],
+   "own_class": 0,
+   "assert_class": 4
+  },
+  {
+   "row_id": "66c7d14d35",
+   "probe": "assertion-strength",
+   "axis": "enforcement-timing",
+   "lens": "L-03",
+   "tier": 0,
+   "rank": 2,
+   "assertion_gap": 4,
+   "gate": "unprivileged",
+   "why": "['batch:index', 'dropped:msg', 'dropped:msg:root', 'msg:root'] is asserted as equality-to-persisted-state in auditDrop#97 (class 4) but consumed by dropMessage#49 under a class-0 guard \u2014 does dropMessage verify ['batch:index', 'dropped:msg', 'dropped:msg:root', 'msg:root'] itself?",
+   "siblings": [
+    {
+     "contract": "Rollup",
+     "line": 49,
+     "test_double": false
+    },
+    {
+     "contract": "MockRollup",
+     "line": 49,
+     "test_double": true
+    }
+   ],
+   "contract": "Rollup",
+   "consumer": "dropMessage",
+   "consumer_line": 49,
+   "asserter": "auditDrop",
+   "asserter_line": 97,
+   "concept_keys": [
+    "batch:index",
+    "dropped:msg",
+    "dropped:msg:root",
+    "msg:root"
+   ],
+   "own_class": 0,
+   "assert_class": 4
+  },
+  {
+   "row_id": "b6fe31cdf7",
+   "probe": "assertion-strength",
+   "axis": "enforcement-timing",
+   "lens": "L-03",
+   "tier": 0,
+   "rank": 3,
+   "assertion_gap": 4,
+   "gate": "unprivileged",
+   "why": "['active:staker', 'active:staker:root', 'batch:index', 'staker:root'] is asserted as equality-to-persisted-state in auditStakers#105 (class 4) but consumed by getActiveStakers#61 under a class-0 guard \u2014 does getActiveStakers verify ['active:staker', 'active:staker:root', 'batch:index', 'staker:root'] itself?",
+   "siblings": [
+    {
+     "contract": "Rollup",
+     "line": 61,
+     "test_double": false
+    },
+    {
+     "contract": "MockRollup",
+     "line": 61,
+     "test_double": true
+    }
+   ],
+   "contract": "Rollup",
+   "consumer": "getActiveStakers",
+   "consumer_line": 61,
+   "asserter": "auditStakers",
+   "asserter_line": 105,
+   "concept_keys": [
+    "active:staker",
+    "active:staker:root",
+    "batch:index",
+    "staker:root"
+   ],
+   "own_class": 0,
+   "assert_class": 4
+  },
+  {
+   "row_id": "63904ecbc1",
+   "probe": "assertion-strength",
+   "axis": "enforcement-timing",
+   "lens": "L-03",
+   "tier": 0,
+   "rank": 4,
+   "assertion_gap": 4,
+   "gate": "unprivileged",
+   "why": "['batch:index', 'proof:root', 'proven:proof', 'proven:proof:root'] is asserted as equality-to-persisted-state in auditProof#93 (class 4) but consumed by proveState#53 under a class-0 guard \u2014 does proveState verify ['batch:index', 'proof:root', 'proven:proof', 'proven:proof:root'] itself?",
+   "siblings": [
+    {
+     "contract": "Rollup",
+     "line": 53,
+     "test_double": false
+    },
+    {
+     "contract": "MockRollup",
+     "line": 53,
+     "test_double": true
+    }
+   ],
+   "contract": "Rollup",
+   "consumer": "proveState",
+   "consumer_line": 53,
+   "asserter": "auditProof",
+   "asserter_line": 93,
+   "concept_keys": [
+    "batch:index",
+    "proof:root",
+    "proven:proof",
+    "proven:proof:root"
+   ],
+   "own_class": 0,
+   "assert_class": 4
+  },
+  {
+   "row_id": "46ebc2a5a1",
+   "probe": "assertion-strength",
+   "axis": "enforcement-timing",
+   "lens": "L-03",
+   "tier": 0,
+   "rank": 5,
+   "assertion_gap": 4,
+   "gate": "unprivileged",
+   "why": "['batch:index', 'receipt:root', 'replayed:receipt', 'replayed:receipt:root'] is asserted as equality-to-persisted-state in auditReplay#101 (class 4) but consumed by replayMessage#57 under a class-0 guard \u2014 does replayMessage verify ['batch:index', 'receipt:root', 'replayed:receipt', 'replayed:receipt:root'] itself?",
+   "siblings": [
+    {
+     "contract": "Rollup",
+     "line": 57,
+     "test_double": false
+    },
+    {
+     "contract": "MockRollup",
+     "line": 57,
+     "test_double": true
+    }
+   ],
+   "contract": "Rollup",
+   "consumer": "replayMessage",
+   "consumer_line": 57,
+   "asserter": "auditReplay",
+   "asserter_line": 101,
+   "concept_keys": [
+    "batch:index",
+    "receipt:root",
+    "replayed:receipt",
+    "replayed:receipt:root"
+   ],
+   "own_class": 0,
+   "assert_class": 4
+  },
+  {
+   "row_id": "748abbf715",
+   "probe": "assertion-strength",
+   "axis": "enforcement-timing",
+   "lens": "L-03",
+   "tier": 0,
+   "rank": 6,
+   "assertion_gap": 4,
+   "gate": "unprivileged",
+   "why": "['batch:index'] is asserted as equality-to-persisted-state in auditChallenge#121 (class 4) but consumed by setLastFinalizedBatchIndex#15 under a class-0 guard \u2014 does setLastFinalizedBatchIndex verify ['batch:index'] itself?",
+   "siblings": [
+    {
+     "contract": "MockRollup",
+     "line": 15,
+     "test_double": true
+    }
+   ],
+   "contract": "MockRollup",
+   "consumer": "setLastFinalizedBatchIndex",
+   "consumer_line": 15,
+   "asserter": "auditChallenge",
+   "asserter_line": 121,
+   "concept_keys": [
+    "batch:index"
+   ],
+   "own_class": 0,
+   "assert_class": 4
+  },
+  {
+   "row_id": "d549f9e66a",
+   "probe": "assertion-strength",
+   "axis": "enforcement-timing",
+   "lens": "L-03",
+   "tier": 1,
+   "rank": 7,
+   "assertion_gap": 4,
+   "gate": "onlyGuardian",
+   "why": "['batch:index', 'challenged:claim', 'challenged:claim:root', 'claim:root'] is asserted as equality-to-persisted-state in auditChallenge#121 (class 4) but consumed by challengeState#73 under a class-0 guard \u2014 does challengeState verify ['batch:index', 'challenged:claim', 'challenged:claim:root', 'claim:root'] itself?",
+   "siblings": [
+    {
+     "contract": "Rollup",
+     "line": 73,
+     "test_double": false
+    },
+    {
+     "contract": "MockRollup",
+     "line": 73,
+     "test_double": true
+    }
+   ],
+   "contract": "Rollup",
+   "consumer": "challengeState",
+   "consumer_line": 73,
+   "asserter": "auditChallenge",
+   "asserter_line": 121,
+   "concept_keys": [
+    "batch:index",
+    "challenged:claim",
+    "challenged:claim:root",
+    "claim:root"
+   ],
+   "own_class": 0,
+   "assert_class": 4
+  },
+  {
+   "row_id": "d6e1821dc6",
+   "probe": "assertion-strength",
+   "axis": "enforcement-timing",
+   "lens": "L-03",
+   "tier": 2,
+   "rank": 8,
+   "assertion_gap": 4,
+   "gate": "onlyOwner",
+   "why": "['batch:index', 'genesis:root'] is asserted as equality-to-persisted-state in auditGenesis#109 (class 4) but consumed by importGenesisBatch#79 under a class-0 guard \u2014 does importGenesisBatch verify ['batch:index', 'genesis:root'] itself?",
+   "siblings": [
+    {
+     "contract": "Rollup",
+     "line": 79,
+     "test_double": false
+    },
+    {
+     "contract": "MockRollup",
+     "line": 79,
+     "test_double": true
+    }
+   ],
+   "contract": "Rollup",
+   "consumer": "importGenesisBatch",
+   "consumer_line": 79,
+   "asserter": "auditGenesis",
+   "asserter_line": 109,
+   "concept_keys": [
+    "batch:index",
+    "genesis:root"
+   ],
+   "own_class": 0,
+   "assert_class": 4
+  },
+  {
+   "row_id": "dd489a9a69",
+   "probe": "assertion-strength",
+   "axis": "enforcement-timing",
+   "lens": "L-03",
+   "tier": 2,
+   "rank": 9,
+   "assertion_gap": 4,
+   "gate": "onlyOwner",
+   "why": "['batch:index', 'batch:root', 'reverted:batch', 'reverted:batch:root'] is asserted as equality-to-persisted-state in auditRevert#113 (class 4) but consumed by revertBatch#83 under a class-0 guard \u2014 does revertBatch verify ['batch:index', 'batch:root', 'reverted:batch', 'reverted:batch:root'] itself?",
+   "siblings": [
+    {
+     "contract": "Rollup",
+     "line": 83,
+     "test_double": false
+    },
+    {
+     "contract": "MockRollup",
+     "line": 83,
+     "test_double": true
+    }
+   ],
+   "contract": "Rollup",
+   "consumer": "revertBatch",
+   "consumer_line": 83,
+   "asserter": "auditRevert",
+   "asserter_line": 113,
+   "concept_keys": [
+    "batch:index",
+    "batch:root",
+    "reverted:batch",
+    "reverted:batch:root"
+   ],
+   "own_class": 0,
+   "assert_class": 4
+  },
+  {
+   "row_id": "954d79770b",
+   "probe": "assertion-strength",
+   "axis": "enforcement-timing",
+   "lens": "L-03",
+   "tier": 2,
+   "rank": 10,
+   "assertion_gap": 4,
+   "gate": "onlyOwner",
+   "why": "['batch:index', 'lock:root', 'withdraw:lock', 'withdraw:lock:root'] is asserted as equality-to-persisted-state in auditLock#117 (class 4) but consumed by updateWithdrawLock#87 under a class-0 guard \u2014 does updateWithdrawLock verify ['batch:index', 'lock:root', 'withdraw:lock', 'withdraw:lock:root'] itself?",
+   "siblings": [
+    {
+     "contract": "Rollup",
+     "line": 87,
+     "test_double": false
+    },
+    {
+     "contract": "MockRollup",
+     "line": 87,
+     "test_double": true
+    }
+   ],
+   "contract": "Rollup",
+   "consumer": "updateWithdrawLock",
+   "consumer_line": 87,
+   "asserter": "auditLock",
+   "asserter_line": 117,
+   "concept_keys": [
+    "batch:index",
+    "lock:root",
+    "withdraw:lock",
+    "withdraw:lock:root"
+   ],
+   "own_class": 0,
+   "assert_class": 4
+  }
+ ],
+ "missing": [],
+ "warnings": [],
+ "stats": {
+  "probes": 6,
+  "axes_with_rows": 1,
+  "sites": 77,
+  "rows": 10,
+  "emitted": 10,
+  "tail": 0,
+  "blind": 4,
+  "missing": 0
+ }
+}

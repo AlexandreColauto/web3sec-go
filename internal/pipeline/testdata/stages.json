@@ -1,0 +1,87 @@
+[
+  {
+    "id": "scope",
+    "kind": "deterministic",
+    "phase": "SCOPE"
+  },
+  {
+    "id": "snapshot",
+    "kind": "deterministic",
+    "phase": "SNAPSHOT"
+  },
+  {
+    "id": "structural-index",
+    "kind": "deterministic",
+    "phase": "STRUCTURAL_INDEX"
+  },
+  {
+    "id": "protocol-model",
+    "kind": "model",
+    "phase": "PROTOCOL_INTELLIGENCE"
+  },
+  {
+    "id": "campaign-planning",
+    "kind": "mixed",
+    "phase": "CAMPAIGN_PLANNING"
+  },
+  {
+    "id": "discovery",
+    "kind": "model",
+    "phase": "DISCOVERY"
+  },
+  {
+    "id": "dedup",
+    "kind": "mixed",
+    "phase": "CANDIDATE_INTEL"
+  },
+  {
+    "id": "hostile-review",
+    "kind": "model",
+    "phase": "HOSTILE_REVIEW"
+  },
+  {
+    "id": "reproduction",
+    "kind": "mixed",
+    "phase": "REPRODUCTION"
+  },
+  {
+    "id": "chaining",
+    "kind": "deterministic",
+    "phase": "CHAINING"
+  },
+  {
+    "id": "maximal-exploitation",
+    "kind": "model",
+    "phase": "MAXIMAL_EXPLOITATION"
+  },
+  {
+    "id": "independent-verification",
+    "kind": "model",
+    "phase": "INDEPENDENT_VERIFICATION"
+  },
+  {
+    "id": "risk-calibration",
+    "kind": "deterministic",
+    "phase": "RISK_CALIBRATION"
+  },
+  {
+    "id": "mainnet-fork-poc",
+    "kind": "model",
+    "phase": "MAINNET_FORK_POC"
+  },
+  {
+    "id": "bounty-gate",
+    "kind": "deterministic",
+    "phase": "BOUNTY_GATE"
+  },
+  {
+    "id": "report",
+    "kind": "deterministic",
+    "phase": "REPORTING"
+  },
+  {
+    "id": "learning",
+    "kind": "model",
+    "phase": "LEARNING"
+  }
+]

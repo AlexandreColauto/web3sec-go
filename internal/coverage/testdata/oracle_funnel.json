@@ -1,0 +1,201 @@
+{
+  "cases": [
+    {
+      "error": null,
+      "file": "{\n  \"campaign_id\": \"C-covfunnel01\",\n  \"snapshot_id\": \"SNAP-covt10\",\n  \"updated_at\": \"2026-02-01T00:00:00.000000+00:00\",\n  \"contracts\": [\n    {\n      \"path\": \"src/Vault.sol\",\n      \"status\": \"unknown\",\n      \"trajectory_counts\": {},\n      \"entry_points_total\": 1,\n      \"entry_points_reviewed\": 0,\n      \"functions_total\": 0,\n      \"functions_reviewed\": 0,\n      \"invariant_ids\": [],\n      \"findings_ids\": [],\n      \"thoroughness\": null\n    }\n  ],\n  \"surfaces\": {\n    \"privilege_paths\": {\n      \"total\": 3,\n      \"reviewed\": 0\n    },\n    \"oracle_surfaces\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"upgrade_paths\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    },\n    \"cross_contract_paths\": {\n      \"total\": 4,\n      \"reviewed\": 0\n    },\n    \"external_call_sites\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"state_machines\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    }\n  },\n  \"funnel\": {\n    \"hypotheses_generated\": 8,\n    \"after_dedupe\": 7,\n    \"after_review\": 4,\n    \"reproduced\": 3,\n    \"confirmed\": 2,\n    \"disproved\": 1,\n    \"submission_ready\": 2\n  },\n  \"gaps\": [],\n  \"summary\": {}\n}\n",
+      "findings": [
+        {
+          "created_at": "2026-02-01T00:00:01.000000+00:00",
+          "finding_id": "F-000000000001",
+          "status": "NEW"
+        },
+        {
+          "created_at": "2026-02-01T00:00:02.000000+00:00",
+          "finding_id": "F-000000000002",
+          "status": "POSSIBLE",
+          "verification": {
+            "reproduction": {
+              "status": "reproduced"
+            }
+          }
+        },
+        {
+          "bounty": {
+            "submission_ready": true
+          },
+          "created_at": "2026-02-01T00:00:03.000000+00:00",
+          "finding_id": "F-000000000003",
+          "status": "CONFIRMED",
+          "verification": {
+            "reproduction": {
+              "status": "reproduced"
+            }
+          }
+        },
+        {
+          "bounty": {
+            "submission_ready": false
+          },
+          "created_at": "2026-02-01T00:00:04.000000+00:00",
+          "finding_id": "F-000000000004",
+          "status": "CHAIN",
+          "verification": {
+            "reproduction": {
+              "status": "partial"
+            }
+          }
+        },
+        {
+          "created_at": "2026-02-01T00:00:05.000000+00:00",
+          "finding_id": "F-000000000005",
+          "status": "DUPLICATE"
+        },
+        {
+          "created_at": "2026-02-01T00:00:06.000000+00:00",
+          "finding_id": "F-000000000006",
+          "status": "DISPROVED"
+        },
+        {
+          "bounty": {
+            "submission_ready": 1
+          },
+          "created_at": "2026-02-01T00:00:07.000000+00:00",
+          "finding_id": "F-000000000007",
+          "status": "CONFIRMED",
+          "verification": null
+        },
+        {
+          "bounty": {},
+          "created_at": "2026-02-01T00:00:08.000000+00:00",
+          "finding_id": "F-000000000008",
+          "status": "OUT_OF_SCOPE",
+          "verification": {
+            "reproduction": {
+              "status": "reproduced"
+            }
+          }
+        }
+      ],
+      "label": "full",
+      "result": "{\"after_dedupe\":7,\"after_review\":4,\"confirmed\":2,\"disproved\":1,\"hypotheses_generated\":8,\"reproduced\":3,\"submission_ready\":2}",
+      "seed": "{\n  \"campaign_id\": \"C-covfunnel01\",\n  \"snapshot_id\": \"SNAP-covt10\",\n  \"updated_at\": \"2026-02-01T00:00:00.000000+00:00\",\n  \"contracts\": [\n    {\n      \"path\": \"src/Vault.sol\",\n      \"status\": \"unknown\",\n      \"trajectory_counts\": {},\n      \"entry_points_total\": 1,\n      \"entry_points_reviewed\": 0,\n      \"functions_total\": 0,\n      \"functions_reviewed\": 0,\n      \"invariant_ids\": [],\n      \"findings_ids\": [],\n      \"thoroughness\": null\n    }\n  ],\n  \"surfaces\": {\n    \"privilege_paths\": {\n      \"total\": 3,\n      \"reviewed\": 0\n    },\n    \"oracle_surfaces\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"upgrade_paths\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    },\n    \"cross_contract_paths\": {\n      \"total\": 4,\n      \"reviewed\": 0\n    },\n    \"external_call_sites\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"state_machines\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    }\n  },\n  \"funnel\": {},\n  \"gaps\": [],\n  \"summary\": {}\n}\n"
+    },
+    {
+      "error": null,
+      "file": "{\n  \"campaign_id\": \"C-covfunnel02\",\n  \"snapshot_id\": \"SNAP-covt10\",\n  \"updated_at\": \"2026-02-01T00:00:00.000000+00:00\",\n  \"contracts\": [\n    {\n      \"path\": \"src/Vault.sol\",\n      \"status\": \"unknown\",\n      \"trajectory_counts\": {},\n      \"entry_points_total\": 1,\n      \"entry_points_reviewed\": 0,\n      \"functions_total\": 0,\n      \"functions_reviewed\": 0,\n      \"invariant_ids\": [],\n      \"findings_ids\": [],\n      \"thoroughness\": null\n    }\n  ],\n  \"surfaces\": {\n    \"privilege_paths\": {\n      \"total\": 3,\n      \"reviewed\": 0\n    },\n    \"oracle_surfaces\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"upgrade_paths\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    },\n    \"cross_contract_paths\": {\n      \"total\": 4,\n      \"reviewed\": 0\n    },\n    \"external_call_sites\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"state_machines\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    }\n  },\n  \"funnel\": {\n    \"hypotheses_generated\": 0,\n    \"after_dedupe\": 0,\n    \"after_review\": 0,\n    \"reproduced\": 0,\n    \"confirmed\": 0,\n    \"disproved\": 0,\n    \"submission_ready\": 0\n  },\n  \"gaps\": [],\n  \"summary\": {}\n}\n",
+      "findings": [],
+      "label": "empty",
+      "result": "{\"after_dedupe\":0,\"after_review\":0,\"confirmed\":0,\"disproved\":0,\"hypotheses_generated\":0,\"reproduced\":0,\"submission_ready\":0}",
+      "seed": "{\n  \"campaign_id\": \"C-covfunnel02\",\n  \"snapshot_id\": \"SNAP-covt10\",\n  \"updated_at\": \"2026-02-01T00:00:00.000000+00:00\",\n  \"contracts\": [\n    {\n      \"path\": \"src/Vault.sol\",\n      \"status\": \"unknown\",\n      \"trajectory_counts\": {},\n      \"entry_points_total\": 1,\n      \"entry_points_reviewed\": 0,\n      \"functions_total\": 0,\n      \"functions_reviewed\": 0,\n      \"invariant_ids\": [],\n      \"findings_ids\": [],\n      \"thoroughness\": null\n    }\n  ],\n  \"surfaces\": {\n    \"privilege_paths\": {\n      \"total\": 3,\n      \"reviewed\": 0\n    },\n    \"oracle_surfaces\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"upgrade_paths\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    },\n    \"cross_contract_paths\": {\n      \"total\": 4,\n      \"reviewed\": 0\n    },\n    \"external_call_sites\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"state_machines\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    }\n  },\n  \"funnel\": {},\n  \"gaps\": [],\n  \"summary\": {}\n}\n"
+    },
+    {
+      "error": null,
+      "file": "{\n  \"campaign_id\": \"C-covfunnel03\",\n  \"snapshot_id\": \"SNAP-covt10\",\n  \"updated_at\": \"2026-02-01T00:00:00.000000+00:00\",\n  \"contracts\": [\n    {\n      \"path\": \"src/Vault.sol\",\n      \"status\": \"unknown\",\n      \"trajectory_counts\": {},\n      \"entry_points_total\": 1,\n      \"entry_points_reviewed\": 0,\n      \"functions_total\": 0,\n      \"functions_reviewed\": 0,\n      \"invariant_ids\": [],\n      \"findings_ids\": [],\n      \"thoroughness\": null\n    }\n  ],\n  \"surfaces\": {\n    \"privilege_paths\": {\n      \"total\": 3,\n      \"reviewed\": 0\n    },\n    \"oracle_surfaces\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"upgrade_paths\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    },\n    \"cross_contract_paths\": {\n      \"total\": 4,\n      \"reviewed\": 0\n    },\n    \"external_call_sites\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"state_machines\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    }\n  },\n  \"funnel\": {\n    \"hypotheses_generated\": 2,\n    \"after_dedupe\": 1,\n    \"after_review\": 0,\n    \"reproduced\": 0,\n    \"confirmed\": 0,\n    \"disproved\": 1,\n    \"submission_ready\": 0\n  },\n  \"gaps\": [],\n  \"summary\": {}\n}\n",
+      "findings": [
+        {
+          "created_at": "2026-02-01T00:00:05.000000+00:00",
+          "finding_id": "F-000000000005",
+          "status": "DUPLICATE"
+        },
+        {
+          "created_at": "2026-02-01T00:00:06.000000+00:00",
+          "finding_id": "F-000000000006",
+          "status": "DISPROVED"
+        }
+      ],
+      "label": "only_duplicates",
+      "result": "{\"after_dedupe\":1,\"after_review\":0,\"confirmed\":0,\"disproved\":1,\"hypotheses_generated\":2,\"reproduced\":0,\"submission_ready\":0}",
+      "seed": "{\n  \"campaign_id\": \"C-covfunnel03\",\n  \"snapshot_id\": \"SNAP-covt10\",\n  \"updated_at\": \"2026-02-01T00:00:00.000000+00:00\",\n  \"contracts\": [\n    {\n      \"path\": \"src/Vault.sol\",\n      \"status\": \"unknown\",\n      \"trajectory_counts\": {},\n      \"entry_points_total\": 1,\n      \"entry_points_reviewed\": 0,\n      \"functions_total\": 0,\n      \"functions_reviewed\": 0,\n      \"invariant_ids\": [],\n      \"findings_ids\": [],\n      \"thoroughness\": null\n    }\n  ],\n  \"surfaces\": {\n    \"privilege_paths\": {\n      \"total\": 3,\n      \"reviewed\": 0\n    },\n    \"oracle_surfaces\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"upgrade_paths\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    },\n    \"cross_contract_paths\": {\n      \"total\": 4,\n      \"reviewed\": 0\n    },\n    \"external_call_sites\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"state_machines\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    }\n  },\n  \"funnel\": {},\n  \"gaps\": [],\n  \"summary\": {}\n}\n"
+    },
+    {
+      "error": {
+        "message": "status",
+        "str": "'status'",
+        "type": "KeyError"
+      },
+      "file": null,
+      "findings": [
+        {
+          "created_at": "2026-02-01T00:00:09.000000+00:00",
+          "finding_id": "F-000000000009"
+        }
+      ],
+      "label": "finding_without_status",
+      "result": null,
+      "seed": "{\n  \"campaign_id\": \"C-covfunnel04\",\n  \"snapshot_id\": \"SNAP-covt10\",\n  \"updated_at\": \"2026-02-01T00:00:00.000000+00:00\",\n  \"contracts\": [\n    {\n      \"path\": \"src/Vault.sol\",\n      \"status\": \"unknown\",\n      \"trajectory_counts\": {},\n      \"entry_points_total\": 1,\n      \"entry_points_reviewed\": 0,\n      \"functions_total\": 0,\n      \"functions_reviewed\": 0,\n      \"invariant_ids\": [],\n      \"findings_ids\": [],\n      \"thoroughness\": null\n    }\n  ],\n  \"surfaces\": {\n    \"privilege_paths\": {\n      \"total\": 3,\n      \"reviewed\": 0\n    },\n    \"oracle_surfaces\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"upgrade_paths\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    },\n    \"cross_contract_paths\": {\n      \"total\": 4,\n      \"reviewed\": 0\n    },\n    \"external_call_sites\": {\n      \"total\": 2,\n      \"reviewed\": 0\n    },\n    \"state_machines\": {\n      \"total\": 1,\n      \"reviewed\": 0\n    }\n  },\n  \"funnel\": {},\n  \"gaps\": [],\n  \"summary\": {}\n}\n"
+    }
+  ],
+  "findings": [
+    {
+      "created_at": "2026-02-01T00:00:01.000000+00:00",
+      "finding_id": "F-000000000001",
+      "status": "NEW"
+    },
+    {
+      "created_at": "2026-02-01T00:00:02.000000+00:00",
+      "finding_id": "F-000000000002",
+      "status": "POSSIBLE",
+      "verification": {
+        "reproduction": {
+          "status": "reproduced"
+        }
+      }
+    },
+    {
+      "bounty": {
+        "submission_ready": true
+      },
+      "created_at": "2026-02-01T00:00:03.000000+00:00",
+      "finding_id": "F-000000000003",
+      "status": "CONFIRMED",
+      "verification": {
+        "reproduction": {
+          "status": "reproduced"
+        }
+      }
+    },
+    {
+      "bounty": {
+        "submission_ready": false
+      },
+      "created_at": "2026-02-01T00:00:04.000000+00:00",
+      "finding_id": "F-000000000004",
+      "status": "CHAIN",
+      "verification": {
+        "reproduction": {
+          "status": "partial"
+        }
+      }
+    },
+    {
+      "created_at": "2026-02-01T00:00:05.000000+00:00",
+      "finding_id": "F-000000000005",
+      "status": "DUPLICATE"
+    },
+    {
+      "created_at": "2026-02-01T00:00:06.000000+00:00",
+      "finding_id": "F-000000000006",
+      "status": "DISPROVED"
+    },
+    {
+      "bounty": {
+        "submission_ready": 1
+      },
+      "created_at": "2026-02-01T00:00:07.000000+00:00",
+      "finding_id": "F-000000000007",
+      "status": "CONFIRMED",
+      "verification": null
+    },
+    {
+      "bounty": {},
+      "created_at": "2026-02-01T00:00:08.000000+00:00",
+      "finding_id": "F-000000000008",
+      "status": "OUT_OF_SCOPE",
+      "verification": {
+        "reproduction": {
+          "status": "reproduced"
+        }
+      }
+    }
+  ]
+}

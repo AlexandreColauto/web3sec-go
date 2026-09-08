@@ -1,0 +1,305 @@
+{
+  "empty_index": {
+    "backend": "grep",
+    "campaign_id": "C-covgold001",
+    "edges": [],
+    "nodes": [],
+    "snapshot_id": "SNAP-empty"
+  },
+  "index": {
+    "backend": "regex",
+    "campaign_id": "C-covgold001",
+    "edges": [
+      {
+        "from": "src/Vault.sol#Vault.deposit",
+        "rel": "calls",
+        "to": "src/Math.sol#MathLib.mulDiv"
+      },
+      {
+        "from": "src/Vault.sol#Vault.withdraw",
+        "rel": "calls",
+        "to": "*#low-level.call"
+      },
+      {
+        "from": "src/Vault.sol#Vault.rescue",
+        "rel": "calls",
+        "to": "*#external-token.transfer"
+      },
+      {
+        "from": "src/Vault.sol#Vault",
+        "rel": "inherits",
+        "to": "src/Vault.sol#IVault"
+      },
+      {
+        "from": "src/Proxy.sol#Proxy.fallback",
+        "rel": "calls",
+        "to": "*#low-level.delegatecall"
+      },
+      {
+        "from": "src/Oracle.sol#Oracle.latestAnswer",
+        "rel": "calls",
+        "to": "*#external-oracle.latestRoundData"
+      }
+    ],
+    "entry_count": 5,
+    "nodes": [
+      {
+        "id": "src/Vault.sol#Vault",
+        "kind": "contract",
+        "line": 1,
+        "name": "Vault",
+        "path": "src/Vault.sol"
+      },
+      {
+        "calls_external": [
+          "IERC20.transfer"
+        ],
+        "id": "src/Vault.sol#Vault.deposit",
+        "is_entry_point": true,
+        "kind": "function",
+        "line": 12,
+        "modifiers": [
+          "nonReentrant"
+        ],
+        "name": "deposit",
+        "path": "src/Vault.sol",
+        "visibility": "external"
+      },
+      {
+        "delegatecalls": [
+          "delegate"
+        ],
+        "id": "src/Vault.sol#Vault.withdraw",
+        "is_entry_point": true,
+        "kind": "function",
+        "line": 20,
+        "name": "withdraw",
+        "path": "src/Vault.sol",
+        "visibility": "external"
+      },
+      {
+        "id": "src/Vault.sol#Vault._accrue",
+        "is_entry_point": false,
+        "kind": "function",
+        "line": 30,
+        "name": "_accrue",
+        "path": "src/Vault.sol",
+        "visibility": "internal"
+      },
+      {
+        "id": "src/Vault.sol#Vault.rescue",
+        "is_entry_point": true,
+        "kind": "function",
+        "line": 40,
+        "modifiers": [
+          "onlyOwner"
+        ],
+        "name": "rescue",
+        "path": "src/Vault.sol",
+        "visibility": "external"
+      },
+      {
+        "id": "src/Vault.sol#Vault.deposit",
+        "is_entry_point": true,
+        "kind": "function",
+        "line": 12,
+        "name": "deposit",
+        "path": "src/Vault.sol",
+        "visibility": "external"
+      },
+      {
+        "id": "src/Vault.sol#Vault",
+        "kind": "contract",
+        "line": 1,
+        "name": "Vault",
+        "path": "src/Vault.sol"
+      },
+      {
+        "id": "src/Vault.sol#IVault",
+        "kind": "interface",
+        "line": 90,
+        "name": "IVault",
+        "path": "src/Vault.sol"
+      },
+      {
+        "id": "src/Math.sol#MathLib",
+        "kind": "library",
+        "line": 5,
+        "name": "MathLib",
+        "path": "src/Math.sol"
+      },
+      {
+        "id": "src/Math.sol#MathLib.mulDiv",
+        "is_entry_point": false,
+        "kind": "function",
+        "line": 9,
+        "name": "mulDiv",
+        "path": "src/Math.sol",
+        "visibility": "internal"
+      },
+      {
+        "id": "src/Oracle.sol#Oracle",
+        "kind": "contract",
+        "line": 1,
+        "name": "Oracle",
+        "path": "src/Oracle.sol"
+      },
+      {
+        "calls_external": [
+          "AggregatorV3Interface.latestRoundData"
+        ],
+        "id": "src/Oracle.sol#Oracle.latestAnswer",
+        "is_entry_point": true,
+        "kind": "function",
+        "line": 8,
+        "name": "latestAnswer",
+        "path": "src/Oracle.sol",
+        "visibility": "external"
+      },
+      {
+        "id": "src/Oracle.sol#Oracle.setAdmin",
+        "is_entry_point": true,
+        "kind": "function",
+        "line": 16,
+        "name": "setAdmin",
+        "path": "src/Oracle.sol",
+        "visibility": "external"
+      },
+      {
+        "id": "src/Proxy.sol#Proxy",
+        "kind": "contract",
+        "line": 1,
+        "name": "Proxy",
+        "path": "src/Proxy.sol"
+      },
+      {
+        "delegatecalls": [
+          "impl"
+        ],
+        "id": "src/Proxy.sol#Proxy.fallback",
+        "is_entry_point": true,
+        "kind": "function",
+        "line": 6,
+        "name": "fallback",
+        "path": "src/Proxy.sol",
+        "visibility": "external"
+      },
+      {
+        "id": "src/Proxy.sol#Proxy.admin",
+        "kind": "state-variable",
+        "line": 4,
+        "name": "admin",
+        "path": "src/Proxy.sol"
+      }
+    ],
+    "parse_version": "2",
+    "snapshot_id": "SNAP-covt10"
+  },
+  "index_truthy": {
+    "backend": "regex",
+    "campaign_id": "C-covgold001",
+    "edges": [],
+    "nodes": [
+      {
+        "id": "A#A",
+        "kind": "contract",
+        "name": "A",
+        "path": "A.sol"
+      },
+      {
+        "id": "A#A.a",
+        "is_entry_point": 1,
+        "kind": "function",
+        "name": "a",
+        "path": "A.sol"
+      },
+      {
+        "id": "A#A.b",
+        "is_entry_point": "yes",
+        "kind": "function",
+        "name": "b",
+        "path": "A.sol"
+      },
+      {
+        "id": "A#A.c",
+        "is_entry_point": 0,
+        "kind": "function",
+        "name": "c",
+        "path": "A.sol"
+      },
+      {
+        "id": "A#A.d",
+        "is_entry_point": false,
+        "kind": "function",
+        "name": "d",
+        "path": "A.sol"
+      },
+      {
+        "id": "A#A.e",
+        "kind": "function",
+        "name": "e",
+        "path": "A.sol"
+      },
+      {
+        "calls_external": [],
+        "id": "A#A.f",
+        "kind": "function",
+        "name": "f",
+        "path": "A.sol"
+      },
+      {
+        "calls_external": [
+          "x"
+        ],
+        "id": "A#A.g",
+        "kind": "function",
+        "name": "g",
+        "path": "A.sol"
+      },
+      {
+        "delegatecalls": [
+          "d"
+        ],
+        "id": "A#A.h",
+        "kind": "function",
+        "name": "h",
+        "path": "A.sol"
+      },
+      {
+        "delegatecalls": [],
+        "id": "A#A.i",
+        "kind": "function",
+        "name": "i",
+        "path": "A.sol"
+      }
+    ],
+    "snapshot_id": "SNAP-covt10"
+  },
+  "oracle": {
+    "external_call_sites": [
+      "src/Vault.sol#Vault.deposit",
+      "src/Vault.sol#Vault.withdraw",
+      "src/Oracle.sol#Oracle.latestAnswer",
+      "src/Proxy.sol#Proxy.fallback"
+    ],
+    "external_call_sites_empty": [],
+    "external_call_sites_truthy": [
+      "A#A.g",
+      "A#A.h"
+    ],
+    "external_surface": [
+      "src/Vault.sol#Vault.deposit",
+      "src/Vault.sol#Vault.withdraw",
+      "src/Vault.sol#Vault.rescue",
+      "src/Vault.sol#Vault.deposit",
+      "src/Oracle.sol#Oracle.latestAnswer",
+      "src/Oracle.sol#Oracle.setAdmin",
+      "src/Proxy.sol#Proxy.fallback"
+    ],
+    "external_surface_empty": [],
+    "external_surface_truthy": [
+      "A#A.a",
+      "A#A.b"
+    ]
+  }
+}

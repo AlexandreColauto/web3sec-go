@@ -1,0 +1,92 @@
+{
+  "order": [
+    "scope",
+    "snapshot",
+    "structural-index",
+    "protocol-model",
+    "campaign-planning",
+    "discovery",
+    "dedup",
+    "hostile-review",
+    "reproduction",
+    "chaining",
+    "maximal-exploitation",
+    "independent-verification",
+    "risk-calibration",
+    "mainnet-fork-poc",
+    "bounty-gate",
+    "report",
+    "learning"
+  ],
+  "deps": {
+    "scope": [],
+    "snapshot": [
+      "scope"
+    ],
+    "structural-index": [
+      "snapshot"
+    ],
+    "protocol-model": [
+      "structural-index"
+    ],
+    "campaign-planning": [
+      "protocol-model"
+    ],
+    "discovery": [
+      "campaign-planning"
+    ],
+    "dedup": [
+      "discovery"
+    ],
+    "hostile-review": [
+      "dedup"
+    ],
+    "reproduction": [
+      "dedup"
+    ],
+    "chaining": [
+      "hostile-review",
+      "reproduction"
+    ],
+    "maximal-exploitation": [
+      "chaining"
+    ],
+    "independent-verification": [
+      "maximal-exploitation"
+    ],
+    "risk-calibration": [
+      "independent-verification"
+    ],
+    "mainnet-fork-poc": [
+      "risk-calibration"
+    ],
+    "bounty-gate": [
+      "mainnet-fork-poc"
+    ],
+    "report": [
+      "bounty-gate"
+    ],
+    "learning": [
+      "report"
+    ]
+  },
+  "ids": [
+    "scope",
+    "snapshot",
+    "structural-index",
+    "protocol-model",
+    "campaign-planning",
+    "discovery",
+    "dedup",
+    "hostile-review",
+    "reproduction",
+    "chaining",
+    "maximal-exploitation",
+    "independent-verification",
+    "risk-calibration",
+    "mainnet-fork-poc",
+    "bounty-gate",
+    "report",
+    "learning"
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "scope": {
+    "kind": "all",
+    "deps": [],
+    "quorum": null
+  },
+  "snapshot": {
+    "kind": "all",
+    "deps": [
+      "scope"
+    ],
+    "quorum": null
+  },
+  "structural-index": {
+    "kind": "all",
+    "deps": [
+      "snapshot"
+    ],
+    "quorum": null
+  },
+  "protocol-model": {
+    "kind": "all",
+    "deps": [
+      "structural-index"
+    ],
+    "quorum": null
+  },
+  "campaign-planning": {
+    "kind": "all",
+    "deps": [
+      "protocol-model"
+    ],
+    "quorum": null
+  },
+  "discovery": {
+    "kind": "all",
+    "deps": [
+      "campaign-planning"
+    ],
+    "quorum": null
+  },
+  "dedup": {
+    "kind": "all",
+    "deps": [
+      "discovery"
+    ],
+    "quorum": null
+  },
+  "hostile-review": {
+    "kind": "all",
+    "deps": [
+      "dedup"
+    ],
+    "quorum": null
+  },
+  "reproduction": {
+    "kind": "all",
+    "deps": [
+      "dedup"
+    ],
+    "quorum": null
+  },
+  "chaining": {
+    "kind": "all",
+    "deps": [
+      "hostile-review",
+      "reproduction"
+    ],
+    "quorum": null
+  },
+  "maximal-exploitation": {
+    "kind": "all",
+    "deps": [
+      "chaining"
+    ],
+    "quorum": null
+  },
+  "independent-verification": {
+    "kind": "all",
+    "deps": [
+      "maximal-exploitation"
+    ],
+    "quorum": null
+  },
+  "risk-calibration": {
+    "kind": "all",
+    "deps": [
+      "independent-verification"
+    ],
+    "quorum": null
+  },
+  "mainnet-fork-poc": {
+    "kind": "all",
+    "deps": [
+      "risk-calibration"
+    ],
+    "quorum": null
+  },
+  "bounty-gate": {
+    "kind": "all",
+    "deps": [
+      "mainnet-fork-poc"
+    ],
+    "quorum": null
+  },
+  "report": {
+    "kind": "all",
+    "deps": [
+      "bounty-gate"
+    ],
+    "quorum": null
+  },
+  "learning": {
+    "kind": "all",
+    "deps": [
+      "report"
+    ],
+    "quorum": null
+  }
+}

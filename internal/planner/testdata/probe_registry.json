@@ -1,0 +1,110 @@
+{
+ "axes": {
+  "accumulator-skew": {
+   "axis": "accumulator-skew",
+   "probe": "accumulator-basis-skew",
+   "lens": "L-01"
+  },
+  "enforcement-timing": {
+   "axis": "enforcement-timing",
+   "probe": "assertion-strength",
+   "lens": "L-03"
+  },
+  "guard-short-circuit": {
+   "axis": "guard-short-circuit",
+   "probe": "short-circuitable-guard",
+   "lens": "L-01"
+  },
+  "incentive-inversion": {
+   "axis": "incentive-inversion",
+   "probe": "trust-assumption",
+   "lens": "L-02"
+  },
+  "liveness": {
+   "axis": "liveness",
+   "probe": "sequential-cursor",
+   "lens": "L-01"
+  },
+  "primitive-symmetry": {
+   "axis": "primitive-symmetry",
+   "probe": "custody-primitive",
+   "lens": "L-04"
+  }
+ },
+ "probes": {
+  "assertion-strength": {
+   "axis": "enforcement-timing",
+   "lens": "L-03",
+   "anchors": [
+    "consumer",
+    "asserter",
+    "concept"
+   ]
+  },
+  "custody-primitive": {
+   "axis": "primitive-symmetry",
+   "lens": "L-04",
+   "anchors": [
+    "consumer",
+    "base",
+    "custody",
+    "sibling"
+   ]
+  },
+  "trust-assumption": {
+   "axis": "incentive-inversion",
+   "lens": "L-02",
+   "anchors": [
+    "actor",
+    "invariant"
+   ]
+  },
+  "sequential-cursor": {
+   "axis": "liveness",
+   "lens": "L-01",
+   "anchors": [
+    "guard",
+    "cursor",
+    "stranded_entry"
+   ]
+  },
+  "short-circuitable-guard": {
+   "axis": "guard-short-circuit",
+   "lens": "L-01",
+   "anchors": [
+    "guard",
+    "sentinel",
+    "safety"
+   ]
+  },
+  "accumulator-basis-skew": {
+   "axis": "accumulator-skew",
+   "lens": "L-01",
+   "anchors": [
+    "rounded",
+    "plain",
+    "accumulator",
+    "companion"
+   ]
+  }
+ },
+ "anchor_enum": [
+  "accumulator",
+  "actor",
+  "asserter",
+  "base",
+  "companion",
+  "concept",
+  "consumer",
+  "cursor",
+  "custody",
+  "guard",
+  "invariant",
+  "plain",
+  "rounded",
+  "safety",
+  "sentinel",
+  "sibling",
+  "stranded_entry"
+ ]
+}

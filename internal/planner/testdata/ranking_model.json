@@ -1,0 +1,53 @@
+{
+ "protocol_id": "morph-shaped-ranking-fixture",
+ "name": "Morph-shaped ranking fixture",
+ "contracts": [
+  {
+   "name": "Rollup",
+   "path": "Rollup.sol",
+   "role": "core",
+   "in_scope": true
+  }
+ ],
+ "actors": [
+  {
+   "id": "active_staker",
+   "kind": "ROLE",
+   "trust": "semi-trusted",
+   "assumed_behavior": "finalizes the batches it committed"
+  },
+  {
+   "id": "owner",
+   "kind": "ROLE",
+   "trust": "trusted",
+   "assumed_behavior": "never abuses admin powers"
+  },
+  {
+   "id": "user",
+   "kind": "EOA",
+   "trust": "externally-owned"
+  }
+ ],
+ "assets": [
+  {
+   "id": "ETH",
+   "kind": "token",
+   "decimals": 18
+  }
+ ],
+ "relations": [
+  {
+   "from": "Rollup",
+   "rel": "CALLS",
+   "to": "Rollup"
+  }
+ ],
+ "privileges": [
+  {
+   "role": "owner",
+   "capability": "import genesis / revert batch",
+   "mechanism": "onlyOwner",
+   "timelocked": true
+  }
+ ]
+}

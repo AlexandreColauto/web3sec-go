@@ -1,0 +1,13 @@
+{
+  "bad_kind": "join kind must be one of ('all', 'any', 'quorum', 'predicate'), got 'bogus'",
+  "quorum_zero": "quorum join needs 1 <= quorum <= len(deps)=2, got 0",
+  "quorum_none": "quorum join needs 1 <= quorum <= len(deps)=2, got None",
+  "quorum_too_big": "quorum join needs 1 <= quorum <= len(deps)=2, got 3",
+  "quorum_bool": "quorum join needs 1 <= quorum <= len(deps)=2, got True",
+  "quorum_empty_deps": null,
+  "quorum_empty_deps_zero": "quorum join needs 1 <= quorum <= len(deps)=0, got 0",
+  "predicate_missing": "predicate join needs a callable (campaign) -> bool",
+  "unknown_join_kind": "unknown join kind 'nope'",
+  "join_kinds_repr": "('all', 'any', 'quorum', 'predicate')",
+  "stage_ids_repr": "['scope', 'snapshot', 'structural-index', 'protocol-model', 'campaign-planning', 'discovery', 'dedup', 'hostile-review', 'reproduction', 'chaining', 'maximal-exploitation', 'independent-verification', 'risk-calibration', 'mainnet-fork-poc', 'bounty-gate', 'report', 'learning']"
+}
