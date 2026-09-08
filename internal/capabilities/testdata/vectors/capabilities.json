@@ -1,0 +1,234 @@
+[
+ {
+  "value": "Control Perceived Asset Price",
+  "normalized": "control_perceived_asset_price",
+  "kind": "market",
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "control-perceived  asset_price",
+  "normalized": "control_perceived_asset_price",
+  "kind": "market",
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "  control perceived asset price ",
+  "normalized": "control_perceived_asset_price",
+  "kind": "market",
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "control_perceived_asset_price",
+  "normalized": "control_perceived_asset_price",
+  "kind": "market",
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "Hold-Governor",
+  "normalized": "hold_governor",
+  "kind": "authority",
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "move spot price",
+  "normalized": "move_spot_price",
+  "kind": "market",
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "whatever the model invented",
+  "normalized": "whatever_the_model_invented",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "role owner",
+  "normalized": "role_owner",
+  "kind": "authority",
+  "is_role": true,
+  "role": "owner",
+  "terminal": false
+ },
+ {
+  "value": "Role-Guardian",
+  "normalized": "role_guardian",
+  "kind": "authority",
+  "is_role": true,
+  "role": "guardian",
+  "terminal": false
+ },
+ {
+  "value": "role_",
+  "normalized": "role_",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "roleplay",
+  "normalized": "roleplay",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "",
+  "normalized": "",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "  ",
+  "normalized": "",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "timelock controller",
+  "normalized": "timelock_controller",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "Owner",
+  "normalized": "owner",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "guardian-v2",
+  "normalized": "guardian_v2",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "GOvernor",
+  "normalized": "governor",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "attacker must hold pauser role",
+  "normalized": "attacker_must_hold_pauser_role",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "A-CAP",
+  "normalized": "a_cap",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "a cap",
+  "normalized": "a_cap",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "a cap",
+  "normalized": "a_cap",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "a\tcap",
+  "normalized": "a_cap",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "a\ncap",
+  "normalized": "a_cap",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "under_score",
+  "normalized": "under_score",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "UPPER-CASE",
+  "normalized": "upper_case",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "MiXeD_cAsE-With-Dash",
+  "normalized": "mixed_case_with_dash",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "role:admin",
+  "normalized": "role:admin",
+  "kind": null,
+  "is_role": false,
+  "role": null,
+  "terminal": false
+ },
+ {
+  "value": "role-admin",
+  "normalized": "role_admin",
+  "kind": "authority",
+  "is_role": true,
+  "role": "admin",
+  "terminal": false
+ },
+ {
+  "value": "role__double",
+  "normalized": "role__double",
+  "kind": "authority",
+  "is_role": true,
+  "role": "_double",
+  "terminal": false
+ }
+]

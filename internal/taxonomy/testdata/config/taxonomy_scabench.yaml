@@ -1,0 +1,10 @@
+# Per-dataset taxonomy aliases: scabench.
+# Owned ONLY by the scabench adapter task (file discipline: one dataset,
+# one file). Merged on top of config/taxonomy_map.yaml — a dataset-specific
+# alias wins over a common one. Values must be a canonical class or
+# 'unmapped' (webv2.taxonomy.validate_map_file).
+# The ScaBench curated snapshot carries NO category labels (each finding is
+# exactly {finding_id, severity, title, description}), so this map is
+# deliberately a no-op: every finding ingests as bug_class 'unmapped'.
+default: unmapped
+aliases: {}

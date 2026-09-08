@@ -1,0 +1,334 @@
+# Per-dataset taxonomy aliases: defihacklabs.
+# Owned ONLY by the defihacklabs adapter task (file discipline: one dataset,
+# one file). Merged on top of config/taxonomy_map.yaml — a dataset-specific
+# alias wins over a common one. Values must be a canonical class or
+# 'unmapped' (webv2.taxonomy.validate_map_file). Lookup is
+# case/whitespace/punctuation-insensitive, so key casing below is cosmetic.
+#
+# Coverage: the 181 distinct incidents.json `type` labels (recon §4.1) plus
+# the 296 RCA atomic labels (recon §4.4, comma-split). Labels already
+# resolved by the common map (Price Manipulation, Access Control,
+# Reentrancy Attack, Flash Loan Attack, Precision Loss, Reentrancy,
+# Flash Loan, Integer Overflow, Oracle Manipulation, Signature Replay,
+# Logic Error, Flashloan, Denial Of Service) are NOT repeated here.
+# Anything absent resolves via `default: unmapped` — honesty over coverage
+# (key-compromise, MEV/sandwich/slippage, randomness, pure-prose labels).
+default: unmapped
+aliases:
+  # --- access-control: missing/broken authorization checks, unprotected
+  # --- entry points, standing-allowance abuse, unauthorized mints/claims
+  "Lack of Access Control": access-control
+  "lack-of-access-control": access-control
+  "Access Control Bypass": access-control
+  "Settings access control": access-control
+  "CheckoutPool Old BOC Missing Access Control": access-control
+  "Access Control / Input Validation": access-control
+  "Access Control / Bond Minting Flaw": access-control
+  "Missing caller check": access-control
+  "SquidRouterModule Missing Caller Check": access-control
+  "New Market Trading SquidRouterModule Missing Caller Check": access-control
+  "Arbitrary Call / Wrong Approval": access-control
+  "Credit Approval Bypass": access-control
+  "Stale Approval": access-control
+  "Chained Access Control + Unrevoked Approval": access-control
+  "Legacy Contract Approval Exploit via Flawed Interest Repayment Function": access-control
+  "Coinbase Fee Account - Errant Approval to 0x Settler Enables Arbitrary transferFrom": access-control
+  "AllowanceTarget approval drain": access-control
+  "ABCCApp - Lack of Access Control / Reward Logic Abuse": access-control
+  "SuperRare (RARE) Staking - Missing Access Control on updateMerkleRoot": access-control
+  "Bebop JamSettlement - Unauthenticated settle() Allows Arbitrary transferFrom": access-control
+  "Size Credit LeverageUp - Unvalidated Swap Calldata Enables Arbitrary transferFrom": access-control
+  "SQTokenStaking Access Control Exploit": access-control
+  "MulticallWithXera - Access Control": access-control
+  "Stead - Access Control": access-control
+  "Unverified_b5cb - Access Control": access-control
+  "Unverified_54cd - Access Control": access-control
+  "Missing ERC4626 allowance check": access-control
+  "TokenHolder Arbitrary Call via sell()": access-control
+  "MulticallWithETH - Arbitrary Call via Unprotected Multicall": access-control
+  "Permissionless bond registration / payoff mispricing": access-control
+  "RICE - Lack of Access Control (Unprotected withdraw / BentoBox-style vault)": access-control
+  "Lack of Input Validation (Fake LP Mint)": access-control
+  "Access Control — Public setMerkleRoot": access-control
+  "Access Control — NFT Auction Contract": access-control
+  "Access Control (public setBurnRate)": access-control
+  "Access Control (unprotected swap callback)": access-control
+  "0x8d2e - Access Control (unprotected swap callback)": access-control
+  "0xf340 - Access Control (unprotected initVRF)": access-control
+  "Ownership Override Attack": access-control
+  "DxSale Legacy Liquidity Locker Ownership Override Backdoor Drain": access-control
+  "Unprotected reward claim via forced NFT transfer": access-control
+  "Unprotected unwrapWETH callable by anyone": access-control
+  "EIP-7702 Access Control Bypass": access-control
+  "ERC-2771 Meta-Transaction Identity Confusion": access-control
+  "Trusted Forwarder Spoof": access-control
+  "MinimalForwarder Access Control Bypass / Oracle Price Manipulation": access-control
+  "Unaudited Custom Oracle Missing Authorization Check": access-control
+  "Access Control Flaw in Oracle Update Enabling Unauthorized Expiry Price Setting": access-control
+  "Insufficient Sender Verification — Business Logic Flaw": access-control
+  "Unchecked Reward Pool Whitelist — Business Logic Flaw": access-control
+  "Permit Validation Bypass": access-control
+  "Duplicate xLOOT Redemption": access-control
+  "Access Control Missing on MEV Bot Arbitrage Function": access-control
+  "TrustedVolumes RFQ Proxy Signature/Authorization Drain": access-control
+  "Token Minting": access-control
+  "Arbitrary Mint": access-control
+  "MAP Protocol OmniService Arbitrary Mint": access-control
+  "Permissionless triggerAutoBurn Reserve Manipulation": access-control
+  "BYToken Permissionless triggerAutoBurn Reserve Manipulation": access-control
+  "_englove Sybil Incentive Abuse": access-control
+  "WUSD.fi Sybil Incentive Abuse / GLOVE Emission Farming + LP Drain": access-control
+  "Lack of permission control": access-control
+
+  # --- unchecked-external-call: arbitrary/delegate calls, unvalidated
+  # --- callbacks and calldata, fake-callback acceptance, CPI (Solana's
+  # --- cross-program call) exploits
+  "Arbitrary Call": unchecked-external-call
+  "arbitrary-call": unchecked-external-call
+  "Arbitrary External Call": unchecked-external-call
+  "Arbitrary External Call / Credit Delegation Abuse": unchecked-external-call
+  "Arbitrary Yul Calldata": unchecked-external-call
+  "Arbitrary Call via CCIP": unchecked-external-call
+  "Arbitrary Call / Unvalidated Low-Level Call": unchecked-external-call
+  "Lack of Input Validation / Arbitrary Call": unchecked-external-call
+  "Lack of Input Validation — Arbitrary Low-Level Call": unchecked-external-call
+  "Kame - Arbitrary External Call": unchecked-external-call
+  "Arbitrary External Call via Unvalidated Swap Arguments": unchecked-external-call
+  "Unvalidated External Contract Input in Migrator": unchecked-external-call
+  "Arbitary External Call": unchecked-external-call
+  "Unprotected arbitrary-call forwarder drained via pre-granted WETH allowance": unchecked-external-call
+  "Fake Uniswap Callback": unchecked-external-call
+  "Unchecked Flash Loan Callback": unchecked-external-call
+  "Multisig DelegateCall Exploit — Unauthorized Admin Takeover": unchecked-external-call
+  "CPI Exploit": unchecked-external-call
+  "call/delegatecall": unchecked-external-call
+
+  # --- logic-error: the catch-all for broken accounting, validation, and
+  # --- business logic (the dataset's single biggest head label family)
+  "Logic Flaw": logic-error
+  "Logic": logic-error
+  "Business Logic": logic-error
+  "Business Logic Flaw": logic-error
+  "Bussiness Logic Flaw": logic-error
+  "Smart Contract Logic Flaw": logic-error
+  "Incorrect Validation": logic-error
+  "Insufficient Validation": logic-error
+  "Lack of Input Validation": logic-error
+  "Incorrect Input Validation": logic-error
+  "Hexotic - Incorrect Input Validation": logic-error
+  "Incorrect logic": logic-error
+  "Insufficient validation": logic-error
+  "Unchecked User Input": logic-error
+  "Arbitrary user input": logic-error
+  "Incorrect Fee Logic": logic-error
+  "Fee Unit Mismatch": logic-error
+  "Unit Mismatch": logic-error
+  "Incorrect Reward calculation": logic-error
+  "Reward Accounting Drain": logic-error
+  "Reward Accounting Flaw": logic-error
+  "SWAPPStaking - emergencyWithdraw Reward Miscalculation": logic-error
+  "PDZ (TbBuild) - burnToHolder Reward Uses Manipulable getAmountsOut": logic-error
+  "LBP balanceOf reward accounting": logic-error
+  "LBP balanceOf Reward Accounting Manipulation": logic-error
+  "BPool single-sided join/exit math with SideStaking gulp accounting": logic-error
+  "Incorrect dividends calculation": logic-error
+  "Incorrect dividends": logic-error
+  "BankrollStack - Incorrect dividends calculation": logic-error
+  "BankrollNetwork - Incorrect dividends calculation": logic-error
+  "Gangsterfinance - Incorrect dividends": logic-error
+  "Incorrect Burn Logic": logic-error
+  "Incorrect Token Burn Mechanism": logic-error
+  "Incorrect token burn mechanism": logic-error
+  "EST Token Incorrect Burn / skim Accounting Exploit": logic-error
+  "Flawed Burn Mechanism (Deferred LP Burn)": logic-error
+  "Flawed Delayed-Burn Mechanism": logic-error
+  "WXC Token - Flawed Burn/Sell Mechanism Manipulated via Flashloan": logic-error
+  "Flash Swap Accounting": logic-error
+  "Accounting Flaw": logic-error
+  "Accounting Manipulation": logic-error
+  "Accounting Error": logic-error
+  "proof_id Accounting Bypass (whitehat reproduction)": logic-error
+  "Flash Loan + Logic Error": logic-error
+  "Business Logic Flaw (Self-Liquidation)": logic-error
+  "Business Logic Flaw (Missing Input Validation)": logic-error
+  "Business Logic Flaw (Negative Integrator Fee)": logic-error
+  "Business Logic Flaw / Bonding Curve Migration Exploit": logic-error
+  "Business Logic Flaw in Staking / unStake State Check": logic-error
+  "FPC - Logic Flaw": logic-error
+  "VDS - Logic Flaw (1:1 Burn-for-Underlying)": logic-error
+  "Ekubo Router lock/forward Business Logic Flaw": logic-error
+  "INK Finance Payroll claimPayroll Business Logic Flaw": logic-error
+  "Constructor Dividend Checkpoint Bypass": logic-error
+  "NovaBox Constructor Dividend Checkpoint Bypass": logic-error
+  "Flawed Trading Restriction Logic (Deflationary Token)": logic-error
+  "Payout Amount Mismatch": logic-error
+  "Miscalculation": logic-error
+  "Pricing / Decimals Mismatch": logic-error
+  "Stepp2p - Double-Spend via cancelSaleOrder + modifySaleOrder": logic-error
+  "Grizzifi - Referral Bonus Counts totalInvested Including Withdrawals": logic-error
+  "reward-farming / BurnAddress accounting exploit!": logic-error
+  "Ambient CrocSwapDex Native Surplus Accounting Flaw": logic-error
+  "Native surplus accounting flaw": logic-error
+  "Liquidity Misclassification Fee Bypass": logic-error
+  "DTXT Liquidity Misclassification Fee Bypass": logic-error
+
+  # --- oracle-manipulation: spot-price / reserve / collateral-valuation
+  # --- manipulation (the dataset's price-manipulation long tail)
+  "Price Oracle Manipulation": oracle-manipulation
+  "GradientMakerPool - Price Oracle Manipulation": oracle-manipulation
+  "Faulty Oracle": oracle-manipulation
+  "Moonwell Faulty Oracle Over-Borrow": oracle-manipulation
+  "Oracle Exploit": oracle-manipulation
+  "Oracle Misconfiguration": oracle-manipulation
+  "Oracle": oracle-manipulation
+  "Vulnerable Price Dependency": oracle-manipulation
+  "Reserve Manipulation": oracle-manipulation
+  "Reserve Price Manipulation": oracle-manipulation
+  "Reserve-derived livePrice manipulation": oracle-manipulation
+  "OLPC pair reserve manipulation": oracle-manipulation
+  "XDK recycle reserve manipulation": oracle-manipulation
+  "Collateral Price Manipulation": oracle-manipulation
+  "Hegic collateral spot price manipulation": oracle-manipulation
+  "Flash-loan price oracle manipulation of lending collateral valuation": oracle-manipulation
+  "Flash Loan / Price Manipulation": oracle-manipulation
+  "Flash Loan + Pricing Logic Flaw": oracle-manipulation
+  "DRLVaultV3 Slippage / Price Manipulation": oracle-manipulation
+  "Price Manipulation and Tax Bypass": oracle-manipulation
+  "Price Manipulation not confirmed": oracle-manipulation
+  "Deflationary burn-from-pair price manipulation": oracle-manipulation
+  "Fee-on-Transfer Reserve Manipulation": oracle-manipulation
+  "DIP Fee-on-Transfer Reserve Manipulation": oracle-manipulation
+  "Transfer Accounting Reserve Desync": oracle-manipulation
+  "WHALE Transfer Accounting Reserve Desync": oracle-manipulation
+  "Deflationary token reserve desync via transfer+skim": oracle-manipulation
+  "WETC - Reserve Desync via skim/sync (Price Manipulation)": oracle-manipulation
+  "buy/sell price manipulation via flashloan loop": oracle-manipulation
+  "Flashloan oracle/position price manipulation on LP lending": oracle-manipulation
+  "Flashloan price manipulation of ticket swap/burn pricing": oracle-manipulation
+  "Deposit-to-mint price miscalculation drained pool": oracle-manipulation
+  "Flash Loan + AMM Reserve Manipulation via Burn-Sync Pattern": oracle-manipulation
+  "YuliAI - sellToken Prices Against Manipulable V3 Spot Price": oracle-manipulation
+  "EverValueCoin (EVA) - Orderbook Price Manipulation / Arbitrage": oracle-manipulation
+  "Fractal Protocol Vault Deposit/Withdraw Price Manipulation": oracle-manipulation
+  "NGP Token Price Manipulation": oracle-manipulation
+  "d3xai - Price Manipulation": oracle-manipulation
+  "Algebra spot-price oracle manipulation": oracle-manipulation
+  "Spot Price Oracle Manipulation (PancakeSwap V3 slot0)": oracle-manipulation
+  "Oracle Price Manipulation (RateX PT Collateral)": oracle-manipulation
+  "YSDAO Tax-Logic Bypass + Permissionless sync() Price Manipulation": oracle-manipulation
+  "RANT - Logic Flaw / Price Manipulation": oracle-manipulation
+  "Swap Metapool Attack": oracle-manipulation
+  "JB helper repeated cycle drains JB/USDT pair": oracle-manipulation
+  "Virtual AMM Manipulation": oracle-manipulation
+
+  # --- flash-loan: the plural atomic form (singulars live in common map)
+  "Flashloans": flash-loan
+
+  # --- reentrancy: named-function variants (heads live in common map)
+  "Reentrancy in removeLiquidityViaContract": reentrancy
+  "Reentrancy in collectFees Function": reentrancy
+  "Joe Agent removeLiquidityViaContract Reentrancy": reentrancy
+
+  # --- precision-rounding: overflow/underflow, unsafe math, rounding
+  "Overflow": precision-rounding
+  "OverFlow": precision-rounding
+  "Under/Overflow": precision-rounding
+  "Unsafe Math": precision-rounding
+  "Unsafe Cast Truncation": precision-rounding
+  "Arithmetic Overflow in CLMM Math Library": precision-rounding
+  "Integer Cast Overflow + Rounding Asymmetry": precision-rounding
+  "Integer Overflow (BT404 Ghost Ownership)": precision-rounding
+  "Overflow / Pricing Formula Flaw": precision-rounding
+  "Precision Loss / Rounding Error in Accumulator": precision-rounding
+  "Vault Share Rounding Manipulation": precision-rounding
+  "Balancer V2 ComposableStablePool Precision Loss / Rounding Attack": precision-rounding
+
+  # --- share-price-inflation: share/NAV inflation via depegged or
+  # --- manipulated valuations (donation/inflation attacks)
+  "Share price manipulation": share-price-inflation
+  "Share Price Manipulation": share-price-inflation
+  "Share Manipulation": share-price-inflation
+  "Inflation Attack": share-price-inflation
+  "Inflation": share-price-inflation
+  "Oracle Misconfiguration / Share Inflation": share-price-inflation
+  "FleetCommander NAV Inflation via Depegged xUSD": share-price-inflation
+  "ResupplyFi - Share price manipulation": share-price-inflation
+  "Liquidity Index Manipulation": share-price-inflation
+
+  # --- share-price-accounting: vault share accounting, ERC4626 vaults
+  "Index vault component-share accounting flaw": share-price-accounting
+  "Thetanuts Index Vault Component-Share Accounting Flaw": share-price-accounting
+  "ERC4626": share-price-accounting
+  "Saturn Protocol sUSDat ERC4626 Vulnerability Disclosure": share-price-accounting
+
+  # --- donation: donation-funded share/price attacks
+  "Donate": donation
+  "BorrowBehalf + Donation Attack": donation
+  "Venus THE BorrowBehalf + Donation Attack": donation
+
+  # --- signature-replay: true replay only (verification bypasses have no
+  # --- canonical class and stay unmapped — documented in the task report)
+  "AROS Signature Replay / Reusable claimPrincipal + claimYield Signatures": signature-replay
+  "Stale Chainlink Oracle Signature Replay Attack": signature-replay
+
+  # --- bridge-message: forged/mis-verified cross-chain messages
+  # --- (validator-key compromises stay unmapped: opsec, not a bug class)
+  "Bridge Attack": bridge-message
+  "Bridge Exploit": bridge-message
+  "Bridge": bridge-message
+  "CrossChain": bridge-message
+  "Vulnerable Off-chain Signing (Fake VAA Injection)": bridge-message
+  "Access Control Issue / Cross-Chain Message Verification Bypass": bridge-message
+  "Adshares WrappedADS Bridge Insufficient Validation": bridge-message
+  "Verus Bridge Forged Import Proof Drain": bridge-message
+
+  # --- centralization-risk: governance takeover, privileged backdoors,
+  # --- owner-abuse rugs (trusted-party failures, not code bugs)
+  "Governance Attack": centralization-risk
+  "Governance Takeover": centralization-risk
+  "Governance Attack (Aragon DAO Takeover)": centralization-risk
+  "Governance Attack — Voting Power Privilege Escalation": centralization-risk
+  "Access Control — Malicious Governance Proposal": centralization-risk
+  "Governance-controlled token mint and Balancer pool drain": centralization-risk
+  "TOP Governance-Controlled Mint and Balancer Pool Drain": centralization-risk
+  "Governance": centralization-risk
+  "MaliciosProposal": centralization-risk
+  "Owner Backdoor LP Burn + Price Manipulation": centralization-risk
+  "SKP Token Owner Backdoor LP Burn + Price Manipulation": centralization-risk
+  "Owner-privileged JAKE burn reserve drain": centralization-risk
+  "YDT - Logic Flaw (Privileged Pool Drain Function)": centralization-risk
+  "Unverified_8490 - Privileged Mint/Burn Hook Abuse (Token + Flashloan)": centralization-risk
+  "Rug-Pull(Protocol Side)": centralization-risk
+  "rug pull": centralization-risk
+  "Rug Pull (backdoor in transferFrom)": centralization-risk
+  "Backdoored token withdrawal (rug pull)": centralization-risk
+  "IRYSAI - Rug Pull (Privileged Tax Wallet Backdoor)": centralization-risk
+  "Business Logic Flaw (Backdoored Sale Contract)": centralization-risk
+  "Insider Access / Backdoor Mint": centralization-risk
+
+  # --- upgrade-initializer: uninitialized proxies, proxy upgrade abuse
+  "Proxy Upgrade Attack": upgrade-initializer
+  "Uninitialized Proxy": upgrade-initializer
+  "Renegade Dark Pool Uninitialized Proxy Takeover": upgrade-initializer
+  "uninitialized": upgrade-initializer
+
+  # --- token-integration: exotic-token mechanics (deflationary, reflection,
+  # --- rebasing-adjacent burns, standard-edge transfers)
+  "Token Incompatible": token-integration
+  "deflationary token": token-integration
+  "Deflationary token": token-integration
+  "Deflationary Token Incompatible": token-integration
+  "Deflationary Token Exploit": token-integration
+  "Deflationary Token Logic Error": token-integration
+  "Reflection Token": token-integration
+  "ERC20": token-integration
+  "ERC721": token-integration
+  "ERC777": token-integration
+  "NFT": token-integration
+  "Token-Transfer": token-integration
+  "Zero-amount ERC1155 batch transfer inflated Royal LDA tier balance": token-integration
+
+  # --- liquidation-logic: insolvency-check bypasses
+  "Post Insolvency Check": liquidation-logic
+  "Abracadabra (MIMSpell3) Bypassed Insolvency Check": liquidation-logic
+  "Sharwa Finance Post-Insolvency Check Bypass": liquidation-logic

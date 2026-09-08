@@ -1,0 +1,207 @@
+[
+ {
+  "cls": "Access Control",
+  "kind": "set",
+  "error_kind": "ValueError",
+  "error": "bug class must be kebab-case (a-z 0-9 -), got 'Access Control'"
+ },
+ {
+  "cls": "",
+  "kind": "set",
+  "error_kind": "ValueError",
+  "error": "bug class must be kebab-case (a-z 0-9 -), got ''"
+ },
+ {
+  "cls": "ab",
+  "kind": "set",
+  "error_kind": "ValueError",
+  "error": "bug class must be kebab-case (a-z 0-9 -), got 'ab'"
+ },
+ {
+  "cls": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "kind": "set",
+  "error_kind": "ValueError",
+  "error": "bug class must be kebab-case (a-z 0-9 -), got 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"
+ },
+ {
+  "cls": "A-B-C",
+  "kind": "set",
+  "error_kind": "ValueError",
+  "error": "bug class must be kebab-case (a-z 0-9 -), got 'A-B-C'"
+ },
+ {
+  "cls": "access_control",
+  "kind": "set",
+  "error_kind": "ValueError",
+  "error": "bug class must be kebab-case (a-z 0-9 -), got 'access_control'"
+ },
+ {
+  "cls": "abc",
+  "floor": "E9",
+  "kind": "set",
+  "error_kind": "ValueError",
+  "error": "floor must be one of E0/E1/E2/E3/E4/E5/E6/E7, got 'E9'"
+ },
+ {
+  "cls": "abc",
+  "floor": "",
+  "kind": "set",
+  "error_kind": "ValueError",
+  "error": "floor must be one of E0/E1/E2/E3/E4/E5/E6/E7, got ''"
+ },
+ {
+  "cls": "abc",
+  "actor": "",
+  "kind": "set",
+  "error_kind": "ValueError",
+  "error": "floor overrides must name their actor (who decided this)"
+ },
+ {
+  "cls": "abc",
+  "actor": "   ",
+  "kind": "set",
+  "error_kind": "ValueError",
+  "error": "floor overrides must name their actor (who decided this)"
+ },
+ {
+  "cls": "abc",
+  "reason": "short",
+  "kind": "set",
+  "error_kind": "ValueError",
+  "error": "floor overrides require a written reason (>= 10 chars) — an unnamed preference is not a policy"
+ },
+ {
+  "cls": "abc",
+  "reason": "          ",
+  "kind": "set",
+  "error_kind": "ValueError",
+  "error": "floor overrides require a written reason (>= 10 chars) — an unnamed preference is not a policy"
+ },
+ {
+  "cls": "abc",
+  "reason": "123456789",
+  "kind": "set",
+  "error_kind": "ValueError",
+  "error": "floor overrides require a written reason (>= 10 chars) — an unnamed preference is not a policy"
+ },
+ {
+  "cls": "abc",
+  "reason": "1234567890",
+  "kind": "set",
+  "error_kind": null,
+  "error": null
+ },
+ {
+  "cls": "abc",
+  "reason": "éééééééééé",
+  "kind": "set",
+  "error_kind": null,
+  "error": null
+ },
+ {
+  "cls": "abc",
+  "reason": "ééééééééé",
+  "kind": "set",
+  "error_kind": "ValueError",
+  "error": "floor overrides require a written reason (>= 10 chars) — an unnamed preference is not a policy"
+ },
+ {
+  "actor": "",
+  "kind": "clear",
+  "error_kind": "ValueError",
+  "error": "clearing a floor override must name its actor"
+ },
+ {
+  "actor": "  ",
+  "kind": "clear",
+  "error_kind": "ValueError",
+  "error": "clearing a floor override must name its actor"
+ },
+ {
+  "reason": "",
+  "kind": "clear",
+  "error_kind": "ValueError",
+  "error": "clearing a floor override requires a written reason"
+ },
+ {
+  "reason": " ",
+  "kind": "clear",
+  "error_kind": "ValueError",
+  "error": "clearing a floor override requires a written reason"
+ },
+ {
+  "cls": "no-such-class",
+  "kind": "clear",
+  "error_kind": "KeyError",
+  "error": "\"no floor override for class 'no-such-class' in this campaign\""
+ },
+ {
+  "cls": "",
+  "kind": "clear",
+  "error_kind": "KeyError",
+  "error": "\"no floor override for class '' in this campaign\""
+ },
+ {
+  "kind": "file",
+  "name": "a.json",
+  "error_kind": "ValueError",
+  "error": "floor policy file {dir}/a.json must be {\"overrides\": [{\"class\", \"floor\", \"reason\"}]}",
+  "text": "{\"x\": 1}"
+ },
+ {
+  "kind": "file",
+  "name": "b.json",
+  "error_kind": "ValueError",
+  "error": "floor policy file {dir}/b.json must be {\"overrides\": [{\"class\", \"floor\", \"reason\"}]}",
+  "text": "{\"overrides\": 5}"
+ },
+ {
+  "kind": "file",
+  "name": "c.json",
+  "error_kind": "ValueError",
+  "error": "each floor override needs 'class' and 'floor': 5",
+  "text": "{\"overrides\": [5]}"
+ },
+ {
+  "kind": "file",
+  "name": "d.json",
+  "error_kind": "ValueError",
+  "error": "each floor override needs 'class' and 'floor': 'x'",
+  "text": "{\"overrides\": [\"x\"]}"
+ },
+ {
+  "kind": "file",
+  "name": "e.json",
+  "error_kind": "ValueError",
+  "error": "each floor override needs 'class' and 'floor': {'class': 'reentrancy'}",
+  "text": "{\"overrides\": [{\"class\": \"reentrancy\"}]}"
+ },
+ {
+  "kind": "file",
+  "name": "f.json",
+  "error_kind": "ValueError",
+  "error": "floor policy file {dir}/f.json must be {\"overrides\": [{\"class\", \"floor\", \"reason\"}]}",
+  "text": "[1, 2]"
+ },
+ {
+  "kind": "file",
+  "name": "g.json",
+  "error_kind": null,
+  "error": null,
+  "text": "{\"overrides\": []}"
+ },
+ {
+  "kind": "file",
+  "name": "h.json",
+  "error_kind": null,
+  "error": null,
+  "text": "{\"overrides\": [{\"class\": \"reentrancy\", \"floor\": \"E4\"}]}"
+ },
+ {
+  "kind": "file",
+  "name": "i.json",
+  "error_kind": null,
+  "error": null,
+  "text": "{\"overrides\": [{\"class\": 5, \"floor\": \"E4\"}]}"
+ }
+]

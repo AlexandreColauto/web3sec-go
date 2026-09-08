@@ -1,0 +1,39 @@
+{
+  "title": "ShareVault deposit inflates the share price for later depositors",
+  "root_cause": {
+    "class": "share-price-inflation",
+    "description": "The first depositor sets the share price with a single wei, so all later depositors buy shares at a price the attacker chose, diluting their position.",
+    "mechanism": "deposit() mints shares at total_assets/total_shares before any real assets are in the vault"
+  },
+  "affected": [
+    {"path": "src/ShareVault.sol", "contract": "ShareVault",
+     "function": "deposit", "lines": [42, 60], "entry_point": true}
+  ],
+  "attacker": {"profile": "arbitrary EOA", "capabilities": ["deposit"]},
+  "evidence": [],
+  "invariant": {
+    "id": "INV-1",
+    "statement": "a depositor's share of total assets may not decrease as a result of their own deposit"
+  },
+  "assumptions": [
+    {
+      "id": "A1",
+      "type": "state",
+      "claim": "the vault can be empty when the first deposit arrives",
+      "status": "UNKNOWN",
+      "model_belief": 0.9,
+      "blocking": true
+    }
+  ],
+  "preconditions": [
+    {
+      "kind": "state",
+      "description": "vault is empty (total_shares == 0)",
+      "satisfied_by": "be the first depositor"
+    }
+  ],
+  "exploit_sequence": [
+    {"step": 1, "actor": "attacker", "action": "deposit(1 wei) to set the share price"},
+    {"step": 2, "actor": "victim", "action": "deposit(1 ETH) at the attacker-set price"}
+  ]
+}

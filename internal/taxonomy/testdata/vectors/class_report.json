@@ -1,0 +1,1373 @@
+[
+ {
+  "label": "access-control",
+  "report": {
+   "class": "access-control",
+   "known": true,
+   "floor": "E4",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"access-control\",\"floor\":\"E4\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "ACCESS-CONTROL",
+  "report": {
+   "class": "ACCESS-CONTROL",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"ACCESS-CONTROL\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  access-control ",
+  "report": {
+   "class": "  access-control ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "access-control"
+   ]
+  },
+  "report_json": "{\"class\":\"  access-control \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"access-control\"]}"
+ },
+ {
+  "label": "authorization",
+  "report": {
+   "class": "authorization",
+   "known": true,
+   "floor": "E4",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"authorization\",\"floor\":\"E4\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "AUTHORIZATION",
+  "report": {
+   "class": "AUTHORIZATION",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"AUTHORIZATION\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  authorization ",
+  "report": {
+   "class": "  authorization ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "authorization"
+   ]
+  },
+  "report_json": "{\"class\":\"  authorization \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"authorization\"]}"
+ },
+ {
+  "label": "bridge-message",
+  "report": {
+   "class": "bridge-message",
+   "known": true,
+   "floor": "E6",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"bridge-message\",\"floor\":\"E6\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "BRIDGE-MESSAGE",
+  "report": {
+   "class": "BRIDGE-MESSAGE",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"BRIDGE-MESSAGE\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  bridge-message ",
+  "report": {
+   "class": "  bridge-message ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "bridge-message"
+   ]
+  },
+  "report_json": "{\"class\":\"  bridge-message \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"bridge-message\"]}"
+ },
+ {
+  "label": "centralization-risk",
+  "report": {
+   "class": "centralization-risk",
+   "known": true,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"centralization-risk\",\"floor\":\"E5\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "CENTRALIZATION-RISK",
+  "report": {
+   "class": "CENTRALIZATION-RISK",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"CENTRALIZATION-RISK\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  centralization-risk ",
+  "report": {
+   "class": "  centralization-risk ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "centralization-risk"
+   ]
+  },
+  "report_json": "{\"class\":\"  centralization-risk \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"centralization-risk\"]}"
+ },
+ {
+  "label": "cross-chain-replay",
+  "report": {
+   "class": "cross-chain-replay",
+   "known": true,
+   "floor": "E6",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"cross-chain-replay\",\"floor\":\"E6\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "CROSS-CHAIN-REPLAY",
+  "report": {
+   "class": "CROSS-CHAIN-REPLAY",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"CROSS-CHAIN-REPLAY\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  cross-chain-replay ",
+  "report": {
+   "class": "  cross-chain-replay ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "cross-chain-replay"
+   ]
+  },
+  "report_json": "{\"class\":\"  cross-chain-replay \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"cross-chain-replay\"]}"
+ },
+ {
+  "label": "donation",
+  "report": {
+   "class": "donation",
+   "known": true,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"donation\",\"floor\":\"E5\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "DONATION",
+  "report": {
+   "class": "DONATION",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"DONATION\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  donation ",
+  "report": {
+   "class": "  donation ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "donation"
+   ]
+  },
+  "report_json": "{\"class\":\"  donation \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"donation\"]}"
+ },
+ {
+  "label": "dos-griefing",
+  "report": {
+   "class": "dos-griefing",
+   "known": true,
+   "floor": "E4",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"dos-griefing\",\"floor\":\"E4\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "DOS-GRIEFING",
+  "report": {
+   "class": "DOS-GRIEFING",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"DOS-GRIEFING\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  dos-griefing ",
+  "report": {
+   "class": "  dos-griefing ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "dos-griefing"
+   ]
+  },
+  "report_json": "{\"class\":\"  dos-griefing \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"dos-griefing\"]}"
+ },
+ {
+  "label": "economic-invariant",
+  "report": {
+   "class": "economic-invariant",
+   "known": true,
+   "floor": "E6",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"economic-invariant\",\"floor\":\"E6\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "ECONOMIC-INVARIANT",
+  "report": {
+   "class": "ECONOMIC-INVARIANT",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"ECONOMIC-INVARIANT\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  economic-invariant ",
+  "report": {
+   "class": "  economic-invariant ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "economic-invariant"
+   ]
+  },
+  "report_json": "{\"class\":\"  economic-invariant \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"economic-invariant\"]}"
+ },
+ {
+  "label": "flash-loan",
+  "report": {
+   "class": "flash-loan",
+   "known": true,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"flash-loan\",\"floor\":\"E5\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "FLASH-LOAN",
+  "report": {
+   "class": "FLASH-LOAN",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"FLASH-LOAN\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  flash-loan ",
+  "report": {
+   "class": "  flash-loan ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "flash-loan"
+   ]
+  },
+  "report_json": "{\"class\":\"  flash-loan \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"flash-loan\"]}"
+ },
+ {
+  "label": "liquidation-logic",
+  "report": {
+   "class": "liquidation-logic",
+   "known": true,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"liquidation-logic\",\"floor\":\"E5\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "LIQUIDATION-LOGIC",
+  "report": {
+   "class": "LIQUIDATION-LOGIC",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"LIQUIDATION-LOGIC\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  liquidation-logic ",
+  "report": {
+   "class": "  liquidation-logic ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "liquidation-logic"
+   ]
+  },
+  "report_json": "{\"class\":\"  liquidation-logic \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"liquidation-logic\"]}"
+ },
+ {
+  "label": "logic-error",
+  "report": {
+   "class": "logic-error",
+   "known": true,
+   "floor": "E4",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"logic-error\",\"floor\":\"E4\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "LOGIC-ERROR",
+  "report": {
+   "class": "LOGIC-ERROR",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"LOGIC-ERROR\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  logic-error ",
+  "report": {
+   "class": "  logic-error ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "logic-error"
+   ]
+  },
+  "report_json": "{\"class\":\"  logic-error \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"logic-error\"]}"
+ },
+ {
+  "label": "oracle-manipulation",
+  "report": {
+   "class": "oracle-manipulation",
+   "known": true,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"oracle-manipulation\",\"floor\":\"E5\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "ORACLE-MANIPULATION",
+  "report": {
+   "class": "ORACLE-MANIPULATION",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"ORACLE-MANIPULATION\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  oracle-manipulation ",
+  "report": {
+   "class": "  oracle-manipulation ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "oracle-manipulation"
+   ]
+  },
+  "report_json": "{\"class\":\"  oracle-manipulation \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"oracle-manipulation\"]}"
+ },
+ {
+  "label": "precision-rounding",
+  "report": {
+   "class": "precision-rounding",
+   "known": true,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"precision-rounding\",\"floor\":\"E5\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "PRECISION-ROUNDING",
+  "report": {
+   "class": "PRECISION-ROUNDING",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"PRECISION-ROUNDING\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  precision-rounding ",
+  "report": {
+   "class": "  precision-rounding ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "precision-rounding"
+   ]
+  },
+  "report_json": "{\"class\":\"  precision-rounding \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"precision-rounding\"]}"
+ },
+ {
+  "label": "reentrancy",
+  "report": {
+   "class": "reentrancy",
+   "known": true,
+   "floor": "E4",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"reentrancy\",\"floor\":\"E4\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "REENTRANCY",
+  "report": {
+   "class": "REENTRANCY",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"REENTRANCY\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  reentrancy ",
+  "report": {
+   "class": "  reentrancy ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "reentrancy"
+   ]
+  },
+  "report_json": "{\"class\":\"  reentrancy \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"reentrancy\"]}"
+ },
+ {
+  "label": "share-price-accounting",
+  "report": {
+   "class": "share-price-accounting",
+   "known": true,
+   "floor": "E4",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"share-price-accounting\",\"floor\":\"E4\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "SHARE-PRICE-ACCOUNTING",
+  "report": {
+   "class": "SHARE-PRICE-ACCOUNTING",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"SHARE-PRICE-ACCOUNTING\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  share-price-accounting ",
+  "report": {
+   "class": "  share-price-accounting ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "share-price-accounting",
+    "share-price-inflation"
+   ]
+  },
+  "report_json": "{\"class\":\"  share-price-accounting \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"share-price-accounting\",\"share-price-inflation\"]}"
+ },
+ {
+  "label": "share-price-inflation",
+  "report": {
+   "class": "share-price-inflation",
+   "known": true,
+   "floor": "E6",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"share-price-inflation\",\"floor\":\"E6\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "SHARE-PRICE-INFLATION",
+  "report": {
+   "class": "SHARE-PRICE-INFLATION",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"SHARE-PRICE-INFLATION\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  share-price-inflation ",
+  "report": {
+   "class": "  share-price-inflation ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "share-price-inflation",
+    "share-price-accounting"
+   ]
+  },
+  "report_json": "{\"class\":\"  share-price-inflation \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"share-price-inflation\",\"share-price-accounting\"]}"
+ },
+ {
+  "label": "signature-replay",
+  "report": {
+   "class": "signature-replay",
+   "known": true,
+   "floor": "E4",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"signature-replay\",\"floor\":\"E4\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "SIGNATURE-REPLAY",
+  "report": {
+   "class": "SIGNATURE-REPLAY",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"SIGNATURE-REPLAY\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  signature-replay ",
+  "report": {
+   "class": "  signature-replay ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "signature-replay"
+   ]
+  },
+  "report_json": "{\"class\":\"  signature-replay \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"signature-replay\"]}"
+ },
+ {
+  "label": "token-integration",
+  "report": {
+   "class": "token-integration",
+   "known": true,
+   "floor": "E4",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"token-integration\",\"floor\":\"E4\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "TOKEN-INTEGRATION",
+  "report": {
+   "class": "TOKEN-INTEGRATION",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"TOKEN-INTEGRATION\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  token-integration ",
+  "report": {
+   "class": "  token-integration ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "token-integration"
+   ]
+  },
+  "report_json": "{\"class\":\"  token-integration \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"token-integration\"]}"
+ },
+ {
+  "label": "unchecked-external-call",
+  "report": {
+   "class": "unchecked-external-call",
+   "known": true,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"unchecked-external-call\",\"floor\":\"E5\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "UNCHECKED-EXTERNAL-CALL",
+  "report": {
+   "class": "UNCHECKED-EXTERNAL-CALL",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"UNCHECKED-EXTERNAL-CALL\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  unchecked-external-call ",
+  "report": {
+   "class": "  unchecked-external-call ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "unchecked-external-call"
+   ]
+  },
+  "report_json": "{\"class\":\"  unchecked-external-call \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"unchecked-external-call\"]}"
+ },
+ {
+  "label": "upgrade-initializer",
+  "report": {
+   "class": "upgrade-initializer",
+   "known": true,
+   "floor": "E4",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"upgrade-initializer\",\"floor\":\"E4\",\"known\":true,\"suggestions\":[]}"
+ },
+ {
+  "label": "UPGRADE-INITIALIZER",
+  "report": {
+   "class": "UPGRADE-INITIALIZER",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"UPGRADE-INITIALIZER\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "  upgrade-initializer ",
+  "report": {
+   "class": "  upgrade-initializer ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "upgrade-initializer"
+   ]
+  },
+  "report_json": "{\"class\":\"  upgrade-initializer \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"upgrade-initializer\"]}"
+ },
+ {
+  "label": "Access Control",
+  "report": {
+   "class": "Access Control",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "access-control"
+   ]
+  },
+  "report_json": "{\"class\":\"Access Control\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"access-control\"]}"
+ },
+ {
+  "label": "access control",
+  "report": {
+   "class": "access control",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "access-control"
+   ]
+  },
+  "report_json": "{\"class\":\"access control\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"access-control\"]}"
+ },
+ {
+  "label": "denial of service",
+  "report": {
+   "class": "denial of service",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"denial of service\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "time manipulation",
+  "report": {
+   "class": "time manipulation",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "oracle-manipulation"
+   ]
+  },
+  "report_json": "{\"class\":\"time manipulation\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"oracle-manipulation\"]}"
+ },
+ {
+  "label": "flashloan",
+  "report": {
+   "class": "flashloan",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "flash-loan"
+   ]
+  },
+  "report_json": "{\"class\":\"flashloan\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"flash-loan\"]}"
+ },
+ {
+  "label": "Reentrancy",
+  "report": {
+   "class": "Reentrancy",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "reentrancy"
+   ]
+  },
+  "report_json": "{\"class\":\"Reentrancy\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"reentrancy\"]}"
+ },
+ {
+  "label": "oracle manipulation",
+  "report": {
+   "class": "oracle manipulation",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "oracle-manipulation"
+   ]
+  },
+  "report_json": "{\"class\":\"oracle manipulation\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"oracle-manipulation\"]}"
+ },
+ {
+  "label": "front-running",
+  "report": {
+   "class": "front-running",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "precision-rounding"
+   ]
+  },
+  "report_json": "{\"class\":\"front-running\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"precision-rounding\"]}"
+ },
+ {
+  "label": "quantum-decoherence",
+  "report": {
+   "class": "quantum-decoherence",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"quantum-decoherence\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": null,
+  "report": {
+   "class": null,
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":null,\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "",
+  "report": {
+   "class": null,
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":null,\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "reentrancyy",
+  "report": {
+   "class": "reentrancyy",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "reentrancy"
+   ]
+  },
+  "report_json": "{\"class\":\"reentrancyy\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"reentrancy\"]}"
+ },
+ {
+  "label": "access-controll",
+  "report": {
+   "class": "access-controll",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "access-control"
+   ]
+  },
+  "report_json": "{\"class\":\"access-controll\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"access-control\"]}"
+ },
+ {
+  "label": "share-price-inflationn",
+  "report": {
+   "class": "share-price-inflationn",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "share-price-inflation",
+    "share-price-accounting"
+   ]
+  },
+  "report_json": "{\"class\":\"share-price-inflationn\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"share-price-inflation\",\"share-price-accounting\"]}"
+ },
+ {
+  "label": "oracle-manipulation ",
+  "report": {
+   "class": "oracle-manipulation ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "oracle-manipulation"
+   ]
+  },
+  "report_json": "{\"class\":\"oracle-manipulation \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"oracle-manipulation\"]}"
+ },
+ {
+  "label": "flashloan-attack",
+  "report": {
+   "class": "flashloan-attack",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "flash-loan"
+   ]
+  },
+  "report_json": "{\"class\":\"flashloan-attack\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"flash-loan\"]}"
+ },
+ {
+  "label": "liquidation",
+  "report": {
+   "class": "liquidation",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "liquidation-logic",
+    "donation"
+   ]
+  },
+  "report_json": "{\"class\":\"liquidation\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"liquidation-logic\",\"donation\"]}"
+ },
+ {
+  "label": "donation-attack",
+  "report": {
+   "class": "donation-attack",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "donation"
+   ]
+  },
+  "report_json": "{\"class\":\"donation-attack\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"donation\"]}"
+ },
+ {
+  "label": "unchecked-external-callz",
+  "report": {
+   "class": "unchecked-external-callz",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "unchecked-external-call"
+   ]
+  },
+  "report_json": "{\"class\":\"unchecked-external-callz\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"unchecked-external-call\"]}"
+ },
+ {
+  "label": "bridge-messag",
+  "report": {
+   "class": "bridge-messag",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "bridge-message"
+   ]
+  },
+  "report_json": "{\"class\":\"bridge-messag\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"bridge-message\"]}"
+ },
+ {
+  "label": "signature-replayy",
+  "report": {
+   "class": "signature-replayy",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "signature-replay"
+   ]
+  },
+  "report_json": "{\"class\":\"signature-replayy\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"signature-replay\"]}"
+ },
+ {
+  "label": "economic-invariantt",
+  "report": {
+   "class": "economic-invariantt",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "economic-invariant"
+   ]
+  },
+  "report_json": "{\"class\":\"economic-invariantt\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"economic-invariant\"]}"
+ },
+ {
+  "label": "dos-griefingg",
+  "report": {
+   "class": "dos-griefingg",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "dos-griefing"
+   ]
+  },
+  "report_json": "{\"class\":\"dos-griefingg\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"dos-griefing\"]}"
+ },
+ {
+  "label": "cross-chain-replayy",
+  "report": {
+   "class": "cross-chain-replayy",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "cross-chain-replay"
+   ]
+  },
+  "report_json": "{\"class\":\"cross-chain-replayy\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"cross-chain-replay\"]}"
+ },
+ {
+  "label": "centralization-riskk",
+  "report": {
+   "class": "centralization-riskk",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "centralization-risk"
+   ]
+  },
+  "report_json": "{\"class\":\"centralization-riskk\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"centralization-risk\"]}"
+ },
+ {
+  "label": "token-integrationn",
+  "report": {
+   "class": "token-integrationn",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "token-integration"
+   ]
+  },
+  "report_json": "{\"class\":\"token-integrationn\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"token-integration\"]}"
+ },
+ {
+  "label": "upgrade-initializerr",
+  "report": {
+   "class": "upgrade-initializerr",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "upgrade-initializer"
+   ]
+  },
+  "report_json": "{\"class\":\"upgrade-initializerr\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"upgrade-initializer\"]}"
+ },
+ {
+  "label": "authorizationn",
+  "report": {
+   "class": "authorizationn",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "authorization"
+   ]
+  },
+  "report_json": "{\"class\":\"authorizationn\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"authorization\"]}"
+ },
+ {
+  "label": "logic-errorr",
+  "report": {
+   "class": "logic-errorr",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "logic-error"
+   ]
+  },
+  "report_json": "{\"class\":\"logic-errorr\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"logic-error\"]}"
+ },
+ {
+  "label": "precision-roundingg",
+  "report": {
+   "class": "precision-roundingg",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "precision-rounding"
+   ]
+  },
+  "report_json": "{\"class\":\"precision-roundingg\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"precision-rounding\"]}"
+ },
+ {
+  "label": "share-price-accountingg",
+  "report": {
+   "class": "share-price-accountingg",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "share-price-accounting",
+    "share-price-inflation"
+   ]
+  },
+  "report_json": "{\"class\":\"share-price-accountingg\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"share-price-accounting\",\"share-price-inflation\"]}"
+ },
+ {
+  "label": "stale-oracle-liquidation",
+  "report": {
+   "class": "stale-oracle-liquidation",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "oracle-manipulation",
+    "share-price-inflation"
+   ]
+  },
+  "report_json": "{\"class\":\"stale-oracle-liquidation\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"oracle-manipulation\",\"share-price-inflation\"]}"
+ },
+ {
+  "label": "first-depositor-inflation",
+  "report": {
+   "class": "first-depositor-inflation",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"first-depositor-inflation\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "reentrancy reentrancy",
+  "report": {
+   "class": "reentrancy reentrancy",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "reentrancy"
+   ]
+  },
+  "report_json": "{\"class\":\"reentrancy reentrancy\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"reentrancy\"]}"
+ },
+ {
+  "label": "a",
+  "report": {
+   "class": "a",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"a\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "zz",
+  "report": {
+   "class": "zz",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"zz\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "qqqqqqqqqqqqqqqqqqqq",
+  "report": {
+   "class": "qqqqqqqqqqqqqqqqqqqq",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"qqqqqqqqqqqqqqqqqqqq\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "oracle_manipulatio",
+  "report": {
+   "class": "oracle_manipulatio",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "oracle-manipulation"
+   ]
+  },
+  "report_json": "{\"class\":\"oracle_manipulatio\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"oracle-manipulation\"]}"
+ },
+ {
+  "label": "acess-control",
+  "report": {
+   "class": "acess-control",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "access-control"
+   ]
+  },
+  "report_json": "{\"class\":\"acess-control\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"access-control\"]}"
+ },
+ {
+  "label": "shar-price-inflation",
+  "report": {
+   "class": "shar-price-inflation",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "share-price-inflation",
+    "share-price-accounting"
+   ]
+  },
+  "report_json": "{\"class\":\"shar-price-inflation\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"share-price-inflation\",\"share-price-accounting\"]}"
+ },
+ {
+  "label": "bridge message replay",
+  "report": {
+   "class": "bridge message replay",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "bridge-message"
+   ]
+  },
+  "report_json": "{\"class\":\"bridge message replay\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"bridge-message\"]}"
+ },
+ {
+  "label": "economic invariant violation",
+  "report": {
+   "class": "economic invariant violation",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "economic-invariant"
+   ]
+  },
+  "report_json": "{\"class\":\"economic invariant violation\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"economic-invariant\"]}"
+ },
+ {
+  "label": "reentrancy (cross-function)",
+  "report": {
+   "class": "reentrancy (cross-function)",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"reentrancy (cross-function)\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "REENTRANCYY",
+  "report": {
+   "class": "REENTRANCYY",
+   "known": false,
+   "floor": "E5",
+   "suggestions": []
+  },
+  "report_json": "{\"class\":\"REENTRANCYY\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[]}"
+ },
+ {
+  "label": "Reentrancyy",
+  "report": {
+   "class": "Reentrancyy",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "reentrancy"
+   ]
+  },
+  "report_json": "{\"class\":\"Reentrancyy\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"reentrancy\"]}"
+ },
+ {
+  "label": "reentrancyy ",
+  "report": {
+   "class": "reentrancyy ",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "reentrancy"
+   ]
+  },
+  "report_json": "{\"class\":\"reentrancyy \",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"reentrancy\"]}"
+ },
+ {
+  "label": " reentrancyy",
+  "report": {
+   "class": " reentrancyy",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "reentrancy"
+   ]
+  },
+  "report_json": "{\"class\":\" reentrancyy\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"reentrancy\"]}"
+ },
+ {
+  "label": "flash-loann",
+  "report": {
+   "class": "flash-loann",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "flash-loan"
+   ]
+  },
+  "report_json": "{\"class\":\"flash-loann\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"flash-loan\"]}"
+ },
+ {
+  "label": "flash loan!",
+  "report": {
+   "class": "flash loan!",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "flash-loan"
+   ]
+  },
+  "report_json": "{\"class\":\"flash loan!\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"flash-loan\"]}"
+ },
+ {
+  "label": "doos-griefing",
+  "report": {
+   "class": "doos-griefing",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "dos-griefing"
+   ]
+  },
+  "report_json": "{\"class\":\"doos-griefing\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"dos-griefing\"]}"
+ },
+ {
+  "label": "logic-err",
+  "report": {
+   "class": "logic-err",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "logic-error"
+   ]
+  },
+  "report_json": "{\"class\":\"logic-err\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"logic-error\"]}"
+ },
+ {
+  "label": "donation-atack",
+  "report": {
+   "class": "donation-atack",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "donation"
+   ]
+  },
+  "report_json": "{\"class\":\"donation-atack\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"donation\"]}"
+ },
+ {
+  "label": "upgrade-initialiser",
+  "report": {
+   "class": "upgrade-initialiser",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "upgrade-initializer"
+   ]
+  },
+  "report_json": "{\"class\":\"upgrade-initialiser\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"upgrade-initializer\"]}"
+ },
+ {
+  "label": "signature-replay-",
+  "report": {
+   "class": "signature-replay-",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "signature-replay"
+   ]
+  },
+  "report_json": "{\"class\":\"signature-replay-\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"signature-replay\"]}"
+ },
+ {
+  "label": "-signature-replay",
+  "report": {
+   "class": "-signature-replay",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "signature-replay"
+   ]
+  },
+  "report_json": "{\"class\":\"-signature-replay\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"signature-replay\"]}"
+ },
+ {
+  "label": "cross-chain-replay-2",
+  "report": {
+   "class": "cross-chain-replay-2",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "cross-chain-replay"
+   ]
+  },
+  "report_json": "{\"class\":\"cross-chain-replay-2\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"cross-chain-replay\"]}"
+ },
+ {
+  "label": "liquidation-logics",
+  "report": {
+   "class": "liquidation-logics",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "liquidation-logic"
+   ]
+  },
+  "report_json": "{\"class\":\"liquidation-logics\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"liquidation-logic\"]}"
+ },
+ {
+  "label": "token-integrations",
+  "report": {
+   "class": "token-integrations",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "token-integration"
+   ]
+  },
+  "report_json": "{\"class\":\"token-integrations\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"token-integration\"]}"
+ },
+ {
+  "label": "centralization-risk!",
+  "report": {
+   "class": "centralization-risk!",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "centralization-risk"
+   ]
+  },
+  "report_json": "{\"class\":\"centralization-risk!\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"centralization-risk\"]}"
+ },
+ {
+  "label": "access-contro",
+  "report": {
+   "class": "access-contro",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "access-control"
+   ]
+  },
+  "report_json": "{\"class\":\"access-contro\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"access-control\"]}"
+ },
+ {
+  "label": "authorizatio",
+  "report": {
+   "class": "authorizatio",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "authorization"
+   ]
+  },
+  "report_json": "{\"class\":\"authorizatio\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"authorization\"]}"
+ },
+ {
+  "label": "unchecked-external-cal",
+  "report": {
+   "class": "unchecked-external-cal",
+   "known": false,
+   "floor": "E5",
+   "suggestions": [
+    "unchecked-external-call"
+   ]
+  },
+  "report_json": "{\"class\":\"unchecked-external-cal\",\"floor\":\"E5\",\"known\":false,\"suggestions\":[\"unchecked-external-call\"]}"
+ }
+]

@@ -1,0 +1,120 @@
+{
+  "campaign_id": "C-59aab5aadb",
+  "program": "test-program",
+  "created_at": "2026-01-01T00:00:00.000000+00:00",
+  "updated_at": "2026-01-01T00:00:00.000000+00:00",
+  "phase": "SCOPE",
+  "phase_history": [],
+  "halt_reason": null,
+  "budget": {
+    "max_discovery_findings": 400,
+    "max_repro_attempts_per_finding": 6,
+    "max_fresh_context_retries": 3,
+    "max_passes": 8,
+    "pass": 1,
+    "discovery_findings_so_far": 0
+  },
+  "snapshots": [],
+  "active_snapshot_id": null,
+  "artifacts": [],
+  "stages": {},
+  "events": [
+    {
+      "seq": 0,
+      "at": "2026-01-01T00:00:00.000000+00:00",
+      "type": "campaign.created",
+      "ref": "C-59aab5aadb",
+      "data": {
+        "program": "test-program"
+      },
+      "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "event_hash": "32677ab87cc5eff4c463d203f9ddf9b0ccd958167aa9497074870d14df56e7d5"
+    },
+    {
+      "seq": 1,
+      "at": "2026-01-01T00:00:00.000000+00:00",
+      "type": "floor_policy.set",
+      "ref": "reentrancy",
+      "data": {
+        "floor": "E5",
+        "actor": "lead",
+        "reason": "deployed mainnet fork available",
+        "replaced": false
+      },
+      "prev_hash": "32677ab87cc5eff4c463d203f9ddf9b0ccd958167aa9497074870d14df56e7d5",
+      "event_hash": "6db843698c885a53a5f0002da629e0504cb0784ac1fc1fcd9b824c263fe7772a"
+    },
+    {
+      "seq": 2,
+      "at": "2026-01-01T00:00:00.000000+00:00",
+      "type": "floor_policy.set",
+      "ref": "bridge-message",
+      "data": {
+        "floor": "E4",
+        "actor": "op",
+        "reason": "bridge is a local simulation rig",
+        "replaced": false
+      },
+      "prev_hash": "6db843698c885a53a5f0002da629e0504cb0784ac1fc1fcd9b824c263fe7772a",
+      "event_hash": "a1817d50badb6fe8f098170c67f7b526043002a33e3948b389c51ae0049bd341"
+    },
+    {
+      "seq": 3,
+      "at": "2026-01-01T00:00:00.000000+00:00",
+      "type": "floor_policy.cleared",
+      "ref": "reentrancy",
+      "data": {
+        "actor": "lead",
+        "reason": "override no longer needed"
+      },
+      "prev_hash": "a1817d50badb6fe8f098170c67f7b526043002a33e3948b389c51ae0049bd341",
+      "event_hash": "a96d08df993511b3471e31d219f67a35d761443fdc2b3dd97544feed18a5262a"
+    },
+    {
+      "seq": 4,
+      "at": "2026-01-01T00:00:00.000000+00:00",
+      "type": "floor_policy.set",
+      "ref": "reentrancy",
+      "data": {
+        "floor": "E4",
+        "actor": "lead",
+        "reason": "back to the default floor",
+        "replaced": false
+      },
+      "prev_hash": "a96d08df993511b3471e31d219f67a35d761443fdc2b3dd97544feed18a5262a",
+      "event_hash": "659a96c7e142e7e0871257ab6b4a71030aa55e1e509e9841d36f28dd63e4d958"
+    },
+    {
+      "seq": 5,
+      "at": "2026-01-01T00:00:00.000000+00:00",
+      "type": "floor_policy.set",
+      "ref": "reentrancy",
+      "data": {
+        "floor": "E6",
+        "actor": "lead",
+        "reason": "re-set replaces the previous entry",
+        "replaced": true
+      },
+      "prev_hash": "659a96c7e142e7e0871257ab6b4a71030aa55e1e509e9841d36f28dd63e4d958",
+      "event_hash": "535550e1ac7f138a7e6279aa7661f5b848ce27282374a1f65fa7207a8e9adc2e"
+    }
+  ],
+  "policy_path": null,
+  "floor_policy": [
+    {
+      "class": "bridge-message",
+      "floor": "E4",
+      "actor": "op",
+      "reason": "bridge is a local simulation rig",
+      "at": "2026-01-01T00:00:00.000000+00:00"
+    },
+    {
+      "class": "reentrancy",
+      "floor": "E6",
+      "actor": "lead",
+      "reason": "re-set replaces the previous entry",
+      "at": "2026-01-01T00:00:00.000000+00:00"
+    }
+  ],
+  "probe_blanks": []
+}

@@ -1,0 +1,180 @@
+[
+ {
+  "finding": {
+   "capabilities": {
+    "granted": [
+     "move spot price",
+     "extract protocol liquidity"
+    ],
+    "required": [
+     "Move-  Spot Price"
+    ]
+   }
+  },
+  "granted": [
+   "extract_protocol_liquidity",
+   "move_spot_price"
+  ],
+  "required": [
+   "move_spot_price"
+  ],
+  "delta": {
+   "gained": [
+    "extract_protocol_liquidity"
+   ],
+   "retained": [
+    "move_spot_price"
+   ],
+   "required": [
+    "move_spot_price"
+   ],
+   "kinds": [
+    "asset",
+    "market"
+   ],
+   "unclassified": []
+  },
+  "delta_json": "{\"gained\":[\"extract_protocol_liquidity\"],\"kinds\":[\"asset\",\"market\"],\"required\":[\"move_spot_price\"],\"retained\":[\"move_spot_price\"],\"unclassified\":[]}",
+  "granted_json": "[\"extract_protocol_liquidity\",\"move_spot_price\"]",
+  "required_json": "[\"move_spot_price\"]"
+ },
+ {
+  "finding": {
+   "preconditions": [
+    "attacker must hold pauser role"
+   ]
+  },
+  "granted": [],
+  "required": [
+   "attacker_must_hold_pauser_role"
+  ],
+  "delta": {
+   "gained": [],
+   "retained": [],
+   "required": [
+    "attacker_must_hold_pauser_role"
+   ],
+   "kinds": [],
+   "unclassified": []
+  },
+  "delta_json": "{\"gained\":[],\"kinds\":[],\"required\":[\"attacker_must_hold_pauser_role\"],\"retained\":[],\"unclassified\":[]}",
+  "granted_json": "[]",
+  "required_json": "[\"attacker_must_hold_pauser_role\"]"
+ },
+ {
+  "finding": {
+   "capabilities": {
+    "granted": [
+     "role_owner",
+     "drain treasury"
+    ],
+    "required": []
+   }
+  },
+  "granted": [
+   "drain_treasury",
+   "role_owner"
+  ],
+  "required": [],
+  "delta": {
+   "gained": [
+    "drain_treasury",
+    "role_owner"
+   ],
+   "retained": [],
+   "required": [],
+   "kinds": [
+    "asset",
+    "authority"
+   ],
+   "unclassified": []
+  },
+  "delta_json": "{\"gained\":[\"drain_treasury\",\"role_owner\"],\"kinds\":[\"asset\",\"authority\"],\"required\":[],\"retained\":[],\"unclassified\":[]}",
+  "granted_json": "[\"drain_treasury\",\"role_owner\"]",
+  "required_json": "[]"
+ },
+ {
+  "finding": {
+   "capabilities": {
+    "granted": [],
+    "required": [
+     "hold_governor"
+    ]
+   }
+  },
+  "granted": [],
+  "required": [
+   "hold_governor"
+  ],
+  "delta": {
+   "gained": [],
+   "retained": [],
+   "required": [
+    "hold_governor"
+   ],
+   "kinds": [],
+   "unclassified": []
+  },
+  "delta_json": "{\"gained\":[],\"kinds\":[],\"required\":[\"hold_governor\"],\"retained\":[],\"unclassified\":[]}",
+  "granted_json": "[]",
+  "required_json": "[\"hold_governor\"]"
+ },
+ {
+  "finding": {},
+  "granted": [],
+  "required": [],
+  "delta": {
+   "gained": [],
+   "retained": [],
+   "required": [],
+   "kinds": [],
+   "unclassified": []
+  },
+  "delta_json": "{\"gained\":[],\"kinds\":[],\"required\":[],\"retained\":[],\"unclassified\":[]}",
+  "granted_json": "[]",
+  "required_json": "[]"
+ },
+ {
+  "finding": {
+   "capabilities": {
+    "granted": [
+     "unknown-thing",
+     "role-admin",
+     "call_any_entry_point"
+    ],
+    "required": [
+     "role-admin"
+    ]
+   }
+  },
+  "granted": [
+   "call_any_entry_point",
+   "role_admin",
+   "unknown_thing"
+  ],
+  "required": [
+   "role_admin"
+  ],
+  "delta": {
+   "gained": [
+    "call_any_entry_point",
+    "unknown_thing"
+   ],
+   "retained": [
+    "role_admin"
+   ],
+   "required": [
+    "role_admin"
+   ],
+   "kinds": [
+    "authority"
+   ],
+   "unclassified": [
+    "unknown_thing"
+   ]
+  },
+  "delta_json": "{\"gained\":[\"call_any_entry_point\",\"unknown_thing\"],\"kinds\":[\"authority\"],\"required\":[\"role_admin\"],\"retained\":[\"role_admin\"],\"unclassified\":[\"unknown_thing\"]}",
+  "granted_json": "[\"call_any_entry_point\",\"role_admin\",\"unknown_thing\"]",
+  "required_json": "[\"role_admin\"]"
+ }
+]

@@ -1,0 +1,109 @@
+# Common taxonomy alias map: raw dataset labels -> canonical bug classes.
+#
+# Shape (see webv2.taxonomy):
+#   default: unmapped
+#   aliases:
+#     <raw-source-label-lowercased>: <canonical-class | unmapped>
+#
+# Per-dataset files (config/taxonomy_<dataset>.yaml) are merged ON TOP of
+# this one: a dataset-specific alias wins over a common one. Every alias
+# value must be a canonical class (webv2.taxonomy.CANONICAL_CLASSES) or the
+# literal 'unmapped' — a bad value is a deployment error and fails loud
+# (validate_map_file). Honesty over coverage: anything not obviously
+# mappable stays 'unmapped' instead of being guessed into a wrong floor.
+default: unmapped
+aliases:
+  # --- canonical self-mappings (the 20 classes the framework tracks) ---
+  access-control: access-control
+  authorization: authorization
+  bridge-message: bridge-message
+  centralization-risk: centralization-risk
+  cross-chain-replay: cross-chain-replay
+  donation: donation
+  dos-griefing: dos-griefing
+  economic-invariant: economic-invariant
+  flash-loan: flash-loan
+  liquidation-logic: liquidation-logic
+  logic-error: logic-error
+  oracle-manipulation: oracle-manipulation
+  precision-rounding: precision-rounding
+  reentrancy: reentrancy
+  share-price-accounting: share-price-accounting
+  share-price-inflation: share-price-inflation
+  signature-replay: signature-replay
+  token-integration: token-integration
+  unchecked-external-call: unchecked-external-call
+  upgrade-initializer: upgrade-initializer
+
+  # --- common English aliases ---
+  access control: access-control
+  access-control (missing check): access-control
+  missing access control: access-control
+  access control flaw: access-control
+  arithmetic: precision-rounding
+  arithmetic issue: precision-rounding
+  precision: precision-rounding
+  rounding: precision-rounding
+  rounding error: precision-rounding
+  precision loss: precision-rounding
+  integer overflow: precision-rounding
+  integer underflow: precision-rounding
+  reentrancy attack: reentrancy
+  cross-function reentrancy: reentrancy
+  cross function reentrancy: reentrancy
+  read-only reentrancy: reentrancy
+  read only reentrancy: reentrancy
+  single-block reentrancy: reentrancy
+  unchecked external call: unchecked-external-call
+  unchecked external calls: unchecked-external-call
+  unchecked call: unchecked-external-call
+  unchecked low-level call: unchecked-external-call
+  denial of service: dos-griefing
+  dos: dos-griefing
+  griefing: dos-griefing
+  oracle manipulation: oracle-manipulation
+  price manipulation: oracle-manipulation
+  oracle price manipulation: oracle-manipulation
+  time manipulation: oracle-manipulation
+  flash loan: flash-loan
+  flashloan: flash-loan
+  flash loan attack: flash-loan
+  upgrade: upgrade-initializer
+  initializer: upgrade-initializer
+  signature replay: signature-replay
+  signature malleability: signature-replay
+  bridge message: bridge-message
+  centralization: centralization-risk
+  centralization risk: centralization-risk
+  donation attack: donation
+  liquidation: liquidation-logic
+  logic error: logic-error
+  logic bug: logic-error
+
+  # --- the framework's OWN seed labels (sft/examples.json) ---
+  # CI (tests/test_taxonomy_seed_alignment.py) asserts that every bug-class
+  # label the seed dataset carries resolves to a canonical class through
+  # this map — a seed example may never reintroduce a class the
+  # framework does not track (the round-2 first-depositor-inflation
+  # incident: --example and SFT-0001 used a label in none of the maps).
+  # first-depositor-inflation (SFT-0001) is the dust-entry + off-path-
+  # inflow share-inflation family; the share-price-inflation playbook
+  # describes exactly this mechanism as its core case (INV-SPI-PRORATA,
+  # AT-SPI-OFFPATH-INFLOW).
+  first-depositor-inflation: share-price-inflation
+  share inflation: share-price-inflation
+  # stale-oracle-liquidation (SFT-0002): the weakness is an oracle read
+  # outside its staleness bound at a settlement call site — the
+  # oracle-manipulation playbook's INV-OM-NO-STALE-WEAPONIZATION case
+  # (the liquidation path is where it is consumed, not where it lives).
+  stale-oracle-liquidation: oracle-manipulation
+  stale oracle: oracle-manipulation
+
+  # --- recorded not-canonical decisions (explicitly 'unmapped') ---
+  # MEV-ordering and randomness labels have no canonical class yet; mapping
+  # them into a wrong floor would be worse than leaving them honest.
+  front-running: unmapped
+  frontrunning: unmapped
+  sandwich attack: unmapped
+  bad randomness: unmapped
+  weak randomness: unmapped

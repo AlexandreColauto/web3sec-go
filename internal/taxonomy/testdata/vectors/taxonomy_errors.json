@@ -1,0 +1,163 @@
+[
+ {
+  "name": "a.yaml",
+  "text": "aliases:\n  some-label: Defi-Rekt\n",
+  "error_kind": "ValueError",
+  "error": "taxonomy map {dir}/a.yaml: aliases['some-label'] -> 'Defi-Rekt' is neither a canonical class nor 'unmapped' (20 canonical classes: access-control, authorization, bridge-message, centralization-risk, cross-chain-replay, donation, dos-griefing, economic-invariant, flash-loan, liquidation-logic, logic-error, oracle-manipulation, precision-rounding, reentrancy, share-price-accounting, share-price-inflation, signature-replay, token-integration, unchecked-external-call, upgrade-initializer)",
+  "map_json": null
+ },
+ {
+  "name": "b.yaml",
+  "text": "aliases: [oops\n",
+  "error_kind": "ValueError",
+  "error": "taxonomy map {dir}/b.yaml is not valid YAML: while parsing a flow sequence\n  in \"<unicode string>\", line 1, column 10:\n    aliases: [oops\n             ^\nexpected ',' or ']', but got '<stream end>'\n  in \"<unicode string>\", line 2, column 1:\n    \n    ^",
+  "map_json": null
+ },
+ {
+  "name": "c.yaml",
+  "text": "- a\n- b\n",
+  "error_kind": "ValueError",
+  "error": "taxonomy map {dir}/c.yaml must be a YAML mapping",
+  "map_json": null
+ },
+ {
+  "name": "d.yaml",
+  "text": "default: 5\naliases: {}\n",
+  "error_kind": "ValueError",
+  "error": "taxonomy map {dir}/d.yaml: expected 'default' (str) and 'aliases' (mapping of str -> str)",
+  "map_json": null
+ },
+ {
+  "name": "e.yaml",
+  "text": "default:\naliases: {}\n",
+  "error_kind": "ValueError",
+  "error": "taxonomy map {dir}/e.yaml: expected 'default' (str) and 'aliases' (mapping of str -> str)",
+  "map_json": null
+ },
+ {
+  "name": "f.yaml",
+  "text": "default: unmapped\naliases: [a]\n",
+  "error_kind": "ValueError",
+  "error": "taxonomy map {dir}/f.yaml: expected 'default' (str) and 'aliases' (mapping of str -> str)",
+  "map_json": null
+ },
+ {
+  "name": "g.yaml",
+  "text": "aliases:\n  x: 5\n",
+  "error_kind": "ValueError",
+  "error": "taxonomy map {dir}/g.yaml: expected 'default' (str) and 'aliases' (mapping of str -> str)",
+  "map_json": null
+ },
+ {
+  "name": "h.yaml",
+  "text": "aliases:\n  5: reentrancy\n",
+  "error_kind": "ValueError",
+  "error": "taxonomy map {dir}/h.yaml: expected 'default' (str) and 'aliases' (mapping of str -> str)",
+  "map_json": null
+ },
+ {
+  "name": "i.yaml",
+  "text": "",
+  "error_kind": null,
+  "error": null,
+  "map_json": "{\"aliases\":{},\"default\":\"unmapped\"}"
+ },
+ {
+  "name": "j.yaml",
+  "text": "# only a comment\n",
+  "error_kind": null,
+  "error": null,
+  "map_json": "{\"aliases\":{},\"default\":\"unmapped\"}"
+ },
+ {
+  "name": "k.yaml",
+  "text": "default: \"\"\naliases: {}\n",
+  "error_kind": "ValueError",
+  "error": "taxonomy map {dir}/k.yaml: default -> '' is neither a canonical class nor 'unmapped' (20 canonical classes: access-control, authorization, bridge-message, centralization-risk, cross-chain-replay, donation, dos-griefing, economic-invariant, flash-loan, liquidation-logic, logic-error, oracle-manipulation, precision-rounding, reentrancy, share-price-accounting, share-price-inflation, signature-replay, token-integration, unchecked-external-call, upgrade-initializer)",
+  "map_json": null
+ },
+ {
+  "name": "l.yaml",
+  "text": "aliases:\n  x: reentrancy\n",
+  "error_kind": null,
+  "error": null,
+  "map_json": "{\"aliases\":{\"x\":\"reentrancy\"},\"default\":\"unmapped\"}"
+ },
+ {
+  "name": "m.yaml",
+  "text": "aliases:\n  x: unmapped\n",
+  "error_kind": null,
+  "error": null,
+  "map_json": "{\"aliases\":{\"x\":\"unmapped\"},\"default\":\"unmapped\"}"
+ },
+ {
+  "name": "n.yaml",
+  "text": "aliases: []\n",
+  "error_kind": null,
+  "error": null,
+  "map_json": "{\"aliases\":{},\"default\":\"unmapped\"}"
+ },
+ {
+  "name": "o.yaml",
+  "text": "aliases:\n",
+  "error_kind": null,
+  "error": null,
+  "map_json": "{\"aliases\":{},\"default\":\"unmapped\"}"
+ },
+ {
+  "name": "p.yaml",
+  "text": "~\n",
+  "error_kind": null,
+  "error": null,
+  "map_json": "{\"aliases\":{},\"default\":\"unmapped\"}"
+ },
+ {
+  "name": "q.yaml",
+  "text": "default: unmapped\n",
+  "error_kind": null,
+  "error": null,
+  "map_json": "{\"aliases\":{},\"default\":\"unmapped\"}"
+ },
+ {
+  "name": "r.yaml",
+  "text": "default: unmapped\naliases:\n  Custom Label: access-control\n  custom-label: reentrancy\n",
+  "error_kind": null,
+  "error": null,
+  "map_json": "{\"aliases\":{\"Custom Label\":\"access-control\",\"custom-label\":\"reentrancy\"},\"default\":\"unmapped\"}"
+ },
+ {
+  "name": "s.yaml",
+  "text": "aliases:\n  dup: reentrancy\n  dup: logic-error\n",
+  "error_kind": null,
+  "error": null,
+  "map_json": "{\"aliases\":{\"dup\":\"logic-error\"},\"default\":\"unmapped\"}"
+ },
+ {
+  "name": "t.yaml",
+  "text": "notamapping: 5\n",
+  "error_kind": null,
+  "error": null,
+  "map_json": "{\"aliases\":{},\"default\":\"unmapped\"}"
+ },
+ {
+  "name": "u.yaml",
+  "text": "default: Reentrancy\n",
+  "error_kind": "ValueError",
+  "error": "taxonomy map {dir}/u.yaml: default -> 'Reentrancy' is neither a canonical class nor 'unmapped' (20 canonical classes: access-control, authorization, bridge-message, centralization-risk, cross-chain-replay, donation, dos-griefing, economic-invariant, flash-loan, liquidation-logic, logic-error, oracle-manipulation, precision-rounding, reentrancy, share-price-accounting, share-price-inflation, signature-replay, token-integration, unchecked-external-call, upgrade-initializer)",
+  "map_json": null
+ },
+ {
+  "name": "v.yaml",
+  "text": "aliases:\n  x: Access-Control\n",
+  "error_kind": "ValueError",
+  "error": "taxonomy map {dir}/v.yaml: aliases['x'] -> 'Access-Control' is neither a canonical class nor 'unmapped' (20 canonical classes: access-control, authorization, bridge-message, centralization-risk, cross-chain-replay, donation, dos-griefing, economic-invariant, flash-loan, liquidation-logic, logic-error, oracle-manipulation, precision-rounding, reentrancy, share-price-accounting, share-price-inflation, signature-replay, token-integration, unchecked-external-call, upgrade-initializer)",
+  "map_json": null
+ },
+ {
+  "name": "missing.yaml",
+  "text": null,
+  "error_kind": "FileNotFoundError",
+  "error": "taxonomy map missing: {dir}/missing.yaml",
+  "map_json": null
+ }
+]

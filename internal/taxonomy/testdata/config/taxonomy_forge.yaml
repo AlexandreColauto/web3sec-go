@@ -1,0 +1,59 @@
+# Per-dataset taxonomy aliases: forge.
+# Owned ONLY by the forge adapter task (file discipline: one dataset, one
+# file). Merged on top of config/taxonomy_map.yaml — a dataset-specific
+# alias wins over a common one. Values must be a canonical class or
+# 'unmapped' (webv2.taxonomy.validate_map_file).
+#
+# FORGE-Curated labels are CWE ids (recon-forge.md §5: 206 distinct CWE
+# strings, but the adapter's bug_class_label is the level-"1" pillar, so
+# exactly 10 pillar labels occur + None for the 1,034 empty categories,
+# verified live). Each pillar maps to ONE class, so only pillars whose
+# whole family is one canonical bug are mapped; mixed-content pillars stay
+# 'unmapped' (honesty over coverage — a wrong floor is worse than none).
+# Sampled titles per pillar (task-5 report) back every decision below.
+default: unmapped
+aliases:
+  # CWE-284 Improper Access Control -> access-control. Samples: missing
+  # approval resets, unprotected pool init, unrevocable permits. Clean.
+  CWE-284: access-control
+  # Authorization-family CWEs (appear at deeper tree levels; kept for
+  # forward-compat — no current label uses them, verified live): the
+  # framework tracks a distinct 'authorization' class, used verbatim.
+  CWE-285: authorization
+  CWE-862: authorization
+  CWE-863: authorization
+  # CWE-682 Incorrect Calculation -> precision-rounding. Samples: share
+  # inflation, rounding mints extra shares, lost interest, fee avoidance.
+  CWE-682: precision-rounding
+  # Calculation-family CWEs (deeper levels only; forward-compat): integer
+  # overflow/underflow and divide-by-zero are precision-rounding here.
+  CWE-190: precision-rounding
+  CWE-191: precision-rounding
+  CWE-193: precision-rounding
+  CWE-369: precision-rounding
+
+  # --- recorded not-canonical decisions (deliberately left to default) ---
+  # CWE-710 Improper Adherence to Coding Standards: docstrings, payable
+  # hygiene, test coverage — FORGE's own guidance says usually
+  # non-exploitable; no canonical class for style. UNMAPPED.
+  # CWE-707 Improper Neutralization: mixed (supply reset, zero-amount
+  # swaps, one oracle drain) — no single class. UNMAPPED.
+  # CWE-664 Improper Control of a Resource Through its Lifetime: mixed
+  # (reserve accounting, double withdrawal, allowance grants) — spans
+  # logic-error, access-control and dos-griefing. UNMAPPED.
+  # CWE-691 Insufficient Control Flow Management: contains real
+  # reentrancy cases ("Lack of nonReentrant modifier") BUT also slippage
+  # logic, lost fees, repeated-check DoS — mapping the whole pillar to
+  # reentrancy would mismane wrong-floor rows. UNMAPPED.
+  # CWE-693 Protection Mechanism Failure: mixed (slippage protection,
+  # unsafe casts, order-id collision, brick-via-revert) — no single
+  # class. UNMAPPED.
+  # CWE-435 Improper Interaction Between Multiple Correctly-Behaving
+  # Entities: mixed (rebalance drain, sub-optimal pricing, centraliza-
+  # tion risk). UNMAPPED.
+  # CWE-703 Improper Check or Handling of Exceptional Conditions: spans
+  # token-integration (reverting tokens) and unchecked-external-call
+  # (failed pause, lost native assets) — not separable. UNMAPPED.
+  # CWE-697 Incorrect Comparison: comparison bugs that often involve
+  # oracles (stale-price checks, decimal mismatch) but are not oracle
+  # manipulation per se. UNMAPPED.

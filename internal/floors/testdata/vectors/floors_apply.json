@@ -1,0 +1,218 @@
+[
+ {
+  "name": "class_int.json",
+  "override": {
+   "class": 5,
+   "floor": "E4"
+  },
+  "error": "bug class must be kebab-case (a-z 0-9 -), got 5",
+  "floor_policy_json": null
+ },
+ {
+  "name": "class_null.json",
+  "override": {
+   "class": null,
+   "floor": "E4"
+  },
+  "error": "bug class must be kebab-case (a-z 0-9 -), got None",
+  "floor_policy_json": null
+ },
+ {
+  "name": "class_list.json",
+  "override": {
+   "class": [
+    "a"
+   ],
+   "floor": "E4"
+  },
+  "error": "bug class must be kebab-case (a-z 0-9 -), got ['a']",
+  "floor_policy_json": null
+ },
+ {
+  "name": "class_obj.json",
+  "override": {
+   "class": {
+    "a": 1
+   },
+   "floor": "E4"
+  },
+  "error": "bug class must be kebab-case (a-z 0-9 -), got {'a': 1}",
+  "floor_policy_json": null
+ },
+ {
+  "name": "class_spaces.json",
+  "override": {
+   "class": "  ",
+   "floor": "E4"
+  },
+  "error": "bug class must be kebab-case (a-z 0-9 -), got '  '",
+  "floor_policy_json": null
+ },
+ {
+  "name": "class_bool.json",
+  "override": {
+   "class": true,
+   "floor": "E4"
+  },
+  "error": "bug class must be kebab-case (a-z 0-9 -), got True",
+  "floor_policy_json": null
+ },
+ {
+  "name": "floor_int.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": 5
+  },
+  "error": "floor must be one of E0/E1/E2/E3/E4/E5/E6/E7, got 5",
+  "floor_policy_json": null
+ },
+ {
+  "name": "floor_null.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": null
+  },
+  "error": "floor must be one of E0/E1/E2/E3/E4/E5/E6/E7, got None",
+  "floor_policy_json": null
+ },
+ {
+  "name": "floor_lower.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": "e4"
+  },
+  "error": "floor must be one of E0/E1/E2/E3/E4/E5/E6/E7, got 'e4'",
+  "floor_policy_json": null
+ },
+ {
+  "name": "floor_list.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": [
+    "E4"
+   ]
+  },
+  "error": "floor must be one of E0/E1/E2/E3/E4/E5/E6/E7, got ['E4']",
+  "floor_policy_json": null
+ },
+ {
+  "name": "reason_int_short.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": "E4",
+   "reason": 5
+  },
+  "error": "floor overrides require a written reason (>= 10 chars) — an unnamed preference is not a policy",
+  "floor_policy_json": null
+ },
+ {
+  "name": "reason_int_ok.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": "E4",
+   "reason": 1234567890
+  },
+  "error": null,
+  "floor_policy_json": "[{\"actor\":\"campaign-init\",\"at\":\"2026-01-01T00:00:00.000000+00:00\",\"class\":\"reentrancy\",\"floor\":\"E4\",\"reason\":\"1234567890\"}]"
+ },
+ {
+  "name": "reason_bool.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": "E4",
+   "reason": true
+  },
+  "error": "floor overrides require a written reason (>= 10 chars) — an unnamed preference is not a policy",
+  "floor_policy_json": null
+ },
+ {
+  "name": "reason_zero.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": "E4",
+   "reason": 0
+  },
+  "error": null,
+  "floor_policy_json": "[{\"actor\":\"campaign-init\",\"at\":\"2026-01-01T00:00:00.000000+00:00\",\"class\":\"reentrancy\",\"floor\":\"E4\",\"reason\":\"declared in floor policy file policy.json\"}]"
+ },
+ {
+  "name": "reason_false.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": "E4",
+   "reason": false
+  },
+  "error": null,
+  "floor_policy_json": "[{\"actor\":\"campaign-init\",\"at\":\"2026-01-01T00:00:00.000000+00:00\",\"class\":\"reentrancy\",\"floor\":\"E4\",\"reason\":\"declared in floor policy file policy.json\"}]"
+ },
+ {
+  "name": "reason_empty_list.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": "E4",
+   "reason": []
+  },
+  "error": null,
+  "floor_policy_json": "[{\"actor\":\"campaign-init\",\"at\":\"2026-01-01T00:00:00.000000+00:00\",\"class\":\"reentrancy\",\"floor\":\"E4\",\"reason\":\"declared in floor policy file policy.json\"}]"
+ },
+ {
+  "name": "reason_null.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": "E4",
+   "reason": null
+  },
+  "error": null,
+  "floor_policy_json": "[{\"actor\":\"campaign-init\",\"at\":\"2026-01-01T00:00:00.000000+00:00\",\"class\":\"reentrancy\",\"floor\":\"E4\",\"reason\":\"declared in floor policy file policy.json\"}]"
+ },
+ {
+  "name": "reason_short.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": "E4",
+   "reason": "short"
+  },
+  "error": "floor overrides require a written reason (>= 10 chars) — an unnamed preference is not a policy",
+  "floor_policy_json": null
+ },
+ {
+  "name": "reason_absent.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": "E4"
+  },
+  "error": null,
+  "floor_policy_json": "[{\"actor\":\"campaign-init\",\"at\":\"2026-01-01T00:00:00.000000+00:00\",\"class\":\"reentrancy\",\"floor\":\"E4\",\"reason\":\"declared in floor policy file policy.json\"}]"
+ },
+ {
+  "name": "reason_ok.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": "E4",
+   "reason": "a long enough reason"
+  },
+  "error": null,
+  "floor_policy_json": "[{\"actor\":\"campaign-init\",\"at\":\"2026-01-01T00:00:00.000000+00:00\",\"class\":\"reentrancy\",\"floor\":\"E4\",\"reason\":\"a long enough reason\"}]"
+ },
+ {
+  "name": "actor_ignored.json",
+  "override": {
+   "class": "reentrancy",
+   "floor": "E4",
+   "actor": "someone",
+   "reason": "a long enough reason"
+  },
+  "error": null,
+  "floor_policy_json": "[{\"actor\":\"campaign-init\",\"at\":\"2026-01-01T00:00:00.000000+00:00\",\"class\":\"reentrancy\",\"floor\":\"E4\",\"reason\":\"a long enough reason\"}]"
+ },
+ {
+  "name": "class_canonical_ok.json",
+  "override": {
+   "class": "access-control",
+   "floor": "E6",
+   "reason": "another written reason"
+  },
+  "error": null,
+  "floor_policy_json": "[{\"actor\":\"campaign-init\",\"at\":\"2026-01-01T00:00:00.000000+00:00\",\"class\":\"access-control\",\"floor\":\"E6\",\"reason\":\"another written reason\"}]"
+ }
+]

@@ -1,0 +1,146 @@
+[
+ {
+  "value": "abc",
+  "match": true
+ },
+ {
+  "value": "ab",
+  "match": false
+ },
+ {
+  "value": "a-b",
+  "match": true
+ },
+ {
+  "value": "access-control",
+  "match": true
+ },
+ {
+  "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "match": true
+ },
+ {
+  "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "match": false
+ },
+ {
+  "value": "ABC",
+  "match": false
+ },
+ {
+  "value": "Abc",
+  "match": false
+ },
+ {
+  "value": "a_b",
+  "match": false
+ },
+ {
+  "value": "a.b",
+  "match": false
+ },
+ {
+  "value": "abc\n",
+  "match": true
+ },
+ {
+  "value": "abc\r\n",
+  "match": false
+ },
+ {
+  "value": "abc\n\n",
+  "match": false
+ },
+ {
+  "value": "\nabc",
+  "match": false
+ },
+ {
+  "value": "abc ",
+  "match": false
+ },
+ {
+  "value": " abc",
+  "match": false
+ },
+ {
+  "value": "0-9",
+  "match": true
+ },
+ {
+  "value": "---",
+  "match": true
+ },
+ {
+  "value": "e5",
+  "match": false
+ },
+ {
+  "value": "reentrancy",
+  "match": true
+ },
+ {
+  "value": "reentrancy ",
+  "match": false
+ },
+ {
+  "value": "reentrancy\n",
+  "match": true
+ },
+ {
+  "value": "réntrancy",
+  "match": false
+ },
+ {
+  "value": "a-b-c-d-e",
+  "match": true
+ },
+ {
+  "value": "123",
+  "match": true
+ },
+ {
+  "value": "000",
+  "match": true
+ },
+ {
+  "value": "-ab",
+  "match": true
+ },
+ {
+  "value": "ab-",
+  "match": true
+ },
+ {
+  "value": "",
+  "match": false
+ },
+ {
+  "value": "\n",
+  "match": false
+ },
+ {
+  "value": "aaa",
+  "match": true
+ },
+ {
+  "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "match": true
+ },
+ {
+  "value": "a1b2c3",
+  "match": true
+ },
+ {
+  "value": "a-",
+  "match": false
+ },
+ {
+  "value": "a--b",
+  "match": true
+ },
+ {
+  "value": "ééé",
+  "match": false
+ }
+]

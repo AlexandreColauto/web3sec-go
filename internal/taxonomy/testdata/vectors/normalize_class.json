@@ -1,0 +1,2042 @@
+[
+ {
+  "label": "Access Control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "  ARITHMETIC ",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "denial of service",
+  "canonical": "dos-griefing",
+  "mapped": true
+ },
+ {
+  "label": "time manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "flashloan",
+  "canonical": "flash-loan",
+  "mapped": true
+ },
+ {
+  "label": "Access  Control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "access-control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "  ACCESS-control ",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "quantum-decoherence",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "front-running",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "custom-label",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "reentrancy",
+  "canonical": "reentrancy",
+  "mapped": true
+ },
+ {
+  "label": "first-depositor-inflation",
+  "canonical": "share-price-inflation",
+  "mapped": true
+ },
+ {
+  "label": "stale-oracle-liquidation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "share-price-inflation",
+  "canonical": "share-price-inflation",
+  "mapped": true
+ },
+ {
+  "label": "oracle-manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "unmapped",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "ACCESS  control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "access_control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "access.control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "access/control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Access-Control!!!",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "  access---control  ",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "ACCESS-CONTROL",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "café-class",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "Ünicode Class",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "İstanbul",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "ＡＣＣＥＳＳ",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "access\tcontrol",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "access\ncontrol",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "access control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "access​control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "   ",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "\t\n",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "Unchecked External Call",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "UNCHECKED_EXTERNAL_CALL",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Share  Price Inflation",
+  "canonical": "share-price-inflation",
+  "mapped": true
+ },
+ {
+  "label": "bridge-message ",
+  "canonical": "bridge-message",
+  "mapped": true
+ },
+ {
+  "label": " cross-chain-replay",
+  "canonical": "cross-chain-replay",
+  "mapped": true
+ },
+ {
+  "label": "Donation-Attack",
+  "canonical": "donation",
+  "mapped": true
+ },
+ {
+  "label": "logic error",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Logic_Error",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "DOS",
+  "canonical": "dos-griefing",
+  "mapped": true
+ },
+ {
+  "label": "signature  malleability",
+  "canonical": "signature-replay",
+  "mapped": true
+ },
+ {
+  "label": "centralization  risk",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "upgrade",
+  "canonical": "upgrade-initializer",
+  "mapped": true
+ },
+ {
+  "label": "initializer",
+  "canonical": "upgrade-initializer",
+  "mapped": true
+ },
+ {
+  "label": "liquidation",
+  "canonical": "liquidation-logic",
+  "mapped": true
+ },
+ {
+  "label": "precision loss",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "integer overflow",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "read-only reentrancy",
+  "canonical": "reentrancy",
+  "mapped": true
+ },
+ {
+  "label": "sandwich attack",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "bad randomness",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "stale oracle",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "share inflation",
+  "canonical": "share-price-inflation",
+  "mapped": true
+ },
+ {
+  "label": "share-price-accounting",
+  "canonical": "share-price-accounting",
+  "mapped": true
+ },
+ {
+  "label": "economic-invariant",
+  "canonical": "economic-invariant",
+  "mapped": true
+ },
+ {
+  "label": "liquidation-logic",
+  "canonical": "liquidation-logic",
+  "mapped": true
+ },
+ {
+  "label": "token-integration",
+  "canonical": "token-integration",
+  "mapped": true
+ },
+ {
+  "label": "authorization",
+  "canonical": "authorization",
+  "mapped": true
+ },
+ {
+  "label": "centralization-risk",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "donation",
+  "canonical": "donation",
+  "mapped": true
+ },
+ {
+  "label": "dos-griefing",
+  "canonical": "dos-griefing",
+  "mapped": true
+ },
+ {
+  "label": "precision-rounding",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "unchecked-external-call",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "upgrade-initializer",
+  "canonical": "upgrade-initializer",
+  "mapped": true
+ },
+ {
+  "label": "signature-replay",
+  "canonical": "signature-replay",
+  "mapped": true
+ },
+ {
+  "label": "cross-chain-replay",
+  "canonical": "cross-chain-replay",
+  "mapped": true
+ },
+ {
+  "label": "access control flaw",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "unchecked low-level call",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "single-block reentrancy",
+  "canonical": "reentrancy",
+  "mapped": true
+ },
+ {
+  "label": "missing access control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "access-control (missing check)",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "read only reentrancy",
+  "canonical": "reentrancy",
+  "mapped": true
+ },
+ {
+  "label": "cross function reentrancy",
+  "canonical": "reentrancy",
+  "mapped": true
+ },
+ {
+  "label": "cross-function reentrancy",
+  "canonical": "reentrancy",
+  "mapped": true
+ },
+ {
+  "label": "integer underflow",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "rounding error",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "oracle price manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "flash loan attack",
+  "canonical": "flash-loan",
+  "mapped": true
+ },
+ {
+  "label": "flash loan",
+  "canonical": "flash-loan",
+  "mapped": true
+ },
+ {
+  "label": "griefing",
+  "canonical": "dos-griefing",
+  "mapped": true
+ },
+ {
+  "label": "dos",
+  "canonical": "dos-griefing",
+  "mapped": true
+ },
+ {
+  "label": "time  manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "oracle-manipulation ",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "reentrancy-attack",
+  "canonical": "reentrancy",
+  "mapped": true
+ },
+ {
+  "label": "Reentrancy",
+  "canonical": "reentrancy",
+  "mapped": true
+ },
+ {
+  "label": "REENTRANCY",
+  "canonical": "reentrancy",
+  "mapped": true
+ },
+ {
+  "label": "reentrancy!",
+  "canonical": "reentrancy",
+  "mapped": true
+ },
+ {
+  "label": "0day",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "a1-b2-c3",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "E5",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "e5",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "unmapped ",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": " unmapped",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "UNMAPPED",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "None",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "none",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "Lack of Access Control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "lack-of-access-control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Access Control Bypass",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Settings access control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "CheckoutPool Old BOC Missing Access Control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Access Control / Input Validation",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Access Control / Bond Minting Flaw",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Missing caller check",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "SquidRouterModule Missing Caller Check",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "New Market Trading SquidRouterModule Missing Caller Check",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Arbitrary Call / Wrong Approval",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Credit Approval Bypass",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Stale Approval",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Chained Access Control + Unrevoked Approval",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Legacy Contract Approval Exploit via Flawed Interest Repayment Function",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Coinbase Fee Account - Errant Approval to 0x Settler Enables Arbitrary transferFrom",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "AllowanceTarget approval drain",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "ABCCApp - Lack of Access Control / Reward Logic Abuse",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "SuperRare (RARE) Staking - Missing Access Control on updateMerkleRoot",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Bebop JamSettlement - Unauthenticated settle() Allows Arbitrary transferFrom",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Size Credit LeverageUp - Unvalidated Swap Calldata Enables Arbitrary transferFrom",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "SQTokenStaking Access Control Exploit",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "MulticallWithXera - Access Control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Stead - Access Control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Unverified_b5cb - Access Control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Unverified_54cd - Access Control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Missing ERC4626 allowance check",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "TokenHolder Arbitrary Call via sell()",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "MulticallWithETH - Arbitrary Call via Unprotected Multicall",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Permissionless bond registration / payoff mispricing",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "RICE - Lack of Access Control (Unprotected withdraw / BentoBox-style vault)",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Lack of Input Validation (Fake LP Mint)",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Access Control — Public setMerkleRoot",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Access Control — NFT Auction Contract",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Access Control (public setBurnRate)",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Access Control (unprotected swap callback)",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "0x8d2e - Access Control (unprotected swap callback)",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "0xf340 - Access Control (unprotected initVRF)",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Ownership Override Attack",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "DxSale Legacy Liquidity Locker Ownership Override Backdoor Drain",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Unprotected reward claim via forced NFT transfer",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Unprotected unwrapWETH callable by anyone",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "EIP-7702 Access Control Bypass",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "ERC-2771 Meta-Transaction Identity Confusion",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Trusted Forwarder Spoof",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "MinimalForwarder Access Control Bypass / Oracle Price Manipulation",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Unaudited Custom Oracle Missing Authorization Check",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Access Control Flaw in Oracle Update Enabling Unauthorized Expiry Price Setting",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Insufficient Sender Verification — Business Logic Flaw",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Unchecked Reward Pool Whitelist — Business Logic Flaw",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Permit Validation Bypass",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Duplicate xLOOT Redemption",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Access Control Missing on MEV Bot Arbitrage Function",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "TrustedVolumes RFQ Proxy Signature/Authorization Drain",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Token Minting",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Arbitrary Mint",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "MAP Protocol OmniService Arbitrary Mint",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Permissionless triggerAutoBurn Reserve Manipulation",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "BYToken Permissionless triggerAutoBurn Reserve Manipulation",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "_englove Sybil Incentive Abuse",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "WUSD.fi Sybil Incentive Abuse / GLOVE Emission Farming + LP Drain",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Lack of permission control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "Arbitrary Call",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "arbitrary-call",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Arbitrary External Call",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Arbitrary External Call / Credit Delegation Abuse",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Arbitrary Yul Calldata",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Arbitrary Call via CCIP",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Arbitrary Call / Unvalidated Low-Level Call",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Lack of Input Validation / Arbitrary Call",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Lack of Input Validation — Arbitrary Low-Level Call",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Kame - Arbitrary External Call",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Arbitrary External Call via Unvalidated Swap Arguments",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Unvalidated External Contract Input in Migrator",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Arbitary External Call",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Unprotected arbitrary-call forwarder drained via pre-granted WETH allowance",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Fake Uniswap Callback",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Unchecked Flash Loan Callback",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Multisig DelegateCall Exploit — Unauthorized Admin Takeover",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "CPI Exploit",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "call/delegatecall",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "Logic Flaw",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Logic",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Business Logic",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Business Logic Flaw",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Bussiness Logic Flaw",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Smart Contract Logic Flaw",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Incorrect Validation",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Insufficient Validation",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Lack of Input Validation",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Incorrect Input Validation",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Hexotic - Incorrect Input Validation",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Incorrect logic",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Insufficient validation",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Unchecked User Input",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Arbitrary user input",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Incorrect Fee Logic",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Fee Unit Mismatch",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Unit Mismatch",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Incorrect Reward calculation",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Reward Accounting Drain",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Reward Accounting Flaw",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "SWAPPStaking - emergencyWithdraw Reward Miscalculation",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "PDZ (TbBuild) - burnToHolder Reward Uses Manipulable getAmountsOut",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "LBP balanceOf reward accounting",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "LBP balanceOf Reward Accounting Manipulation",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "BPool single-sided join/exit math with SideStaking gulp accounting",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Incorrect dividends calculation",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Incorrect dividends",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "BankrollStack - Incorrect dividends calculation",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "BankrollNetwork - Incorrect dividends calculation",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Gangsterfinance - Incorrect dividends",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Incorrect Burn Logic",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Incorrect Token Burn Mechanism",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Incorrect token burn mechanism",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "EST Token Incorrect Burn / skim Accounting Exploit",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Flawed Burn Mechanism (Deferred LP Burn)",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Flawed Delayed-Burn Mechanism",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "WXC Token - Flawed Burn/Sell Mechanism Manipulated via Flashloan",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Flash Swap Accounting",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Accounting Flaw",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Accounting Manipulation",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Accounting Error",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "proof_id Accounting Bypass (whitehat reproduction)",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Flash Loan + Logic Error",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Business Logic Flaw (Self-Liquidation)",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Business Logic Flaw (Missing Input Validation)",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Business Logic Flaw (Negative Integrator Fee)",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Business Logic Flaw / Bonding Curve Migration Exploit",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Business Logic Flaw in Staking / unStake State Check",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "FPC - Logic Flaw",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "VDS - Logic Flaw (1:1 Burn-for-Underlying)",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Ekubo Router lock/forward Business Logic Flaw",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "INK Finance Payroll claimPayroll Business Logic Flaw",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Constructor Dividend Checkpoint Bypass",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "NovaBox Constructor Dividend Checkpoint Bypass",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Flawed Trading Restriction Logic (Deflationary Token)",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Payout Amount Mismatch",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Miscalculation",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Pricing / Decimals Mismatch",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Stepp2p - Double-Spend via cancelSaleOrder + modifySaleOrder",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Grizzifi - Referral Bonus Counts totalInvested Including Withdrawals",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "reward-farming / BurnAddress accounting exploit!",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Ambient CrocSwapDex Native Surplus Accounting Flaw",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Native surplus accounting flaw",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Liquidity Misclassification Fee Bypass",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "DTXT Liquidity Misclassification Fee Bypass",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "Price Oracle Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "GradientMakerPool - Price Oracle Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Faulty Oracle",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Moonwell Faulty Oracle Over-Borrow",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Oracle Exploit",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Oracle Misconfiguration",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Oracle",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Vulnerable Price Dependency",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Reserve Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Reserve Price Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Reserve-derived livePrice manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "OLPC pair reserve manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "XDK recycle reserve manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Collateral Price Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Hegic collateral spot price manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Flash-loan price oracle manipulation of lending collateral valuation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Flash Loan / Price Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Flash Loan + Pricing Logic Flaw",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "DRLVaultV3 Slippage / Price Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Price Manipulation and Tax Bypass",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Price Manipulation not confirmed",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Deflationary burn-from-pair price manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Fee-on-Transfer Reserve Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "DIP Fee-on-Transfer Reserve Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Transfer Accounting Reserve Desync",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "WHALE Transfer Accounting Reserve Desync",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Deflationary token reserve desync via transfer+skim",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "WETC - Reserve Desync via skim/sync (Price Manipulation)",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "buy/sell price manipulation via flashloan loop",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Flashloan oracle/position price manipulation on LP lending",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Flashloan price manipulation of ticket swap/burn pricing",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Deposit-to-mint price miscalculation drained pool",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Flash Loan + AMM Reserve Manipulation via Burn-Sync Pattern",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "YuliAI - sellToken Prices Against Manipulable V3 Spot Price",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "EverValueCoin (EVA) - Orderbook Price Manipulation / Arbitrage",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Fractal Protocol Vault Deposit/Withdraw Price Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "NGP Token Price Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "d3xai - Price Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Algebra spot-price oracle manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Spot Price Oracle Manipulation (PancakeSwap V3 slot0)",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Oracle Price Manipulation (RateX PT Collateral)",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "YSDAO Tax-Logic Bypass + Permissionless sync() Price Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "RANT - Logic Flaw / Price Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Swap Metapool Attack",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "JB helper repeated cycle drains JB/USDT pair",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Virtual AMM Manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "Flashloans",
+  "canonical": "flash-loan",
+  "mapped": true
+ },
+ {
+  "label": "Reentrancy in removeLiquidityViaContract",
+  "canonical": "reentrancy",
+  "mapped": true
+ },
+ {
+  "label": "Reentrancy in collectFees Function",
+  "canonical": "reentrancy",
+  "mapped": true
+ },
+ {
+  "label": "Joe Agent removeLiquidityViaContract Reentrancy",
+  "canonical": "reentrancy",
+  "mapped": true
+ },
+ {
+  "label": "Overflow",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "OverFlow",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "Under/Overflow",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "Unsafe Math",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "Unsafe Cast Truncation",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "Arithmetic Overflow in CLMM Math Library",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "Integer Cast Overflow + Rounding Asymmetry",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "Integer Overflow (BT404 Ghost Ownership)",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "Overflow / Pricing Formula Flaw",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "Precision Loss / Rounding Error in Accumulator",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "Vault Share Rounding Manipulation",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "Balancer V2 ComposableStablePool Precision Loss / Rounding Attack",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "Share price manipulation",
+  "canonical": "share-price-inflation",
+  "mapped": true
+ },
+ {
+  "label": "Share Price Manipulation",
+  "canonical": "share-price-inflation",
+  "mapped": true
+ },
+ {
+  "label": "Share Manipulation",
+  "canonical": "share-price-inflation",
+  "mapped": true
+ },
+ {
+  "label": "Inflation Attack",
+  "canonical": "share-price-inflation",
+  "mapped": true
+ },
+ {
+  "label": "Inflation",
+  "canonical": "share-price-inflation",
+  "mapped": true
+ },
+ {
+  "label": "Oracle Misconfiguration / Share Inflation",
+  "canonical": "share-price-inflation",
+  "mapped": true
+ },
+ {
+  "label": "FleetCommander NAV Inflation via Depegged xUSD",
+  "canonical": "share-price-inflation",
+  "mapped": true
+ },
+ {
+  "label": "ResupplyFi - Share price manipulation",
+  "canonical": "share-price-inflation",
+  "mapped": true
+ },
+ {
+  "label": "Liquidity Index Manipulation",
+  "canonical": "share-price-inflation",
+  "mapped": true
+ },
+ {
+  "label": "Index vault component-share accounting flaw",
+  "canonical": "share-price-accounting",
+  "mapped": true
+ },
+ {
+  "label": "Thetanuts Index Vault Component-Share Accounting Flaw",
+  "canonical": "share-price-accounting",
+  "mapped": true
+ },
+ {
+  "label": "ERC4626",
+  "canonical": "share-price-accounting",
+  "mapped": true
+ },
+ {
+  "label": "Saturn Protocol sUSDat ERC4626 Vulnerability Disclosure",
+  "canonical": "share-price-accounting",
+  "mapped": true
+ },
+ {
+  "label": "Donate",
+  "canonical": "donation",
+  "mapped": true
+ },
+ {
+  "label": "BorrowBehalf + Donation Attack",
+  "canonical": "donation",
+  "mapped": true
+ },
+ {
+  "label": "Venus THE BorrowBehalf + Donation Attack",
+  "canonical": "donation",
+  "mapped": true
+ },
+ {
+  "label": "AROS Signature Replay / Reusable claimPrincipal + claimYield Signatures",
+  "canonical": "signature-replay",
+  "mapped": true
+ },
+ {
+  "label": "Stale Chainlink Oracle Signature Replay Attack",
+  "canonical": "signature-replay",
+  "mapped": true
+ },
+ {
+  "label": "Bridge Attack",
+  "canonical": "bridge-message",
+  "mapped": true
+ },
+ {
+  "label": "Bridge Exploit",
+  "canonical": "bridge-message",
+  "mapped": true
+ },
+ {
+  "label": "Bridge",
+  "canonical": "bridge-message",
+  "mapped": true
+ },
+ {
+  "label": "CrossChain",
+  "canonical": "bridge-message",
+  "mapped": true
+ },
+ {
+  "label": "Vulnerable Off-chain Signing (Fake VAA Injection)",
+  "canonical": "bridge-message",
+  "mapped": true
+ },
+ {
+  "label": "Access Control Issue / Cross-Chain Message Verification Bypass",
+  "canonical": "bridge-message",
+  "mapped": true
+ },
+ {
+  "label": "Adshares WrappedADS Bridge Insufficient Validation",
+  "canonical": "bridge-message",
+  "mapped": true
+ },
+ {
+  "label": "Verus Bridge Forged Import Proof Drain",
+  "canonical": "bridge-message",
+  "mapped": true
+ },
+ {
+  "label": "Governance Attack",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Governance Takeover",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Governance Attack (Aragon DAO Takeover)",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Governance Attack — Voting Power Privilege Escalation",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Access Control — Malicious Governance Proposal",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Governance-controlled token mint and Balancer pool drain",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "TOP Governance-Controlled Mint and Balancer Pool Drain",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Governance",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "MaliciosProposal",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Owner Backdoor LP Burn + Price Manipulation",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "SKP Token Owner Backdoor LP Burn + Price Manipulation",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Owner-privileged JAKE burn reserve drain",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "YDT - Logic Flaw (Privileged Pool Drain Function)",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Unverified_8490 - Privileged Mint/Burn Hook Abuse (Token + Flashloan)",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Rug-Pull(Protocol Side)",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "rug pull",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Rug Pull (backdoor in transferFrom)",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Backdoored token withdrawal (rug pull)",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "IRYSAI - Rug Pull (Privileged Tax Wallet Backdoor)",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Business Logic Flaw (Backdoored Sale Contract)",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Insider Access / Backdoor Mint",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "Proxy Upgrade Attack",
+  "canonical": "upgrade-initializer",
+  "mapped": true
+ },
+ {
+  "label": "Uninitialized Proxy",
+  "canonical": "upgrade-initializer",
+  "mapped": true
+ },
+ {
+  "label": "Renegade Dark Pool Uninitialized Proxy Takeover",
+  "canonical": "upgrade-initializer",
+  "mapped": true
+ },
+ {
+  "label": "uninitialized",
+  "canonical": "upgrade-initializer",
+  "mapped": true
+ },
+ {
+  "label": "Token Incompatible",
+  "canonical": "token-integration",
+  "mapped": true
+ },
+ {
+  "label": "deflationary token",
+  "canonical": "token-integration",
+  "mapped": true
+ },
+ {
+  "label": "Deflationary token",
+  "canonical": "token-integration",
+  "mapped": true
+ },
+ {
+  "label": "Deflationary Token Incompatible",
+  "canonical": "token-integration",
+  "mapped": true
+ },
+ {
+  "label": "Deflationary Token Exploit",
+  "canonical": "token-integration",
+  "mapped": true
+ },
+ {
+  "label": "Deflationary Token Logic Error",
+  "canonical": "token-integration",
+  "mapped": true
+ },
+ {
+  "label": "Reflection Token",
+  "canonical": "token-integration",
+  "mapped": true
+ },
+ {
+  "label": "ERC20",
+  "canonical": "token-integration",
+  "mapped": true
+ },
+ {
+  "label": "ERC721",
+  "canonical": "token-integration",
+  "mapped": true
+ },
+ {
+  "label": "ERC777",
+  "canonical": "token-integration",
+  "mapped": true
+ },
+ {
+  "label": "NFT",
+  "canonical": "token-integration",
+  "mapped": true
+ },
+ {
+  "label": "Token-Transfer",
+  "canonical": "token-integration",
+  "mapped": true
+ },
+ {
+  "label": "Zero-amount ERC1155 batch transfer inflated Royal LDA tier balance",
+  "canonical": "token-integration",
+  "mapped": true
+ },
+ {
+  "label": "Post Insolvency Check",
+  "canonical": "liquidation-logic",
+  "mapped": true
+ },
+ {
+  "label": "Abracadabra (MIMSpell3) Bypassed Insolvency Check",
+  "canonical": "liquidation-logic",
+  "mapped": true
+ },
+ {
+  "label": "Sharwa Finance Post-Insolvency Check Bypass",
+  "canonical": "liquidation-logic",
+  "mapped": true
+ },
+ {
+  "label": "CWE-284",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "CWE-285",
+  "canonical": "authorization",
+  "mapped": true
+ },
+ {
+  "label": "CWE-862",
+  "canonical": "authorization",
+  "mapped": true
+ },
+ {
+  "label": "CWE-863",
+  "canonical": "authorization",
+  "mapped": true
+ },
+ {
+  "label": "CWE-682",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "CWE-190",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "CWE-191",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "CWE-193",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "CWE-369",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "bridge-message",
+  "canonical": "bridge-message",
+  "mapped": true
+ },
+ {
+  "label": "flash-loan",
+  "canonical": "flash-loan",
+  "mapped": true
+ },
+ {
+  "label": "logic-error",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "access control",
+  "canonical": "access-control",
+  "mapped": true
+ },
+ {
+  "label": "arithmetic",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "arithmetic issue",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "precision",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "rounding",
+  "canonical": "precision-rounding",
+  "mapped": true
+ },
+ {
+  "label": "reentrancy attack",
+  "canonical": "reentrancy",
+  "mapped": true
+ },
+ {
+  "label": "unchecked external call",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "unchecked external calls",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "unchecked call",
+  "canonical": "unchecked-external-call",
+  "mapped": true
+ },
+ {
+  "label": "oracle manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "price manipulation",
+  "canonical": "oracle-manipulation",
+  "mapped": true
+ },
+ {
+  "label": "signature replay",
+  "canonical": "signature-replay",
+  "mapped": true
+ },
+ {
+  "label": "signature malleability",
+  "canonical": "signature-replay",
+  "mapped": true
+ },
+ {
+  "label": "bridge message",
+  "canonical": "bridge-message",
+  "mapped": true
+ },
+ {
+  "label": "centralization",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "centralization risk",
+  "canonical": "centralization-risk",
+  "mapped": true
+ },
+ {
+  "label": "donation attack",
+  "canonical": "donation",
+  "mapped": true
+ },
+ {
+  "label": "logic bug",
+  "canonical": "logic-error",
+  "mapped": true
+ },
+ {
+  "label": "frontrunning",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": "weak randomness",
+  "canonical": "unmapped",
+  "mapped": false
+ },
+ {
+  "label": null,
+  "canonical": "unmapped",
+  "mapped": false
+ }
+]
