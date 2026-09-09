@@ -294,6 +294,9 @@ func ensureSeams() {
 	forkdiff.Wire()
 	// T28: the learning/relations/shared_memory seams (D15/D18 closure).
 	wireT28Seams()
+	// T33: the eval_store seams (trajectory/metrics case_partition and
+	// corpus.class_inventory).
+	wireT33Seams()
 }
 
 // docMapSeam adapts invariants.DocumentedInvariants to findings' seam shape.

@@ -2084,62 +2084,86 @@
   {
    "python_file": "tests/test_eval_store.py",
    "python_func": "test_add_stamps_framework_owned_fields",
-   "status": "deferred-P4"
+   "go_file": "internal/evalstore/evalstore_test.go",
+   "go_func": "TestEvalStoreAddStampsFrameworkOwnedFields",
+   "notes": ""
   },
   {
    "python_file": "tests/test_eval_store.py",
    "python_func": "test_add_then_load_roundtrip",
-   "status": "deferred-P4"
+   "go_file": "internal/evalstore/evalstore_test.go",
+   "go_func": "TestEvalStoreAddThenLoadRoundtrip",
+   "notes": ""
   },
   {
    "python_file": "tests/test_eval_store.py",
    "python_func": "test_duplicate_case_id_rejected",
-   "status": "deferred-P4"
+   "go_file": "internal/evalstore/evalstore_test.go",
+   "go_func": "TestEvalStoreDuplicateCaseIDRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_eval_store.py",
    "python_func": "test_invalid_case_rejected_and_nothing_written",
-   "status": "deferred-P4"
+   "go_file": "internal/evalstore/evalstore_test.go",
+   "go_func": "TestEvalStoreInvalidCaseRejectedAndNothingWritten",
+   "notes": ""
   },
   {
    "python_file": "tests/test_eval_store.py",
    "python_func": "test_list_filters_partition_dataset_program",
-   "status": "deferred-P4"
+   "go_file": "internal/evalstore/evalstore_test.go",
+   "go_func": "TestEvalStoreListFiltersPartitionDatasetProgram",
+   "notes": ""
   },
   {
    "python_file": "tests/test_eval_store.py",
    "python_func": "test_load_case_missing_raises",
-   "status": "deferred-P4"
+   "go_file": "internal/evalstore/evalstore_test.go",
+   "go_func": "TestEvalStoreLoadCaseMissingRaises",
+   "notes": ""
   },
   {
    "python_file": "tests/test_eval_store.py",
    "python_func": "test_noncanonical_bug_class_rejected",
-   "status": "deferred-P4"
+   "go_file": "internal/evalstore/evalstore_test.go",
+   "go_func": "TestEvalStoreNoncanonicalBugClassRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_eval_store.py",
    "python_func": "test_verify_detects_corrupted_case",
-   "status": "deferred-P4"
+   "go_file": "internal/evalstore/evalstore_test.go",
+   "go_func": "TestEvalStoreVerifyDetectsCorruptedCase",
+   "notes": ""
   },
   {
    "python_file": "tests/test_eval_store.py",
    "python_func": "test_verify_detects_hand_made_duplicate_ids",
-   "status": "deferred-P4"
+   "go_file": "internal/evalstore/evalstore_test.go",
+   "go_func": "TestEvalStoreVerifyDetectsHandMadeDuplicateIDs",
+   "notes": ""
   },
   {
    "python_file": "tests/test_eval_store.py",
    "python_func": "test_verify_detects_missing_sidecar",
-   "status": "deferred-P4"
+   "go_file": "internal/evalstore/evalstore_test.go",
+   "go_func": "TestEvalStoreVerifyDetectsMissingSidecar",
+   "notes": ""
   },
   {
    "python_file": "tests/test_eval_store.py",
    "python_func": "test_verify_detects_sidecar_mismatch",
-   "status": "deferred-P4"
+   "go_file": "internal/evalstore/evalstore_test.go",
+   "go_func": "TestEvalStoreVerifyDetectsSidecarMismatch",
+   "notes": ""
   },
   {
    "python_file": "tests/test_eval_store.py",
    "python_func": "test_verify_on_fresh_store",
-   "status": "deferred-P4"
+   "go_file": "internal/evalstore/evalstore_test.go",
+   "go_func": "TestEvalStoreVerifyOnFreshStore",
+   "notes": ""
   },
   {
    "python_file": "tests/test_evidence_integrity.py",
@@ -2803,7 +2827,9 @@
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_campaign_seed_absent_without_repo",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestCampaignSeedAbsentWithoutRepo",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
@@ -2815,17 +2841,23 @@
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_confirmed_exploitable_negative_is_contradiction",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestConfirmedExploitableNegativeIsContradiction",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_confirmed_exploitable_non_negative_has_no_rows",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestConfirmedExploitableNonNegativeHasNoRows",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_deterministic_case_id_and_duplicate_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestDeterministicCaseIDAndDuplicateRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
@@ -2855,7 +2887,9 @@
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_held_out_partition_propagates_to_case_and_row",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestHeldOutPartitionPropagatesToCaseAndRow",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
@@ -2867,22 +2901,30 @@
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_negative_and_prior_mutually_exclusive",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestNegativeAndPriorMutuallyExclusive",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_negative_outcome_table",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestNegativeOutcomeTable",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_negative_without_pattern_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestNegativeWithoutPatternRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_non_negative_record_has_no_rows",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestNonNegativeRecordHasNoRows",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
@@ -2892,27 +2934,37 @@
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_prior_emits_confirmed_row_with_pattern",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestPriorEmitsConfirmedRowWithPattern",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_publish_ingested",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestPublishIngested",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_publish_ingested_explicit_program_key",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestPublishIngestedExplicitProgramKey",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_replace_program_key",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestReplaceProgramKey",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_replace_program_key_rejects_non_dev_rows",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestReplaceProgramKeyRejectsNonDevRows",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
@@ -2931,17 +2983,23 @@
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_snapshot_note_forwarded_to_eval_case",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestSnapshotNoteForwardedToEvalCase",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_taxonomy_alias_and_unmapped",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestTaxonomyAliasAndUnmapped",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_unmapped_prior_emits_no_row",
-   "status": "deferred-P1"
+   "go_file": "internal/ingest/ingest_test.go",
+   "go_func": "TestIngestUnmappedPriorEmitsNoRow",
+   "notes": ""
   },
   {
    "python_file": "tests/test_ingest.py",
@@ -3353,32 +3411,44 @@
   {
    "python_file": "tests/test_metrics.py",
    "python_func": "test_benchmark_2x2_math",
-   "status": "deferred-P4"
+   "go_file": "internal/metrics/metrics_test.go",
+   "go_func": "TestMetricsBenchmark2x2Math",
+   "notes": ""
   },
   {
    "python_file": "tests/test_metrics.py",
    "python_func": "test_critic_recall_and_false_rejection",
-   "status": "deferred-P4"
+   "go_file": "internal/metrics/metrics_test.go",
+   "go_func": "TestMetricsCriticRecallAndFalseRejection",
+   "notes": ""
   },
   {
    "python_file": "tests/test_metrics.py",
    "python_func": "test_dead_end_avg_tier_and_assumptions",
-   "status": "deferred-P4"
+   "go_file": "internal/metrics/metrics_test.go",
+   "go_func": "TestMetricsDeadEndAvgTierAndAssumptions",
+   "notes": ""
   },
   {
    "python_file": "tests/test_metrics.py",
    "python_func": "test_empty_campaign_all_none",
-   "status": "deferred-P4"
+   "go_file": "internal/metrics/metrics_test.go",
+   "go_func": "TestMetricsEmptyCampaignAllNone",
+   "notes": ""
   },
   {
    "python_file": "tests/test_metrics.py",
    "python_func": "test_precision_two_confirm_one_disprove",
-   "status": "deferred-P4"
+   "go_file": "internal/metrics/metrics_test.go",
+   "go_func": "TestMetricsPrecisionTwoConfirmOneDisprove",
+   "notes": ""
   },
   {
    "python_file": "tests/test_metrics.py",
    "python_func": "test_training_export_excludes_held_out_by_default",
-   "status": "deferred-P4"
+   "go_file": "internal/metrics/metrics_test.go",
+   "go_func": "TestMetricsTrainingExportExcludesHeldOutByDefault",
+   "notes": ""
   },
   {
    "python_file": "tests/test_mint_citation.py",
@@ -5644,302 +5714,422 @@
   {
    "python_file": "tests/test_sft_backfill.py",
    "python_func": "test_backfill_draft_fails_lint_until_completed",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_backfill_test.go",
+   "go_func": "TestSFTBackfillDraftFailsLintUntilCompleted",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_backfill.py",
    "python_func": "test_backfill_hash_verified",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_backfill_test.go",
+   "go_func": "TestSFTBackfillHashVerified",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_backfill.py",
    "python_func": "test_backfill_no_events_hand_written",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_backfill_test.go",
+   "go_func": "TestSFTBackfillNoEventsHandWritten",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_backfill.py",
    "python_func": "test_backfill_reconstructed_on_drift",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_backfill_test.go",
+   "go_func": "TestSFTBackfillReconstructedOnDrift",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_backfill.py",
    "python_func": "test_backfill_structured_prefill_and_translation",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_backfill_test.go",
+   "go_func": "TestSFTBackfillStructuredPrefillAndTranslation",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_backfill.py",
    "python_func": "test_cli_backfill_writes_draft_file",
-   "status": "deferred-P4"
+   "go_file": "internal/cli/cmd_sft_test.go",
+   "go_func": "TestSFTCLIBackfillWritesDraftFile",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_backfill.py",
    "python_func": "test_todo_guard_blocks_curation",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_backfill_test.go",
+   "go_func": "TestSFTTodoGuardBlocksCuration",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_backfill.py",
    "python_func": "test_todo_placeholders_cover_bug_class_and_case",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_backfill_test.go",
+   "go_func": "TestSFTTodoPlaceholdersCoverBugClassAndCase",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_cli.py",
    "python_func": "test_cli_add_lint_failure_exit_2",
-   "status": "deferred-P4"
+   "go_file": "internal/cli/cmd_sft_test.go",
+   "go_func": "TestSFTCLIAddLintFailureExit2",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_cli.py",
    "python_func": "test_cli_add_then_list",
-   "status": "deferred-P4"
+   "go_file": "internal/cli/cmd_sft_test.go",
+   "go_func": "TestSFTCLIAddThenList",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_cli.py",
    "python_func": "test_cli_export_curated_only",
-   "status": "deferred-P4"
+   "go_file": "internal/cli/cmd_sft_test.go",
+   "go_func": "TestSFTCLIExportCuratedOnly",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_cli.py",
    "python_func": "test_cli_lint_error_exit_2",
-   "status": "deferred-P4"
+   "go_file": "internal/cli/cmd_sft_test.go",
+   "go_func": "TestSFTCLILintErrorExit2",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_cli.py",
    "python_func": "test_cli_lint_fail_exit_1",
-   "status": "deferred-P4"
+   "go_file": "internal/cli/cmd_sft_test.go",
+   "go_func": "TestSFTCLILintFailExit1",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_cli.py",
    "python_func": "test_cli_lint_pass_exit_0",
-   "status": "deferred-P4"
+   "go_file": "internal/cli/cmd_sft_test.go",
+   "go_func": "TestSFTCLILintPassExit0",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_cli.py",
    "python_func": "test_cli_split_and_report",
-   "status": "deferred-P4"
+   "go_file": "internal/cli/cmd_sft_test.go",
+   "go_func": "TestSFTCLISplitAndReport",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_arc_assumptions_before_framing_rejected",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintArcAssumptionsBeforeFramingRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_arc_canonical_order_with_indented_assumption_passes",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintArcCanonicalOrderWithIndentedAssumptionPasses",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_arc_indented_assumption_before_framing_rejected",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintArcIndentedAssumptionBeforeFramingRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_arc_markers_out_of_order_rejected",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintArcMarkersOutOfOrderRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_arc_repeated_observation_after_pivot_rejected",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintArcRepeatedObservationAfterPivotRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_arc_sections_multiple_pivots_joined",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintArcSectionsMultiplePivotsJoined",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_below_threshold_requires_threshold_note",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintBelowThresholdRequiresThresholdNote",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_clean_trace_passes",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintCleanTracePasses",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_dedup_adversary_rename_still_collides",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintDedupAdversaryRenameStillCollides",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_dedup_curated_collision_hard",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintDedupCuratedCollisionHard",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_dedup_different_claim_no_collision",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintDedupDifferentClaimNoCollision",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_dedup_draft_collision_is_warning",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintDedupDraftCollisionIsWarning",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_invalid_hypothesis_requires_named_misread",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintInvalidHypothesisRequiresNamedMisread",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_lint_gate_wired",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintLintGateWired",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_missing_arc_markers_rejected",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintMissingArcMarkersRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_missing_reason_rejected",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintMissingReasonRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_name_anchoring_rejected",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintNameAnchoringRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_pivot_count_mismatch_rejected",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintPivotCountMismatchRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_real_weakness_requires_refuted_and_holds",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintRealWeaknessRequiresRefutedAndHolds",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_schema_failure_short_circuits",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintSchemaFailureShortCircuits",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_system_prompt_drift_rejected",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintSystemPromptDriftRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_trace_assumptions_last_arrow_wins",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintTraceAssumptionsLastArrowWins",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_vague_impact_with_quantifier_passes",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintVagueImpactWithQuantifierPasses",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_lint.py",
    "python_func": "test_vague_impact_without_quantifier_rejected",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_lint_test.go",
+   "go_func": "TestSFTLintVagueImpactWithoutQuantifierRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_split_report.py",
    "python_func": "test_drafts_stay_unpartitioned",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_split_report_test.go",
+   "go_func": "TestSFTDraftsStayUnpartitioned",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_split_report.py",
    "python_func": "test_mix_report_gap_and_warnings",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_split_report_test.go",
+   "go_func": "TestSFTMixReportGapAndWarnings",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_split_report.py",
    "python_func": "test_mix_report_on_two_seeds",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_split_report_test.go",
+   "go_func": "TestSFTMixReportOnTwoSeeds",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_split_report.py",
    "python_func": "test_split_empty_store_is_noop",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_split_report_test.go",
+   "go_func": "TestSFTSplitEmptyStoreIsNoop",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_split_report.py",
    "python_func": "test_split_idempotent_per_seed",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_split_report_test.go",
+   "go_func": "TestSFTSplitIdempotentPerSeed",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_split_report.py",
    "python_func": "test_split_never_straddles_clusters",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_split_report_test.go",
+   "go_func": "TestSFTSplitNeverStraddlesClusters",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_split_report.py",
    "python_func": "test_split_overshoots_whole_cluster_but_never_splits",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_split_report_test.go",
+   "go_func": "TestSFTSplitOvershootsWholeClusterButNeverSplits",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_split_report.py",
    "python_func": "test_split_reaches_15pct_floor",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_split_report_test.go",
+   "go_func": "TestSFTSplitReaches15PctFloor",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_store.py",
    "python_func": "test_add_assigns_id_and_persists",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_store_test.go",
+   "go_func": "TestSFTAddAssignsIDAndPersists",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_store.py",
    "python_func": "test_add_rejects_bad_schema",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_store_test.go",
+   "go_func": "TestSFTAddRejectsBadSchema",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_store.py",
    "python_func": "test_add_rejects_duplicate_id",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_store_test.go",
+   "go_func": "TestSFTAddRejectsDuplicateID",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_store.py",
    "python_func": "test_add_second_gets_next_id",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_store_test.go",
+   "go_func": "TestSFTAddSecondGetsNextID",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_store.py",
    "python_func": "test_corrupt_store_fails_loud",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_store_test.go",
+   "go_func": "TestSFTCorruptStoreFailsLoud",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_store.py",
    "python_func": "test_export_jsonl_only_curated",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_store_test.go",
+   "go_func": "TestSFTExportJSONLOnlyCurated",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_store.py",
    "python_func": "test_get_missing_raises",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_store_test.go",
+   "go_func": "TestSFTGetMissingRaises",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_store.py",
    "python_func": "test_list_filters",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_store_test.go",
+   "go_func": "TestSFTListFilters",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_store.py",
    "python_func": "test_missing_store_is_empty",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_store_test.go",
+   "go_func": "TestSFTMissingStoreIsEmpty",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_store.py",
    "python_func": "test_rejected_requires_reasons",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_store_test.go",
+   "go_func": "TestSFTRejectedRequiresReasons",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_store.py",
    "python_func": "test_seed_examples_pass_full_lint",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_store_test.go",
+   "go_func": "TestSFTSeedExamplesPassFullLint",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_store.py",
    "python_func": "test_seed_store_lints_clean_and_shape",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_store_test.go",
+   "go_func": "TestSFTSeedStoreLintsCleanAndShape",
+   "notes": ""
   },
   {
    "python_file": "tests/test_sft_store.py",
    "python_func": "test_update_transitions_and_version_bump",
-   "status": "deferred-P4"
+   "go_file": "internal/sft/sft_store_test.go",
+   "go_func": "TestSFTUpdateTransitionsAndVersionBump",
+   "notes": ""
   },
   {
    "python_file": "tests/test_shape_match.py",

@@ -95,6 +95,9 @@ func init() {
 	forkdiff.Wire()
 	// T28 seams: learning (D18 memory queue), relations, shared_memory.
 	cli.WireT28Seams()
+	// T33 seams: eval_store (trajectory/metrics case_partition, corpus
+	// class_inventory).
+	cli.WireT33Seams()
 	// Golden-suite hook: Python's findings.new_finding_id mints a RAW
 	// uuid4, so the WEBV2_UUID pin never reaches it and the reference twin
 	// emits a fresh finding id per run. The cross-twin golden harness sets

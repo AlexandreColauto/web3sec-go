@@ -109,7 +109,7 @@ func boundedJSON(path string, maxChars int) (validation.Value, error) {
 		return validation.VNull(), nil
 	}
 	text := string(raw)
-	if len(text) > maxChars {
+	if len([]rune(text)) > maxChars {
 		return truncatedMarker(text, maxChars), nil
 	}
 	data, err := validation.ParseOrdered(raw)
@@ -120,8 +120,10 @@ func boundedJSON(path string, maxChars int) (validation.Value, error) {
 }
 
 func truncatedMarker(text string, maxChars int) validation.Value {
-	if len(text) > maxChars {
-		text = text[:maxChars]
+	// Python slices CHARACTERS (`raw[:max_chars]`), not bytes: a multi-byte
+	// rune at the budget boundary must not shift the cut.
+	if runes := []rune(text); len(runes) > maxChars {
+		text = string(runes[:maxChars])
 	}
 	return validation.VObj(
 		validation.KV{K: "_truncated", V: validation.VBool(true)},
