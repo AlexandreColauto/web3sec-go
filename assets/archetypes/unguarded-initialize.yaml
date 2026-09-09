@@ -1,0 +1,11 @@
+id: unguarded-initialize
+name: Unguarded initialize
+criticality: critical
+description: >
+  An entry point named initialize/__init/setup with no authorization
+  modifier in its signature. If the contract is upgradeable or freshly
+  deployed, the first caller wins.
+checks:
+  - type: unguarded_function_exists
+    names: [initialize, __init, setup]
+playbook_hint: upgrade-initializer

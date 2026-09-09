@@ -411,11 +411,38 @@ func paramNames(paramsText string) []string {
 
 // paramTypes is _param_types: comma-joined first-type tokens with array
 // suffixes preserved.
+// splitParamTypes is the depth loop INSIDE _param_types: unlike
+// _split_top_level it counts only "(" and "[" (a Solidity struct literal in
+// an argument list therefore splits on its own top-level commas, so
+// `f({a: 1, b: 2})` yields both field names). Depth is unclamped, matching
+// the reference byte-for-byte.
+func splitParamTypes(text string) []string {
+	parts := []string{}
+	var cur strings.Builder
+	depth := 0
+	for i := 0; i < len(text); i++ {
+		ch := text[i]
+		if ch == '(' || ch == '[' {
+			depth++
+		} else if ch == ')' || ch == ']' {
+			depth--
+		}
+		if ch == ',' && depth == 0 {
+			parts = append(parts, cur.String())
+			cur.Reset()
+		} else {
+			cur.WriteByte(ch)
+		}
+	}
+	parts = append(parts, cur.String())
+	return parts
+}
+
 func paramTypes(paramsText string) string {
 	if strings.TrimSpace(paramsText) == "" {
 		return ""
 	}
-	parts := splitTopLevel(paramsText, ',')
+	parts := splitParamTypes(paramsText)
 	types := []string{}
 	for _, p := range parts {
 		base := ""

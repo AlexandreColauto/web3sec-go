@@ -1,0 +1,198 @@
+# Playbook for the canonical bug class reentrancy.
+# This is the framework's PRIOR for one bug class — context for the proposer,
+# never a verdict, never an instruction to the orchestrator. Every tool id
+# below exists in the tool registry (sandbox profiles + analysis tools).
+bug_class: reentrancy
+title: External call re-enters state before it is finalized
+description: >-
+  A state-changing external call hands control to code the target does not
+  control — an ETH transfer to a payable fallback, an ERC-777/1155/721 hook,
+  a user-supplied callback — while the target's invariants are still
+  unsettled: checks-effects-interactions is violated, a reentrancy guard is
+  absent or does not cover the re-entered path, or the unsettled state is
+  READ by another protocol during the window (read-only reentrancy). A
+  genuine instance re-enters during the window and moves value on the
+  re-entered frame — the classic single-function drain, a cross-function
+  re-entry through a sibling entry point, or a cross-contract read of
+  unsettled accounting. A genuine instance is not a documented intentional
+  callback whose guard actually covers every re-enterable surface, and the
+  extractable value clears the program's payout threshold at the pinned
+  state.
+evidence_floor: E4
+amplifiers: []
+invariants:
+  - id: INV-RE-CEI-ORDERING
+    statement: >-
+      Every state-changing path that makes an external call finalizes all
+      the state it writes BEFORE the call — checks, then effects, then
+      interactions — so no re-entered frame observes unsettled invariants.
+    typical_documentation: >-
+      Checks-effects-interactions notes in NatSpec; ReentrancyGuard usage
+      conventions.
+  - id: INV-RE-GUARD-COVERAGE
+    statement: >-
+      The reentrancy guard covers every entry point that can reach the
+      external call, including sibling functions reachable by cross-function
+      re-entry and every proxy or hook surface.
+    typical_documentation: >-
+      nonReentrant modifier placement; guard-scope audit notes.
+  - id: INV-RE-NO-UNSETTLED-READS
+    statement: >-
+      No external contract can read the target's unsettled state during the
+      external-call window — view and accounting functions expose only
+      finalized state, closing read-only reentrancy.
+    typical_documentation: >-
+      Read-only reentrancy advisories; view-function NatSpec.
+  - id: INV-RE-CALLBACK-AUTHORITY
+    statement: >-
+      Callbacks invoked during external calls cannot drive privileged or
+      value-moving paths — the callee's re-entry lands only in no-op or
+      attacker-neutral handlers.
+    typical_documentation: >-
+      ERC-777/1155 hook documentation; tokensReceived conventions.
+assumption_templates:
+  - id: AT-RE-UNSETTLED-WINDOW
+    type: control
+    statement: >-
+      The external call at {call_site} transfers control to attacker code
+      while {state_slot} is still unsettled — effects land after the
+      interaction.
+    blocking: true
+    preferred_tools:
+      - source-slice
+      - static-analysis
+  - id: AT-RE-REENTRY-ROUTE
+    type: reachability
+    statement: >-
+      A re-entering call to {reentry_target} succeeds from inside the
+      external-call frame — the guard, if any, does not cover this path.
+    blocking: true
+    preferred_tools:
+      - callgraph
+      - static-analysis
+  - id: AT-RE-GUARD-SCOPE
+    type: invariant
+    statement: >-
+      The reentrancy guard on {guard_entry} covers every sibling path an
+      attacker can re-enter from the callback frame {callback_path},
+      including proxy surfaces.
+    blocking: true
+    preferred_tools:
+      - static-analysis
+      - callgraph
+  - id: AT-RE-READ-ONLY-VIEW
+    type: state
+    statement: >-
+      During the external-call window the unsettled {state_var} is readable
+      through the view path {view_path}, which another protocol consumes.
+    blocking: false
+    preferred_tools:
+      - source-slice
+      - trace
+  - id: AT-RE-DRAIN-SCALE
+    type: economic
+    statement: >-
+      The re-entered frames extract at least {min_delta} before the
+      interaction resumes — repeated re-entry is bounded only by the
+      target's remaining balance {tvl_usd}.
+    blocking: true
+    preferred_tools:
+      - fork
+      - balance-delta
+  - id: AT-RE-HOOK-FEASIBILITY
+    type: environment
+    statement: >-
+      The attacker can deploy the re-entering contract with the required
+      hook (payable fallback or {token_hook}) at the pinned block and fund
+      it for gas.
+    blocking: false
+    preferred_tools:
+      - fork-runner
+      - fork
+hunt_order:
+  - step: 1
+    tool_id: callgraph
+    purpose: >-
+      Map every external call reachable from an unprivileged entry point and
+      mark the state each one leaves unsettled for the duration of the call.
+    stop_if: >-
+      every external call happens after its function's state is final and
+      no callback path re-enters a mutating entry.
+  - step: 2
+    tool_id: static-analysis
+    purpose: >-
+      Check checks-effects-interactions ordering per call site and the exact
+      coverage of every reentrancy guard, including cross-function re-entry
+      through sibling entries and proxy/hook surfaces.
+    stop_if: >-
+      all call sites are effects-first and the guard covers every
+      re-enterable entry on all surfaces.
+  - step: 3
+    tool_id: fork
+    purpose: >-
+      Fork at the pinned block, deploy the attacker contract with its
+      callback (payable fallback or token hook), and re-enter the target
+      during the unsettled window.
+    stop_if: >-
+      the re-entered call reverts or extracts nothing — state is final
+      before the interaction.
+  - step: 4
+    tool_id: trace
+    purpose: >-
+      Record the re-entrant call frames and the state diff across the
+      window, separating single-function from cross-function re-entry.
+    stop_if: >-
+      no re-entered frame mutates value-bearing state.
+  - step: 5
+    tool_id: balance-delta
+    purpose: >-
+      Price the drain across all re-entered frames minus gas against the
+      program's payout threshold.
+    stop_if: >-
+      net extraction is below the program's payout threshold at pinned
+      state.
+failure_modes:
+  - statement: >-
+      State is effects-first on every path and the re-entrant call reverts —
+      the unsettled window does not exist.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      A reentrancy guard covers the re-entered entry on every proxy and hook
+      surface; the callback frame cannot reach a mutating entry.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      The re-entry works but the drained amount at pinned state is below the
+      program's payout threshold.
+    typical_rejection_class: below-threshold
+  - statement: >-
+      The re-entered callback is the documented, intentionally permitted
+      design (a pull-payment pattern) and moves no value.
+    typical_rejection_class: invalid-hypothesis
+negative_memory_hooks:
+  - rejection_class: not-exploitable
+    proposition: >-
+      The re-entered frame observes finalized state — override only with a
+      call site where effects genuinely land after the interaction.
+  - rejection_class: below-threshold
+    proposition: >-
+      Re-entry extracts less than the payout threshold at pinned state —
+      override only with a larger balance, a second re-entry surface, or an
+      amplified frame.
+  - rejection_class: invalid-hypothesis
+    proposition: >-
+      The callback is documented intended behavior with the guard covering
+      it — override only with an entry path the prior coverage did not
+      include.
+exploit_shape:
+  attacker_profile: >-
+    A deployed attacker contract with a payable fallback or token hook — a
+    bare EOA cannot re-enter.
+  capital_profile: >-
+    No capital floor — gas plus the entry deposit when the target requires
+    one; flash-borrowed funds where the entry needs principal.
+  settlement_window: >-
+    Single transaction — the re-entry happens inside the external-call frame
+    of the entry call.
+  value_moved: >-
+    The target's remaining balance across re-entered frames, bounded by the
+    unsettled-state window.

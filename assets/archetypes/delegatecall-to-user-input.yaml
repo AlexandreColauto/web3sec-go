@@ -1,0 +1,12 @@
+id: delegatecall-to-user-input
+name: Delegatecall to a settable target
+criticality: high
+description: >
+  The tree delegatecalls and carries a target/implementation-like state
+  variable. If that variable is writable by an unprivileged caller (check
+  storage_writers in the structural index), this is arbitrary code execution.
+checks:
+  - type: delegatecall_present
+  - type: state_var_exists
+    pattern: "(?i)(^|_)(target|impl(ement)?)$"
+playbook_hint: access-control

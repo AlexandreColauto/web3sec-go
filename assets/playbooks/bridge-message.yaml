@@ -1,0 +1,205 @@
+# Playbook for the canonical bug class bridge-message.
+# This is the framework's PRIOR for one bug class — context for the proposer,
+# never a verdict, never an instruction to the orchestrator. Every tool id
+# below exists in the tool registry (sandbox profiles + analysis tools).
+# Note: this informational floor (E4) is the playbook's prior; the CONFIRMED
+# gate's default for the class is E6 (cross-chain witnesses,
+# findings.CLASS_CONFIRM_FLOOR) and the campaign's floor policy governs.
+bug_class: bridge-message
+title: Cross-chain delivery that forges the relayer or replays the message
+description: >-
+  A cross-chain messaging path accepts a message whose authenticity or
+  freshness is not established: a relayer/signature check that accepts an
+  attacker-chosen identity, a message hash that omits a replay-relevant
+  field (chain id, bridge instance, nonce, sender, target), or a replay of
+  an already-delivered message that mints or releases assets a second time.
+  A genuine instance moves bridge value — unbacked destination mints,
+  double-released locked assets, or a forged call executed with bridge
+  authority — and clears the program's payout threshold. A trustless design
+  whose proof actually binds every replay-relevant field and marks messages
+  consumed before their effects is not an instance.
+evidence_floor: E4
+amplifiers: [bridge, cross-chain]
+invariants:
+  - id: INV-BM-RELAYER-AUTHENTIC
+    statement: >-
+      Every delivered message is authenticated end-to-end — the relayer
+      identity, validator set, or cryptographic proof is verified against
+      the trusted set, and no delivery path accepts an attacker-chosen
+      identity or a proof verified against the wrong domain.
+    typical_documentation: >-
+      Bridge security docs on validators/relayers; signature-verification
+      NatSpec.
+  - id: INV-BM-MESSAGE-UNREPLAYABLE
+    statement: >-
+      A message is delivered at most once — delivery binds chain id, bridge
+      instance, nonce, sender, and target, and the consumed marker lands
+      before any value effect settles.
+    typical_documentation: >-
+      Nonce/ledger documentation; replay-protection notes.
+  - id: INV-BM-PROOF-BINDING
+    statement: >-
+      The proof binds every replay-relevant field — source chain,
+      destination contract, sender, nonce, and payload — so a valid proof
+      cannot be re-aimed at another bridge, chain, or function.
+    typical_documentation: >-
+      Proof-format docs (merkle receipts, signed payloads);
+      domain-separator notes.
+  - id: INV-BM-ORDER-RESPECT
+    statement: >-
+      Message execution respects the source chain's ordering and
+      confirmation rules — messages execute only after the documented
+      finality bound and in the documented source order.
+    typical_documentation: >-
+      Finality/oracle documentation; sequencing notes.
+assumption_templates:
+  - id: AT-BM-RELAYER-FORGEABLE
+    type: authority
+    statement: >-
+      The relayer check at {verify_function} accepts an identity the
+      attacker controls — the signature check misses the signer set,
+      recovers the wrong address, or fails open.
+    blocking: true
+    preferred_tools:
+      - static-analysis
+      - source-slice
+  - id: AT-BM-REPLAY-WINDOW
+    type: temporal
+    statement: >-
+      The message {message_id} can be delivered twice — the consumed state
+      is checked after the effect settles, the nonce is omitted from the
+      hash, or the same proof replays on the twin bridge at {alt_chain}.
+    blocking: true
+    preferred_tools:
+      - static-analysis
+      - trace
+  - id: AT-BM-HASH-OMISSION
+    type: invariant
+    statement: >-
+      The message hash {hash_fn} omits a replay-relevant field — chain id,
+      bridge address, sender, nonce, or target selector — so one proof
+      authorizes several deliveries.
+    blocking: true
+    preferred_tools:
+      - source-slice
+      - static-analysis
+  - id: AT-BM-PROOF-REBIND
+    type: control
+    statement: >-
+      A valid proof for {source_message} verifies against a different
+      destination call — the proof does not bind the target contract or the
+      calldata it executes.
+    blocking: true
+    preferred_tools:
+      - symbolic
+      - static-analysis
+  - id: AT-BM-UNBACKED-MINT
+    type: economic
+    statement: >-
+      The forged or replayed delivery mints or releases {min_delta} of
+      assets with no corresponding lock on the source side, exceeding the
+      payout threshold.
+    blocking: true
+    preferred_tools:
+      - fork
+      - balance-delta
+  - id: AT-BM-FINALITY-BOUNDS
+    type: environment
+    statement: >-
+      Delivery is attempted before the source-side finality or confirmation
+      bound the design documents, and the bridge accepts it at the pinned
+      deployment.
+    blocking: false
+    preferred_tools:
+      - trace
+      - fork
+hunt_order:
+  - step: 1
+    tool_id: static-analysis
+    purpose: >-
+      Slice the delivery path — proof/relayer verification, message-hash
+      construction, and the consumed-message ledger — and check which
+      replay-relevant fields are bound.
+    stop_if: >-
+      verification is bound to the trusted signer/proof set, the hash covers
+      chain id, bridge, sender, nonce, target, and calldata, and the
+      consumed marker precedes every value effect.
+  - step: 2
+    tool_id: trace
+    purpose: >-
+      Trace one full delivery end-to-end — where the proof enters, when the
+      consumed marker lands relative to the mint/release, and which fields
+      the hash actually covers.
+    stop_if: >-
+      the marker precedes every value effect and no message field is free
+      for the attacker to vary.
+  - step: 3
+    tool_id: fork
+    purpose: >-
+      Fork the destination at the pinned block and deliver the crafted or
+      replayed message — attacker-signed identity, replayed proof, or
+      re-aimed payload.
+    stop_if: >-
+      delivery reverts: the verifier rejects the identity or the message is
+      already marked consumed.
+  - step: 4
+    tool_id: symbolic
+    purpose: >-
+      Formalize the one-delivery property (one proof implies one delivery)
+      over the hash construction and consumed-ledger updates, and search
+      for a witness second delivery.
+    stop_if: >-
+      the solver upholds the one-delivery property over all message fields.
+  - step: 5
+    tool_id: balance-delta
+    purpose: >-
+      Price the unbacked mint or double release minus bridge fees and gas
+      against the program's payout threshold.
+    stop_if: >-
+      net extraction is below the program's payout threshold at pinned
+      bridge liquidity.
+failure_modes:
+  - statement: >-
+      The verifier enforces the full trusted signer set or a valid proof
+      over every replay-relevant field — the forged identity is rejected.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      The consumed-message ledger marks delivery before any value effect on
+      every chain instance — the replay reverts.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      The replay works but the double-minted or released amount at pinned
+      liquidity is below the program's payout threshold.
+    typical_rejection_class: below-threshold
+  - statement: >-
+      The claimed forgery is the bridge's documented trustless design — the
+      proof actually binds every field the hypothesis says is free.
+    typical_rejection_class: invalid-hypothesis
+negative_memory_hooks:
+  - rejection_class: not-exploitable
+    proposition: >-
+      The proof binds the field the hypothesis claims is omitted — override
+      only with a hash construction missing a different replay-relevant
+      field.
+  - rejection_class: below-threshold
+    proposition: >-
+      Double-delivery value is below the payout threshold at pinned bridge
+      liquidity — override only with a larger bridge, a second asset, or a
+      chained replay.
+  - rejection_class: invalid-hypothesis
+    proposition: >-
+      Relayer identity is verified end-to-end — override only with a
+      delivery path whose verification the prior did not cover.
+exploit_shape:
+  attacker_profile: >-
+    An attacker-controlled relayer, or any EOA able to submit delivery when
+    verification fails open; no trusted bridge role required.
+  capital_profile: >-
+    No capital floor beyond gas; optionally the message fee the bridge
+    charges its relayers.
+  settlement_window: >-
+    Cross-chain latency — the replay window between delivery attempts,
+    bounded by the bridge's message-lifetime settings.
+  value_moved: >-
+    Unbacked destination mints or double-released locked assets; forged
+    calls executed with bridge authority.

@@ -1,0 +1,171 @@
+# Playbook for the canonical bug class economic-invariant.
+# This is the framework's PRIOR for one bug class — context for the proposer,
+# never a verdict, never an instruction to the orchestrator. Every tool id
+# below exists in the tool registry (sandbox profiles + analysis tools).
+bug_class: economic-invariant
+title: The mechanism permits profit at another actor's expense
+description: >-
+  A mechanism-design class: the code does exactly what it says, and what it
+  says is exploitable given rational adversarial behavior. Covers negative-yield
+  edge cases (a position driven to unbounded negative value by another actor),
+  MEV-extractable ordering assumptions (the mechanism assumes an order of
+  events the chain does not enforce), and fee/rounding extraction (systematic
+  dust removed from one actor class by another's routine actions). The
+  investigation is game-theoretic: name the cast, their capital and rationality,
+  the ordering freedoms, and find a strategy profile in which one actor's gain
+  is another's loss beyond documented risk. Proof is a multi-actor fork
+  simulation; the class prior floor is E5 (fork PoC) but the CONFIRMED gate is
+  E6 — independent reproduction by a different verifier identity, because a
+  single green run does not catch an unrealistic benign-actor model (spec 3.2
+  §4.8). NOTE: v1 has no deterministic trigger archetype for this class (known
+  partial fix, spec §1) — it is reached through model-driven class selection.
+evidence_floor: E5
+investigation_mode: adversarial-simulation
+amplifiers: []
+invariants:
+  - id: INV-EI-NO-PROFIT-AT-OTHERS-EXPENSE
+    statement: >-
+      No strategy profile exists in which one actor's gain is another actor's
+      loss beyond the risk both are documented as accepting.
+    typical_documentation: >-
+      "No negative externalities" / fairness notes in the spec or README.
+  - id: INV-EI-BOUNDED-NEGATIVE-YIELD
+    statement: >-
+      No position can be driven to unbounded negative value by another actor's
+      actions within the documented bounds of the mechanism.
+    typical_documentation: >-
+      Bound/limit statements in NatSpec (max drawdown, floor prices).
+simulation:
+  actors:
+    - name: adversary
+      behavior_class: adversarial
+      capital: whatever the mechanism lets them commit or move
+      behavior: profit-maximizing over action sequences within the rules
+    - name: affected-user
+      behavior_class: benign-rational
+      capital: transacts at documented terms with public information only
+      behavior: >-
+        benign-rational: uses the mechanism as documented, unaware of and
+        uninformed by the adversary's schedule
+  action_space: >-
+    every entry point the mechanism exposes to both actors, plus any off-path
+    state movement the rules permit (transfers, ordering, timing)
+  ordering_freedoms: >-
+    cross-transaction order is free unless a timelock, commitment or atomicity
+    constraint fixes it — name the specific freedoms the hypothesis depends on
+  expectation_violated: INV-EI-NO-PROFIT-AT-OTHERS-EXPENSE
+assumption_templates:
+  - id: AT-EI-STRATEGY-PROFILE
+    type: economic
+    statement: >-
+      A strategy profile exists in which {actor_a}'s gain is {actor_b}'s loss
+      beyond documented risk, using only moves the mechanism permits.
+    blocking: true
+    preferred_tools:
+      - source-slice
+      - static-analysis
+  - id: AT-EI-ORDERING-FREEDOM
+    type: temporal
+    statement: >-
+      The order of {actor_a}'s and {actor_b}'s actions is free at pinned
+      state — no timelock, pause or atomicity constraint fixes the sequence.
+    blocking: true
+    preferred_tools:
+      - static-analysis
+  - id: AT-EI-BENIGN-PATH
+    type: environment
+    statement: >-
+      The affected user's path is one a rational actor would take from public
+      information alone at documented terms — the loss does not depend on the
+      user knowing the adversary's schedule.
+    blocking: false
+    preferred_tools:
+      - source-slice
+  - id: AT-EI-EXTRACTION-SCALE
+    type: economic
+    statement: >-
+      The strategy profile extracts at least {min_delta} per cycle, and the
+      mechanism does not bound the number of cycles below what clears the
+      program's payout threshold.
+    blocking: true
+    preferred_tools:
+      - fork-runner
+      - balance-delta
+hunt_order:
+  - step: 1
+    tool_id: source-slice
+    purpose: >-
+      Read the mechanism's accounting end to end: who pays what, when value
+      moves between actors, and which assumptions about ordering or state the
+      formulas silently make.
+    stop_if: >-
+      every actor's net position is bounded by documented risk under all
+      orderings — no cross-actor transfer of loss exists in the accounting.
+  - step: 2
+    tool_id: static-analysis
+    purpose: >-
+      Check rounding/fee direction (who systematically loses dust), negative
+      bounds (can a position go unbounded negative?), and ordering assumptions
+      the chain does not enforce.
+    stop_if: >-
+      all formulas are symmetric or bounded and every ordering assumption is
+      enforced by atomicity, timelock or commitment.
+  - step: 3
+    tool_id: fork-runner
+    purpose: >-
+      Run the multi-actor strategy profile on the pinned fork: adversary moves
+      first, affected user acts at documented terms, then measure both
+      positions — assert the cross-actor loss transfer and its scale.
+    stop_if: >-
+      the affected user's position is unchanged or improved under every
+      ordering tried — no strategy profile transfers their loss.
+  - step: 4
+    tool_id: balance-delta
+    purpose: >-
+      Price the extraction per cycle, bound the number of cycles, and compare
+      against the program's payout threshold at pinned state.
+    stop_if: >-
+      net extraction is below the program's payout threshold at pinned state.
+failure_modes:
+  - statement: >-
+      The accounting is symmetric or bounded — every actor's loss is within
+      their documented risk under all orderings.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      The ordering the hypothesis depends on is enforced (atomicity, timelock,
+      commitment) — the strategy profile cannot be sequenced as claimed.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      The affected user's loss depends on knowing the adversary's schedule —
+      a rational actor with public information only would not take that path.
+    typical_rejection_class: invalid-hypothesis
+  - statement: >-
+      The profile works but extraction per cycle times bounded cycles is below
+      the program's payout threshold.
+    typical_rejection_class: below-threshold
+negative_memory_hooks:
+  - rejection_class: not-exploitable
+    proposition: >-
+      Bounded/symmetric accounting — override only with a concrete unbounded or
+      asymmetric formula and the actor pair it transfers loss between.
+  - rejection_class: invalid-hypothesis
+    proposition: >-
+      The victim's path required attacker-specific knowledge — override only
+      with a benign path that depends on public information alone.
+  - rejection_class: below-threshold
+    proposition: >-
+      Extraction below threshold at pinned state — override only with a larger
+      pinned balance or an unbounded cycle count.
+exploit_shape:
+  attacker_profile: >-
+    Any actor the mechanism admits — usually a bare EOA; no privileged access,
+    no deployed contract required for most shapes.
+  capital_profile: >-
+    Mechanism-dependent: from gas-only (ordering/rounding shapes) to committed
+    positions (negative-yield shapes).
+  settlement_window: >-
+    Multiple transactions across blocks — the ordering freedom is cross-tx;
+    intra-block MEV shapes are a deferred extension (spec §10).
+  value_moved: >-
+    The affected actor's loss per cycle, bounded by the mechanism's accounting
+    bounds and the number of feasible cycles.

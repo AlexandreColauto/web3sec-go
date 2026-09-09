@@ -1,0 +1,191 @@
+# Playbook for the canonical bug class share-price-inflation.
+# This is the framework's PRIOR for one bug class — context for the proposer,
+# never a verdict, never an instruction to the orchestrator. Every tool id
+# below exists in the tool registry (sandbox profiles + analysis tools).
+bug_class: share-price-inflation
+title: Share price inflates when assets arrive off the entry point
+description: >-
+  A mechanism-design class, not a code bug: the vault does exactly what it
+  says, and what it says is exploitable given rational adversarial behavior.
+  The per-share rate a new depositor pays is computed from a source (a live
+  balance read, a stale accounting counter, an unguarded external state) that
+  can be moved by someone who does not pay the price — dust entry plus a
+  direct token transfer to the vault, an oracle-priced mint path, or any
+  off-path inflow — so the first real depositor receives shares priced as if
+  the pool were larger than it is, and the attacker redeems the whole pool.
+  A genuine instance needs (a) a rate source divergent from the accounting
+  counter, or an asset path that bypasses the priced entry point, and (b)
+  free cross-transaction ordering between the inflow and the victim's
+  deposit. Proof is a multi-actor fork simulation; the class prior floor is
+  E5 (fork PoC) but the CONFIRMED gate is E6 — independent reproduction by a
+  different verifier identity, because a single green run does not catch an
+  unrealistic benign-actor model (spec 3.2 §4.8).
+evidence_floor: E5
+investigation_mode: adversarial-simulation
+amplifiers: []
+invariants:
+  - id: INV-SPI-PRORATA
+    statement: >-
+      Every depositor receives shares pro-rata to the assets they contribute,
+      priced against assets that entered through a priced entry point — no
+      strategy profile exists in which one actor's off-path inflow lowers
+      another depositor's effective share price.
+    typical_documentation: >-
+      "Fair pricing" / "pro-rata shares" notes in README or NatSpec of the
+      deposit path.
+  - id: INV-SPI-OFFPATH-NEUTRAL
+    statement: >-
+      Assets that reach the vault through a path other than the priced entry
+      point (direct ERC20 transfer, external mint, relayed deposit) do not
+      change the rate at which new shares are issued.
+    typical_documentation: >-
+      NatSpec on the asset interface; "only deposits move the price" notes.
+simulation:
+  actors:
+    - name: attacker
+      behavior_class: adversarial
+      capital: dust entry plus large off-path inflow (transferred, not deposited)
+      behavior: >-
+        profit-maximizing over action sequences; may bypass entry points with
+        direct token transfers and times redemption to maximize the pool share
+    - name: victim
+      behavior_class: benign-rational
+      capital: real deposit at documented terms
+      behavior: >-
+        benign-rational: deposits because the mechanism is documented as fair;
+        acts only on public information (documented terms, own balance)
+  action_space: >-
+    deposit, withdraw, redeem, and direct ERC20 transfer of the asset to the
+    vault contract (off-path inflow); no assumption about mempool visibility
+  ordering_freedoms: >-
+    cross-transaction order is free: dust entry, off-path inflow, victim
+    deposit and redemption can be sequenced arbitrarily across blocks
+  expectation_violated: INV-SPI-PRORATA
+assumption_templates:
+  - id: AT-SPI-RATE-SOURCE
+    type: state
+    statement: >-
+      The rate used for new deposits is computed from {rate_source} while the
+      vault's accounting of pool value uses {accounting_counter}, and the two
+      can diverge when assets move without a priced entry.
+    blocking: true
+    preferred_tools:
+      - source-slice
+      - static-analysis
+  - id: AT-SPI-OFFPATH-INFLOW
+    type: reachability
+    statement: >-
+      Assets can be moved to the vault contract through {offpath_path} (a
+      direct ERC20 transfer, an external mint, a relayed deposit) without
+      going through the priced entry point, and no guard rejects or locks it.
+    blocking: true
+    preferred_tools:
+      - static-analysis
+      - callgraph
+  - id: AT-SPI-ORDERING-FREE
+    type: temporal
+    statement: >-
+      The cross-transaction order of dust entry, off-path inflow, victim
+      deposit and redemption is free at the pinned state — no timelock, pause
+      or commitment fixes it.
+    blocking: true
+    preferred_tools:
+      - static-analysis
+  - id: AT-SPI-VICTIM-RATIONAL
+    type: economic
+    statement: >-
+      A rational depositor deposits {victim_deposit} at the documented terms
+      without knowing about the off-path inflow — their parameters depend only
+      on public information.
+    blocking: false
+    preferred_tools:
+      - source-slice
+  - id: AT-SPI-DRAIN-SCALE
+    type: economic
+    statement: >-
+      The attacker's redemption after the victim's deposit extracts at least
+      {min_delta} (pool balance minus the attacker's own contribution) —
+      clearing the program's payout threshold at pinned state.
+    blocking: true
+    preferred_tools:
+      - fork-runner
+      - balance-delta
+hunt_order:
+  - step: 1
+    tool_id: source-slice
+    purpose: >-
+      Read the deposit path and identify the rate source (live balance read,
+      stored counter, oracle) versus the accounting counter; note every other
+      function or external path that can move assets into the vault.
+    stop_if: >-
+      the rate is computed from the same expression as the accounting counter
+      AND no off-path asset movement exists — both divergence surfaces absent.
+  - step: 2
+    tool_id: static-analysis
+    purpose: >-
+      Check for guards against off-path inflow (revert on direct transfer,
+      pause flag, balance-delta accounting that re-prices existing shares) and
+      for ordering fixes (timelock, commitment scheme).
+    stop_if: >-
+      every off-path movement is rejected or neutralized by the accounting.
+  - step: 3
+    tool_id: fork-runner
+    purpose: >-
+      Run the multi-actor simulation on the pinned fork: attacker dust entry,
+      attacker direct transfer of the inflow, victim deposit at documented
+      terms, then attacker redemption — assert the victim's share count and
+      the attacker's extracted value.
+    stop_if: >-
+      the victim receives pro-rata shares at every ordering the simulation
+      tried — the rate source cannot be moved off-path.
+  - step: 4
+    tool_id: balance-delta
+    purpose: >-
+      Price the extraction across the sequence minus gas against the program's
+      payout threshold at pinned state.
+    stop_if: >-
+      net extraction is below the program's payout threshold at pinned state.
+failure_modes:
+  - statement: >-
+      The rate source and the accounting counter are the same expression and
+      no off-path asset movement exists — both divergence surfaces absent.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      Direct transfers to the vault revert or are neutralized (the accounting
+      re-prices existing shares when unpriced assets arrive).
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      The victim's deposit is priced against live pool state at call time, so
+      the off-path inflow raises everyone's price pro-rata — no divergence.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      The sequence works but the extractable value at pinned state is below
+      the program's payout threshold.
+    typical_rejection_class: below-threshold
+negative_memory_hooks:
+  - rejection_class: not-exploitable
+    proposition: >-
+      Rate source equals accounting counter with no off-path surface —
+      override only with a concrete second path that moves assets unpriced.
+  - rejection_class: not-exploitable
+    proposition: >-
+      The victim is priced against live state at call time — override only
+      with a rate read that happens before the inflow can be observed.
+  - rejection_class: below-threshold
+    proposition: >-
+      Extraction below threshold at pinned state — override only with a larger
+      pinned balance or an amplified ordering (repeated victim deposits).
+exploit_shape:
+  attacker_profile: >-
+    A bare EOA suffices for the direct-transfer shape; a dust contract where
+    the entry point requires one. No privileged access.
+  capital_profile: >-
+    Dust for the priced entry plus the off-path inflow (transferred tokens,
+    not deposited) — total capital bounded by what can be transferred to the
+    vault before the victim acts.
+  settlement_window: >-
+    Multiple transactions across blocks — the ordering freedom is cross-tx;
+    no intra-block assumption required for the base shape.
+  value_moved: >-
+    The pool balance at redemption minus the attacker's own contribution,
+    bounded by the inflow plus whatever the victim deposits.

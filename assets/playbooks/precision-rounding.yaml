@@ -1,0 +1,205 @@
+# Playbook for the canonical bug class precision-rounding.
+# This is the framework's PRIOR for one bug class — context for the proposer,
+# never a verdict, never an instruction to the orchestrator. Every tool id
+# below exists in the tool registry (sandbox profiles + analysis tools).
+bug_class: precision-rounding
+title: Rounding-direction accounting that accumulates into extractable loss
+description: >-
+  Rounding and decimal truncation in accounting — share mint/burn ratios, fee
+  accrual, reward distribution, donation handling — accumulates an
+  order-dependent error an attacker can steer into extractable loss:
+  share-price inflation via dust deposits that skew the per-share ratio, fee
+  skimming through truncation asymmetry, or repeated dust operations whose
+  accumulated residue is claimed by the last actor. A genuine instance shows a
+  systematic rounding direction favoring one actor, breaks the documented
+  monotonicity or order-independence of the per-share price, and accumulates
+  error past the program's payout threshold over a feasible operation count.
+  Distinct from an internal pricing-formula error (share-price-accounting):
+  here the loss lives in accumulated live state, so the CONFIRMED floor is the
+  conservative E5.
+evidence_floor: E5
+amplifiers: [rebasing-fee-accounting]
+invariants:
+  - id: INV-PR-ROUNDING-NEUTRAL
+    statement: >-
+      Rounding direction never systematically favors a single actor — over any
+      operation sequence, the rounding error granted to any one address stays
+      bounded and actor-independent.
+    typical_documentation: >-
+      Accounting comments on rounding direction; audit-fix notes near
+      divisions.
+  - id: INV-PR-PRICE-MONOTONIC
+    statement: >-
+      The per-share price is monotonic with respect to deposits and
+      withdrawals — no attacker-controlled operation sequence deflates it
+      against existing holders or inflates it against the protocol.
+    typical_documentation: >-
+      Share-price invariants in docs; NatSpec on the exchange-rate function.
+  - id: INV-PR-DUST-ORDER-INDEPENDENT
+    statement: >-
+      Fee and rounding dust is order-independent — replaying the same
+      operations in any order leaves identical balances for all parties.
+    typical_documentation: >-
+      Distribution/claiming docs; reward-accrual NatSpec.
+  - id: INV-PR-ACCUMULATED-BOUND
+    statement: >-
+      Accumulated rounding error over any sequence of N operations stays below
+      the documented bound and cannot be extracted by the last actor in the
+      sequence.
+    typical_documentation: >-
+      Error-bound analysis in audit notes; truncation constants in comments.
+assumption_templates:
+  - id: AT-PR-DIRECTION-CLAIM
+    type: invariant
+    statement: >-
+      The claimed rounding direction in {accounting_function} holds in the
+      code — every division and multiplication on the value path rounds toward
+      the victim.
+    blocking: true
+    preferred_tools:
+      - static-analysis
+      - source-slice
+  - id: AT-PR-TRUNCATION-POINT
+    type: state
+    statement: >-
+      The accumulator or per-share price {state_var} actually truncates (floor
+      division, mulDiv-down) where the exploit requires truncation toward the
+      attacker.
+    blocking: true
+    preferred_tools:
+      - source-slice
+  - id: AT-PR-ACCUMULATION-SIZE
+    type: economic
+    statement: >-
+      Accumulated error over {op_count} operations exceeds the payout
+      threshold — per-operation dust of {dust_per_op} amplified by {op_count}
+      is extractable by the attacker's position.
+    blocking: true
+    preferred_tools:
+      - fork
+      - balance-delta
+  - id: AT-PR-SEQUENCE-FEASIBILITY
+    type: temporal
+    statement: >-
+      The amplifying sequence ({op_count} deposits, withdrawals, or claims) is
+      feasible within the settlement/liveness window given gas {gas_budget}
+      and block cadence.
+    blocking: false
+    preferred_tools:
+      - fuzzing
+      - fork-runner
+  - id: AT-PR-DRIVER-ACCESS
+    type: reachability
+    statement: >-
+      An unprivileged caller can drive the rounding-sensitive path
+      {rounding_path} repeatedly without permissioned gates or per-address
+      rate limits.
+    blocking: true
+    preferred_tools:
+      - callgraph
+      - fork
+  - id: AT-PR-MONOTONICITY-BREAK
+    type: invariant
+    statement: >-
+      The share-price monotonicity claim actually holds — no sequence of
+      {op_types} moves the per-share price against the documented direction.
+    blocking: false
+    preferred_tools:
+      - invariant-check
+      - symbolic
+hunt_order:
+  - step: 1
+    tool_id: source-slice
+    purpose: >-
+      Slice the accounting path — every division, mulDiv, and scale
+      conversion touching {state_var}, fee accrual, or reward distribution.
+    stop_if: >-
+      all divisions round toward the victim on every branch (attacker-neutral
+      truncation).
+  - step: 2
+    tool_id: static-analysis
+    purpose: >-
+      Classify rounding direction per arithmetic node on the value path and
+      flag any division or multiplication that truncates asymmetrically
+      between attacker and protocol.
+    stop_if: >-
+      every arithmetic node rounds in one direction for all parties —
+      user-neutral truncation.
+  - step: 3
+    tool_id: invariant-check
+    purpose: >-
+      Check share-price monotonicity (INV-PR-PRICE-MONOTONIC) and dust
+      order-independence against the extracted accounting.
+    stop_if: >-
+      the checker upholds monotonicity over the generated operation
+      sequences.
+  - step: 4
+    tool_id: symbolic
+    purpose: >-
+      Bound the accumulated error over N operations and solve for the
+      worst-case attacker-controlled ordering of the sequence.
+    stop_if: >-
+      the worst-case accumulated error over feasible N stays below the payout
+      threshold.
+  - step: 5
+    tool_id: fork
+    purpose: >-
+      Execute the adversarial deposit/withdraw/donation sequence at the
+      pinned state from a fresh address and observe the per-share price
+      trajectory.
+    stop_if: >-
+      the sequence nets zero — the residue is burned or locked, not
+      extractable.
+  - step: 6
+    tool_id: balance-delta
+    purpose: >-
+      Measure the attacker's net delta across the sequence minus gas, and
+      compare it against the payout threshold.
+    stop_if: >-
+      the net delta is below threshold at realistic operation counts.
+failure_modes:
+  - statement: >-
+      Rounding direction is user-neutral (round-half or symmetric floor) — no
+      actor can bias the error in their favor.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      Per-operation dust is real but the accumulated error stays below the
+      payout threshold at any feasible operation count.
+    typical_rejection_class: below-threshold
+  - statement: >-
+      The monotonicity/order-independence invariant is documented and actually
+      holds — the tested sequence cannot break it.
+    typical_rejection_class: invalid-hypothesis
+  - statement: >-
+      The rounding residue is burned, sent to a sink, or locked, so nothing is
+      extractable even when truncation is attacker-favorable.
+    typical_rejection_class: not-exploitable
+negative_memory_hooks:
+  - rejection_class: below-threshold
+    proposition: >-
+      Per-operation dust is below the payout threshold at feasible operation
+      counts — override only with a materially larger operation scale, a
+      compounding surface, or a different fee path.
+  - rejection_class: not-exploitable
+    proposition: >-
+      Rounding direction is symmetric/neutral for all actors — override only
+      with a path where truncation is provably attacker-favorable on one side
+      of the ledger.
+  - rejection_class: invalid-hypothesis
+    proposition: >-
+      The monotonicity claim is documented and verified to hold — a new
+      hypothesis must name a state or sequence the prior invariant run did not
+      cover.
+exploit_shape:
+  attacker_profile: >-
+    Arbitrary EOA; small positions and repeated operations, often from fresh
+    addresses.
+  capital_profile: >-
+    Low committed capital — dust-sized deposits fund many operations; cost is
+    gas plus bounded principal.
+  settlement_window: >-
+    Slow-burn — the error accumulates across many operations and blocks
+    rather than one atomic transaction.
+  value_moved: >-
+    Accumulated rounding error x feasible operation count, skimmed into the
+    attacker's share position or claimed rewards.

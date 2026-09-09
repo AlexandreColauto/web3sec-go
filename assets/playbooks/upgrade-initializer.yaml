@@ -1,0 +1,205 @@
+# Playbook for the canonical bug class upgrade-initializer.
+# This is the framework's PRIOR for one bug class — context for the proposer,
+# never a verdict, never an instruction to the orchestrator. Every tool id
+# below exists in the tool registry (sandbox profiles + analysis tools).
+# Note: this informational floor (E3) is the playbook's prior; the CONFIRMED
+# gate's default for the class is E4 (findings.CLASS_CONFIRM_FLOOR) and the
+# campaign's floor policy governs.
+bug_class: upgrade-initializer
+title: Initialization or upgrade authority that runs again or runs unguarded
+description: >-
+  Upgradeable-contract initialization and upgrade authority: an initializer
+  that can run again (an uninitialized proxy, an open reinitializer step, or
+  an implementation contract left uninitialized so anyone can initialize it
+  and reach the proxy through delegatecall), or initialization/upgrade
+  authority that is missing, forgeable, or bypassable by an unprivileged
+  caller. A genuine instance turns the replayed or hijacked initialization
+  into value flow — self-destruction of the implementation behind a proxy,
+  stolen upgrade authority, owner/fee/recipient overwrite — not a hardening
+  note about an initializer that is correctly gated and already executed.
+  Exploitability is fully determined by code semantics at the pinned
+  deployment.
+evidence_floor: E3
+amplifiers: [delegatecall]
+invariants:
+  - id: INV-UI-INIT-SINGLE-SHOT
+    statement: >-
+      Initialization is single-shot and irreversible — no caller can run the
+      initializer again on the proxy, on any upgraded implementation, or on
+      the implementation contract itself after deployment.
+    typical_documentation: >-
+      Initializer guards (initialized flag, reinitializer(1)); deployment
+      runbooks.
+  - id: INV-UI-INIT-ADMIN-GATED
+    statement: >-
+      Every initialization and upgrade entry point requires the documented
+      admin role — the initializer, the upgrade function, and any open
+      reinitializer step are unreachable by an unprivileged caller.
+    typical_documentation: >-
+      Access notes on upgrade functions; proxy-admin documentation.
+  - id: INV-UI-IMPL-SEALED
+    statement: >-
+      Implementation contracts are initialized or sealed at deploy time — an
+      uninitialized implementation cannot be taken over and aimed at the
+      proxy through delegatecall.
+    typical_documentation: >-
+      UUPS/Transparent proxy deployment conventions; _disableInitializers
+      notes.
+  - id: INV-UI-AUTHORITY-TRANSFER
+    statement: >-
+      Upgrade and initialization authority cannot be seized or redirected by
+      an unprivileged caller — role grants, admin transfer, and proxy
+      ownership move only through documented, admin-gated paths.
+    typical_documentation: >-
+      Admin/ownership transfer docs; the access-control matrix.
+assumption_templates:
+  - id: AT-UI-REINIT-POSSIBLE
+    type: control
+    statement: >-
+      The initializer of {contract} can run again at the pinned deployment —
+      the initialized flag is unset, a reinitializer step is open, or the
+      implementation itself was never initialized.
+    blocking: true
+    preferred_tools:
+      - static-analysis
+      - source-slice
+  - id: AT-UI-REACHABLE-UPGRADE
+    type: authority
+    statement: >-
+      An unprivileged caller can reach {upgrade_entry} — the admin gate is
+      missing, checks an attacker-controlled sender, or is bypassed through
+      a proxy or delegate surface.
+    blocking: true
+    preferred_tools:
+      - callgraph
+      - source-slice
+  - id: AT-UI-UNINIT-IMPL
+    type: state
+    statement: >-
+      The implementation behind {proxy} is uninitialized and accepts a first
+      initialization from any address in the deployment order {tx_order}.
+    blocking: true
+    preferred_tools:
+      - fork
+      - trace
+  - id: AT-UI-VALUE-REDIRECT
+    type: state
+    statement: >-
+      The re-run or hijacked initialization re-points value-bearing state —
+      owner, fee recipient, implementation pointer, or treasury — to
+      {attacker_controlled}.
+    blocking: true
+    preferred_tools:
+      - source-slice
+      - trace
+  - id: AT-UI-UPGRADE-CONTENT
+    type: control
+    statement: >-
+      The implementation {impl_address} the attacker installs executes
+      attacker logic with the proxy's storage and balance.
+    blocking: true
+    preferred_tools:
+      - fork
+      - static-analysis
+  - id: AT-UI-TEMPORAL-ORDER
+    type: temporal
+    statement: >-
+      The exploit window — deployment until the first admin
+      initialization/upgrade — is open at the pinned block; no queued admin
+      action closes it.
+    blocking: false
+    preferred_tools:
+      - fork-runner
+      - trace
+hunt_order:
+  - step: 1
+    tool_id: static-analysis
+    purpose: >-
+      Enumerate initializer and upgrade entry points and their guards —
+      initialized flags, reinitializer steps, admin modifiers — across the
+      implementation and every proxy surface.
+    stop_if: >-
+      every initializer and upgrade path is single-shot and admin-gated on
+      all surfaces, and implementations are initialized or sealed.
+  - step: 2
+    tool_id: callgraph
+    purpose: >-
+      Walk from public/external entries to initialization and upgrade
+      mutations; flag any route that reaches them without the documented
+      admin check.
+    stop_if: >-
+      no unprivileged route reaches an initializer or upgrade mutation.
+  - step: 3
+    tool_id: fork
+    purpose: >-
+      Replay the exact deployment order at the pinned block and attempt
+      re-initialization or unprivileged upgrade from a fresh EOA —
+      including initializing an uninitialized implementation.
+    stop_if: >-
+      the initializer or upgrade reverts for the unprivileged caller on the
+      deployed bytecode.
+  - step: 4
+    tool_id: trace
+    purpose: >-
+      Execute the successful unprivileged initialization or upgrade
+      end-to-end and record the storage diff — which value-bearing state the
+      attacker now controls.
+    stop_if: >-
+      the mutated state is cosmetic with no value-flow effect.
+  - step: 5
+    tool_id: capability-coverage
+    purpose: >-
+      Cross-check the exercised capability against the documented admin
+      matrix to confirm initialization/upgrade authority lay outside the
+      caller's granted set.
+    stop_if: >-
+      the exercised capability is granted to the caller by the documented
+      matrix.
+failure_modes:
+  - statement: >-
+      The initializer is properly guarded (initialized flag set in the
+      constructor or deploy script) and the implementation is sealed — no
+      re-initialization path exists.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      The upgrade or initializer path is admin-gated on every proxy surface;
+      the unprivileged route reaches only view or cosmetic state.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      Re-initialization succeeds but the controllable state gates nothing of
+      value — no extraction at or above the payout threshold.
+    typical_rejection_class: below-threshold
+  - statement: >-
+      The open initialization step is documented intended behavior — a
+      delayed, still-admin-gated configuration the deployer intentionally
+      left open.
+    typical_rejection_class: invalid-hypothesis
+negative_memory_hooks:
+  - rejection_class: not-exploitable
+    proposition: >-
+      The re-initialization reaches no value-bearing state — override only
+      with a path that re-points owner, treasury, fees, or the implementation
+      pointer.
+  - rejection_class: invalid-hypothesis
+    proposition: >-
+      The initializer is single-shot and admin-gated on all deployed
+      surfaces — override only with a surface (proxy, implementation,
+      upgraded version) the prior did not cover.
+  - rejection_class: below-threshold
+    proposition: >-
+      The hijacked initialization's worst-case impact is griefing below the
+      program's payout threshold — override only with a state slot that
+      directly moves value.
+exploit_shape:
+  attacker_profile: >-
+    Arbitrary EOA racing or following the deployment; occasionally a fresh
+    contract for the hijacked implementation.
+  capital_profile: >-
+    No capital floor — calls plus the gas of deploying a malicious
+    implementation when the upgrade path is hijacked.
+  settlement_window: >-
+    From deployment until the team's first admin initialization or upgrade —
+    often minutes on mainnet, but the pinned block decides.
+  value_moved: >-
+    Whatever the re-pointed state controls — the proxy's storage and balance
+    via a hijacked implementation, owner-gated treasuries, fee routing.

@@ -473,32 +473,38 @@
   {
    "python_file": "tests/test_archetypes.py",
    "python_func": "test_absent_check_reports_near_matches",
-   "status": "deferred-P3"
+   "go_file": "internal/archetypes/archetypes_test.go",
+   "go_func": "TestAbsentCheckReportsNearMatches"
   },
   {
    "python_file": "tests/test_archetypes.py",
    "python_func": "test_available_archetypes_are_exactly_the_seven",
-   "status": "deferred-P3"
+   "go_file": "internal/archetypes/archetypes_test.go",
+   "go_func": "TestAvailableArchetypesAreExactlyTheSeven"
   },
   {
    "python_file": "tests/test_archetypes.py",
    "python_func": "test_each_archetype_matches_its_planted_tree",
-   "status": "deferred-P3"
+   "go_file": "internal/archetypes/archetypes_test.go",
+   "go_func": "TestEachArchetypeMatchesItsPlantedTree"
   },
   {
    "python_file": "tests/test_archetypes.py",
    "python_func": "test_each_planted_tree_matches_only_its_own_archetype",
-   "status": "deferred-P3"
+   "go_file": "internal/archetypes/archetypes_test.go",
+   "go_func": "TestEachPlantedTreeMatchesOnlyItsOwnArchetype"
   },
   {
    "python_file": "tests/test_archetypes.py",
    "python_func": "test_prescreen_artifact_event_and_force",
-   "status": "deferred-P3"
+   "go_file": "internal/archetypes/archetypes_test.go",
+   "go_func": "TestPrescreenArtifactEventAndForce"
   },
   {
    "python_file": "tests/test_archetypes.py",
    "python_func": "test_unknown_check_type_fails_loud",
-   "status": "deferred-P3"
+   "go_file": "internal/archetypes/archetypes_test.go",
+   "go_func": "TestUnknownCheckTypeFailsLoud"
   },
   {
    "python_file": "tests/test_assumptions.py",
@@ -787,22 +793,28 @@
   {
    "python_file": "tests/test_bundle_corpus_keys.py",
    "python_func": "test_corpus_surface_block_appears_after_sweep",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestCLIWritesAndRegistersArtifactShape"
   },
   {
    "python_file": "tests/test_bundle_corpus_keys.py",
    "python_func": "test_keys_present_and_none_when_empty",
-   "status": "deferred-P3"
+   "merged_into": {
+    "go_file": "internal/corpus/corpus_test.go",
+    "go_func": "TestCorpusSurfaceBlockNoneWhenEmpty"
+   }
   },
   {
    "python_file": "tests/test_bundle_corpus_keys.py",
    "python_func": "test_shared_memory_block_filters_by_bug_class",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestSharedMemoryBlockFiltersByBugClass"
   },
   {
    "python_file": "tests/test_bundle_corpus_keys.py",
    "python_func": "test_shared_memory_fallback_when_class_unknown",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestSharedMemoryBlockFallbackWhenClassUnknown"
   },
   {
    "python_file": "tests/test_campaign_complete.py",
@@ -1259,147 +1271,176 @@
   {
    "python_file": "tests/test_corpus_surface_e2e_sharevault.py",
    "python_func": "test_no_model_calls_anywhere_in_sweep",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/e2e_test.go",
+   "go_func": "TestNoModelCallsAnywhereInSweep"
   },
   {
    "python_file": "tests/test_corpus_surface_e2e_sharevault.py",
    "python_func": "test_sweep_flags_share_price_inflation",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/e2e_test.go",
+   "go_func": "TestSweepFlagsSharePriceInflation"
   },
   {
    "python_file": "tests/test_corpus_surface_inventory.py",
    "python_func": "test_inventory_counts_both_stores",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestInventoryCountsBothStores"
   },
   {
    "python_file": "tests/test_corpus_surface_inventory.py",
    "python_func": "test_inventory_counts_eval_only_cases",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestInventoryCountsEvalOnlyCases"
   },
   {
    "python_file": "tests/test_corpus_surface_inventory.py",
    "python_func": "test_inventory_deterministic",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestInventoryDeterministic"
   },
   {
    "python_file": "tests/test_corpus_surface_inventory.py",
    "python_func": "test_inventory_ignores_non_exploitable_outcomes",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestInventoryIgnoresNonExploitableOutcomes"
   },
   {
    "python_file": "tests/test_corpus_surface_inventory.py",
    "python_func": "test_loss_parse_degenerate_commas_is_zero",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestLossParseDegenerateCommasIsZero"
   },
   {
    "python_file": "tests/test_corpus_surface_inventory.py",
    "python_func": "test_loss_parse_failure_is_zero",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestLossParseFailureIsZero"
   },
   {
    "python_file": "tests/test_corpus_surface_inventory.py",
    "python_func": "test_root_and_global_tiers_both_visible",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestBothTiersVisible"
   },
   {
    "python_file": "tests/test_corpus_surface_probes.py",
    "python_func": "test_alias_hits_are_copies_not_shared_lists",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/probes_test.go",
+   "go_func": "TestAliasHitsAreCopiesNotSharedLists"
   },
   {
    "python_file": "tests/test_corpus_surface_probes.py",
    "python_func": "test_centralization_value_move_leg_fires_on_parenless_transfer",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/probes_test.go",
+   "go_func": "TestCentralizationValueMoveLegFiresOnParenlessTransfer"
   },
   {
    "python_file": "tests/test_corpus_surface_probes.py",
    "python_func": "test_coverage_rule_against_live_corpus",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/probes_test.go",
+   "go_func": "TestCoverageRuleAgainstLiveCorpus"
   },
   {
    "python_file": "tests/test_corpus_surface_probes.py",
    "python_func": "test_flash_loan_in_out_leg_fires_on_parenless_calls",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/probes_test.go",
+   "go_func": "TestFlashLoanInOutLegFiresOnParenlessCalls"
   },
   {
    "python_file": "tests/test_corpus_surface_probes.py",
    "python_func": "test_flash_loan_not_exposed_by_transferfrom_alone",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/probes_test.go",
+   "go_func": "TestFlashLoanNotExposedByTransferfromAlone"
   },
   {
    "python_file": "tests/test_corpus_surface_probes.py",
    "python_func": "test_plain_contract_has_no_exposure",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/probes_test.go",
+   "go_func": "TestPlainContractHasNoExposure"
   },
   {
    "python_file": "tests/test_corpus_surface_probes.py",
    "python_func": "test_reentrancy_fires_without_guard",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/probes_test.go",
+   "go_func": "TestReentrancyFiresWithoutGuard"
   },
   {
    "python_file": "tests/test_corpus_surface_probes.py",
    "python_func": "test_reentrancy_silent_with_guard",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/probes_test.go",
+   "go_func": "TestReentrancySilentWithGuard"
   },
   {
    "python_file": "tests/test_corpus_surface_probes.py",
    "python_func": "test_share_price_inflation_fires_on_donation_shape",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/probes_test.go",
+   "go_func": "TestSharePriceInflationFiresOnDonationShape"
   },
   {
    "python_file": "tests/test_corpus_surface_probes.py",
    "python_func": "test_token_integration_fires_on_parenless_transferfrom",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/probes_test.go",
+   "go_func": "TestTokenIntegrationFiresOnParenlessTransferfrom"
   },
   {
    "python_file": "tests/test_corpus_surface_probes.py",
    "python_func": "test_transfer_out_never_matches_transferfrom_prefix",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/probes_test.go",
+   "go_func": "TestTransferOutNeverMatchesTransferfromPrefix"
   },
   {
    "python_file": "tests/test_corpus_surface_probes.py",
    "python_func": "test_unprobed_classes_carry_reasons",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/probes_test.go",
+   "go_func": "TestUnprobedClassesCarryReasons"
   },
   {
    "python_file": "tests/test_corpus_surface_report.py",
    "python_func": "test_cli_writes_and_registers_artifact",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_corpus_surface_test.go",
+   "go_func": "TestCorpusSurfaceWritesAndRegisters"
   },
   {
    "python_file": "tests/test_corpus_surface_report.py",
    "python_func": "test_prescreen_references_corpus_surface",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestPrescreenReferencesCorpusSurface"
   },
   {
    "python_file": "tests/test_corpus_surface_report.py",
    "python_func": "test_report_shape_and_determinism",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestReportShapeAndDeterminism"
   },
   {
    "python_file": "tests/test_corpus_surface_scoring.py",
    "python_func": "test_confidence_factor_scales_score",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestConfidenceFactorScalesScore"
   },
   {
    "python_file": "tests/test_corpus_surface_scoring.py",
    "python_func": "test_deterministic",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestExposureDeterministic"
   },
   {
    "python_file": "tests/test_corpus_surface_scoring.py",
    "python_func": "test_no_hits_scores_zero_but_stays_listed",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestNoHitsScoresZeroButStaysListed"
   },
   {
    "python_file": "tests/test_corpus_surface_scoring.py",
    "python_func": "test_ranking_order_and_tiebreak",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestRankingOrderAndTiebreak"
   },
   {
    "python_file": "tests/test_corpus_surface_scoring.py",
    "python_func": "test_score_formula",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/corpus_test.go",
+   "go_func": "TestScoreFormula"
   },
   {
    "python_file": "tests/test_criticality.py",
@@ -3854,52 +3895,62 @@
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_all_adversarial_cast_fails",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestAllAdversarialCastFails"
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_available_playbooks_are_exactly_the_shipped_three",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestAvailablePlaybooksAreExactlyTheShippedEight"
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_available_playbooks_fails_loud_on_filename_class_mismatch",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestAvailablePlaybooksFailsLoudOnFilenameClassMismatch"
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_available_playbooks_skip_broken_files",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestAvailablePlaybooksSkipBrokenFiles"
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_curated_invariant_ids_is_union_over_playbooks",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestCuratedInvariantIDsIsUnionOverPlaybooks"
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_duplicate_actor_names_fail",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestDuplicateActorNamesFail"
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_expectation_unknown_invariant_fails",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestExpectationUnknownInvariantFails"
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_missing_playbook_is_a_normal_miss",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestMissingPlaybookIsANormalMiss"
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_mode_without_simulation_block_fails",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestModeWithoutSimulationBlockFails"
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_model_role_stages_are_not_pipeline_stages",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestModelRoleStagesAreNotPipelineStages"
   },
   {
    "python_file": "tests/test_playbooks.py",
@@ -3909,7 +3960,8 @@
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_playbook_for_class_is_traversal_safe",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestPlaybookForClassIsTraversalSafe"
   },
   {
    "python_file": "tests/test_playbooks.py",
@@ -3919,72 +3971,88 @@
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_shipped_playbooks_load_and_validate",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestShippedPlaybooksLoadAndValidate"
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_shipped_simulation_playbooks_carry_mode_and_expectation",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestShippedSimulationPlaybooksCarryModeAndExpectation"
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_simulation_block_without_mode_fails",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestSimulationBlockWithoutModeFails"
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_simulation_directive_end_to_end_in_bundle",
-   "status": "deferred-P3"
+   "merged_into": {
+    "go_file": "internal/playbooks/playbooks_test.go",
+    "go_func": "TestShippedSimulationPlaybooksCarryModeAndExpectation"
+   }
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_simulation_mode_playbook_loads",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestSimulationModePlaybookLoads"
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_tampered_playbook_fails_loud",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestTamperedPlaybookFailsLoud"
   },
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_unparseable_playbook_fails_loud",
-   "status": "deferred-P3"
+   "go_file": "internal/playbooks/playbooks_test.go",
+   "go_func": "TestUnparseablePlaybookFailsLoud"
   },
   {
    "python_file": "tests/test_poc_shapes.py",
    "python_func": "test_build_index_only_exp_files",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/shapes_test.go",
+   "go_func": "TestBuildIndexOnlyExpFiles"
   },
   {
    "python_file": "tests/test_poc_shapes.py",
    "python_func": "test_cache_reuse_and_rebuild_on_head_move",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/shapes_test.go",
+   "go_func": "TestCacheReuseAndRebuildOnHeadMove"
   },
   {
    "python_file": "tests/test_poc_shapes.py",
    "python_func": "test_extract_shapes_cast_receiver_hint",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/shapes_test.go",
+   "go_func": "TestExtractShapesCastReceiverHint"
   },
   {
    "python_file": "tests/test_poc_shapes.py",
    "python_func": "test_extract_shapes_deterministic",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/shapes_test.go",
+   "go_func": "TestExtractShapesDeterministic"
   },
   {
    "python_file": "tests/test_poc_shapes.py",
    "python_func": "test_extract_shapes_finds_typed_calls",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/shapes_test.go",
+   "go_func": "TestExtractShapesFindsTypedCalls"
   },
   {
    "python_file": "tests/test_poc_shapes.py",
    "python_func": "test_extract_shapes_lowercase_builtin_cast_receiver",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/shapes_test.go",
+   "go_func": "TestExtractShapesLowercaseBuiltinCastReceiver"
   },
   {
    "python_file": "tests/test_poc_shapes.py",
    "python_func": "test_non_git_checkout_fails_loud",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/shapes_test.go",
+   "go_func": "TestNonGitCheckoutFailsLoud"
   },
   {
    "python_file": "tests/test_privileged_bands.py",
@@ -5781,27 +5849,32 @@
   {
    "python_file": "tests/test_shape_match.py",
    "python_func": "test_deterministic_ordering",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/shapes_test.go",
+   "go_func": "TestDeterministicOrdering"
   },
   {
    "python_file": "tests/test_shape_match.py",
    "python_func": "test_empty_surface_no_crash",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/shapes_test.go",
+   "go_func": "TestEmptySurfaceNoCrash"
   },
   {
    "python_file": "tests/test_shape_match.py",
    "python_func": "test_exact_hit_on_matching_signature",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/shapes_test.go",
+   "go_func": "TestExactHitOnMatchingSignature"
   },
   {
    "python_file": "tests/test_shape_match.py",
    "python_func": "test_near_miss_uses_threshold",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/shapes_test.go",
+   "go_func": "TestNearMissUsesThreshold"
   },
   {
    "python_file": "tests/test_shape_match.py",
    "python_func": "test_no_exact_hit_on_wrong_param_types",
-   "status": "deferred-P3"
+   "go_file": "internal/corpus/shapes_test.go",
+   "go_func": "TestNoExactHitOnWrongParamTypes"
   },
   {
    "python_file": "tests/test_shared_memory.py",

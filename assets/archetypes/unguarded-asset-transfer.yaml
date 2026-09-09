@@ -1,0 +1,13 @@
+id: unguarded-asset-transfer
+name: Unguarded asset transfer
+criticality: critical
+description: >
+  A function reachable without any authorization modifier writes an
+  asset-tracking state variable (balances, reserves, totalAssets, shares).
+  If the checks hold, someone who is not meant to move assets can.
+checks:
+  - type: state_var_exists
+    pattern: "(?i)(balance|reserve|totalassets|share)"
+  - type: unguarded_entry_writes
+    var_pattern: "(?i)(balance|reserve|totalassets|share)"
+playbook_hint: access-control

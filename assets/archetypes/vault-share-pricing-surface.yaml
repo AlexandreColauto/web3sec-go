@@ -1,0 +1,20 @@
+id: vault-share-pricing-surface
+name: Vault / share-pricing surface
+criticality: critical
+description: >
+  The target mints and redeems shares against an asset pool (deposit/withdraw
+  or mint/redeem entry points plus share-accounting state). If the checks
+  hold, a share-price mechanism is structurally present — the surface where
+  first-depositor inflation and balance-integrity bugs live. Precision lives
+  in checks 1 + 3 together: a plain ERC20 with mint fails check 3 (no
+  withdraw/redeem). If this archetype is ever split into entry-point-only and
+  exit-point variants, the withdraw/redeem check must travel with any variant
+  that keeps a mint pattern.
+checks:
+  - type: state_var_exists
+    pattern: "(?i)(totalassets|totalsupply|shares)"
+  - type: function_exists
+    pattern: "(?i)(deposit|mint)"
+  - type: function_exists
+    pattern: "(?i)(withdraw|redeem)"
+playbook_hint: share-price-inflation

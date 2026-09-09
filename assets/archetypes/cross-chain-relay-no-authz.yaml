@@ -1,0 +1,13 @@
+id: cross-chain-relay-no-authz
+name: Cross-chain relay without authz evidence
+criticality: high
+description: >
+  A message-reception entry point exists and the tree talks to a bridge.
+  T0 cannot verify the sender check inside the body — that is why this is a
+  pre-screen, not a finding.
+checks:
+  - type: function_exists
+    pattern: "(?i)(^|_)(relay|receiveMessage|onCrossChainMessage|processMessage)$"
+  - type: external_call_pattern
+    pattern: "(?i)(bridge|sendmessage|crosschain)"
+playbook_hint: bridge-message

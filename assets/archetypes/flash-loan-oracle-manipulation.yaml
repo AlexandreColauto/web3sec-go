@@ -1,0 +1,13 @@
+id: flash-loan-oracle-manipulation
+name: Flash-loan + oracle price read
+criticality: critical
+description: >
+  A code path both borrows (flash loan) and reads a price feed. The
+  manipulation window exists by construction; the open question is only
+  whether the read settles value.
+checks:
+  - type: external_call_pattern
+    pattern: "(?i)(flashloan|ivault\\.borrow)"
+  - type: external_call_pattern
+    pattern: "(?i)(latestrounddata|getprice|consult|peek)"
+playbook_hint: oracle-manipulation

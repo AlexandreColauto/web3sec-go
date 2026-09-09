@@ -20,10 +20,14 @@ package cli
 
 import "strings"
 
-// valOpt is one option that takes a value (--src SRC).
+// valOpt is one option that takes a value (--src SRC). An appendable option
+// (--force ARCH, action="append") accumulates every occurrence in multi
+// while val keeps the last one (argparse's final value).
 type valOpt struct {
 	name     string
 	val      string
+	multi    []string
+	append   bool
 	seen     bool
 	required bool
 }
@@ -96,19 +100,21 @@ func (sp *argSpec) parse(args []string) error {
 			}
 			if dst := sp.valNamed(a); dst != nil {
 				fname, val, hasVal := splitFlag(a)
-				if hasVal {
-					dst.val, dst.seen = val, true
-					lastOptIdx = i
-					continue
+				optIdx := i
+				if !hasVal {
+					next, ok := flagValue(args, i)
+					if !ok {
+						return t14ArgparseErr(sp.usage, sp.prog,
+							"argument %s: expected one argument", fname)
+					}
+					val = next
+					i++
 				}
-				next, ok := flagValue(args, i)
-				if !ok {
-					return t14ArgparseErr(sp.usage, sp.prog,
-						"argument %s: expected one argument", fname)
+				dst.val, dst.seen = val, true
+				if dst.append {
+					dst.multi = append(dst.multi, val)
 				}
-				dst.val, dst.seen = next, true
-				lastOptIdx = i
-				i++
+				lastOptIdx = optIdx
 				continue
 			}
 			if dst := sp.flagNamed(a); dst != nil {

@@ -1,0 +1,12 @@
+id: uninitialized-proxy
+name: Uninitialized proxy / implementation slot
+criticality: critical
+description: >
+  The tree delegatecalls and carries an implementation-like state variable.
+  Combined with no initializer guard on the entry surface, this is the
+  classic "first caller sets the implementation" shape.
+checks:
+  - type: delegatecall_present
+  - type: state_var_exists
+    pattern: "(?i)(^|_)impl(ement(ation)?)?$"
+playbook_hint: upgrade-initializer

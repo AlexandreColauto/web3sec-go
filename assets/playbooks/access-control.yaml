@@ -1,0 +1,193 @@
+# Playbook for the canonical bug class access-control.
+# This is the framework's PRIOR for one bug class — context for the proposer,
+# never a verdict, never an instruction to the orchestrator. Every tool id
+# below exists in the tool registry (sandbox profiles + analysis tools).
+bug_class: access-control
+title: Privileged state change reachable by an unprivileged caller
+description: >-
+  A state-changing path the design reserves for a privileged role is reachable
+  by an unprivileged caller — a missing or misapplied modifier, an initializer
+  that can run again (proxy re-initialization or an open reinitializer step),
+  a delegate/proxy surface whose modifier coverage diverges from the exposed
+  ABI, role conflation where a low-tier role exercises a high-tier operation,
+  or a callback/signature path that skips authorization. A genuine instance
+  turns the unprivileged call into value flow — draining, fee or recipient
+  redirection, upgrade logic, position-gating grief — not a cosmetic state
+  write. Intentionally permissionless design is not an instance. Exploitability
+  is fully determined by code semantics, hence the E4 floor.
+evidence_floor: E4
+amplifiers: [arbitrary-call]
+invariants:
+  - id: INV-AC-ROLE-GATED
+    statement: >-
+      Every state-changing function documented as privileged requires the
+      documented role on every path that reaches its mutation, including
+      entries exposed only through proxies or routers.
+    typical_documentation: >-
+      NatSpec access notes; role constants; the docs' access-control matrix.
+  - id: INV-AC-INIT-SINGLE-SHOT
+    statement: >-
+      Initialization is single-shot and irreversible after the first call,
+      through the implementation, its proxies, and any upgraded version.
+    typical_documentation: >-
+      Initializer guards (initialized flag, reinitializer step); deployment
+      docs.
+  - id: INV-AC-NO-UNPRIV-MUTATION
+    statement: >-
+      No unprivileged path mutates the documented privileged state — roles,
+      parameters, fee recipients, pausing, or implementation pointers.
+    typical_documentation: >-
+      Admin-functions section of the docs; NatSpec on privileged setters.
+  - id: INV-AC-DELEGATE-COVERAGE
+    statement: >-
+      Delegate and proxy paths preserve the access-modifier coverage of the
+      implementation — no entry point reaches an unguarded mutation through
+      delegatecall or a forwarded selector.
+    typical_documentation: >-
+      Proxy/upgrade architecture docs; UUPS/Transparent proxy conventions.
+assumption_templates:
+  - id: AT-AC-NO-MODIFIER
+    type: authority
+    statement: >-
+      The target function {function_name} has no effective access check on the
+      vulnerable path — the modifier is missing, applied to a different
+      branch, or guards the wrong variable.
+    blocking: true
+    preferred_tools:
+      - static-analysis
+      - source-slice
+  - id: AT-AC-PUBLIC-ROUTE
+    type: reachability
+    statement: >-
+      A public or external entry point {entry_point} reaches the state
+      mutation {state_slot} without the documented role.
+    blocking: true
+    preferred_tools:
+      - callgraph
+      - source-slice
+  - id: AT-AC-DELEGATE-BYPASS
+    type: control
+    statement: >-
+      A delegation, proxy, or callback path ({callback_path}) bypasses the
+      modifier that the implementation's own surface enforces.
+    blocking: true
+    preferred_tools:
+      - source-slice
+      - fork
+  - id: AT-AC-INITIALIZER-RACE
+    type: temporal
+    statement: >-
+      The initializer of {contract} is callable again at the pinned
+      deployment (uninitialized flag or an open reinitializer step) within
+      the deployment tx order {tx_order}.
+    blocking: true
+    preferred_tools:
+      - fork
+      - trace
+  - id: AT-AC-VALUE-CONTROLLING
+    type: state
+    statement: >-
+      The mutated state {state_slot} controls value flow — it gates
+      transfers, sets fees or recipients, or re-points the implementation.
+    blocking: true
+    preferred_tools:
+      - source-slice
+      - trace
+  - id: AT-AC-ROLE-CONFLATION
+    type: authority
+    statement: >-
+      Role {low_role} can exercise the operation reserved for {high_role} —
+      the hierarchy in {access_manager} conflates the two roles.
+    blocking: false
+    preferred_tools:
+      - static-analysis
+      - capability-coverage
+hunt_order:
+  - step: 1
+    tool_id: static-analysis
+    purpose: >-
+      Enumerate the mutating surface (admin setters, upgrade and initializer
+      entry points, transfer hooks) and check modifier coverage per external
+      entry.
+    stop_if: >-
+      every mutating path is role-gated on all entry points, including proxy
+      and delegate surfaces.
+  - step: 2
+    tool_id: callgraph
+    purpose: >-
+      Walk from public/external entries to privileged state mutations and
+      flag any route whose path carries no role check.
+    stop_if: >-
+      no unprivileged route exists from any entry point to the mutation.
+  - step: 3
+    tool_id: source-slice
+    purpose: >-
+      Slice the proxy/delegatecall surface — initializer guards, upgrade
+      entry points, and callback hooks that re-enter implementation logic
+      with a caller-controlled selector or payload.
+    stop_if: >-
+      the initializer is guarded and every delegate path inherits identical
+      modifiers.
+  - step: 4
+    tool_id: fork
+    purpose: >-
+      Replay the exact deployment tx order and attempt re-initialization from
+      a fresh EOA on the pinned deployment.
+    stop_if: >-
+      the initializer rejects the second call on the deployed bytecode.
+  - step: 5
+    tool_id: trace
+    purpose: >-
+      Execute the unprivileged route end-to-end in a fork from a fresh EOA
+      and record the resulting state diff against the value-flow surface.
+    stop_if: >-
+      the call reverts, or the mutated state is cosmetic with no value-flow
+      effect.
+  - step: 6
+    tool_id: capability-coverage
+    purpose: >-
+      Cross-check the achieved capabilities against the documented access
+      matrix to confirm the mutation lies outside the caller's granted set.
+    stop_if: >-
+      the exercised capability is granted to the caller by the documented
+      matrix.
+failure_modes:
+  - statement: >-
+      The path is intentionally permissionless, or the missing check is
+      enforced upstream (factory, router, or access manager) — the claim
+      contradicts documented design.
+    typical_rejection_class: invalid-hypothesis
+  - statement: >-
+      The mutation changes only cosmetic or administrative state and no value
+      flow depends on it.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      The reachable mutation is a griefing vector (pause, revert-stick) with
+      no direct value extraction at or above the payout threshold.
+    typical_rejection_class: below-threshold
+  - statement: >-
+      The route exists only through an entry disabled by an on-chain guard
+      deployed after the pinned source snapshot.
+    typical_rejection_class: not-exploitable
+negative_memory_hooks:
+  - rejection_class: not-exploitable
+    proposition: >-
+      The unprivileged path exists but cannot move value — the mutated state
+      does not gate transfers, fees, or implementation pointers.
+  - rejection_class: invalid-hypothesis
+    proposition: >-
+      The missing modifier is documented intended behavior for that role —
+      override only with a new path reaching a genuinely privileged mutation.
+  - rejection_class: below-threshold
+    proposition: >-
+      The reachable mutation's worst-case impact is a griefing vector below
+      the program's payout threshold.
+exploit_shape:
+  attacker_profile: >-
+    Arbitrary EOA; occasionally a freshly deployed contract for
+    callback/reentrancy entry.
+  capital_profile: No capital floor — the attack is a call, not a position; gas only.
+  settlement_window: Immediate — a single transaction settles the privileged mutation.
+  value_moved: >-
+    Whatever the mutated state controls — treasury or fee routing, upgrade
+    logic, or direct asset pulls.

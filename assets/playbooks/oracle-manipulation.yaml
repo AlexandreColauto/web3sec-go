@@ -1,0 +1,212 @@
+# Playbook for the canonical bug class oracle-manipulation.
+# This is the framework's PRIOR for one bug class — context for the proposer,
+# never a verdict, never an instruction to the orchestrator. Every tool id
+# below exists in the tool registry (sandbox profiles + analysis tools).
+bug_class: oracle-manipulation
+title: Price-feed manipulation inside the settlement window
+description: >-
+  Price feeds the protocol settles against can be pushed by an attacker within
+  the settlement window — redemptions, liquidations, mint/burn, margin calls,
+  or PnL accounting read a price from a source (AMM spot pool, short-TWAP
+  window, low-liquidity feed, stale cached value) whose level an attacker can
+  move with borrowed capital at a profit after round-trip costs. A genuine
+  instance violates a documented settlement guarantee — the settled price no
+  longer reflects the protocol's reserve-implied value — and nets the attacker
+  the delta applied to their position within the window. A genuine instance is
+  not the protocol's documented price-discovery mechanism, and the extractable
+  value clears the program's payout threshold at the pinned TVL.
+evidence_floor: E5
+amplifiers: [oracle, flash-loan]
+invariants:
+  - id: INV-OM-SETTLEMENT-RESISTANT
+    statement: >-
+      The price the protocol settles against (redemption, liquidation,
+      mint/burn, margin, PnL) is manipulation-resistant within the settlement
+      window — no single transaction or attacker-driven sequence can move it
+      enough to change a settlement outcome.
+    typical_documentation: >-
+      NatSpec on the pricing/settlement function; docs claiming TWAP or
+      manipulation-resistant oracle usage.
+  - id: INV-OM-TWAP-HORIZON
+    statement: >-
+      The TWAP or averaging window used for any value-bearing settlement is
+      longer than the largest price excursion an attacker can sustain with
+      feasibly borrowed capital across that window.
+    typical_documentation: >-
+      Window constants and their rationale in code comments or the oracle
+      adapter's docs.
+  - id: INV-OM-NO-STALE-WEAPONIZATION
+    statement: >-
+      No state-changing path reads an external feed outside its
+      liveness/staleness bounds such that a stale price can be used to settle
+      against current reserves.
+    typical_documentation: >-
+      Staleness checks in the feed adapter; @dev NatSpec notes on freshness.
+  - id: INV-OM-NAV-NEUTRALITY
+    statement: >-
+      Value-bearing settlement derives from the protocol's own reserves or a
+      manipulation-resistant source, never from a spot pool whose reserves an
+      attacker can reweight inside the same transaction that settles.
+    typical_documentation: >-
+      Pricing-derivation section of the docs; share-price NatSpec.
+assumption_templates:
+  - id: AT-OM-TWAP-HORIZON
+    type: temporal
+    statement: >-
+      The averaging/TWAP window of {oracle_feed} is shorter than the price
+      excursion {attacker_capital} can sustain across one block via
+      {liquidity_pool}.
+    blocking: true
+    preferred_tools:
+      - source-slice
+      - static-analysis
+  - id: AT-OM-FLASH-ECONOMICS
+    type: economic
+    statement: >-
+      A flash-borrowed round trip on {pool} moves the settled price enough
+      that extracted value exceeds swap fees plus flash-loan premium at TVL
+      {tvl_usd}.
+    blocking: true
+    preferred_tools:
+      - fork
+      - balance-delta
+  - id: AT-OM-REACHABLE-SETTLEMENT
+    type: reachability
+    statement: >-
+      An unprivileged caller can drive {settlement_function} against the
+      manipulable feed within the same transaction as the price push.
+    blocking: true
+    preferred_tools:
+      - callgraph
+      - source-slice
+  - id: AT-OM-NAV-SHIFT
+    type: state
+    statement: >-
+      The reserves underlying {share_price_or_nav} shift enough during the
+      window that NAV per share moves by at least {min_delta}.
+    blocking: false
+    preferred_tools:
+      - source-slice
+      - fork
+  - id: AT-OM-LIQUIDITY-SCALE
+    type: environment
+    statement: >-
+      Liquidity in {pool} at the pinned block is within the manipulation
+      horizon — pushing the price to {target_price} costs less than
+      {cost_usd}.
+    blocking: true
+    preferred_tools:
+      - fork
+      - fork-runner
+  - id: AT-OM-FALLBACK-BYPASS
+    type: invariant
+    statement: >-
+      The documented manipulation-resistant price guarantee holds on every
+      path, including the fallback/average-price branches of
+      {pricing_function}.
+    blocking: false
+    preferred_tools:
+      - static-analysis
+      - invariant-check
+hunt_order:
+  - step: 1
+    tool_id: source-slice
+    purpose: >-
+      Slice the pricing/settlement functions and locate every oracle read on a
+      value-bearing path, noting the window constants and staleness guards
+      that bound each read.
+    stop_if: >-
+      the feed is external with its own liveness and staleness bounds and the
+      protocol clamps every read inside them — no stale or spot-read path
+      exists.
+  - step: 2
+    tool_id: invariant-check
+    purpose: >-
+      Check the documented price-guarantee invariant (INV-OM-SETTLEMENT-RESISTANT)
+      against the extracted pricing logic before spending execution budget.
+    stop_if: >-
+      the invariant the code implements already encodes the documented
+      guarantee and no bypass branch reaches a value-bearing settlement.
+  - step: 3
+    tool_id: trace
+    purpose: >-
+      Trace the settlement path for inline oracle reads and same-transaction
+      reordering — deposit/settle flows that consume a price produced earlier
+      in the same transaction.
+    stop_if: >-
+      settlement always consumes a committed price fixed before the attacker's
+      transaction lands.
+  - step: 4
+    tool_id: static-analysis
+    purpose: >-
+      Find fallback and average-price branches (cached lastPrice, fallback
+      TWAP, stale-tolerant NAV) that bypass the primary manipulation-resistant
+      path.
+    stop_if: >-
+      every fallback branch is also TWAP-bounded or unreachable from
+      unprivileged entry points.
+  - step: 5
+    tool_id: fork
+    purpose: >-
+      Fork at the pinned block, push {liquidity_pool} with a flash swap, and
+      settle through {settlement_function} to measure the realized price
+      movement.
+    stop_if: >-
+      the settled price moves less than the fee-plus-premium cost of the push.
+  - step: 6
+    tool_id: balance-delta
+    purpose: >-
+      Price the full round trip — attacker delta minus swap fees, flash-loan
+      premium, and gas — against current TVL and the payout threshold.
+    stop_if: >-
+      net profit is below the program's payout threshold at current TVL.
+failure_modes:
+  - statement: >-
+      The TWAP window is longer than claimed and no liquidity scale makes a
+      multi-block push profitable — the manipulation horizon is theoretical.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      The feed is an external oracle with its own attack bounds and the
+      protocol's read is staleness-clamped, so a pushed price cannot propagate
+      into settlement.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      The price push works on the fork but the extractable amount at current
+      TVL sits below the program's payout threshold.
+    typical_rejection_class: below-threshold
+  - statement: >-
+      The demonstrated price movement is the protocol's documented
+      price-discovery mechanism, not a violation of a settlement guarantee.
+    typical_rejection_class: invalid-hypothesis
+  - statement: >-
+      The position opened by manipulation cannot be exited profitably inside
+      the same settlement window, so the round trip nets negative after
+      costs.
+    typical_rejection_class: not-exploitable
+negative_memory_hooks:
+  - rejection_class: below-threshold
+    proposition: >-
+      The extractable amount at current TVL is below the program's payout
+      threshold — override only with a materially larger pool, a different
+      settlement surface, or a lower-threshold program.
+  - rejection_class: not-exploitable
+    proposition: >-
+      The TWAP window exceeds the feasible manipulation horizon for the
+      available liquidity — override only with a hypothesis that changes the
+      feed, the window, or the capital source.
+  - rejection_class: invalid-hypothesis
+    proposition: >-
+      The demonstrated price move is the documented price-discovery mechanism,
+      not a settlement-guarantee violation — override only with a settlement
+      surface the prior did not cover.
+exploit_shape:
+  attacker_profile: Arbitrary EOA — no privileges, position, or deposit history required.
+  capital_profile: >-
+    Flash-borrowed capital only, no committed capital; cost is swap fees plus
+    flash-loan premium.
+  settlement_window: >-
+    Single block (one settlement window); the position is opened and closed
+    atomically.
+  value_moved: >-
+    NAV/price delta applied to the attacker's redeemed or liquidated position,
+    net of round-trip costs.
