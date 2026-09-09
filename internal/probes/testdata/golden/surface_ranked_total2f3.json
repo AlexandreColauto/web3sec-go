@@ -1,0 +1,241 @@
+{
+  "campaign_id": "C-a5562596d2",
+  "snapshot_id": "unpinned",
+  "parse_version": "3",
+  "index_sha": "ecbcf18a20fef25e93ab5bc154f096207663e9959ad87805b3b5959413c360e3",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "per_axis": 12,
+  "total": 2,
+  "floor": 3,
+  "axes": [
+    {
+      "probe": "accumulator-basis-skew",
+      "axis": "accumulator-skew",
+      "lens": "L-01",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    },
+    {
+      "probe": "assertion-strength",
+      "axis": "enforcement-timing",
+      "lens": "L-03",
+      "sites": 84,
+      "rows": 11,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 3,
+      "wanted": 11,
+      "emitted": 3,
+      "tail": 8,
+      "status": "under-filled"
+    },
+    {
+      "probe": "custody-primitive",
+      "axis": "primitive-symmetry",
+      "lens": "L-04",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    },
+    {
+      "probe": "sequential-cursor",
+      "axis": "liveness",
+      "lens": "L-01",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    },
+    {
+      "probe": "short-circuitable-guard",
+      "axis": "guard-short-circuit",
+      "lens": "L-01",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    },
+    {
+      "probe": "trust-assumption",
+      "axis": "incentive-inversion",
+      "lens": "L-02",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    }
+  ],
+  "rows": [
+    {
+      "row_id": "81dfad6492",
+      "probe": "assertion-strength",
+      "axis": "enforcement-timing",
+      "lens": "L-03",
+      "tier": 0,
+      "rank": 1,
+      "assertion_gap": 4,
+      "gate": "onlyActiveStaker",
+      "why": "['batch:index', 'prev:state', 'prev:state:root', 'state:root'] is asserted as equality-to-persisted-state in finalizeBatch#66 (class 4) but consumed by commitBatch#45 under a class-0 guard — does commitBatch verify ['batch:index', 'prev:state', 'prev:state:root', 'state:root'] itself?",
+      "siblings": [
+        {
+          "contract": "Rollup",
+          "line": 45,
+          "test_double": false
+        },
+        {
+          "contract": "MockRollup",
+          "line": 45,
+          "test_double": true
+        }
+      ],
+      "contract": "Rollup",
+      "consumer": "commitBatch",
+      "consumer_line": 45,
+      "asserter": "finalizeBatch",
+      "asserter_line": 66,
+      "concept_keys": [
+        "batch:index",
+        "prev:state",
+        "prev:state:root",
+        "state:root"
+      ],
+      "own_class": 0,
+      "assert_class": 4
+    },
+    {
+      "row_id": "66c7d14d35",
+      "probe": "assertion-strength",
+      "axis": "enforcement-timing",
+      "lens": "L-03",
+      "tier": 0,
+      "rank": 2,
+      "assertion_gap": 4,
+      "gate": "unprivileged",
+      "why": "['batch:index', 'dropped:msg', 'dropped:msg:root', 'msg:root'] is asserted as equality-to-persisted-state in auditDrop#97 (class 4) but consumed by dropMessage#49 under a class-0 guard — does dropMessage verify ['batch:index', 'dropped:msg', 'dropped:msg:root', 'msg:root'] itself?",
+      "siblings": [
+        {
+          "contract": "Rollup",
+          "line": 49,
+          "test_double": false
+        },
+        {
+          "contract": "MockRollup",
+          "line": 49,
+          "test_double": true
+        }
+      ],
+      "contract": "Rollup",
+      "consumer": "dropMessage",
+      "consumer_line": 49,
+      "asserter": "auditDrop",
+      "asserter_line": 97,
+      "concept_keys": [
+        "batch:index",
+        "dropped:msg",
+        "dropped:msg:root",
+        "msg:root"
+      ],
+      "own_class": 0,
+      "assert_class": 4
+    },
+    {
+      "row_id": "b6fe31cdf7",
+      "probe": "assertion-strength",
+      "axis": "enforcement-timing",
+      "lens": "L-03",
+      "tier": 0,
+      "rank": 3,
+      "assertion_gap": 4,
+      "gate": "unprivileged",
+      "why": "['active:staker', 'active:staker:root', 'batch:index', 'staker:root'] is asserted as equality-to-persisted-state in auditStakers#105 (class 4) but consumed by getActiveStakers#61 under a class-0 guard — does getActiveStakers verify ['active:staker', 'active:staker:root', 'batch:index', 'staker:root'] itself?",
+      "siblings": [
+        {
+          "contract": "Rollup",
+          "line": 61,
+          "test_double": false
+        },
+        {
+          "contract": "MockRollup",
+          "line": 61,
+          "test_double": true
+        }
+      ],
+      "contract": "Rollup",
+      "consumer": "getActiveStakers",
+      "consumer_line": 61,
+      "asserter": "auditStakers",
+      "asserter_line": 105,
+      "concept_keys": [
+        "active:staker",
+        "active:staker:root",
+        "batch:index",
+        "staker:root"
+      ],
+      "own_class": 0,
+      "assert_class": 4
+    }
+  ],
+  "missing": [
+    {
+      "axis": "enforcement-timing",
+      "probe": "assertion-strength",
+      "lens": "L-03",
+      "rows": 11,
+      "sites": 84,
+      "emitted": 3,
+      "wanted": 11,
+      "floor": 3,
+      "reason": "quota under-filled: assertion-strength produced 11 rows, emitted 3 — raise --per-axis or disposition the tail"
+    }
+  ],
+  "warnings": [
+    {
+      "kind": "floor-reserve-exceeds-total",
+      "message": "floor reserve 3 (floor 3 x 1 axes with rows) exceeds --total 2: the ceiling may not trim below the reserve, so the surface emits 3 rows and every axis with a floor reports `under-filled`. Raise --total to >= 3 or lower the floor"
+    }
+  ],
+  "stats": {
+    "probes": 6,
+    "axes_with_rows": 1,
+    "sites": 84,
+    "rows": 11,
+    "emitted": 3,
+    "tail": 8,
+    "blind": 0,
+    "missing": 1
+  }
+}

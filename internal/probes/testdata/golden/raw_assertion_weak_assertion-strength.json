@@ -1,0 +1,16 @@
+{
+  "sites": 1,
+  "rows": [],
+  "blind": [
+    {
+      "kind": "rejected-site",
+      "key": "Rollup::commitBatch::state:root",
+      "near": null,
+      "contract": "Rollup",
+      "function": "commitBatch",
+      "line": 11,
+      "reason": "commitBatch asserts state:root itself (class 1) — no asymmetry"
+    }
+  ],
+  "blind_total": 1
+}

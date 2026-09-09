@@ -1,0 +1,25 @@
+{
+  "sites": 1,
+  "rows": [
+    {
+      "contract": "Rollup",
+      "function": "finalizeBatch",
+      "line": 21,
+      "concept": "lastFinalizedBatchIndex",
+      "tier": 0,
+      "gate": "unprivileged",
+      "assertion_gap": 0,
+      "sort_name": "finalizeBatch",
+      "consumer": "finalizeBatch",
+      "consumer_line": 21,
+      "guard": "lastFinalizedBatchIndex + 1 == batchIndex",
+      "guard_line": 22,
+      "cursor": "lastFinalizedBatchIndex",
+      "stranded_entry": [
+        "commitBatch"
+      ]
+    }
+  ],
+  "blind": [],
+  "blind_total": 0
+}

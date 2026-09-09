@@ -1,0 +1,70 @@
+{
+  "tier_onlyActiveStaker": 0,
+  "tier_onlyOwner": 2,
+  "tier_onlyGuardian": 1,
+  "tier_onlyCounterpart_none": 0,
+  "tier_onlyRollup_none": 0,
+  "tier_onlyMessenger_none": 0,
+  "tier_onlyStaker_none": 0,
+  "tier_empty": 0,
+  "tier_nonReentrant": 0,
+  "tier_both": 0,
+  "tier_owner_none": 1,
+  "resolve_staker": {
+    "modifier": "onlyActiveStaker",
+    "tokens": [
+      "active",
+      "staker"
+    ],
+    "actor": "active_staker",
+    "trust": "semi-trusted",
+    "mechanism": "onlyActiveStaker",
+    "inside_boundary": false,
+    "resolved": true,
+    "tier": 0
+  },
+  "resolve_counterpart": {
+    "modifier": "onlyCounterpart",
+    "tokens": [
+      "counterpart"
+    ],
+    "actor": null,
+    "trust": null,
+    "mechanism": "inside-boundary",
+    "inside_boundary": true,
+    "resolved": true,
+    "tier": 0
+  },
+  "resolve_guardian": {
+    "modifier": "onlyGuardian",
+    "tokens": [
+      "guardian"
+    ],
+    "actor": null,
+    "trust": null,
+    "mechanism": "onlyGuardian",
+    "inside_boundary": false,
+    "resolved": false,
+    "tier": 1
+  },
+  "norm_onlyActiveStaker": [
+    "active",
+    "staker"
+  ],
+  "norm_active_staker": [
+    "active",
+    "staker"
+  ],
+  "testdouble": {
+    "contracts/mock/MockRollup.sol": true,
+    "test/Harness.sol": true,
+    "src/tests/Helper.sol": true,
+    "contracts/MockRollup.sol": true,
+    "contracts/RollupMock.sol": true,
+    "contracts/Rollup.t.sol": true,
+    "contracts/l1/rollup/Rollup.sol": false,
+    "contracts/l1/Rollup.sol": false,
+    "": false,
+    "null": false
+  }
+}

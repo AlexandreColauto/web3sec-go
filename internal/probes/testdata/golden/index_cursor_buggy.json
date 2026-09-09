@@ -1,0 +1,510 @@
+{
+  "campaign_id": "C-ee6388c6f0",
+  "snapshot_id": "unpinned",
+  "backend": "regex",
+  "parse_version": "3",
+  "created_at": "2026-09-09T03:34:09.609717+00:00",
+  "entry_count": 8,
+  "nodes": [
+    {
+      "id": "Rollup.sol#Rollup",
+      "kind": "contract",
+      "name": "Rollup",
+      "path": "Rollup.sol",
+      "line": 8,
+      "contract_closure": [
+        {
+          "name": "commitBatch",
+          "defining_contract": "Rollup",
+          "path": "Rollup.sol",
+          "line": 16,
+          "guards": [],
+          "uses": [
+            {
+              "line": 17,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 17,
+              "concept_keys": [
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 17,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "pending",
+                "pending:roots",
+                "roots"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 17,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "pending",
+                "pending:roots",
+                "roots"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 18,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 18,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 18,
+              "concept_keys": [
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "param"
+            }
+          ]
+        },
+        {
+          "name": "finalizeBatch",
+          "defining_contract": "Rollup",
+          "path": "Rollup.sol",
+          "line": 21,
+          "guards": [
+            {
+              "line": 22,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "finalized",
+                "finalized:batch",
+                "finalized:batch:index",
+                "index",
+                "last",
+                "last:finalized",
+                "last:finalized:batch"
+              ],
+              "class": 3,
+              "text": "lastFinalizedBatchIndex + 1 == batchIndex"
+            }
+          ],
+          "uses": [
+            {
+              "line": 22,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 23,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 23,
+              "concept_keys": [
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 23,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "batch:roots",
+                "index",
+                "roots"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 23,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "batch:roots",
+                "index",
+                "roots"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 24,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 24,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "finalized",
+                "finalized:batch",
+                "finalized:batch:index",
+                "index",
+                "last",
+                "last:finalized",
+                "last:finalized:batch"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 25,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 25,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 25,
+              "concept_keys": [
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "Rollup.sol#Rollup.lastFinalizedBatchIndex",
+      "kind": "state-variable",
+      "name": "lastFinalizedBatchIndex",
+      "path": "Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "Rollup.sol#Rollup.batchRoots",
+      "kind": "state-variable",
+      "name": "batchRoots",
+      "path": "Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "Rollup.sol#Rollup.pendingRoots",
+      "kind": "state-variable",
+      "name": "pendingRoots",
+      "path": "Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "Rollup.sol#Rollup.commitBatch",
+      "kind": "function",
+      "name": "commitBatch",
+      "path": "Rollup.sol",
+      "line": 16,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "commitBatch(uint256,bytes32)",
+      "reads_storage": [
+        "pendingRoots"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 17,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 17,
+          "concept_keys": [
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 17,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "pending",
+            "pending:roots",
+            "roots"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 17,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "pending",
+            "pending:roots",
+            "roots"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 18,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 18,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 18,
+          "concept_keys": [
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "Rollup.sol#Rollup.finalizeBatch",
+      "kind": "function",
+      "name": "finalizeBatch",
+      "path": "Rollup.sol",
+      "line": 21,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "finalizeBatch(uint256,bytes32)",
+      "reads_storage": [
+        "lastFinalizedBatchIndex",
+        "batchRoots"
+      ],
+      "writes_storage": [
+        "lastFinalizedBatchIndex"
+      ],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 22,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "finalized",
+            "finalized:batch",
+            "finalized:batch:index",
+            "index",
+            "last",
+            "last:finalized",
+            "last:finalized:batch"
+          ],
+          "class": 3,
+          "text": "lastFinalizedBatchIndex + 1 == batchIndex"
+        }
+      ],
+      "uses": [
+        {
+          "line": 22,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 23,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 23,
+          "concept_keys": [
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 23,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "batch:roots",
+            "index",
+            "roots"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 23,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "batch:roots",
+            "index",
+            "roots"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 24,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 24,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "finalized",
+            "finalized:batch",
+            "finalized:batch:index",
+            "index",
+            "last",
+            "last:finalized",
+            "last:finalized:batch"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 25,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 25,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 25,
+          "concept_keys": [
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "param"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "Rollup.sol#Rollup.commitBatch"
+    },
+    {
+      "from": "Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "Rollup.sol#Rollup.finalizeBatch"
+    }
+  ],
+  "stats": {
+    "solidity_files": 1,
+    "other_files_listed": 0,
+    "contracts": 1,
+    "functions": 2,
+    "state_variables": 3,
+    "entry_points": 2,
+    "external_call_edges": 0
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "campaign_id": "C-48f49aa62c",
+  "snapshot_id": "unpinned",
+  "parse_version": "3",
+  "index_sha": "77a8e56c01f007056e4260339b440b800dc032d93012d2b1287cbdb462d974dc",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "per_axis": 12,
+  "total": 40,
+  "floor": 3,
+  "axes": [
+    {
+      "probe": "accumulator-basis-skew",
+      "axis": "accumulator-skew",
+      "lens": "L-01",
+      "sites": 1,
+      "rows": 1,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 1,
+      "wanted": 1,
+      "emitted": 1,
+      "tail": 0,
+      "status": "emitted"
+    },
+    {
+      "probe": "assertion-strength",
+      "axis": "enforcement-timing",
+      "lens": "L-03",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    },
+    {
+      "probe": "custody-primitive",
+      "axis": "primitive-symmetry",
+      "lens": "L-04",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    },
+    {
+      "probe": "sequential-cursor",
+      "axis": "liveness",
+      "lens": "L-01",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    },
+    {
+      "probe": "short-circuitable-guard",
+      "axis": "guard-short-circuit",
+      "lens": "L-01",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    },
+    {
+      "probe": "trust-assumption",
+      "axis": "incentive-inversion",
+      "lens": "L-02",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    }
+  ],
+  "rows": [
+    {
+      "row_id": "e345ed34e2",
+      "probe": "accumulator-basis-skew",
+      "axis": "accumulator-skew",
+      "lens": "L-01",
+      "tier": 0,
+      "rank": 1,
+      "assertion_gap": 0,
+      "gate": "unprivileged",
+      "why": "RewardManager::_updateRewardIndex#36 updates `index` through a rounding primitive (line 36) while `rewardState` is written at line 38 — can index round away while rewardState still moves?",
+      "siblings": [
+        {
+          "contract": "RewardManager",
+          "line": 36,
+          "test_double": false
+        }
+      ],
+      "contract": "RewardManager",
+      "consumer": "_updateRewardIndex",
+      "consumer_line": 36,
+      "rounded_line": 36,
+      "plain_line": 38,
+      "accumulator": "index",
+      "companion": "rewardState"
+    }
+  ],
+  "missing": [],
+  "warnings": [],
+  "stats": {
+    "probes": 6,
+    "axes_with_rows": 1,
+    "sites": 1,
+    "rows": 1,
+    "emitted": 1,
+    "tail": 0,
+    "blind": 0,
+    "missing": 0
+  }
+}

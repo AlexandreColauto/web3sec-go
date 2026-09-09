@@ -1,0 +1,209 @@
+{
+  "campaign_id": "C-aa38f7e4d0",
+  "snapshot_id": "unpinned",
+  "backend": "regex",
+  "parse_version": "3",
+  "created_at": "2026-09-09T03:34:09.559539+00:00",
+  "entry_count": 4,
+  "nodes": [
+    {
+      "id": "Rollup.sol#Rollup",
+      "kind": "contract",
+      "name": "Rollup",
+      "path": "Rollup.sol",
+      "line": 8,
+      "contract_closure": [
+        {
+          "name": "commitBatch",
+          "defining_contract": "Rollup",
+          "path": "Rollup.sol",
+          "line": 11,
+          "guards": [
+            {
+              "line": 12,
+              "concept_keys": [
+                "root",
+                "state",
+                "state:root"
+              ],
+              "class": 1,
+              "text": "stateRoot != bytes32(0)"
+            }
+          ],
+          "uses": [
+            {
+              "line": 12,
+              "concept_keys": [
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 13,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 13,
+              "concept_keys": [
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 13,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "prev",
+                "prev:state",
+                "prev:state:root",
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 13,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "prev",
+                "prev:state",
+                "prev:state:root",
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "write"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "Rollup.sol#Rollup.prevStateRoot",
+      "kind": "state-variable",
+      "name": "prevStateRoot",
+      "path": "Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "Rollup.sol#Rollup.commitBatch",
+      "kind": "function",
+      "name": "commitBatch",
+      "path": "Rollup.sol",
+      "line": 11,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "commitBatch(uint256,bytes32)",
+      "reads_storage": [
+        "prevStateRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 12,
+          "concept_keys": [
+            "root",
+            "state",
+            "state:root"
+          ],
+          "class": 1,
+          "text": "stateRoot != bytes32(0)"
+        }
+      ],
+      "uses": [
+        {
+          "line": 12,
+          "concept_keys": [
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 13,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 13,
+          "concept_keys": [
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 13,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "prev",
+            "prev:state",
+            "prev:state:root",
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 13,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "prev",
+            "prev:state",
+            "prev:state:root",
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "write"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "Rollup.sol#Rollup.commitBatch"
+    }
+  ],
+  "stats": {
+    "solidity_files": 1,
+    "other_files_listed": 0,
+    "contracts": 1,
+    "functions": 1,
+    "state_variables": 1,
+    "entry_points": 1,
+    "external_call_edges": 0
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "sites": 4,
+  "rows": [],
+  "blind": [
+    {
+      "kind": "rejected-site",
+      "key": "Rollup::commitBatch::batch:index",
+      "near": null,
+      "contract": "Rollup",
+      "function": "commitBatch",
+      "line": 12,
+      "reason": "commitBatch asserts batch:index itself (class 4) — no asymmetry"
+    },
+    {
+      "kind": "near-key",
+      "key": "prev:state",
+      "near": "prev:state:root",
+      "contract": "Rollup",
+      "function": "commitBatch",
+      "line": 12,
+      "reason": "prev:state is asserted at class 4 in commitBatch but no consumer joined it; prev:state:root is the near key"
+    },
+    {
+      "kind": "near-key",
+      "key": "prev:state:root",
+      "near": "prev:state",
+      "contract": "Rollup",
+      "function": "commitBatch",
+      "line": 12,
+      "reason": "prev:state:root is asserted at class 4 in commitBatch but no consumer joined it; prev:state is the near key"
+    },
+    {
+      "kind": "near-key",
+      "key": "prev:state:root",
+      "near": "state:root",
+      "contract": "Rollup",
+      "function": "commitBatch",
+      "line": 12,
+      "reason": "prev:state:root is asserted at class 4 in commitBatch but no consumer joined it; state:root is the near key"
+    },
+    {
+      "kind": "near-key",
+      "key": "state:root",
+      "near": "prev:state:root",
+      "contract": "Rollup",
+      "function": "commitBatch",
+      "line": 12,
+      "reason": "state:root is asserted at class 4 in commitBatch but no consumer joined it; prev:state:root is the near key"
+    }
+  ],
+  "blind_total": 5
+}

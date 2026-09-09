@@ -1,0 +1,33 @@
+{
+  "protocol_id": "probe-fixture-trust",
+  "name": "Probe fixture protocol (trust-assumption buggy)",
+  "contracts": [
+    {"name": "Rollup", "path": "Rollup.sol", "role": "core", "in_scope": true}
+  ],
+  "actors": [
+    {"id": "sequencer", "kind": "SEQUENCER", "trust": "semi-trusted",
+     "assumed_behavior": "publishes every batch in order"},
+    {"id": "guardian", "kind": "ROLE", "trust": "trusted",
+     "assumed_behavior": "pauses only on a proven incident"}
+  ],
+  "assets": [
+    {"id": "ETH", "kind": "token", "decimals": 18}
+  ],
+  "relations": [
+    {"from": "Rollup", "rel": "CALLS", "to": "Rollup"}
+  ],
+  "privileges": [
+    {"role": "guardian", "capability": "pause", "mechanism": "onlyGuardian",
+     "timelocked": false}
+  ],
+  "invariants": [
+    {"id": "INV-1", "name": "batch-liveness",
+     "statement": "Every committed batch is eventually finalized by the sequencer.",
+     "kind": "liveness", "severity_if_broken": "critical",
+     "applies_to": ["Rollup"], "status": "UNVERIFIED"},
+    {"id": "INV-2", "name": "guardian-can-pause",
+     "statement": "The guardian can always pause the rollup before a bad batch lands.",
+     "kind": "security", "severity_if_broken": "high",
+     "applies_to": ["Rollup"], "status": "UNVERIFIED"}
+  ]
+}

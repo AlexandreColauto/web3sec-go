@@ -1,0 +1,302 @@
+{
+  "campaign_id": "C-172dfbe3f6",
+  "snapshot_id": "unpinned",
+  "backend": "regex",
+  "parse_version": "3",
+  "created_at": "2026-09-09T03:34:09.672826+00:00",
+  "entry_count": 7,
+  "nodes": [
+    {
+      "id": "RewardManager.sol#PMath",
+      "kind": "library",
+      "name": "PMath",
+      "path": "RewardManager.sol",
+      "line": 4,
+      "contract_closure": [
+        {
+          "name": "toUint128",
+          "defining_contract": "PMath",
+          "path": "RewardManager.sol",
+          "line": 5,
+          "guards": [],
+          "uses": []
+        }
+      ]
+    },
+    {
+      "id": "RewardManager.sol#RewardManager",
+      "kind": "contract",
+      "name": "RewardManager",
+      "path": "RewardManager.sol",
+      "line": 15,
+      "contract_closure": [
+        {
+          "name": "_updateRewardIndex",
+          "defining_contract": "RewardManager",
+          "path": "RewardManager.sol",
+          "line": 25,
+          "guards": [],
+          "uses": [
+            {
+              "line": 26,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 26,
+              "concept_keys": [
+                "reward",
+                "reward:state",
+                "state",
+                "token"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 26,
+              "concept_keys": [
+                "state"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 27,
+              "concept_keys": [
+                "accrued"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 27,
+              "concept_keys": [
+                "index",
+                "state",
+                "state:index"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 27,
+              "concept_keys": [
+                "index"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "accrued"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "balance",
+                "index",
+                "index:to",
+                "index:to:uint128",
+                "last",
+                "last:balance",
+                "reward",
+                "reward:state",
+                "state",
+                "state:last",
+                "state:last:balance",
+                "to",
+                "to:uint128",
+                "token",
+                "uint128"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "reward",
+                "reward:state",
+                "state",
+                "token"
+              ],
+              "kind": "write"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "RewardManager.sol#RewardManager.rewardState",
+      "kind": "state-variable",
+      "name": "rewardState",
+      "path": "RewardManager.sol",
+      "line": null
+    },
+    {
+      "id": "RewardManager.sol#PMath.toUint128",
+      "kind": "function",
+      "name": "toUint128",
+      "path": "RewardManager.sol",
+      "line": 5,
+      "visibility": "internal",
+      "is_entry_point": false,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": null,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": []
+    },
+    {
+      "id": "RewardManager.sol#RewardManager._updateRewardIndex",
+      "kind": "function",
+      "name": "_updateRewardIndex",
+      "path": "RewardManager.sol",
+      "line": 25,
+      "visibility": "internal",
+      "is_entry_point": false,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": null,
+      "reads_storage": [
+        "rewardState"
+      ],
+      "writes_storage": [],
+      "calls_internal": [
+        "toUint128"
+      ],
+      "calls_external": [
+        "index.toUint128"
+      ],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 26,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 26,
+          "concept_keys": [
+            "reward",
+            "reward:state",
+            "state",
+            "token"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 26,
+          "concept_keys": [
+            "state"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 27,
+          "concept_keys": [
+            "accrued"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 27,
+          "concept_keys": [
+            "index",
+            "state",
+            "state:index"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 27,
+          "concept_keys": [
+            "index"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "accrued"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "balance",
+            "index",
+            "index:to",
+            "index:to:uint128",
+            "last",
+            "last:balance",
+            "reward",
+            "reward:state",
+            "state",
+            "state:last",
+            "state:last:balance",
+            "to",
+            "to:uint128",
+            "token",
+            "uint128"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "reward",
+            "reward:state",
+            "state",
+            "token"
+          ],
+          "kind": "write"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "RewardManager.sol#RewardManager._updateRewardIndex",
+      "rel": "calls",
+      "to": "RewardManager.sol#RewardManager.toUint128"
+    },
+    {
+      "from": "RewardManager.sol#RewardManager._updateRewardIndex",
+      "rel": "calls",
+      "to": "*#index.toUint128"
+    }
+  ],
+  "stats": {
+    "solidity_files": 1,
+    "other_files_listed": 0,
+    "contracts": 2,
+    "functions": 2,
+    "state_variables": 1,
+    "entry_points": 0,
+    "external_call_edges": 1
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "campaign_id": "C-62e43ae85b",
+  "snapshot_id": "unpinned",
+  "parse_version": "3",
+  "index_sha": "3f7ea273acb6971d11e5b5bdf3d5c1693d4fa6c63f6c1a96b057f167cd63801a",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "per_axis": 12,
+  "total": 40,
+  "floor": 3,
+  "axes": [
+    {
+      "probe": "accumulator-basis-skew",
+      "axis": "accumulator-skew",
+      "lens": "L-01",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    },
+    {
+      "probe": "assertion-strength",
+      "axis": "enforcement-timing",
+      "lens": "L-03",
+      "sites": 7,
+      "rows": 1,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 1,
+      "wanted": 1,
+      "emitted": 1,
+      "tail": 0,
+      "status": "emitted"
+    },
+    {
+      "probe": "custody-primitive",
+      "axis": "primitive-symmetry",
+      "lens": "L-04",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    },
+    {
+      "probe": "sequential-cursor",
+      "axis": "liveness",
+      "lens": "L-01",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    },
+    {
+      "probe": "short-circuitable-guard",
+      "axis": "guard-short-circuit",
+      "lens": "L-01",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    },
+    {
+      "probe": "trust-assumption",
+      "axis": "incentive-inversion",
+      "lens": "L-02",
+      "sites": 0,
+      "rows": 0,
+      "blind": [],
+      "blind_total": 0,
+      "per_axis": 12,
+      "floor": 0,
+      "wanted": 0,
+      "emitted": 0,
+      "tail": 0,
+      "status": "no-sites"
+    }
+  ],
+  "rows": [
+    {
+      "row_id": "9a7157137a",
+      "probe": "assertion-strength",
+      "axis": "enforcement-timing",
+      "lens": "L-03",
+      "tier": 0,
+      "rank": 1,
+      "assertion_gap": 4,
+      "gate": "onlyCounterpart",
+      "why": "['token:mapping'] is asserted as equality-to-persisted-state in checkTokenMapping#27 (class 4) but consumed by updateTokenMapping#18 under a class-0 guard — does updateTokenMapping verify ['token:mapping'] itself?",
+      "siblings": [
+        {
+          "contract": "L1ERC20Gateway",
+          "line": 18,
+          "test_double": false
+        },
+        {
+          "contract": "L1GatewayRouter",
+          "line": 18,
+          "test_double": false
+        },
+        {
+          "contract": "L1ReverseCustomGateway",
+          "line": 18,
+          "test_double": false
+        },
+        {
+          "contract": "L2CustomGateway",
+          "line": 18,
+          "test_double": false
+        },
+        {
+          "contract": "L2ERC20Gateway",
+          "line": 18,
+          "test_double": false
+        },
+        {
+          "contract": "L2GatewayRouter",
+          "line": 18,
+          "test_double": false
+        },
+        {
+          "contract": "L2ReverseCustomGateway",
+          "line": 18,
+          "test_double": false
+        }
+      ],
+      "contract": "L1ERC20Gateway",
+      "consumer": "updateTokenMapping",
+      "consumer_line": 18,
+      "asserter": "checkTokenMapping",
+      "asserter_line": 27,
+      "concept_keys": [
+        "token:mapping"
+      ],
+      "own_class": 0,
+      "assert_class": 4
+    }
+  ],
+  "missing": [],
+  "warnings": [],
+  "stats": {
+    "probes": 6,
+    "axes_with_rows": 1,
+    "sites": 7,
+    "rows": 1,
+    "emitted": 1,
+    "tail": 0,
+    "blind": 0,
+    "missing": 0
+  }
+}

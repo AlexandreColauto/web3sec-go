@@ -1,0 +1,39 @@
+{
+  "sites": 2,
+  "rows": [
+    {
+      "contract": "GatedGateway",
+      "function": "updateTokenMapping",
+      "line": 16,
+      "concept": "token:mapping",
+      "tier": 0,
+      "gate": "onlyCounterpart",
+      "assertion_gap": 4,
+      "sort_name": "updateTokenMapping",
+      "consumer": "updateTokenMapping",
+      "consumer_line": 16,
+      "asserter": "checkTokenMapping",
+      "asserter_line": 21,
+      "assert_class": 4,
+      "own_class": 0
+    },
+    {
+      "contract": "OpenGateway",
+      "function": "updateTokenMapping",
+      "line": 11,
+      "concept": "token:mapping",
+      "tier": 0,
+      "gate": "unprivileged",
+      "assertion_gap": 4,
+      "sort_name": "updateTokenMapping",
+      "consumer": "updateTokenMapping",
+      "consumer_line": 11,
+      "asserter": "checkTokenMapping",
+      "asserter_line": 16,
+      "assert_class": 4,
+      "own_class": 0
+    }
+  ],
+  "blind": [],
+  "blind_total": 0
+}

@@ -1,0 +1,1793 @@
+package cli
+
+// T29 cmd_probes tests: port of web3sec-final/tests/test_probes_cli.py
+// (A4/A6, the operator surface for the mechanical candidate plane).
+//
+// Python -> Go map used throughout:
+//   _run(*argv)                  -> run(t, argv...)
+//   Campaign.init(ws, P, cid=C)  -> state.Init(ws, P, state.InitOpts{CampaignID: C})
+//   SI.index_snapshot(camp, R)   -> structidx.IndexSnapshot(c, R, structidx.DefaultBackend)
+//   SI.save_index(camp, idx)     -> structidx.SaveIndex(c, idx)
+//   PB.build_surface(idx, None)  -> probes.BuildSurface(idx, VNull(), 12, 40, 3, "")
+//   write_json(..., "probe_surface") -> validation.WriteJson(path, surface, "probe_surface")
+//   validate(doc, "x")           -> validation.Validate(doc, "x", 1)
+//   camp.state() / camp._save(st)-> c.State() / t29SaveState(t, c, st)
+//   camp.log(...)                -> c.Log(type, ref, data)
+//
+// Only probes-command output is asserted (the ROOT usage text differs from
+// Python's); the probes subparser's own argparse text is pinned byte-exactly
+// in cmd_probes.go.
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"websec/internal/audit"
+	"websec/internal/orchestrator"
+	"websec/internal/planner"
+	"websec/internal/probes"
+	"websec/internal/state"
+	"websec/internal/structidx"
+	"websec/internal/validation"
+)
+
+const (
+	t29CID     = "C-probecli01"
+	t29Ranking = "../probes/testdata/probes/ranking"
+	t29Blind   = "../probes/testdata/probes/assertion_strength/clean"
+)
+
+// t29Classes is CLASSES.
+var t29Classes = []string{"logic-error", "access-control",
+	"oracle-manipulation", "reentrancy"}
+
+// t29Model is PLAN_MODEL.
+func t29Model() validation.Value {
+	return validation.VObj(
+		validation.KV{K: "protocol_id", V: validation.VStr("probe-cli")},
+		validation.KV{K: "name", V: validation.VStr("Probe CLI")},
+		validation.KV{K: "contracts", V: validation.VArr(validation.VObj(
+			validation.KV{K: "name", V: validation.VStr("Rollup")},
+			validation.KV{K: "path", V: validation.VStr("Rollup.sol")},
+			validation.KV{K: "role", V: validation.VStr("core")},
+			validation.KV{K: "in_scope", V: validation.VBool(true)},
+			validation.KV{K: "entry_points", V: validation.VArr(
+				validation.VStr("commitBatch"),
+				validation.VStr("finalizeBatch"))},
+		))},
+		validation.KV{K: "state_machines", V: validation.VArr(validation.VObj(
+			validation.KV{K: "name", V: validation.VStr("rollup-lifecycle")},
+			validation.KV{K: "transitions", V: validation.VArr(
+				validation.VStr("commit"), validation.VStr("challenge"),
+				validation.VStr("finalize"))},
+		))},
+		validation.KV{K: "actors", V: validation.VArr(validation.VObj(
+			validation.KV{K: "id", V: validation.VStr("active_staker")},
+			validation.KV{K: "kind", V: validation.VStr("ROLE")},
+			validation.KV{K: "trust", V: validation.VStr("semi-trusted")},
+		))},
+	)
+}
+
+// t29Set is setOrAppend.
+func t29Set(v *validation.Value, key string, val validation.Value) {
+	for i := range v.O {
+		if v.O[i].K == key {
+			v.O[i].V = val
+			return
+		}
+	}
+	v.O = append(v.O, validation.KV{K: key, V: val})
+}
+
+// t29Del is Python's `del d[k]`.
+func t29Del(v *validation.Value, key string) {
+	out := make([]validation.KV, 0, len(v.O))
+	for _, kv := range v.O {
+		if kv.K != key {
+			out = append(out, kv)
+		}
+	}
+	v.O = out
+}
+
+// t29Has is Python's `k in d`.
+func t29Has(v validation.Value, key string) bool {
+	for _, kv := range v.O {
+		if kv.K == key {
+			return true
+		}
+	}
+	return false
+}
+
+// t29List is d.get(key) as a list (nil when absent/not a list).
+func t29List(v validation.Value, key string) []validation.Value {
+	x := objAt(v, key)
+	if x.Kind != validation.Arr {
+		return nil
+	}
+	return x.A
+}
+
+// t29ObjList is d.get(key) filtered to objects.
+func t29ObjList(v validation.Value, key string) []validation.Value {
+	out := []validation.Value{}
+	for _, it := range t29List(v, key) {
+		if it.Kind == validation.Obj {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+// t29StrList is list(d.get(key) or []).
+func t29StrList(v validation.Value, key string) []string {
+	out := []string{}
+	for _, it := range t29List(v, key) {
+		out = append(out, scalarStr(it))
+	}
+	return out
+}
+
+// t29DeepCopy is copy.deepcopy for the ordered Value.
+func t29DeepCopy(v validation.Value) validation.Value {
+	out := v
+	if len(v.A) > 0 {
+		out.A = make([]validation.Value, len(v.A))
+		for i := range v.A {
+			out.A[i] = t29DeepCopy(v.A[i])
+		}
+	}
+	if len(v.O) > 0 {
+		out.O = make([]validation.KV, len(v.O))
+		for i, kv := range v.O {
+			out.O[i] = validation.KV{K: kv.K, V: t29DeepCopy(kv.V)}
+		}
+	}
+	return out
+}
+
+// t29Plan is _plan: default_plan_from_model + the four bug classes, saved.
+func t29Plan(t *testing.T, c *state.Campaign) validation.Value {
+	t.Helper()
+	plan, err := planner.DefaultPlanFromModel(c, t29Model())
+	if err != nil {
+		t.Fatal(err)
+	}
+	prios := t29List(plan, "priorities")
+	for i, cls := range t29Classes {
+		if i >= len(prios) {
+			break
+		}
+		p := prios[i]
+		t29Set(&p, "bug_class", validation.VStr(cls))
+		prios[i] = p
+	}
+	t29Set(&plan, "priorities", validation.VArr(prios...))
+	if _, err := planner.SavePlan(c, plan); err != nil {
+		t.Fatal(err)
+	}
+	return plan
+}
+
+// t29Setup is _setup: workspace + campaign + saved index + saved surface
+// (+ plan).
+func t29Setup(t *testing.T, root string, withPlan bool) (string,
+	*state.Campaign, validation.Value, validation.Value) {
+	t.Helper()
+	probes.Wire() // a sibling test may have reset the planner seam
+	ws := t.TempDir()
+	c, err := state.Init(ws, "Probe CLI", state.InitOpts{CampaignID: t29CID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := structidx.IndexSnapshot(c, root, structidx.DefaultBackend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := structidx.SaveIndex(c, idx); err != nil {
+		t.Fatal(err)
+	}
+	surface, err := probes.BuildSurface(idx, validation.VNull(), 12, 40, 3, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validation.WriteJson(
+		filepath.Join(c.ArtifactsDir, "probe_surface.json"), surface,
+		"probe_surface"); err != nil {
+		t.Fatal(err)
+	}
+	if withPlan {
+		t29Plan(t, c)
+	}
+	return ws, c, idx, surface
+}
+
+// t29Emit is _emit.
+func t29Emit(t *testing.T, ws string) string {
+	t.Helper()
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "run", "--emit")
+	if code != 0 {
+		t.Fatalf("probes run --emit exit %d: out=%q err=%q", code, out, errS)
+	}
+	return out
+}
+
+// t29Row is _row.
+func t29Row(t *testing.T, surface validation.Value, rowID string) validation.Value {
+	t.Helper()
+	for _, r := range t29ObjList(surface, "rows") {
+		if rowID == "" || objStr(r, "row_id") == rowID {
+			return r
+		}
+	}
+	t.Fatalf("no surface row %q", rowID)
+	return validation.VNull()
+}
+
+// t29PlanJSON reads artifacts/campaign_plan.json.
+func t29PlanJSON(t *testing.T, c *state.Campaign) validation.Value {
+	t.Helper()
+	plan, err := validation.ReadJson(
+		filepath.Join(c.ArtifactsDir, "campaign_plan.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return plan
+}
+
+// t29ProbePriority is _probe_priority.
+func t29ProbePriority(t *testing.T, c *state.Campaign, rowID string) validation.Value {
+	t.Helper()
+	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
+		prov := objAt(p, "probe")
+		if prov.Kind != validation.Obj || objStr(prov, "row_id") == "" {
+			continue
+		}
+		if rowID == "" || objStr(prov, "row_id") == rowID {
+			return p
+		}
+	}
+	t.Fatal("no probe priority emitted")
+	return validation.VNull()
+}
+
+// t29ProbePriorities is [p for p in plan["priorities"] if p.get("probe")].
+func t29ProbePriorities(t *testing.T, c *state.Campaign) []validation.Value {
+	t.Helper()
+	out := []validation.Value{}
+	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
+		if objAt(p, "probe").Kind == validation.Obj {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// t29LensProbe is divergence_status_for(camp, plan)["lenses"] -> the lens
+// entry whose `lens` is name, and its `probe` counts dict.
+func t29LensProbe(t *testing.T, c *state.Campaign, plan validation.Value,
+	lens string) validation.Value {
+	t.Helper()
+	div, err := planner.DivergenceStatusFor(c, plan, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range t29ObjList(div, "lenses") {
+		if objStr(e, "lens") == lens {
+			return objAt(e, "probe")
+		}
+	}
+	t.Fatalf("no lens entry %q in divergence_status_for: %s", lens,
+		validation.DumpIndented(div))
+	return validation.VNull()
+}
+
+// t29Divergence is divergence_status_for(camp, plan).
+func t29Divergence(t *testing.T, c *state.Campaign,
+	plan validation.Value) validation.Value {
+	t.Helper()
+	div, err := planner.DivergenceStatusFor(c, plan, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return div
+}
+
+// t29SaveState is campaign._save(st): bump updated_at and re-write.
+func t29SaveState(t *testing.T, c *state.Campaign, st validation.Value) {
+	t.Helper()
+	t29Set(&st, "updated_at", validation.VStr(state.NowIso()))
+	if err := validation.WriteJson(c.StatePath, st, "campaign_state"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// t29CloseEverything is _close_everything: close every lens and every
+// priority so the ONLY thing left open is the probe clause.
+func t29CloseEverything(t *testing.T, c *state.Campaign) validation.Value {
+	t.Helper()
+	plan := t29PlanJSON(t, c)
+	for _, lens := range t29ObjList(plan, "lenses") {
+		reason := objStr(lens, "lens") + " resolved for the fixture tree"
+		ref := "Rollup.sol#L45"
+		fams := t29StrList(lens, "families")
+		next, err := planner.MarkLens(c, plan, objStr(lens, "id"), "answered",
+			planner.LensOpts{Reason: &reason, Ref: &ref, Actor: "pytest",
+				FamiliesChecked: &fams})
+		if err != nil {
+			t.Fatal(err)
+		}
+		plan = next
+	}
+	for _, p := range t29ObjList(plan, "priorities") {
+		reason := "fixture closure with a written reason"
+		ref := "Rollup.sol#L45"
+		next, err := planner.MarkAnswered(c, plan, objStr(p, "id"),
+			"answered", planner.AnsweredOpts{Reason: &reason, Ref: &ref,
+				Actor: "pytest"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		plan = next
+	}
+	return t29PlanJSON(t, c)
+}
+
+// t29AuditSection is AUDIT.audit_campaign(camp)["sections"]["probe_surface"].
+func t29AuditSection(t *testing.T, c *state.Campaign) validation.Value {
+	t.Helper()
+	report, err := audit.AuditCampaign(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return objAt(objAt(report, "sections"), "probe_surface")
+}
+
+// t29Problems is sec["problems"].
+func t29Problems(sec validation.Value) []string { return t29StrList(sec, "problems") }
+
+// t29HasProblem reports whether any problem contains needle.
+func t29HasProblem(sec validation.Value, needle string) bool {
+	for _, p := range t29Problems(sec) {
+		if strings.Contains(p, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+// t29L01Tree is _l01_tree.
+func t29L01Tree(t *testing.T) string {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "l01")
+	copyTree(t, "../probes/testdata/probes/cursor/buggy",
+		filepath.Join(root, "cursor"))
+	copyTree(t, "../probes/testdata/probes/accumulator/buggy",
+		filepath.Join(root, "acc"))
+	return root
+}
+
+// t29SharedLens is _shared_lens.
+func t29SharedLens(t *testing.T) (string, *state.Campaign, validation.Value,
+	validation.Value) {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "tree")
+	copyTree(t, "../probes/testdata/probes/accumulator/blind",
+		filepath.Join(root, "acc"))
+	copyTree(t, "../probes/testdata/probes/short_circuit/clean",
+		filepath.Join(root, "guard"))
+	return t29Setup(t, root, true)
+}
+
+// t29JSONDoc parses a CLI --json document into map[string]any.
+func t29JSONDoc(t *testing.T, doc string) map[string]any {
+	t.Helper()
+	var out map[string]any
+	if err := json.Unmarshal([]byte(doc), &out); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, doc)
+	}
+	return out
+}
+
+// t29SurfacePath is the surface artifact path.
+func t29SurfacePath(c *state.Campaign) string {
+	return filepath.Join(c.ArtifactsDir, "probe_surface.json")
+}
+
+// t29IndexPath is the structural index artifact path.
+func t29IndexPath(c *state.Campaign) string {
+	return filepath.Join(c.ArtifactsDir, "structural_index.json")
+}
+
+// t29WriteSurface writes the surface artifact (no schema name, like the
+// Python test's write_json for hand edits).
+func t29WriteSurface(t *testing.T, c *state.Campaign, surface validation.Value) {
+	t.Helper()
+	if err := validation.WriteJson(t29SurfacePath(c), surface,
+		"probe_surface"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// t29BumpIndexLine is the "the index artifact moves" edit.
+func t29BumpIndexLine(t *testing.T, c *state.Campaign, idx validation.Value) {
+	t.Helper()
+	moved := t29DeepCopy(idx)
+	nodes := t29List(moved, "nodes")
+	if len(nodes) == 0 {
+		t.Fatal("index has no nodes")
+	}
+	n := nodes[0]
+	t29Set(&n, "line", validation.VInt(objInt(n, "line")+1))
+	nodes[0] = n
+	t29Set(&moved, "nodes", validation.VArr(nodes...))
+	if err := validation.WriteJson(t29IndexPath(c), moved, ""); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// t29BlankKeyOf is next(a for a in surface["axes"] if a["probe"] == probe)
+// ["blind"][0]["key"].
+func t29BlankKeyOf(t *testing.T, surface validation.Value,
+	probe string) (validation.Value, string) {
+	t.Helper()
+	for _, a := range t29ObjList(surface, "axes") {
+		if objStr(a, "probe") != probe {
+			continue
+		}
+		blind := t29ObjList(a, "blind")
+		if len(blind) == 0 {
+			t.Fatalf("axis %s published no blind keys", probe)
+		}
+		return a, objStr(blind[0], "key")
+	}
+	t.Fatalf("no axis for probe %s", probe)
+	return validation.VNull(), ""
+}
+
+// t29AxisByProbe is next(a for a in surface["axes"] if a["probe"] == probe).
+func t29AxisByProbe(t *testing.T, surface validation.Value,
+	probe string) validation.Value {
+	t.Helper()
+	a, _ := t29BlankKeyOf(t, surface, probe)
+	return a
+}
+
+// t29AxisByAxis is next(a for a in surface["axes"] if a["axis"] == name).
+func t29AxisByAxis(t *testing.T, surface validation.Value,
+	name string) validation.Value {
+	t.Helper()
+	for _, a := range t29ObjList(surface, "axes") {
+		if objStr(a, "axis") == name {
+			return a
+		}
+	}
+	t.Fatalf("no axis named %q", name)
+	return validation.VNull()
+}
+
+// t29StateBlanks is camp.state()["probe_blanks"].
+func t29StateBlanks(t *testing.T, c *state.Campaign) []validation.Value {
+	t.Helper()
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return t29ObjList(st, "probe_blanks")
+}
+
+// ---- probes run -----------------------------------------------------------
+
+func TestProbesRunWritesTheSurfaceAndReportsEveryAxis(t *testing.T) {
+	probes.Wire()
+	ws := t.TempDir()
+	c, err := state.Init(ws, "Probe CLI", state.InitOpts{CampaignID: t29CID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := structidx.IndexSnapshot(c, t29Ranking, structidx.DefaultBackend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := structidx.SaveIndex(c, idx); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "run")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	surface, err := probes.CampaignSurface(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if surface == nil {
+		t.Fatal("no surface written")
+	}
+	if objStr(*surface, "index_sha") != probes.IndexSha(idx) {
+		t.Fatalf("index_sha = %q, want %q", objStr(*surface, "index_sha"),
+			probes.IndexSha(idx))
+	}
+	if got := len(t29ObjList(*surface, "rows")); got != 10 {
+		t.Fatalf("rows = %d, want 10", got)
+	}
+	for _, a := range t29ObjList(*surface, "axes") {
+		if !strings.Contains(out, objStr(a, "probe")) {
+			t.Errorf("run output does not report axis probe %q: %q",
+				objStr(a, "probe"), out)
+		}
+	}
+	if !strings.Contains(out, "10 rows") && !strings.Contains(out, "rows=10") {
+		t.Fatalf("run output does not report the row count: %q", out)
+	}
+}
+
+func TestProbesRunWithoutAnIndexNamesTheRebuildCommand(t *testing.T) {
+	probes.Wire()
+	ws := t.TempDir()
+	if _, err := state.Init(ws, "Probe CLI",
+		state.InitOpts{CampaignID: t29CID}); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "run")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(errS, "webv2 index") {
+		t.Fatalf("err = %q", errS)
+	}
+	if !strings.Contains(errS, "webv2 index "+t29CID) {
+		t.Fatalf("err = %q", errS)
+	}
+}
+
+func TestProbesRunEmitMintsPrioritiesAndIsIdempotent(t *testing.T) {
+	ws, c, _, surface := t29Setup(t, t29Ranking, true)
+	out := t29Emit(t, ws)
+	if !strings.Contains(out, "created 10") &&
+		!strings.Contains(out, "10 created") {
+		t.Fatalf("emit output = %q", out)
+	}
+	plan := t29PlanJSON(t, c)
+	probePrios := []validation.Value{}
+	for _, p := range t29ObjList(plan, "priorities") {
+		if objAt(p, "probe").Kind == validation.Obj {
+			probePrios = append(probePrios, p)
+		}
+	}
+	if len(probePrios) != 10 {
+		t.Fatalf("probe priorities = %d, want 10", len(probePrios))
+	}
+	for _, p := range probePrios {
+		if objStr(p, "status") != "open" {
+			t.Errorf("status = %q, want open", objStr(p, "status"))
+		}
+		if objStr(objAt(p, "probe"), "surface_sha") !=
+			objStr(surface, "index_sha") {
+			t.Errorf("probe.surface_sha = %q, want %q",
+				objStr(objAt(p, "probe"), "surface_sha"),
+				objStr(surface, "index_sha"))
+		}
+	}
+	if err := validation.Validate(plan, "campaign_plan", 1); err != nil {
+		t.Fatalf("plan invalid: %v", err)
+	}
+	out = t29Emit(t, ws)
+	if !strings.Contains(out, "created 0") &&
+		!strings.Contains(out, "0 created") {
+		t.Fatalf("re-emit output = %q", out)
+	}
+	if got := len(t29ProbePriorities(t, c)); got != 10 {
+		t.Fatalf("probe priorities after re-emit = %d, want 10", got)
+	}
+}
+
+func TestProbesRunEmitWithoutAPlanFailsLoudly(t *testing.T) {
+	ws, _, _, _ := t29Setup(t, t29Ranking, false)
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "run", "--emit")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(errS, "webv2 plan "+t29CID) {
+		t.Fatalf("err = %q", errS)
+	}
+}
+
+func TestProbesRunPerAxisQuotaIsHonoured(t *testing.T) {
+	probes.Wire()
+	ws := t.TempDir()
+	c, err := state.Init(ws, "Probe CLI", state.InitOpts{CampaignID: t29CID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := structidx.IndexSnapshot(c, t29Ranking, structidx.DefaultBackend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := structidx.SaveIndex(c, idx); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "run",
+		"--per-axis", "2", "--total", "40")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	surface, err := probes.CampaignSurface(c)
+	if err != nil || surface == nil {
+		t.Fatalf("surface = %v, %v", surface, err)
+	}
+	if got := len(t29ObjList(*surface, "rows")); got != 2 {
+		t.Fatalf("rows = %d, want 2", got)
+	}
+	if got := objInt(*surface, "per_axis"); got != 2 {
+		t.Fatalf("per_axis = %d, want 2", got)
+	}
+}
+
+func TestProbesRunRejectsAQuotaThatObligesNothing(t *testing.T) {
+	probes.Wire()
+	ws := t.TempDir()
+	c, err := state.Init(ws, "Probe CLI", state.InitOpts{CampaignID: t29CID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := structidx.IndexSnapshot(c, t29Ranking, structidx.DefaultBackend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := structidx.SaveIndex(c, idx); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range [][2]string{{"--per-axis", "0"}, {"--per-axis", "-1"},
+		{"--total", "0"}} {
+		flag, value := tc[0], tc[1]
+		code, out, errS := run(t, "--root", ws, "probes", t29CID, "run",
+			flag, value)
+		if code != 2 {
+			t.Errorf("%s %s: exit %d, want 2 (out=%q err=%q)", flag, value,
+				code, out, errS)
+			continue
+		}
+		if !strings.Contains(errS, flag) || !strings.Contains(errS, ">= 1") {
+			t.Errorf("%s %s: err = %q", flag, value, errS)
+		}
+	}
+	if _, err := os.Stat(t29SurfacePath(c)); err == nil {
+		t.Fatal("a rejected knob must not write a surface")
+	}
+}
+
+func TestProbesRunAndListSurfaceTheFloorOverrunWarning(t *testing.T) {
+	probes.Wire()
+	ws := t.TempDir()
+	c, err := state.Init(ws, "Probe CLI", state.InitOpts{CampaignID: t29CID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := structidx.IndexSnapshot(c, t29Ranking, structidx.DefaultBackend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := structidx.SaveIndex(c, idx); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "run", "--total", "2")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	for _, want := range []string{"warning: floor reserve 3",
+		"exceeds --total 2", "Raise --total to >= 3"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("run output missing %q: %q", want, out)
+		}
+	}
+	surface, err := probes.CampaignSurface(c)
+	if err != nil || surface == nil {
+		t.Fatalf("surface = %v, %v", surface, err)
+	}
+	warnings := t29ObjList(*surface, "warnings")
+	if len(warnings) == 0 || objStr(warnings[0], "kind") !=
+		"floor-reserve-exceeds-total" {
+		t.Fatalf("warnings = %s", validation.DumpIndented(*surface))
+	}
+	if err := validation.Validate(*surface, "probe_surface", 1); err != nil {
+		t.Fatalf("surface invalid: %v", err)
+	}
+	code, out, errS = run(t, "--root", ws, "probes", t29CID, "list")
+	if code != 0 {
+		t.Fatalf("list exit %d: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(out, "warning: floor reserve 3") {
+		t.Fatalf("list output missing the warning: %q", out)
+	}
+	code, out, errS = run(t, "--root", ws, "probes", t29CID, "run")
+	if code != 0 {
+		t.Fatalf("re-run exit %d: out=%q err=%q", code, out, errS)
+	}
+	if strings.Contains(out, "warning:") {
+		t.Fatalf("a ceiling that can win is silent: %q", out)
+	}
+}
+
+// ---- probes list ----------------------------------------------------------
+
+func TestLensProbeClosureMessageCarriesTheCounts(t *testing.T) {
+	ws, c, _, surface := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	plan := t29PlanJSON(t, c)
+	probe := t29LensProbe(t, c, plan, "enforcement-timing")
+	if objInt(probe, "rows") != 10 || objInt(probe, "emitted") != 10 ||
+		objInt(probe, "tail") != 0 {
+		t.Fatalf("rows/emitted/tail = %d/%d/%d, want 10/10/0",
+			objInt(probe, "rows"), objInt(probe, "emitted"),
+			objInt(probe, "tail"))
+	}
+	if objInt(probe, "dispositioned") != 0 || objInt(probe, "open") != 10 {
+		t.Fatalf("dispositioned/open = %d/%d, want 0/10",
+			objInt(probe, "dispositioned"), objInt(probe, "open"))
+	}
+	if objInt(probe, "blind") != 4 || objInt(probe, "blind_attested") != 0 {
+		t.Fatalf("blind/blind_attested = %d/%d, want 4/0",
+			objInt(probe, "blind"), objInt(probe, "blind_attested"))
+	}
+	if objBool(probe, "closed") {
+		t.Fatal("closed = true, want false")
+	}
+	wantOpen := "L-03 open — 0/10 rows dispositioned, 0 in tail, 4 blind keys " +
+		"disclosed"
+	if got := objStr(probe, "message"); got != wantOpen {
+		t.Fatalf("message = %q, want %q", got, wantOpen)
+	}
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "list")
+	if code != 0 {
+		t.Fatalf("list exit %d: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(out, wantOpen) {
+		t.Fatalf("list output missing %q: %q", wantOpen, out)
+	}
+	last := ""
+	for _, row := range t29ObjList(surface, "rows") {
+		p := t29ProbePriority(t, c, objStr(row, "row_id"))
+		code, out, errS = run(t, "--root", ws, "answered", t29CID,
+			objStr(p, "id"), "answered", "--anchor", "consumer",
+			"--reason", "the join is anchored elsewhere",
+			"--actor", "pytest")
+		if code != 0 {
+			t.Fatalf("answered exit %d: out=%q err=%q", code, out, errS)
+		}
+		last = out
+	}
+	wantClosed := "L-03 closed — 10/10 rows dispositioned, 0 in tail, " +
+		"4 blind keys disclosed"
+	if !strings.Contains(last, wantClosed) {
+		t.Fatalf("last disposition output missing %q: %q", wantClosed, last)
+	}
+	plan = t29PlanJSON(t, c)
+	probe = t29LensProbe(t, c, plan, "enforcement-timing")
+	if !objBool(probe, "closed") || objInt(probe, "dispositioned") != 10 {
+		t.Fatalf("closed/dispositioned = %v/%d, want true/10",
+			objBool(probe, "closed"), objInt(probe, "dispositioned"))
+	}
+	if objInt(probe, "open") != 0 {
+		t.Fatalf("open = %d, want 0", objInt(probe, "open"))
+	}
+	code, out, errS = run(t, "--root", ws, "probes", t29CID, "list")
+	if code != 0 {
+		t.Fatalf("list exit %d: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(out, wantClosed) {
+		t.Fatalf("list output missing %q: %q", wantClosed, out)
+	}
+}
+
+func TestAShrunkenQuotaCannotCloseALensOnItsTail(t *testing.T) {
+	probes.Wire()
+	ws := t.TempDir()
+	c, err := state.Init(ws, "Probe CLI", state.InitOpts{CampaignID: t29CID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := structidx.IndexSnapshot(c, t29Ranking, structidx.DefaultBackend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := structidx.SaveIndex(c, idx); err != nil {
+		t.Fatal(err)
+	}
+	t29Plan(t, c)
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "run", "--emit",
+		"--per-axis", "2", "--total", "40")
+	if code != 0 {
+		t.Fatalf("run exit %d: out=%q err=%q", code, out, errS)
+	}
+	surface, err := probes.CampaignSurface(c)
+	if err != nil || surface == nil {
+		t.Fatalf("surface = %v, %v", surface, err)
+	}
+	rows := t29ObjList(*surface, "rows")
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d, want 2", len(rows))
+	}
+	for _, row := range rows {
+		p := t29ProbePriority(t, c, objStr(row, "row_id"))
+		code, out, errS = run(t, "--root", ws, "answered", t29CID,
+			objStr(p, "id"), "answered", "--anchor", "consumer",
+			"--reason", "anchored elsewhere", "--actor", "pytest")
+		if code != 0 {
+			t.Fatalf("answered exit %d: out=%q err=%q", code, out, errS)
+		}
+	}
+	plan := t29PlanJSON(t, c)
+	probe := t29LensProbe(t, c, plan, "enforcement-timing")
+	if objInt(probe, "rows") != 10 || objInt(probe, "emitted") != 2 ||
+		objInt(probe, "tail") != 8 {
+		t.Fatalf("rows/emitted/tail = %d/%d/%d, want 10/2/8",
+			objInt(probe, "rows"), objInt(probe, "emitted"),
+			objInt(probe, "tail"))
+	}
+	if objInt(probe, "dispositioned") != 2 {
+		t.Fatalf("dispositioned = %d, want 2", objInt(probe, "dispositioned"))
+	}
+	if !objBool(probe, "closed") {
+		t.Fatal("closed = false, want true")
+	}
+	want := "L-03 closed — 2/10 rows dispositioned, 8 in tail, 4 blind keys " +
+		"disclosed"
+	if got := objStr(probe, "message"); got != want {
+		t.Fatalf("message = %q, want %q", got, want)
+	}
+}
+
+func TestProbesListShowsRowsAnchorsAndDispositions(t *testing.T) {
+	ws, c, _, surface := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	row := t29Row(t, surface, "")
+	prio := t29ProbePriority(t, c, objStr(row, "row_id"))
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "list")
+	if code != 0 {
+		t.Fatalf("list exit %d: out=%q err=%q", code, out, errS)
+	}
+	for _, want := range []string{objStr(row, "row_id"), objStr(prio, "id"),
+		"Rollup.sol#L45", "enforcement-timing", "L-03",
+		"(0 dispositioned, 10 open)"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("list output missing %q: %q", want, out)
+		}
+	}
+}
+
+func TestProbesListJSONIsMachineReadableAndTracksStaleness(t *testing.T) {
+	ws, c, idx, surface := t29Setup(t, t29Ranking, true)
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "list", "--json")
+	if code != 0 {
+		t.Fatalf("list --json exit %d: out=%q err=%q", code, out, errS)
+	}
+	doc := t29JSONDoc(t, out)
+	if doc["rows"] != float64(10) || doc["open"] != float64(10) ||
+		doc["dispositioned"] != float64(0) {
+		t.Fatalf("rows/open/dispositioned = %v/%v/%v, want 10/10/0",
+			doc["rows"], doc["open"], doc["dispositioned"])
+	}
+	if doc["stale"] != false {
+		t.Fatalf("stale = %v, want false", doc["stale"])
+	}
+	if doc["index_sha"] != objStr(surface, "index_sha") {
+		t.Fatalf("index_sha = %v, want %q", doc["index_sha"],
+			objStr(surface, "index_sha"))
+	}
+	gotRows := map[string]bool{}
+	for _, r := range doc["surface_rows"].([]any) {
+		gotRows[r.(map[string]any)["row_id"].(string)] = true
+	}
+	wantRows := map[string]bool{}
+	for _, r := range t29ObjList(surface, "rows") {
+		wantRows[objStr(r, "row_id")] = true
+	}
+	if len(gotRows) != len(wantRows) {
+		t.Fatalf("surface_rows = %d ids, want %d", len(gotRows), len(wantRows))
+	}
+	for id := range wantRows {
+		if !gotRows[id] {
+			t.Errorf("surface_rows missing %q", id)
+		}
+	}
+	// the index artifact moves: the stored surface is now stale
+	t29BumpIndexLine(t, c, idx)
+	code, out, errS = run(t, "--root", ws, "probes", t29CID, "list", "--json")
+	if code != 0 {
+		t.Fatalf("list --json exit %d: out=%q err=%q", code, out, errS)
+	}
+	if t29JSONDoc(t, out)["stale"] != true {
+		t.Fatalf("stale = %v, want true", t29JSONDoc(t, out)["stale"])
+	}
+}
+
+func TestProbesListAxisFilterAcceptsLensAndAxisName(t *testing.T) {
+	ws, _, _, _ := t29Setup(t, t29Ranking, true)
+	for _, selector := range []string{"L-03", "enforcement-timing"} {
+		code, out, errS := run(t, "--root", ws, "probes", t29CID, "list",
+			"--axis", selector)
+		if code != 0 {
+			t.Fatalf("--axis %s exit %d: out=%q err=%q", selector, code, out,
+				errS)
+		}
+		if !strings.Contains(out, "enforcement-timing") {
+			t.Errorf("--axis %s: %q", selector, out)
+		}
+		if strings.Contains(strings.Split(out, "\n")[0], "liveness") {
+			t.Errorf("--axis %s leaks the first line: %q", selector, out)
+		}
+	}
+	code, _, errS := run(t, "--root", ws, "probes", t29CID, "list",
+		"--axis", "L-99")
+	if code != 2 {
+		t.Fatalf("--axis L-99 exit %d, want 2", code)
+	}
+	if !strings.Contains(errS, "L-99") {
+		t.Fatalf("err = %q", errS)
+	}
+	if !strings.Contains(errS, "enforcement-timing") {
+		t.Fatalf("the error names the valid axes: %q", errS)
+	}
+}
+
+func TestProbesListAllShowsBlindKeysAndEmptyAxes(t *testing.T) {
+	ws, _, _, surface := t29Setup(t, t29Blind, true)
+	axis := t29AxisByProbe(t, surface, "assertion-strength")
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "list", "--all")
+	if code != 0 {
+		t.Fatalf("list --all exit %d: out=%q err=%q", code, out, errS)
+	}
+	blind := t29ObjList(axis, "blind")
+	if len(blind) == 0 {
+		t.Fatalf("axis published no blind keys: %s",
+			validation.DumpIndented(axis))
+	}
+	if !strings.Contains(out, objStr(blind[0], "key")) {
+		t.Errorf("list --all missing blind key %q: %q",
+			objStr(blind[0], "key"), out)
+	}
+	if !strings.Contains(out, "blind") {
+		t.Errorf("list --all missing 'blind': %q", out)
+	}
+}
+
+func TestProbesListWithoutASurfaceFailsLoudly(t *testing.T) {
+	probes.Wire()
+	ws := t.TempDir()
+	if _, err := state.Init(ws, "Probe CLI",
+		state.InitOpts{CampaignID: t29CID}); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "list")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(errS, "webv2 probes "+t29CID+" run") {
+		t.Fatalf("err = %q", errS)
+	}
+}
+
+// ---- dispositions name the field they claim is safe -----------------------
+
+func TestAnsweredOnAProbeRowRequiresAnAnchor(t *testing.T) {
+	ws, c, _, _ := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	pid := objStr(t29ProbePriority(t, c, ""), "id")
+	code, _, errS := run(t, "--root", ws, "answered", t29CID, pid,
+		"not-applicable", "--reason", "the asserter is not authoritative for "+
+			"this concept")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q", code, errS)
+	}
+	for _, want := range []string{"--anchor", "consumer", "asserter", "concept"} {
+		if !strings.Contains(errS, want) {
+			t.Errorf("err missing %q: %q", want, errS)
+		}
+	}
+}
+
+func TestAnsweredRejectsAnAnchorTheProbeNeverProduced(t *testing.T) {
+	ws, c, _, _ := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	pid := objStr(t29ProbePriority(t, c, ""), "id")
+	// `custody` belongs to custody-primitive, not to this assertion-strength row
+	code, _, errS := run(t, "--root", ws, "answered", t29CID, pid,
+		"not-applicable", "--anchor", "custody",
+		"--reason", "wrong probe's anchor enum")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q", code, errS)
+	}
+	if !strings.Contains(errS, "custody") {
+		t.Fatalf("err = %q", errS)
+	}
+	code, _, _ = run(t, "--root", ws, "answered", t29CID, pid,
+		"not-applicable", "--anchor", "nonsense",
+		"--reason", "not an anchor at all")
+	if code != 2 {
+		t.Fatalf("nonsense anchor exit %d, want 2", code)
+	}
+	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
+		if objStr(p, "id") == pid && objStr(p, "status") != "open" {
+			t.Fatalf("status = %q, want open", objStr(p, "status"))
+		}
+	}
+}
+
+func TestAnsweredRecordsTheRowsRealAnchorValue(t *testing.T) {
+	ws, c, idx, surface := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	row := t29Row(t, surface, "")
+	pid := objStr(t29ProbePriority(t, c, objStr(row, "row_id")), "id")
+	code, out, errS := run(t, "--root", ws, "answered", t29CID, pid,
+		"not-applicable", "--anchor", "asserter",
+		"--reason", "the asserter is not authoritative for this concept")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	var p validation.Value
+	for _, x := range t29ObjList(t29PlanJSON(t, c), "priorities") {
+		if objStr(x, "id") == pid {
+			p = x
+		}
+	}
+	if objStr(p, "status") != "not-applicable" {
+		t.Fatalf("status = %q", objStr(p, "status"))
+	}
+	anchor := objAt(objAt(p, "probe"), "anchor")
+	wantValue, err := probes.RowAnchorValue(row, "asserter")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantRef, err := probes.AnchorRef(row, "asserter", &idx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objStr(anchor, "field") != "asserter" {
+		t.Fatalf("anchor.field = %q", objStr(anchor, "field"))
+	}
+	if validation.CanonCompact(objAt(anchor, "value")) !=
+		validation.CanonCompact(wantValue) {
+		t.Fatalf("anchor.value = %s, want %s",
+			validation.CanonCompact(objAt(anchor, "value")),
+			validation.CanonCompact(wantValue))
+	}
+	if objStr(anchor, "ref") != wantRef {
+		t.Fatalf("anchor.ref = %q, want %q", objStr(anchor, "ref"), wantRef)
+	}
+	if objStr(p, "closed_ref") != wantRef {
+		t.Fatalf("closed_ref = %q, want %q", objStr(p, "closed_ref"), wantRef)
+	}
+	plan := t29PlanJSON(t, c)
+	if err := validation.Validate(plan, "campaign_plan", 1); err != nil {
+		t.Fatalf("plan invalid: %v", err)
+	}
+}
+
+func TestAnsweredRejectsARefThatIsNotTheAnchorItClaims(t *testing.T) {
+	ws, c, idx, surface := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	row := t29Row(t, surface, "")
+	pid := objStr(t29ProbePriority(t, c, objStr(row, "row_id")), "id")
+	code, _, errS := run(t, "--root", ws, "answered", t29CID, pid,
+		"answered", "--anchor", "consumer",
+		"--ref", "F-000000000000",
+		"--reason", "cites something else entirely")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q", code, errS)
+	}
+	wantRef, err := probes.AnchorRef(row, "consumer", &idx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(errS, wantRef) {
+		t.Fatalf("err = %q, want it to name %q", errS, wantRef)
+	}
+}
+
+func TestAnsweredRejectsAProbeRowTheSurfaceNoLongerCarries(t *testing.T) {
+	ws, c, _, _ := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	pid := objStr(t29ProbePriority(t, c, ""), "id")
+	if err := os.Remove(t29SurfacePath(c)); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := run(t, "--root", ws, "answered", t29CID, pid,
+		"not-applicable", "--anchor", "asserter",
+		"--reason", "the asserter is not authoritative")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q", code, errS)
+	}
+	if !strings.Contains(errS, "surface") || !strings.Contains(errS, "--emit") {
+		t.Fatalf("err = %q", errS)
+	}
+	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
+		if objStr(p, "id") == pid && objStr(p, "status") != "open" {
+			t.Fatalf("status = %q, want open", objStr(p, "status"))
+		}
+	}
+}
+
+func TestADirectLibraryClosureOfAProbeRowMustNameItsAnchor(t *testing.T) {
+	ws, c, _, _ := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	pid := objStr(t29ProbePriority(t, c, ""), "id")
+	plan := t29PlanJSON(t, c)
+	reason := "prose closure with no anchor at all"
+	ref := "F-000000000001"
+	_, err := planner.MarkAnswered(c, plan, pid, "answered",
+		planner.AnsweredOpts{Reason: &reason, Ref: &ref, Actor: "ingest"})
+	if err == nil {
+		t.Fatal("MarkAnswered accepted an anchorless probe closure")
+	}
+	msg := err.Error()
+	for _, want := range []string{"consumer", "asserter", "concept"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error missing %q: %q", want, msg)
+		}
+	}
+	// the row is untouched: no status flip, no closure provenance
+	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
+		if objStr(p, "id") != pid {
+			continue
+		}
+		if objStr(p, "status") != "open" {
+			t.Fatalf("status = %q, want open", objStr(p, "status"))
+		}
+		if t29Has(p, "closed_ref") || t29Has(p, "closed_reason") {
+			t.Fatalf("closure provenance stamped: %s",
+				validation.DumpIndented(p))
+		}
+		if t29Has(objAt(p, "probe"), "anchor") {
+			t.Fatalf("probe.anchor stamped: %s", validation.DumpIndented(p))
+		}
+	}
+}
+
+func TestIngestCannotCloseAProbeRowWithoutAnAnchor(t *testing.T) {
+	ws, c, _, _ := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	pid := objStr(t29ProbePriority(t, c, ""), "id")
+	payload, err := validation.ParseOrdered([]byte(`{"title":"A library ` +
+		`caller closes a probe row","root_cause":{"class":"logic-error",` +
+		`"description":"the closure is prose only, no anchor"},` +
+		`"affected":[{"path":"Rollup.sol","contract":"Rollup",` +
+		`"function":"finalizeBatch"}],"attacker":{"profile":"arbitrary EOA",` +
+		`"capabilities":[]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = orchestrator.New(c).Ingest(payload,
+		orchestrator.IngestOpts{AnswersPriority: pid})
+	if err == nil {
+		t.Fatal("Ingest closed a probe row with no anchor")
+	}
+	if !strings.Contains(err.Error(), "consumer") {
+		t.Fatalf("err = %q", err.Error())
+	}
+	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
+		if objStr(p, "id") == pid && objStr(p, "status") != "open" {
+			t.Fatalf("status = %q, want open", objStr(p, "status"))
+		}
+	}
+}
+
+func TestAnsweredStillWorksForNonProbePriorities(t *testing.T) {
+	ws, c, _, _ := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	pid := ""
+	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
+		if objAt(p, "probe").Kind != validation.Obj {
+			pid = objStr(p, "id")
+			break
+		}
+	}
+	if pid == "" {
+		t.Fatal("no non-probe priority in the fixture plan")
+	}
+	code, out, errS := run(t, "--root", ws, "answered", t29CID, pid,
+		"deprioritized", "--reason", "ranked below the real attack surface",
+		"--ref", "Rollup.sol#L45")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
+		if objStr(p, "id") != pid {
+			continue
+		}
+		if objStr(p, "status") != "deprioritized" ||
+			objStr(p, "closed_ref") != "Rollup.sol#L45" {
+			t.Fatalf("status/closed_ref = %q/%q", objStr(p, "status"),
+				objStr(p, "closed_ref"))
+		}
+	}
+}
+
+// ---- blank attestations ---------------------------------------------------
+
+func TestBlankAttestationClosesABlindAxis(t *testing.T) {
+	ws, c, _, surface := t29Setup(t, t29Blind, true)
+	axis := t29AxisByProbe(t, surface, "assertion-strength")
+	if objStr(axis, "status") != "blind" {
+		t.Fatalf("axis status = %q, want blind", objStr(axis, "status"))
+	}
+	blind := t29ObjList(axis, "blind")
+	key := objStr(blind[0], "key")
+	plan := t29CloseEverything(t, c)
+	div := t29Divergence(t, c, plan)
+	if objBool(div, "closed") {
+		t.Fatalf("closed = true, want false: %s", validation.DumpIndented(div))
+	}
+	found := false
+	for _, m := range t29ObjList(div, "missing") {
+		if objStr(m, "subject") == "L-03" {
+			found = true
+			if !strings.Contains(objStr(m, "what"), "webv2 probes blank") {
+				t.Errorf("missing.what = %q", objStr(m, "what"))
+			}
+		}
+		if objStr(m, "subject") == "L-01" {
+			t.Errorf("unexpected L-01 missing entry: %s",
+				validation.DumpIndented(m))
+		}
+	}
+	if !found {
+		t.Fatalf("no missing entry for L-03: %s", validation.DumpIndented(div))
+	}
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "blank",
+		"--axis", "L-03", "--anchor-blind", key,
+		"--reason", "every published near key was audited by hand",
+		"--actor", "pytest")
+	if code != 0 {
+		t.Fatalf("blank exit %d: out=%q err=%q", code, out, errS)
+	}
+	saved := t29StateBlanks(t, c)
+	if len(saved) != 1 {
+		t.Fatalf("probe_blanks = %s", validation.DumpIndented(validation.VArr(saved...)))
+	}
+	if objStr(saved[0], "axis") != "L-03" ||
+		objStr(saved[0], "anchor_blind") != key {
+		t.Fatalf("saved = %s", validation.DumpIndented(saved[0]))
+	}
+	if objStr(saved[0], "actor") != "pytest" || objStr(saved[0], "at") == "" {
+		t.Fatalf("actor/at = %q/%q", objStr(saved[0], "actor"),
+			objStr(saved[0], "at"))
+	}
+	events, err := c.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := false
+	for _, e := range events {
+		if objStr(e, "type") == "probes.blank" && objStr(e, "ref") == "L-03" {
+			seen = true
+		}
+	}
+	if !seen {
+		t.Error("no probes.blank event with ref L-03")
+	}
+	// the persisted attestation is what divergence_status_for reads
+	blanks, err := probes.CampaignBlanks(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(blanks) != 1 {
+		t.Fatalf("campaign_blanks = %v", blanks)
+	}
+	if got := validation.CanonCompact(blanks["enforcement-timing"]); got !=
+		validation.CanonCompact(saved[0]) {
+		t.Fatalf("campaign_blanks = %s, want %s", got,
+			validation.CanonCompact(saved[0]))
+	}
+	div = t29Divergence(t, c, plan)
+	if !objBool(div, "closed") {
+		t.Fatalf("closed = false: %s", validation.DumpIndented(div))
+	}
+}
+
+func TestBlankAttestationRequiresABlindAxis(t *testing.T) {
+	ws, c, _, surface := t29Setup(t, t29Ranking, true)
+	axis := t29AxisByAxis(t, surface, "enforcement-timing")
+	if objStr(axis, "status") != "emitted" || objInt(axis, "rows") <= 0 {
+		t.Fatalf("axis = %s", validation.DumpIndented(axis))
+	}
+	key := objStr(t29ObjList(axis, "blind")[0], "key")
+	code, _, errS := run(t, "--root", ws, "probes", t29CID, "blank",
+		"--axis", "L-03", "--anchor-blind", key,
+		"--reason", "a written reason of legal length",
+		"--actor", "pytest")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q", code, errS)
+	}
+	if !strings.Contains(errS, "blind") || !strings.Contains(errS, "emitted") {
+		t.Fatalf("err = %q", errS)
+	}
+	if got := t29StateBlanks(t, c); len(got) != 0 {
+		t.Fatalf("probe_blanks = %s", validation.DumpIndented(validation.VArr(got...)))
+	}
+	_, err := probes.SetBlank(c, "L-03", key,
+		"a written reason of legal length", "pytest")
+	if err == nil || !strings.Contains(err.Error(), "blind") {
+		t.Fatalf("SetBlank err = %v", err)
+	}
+	if got := t29StateBlanks(t, c); len(got) != 0 {
+		t.Fatalf("probe_blanks = %s", validation.DumpIndented(validation.VArr(got...)))
+	}
+}
+
+func TestBlankRejectsAKeyTheProbeNeverPublished(t *testing.T) {
+	ws, c, _, surface := t29Setup(t, t29Blind, true)
+	axis := t29AxisByProbe(t, surface, "assertion-strength")
+	code, _, errS := run(t, "--root", ws, "probes", t29CID, "blank",
+		"--axis", "L-03", "--anchor-blind", "not-a-blind-key",
+		"--reason", "cites a key nobody published", "--actor", "pytest")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q", code, errS)
+	}
+	if !strings.Contains(errS, "not-a-blind-key") {
+		t.Fatalf("err = %q", errS)
+	}
+	if !strings.Contains(errS, objStr(t29ObjList(axis, "blind")[0], "key")) {
+		t.Fatalf("the error lists the real keys: %q", errS)
+	}
+	if got := t29StateBlanks(t, c); len(got) != 0 {
+		t.Fatalf("probe_blanks = %s", validation.DumpIndented(validation.VArr(got...)))
+	}
+}
+
+func TestBlankRequiresAWrittenReasonAndAnActor(t *testing.T) {
+	ws, _, _, surface := t29Setup(t, t29Blind, true)
+	axis := t29AxisByProbe(t, surface, "assertion-strength")
+	key := objStr(t29ObjList(axis, "blind")[0], "key")
+	code, _, errS := run(t, "--root", ws, "probes", t29CID, "blank",
+		"--axis", "L-03", "--anchor-blind", key,
+		"--reason", "short", "--actor", "pytest")
+	if code != 2 || !strings.Contains(errS, "reason") {
+		t.Fatalf("exit %d err=%q", code, errS)
+	}
+	code, _, errS = run(t, "--root", ws, "probes", t29CID, "blank",
+		"--axis", "L-03", "--anchor-blind", key,
+		"--reason", "a written reason of legal length")
+	if code != 2 || !strings.Contains(errS, "actor") {
+		t.Fatalf("exit %d err=%q", code, errS)
+	}
+}
+
+func TestBlankRejectsAnUnregisteredAxisAndAMissingSurface(t *testing.T) {
+	ws, _, _, surface := t29Setup(t, t29Blind, true)
+	key := objStr(t29ObjList(t29AxisByProbe(t, surface, "assertion-strength"),
+		"blind")[0], "key")
+	code, _, errS := run(t, "--root", ws, "probes", t29CID, "blank",
+		"--axis", "L-99", "--anchor-blind", key,
+		"--reason", "no such axis at all", "--actor", "pytest")
+	if code != 2 || !strings.Contains(errS, "L-99") {
+		t.Fatalf("exit %d err=%q", code, errS)
+	}
+	bare := t.TempDir()
+	if _, err := state.Init(bare, "Probe CLI",
+		state.InitOpts{CampaignID: t29CID}); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS = run(t, "--root", bare, "probes", t29CID, "blank",
+		"--axis", "L-03", "--anchor-blind", key,
+		"--reason", "there is no surface here", "--actor", "pytest")
+	if code != 2 || !strings.Contains(errS, "webv2 probes "+t29CID+" run") {
+		t.Fatalf("exit %d err=%q", code, errS)
+	}
+}
+
+// ---- audit ----------------------------------------------------------------
+
+func TestAuditDetectsProbeRowDriftInBothDirections(t *testing.T) {
+	ws, c, _, surface := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	sec := t29AuditSection(t, c)
+	if !objBool(sec, "ok") {
+		t.Fatalf("problems = %v", t29Problems(sec))
+	}
+	// (a) a plan row the current surface does not carry
+	plan := t29PlanJSON(t, c)
+	ghost := t29DeepCopy(t29ProbePriority(t, c, ""))
+	t29Set(&ghost, "id", validation.VStr("Q-900"))
+	prov := objAt(ghost, "probe")
+	t29Set(&prov, "row_id", validation.VStr("deadbeef00"))
+	t29Set(&ghost, "probe", prov)
+	prios := t29List(plan, "priorities")
+	prios = append(prios, ghost)
+	t29Set(&plan, "priorities", validation.VArr(prios...))
+	if _, err := planner.SavePlan(c, plan); err != nil {
+		t.Fatal(err)
+	}
+	sec = t29AuditSection(t, c)
+	if objBool(sec, "ok") {
+		t.Fatal("ok = true after a ghost plan row")
+	}
+	if !t29HasProblem(sec, "deadbeef00") {
+		t.Fatalf("problems = %v", t29Problems(sec))
+	}
+	// (b) a surface row that was never emitted as a priority
+	dropped := objStr(t29Row(t, surface, ""), "row_id")
+	plan = t29PlanJSON(t, c)
+	kept := []validation.Value{}
+	for _, p := range t29ObjList(plan, "priorities") {
+		if objStr(objAt(p, "probe"), "row_id") == dropped {
+			continue
+		}
+		kept = append(kept, p)
+	}
+	t29Set(&plan, "priorities", validation.VArr(kept...))
+	if _, err := planner.SavePlan(c, plan); err != nil {
+		t.Fatal(err)
+	}
+	sec = t29AuditSection(t, c)
+	if objBool(sec, "ok") {
+		t.Fatal("ok = true after a dropped surface row")
+	}
+	if !t29HasProblem(sec, dropped) {
+		t.Fatalf("problems = %v", t29Problems(sec))
+	}
+}
+
+func TestAuditReDerivesRowsAndCatchesAHandEditedAnchor(t *testing.T) {
+	ws, c, _, surface := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	sec := t29AuditSection(t, c)
+	if !objBool(sec, "ok") {
+		t.Fatalf("problems = %v", t29Problems(sec))
+	}
+	if objInt(sec, "rederived_rows") != 10 ||
+		len(t29ObjList(surface, "rows")) != 10 {
+		t.Fatalf("rederived_rows = %d, rows = %d", objInt(sec, "rederived_rows"),
+			len(t29ObjList(surface, "rows")))
+	}
+	stored, err := validation.ReadJson(t29SurfacePath(c))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := t29List(stored, "rows")
+	edited := rows[0]
+	if objStr(edited, "row_id") != objStr(t29Row(t, surface, ""), "row_id") {
+		t.Fatalf("edited row_id = %q", objStr(edited, "row_id"))
+	}
+	t29Set(&edited, "consumer_line", validation.VInt(99999))
+	rows[0] = edited
+	t29Set(&stored, "rows", validation.VArr(rows...))
+	t29WriteSurface(t, c, stored)
+	sec = t29AuditSection(t, c)
+	if objBool(sec, "ok") {
+		t.Fatal("ok = true after a hand-edited anchor")
+	}
+	found := false
+	for _, p := range t29Problems(sec) {
+		if strings.Contains(p, "does not re-derive") &&
+			strings.Contains(p, objStr(edited, "row_id")) {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("problems = %v", t29Problems(sec))
+	}
+	// the disposition stamp is re-derived too: a priority closed against a
+	// shape the tree no longer produces is not a disposition
+	t29WriteSurface(t, c, surface)
+	plan := t29PlanJSON(t, c)
+	prios := t29List(plan, "priorities")
+	victim := validation.VNull()
+	for i, p := range prios {
+		if objAt(p, "probe").Kind == validation.Obj {
+			victim = p
+			prov := objAt(p, "probe")
+			t29Set(&prov, "shape_sha", validation.VStr(strings.Repeat("0", 16)))
+			t29Set(&p, "probe", prov)
+			prios[i] = p
+			break
+		}
+	}
+	if victim.Kind != validation.Obj {
+		t.Fatal("no probe priority")
+	}
+	t29Set(&plan, "priorities", validation.VArr(prios...))
+	if _, err := planner.SavePlan(c, plan); err != nil {
+		t.Fatal(err)
+	}
+	sec = t29AuditSection(t, c)
+	if objBool(sec, "ok") {
+		t.Fatal("ok = true after a stale shape stamp")
+	}
+	found = false
+	for _, p := range t29Problems(sec) {
+		if strings.Contains(p, "dispositioned probe row") &&
+			strings.Contains(p, objStr(victim, "id")) {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("problems = %v", t29Problems(sec))
+	}
+}
+
+func TestAuditFlagsSurfaceRowsThatWereNeverEmitted(t *testing.T) {
+	// surface written, no --emit
+	_, c, _, _ := t29Setup(t, t29Ranking, true)
+	if got := t29ProbePriorities(t, c); len(got) != 0 {
+		t.Fatalf("probe priorities = %d, want 0", len(got))
+	}
+	sec := t29AuditSection(t, c)
+	if objInt(sec, "checked") != 10 {
+		t.Fatalf("checked = %d, want 10: %s", objInt(sec, "checked"),
+			validation.DumpIndented(sec))
+	}
+	if objBool(sec, "ok") {
+		t.Fatal("ok = true, want false")
+	}
+	if !t29HasProblem(sec, "webv2 probes "+t29CID+" run --emit") {
+		t.Fatalf("problems = %v", t29Problems(sec))
+	}
+}
+
+func TestAuditFlagsABlankAttestationForAnAxisThatIsNotBlind(t *testing.T) {
+	ws, c, _, surface := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	axis := t29AxisByAxis(t, surface, "enforcement-timing")
+	key := objStr(t29ObjList(axis, "blind")[0], "key")
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Set(&st, "probe_blanks", validation.VArr(validation.VObj(
+		validation.KV{K: "axis", V: validation.VStr("L-03")},
+		validation.KV{K: "anchor_blind", V: validation.VStr(key)},
+		validation.KV{K: "reason", V: validation.VStr("attested against a non-blind axis")},
+		validation.KV{K: "actor", V: validation.VStr("pytest")},
+		validation.KV{K: "at", V: validation.VStr("2026-01-01T00:00:00+00:00")},
+	)))
+	t29SaveState(t, c, st)
+	ref := "L-03"
+	data := validation.VObj(
+		validation.KV{K: "axis", V: validation.VStr("enforcement-timing")},
+		validation.KV{K: "probe", V: validation.VStr("assertion-strength")},
+		validation.KV{K: "anchor_blind", V: validation.VStr(key)},
+		validation.KV{K: "actor", V: validation.VStr("pytest")},
+		validation.KV{K: "reason", V: validation.VStr("attested against a non-blind axis")},
+		validation.KV{K: "replaced", V: validation.VBool(false)},
+	)
+	if _, err := c.Log("probes.blank", &ref, &data); err != nil {
+		t.Fatal(err)
+	}
+	sec := t29AuditSection(t, c)
+	if objBool(sec, "ok") {
+		t.Fatal("ok = true, want false")
+	}
+	if !t29HasProblem(sec, "not blind") {
+		t.Fatalf("problems = %v", t29Problems(sec))
+	}
+}
+
+func TestAuditDetectsAStaleSurfaceAndAHandEditedAttestation(t *testing.T) {
+	ws, c, idx, surface := t29Setup(t, t29Blind, true)
+	axis := t29AxisByProbe(t, surface, "assertion-strength")
+	key := objStr(t29ObjList(axis, "blind")[0], "key")
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "blank",
+		"--axis", "L-03", "--anchor-blind", key,
+		"--reason", "every near key was audited", "--actor", "pytest")
+	if code != 0 {
+		t.Fatalf("blank exit %d: out=%q err=%q", code, out, errS)
+	}
+	sec := t29AuditSection(t, c)
+	if !objBool(sec, "ok") {
+		t.Fatalf("problems = %v", t29Problems(sec))
+	}
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	blanks := t29ObjList(st, "probe_blanks")
+	b0 := blanks[0]
+	t29Set(&b0, "anchor_blind", validation.VStr("hand-edited-key"))
+	blanks[0] = b0
+	t29Set(&st, "probe_blanks", validation.VArr(blanks...))
+	t29SaveState(t, c, st)
+	sec = t29AuditSection(t, c)
+	if objBool(sec, "ok") {
+		t.Fatal("ok = true after a hand-edited attestation")
+	}
+	if !t29HasProblem(sec, "hand-edited-key") &&
+		!t29HasProblem(sec, "probes.blank") {
+		t.Fatalf("problems = %v", t29Problems(sec))
+	}
+	st, err = c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	blanks = t29ObjList(st, "probe_blanks")
+	b0 = blanks[0]
+	t29Set(&b0, "anchor_blind", validation.VStr(key))
+	blanks[0] = b0
+	t29Set(&st, "probe_blanks", validation.VArr(blanks...))
+	t29SaveState(t, c, st)
+	t29BumpIndexLine(t, c, idx)
+	sec = t29AuditSection(t, c)
+	if objBool(sec, "ok") {
+		t.Fatal("ok = true after the index moved")
+	}
+	if !t29HasProblem(sec, "stale") {
+		t.Fatalf("problems = %v", t29Problems(sec))
+	}
+}
+
+// ---- A6: the anchor help, and a lens that carries several probes -----------
+
+func TestAnchorHelpIsDerivedFromTheRegistry(t *testing.T) {
+	code, out, _ := run(t, "answered", "--help")
+	if code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	flat := strings.Join(strings.Fields(out), " ")
+	parts := strings.SplitN(flat, "(anchors:", 2)
+	if len(parts) != 2 {
+		t.Fatalf("help has no (anchors: ...): %q", flat)
+	}
+	enum := strings.SplitN(parts[1], ")", 2)[0]
+	got := []string{}
+	for _, a := range strings.Split(enum, ",") {
+		got = append(got, strings.TrimSpace(a))
+	}
+	want := probes.AnchorEnum()
+	if len(got) != len(want) {
+		t.Fatalf("anchor enum = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("anchor enum = %v, want %v", got, want)
+		}
+	}
+	if !strings.Contains(enum, "base") {
+		t.Fatal("the anchor the A4 review found missing is absent")
+	}
+}
+
+func TestProbesListAxisFilterByLensShowsEveryProbeOnIt(t *testing.T) {
+	ws, _, _, _ := t29Setup(t, t29L01Tree(t), true)
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "list",
+		"--axis", "L-01", "--all")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	for _, want := range []string{"accumulator-skew", "liveness",
+		"guard-short-circuit"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("list --axis L-01 missing %q: %q", want, out)
+		}
+	}
+	if strings.Contains(out, "enforcement-timing") {
+		t.Errorf("list --axis L-01 leaks enforcement-timing: %q", out)
+	}
+	code, out, errS = run(t, "--root", ws, "probes", t29CID, "list",
+		"--axis", "accumulator-skew")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(out, "accumulator-skew") {
+		t.Errorf("list --axis accumulator-skew: %q", out)
+	}
+	if strings.Contains(out, "liveness") {
+		t.Errorf("list --axis accumulator-skew leaks liveness: %q", out)
+	}
+}
+
+func TestBlankAxisHelpAdvertisesTheLensSpelling(t *testing.T) {
+	code, out, errS := run(t, "probes", t29CID, "blank", "--help")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	flat := strings.Join(strings.Fields(out), " ")
+	if !strings.Contains(flat, "L-0n") {
+		t.Fatalf("help = %q", flat)
+	}
+	if !strings.Contains(flat, "resolved by the cited") {
+		t.Fatalf("help = %q", flat)
+	}
+}
+
+func TestBlankLensSpellingResolvesToTheAxisThatPublishedTheKey(t *testing.T) {
+	ws, c, _, surface := t29SharedLens(t)
+	acc := t29AxisByProbe(t, surface, "accumulator-basis-skew")
+	guard := t29AxisByProbe(t, surface, "short-circuitable-guard")
+	if objStr(acc, "status") != "blind" || objStr(guard, "status") != "blind" {
+		t.Fatalf("acc/guard status = %q/%q", objStr(acc, "status"),
+			objStr(guard, "status"))
+	}
+	accKey := objStr(t29ObjList(acc, "blind")[0], "key")
+	guardKey := objStr(t29ObjList(guard, "blind")[0], "key")
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "blank",
+		"--axis", "L-01", "--anchor-blind", accKey,
+		"--reason", "the companion write is elsewhere",
+		"--actor", "operator")
+	if code != 0 {
+		t.Fatalf("blank exit %d: out=%q err=%q", code, out, errS)
+	}
+	if got := t29BlankPairs(t, c); !t29SamePairs(got, [][2]string{
+		{"L-01", "accumulator-skew"}}) {
+		t.Fatalf("saved = %v", got)
+	}
+	// the probe-axis spelling keeps working (no resolution needed)
+	code, out, errS = run(t, "--root", ws, "probes", t29CID, "blank",
+		"--axis", "guard-short-circuit", "--anchor-blind", guardKey,
+		"--reason", "the conjunction has no sentinel", "--actor", "operator")
+	if code != 0 {
+		t.Fatalf("blank exit %d: out=%q err=%q", code, out, errS)
+	}
+	if got := t29BlankPairs(t, c); !t29SamePairs(got, [][2]string{
+		{"L-01", "accumulator-skew"}, {"L-01", "guard-short-circuit"}}) {
+		t.Fatalf("saved = %v", got)
+	}
+	// no match: fail naming the real blind keys the lens's axes published
+	code, _, errS = run(t, "--root", ws, "probes", t29CID, "blank",
+		"--axis", "L-01", "--anchor-blind", "not-a-blind-key",
+		"--reason", "cites a key nobody published", "--actor", "operator")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2", code)
+	}
+	if !strings.Contains(errS, accKey) || !strings.Contains(errS, guardKey) {
+		t.Fatalf("err = %q", errS)
+	}
+	if got := t29BlankPairs(t, c); len(got) != 2 {
+		t.Fatalf("nothing may be recorded: %v", got)
+	}
+	// ambiguous: two axes on the lens publish the same key -> fail loudly
+	clash := t29DeepCopy(surface)
+	clashAxes := t29List(clash, "axes")
+	for i, axis := range clashAxes {
+		if objStr(axis, "probe") != "short-circuitable-guard" {
+			continue
+		}
+		blind := t29List(axis, "blind")
+		b0 := blind[0]
+		t29Set(&b0, "key", validation.VStr(accKey))
+		blind[0] = b0
+		t29Set(&axis, "blind", validation.VArr(blind...))
+		clashAxes[i] = axis
+	}
+	t29Set(&clash, "axes", validation.VArr(clashAxes...))
+	t29WriteSurface(t, c, clash)
+	code, _, errS = run(t, "--root", ws, "probes", t29CID, "blank",
+		"--axis", "L-01", "--anchor-blind", accKey,
+		"--reason", "two axes publish this exact key", "--actor", "operator")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2", code)
+	}
+	if !strings.Contains(errS, "accumulator-skew") ||
+		!strings.Contains(errS, "guard-short-circuit") {
+		t.Fatalf("err = %q", errS)
+	}
+	if got := t29BlankPairs(t, c); len(got) != 2 {
+		t.Fatalf("nothing may be recorded: %v", got)
+	}
+}
+
+// t29BlankPairs is [(e["axis"], e["probe_axis"]) for e in state["probe_blanks"]].
+func t29BlankPairs(t *testing.T, c *state.Campaign) [][2]string {
+	t.Helper()
+	out := [][2]string{}
+	for _, e := range t29StateBlanks(t, c) {
+		out = append(out, [2]string{objStr(e, "axis"), objStr(e, "probe_axis")})
+	}
+	return out
+}
+
+// t29SamePairs compares two (axis, probe_axis) lists in order.
+func t29SamePairs(got [][2]string, want [][2]string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
+}

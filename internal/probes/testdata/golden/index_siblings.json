@@ -1,0 +1,2499 @@
+{
+  "campaign_id": "C-62e43ae85b",
+  "snapshot_id": "unpinned",
+  "backend": "regex",
+  "parse_version": "3",
+  "created_at": "2026-09-09T03:34:09.713822+00:00",
+  "entry_count": 56,
+  "nodes": [
+    {
+      "id": "L1ERC20Gateway.sol#L1ERC20Gateway",
+      "kind": "contract",
+      "name": "L1ERC20Gateway",
+      "path": "L1ERC20Gateway.sol",
+      "line": 7,
+      "contract_closure": [
+        {
+          "name": "checkTokenMapping",
+          "defining_contract": "L1ERC20Gateway",
+          "path": "L1ERC20Gateway.sol",
+          "line": 27,
+          "guards": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected",
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "class": 4,
+              "text": "tokenMapping[token] == expected"
+            }
+          ],
+          "uses": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "updateTokenMapping",
+          "defining_contract": "L1ERC20Gateway",
+          "path": "L1ERC20Gateway.sol",
+          "line": 18,
+          "guards": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "addr",
+                "token"
+              ],
+              "class": 1,
+              "text": "token != address(0)"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "class": 2,
+              "text": "amount > 0"
+            }
+          ],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount",
+                "token"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L1ERC20Gateway.sol#L1ERC20Gateway.tokenMapping",
+      "kind": "state-variable",
+      "name": "tokenMapping",
+      "path": "L1ERC20Gateway.sol",
+      "line": null
+    },
+    {
+      "id": "L1ERC20Gateway.sol#L1ERC20Gateway.counterpart",
+      "kind": "state-variable",
+      "name": "counterpart",
+      "path": "L1ERC20Gateway.sol",
+      "line": null
+    },
+    {
+      "id": "L1ERC20Gateway.sol#L1ERC20Gateway.onlyCounterpart",
+      "kind": "modifier",
+      "name": "onlyCounterpart",
+      "path": "L1ERC20Gateway.sol",
+      "line": 13,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "L1ERC20Gateway.sol#L1ERC20Gateway.updateTokenMapping",
+      "kind": "function",
+      "name": "updateTokenMapping",
+      "path": "L1ERC20Gateway.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyCounterpart"
+      ],
+      "guarded_by": [
+        "onlyCounterpart"
+      ],
+      "selector": "updateTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping",
+        "counterpart"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "addr",
+            "token"
+          ],
+          "class": 1,
+          "text": "token != address(0)"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "class": 2,
+          "text": "amount > 0"
+        }
+      ],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount",
+            "token"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "L1ERC20Gateway.sol#L1ERC20Gateway.checkTokenMapping",
+      "kind": "function",
+      "name": "checkTokenMapping",
+      "path": "L1ERC20Gateway.sol",
+      "line": 27,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "checkTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected",
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "class": 4,
+          "text": "tokenMapping[token] == expected"
+        }
+      ],
+      "uses": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "L1GatewayRouter.sol#L1GatewayRouter",
+      "kind": "contract",
+      "name": "L1GatewayRouter",
+      "path": "L1GatewayRouter.sol",
+      "line": 7,
+      "contract_closure": [
+        {
+          "name": "checkTokenMapping",
+          "defining_contract": "L1GatewayRouter",
+          "path": "L1GatewayRouter.sol",
+          "line": 27,
+          "guards": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected",
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "class": 4,
+              "text": "tokenMapping[token] == expected"
+            }
+          ],
+          "uses": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "updateTokenMapping",
+          "defining_contract": "L1GatewayRouter",
+          "path": "L1GatewayRouter.sol",
+          "line": 18,
+          "guards": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "addr",
+                "token"
+              ],
+              "class": 1,
+              "text": "token != address(0)"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "class": 2,
+              "text": "amount > 0"
+            }
+          ],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount",
+                "token"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L1GatewayRouter.sol#L1GatewayRouter.tokenMapping",
+      "kind": "state-variable",
+      "name": "tokenMapping",
+      "path": "L1GatewayRouter.sol",
+      "line": null
+    },
+    {
+      "id": "L1GatewayRouter.sol#L1GatewayRouter.counterpart",
+      "kind": "state-variable",
+      "name": "counterpart",
+      "path": "L1GatewayRouter.sol",
+      "line": null
+    },
+    {
+      "id": "L1GatewayRouter.sol#L1GatewayRouter.onlyCounterpart",
+      "kind": "modifier",
+      "name": "onlyCounterpart",
+      "path": "L1GatewayRouter.sol",
+      "line": 13,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "L1GatewayRouter.sol#L1GatewayRouter.updateTokenMapping",
+      "kind": "function",
+      "name": "updateTokenMapping",
+      "path": "L1GatewayRouter.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyCounterpart"
+      ],
+      "guarded_by": [
+        "onlyCounterpart"
+      ],
+      "selector": "updateTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping",
+        "counterpart"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "addr",
+            "token"
+          ],
+          "class": 1,
+          "text": "token != address(0)"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "class": 2,
+          "text": "amount > 0"
+        }
+      ],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount",
+            "token"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "L1GatewayRouter.sol#L1GatewayRouter.checkTokenMapping",
+      "kind": "function",
+      "name": "checkTokenMapping",
+      "path": "L1GatewayRouter.sol",
+      "line": 27,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "checkTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected",
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "class": 4,
+          "text": "tokenMapping[token] == expected"
+        }
+      ],
+      "uses": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway",
+      "kind": "contract",
+      "name": "L1ReverseCustomGateway",
+      "path": "L1ReverseCustomGateway.sol",
+      "line": 7,
+      "contract_closure": [
+        {
+          "name": "checkTokenMapping",
+          "defining_contract": "L1ReverseCustomGateway",
+          "path": "L1ReverseCustomGateway.sol",
+          "line": 27,
+          "guards": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected",
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "class": 4,
+              "text": "tokenMapping[token] == expected"
+            }
+          ],
+          "uses": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "updateTokenMapping",
+          "defining_contract": "L1ReverseCustomGateway",
+          "path": "L1ReverseCustomGateway.sol",
+          "line": 18,
+          "guards": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "addr",
+                "token"
+              ],
+              "class": 1,
+              "text": "token != address(0)"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "class": 2,
+              "text": "amount > 0"
+            }
+          ],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount",
+                "token"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway.tokenMapping",
+      "kind": "state-variable",
+      "name": "tokenMapping",
+      "path": "L1ReverseCustomGateway.sol",
+      "line": null
+    },
+    {
+      "id": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway.counterpart",
+      "kind": "state-variable",
+      "name": "counterpart",
+      "path": "L1ReverseCustomGateway.sol",
+      "line": null
+    },
+    {
+      "id": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway.onlyCounterpart",
+      "kind": "modifier",
+      "name": "onlyCounterpart",
+      "path": "L1ReverseCustomGateway.sol",
+      "line": 13,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway.updateTokenMapping",
+      "kind": "function",
+      "name": "updateTokenMapping",
+      "path": "L1ReverseCustomGateway.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyCounterpart"
+      ],
+      "guarded_by": [
+        "onlyCounterpart"
+      ],
+      "selector": "updateTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping",
+        "counterpart"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "addr",
+            "token"
+          ],
+          "class": 1,
+          "text": "token != address(0)"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "class": 2,
+          "text": "amount > 0"
+        }
+      ],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount",
+            "token"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway.checkTokenMapping",
+      "kind": "function",
+      "name": "checkTokenMapping",
+      "path": "L1ReverseCustomGateway.sol",
+      "line": 27,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "checkTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected",
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "class": 4,
+          "text": "tokenMapping[token] == expected"
+        }
+      ],
+      "uses": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "L2CustomGateway.sol#L2CustomGateway",
+      "kind": "contract",
+      "name": "L2CustomGateway",
+      "path": "L2CustomGateway.sol",
+      "line": 7,
+      "contract_closure": [
+        {
+          "name": "checkTokenMapping",
+          "defining_contract": "L2CustomGateway",
+          "path": "L2CustomGateway.sol",
+          "line": 27,
+          "guards": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected",
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "class": 4,
+              "text": "tokenMapping[token] == expected"
+            }
+          ],
+          "uses": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "updateTokenMapping",
+          "defining_contract": "L2CustomGateway",
+          "path": "L2CustomGateway.sol",
+          "line": 18,
+          "guards": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "addr",
+                "token"
+              ],
+              "class": 1,
+              "text": "token != address(0)"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "class": 2,
+              "text": "amount > 0"
+            }
+          ],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount",
+                "token"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L2CustomGateway.sol#L2CustomGateway.tokenMapping",
+      "kind": "state-variable",
+      "name": "tokenMapping",
+      "path": "L2CustomGateway.sol",
+      "line": null
+    },
+    {
+      "id": "L2CustomGateway.sol#L2CustomGateway.counterpart",
+      "kind": "state-variable",
+      "name": "counterpart",
+      "path": "L2CustomGateway.sol",
+      "line": null
+    },
+    {
+      "id": "L2CustomGateway.sol#L2CustomGateway.onlyCounterpart",
+      "kind": "modifier",
+      "name": "onlyCounterpart",
+      "path": "L2CustomGateway.sol",
+      "line": 13,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "L2CustomGateway.sol#L2CustomGateway.updateTokenMapping",
+      "kind": "function",
+      "name": "updateTokenMapping",
+      "path": "L2CustomGateway.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyCounterpart"
+      ],
+      "guarded_by": [
+        "onlyCounterpart"
+      ],
+      "selector": "updateTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping",
+        "counterpart"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "addr",
+            "token"
+          ],
+          "class": 1,
+          "text": "token != address(0)"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "class": 2,
+          "text": "amount > 0"
+        }
+      ],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount",
+            "token"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "L2CustomGateway.sol#L2CustomGateway.checkTokenMapping",
+      "kind": "function",
+      "name": "checkTokenMapping",
+      "path": "L2CustomGateway.sol",
+      "line": 27,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "checkTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected",
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "class": 4,
+          "text": "tokenMapping[token] == expected"
+        }
+      ],
+      "uses": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "L2ERC20Gateway.sol#L2ERC20Gateway",
+      "kind": "contract",
+      "name": "L2ERC20Gateway",
+      "path": "L2ERC20Gateway.sol",
+      "line": 7,
+      "contract_closure": [
+        {
+          "name": "checkTokenMapping",
+          "defining_contract": "L2ERC20Gateway",
+          "path": "L2ERC20Gateway.sol",
+          "line": 27,
+          "guards": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected",
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "class": 4,
+              "text": "tokenMapping[token] == expected"
+            }
+          ],
+          "uses": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "updateTokenMapping",
+          "defining_contract": "L2ERC20Gateway",
+          "path": "L2ERC20Gateway.sol",
+          "line": 18,
+          "guards": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "addr",
+                "token"
+              ],
+              "class": 1,
+              "text": "token != address(0)"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "class": 2,
+              "text": "amount > 0"
+            }
+          ],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount",
+                "token"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L2ERC20Gateway.sol#L2ERC20Gateway.tokenMapping",
+      "kind": "state-variable",
+      "name": "tokenMapping",
+      "path": "L2ERC20Gateway.sol",
+      "line": null
+    },
+    {
+      "id": "L2ERC20Gateway.sol#L2ERC20Gateway.counterpart",
+      "kind": "state-variable",
+      "name": "counterpart",
+      "path": "L2ERC20Gateway.sol",
+      "line": null
+    },
+    {
+      "id": "L2ERC20Gateway.sol#L2ERC20Gateway.onlyCounterpart",
+      "kind": "modifier",
+      "name": "onlyCounterpart",
+      "path": "L2ERC20Gateway.sol",
+      "line": 13,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "L2ERC20Gateway.sol#L2ERC20Gateway.updateTokenMapping",
+      "kind": "function",
+      "name": "updateTokenMapping",
+      "path": "L2ERC20Gateway.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyCounterpart"
+      ],
+      "guarded_by": [
+        "onlyCounterpart"
+      ],
+      "selector": "updateTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping",
+        "counterpart"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "addr",
+            "token"
+          ],
+          "class": 1,
+          "text": "token != address(0)"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "class": 2,
+          "text": "amount > 0"
+        }
+      ],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount",
+            "token"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "L2ERC20Gateway.sol#L2ERC20Gateway.checkTokenMapping",
+      "kind": "function",
+      "name": "checkTokenMapping",
+      "path": "L2ERC20Gateway.sol",
+      "line": 27,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "checkTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected",
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "class": 4,
+          "text": "tokenMapping[token] == expected"
+        }
+      ],
+      "uses": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "L2GatewayRouter.sol#L2GatewayRouter",
+      "kind": "contract",
+      "name": "L2GatewayRouter",
+      "path": "L2GatewayRouter.sol",
+      "line": 7,
+      "contract_closure": [
+        {
+          "name": "checkTokenMapping",
+          "defining_contract": "L2GatewayRouter",
+          "path": "L2GatewayRouter.sol",
+          "line": 27,
+          "guards": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected",
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "class": 4,
+              "text": "tokenMapping[token] == expected"
+            }
+          ],
+          "uses": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "updateTokenMapping",
+          "defining_contract": "L2GatewayRouter",
+          "path": "L2GatewayRouter.sol",
+          "line": 18,
+          "guards": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "addr",
+                "token"
+              ],
+              "class": 1,
+              "text": "token != address(0)"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "class": 2,
+              "text": "amount > 0"
+            }
+          ],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount",
+                "token"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L2GatewayRouter.sol#L2GatewayRouter.tokenMapping",
+      "kind": "state-variable",
+      "name": "tokenMapping",
+      "path": "L2GatewayRouter.sol",
+      "line": null
+    },
+    {
+      "id": "L2GatewayRouter.sol#L2GatewayRouter.counterpart",
+      "kind": "state-variable",
+      "name": "counterpart",
+      "path": "L2GatewayRouter.sol",
+      "line": null
+    },
+    {
+      "id": "L2GatewayRouter.sol#L2GatewayRouter.onlyCounterpart",
+      "kind": "modifier",
+      "name": "onlyCounterpart",
+      "path": "L2GatewayRouter.sol",
+      "line": 13,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "L2GatewayRouter.sol#L2GatewayRouter.updateTokenMapping",
+      "kind": "function",
+      "name": "updateTokenMapping",
+      "path": "L2GatewayRouter.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyCounterpart"
+      ],
+      "guarded_by": [
+        "onlyCounterpart"
+      ],
+      "selector": "updateTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping",
+        "counterpart"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "addr",
+            "token"
+          ],
+          "class": 1,
+          "text": "token != address(0)"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "class": 2,
+          "text": "amount > 0"
+        }
+      ],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount",
+            "token"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "L2GatewayRouter.sol#L2GatewayRouter.checkTokenMapping",
+      "kind": "function",
+      "name": "checkTokenMapping",
+      "path": "L2GatewayRouter.sol",
+      "line": 27,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "checkTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected",
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "class": 4,
+          "text": "tokenMapping[token] == expected"
+        }
+      ],
+      "uses": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "L2ReverseCustomGateway.sol#L2ReverseCustomGateway",
+      "kind": "contract",
+      "name": "L2ReverseCustomGateway",
+      "path": "L2ReverseCustomGateway.sol",
+      "line": 7,
+      "contract_closure": [
+        {
+          "name": "checkTokenMapping",
+          "defining_contract": "L2ReverseCustomGateway",
+          "path": "L2ReverseCustomGateway.sol",
+          "line": 27,
+          "guards": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected",
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "class": 4,
+              "text": "tokenMapping[token] == expected"
+            }
+          ],
+          "uses": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "updateTokenMapping",
+          "defining_contract": "L2ReverseCustomGateway",
+          "path": "L2ReverseCustomGateway.sol",
+          "line": 18,
+          "guards": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "addr",
+                "token"
+              ],
+              "class": 1,
+              "text": "token != address(0)"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "class": 2,
+              "text": "amount > 0"
+            }
+          ],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount",
+                "token"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L2ReverseCustomGateway.sol#L2ReverseCustomGateway.tokenMapping",
+      "kind": "state-variable",
+      "name": "tokenMapping",
+      "path": "L2ReverseCustomGateway.sol",
+      "line": null
+    },
+    {
+      "id": "L2ReverseCustomGateway.sol#L2ReverseCustomGateway.counterpart",
+      "kind": "state-variable",
+      "name": "counterpart",
+      "path": "L2ReverseCustomGateway.sol",
+      "line": null
+    },
+    {
+      "id": "L2ReverseCustomGateway.sol#L2ReverseCustomGateway.onlyCounterpart",
+      "kind": "modifier",
+      "name": "onlyCounterpart",
+      "path": "L2ReverseCustomGateway.sol",
+      "line": 13,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "L2ReverseCustomGateway.sol#L2ReverseCustomGateway.updateTokenMapping",
+      "kind": "function",
+      "name": "updateTokenMapping",
+      "path": "L2ReverseCustomGateway.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyCounterpart"
+      ],
+      "guarded_by": [
+        "onlyCounterpart"
+      ],
+      "selector": "updateTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping",
+        "counterpart"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "addr",
+            "token"
+          ],
+          "class": 1,
+          "text": "token != address(0)"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "class": 2,
+          "text": "amount > 0"
+        }
+      ],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount",
+            "token"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "L2ReverseCustomGateway.sol#L2ReverseCustomGateway.checkTokenMapping",
+      "kind": "function",
+      "name": "checkTokenMapping",
+      "path": "L2ReverseCustomGateway.sol",
+      "line": 27,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "checkTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected",
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "class": 4,
+          "text": "tokenMapping[token] == expected"
+        }
+      ],
+      "uses": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "L1ERC20Gateway.sol#L1ERC20Gateway",
+      "rel": "extends-interface",
+      "to": "L1ERC20Gateway.sol#L1ERC20Gateway.updateTokenMapping"
+    },
+    {
+      "from": "L1ERC20Gateway.sol#L1ERC20Gateway",
+      "rel": "extends-interface",
+      "to": "L1ERC20Gateway.sol#L1ERC20Gateway.checkTokenMapping"
+    },
+    {
+      "from": "L1GatewayRouter.sol#L1GatewayRouter",
+      "rel": "extends-interface",
+      "to": "L1GatewayRouter.sol#L1GatewayRouter.updateTokenMapping"
+    },
+    {
+      "from": "L1GatewayRouter.sol#L1GatewayRouter",
+      "rel": "extends-interface",
+      "to": "L1GatewayRouter.sol#L1GatewayRouter.checkTokenMapping"
+    },
+    {
+      "from": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway",
+      "rel": "extends-interface",
+      "to": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway.updateTokenMapping"
+    },
+    {
+      "from": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway",
+      "rel": "extends-interface",
+      "to": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway.checkTokenMapping"
+    },
+    {
+      "from": "L2CustomGateway.sol#L2CustomGateway",
+      "rel": "extends-interface",
+      "to": "L2CustomGateway.sol#L2CustomGateway.updateTokenMapping"
+    },
+    {
+      "from": "L2CustomGateway.sol#L2CustomGateway",
+      "rel": "extends-interface",
+      "to": "L2CustomGateway.sol#L2CustomGateway.checkTokenMapping"
+    },
+    {
+      "from": "L2ERC20Gateway.sol#L2ERC20Gateway",
+      "rel": "extends-interface",
+      "to": "L2ERC20Gateway.sol#L2ERC20Gateway.updateTokenMapping"
+    },
+    {
+      "from": "L2ERC20Gateway.sol#L2ERC20Gateway",
+      "rel": "extends-interface",
+      "to": "L2ERC20Gateway.sol#L2ERC20Gateway.checkTokenMapping"
+    },
+    {
+      "from": "L2GatewayRouter.sol#L2GatewayRouter",
+      "rel": "extends-interface",
+      "to": "L2GatewayRouter.sol#L2GatewayRouter.updateTokenMapping"
+    },
+    {
+      "from": "L2GatewayRouter.sol#L2GatewayRouter",
+      "rel": "extends-interface",
+      "to": "L2GatewayRouter.sol#L2GatewayRouter.checkTokenMapping"
+    },
+    {
+      "from": "L2ReverseCustomGateway.sol#L2ReverseCustomGateway",
+      "rel": "extends-interface",
+      "to": "L2ReverseCustomGateway.sol#L2ReverseCustomGateway.updateTokenMapping"
+    },
+    {
+      "from": "L2ReverseCustomGateway.sol#L2ReverseCustomGateway",
+      "rel": "extends-interface",
+      "to": "L2ReverseCustomGateway.sol#L2ReverseCustomGateway.checkTokenMapping"
+    }
+  ],
+  "stats": {
+    "solidity_files": 7,
+    "other_files_listed": 0,
+    "contracts": 7,
+    "functions": 14,
+    "state_variables": 14,
+    "entry_points": 14,
+    "external_call_edges": 0
+  }
+}

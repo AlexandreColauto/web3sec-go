@@ -1,0 +1,439 @@
+{
+  "campaign_id": "C-48f49aa62c",
+  "snapshot_id": "unpinned",
+  "backend": "regex",
+  "parse_version": "3",
+  "created_at": "2026-09-09T03:34:09.660251+00:00",
+  "entry_count": 11,
+  "nodes": [
+    {
+      "id": "RewardManager.sol#PMath",
+      "kind": "library",
+      "name": "PMath",
+      "path": "RewardManager.sol",
+      "line": 4,
+      "contract_closure": [
+        {
+          "name": "divDown",
+          "defining_contract": "PMath",
+          "path": "RewardManager.sol",
+          "line": 5,
+          "guards": [],
+          "uses": []
+        },
+        {
+          "name": "toUint128",
+          "defining_contract": "PMath",
+          "path": "RewardManager.sol",
+          "line": 9,
+          "guards": [],
+          "uses": []
+        }
+      ]
+    },
+    {
+      "id": "RewardManager.sol#RewardManager",
+      "kind": "contract",
+      "name": "RewardManager",
+      "path": "RewardManager.sol",
+      "line": 21,
+      "contract_closure": [
+        {
+          "name": "_updateRewardIndex",
+          "defining_contract": "RewardManager",
+          "path": "RewardManager.sol",
+          "line": 31,
+          "guards": [],
+          "uses": [
+            {
+              "line": 32,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 32,
+              "concept_keys": [
+                "reward",
+                "reward:state",
+                "state",
+                "token"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 32,
+              "concept_keys": [
+                "state"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 33,
+              "concept_keys": [
+                "index",
+                "state",
+                "state:index"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 33,
+              "concept_keys": [
+                "index"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 34,
+              "concept_keys": [
+                "shares",
+                "total",
+                "total:shares"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 34,
+              "concept_keys": [
+                "if",
+                "not",
+                "not:if"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 36,
+              "concept_keys": [
+                "accrued"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 36,
+              "concept_keys": [
+                "shares",
+                "total",
+                "total:shares"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 36,
+              "concept_keys": [
+                "accrued",
+                "accrued:div",
+                "accrued:div:down",
+                "div",
+                "div:down",
+                "down"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 36,
+              "concept_keys": [
+                "index"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 38,
+              "concept_keys": [
+                "accrued"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 38,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 38,
+              "concept_keys": [
+                "balance",
+                "index",
+                "index:to",
+                "index:to:uint128",
+                "last",
+                "last:balance",
+                "reward",
+                "reward:state",
+                "state",
+                "state:last",
+                "state:last:balance",
+                "to",
+                "to:uint128",
+                "token",
+                "uint128"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 38,
+              "concept_keys": [
+                "reward",
+                "reward:state",
+                "state",
+                "token"
+              ],
+              "kind": "write"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "RewardManager.sol#RewardManager.rewardState",
+      "kind": "state-variable",
+      "name": "rewardState",
+      "path": "RewardManager.sol",
+      "line": null
+    },
+    {
+      "id": "RewardManager.sol#PMath.divDown",
+      "kind": "function",
+      "name": "divDown",
+      "path": "RewardManager.sol",
+      "line": 5,
+      "visibility": "internal",
+      "is_entry_point": false,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": null,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": []
+    },
+    {
+      "id": "RewardManager.sol#PMath.toUint128",
+      "kind": "function",
+      "name": "toUint128",
+      "path": "RewardManager.sol",
+      "line": 9,
+      "visibility": "internal",
+      "is_entry_point": false,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": null,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": []
+    },
+    {
+      "id": "RewardManager.sol#RewardManager._updateRewardIndex",
+      "kind": "function",
+      "name": "_updateRewardIndex",
+      "path": "RewardManager.sol",
+      "line": 31,
+      "visibility": "internal",
+      "is_entry_point": false,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": null,
+      "reads_storage": [
+        "rewardState"
+      ],
+      "writes_storage": [],
+      "calls_internal": [
+        "divDown",
+        "toUint128"
+      ],
+      "calls_external": [
+        "not.if",
+        "accrued.divDown",
+        "index.toUint128"
+      ],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 32,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 32,
+          "concept_keys": [
+            "reward",
+            "reward:state",
+            "state",
+            "token"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 32,
+          "concept_keys": [
+            "state"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 33,
+          "concept_keys": [
+            "index",
+            "state",
+            "state:index"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 33,
+          "concept_keys": [
+            "index"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 34,
+          "concept_keys": [
+            "shares",
+            "total",
+            "total:shares"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 34,
+          "concept_keys": [
+            "if",
+            "not",
+            "not:if"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 36,
+          "concept_keys": [
+            "accrued"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 36,
+          "concept_keys": [
+            "shares",
+            "total",
+            "total:shares"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 36,
+          "concept_keys": [
+            "accrued",
+            "accrued:div",
+            "accrued:div:down",
+            "div",
+            "div:down",
+            "down"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 36,
+          "concept_keys": [
+            "index"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 38,
+          "concept_keys": [
+            "accrued"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 38,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 38,
+          "concept_keys": [
+            "balance",
+            "index",
+            "index:to",
+            "index:to:uint128",
+            "last",
+            "last:balance",
+            "reward",
+            "reward:state",
+            "state",
+            "state:last",
+            "state:last:balance",
+            "to",
+            "to:uint128",
+            "token",
+            "uint128"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 38,
+          "concept_keys": [
+            "reward",
+            "reward:state",
+            "state",
+            "token"
+          ],
+          "kind": "write"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "RewardManager.sol#RewardManager._updateRewardIndex",
+      "rel": "calls",
+      "to": "RewardManager.sol#RewardManager.divDown"
+    },
+    {
+      "from": "RewardManager.sol#RewardManager._updateRewardIndex",
+      "rel": "calls",
+      "to": "RewardManager.sol#RewardManager.toUint128"
+    },
+    {
+      "from": "RewardManager.sol#RewardManager._updateRewardIndex",
+      "rel": "calls",
+      "to": "*#not.if"
+    },
+    {
+      "from": "RewardManager.sol#RewardManager._updateRewardIndex",
+      "rel": "calls",
+      "to": "*#accrued.divDown"
+    },
+    {
+      "from": "RewardManager.sol#RewardManager._updateRewardIndex",
+      "rel": "calls",
+      "to": "*#index.toUint128"
+    }
+  ],
+  "stats": {
+    "solidity_files": 1,
+    "other_files_listed": 0,
+    "contracts": 2,
+    "functions": 3,
+    "state_variables": 1,
+    "entry_points": 0,
+    "external_call_edges": 3
+  }
+}

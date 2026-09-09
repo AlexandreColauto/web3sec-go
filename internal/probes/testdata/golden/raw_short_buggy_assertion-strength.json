@@ -1,0 +1,34 @@
+{
+  "sites": 3,
+  "rows": [],
+  "blind": [
+    {
+      "kind": "rejected-site",
+      "key": "EpochQueue::claimWithdrawRequest::last:withdraw",
+      "near": null,
+      "contract": "EpochQueue",
+      "function": "claimWithdrawRequest",
+      "line": 18,
+      "reason": "claimWithdrawRequest asserts last:withdraw itself (class 1) — no asymmetry"
+    },
+    {
+      "kind": "rejected-site",
+      "key": "EpochQueue::claimWithdrawRequest::last:withdraw:request",
+      "near": null,
+      "contract": "EpochQueue",
+      "function": "claimWithdrawRequest",
+      "line": 18,
+      "reason": "claimWithdrawRequest asserts last:withdraw:request itself (class 1) — no asymmetry"
+    },
+    {
+      "kind": "rejected-site",
+      "key": "EpochQueue::claimWithdrawRequest::withdraw:request",
+      "near": null,
+      "contract": "EpochQueue",
+      "function": "claimWithdrawRequest",
+      "line": 18,
+      "reason": "claimWithdrawRequest asserts withdraw:request itself (class 1) — no asymmetry"
+    }
+  ],
+  "blind_total": 3
+}

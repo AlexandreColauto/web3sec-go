@@ -1,0 +1,23 @@
+{
+  "protocol_id": "probe-fixture-trust-clean",
+  "name": "Probe fixture protocol (trust-assumption clean)",
+  "contracts": [
+    {"name": "Vault", "path": "Vault.sol", "role": "core", "in_scope": true}
+  ],
+  "actors": [
+    {"id": "attacker", "kind": "EOA", "trust": "adversarial",
+     "assumed_behavior": "arbitrary calldata"}
+  ],
+  "assets": [
+    {"id": "ETH", "kind": "token", "decimals": 18}
+  ],
+  "relations": [
+    {"from": "Vault", "rel": "CALLS", "to": "Vault"}
+  ],
+  "invariants": [
+    {"id": "INV-1", "name": "no-free-shares",
+     "statement": "No attacker can mint unbacked shares from the vault.",
+     "kind": "accounting", "severity_if_broken": "critical",
+     "applies_to": ["Vault"], "status": "UNVERIFIED"}
+  ]
+}

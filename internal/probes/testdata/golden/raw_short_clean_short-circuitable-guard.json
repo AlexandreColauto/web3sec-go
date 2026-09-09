@@ -1,0 +1,16 @@
+{
+  "sites": 1,
+  "rows": [],
+  "blind": [
+    {
+      "kind": "no-sentinel-conjunct",
+      "key": "EpochQueue::claimWithdrawRequest::epochEndDate > block.timestamp && epochNumber <= lastWithdrawRequest[user]",
+      "near": null,
+      "contract": "EpochQueue",
+      "function": "claimWithdrawRequest",
+      "line": 18,
+      "reason": "epochEndDate > block.timestamp && epochNumber <= lastWithdrawRequest[user] is a conjunction but no conjunct is a non-zero/`> 0` sentinel — nothing to short-circuit"
+    }
+  ],
+  "blind_total": 1
+}

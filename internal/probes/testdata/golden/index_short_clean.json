@@ -1,0 +1,363 @@
+{
+  "campaign_id": "C-77245c36e5",
+  "snapshot_id": "unpinned",
+  "backend": "regex",
+  "parse_version": "3",
+  "created_at": "2026-09-09T03:34:09.647305+00:00",
+  "entry_count": 7,
+  "nodes": [
+    {
+      "id": "EpochQueue.sol#EpochQueue",
+      "kind": "contract",
+      "name": "EpochQueue",
+      "path": "EpochQueue.sol",
+      "line": 9,
+      "contract_closure": [
+        {
+          "name": "claimWithdrawRequest",
+          "defining_contract": "EpochQueue",
+          "path": "EpochQueue.sol",
+          "line": 17,
+          "guards": [
+            {
+              "line": 18,
+              "concept_keys": [
+                "block",
+                "block:timestamp",
+                "date",
+                "end",
+                "end:date",
+                "epoch",
+                "epoch:end",
+                "epoch:end:date",
+                "epoch:number",
+                "last",
+                "last:withdraw",
+                "last:withdraw:request",
+                "number",
+                "request",
+                "timestamp",
+                "user",
+                "withdraw",
+                "withdraw:request"
+              ],
+              "class": 0,
+              "text": "epochEndDate > block.timestamp && epochNumber <= lastWithdrawRequest[user]"
+            }
+          ],
+          "uses": [
+            {
+              "line": 18,
+              "concept_keys": [
+                "user"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 18,
+              "concept_keys": [
+                "block",
+                "block:timestamp",
+                "last",
+                "last:withdraw",
+                "last:withdraw:request",
+                "request",
+                "timestamp",
+                "user",
+                "withdraw",
+                "withdraw:request"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "user"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "requests",
+                "user",
+                "withdraws",
+                "withdraws:requests"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "user"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "requests",
+                "user",
+                "withdraws",
+                "withdraws:requests"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "requests",
+                "user",
+                "withdraws",
+                "withdraws:requests"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 23,
+              "concept_keys": [
+                "user"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 23,
+              "concept_keys": [
+                "last",
+                "last:withdraw",
+                "last:withdraw:request",
+                "request",
+                "user",
+                "withdraw",
+                "withdraw:request"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 23,
+              "concept_keys": [
+                "last",
+                "last:withdraw",
+                "last:withdraw:request",
+                "request",
+                "user",
+                "withdraw",
+                "withdraw:request"
+              ],
+              "kind": "write"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "EpochQueue.sol#EpochQueue.epochEndDate",
+      "kind": "state-variable",
+      "name": "epochEndDate",
+      "path": "EpochQueue.sol",
+      "line": null
+    },
+    {
+      "id": "EpochQueue.sol#EpochQueue.epochNumber",
+      "kind": "state-variable",
+      "name": "epochNumber",
+      "path": "EpochQueue.sol",
+      "line": null
+    },
+    {
+      "id": "EpochQueue.sol#EpochQueue.lastWithdrawRequest",
+      "kind": "state-variable",
+      "name": "lastWithdrawRequest",
+      "path": "EpochQueue.sol",
+      "line": null
+    },
+    {
+      "id": "EpochQueue.sol#EpochQueue.withdrawsRequests",
+      "kind": "state-variable",
+      "name": "withdrawsRequests",
+      "path": "EpochQueue.sol",
+      "line": null
+    },
+    {
+      "id": "EpochQueue.sol#EpochQueue.claimWithdrawRequest",
+      "kind": "function",
+      "name": "claimWithdrawRequest",
+      "path": "EpochQueue.sol",
+      "line": 17,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "claimWithdrawRequest(address)",
+      "reads_storage": [
+        "epochEndDate",
+        "epochNumber",
+        "lastWithdrawRequest",
+        "withdrawsRequests"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 18,
+          "concept_keys": [
+            "block",
+            "block:timestamp",
+            "date",
+            "end",
+            "end:date",
+            "epoch",
+            "epoch:end",
+            "epoch:end:date",
+            "epoch:number",
+            "last",
+            "last:withdraw",
+            "last:withdraw:request",
+            "number",
+            "request",
+            "timestamp",
+            "user",
+            "withdraw",
+            "withdraw:request"
+          ],
+          "class": 0,
+          "text": "epochEndDate > block.timestamp && epochNumber <= lastWithdrawRequest[user]"
+        }
+      ],
+      "uses": [
+        {
+          "line": 18,
+          "concept_keys": [
+            "user"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 18,
+          "concept_keys": [
+            "block",
+            "block:timestamp",
+            "last",
+            "last:withdraw",
+            "last:withdraw:request",
+            "request",
+            "timestamp",
+            "user",
+            "withdraw",
+            "withdraw:request"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "user"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "requests",
+            "user",
+            "withdraws",
+            "withdraws:requests"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "user"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "requests",
+            "user",
+            "withdraws",
+            "withdraws:requests"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "requests",
+            "user",
+            "withdraws",
+            "withdraws:requests"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 23,
+          "concept_keys": [
+            "user"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 23,
+          "concept_keys": [
+            "last",
+            "last:withdraw",
+            "last:withdraw:request",
+            "request",
+            "user",
+            "withdraw",
+            "withdraw:request"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 23,
+          "concept_keys": [
+            "last",
+            "last:withdraw",
+            "last:withdraw:request",
+            "request",
+            "user",
+            "withdraw",
+            "withdraw:request"
+          ],
+          "kind": "write"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "EpochQueue.sol#EpochQueue",
+      "rel": "extends-interface",
+      "to": "EpochQueue.sol#EpochQueue.claimWithdrawRequest"
+    }
+  ],
+  "stats": {
+    "solidity_files": 1,
+    "other_files_listed": 0,
+    "contracts": 1,
+    "functions": 1,
+    "state_variables": 4,
+    "entry_points": 1,
+    "external_call_edges": 0
+  }
+}

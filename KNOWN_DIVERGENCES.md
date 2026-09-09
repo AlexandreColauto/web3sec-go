@@ -400,6 +400,28 @@ rows marked as golden-normalized — nothing else.
 - **Unblocks:** nothing (host fact, permanent). A future `--baselines-dir`
   flag would let an operator pin the store explicitly.
 
+### D25 — `prompt_path` carries the embed mirror's `assets/` segment (T30)
+- **What:** `webv2 run` prints `prompt_path` for the halting model
+  stage. Python resolves `REPO_ROOT / <rel>` where `rel` is
+  `prompts_legacy/02_protocol_model.md` and the pack sits at its repo
+  root: `<pyroot>/prompts_legacy/02_protocol_model.md`. The Go repo
+  keeps the pack at `assets/prompts_legacy/` (a `go:embed` directive can
+  only reach files under the embedding package's own directory), so the
+  twin prints `<goroot>/assets/prompts_legacy/02_protocol_model.md` —
+  same relative tail after the root, one extra `assets/` segment.
+- **Why:** the alternative is a repo-root copy of the prompt pack that
+  would silently drift from the embedded bytes; naming a path that does
+  not exist (the old relative `prompts_legacy/...` fallback) is worse
+  for the operator than naming the real file.
+- **Golden:** no recipe step invokes `run`, so nothing is normalized for
+  this row. The in-process twin test
+  (`internal/cli/cmd_run_test.go`) pins the whole HALTED block
+  byte-for-byte with `prompt_path` derived from `adapter.PromptPath`, and
+  `.scratch/t30/cross_twin.py` compares the two twins' `run` output with
+  `<ROOT>` and the `assets/` segment normalized.
+- **Unblocks:** permanent (a `go:embed` constraint, not behavior). A
+  future build step that copies the pack to the repo root could close it.
+
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**
   shape.

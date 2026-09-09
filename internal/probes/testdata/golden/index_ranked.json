@@ -1,0 +1,6201 @@
+{
+  "campaign_id": "C-a5562596d2",
+  "snapshot_id": "unpinned",
+  "backend": "regex",
+  "parse_version": "3",
+  "created_at": "2026-09-09T03:34:09.734930+00:00",
+  "entry_count": 114,
+  "nodes": [
+    {
+      "id": "ranking/Rollup.sol#Rollup",
+      "kind": "contract",
+      "name": "Rollup",
+      "path": "ranking/Rollup.sol",
+      "line": 11,
+      "contract_closure": [
+        {
+          "name": "auditChallenge",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 121,
+          "guards": [
+            {
+              "line": 122,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "challenged",
+                "challenged:claim",
+                "challenged:claim:root",
+                "claim",
+                "claim:root",
+                "index",
+                "root"
+              ],
+              "class": 4,
+              "text": "challengedClaimRoot[batchIndex] == claimRoot"
+            }
+          ],
+          "uses": [
+            {
+              "line": 122,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 122,
+              "concept_keys": [
+                "claim",
+                "claim:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 122,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "challenged",
+                "challenged:claim",
+                "challenged:claim:root",
+                "claim",
+                "claim:root",
+                "index",
+                "root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "auditDrop",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 97,
+          "guards": [
+            {
+              "line": 98,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "dropped",
+                "dropped:msg",
+                "dropped:msg:root",
+                "index",
+                "msg",
+                "msg:root",
+                "root"
+              ],
+              "class": 4,
+              "text": "droppedMessageRoot[batchIndex] == messageRoot"
+            }
+          ],
+          "uses": [
+            {
+              "line": 98,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 98,
+              "concept_keys": [
+                "msg",
+                "msg:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 98,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "dropped",
+                "dropped:msg",
+                "dropped:msg:root",
+                "index",
+                "msg",
+                "msg:root",
+                "root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "auditGenesis",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 109,
+          "guards": [
+            {
+              "line": 110,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "genesis",
+                "genesis:root",
+                "index",
+                "root"
+              ],
+              "class": 4,
+              "text": "genesisRoot[batchIndex] == root"
+            }
+          ],
+          "uses": [
+            {
+              "line": 110,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 110,
+              "concept_keys": [
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 110,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "genesis",
+                "genesis:root",
+                "index",
+                "root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "auditLock",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 117,
+          "guards": [
+            {
+              "line": 118,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "lock",
+                "lock:root",
+                "root",
+                "withdraw",
+                "withdraw:lock",
+                "withdraw:lock:root"
+              ],
+              "class": 4,
+              "text": "withdrawLockRoot[batchIndex] == root"
+            }
+          ],
+          "uses": [
+            {
+              "line": 118,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 118,
+              "concept_keys": [
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 118,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "lock",
+                "lock:root",
+                "root",
+                "withdraw",
+                "withdraw:lock",
+                "withdraw:lock:root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "auditProof",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 93,
+          "guards": [
+            {
+              "line": 94,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "proof",
+                "proof:root",
+                "proven",
+                "proven:proof",
+                "proven:proof:root",
+                "root"
+              ],
+              "class": 4,
+              "text": "provenProofRoot[batchIndex] == proofRoot"
+            }
+          ],
+          "uses": [
+            {
+              "line": 94,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 94,
+              "concept_keys": [
+                "proof",
+                "proof:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 94,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "proof",
+                "proof:root",
+                "proven",
+                "proven:proof",
+                "proven:proof:root",
+                "root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "auditReplay",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 101,
+          "guards": [
+            {
+              "line": 102,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "receipt",
+                "receipt:root",
+                "replayed",
+                "replayed:receipt",
+                "replayed:receipt:root",
+                "root"
+              ],
+              "class": 4,
+              "text": "replayedReceiptRoot[batchIndex] == receiptRoot"
+            }
+          ],
+          "uses": [
+            {
+              "line": 102,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 102,
+              "concept_keys": [
+                "receipt",
+                "receipt:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 102,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "receipt",
+                "receipt:root",
+                "replayed",
+                "replayed:receipt",
+                "replayed:receipt:root",
+                "root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "auditRevert",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 113,
+          "guards": [
+            {
+              "line": 114,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "batch:root",
+                "index",
+                "reverted",
+                "reverted:batch",
+                "reverted:batch:root",
+                "root"
+              ],
+              "class": 4,
+              "text": "revertedBatchRoot[batchIndex] == root"
+            }
+          ],
+          "uses": [
+            {
+              "line": 114,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 114,
+              "concept_keys": [
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 114,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "batch:root",
+                "index",
+                "reverted",
+                "reverted:batch",
+                "reverted:batch:root",
+                "root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "auditStakers",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 105,
+          "guards": [
+            {
+              "line": 106,
+              "concept_keys": [
+                "active",
+                "active:staker",
+                "active:staker:root",
+                "batch",
+                "batch:index",
+                "index",
+                "root",
+                "staker",
+                "staker:root"
+              ],
+              "class": 4,
+              "text": "activeStakerRoot[batchIndex] == stakerRoot"
+            }
+          ],
+          "uses": [
+            {
+              "line": 106,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 106,
+              "concept_keys": [
+                "root",
+                "staker",
+                "staker:root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 106,
+              "concept_keys": [
+                "active",
+                "active:staker",
+                "active:staker:root",
+                "batch",
+                "batch:index",
+                "index",
+                "root",
+                "staker",
+                "staker:root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "challengeState",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 73,
+          "guards": [],
+          "uses": [
+            {
+              "line": 74,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 74,
+              "concept_keys": [
+                "claim",
+                "claim:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 74,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "challenged",
+                "challenged:claim",
+                "challenged:claim:root",
+                "claim",
+                "claim:root",
+                "index",
+                "root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 74,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "challenged",
+                "challenged:claim",
+                "challenged:claim:root",
+                "claim",
+                "claim:root",
+                "index",
+                "root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "commitBatch",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 45,
+          "guards": [],
+          "uses": [
+            {
+              "line": 46,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 46,
+              "concept_keys": [
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 46,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "prev",
+                "prev:state",
+                "prev:state:root",
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 46,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "prev",
+                "prev:state",
+                "prev:state:root",
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "dropMessage",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 49,
+          "guards": [],
+          "uses": [
+            {
+              "line": 50,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 50,
+              "concept_keys": [
+                "msg",
+                "msg:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 50,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "dropped",
+                "dropped:msg",
+                "dropped:msg:root",
+                "index",
+                "msg",
+                "msg:root",
+                "root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 50,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "dropped",
+                "dropped:msg",
+                "dropped:msg:root",
+                "index",
+                "msg",
+                "msg:root",
+                "root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "finalizeBatch",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 66,
+          "guards": [
+            {
+              "line": 67,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "prev",
+                "prev:state",
+                "prev:state:root",
+                "root",
+                "state",
+                "state:root"
+              ],
+              "class": 4,
+              "text": "prevStateRoot[batchIndex] == stateRoot"
+            }
+          ],
+          "uses": [
+            {
+              "line": 67,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 67,
+              "concept_keys": [
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 67,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "prev",
+                "prev:state",
+                "prev:state:root",
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 68,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 68,
+              "concept_keys": [
+                "count",
+                "finalized",
+                "finalized:count"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "getActiveStakers",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 61,
+          "guards": [],
+          "uses": [
+            {
+              "line": 62,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 62,
+              "concept_keys": [
+                "root",
+                "staker",
+                "staker:root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 62,
+              "concept_keys": [
+                "active",
+                "active:staker",
+                "active:staker:root",
+                "batch",
+                "batch:index",
+                "index",
+                "root",
+                "staker",
+                "staker:root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 62,
+              "concept_keys": [
+                "active",
+                "active:staker",
+                "active:staker:root",
+                "batch",
+                "batch:index",
+                "index",
+                "root",
+                "staker",
+                "staker:root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "importGenesisBatch",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 79,
+          "guards": [],
+          "uses": [
+            {
+              "line": 80,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 80,
+              "concept_keys": [
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 80,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "genesis",
+                "genesis:root",
+                "index",
+                "root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 80,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "genesis",
+                "genesis:root",
+                "index",
+                "root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "proveState",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 53,
+          "guards": [],
+          "uses": [
+            {
+              "line": 54,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 54,
+              "concept_keys": [
+                "proof",
+                "proof:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 54,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "proof",
+                "proof:root",
+                "proven",
+                "proven:proof",
+                "proven:proof:root",
+                "root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 54,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "proof",
+                "proof:root",
+                "proven",
+                "proven:proof",
+                "proven:proof:root",
+                "root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "replayMessage",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 57,
+          "guards": [],
+          "uses": [
+            {
+              "line": 58,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 58,
+              "concept_keys": [
+                "receipt",
+                "receipt:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 58,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "receipt",
+                "receipt:root",
+                "replayed",
+                "replayed:receipt",
+                "replayed:receipt:root",
+                "root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 58,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "receipt",
+                "receipt:root",
+                "replayed",
+                "replayed:receipt",
+                "replayed:receipt:root",
+                "root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "revertBatch",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 83,
+          "guards": [],
+          "uses": [
+            {
+              "line": 84,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 84,
+              "concept_keys": [
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 84,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "batch:root",
+                "index",
+                "reverted",
+                "reverted:batch",
+                "reverted:batch:root",
+                "root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 84,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "batch:root",
+                "index",
+                "reverted",
+                "reverted:batch",
+                "reverted:batch:root",
+                "root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "updateWithdrawLock",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 87,
+          "guards": [],
+          "uses": [
+            {
+              "line": 88,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 88,
+              "concept_keys": [
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 88,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "lock",
+                "lock:root",
+                "root",
+                "withdraw",
+                "withdraw:lock",
+                "withdraw:lock:root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 88,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "lock",
+                "lock:root",
+                "root",
+                "withdraw",
+                "withdraw:lock",
+                "withdraw:lock:root"
+              ],
+              "kind": "write"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.owner",
+      "kind": "state-variable",
+      "name": "owner",
+      "path": "ranking/Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.guardian",
+      "kind": "state-variable",
+      "name": "guardian",
+      "path": "ranking/Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.stakers",
+      "kind": "state-variable",
+      "name": "stakers",
+      "path": "ranking/Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.prevStateRoot",
+      "kind": "state-variable",
+      "name": "prevStateRoot",
+      "path": "ranking/Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.droppedMessageRoot",
+      "kind": "state-variable",
+      "name": "droppedMessageRoot",
+      "path": "ranking/Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.provenProofRoot",
+      "kind": "state-variable",
+      "name": "provenProofRoot",
+      "path": "ranking/Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.replayedReceiptRoot",
+      "kind": "state-variable",
+      "name": "replayedReceiptRoot",
+      "path": "ranking/Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.activeStakerRoot",
+      "kind": "state-variable",
+      "name": "activeStakerRoot",
+      "path": "ranking/Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.genesisRoot",
+      "kind": "state-variable",
+      "name": "genesisRoot",
+      "path": "ranking/Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.revertedBatchRoot",
+      "kind": "state-variable",
+      "name": "revertedBatchRoot",
+      "path": "ranking/Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.withdrawLockRoot",
+      "kind": "state-variable",
+      "name": "withdrawLockRoot",
+      "path": "ranking/Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.challengedClaimRoot",
+      "kind": "state-variable",
+      "name": "challengedClaimRoot",
+      "path": "ranking/Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.finalizedCount",
+      "kind": "state-variable",
+      "name": "finalizedCount",
+      "path": "ranking/Rollup.sol",
+      "line": null
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.onlyActiveStaker",
+      "kind": "modifier",
+      "name": "onlyActiveStaker",
+      "path": "ranking/Rollup.sol",
+      "line": 27,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.onlyOwner",
+      "kind": "modifier",
+      "name": "onlyOwner",
+      "path": "ranking/Rollup.sol",
+      "line": 32,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.onlyGuardian",
+      "kind": "modifier",
+      "name": "onlyGuardian",
+      "path": "ranking/Rollup.sol",
+      "line": 37,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.commitBatch",
+      "kind": "function",
+      "name": "commitBatch",
+      "path": "ranking/Rollup.sol",
+      "line": 45,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyActiveStaker"
+      ],
+      "guarded_by": [
+        "onlyActiveStaker"
+      ],
+      "selector": "commitBatch(uint256,bytes32)",
+      "reads_storage": [
+        "stakers",
+        "prevStateRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 46,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 46,
+          "concept_keys": [
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 46,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "prev",
+            "prev:state",
+            "prev:state:root",
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 46,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "prev",
+            "prev:state",
+            "prev:state:root",
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "write"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.dropMessage",
+      "kind": "function",
+      "name": "dropMessage",
+      "path": "ranking/Rollup.sol",
+      "line": 49,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "dropMessage(uint256,bytes32)",
+      "reads_storage": [
+        "droppedMessageRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 50,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 50,
+          "concept_keys": [
+            "msg",
+            "msg:root",
+            "root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 50,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "dropped",
+            "dropped:msg",
+            "dropped:msg:root",
+            "index",
+            "msg",
+            "msg:root",
+            "root"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 50,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "dropped",
+            "dropped:msg",
+            "dropped:msg:root",
+            "index",
+            "msg",
+            "msg:root",
+            "root"
+          ],
+          "kind": "write"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.proveState",
+      "kind": "function",
+      "name": "proveState",
+      "path": "ranking/Rollup.sol",
+      "line": 53,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "proveState(uint256,bytes32)",
+      "reads_storage": [
+        "provenProofRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 54,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 54,
+          "concept_keys": [
+            "proof",
+            "proof:root",
+            "root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 54,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "proof",
+            "proof:root",
+            "proven",
+            "proven:proof",
+            "proven:proof:root",
+            "root"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 54,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "proof",
+            "proof:root",
+            "proven",
+            "proven:proof",
+            "proven:proof:root",
+            "root"
+          ],
+          "kind": "write"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.replayMessage",
+      "kind": "function",
+      "name": "replayMessage",
+      "path": "ranking/Rollup.sol",
+      "line": 57,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "replayMessage(uint256,bytes32)",
+      "reads_storage": [
+        "replayedReceiptRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 58,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 58,
+          "concept_keys": [
+            "receipt",
+            "receipt:root",
+            "root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 58,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "receipt",
+            "receipt:root",
+            "replayed",
+            "replayed:receipt",
+            "replayed:receipt:root",
+            "root"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 58,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "receipt",
+            "receipt:root",
+            "replayed",
+            "replayed:receipt",
+            "replayed:receipt:root",
+            "root"
+          ],
+          "kind": "write"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.getActiveStakers",
+      "kind": "function",
+      "name": "getActiveStakers",
+      "path": "ranking/Rollup.sol",
+      "line": 61,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "getActiveStakers(uint256,bytes32)",
+      "reads_storage": [
+        "activeStakerRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 62,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 62,
+          "concept_keys": [
+            "root",
+            "staker",
+            "staker:root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 62,
+          "concept_keys": [
+            "active",
+            "active:staker",
+            "active:staker:root",
+            "batch",
+            "batch:index",
+            "index",
+            "root",
+            "staker",
+            "staker:root"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 62,
+          "concept_keys": [
+            "active",
+            "active:staker",
+            "active:staker:root",
+            "batch",
+            "batch:index",
+            "index",
+            "root",
+            "staker",
+            "staker:root"
+          ],
+          "kind": "write"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.finalizeBatch",
+      "kind": "function",
+      "name": "finalizeBatch",
+      "path": "ranking/Rollup.sol",
+      "line": 66,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyActiveStaker"
+      ],
+      "guarded_by": [
+        "onlyActiveStaker"
+      ],
+      "selector": "finalizeBatch(uint256,bytes32)",
+      "reads_storage": [
+        "stakers",
+        "prevStateRoot",
+        "finalizedCount"
+      ],
+      "writes_storage": [
+        "finalizedCount"
+      ],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 67,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "prev",
+            "prev:state",
+            "prev:state:root",
+            "root",
+            "state",
+            "state:root"
+          ],
+          "class": 4,
+          "text": "prevStateRoot[batchIndex] == stateRoot"
+        }
+      ],
+      "uses": [
+        {
+          "line": 67,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 67,
+          "concept_keys": [
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 67,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "prev",
+            "prev:state",
+            "prev:state:root",
+            "root",
+            "state",
+            "state:root"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 68,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 68,
+          "concept_keys": [
+            "count",
+            "finalized",
+            "finalized:count"
+          ],
+          "kind": "write"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.challengeState",
+      "kind": "function",
+      "name": "challengeState",
+      "path": "ranking/Rollup.sol",
+      "line": 73,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyGuardian"
+      ],
+      "guarded_by": [
+        "onlyGuardian"
+      ],
+      "selector": "challengeState(uint256,bytes32)",
+      "reads_storage": [
+        "guardian",
+        "challengedClaimRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 74,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 74,
+          "concept_keys": [
+            "claim",
+            "claim:root",
+            "root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 74,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "challenged",
+            "challenged:claim",
+            "challenged:claim:root",
+            "claim",
+            "claim:root",
+            "index",
+            "root"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 74,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "challenged",
+            "challenged:claim",
+            "challenged:claim:root",
+            "claim",
+            "claim:root",
+            "index",
+            "root"
+          ],
+          "kind": "write"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.importGenesisBatch",
+      "kind": "function",
+      "name": "importGenesisBatch",
+      "path": "ranking/Rollup.sol",
+      "line": 79,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyOwner"
+      ],
+      "guarded_by": [
+        "onlyOwner"
+      ],
+      "selector": "importGenesisBatch(uint256,bytes32)",
+      "reads_storage": [
+        "owner",
+        "genesisRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 80,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 80,
+          "concept_keys": [
+            "root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 80,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "genesis",
+            "genesis:root",
+            "index",
+            "root"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 80,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "genesis",
+            "genesis:root",
+            "index",
+            "root"
+          ],
+          "kind": "write"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.revertBatch",
+      "kind": "function",
+      "name": "revertBatch",
+      "path": "ranking/Rollup.sol",
+      "line": 83,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyOwner"
+      ],
+      "guarded_by": [
+        "onlyOwner"
+      ],
+      "selector": "revertBatch(uint256,bytes32)",
+      "reads_storage": [
+        "owner",
+        "revertedBatchRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 84,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 84,
+          "concept_keys": [
+            "root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 84,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "batch:root",
+            "index",
+            "reverted",
+            "reverted:batch",
+            "reverted:batch:root",
+            "root"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 84,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "batch:root",
+            "index",
+            "reverted",
+            "reverted:batch",
+            "reverted:batch:root",
+            "root"
+          ],
+          "kind": "write"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.updateWithdrawLock",
+      "kind": "function",
+      "name": "updateWithdrawLock",
+      "path": "ranking/Rollup.sol",
+      "line": 87,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyOwner"
+      ],
+      "guarded_by": [
+        "onlyOwner"
+      ],
+      "selector": "updateWithdrawLock(uint256,bytes32)",
+      "reads_storage": [
+        "owner",
+        "withdrawLockRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 88,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 88,
+          "concept_keys": [
+            "root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 88,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "lock",
+            "lock:root",
+            "root",
+            "withdraw",
+            "withdraw:lock",
+            "withdraw:lock:root"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 88,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "lock",
+            "lock:root",
+            "root",
+            "withdraw",
+            "withdraw:lock",
+            "withdraw:lock:root"
+          ],
+          "kind": "write"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.auditProof",
+      "kind": "function",
+      "name": "auditProof",
+      "path": "ranking/Rollup.sol",
+      "line": 93,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "auditProof(uint256,bytes32)",
+      "reads_storage": [
+        "provenProofRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 94,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "proof",
+            "proof:root",
+            "proven",
+            "proven:proof",
+            "proven:proof:root",
+            "root"
+          ],
+          "class": 4,
+          "text": "provenProofRoot[batchIndex] == proofRoot"
+        }
+      ],
+      "uses": [
+        {
+          "line": 94,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 94,
+          "concept_keys": [
+            "proof",
+            "proof:root",
+            "root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 94,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "proof",
+            "proof:root",
+            "proven",
+            "proven:proof",
+            "proven:proof:root",
+            "root"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.auditDrop",
+      "kind": "function",
+      "name": "auditDrop",
+      "path": "ranking/Rollup.sol",
+      "line": 97,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "auditDrop(uint256,bytes32)",
+      "reads_storage": [
+        "droppedMessageRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 98,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "dropped",
+            "dropped:msg",
+            "dropped:msg:root",
+            "index",
+            "msg",
+            "msg:root",
+            "root"
+          ],
+          "class": 4,
+          "text": "droppedMessageRoot[batchIndex] == messageRoot"
+        }
+      ],
+      "uses": [
+        {
+          "line": 98,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 98,
+          "concept_keys": [
+            "msg",
+            "msg:root",
+            "root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 98,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "dropped",
+            "dropped:msg",
+            "dropped:msg:root",
+            "index",
+            "msg",
+            "msg:root",
+            "root"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.auditReplay",
+      "kind": "function",
+      "name": "auditReplay",
+      "path": "ranking/Rollup.sol",
+      "line": 101,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "auditReplay(uint256,bytes32)",
+      "reads_storage": [
+        "replayedReceiptRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 102,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "receipt",
+            "receipt:root",
+            "replayed",
+            "replayed:receipt",
+            "replayed:receipt:root",
+            "root"
+          ],
+          "class": 4,
+          "text": "replayedReceiptRoot[batchIndex] == receiptRoot"
+        }
+      ],
+      "uses": [
+        {
+          "line": 102,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 102,
+          "concept_keys": [
+            "receipt",
+            "receipt:root",
+            "root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 102,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "receipt",
+            "receipt:root",
+            "replayed",
+            "replayed:receipt",
+            "replayed:receipt:root",
+            "root"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.auditStakers",
+      "kind": "function",
+      "name": "auditStakers",
+      "path": "ranking/Rollup.sol",
+      "line": 105,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "auditStakers(uint256,bytes32)",
+      "reads_storage": [
+        "activeStakerRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 106,
+          "concept_keys": [
+            "active",
+            "active:staker",
+            "active:staker:root",
+            "batch",
+            "batch:index",
+            "index",
+            "root",
+            "staker",
+            "staker:root"
+          ],
+          "class": 4,
+          "text": "activeStakerRoot[batchIndex] == stakerRoot"
+        }
+      ],
+      "uses": [
+        {
+          "line": 106,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 106,
+          "concept_keys": [
+            "root",
+            "staker",
+            "staker:root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 106,
+          "concept_keys": [
+            "active",
+            "active:staker",
+            "active:staker:root",
+            "batch",
+            "batch:index",
+            "index",
+            "root",
+            "staker",
+            "staker:root"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.auditGenesis",
+      "kind": "function",
+      "name": "auditGenesis",
+      "path": "ranking/Rollup.sol",
+      "line": 109,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "auditGenesis(uint256,bytes32)",
+      "reads_storage": [
+        "genesisRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 110,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "genesis",
+            "genesis:root",
+            "index",
+            "root"
+          ],
+          "class": 4,
+          "text": "genesisRoot[batchIndex] == root"
+        }
+      ],
+      "uses": [
+        {
+          "line": 110,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 110,
+          "concept_keys": [
+            "root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 110,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "genesis",
+            "genesis:root",
+            "index",
+            "root"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.auditRevert",
+      "kind": "function",
+      "name": "auditRevert",
+      "path": "ranking/Rollup.sol",
+      "line": 113,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "auditRevert(uint256,bytes32)",
+      "reads_storage": [
+        "revertedBatchRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 114,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "batch:root",
+            "index",
+            "reverted",
+            "reverted:batch",
+            "reverted:batch:root",
+            "root"
+          ],
+          "class": 4,
+          "text": "revertedBatchRoot[batchIndex] == root"
+        }
+      ],
+      "uses": [
+        {
+          "line": 114,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 114,
+          "concept_keys": [
+            "root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 114,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "batch:root",
+            "index",
+            "reverted",
+            "reverted:batch",
+            "reverted:batch:root",
+            "root"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.auditLock",
+      "kind": "function",
+      "name": "auditLock",
+      "path": "ranking/Rollup.sol",
+      "line": 117,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "auditLock(uint256,bytes32)",
+      "reads_storage": [
+        "withdrawLockRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 118,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "lock",
+            "lock:root",
+            "root",
+            "withdraw",
+            "withdraw:lock",
+            "withdraw:lock:root"
+          ],
+          "class": 4,
+          "text": "withdrawLockRoot[batchIndex] == root"
+        }
+      ],
+      "uses": [
+        {
+          "line": 118,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 118,
+          "concept_keys": [
+            "root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 118,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index",
+            "lock",
+            "lock:root",
+            "root",
+            "withdraw",
+            "withdraw:lock",
+            "withdraw:lock:root"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "ranking/Rollup.sol#Rollup.auditChallenge",
+      "kind": "function",
+      "name": "auditChallenge",
+      "path": "ranking/Rollup.sol",
+      "line": 121,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "auditChallenge(uint256,bytes32)",
+      "reads_storage": [
+        "challengedClaimRoot"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 122,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "challenged",
+            "challenged:claim",
+            "challenged:claim:root",
+            "claim",
+            "claim:root",
+            "index",
+            "root"
+          ],
+          "class": 4,
+          "text": "challengedClaimRoot[batchIndex] == claimRoot"
+        }
+      ],
+      "uses": [
+        {
+          "line": 122,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 122,
+          "concept_keys": [
+            "claim",
+            "claim:root",
+            "root"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 122,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "challenged",
+            "challenged:claim",
+            "challenged:claim:root",
+            "claim",
+            "claim:root",
+            "index",
+            "root"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "ranking/contracts/mock/MockRollup.sol#MockRollup",
+      "kind": "contract",
+      "name": "MockRollup",
+      "path": "ranking/contracts/mock/MockRollup.sol",
+      "line": 12,
+      "contract_closure": [
+        {
+          "name": "auditChallenge",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 121,
+          "guards": [
+            {
+              "line": 122,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "challenged",
+                "challenged:claim",
+                "challenged:claim:root",
+                "claim",
+                "claim:root",
+                "index",
+                "root"
+              ],
+              "class": 4,
+              "text": "challengedClaimRoot[batchIndex] == claimRoot"
+            }
+          ],
+          "uses": [
+            {
+              "line": 122,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 122,
+              "concept_keys": [
+                "claim",
+                "claim:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 122,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "challenged",
+                "challenged:claim",
+                "challenged:claim:root",
+                "claim",
+                "claim:root",
+                "index",
+                "root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "auditDrop",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 97,
+          "guards": [
+            {
+              "line": 98,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "dropped",
+                "dropped:msg",
+                "dropped:msg:root",
+                "index",
+                "msg",
+                "msg:root",
+                "root"
+              ],
+              "class": 4,
+              "text": "droppedMessageRoot[batchIndex] == messageRoot"
+            }
+          ],
+          "uses": [
+            {
+              "line": 98,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 98,
+              "concept_keys": [
+                "msg",
+                "msg:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 98,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "dropped",
+                "dropped:msg",
+                "dropped:msg:root",
+                "index",
+                "msg",
+                "msg:root",
+                "root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "auditGenesis",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 109,
+          "guards": [
+            {
+              "line": 110,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "genesis",
+                "genesis:root",
+                "index",
+                "root"
+              ],
+              "class": 4,
+              "text": "genesisRoot[batchIndex] == root"
+            }
+          ],
+          "uses": [
+            {
+              "line": 110,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 110,
+              "concept_keys": [
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 110,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "genesis",
+                "genesis:root",
+                "index",
+                "root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "auditLock",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 117,
+          "guards": [
+            {
+              "line": 118,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "lock",
+                "lock:root",
+                "root",
+                "withdraw",
+                "withdraw:lock",
+                "withdraw:lock:root"
+              ],
+              "class": 4,
+              "text": "withdrawLockRoot[batchIndex] == root"
+            }
+          ],
+          "uses": [
+            {
+              "line": 118,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 118,
+              "concept_keys": [
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 118,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "lock",
+                "lock:root",
+                "root",
+                "withdraw",
+                "withdraw:lock",
+                "withdraw:lock:root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "auditProof",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 93,
+          "guards": [
+            {
+              "line": 94,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "proof",
+                "proof:root",
+                "proven",
+                "proven:proof",
+                "proven:proof:root",
+                "root"
+              ],
+              "class": 4,
+              "text": "provenProofRoot[batchIndex] == proofRoot"
+            }
+          ],
+          "uses": [
+            {
+              "line": 94,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 94,
+              "concept_keys": [
+                "proof",
+                "proof:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 94,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "proof",
+                "proof:root",
+                "proven",
+                "proven:proof",
+                "proven:proof:root",
+                "root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "auditReplay",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 101,
+          "guards": [
+            {
+              "line": 102,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "receipt",
+                "receipt:root",
+                "replayed",
+                "replayed:receipt",
+                "replayed:receipt:root",
+                "root"
+              ],
+              "class": 4,
+              "text": "replayedReceiptRoot[batchIndex] == receiptRoot"
+            }
+          ],
+          "uses": [
+            {
+              "line": 102,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 102,
+              "concept_keys": [
+                "receipt",
+                "receipt:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 102,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "receipt",
+                "receipt:root",
+                "replayed",
+                "replayed:receipt",
+                "replayed:receipt:root",
+                "root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "auditRevert",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 113,
+          "guards": [
+            {
+              "line": 114,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "batch:root",
+                "index",
+                "reverted",
+                "reverted:batch",
+                "reverted:batch:root",
+                "root"
+              ],
+              "class": 4,
+              "text": "revertedBatchRoot[batchIndex] == root"
+            }
+          ],
+          "uses": [
+            {
+              "line": 114,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 114,
+              "concept_keys": [
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 114,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "batch:root",
+                "index",
+                "reverted",
+                "reverted:batch",
+                "reverted:batch:root",
+                "root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "auditStakers",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 105,
+          "guards": [
+            {
+              "line": 106,
+              "concept_keys": [
+                "active",
+                "active:staker",
+                "active:staker:root",
+                "batch",
+                "batch:index",
+                "index",
+                "root",
+                "staker",
+                "staker:root"
+              ],
+              "class": 4,
+              "text": "activeStakerRoot[batchIndex] == stakerRoot"
+            }
+          ],
+          "uses": [
+            {
+              "line": 106,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 106,
+              "concept_keys": [
+                "root",
+                "staker",
+                "staker:root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 106,
+              "concept_keys": [
+                "active",
+                "active:staker",
+                "active:staker:root",
+                "batch",
+                "batch:index",
+                "index",
+                "root",
+                "staker",
+                "staker:root"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "challengeState",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 73,
+          "guards": [],
+          "uses": [
+            {
+              "line": 74,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 74,
+              "concept_keys": [
+                "claim",
+                "claim:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 74,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "challenged",
+                "challenged:claim",
+                "challenged:claim:root",
+                "claim",
+                "claim:root",
+                "index",
+                "root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 74,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "challenged",
+                "challenged:claim",
+                "challenged:claim:root",
+                "claim",
+                "claim:root",
+                "index",
+                "root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "commitBatch",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 45,
+          "guards": [],
+          "uses": [
+            {
+              "line": 46,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 46,
+              "concept_keys": [
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 46,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "prev",
+                "prev:state",
+                "prev:state:root",
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 46,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "prev",
+                "prev:state",
+                "prev:state:root",
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "dropMessage",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 49,
+          "guards": [],
+          "uses": [
+            {
+              "line": 50,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 50,
+              "concept_keys": [
+                "msg",
+                "msg:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 50,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "dropped",
+                "dropped:msg",
+                "dropped:msg:root",
+                "index",
+                "msg",
+                "msg:root",
+                "root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 50,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "dropped",
+                "dropped:msg",
+                "dropped:msg:root",
+                "index",
+                "msg",
+                "msg:root",
+                "root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "finalizeBatch",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 66,
+          "guards": [
+            {
+              "line": 67,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "prev",
+                "prev:state",
+                "prev:state:root",
+                "root",
+                "state",
+                "state:root"
+              ],
+              "class": 4,
+              "text": "prevStateRoot[batchIndex] == stateRoot"
+            }
+          ],
+          "uses": [
+            {
+              "line": 67,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 67,
+              "concept_keys": [
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 67,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "prev",
+                "prev:state",
+                "prev:state:root",
+                "root",
+                "state",
+                "state:root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 68,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 68,
+              "concept_keys": [
+                "count",
+                "finalized",
+                "finalized:count"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "getActiveStakers",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 61,
+          "guards": [],
+          "uses": [
+            {
+              "line": 62,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 62,
+              "concept_keys": [
+                "root",
+                "staker",
+                "staker:root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 62,
+              "concept_keys": [
+                "active",
+                "active:staker",
+                "active:staker:root",
+                "batch",
+                "batch:index",
+                "index",
+                "root",
+                "staker",
+                "staker:root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 62,
+              "concept_keys": [
+                "active",
+                "active:staker",
+                "active:staker:root",
+                "batch",
+                "batch:index",
+                "index",
+                "root",
+                "staker",
+                "staker:root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "importGenesisBatch",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 79,
+          "guards": [],
+          "uses": [
+            {
+              "line": 80,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 80,
+              "concept_keys": [
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 80,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "genesis",
+                "genesis:root",
+                "index",
+                "root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 80,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "genesis",
+                "genesis:root",
+                "index",
+                "root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "proveState",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 53,
+          "guards": [],
+          "uses": [
+            {
+              "line": 54,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 54,
+              "concept_keys": [
+                "proof",
+                "proof:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 54,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "proof",
+                "proof:root",
+                "proven",
+                "proven:proof",
+                "proven:proof:root",
+                "root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 54,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "proof",
+                "proof:root",
+                "proven",
+                "proven:proof",
+                "proven:proof:root",
+                "root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "replayMessage",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 57,
+          "guards": [],
+          "uses": [
+            {
+              "line": 58,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 58,
+              "concept_keys": [
+                "receipt",
+                "receipt:root",
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 58,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "receipt",
+                "receipt:root",
+                "replayed",
+                "replayed:receipt",
+                "replayed:receipt:root",
+                "root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 58,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "receipt",
+                "receipt:root",
+                "replayed",
+                "replayed:receipt",
+                "replayed:receipt:root",
+                "root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "revertBatch",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 83,
+          "guards": [],
+          "uses": [
+            {
+              "line": 84,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 84,
+              "concept_keys": [
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 84,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "batch:root",
+                "index",
+                "reverted",
+                "reverted:batch",
+                "reverted:batch:root",
+                "root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 84,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "batch:root",
+                "index",
+                "reverted",
+                "reverted:batch",
+                "reverted:batch:root",
+                "root"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "setLastFinalizedBatchIndex",
+          "defining_contract": "MockRollup",
+          "path": "ranking/contracts/mock/MockRollup.sol",
+          "line": 15,
+          "guards": [],
+          "uses": [
+            {
+              "line": 16,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 16,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "finalized",
+                "finalized:batch",
+                "finalized:batch:index",
+                "index",
+                "last",
+                "last:finalized",
+                "last:finalized:batch"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "updateWithdrawLock",
+          "defining_contract": "Rollup",
+          "path": "ranking/Rollup.sol",
+          "line": 87,
+          "guards": [],
+          "uses": [
+            {
+              "line": 88,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 88,
+              "concept_keys": [
+                "root"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 88,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "lock",
+                "lock:root",
+                "root",
+                "withdraw",
+                "withdraw:lock",
+                "withdraw:lock:root"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 88,
+              "concept_keys": [
+                "batch",
+                "batch:index",
+                "index",
+                "lock",
+                "lock:root",
+                "root",
+                "withdraw",
+                "withdraw:lock",
+                "withdraw:lock:root"
+              ],
+              "kind": "write"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ranking/contracts/mock/MockRollup.sol#MockRollup.lastFinalizedBatchIndex",
+      "kind": "state-variable",
+      "name": "lastFinalizedBatchIndex",
+      "path": "ranking/contracts/mock/MockRollup.sol",
+      "line": null
+    },
+    {
+      "id": "ranking/contracts/mock/MockRollup.sol#MockRollup.setLastFinalizedBatchIndex",
+      "kind": "function",
+      "name": "setLastFinalizedBatchIndex",
+      "path": "ranking/contracts/mock/MockRollup.sol",
+      "line": 15,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "setLastFinalizedBatchIndex(uint256)",
+      "reads_storage": [
+        "lastFinalizedBatchIndex"
+      ],
+      "writes_storage": [
+        "lastFinalizedBatchIndex"
+      ],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 16,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "index"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 16,
+          "concept_keys": [
+            "batch",
+            "batch:index",
+            "finalized",
+            "finalized:batch",
+            "finalized:batch:index",
+            "index",
+            "last",
+            "last:finalized",
+            "last:finalized:batch"
+          ],
+          "kind": "write"
+        }
+      ]
+    },
+    {
+      "id": "siblings/L1ERC20Gateway.sol#L1ERC20Gateway",
+      "kind": "contract",
+      "name": "L1ERC20Gateway",
+      "path": "siblings/L1ERC20Gateway.sol",
+      "line": 7,
+      "contract_closure": [
+        {
+          "name": "checkTokenMapping",
+          "defining_contract": "L1ERC20Gateway",
+          "path": "siblings/L1ERC20Gateway.sol",
+          "line": 27,
+          "guards": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected",
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "class": 4,
+              "text": "tokenMapping[token] == expected"
+            }
+          ],
+          "uses": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "updateTokenMapping",
+          "defining_contract": "L1ERC20Gateway",
+          "path": "siblings/L1ERC20Gateway.sol",
+          "line": 18,
+          "guards": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "addr",
+                "token"
+              ],
+              "class": 1,
+              "text": "token != address(0)"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "class": 2,
+              "text": "amount > 0"
+            }
+          ],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount",
+                "token"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "siblings/L1ERC20Gateway.sol#L1ERC20Gateway.tokenMapping",
+      "kind": "state-variable",
+      "name": "tokenMapping",
+      "path": "siblings/L1ERC20Gateway.sol",
+      "line": null
+    },
+    {
+      "id": "siblings/L1ERC20Gateway.sol#L1ERC20Gateway.counterpart",
+      "kind": "state-variable",
+      "name": "counterpart",
+      "path": "siblings/L1ERC20Gateway.sol",
+      "line": null
+    },
+    {
+      "id": "siblings/L1ERC20Gateway.sol#L1ERC20Gateway.onlyCounterpart",
+      "kind": "modifier",
+      "name": "onlyCounterpart",
+      "path": "siblings/L1ERC20Gateway.sol",
+      "line": 13,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "siblings/L1ERC20Gateway.sol#L1ERC20Gateway.updateTokenMapping",
+      "kind": "function",
+      "name": "updateTokenMapping",
+      "path": "siblings/L1ERC20Gateway.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyCounterpart"
+      ],
+      "guarded_by": [
+        "onlyCounterpart"
+      ],
+      "selector": "updateTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping",
+        "counterpart"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "addr",
+            "token"
+          ],
+          "class": 1,
+          "text": "token != address(0)"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "class": 2,
+          "text": "amount > 0"
+        }
+      ],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount",
+            "token"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "siblings/L1ERC20Gateway.sol#L1ERC20Gateway.checkTokenMapping",
+      "kind": "function",
+      "name": "checkTokenMapping",
+      "path": "siblings/L1ERC20Gateway.sol",
+      "line": 27,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "checkTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected",
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "class": 4,
+          "text": "tokenMapping[token] == expected"
+        }
+      ],
+      "uses": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "siblings/L1GatewayRouter.sol#L1GatewayRouter",
+      "kind": "contract",
+      "name": "L1GatewayRouter",
+      "path": "siblings/L1GatewayRouter.sol",
+      "line": 7,
+      "contract_closure": [
+        {
+          "name": "checkTokenMapping",
+          "defining_contract": "L1GatewayRouter",
+          "path": "siblings/L1GatewayRouter.sol",
+          "line": 27,
+          "guards": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected",
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "class": 4,
+              "text": "tokenMapping[token] == expected"
+            }
+          ],
+          "uses": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "updateTokenMapping",
+          "defining_contract": "L1GatewayRouter",
+          "path": "siblings/L1GatewayRouter.sol",
+          "line": 18,
+          "guards": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "addr",
+                "token"
+              ],
+              "class": 1,
+              "text": "token != address(0)"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "class": 2,
+              "text": "amount > 0"
+            }
+          ],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount",
+                "token"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "siblings/L1GatewayRouter.sol#L1GatewayRouter.tokenMapping",
+      "kind": "state-variable",
+      "name": "tokenMapping",
+      "path": "siblings/L1GatewayRouter.sol",
+      "line": null
+    },
+    {
+      "id": "siblings/L1GatewayRouter.sol#L1GatewayRouter.counterpart",
+      "kind": "state-variable",
+      "name": "counterpart",
+      "path": "siblings/L1GatewayRouter.sol",
+      "line": null
+    },
+    {
+      "id": "siblings/L1GatewayRouter.sol#L1GatewayRouter.onlyCounterpart",
+      "kind": "modifier",
+      "name": "onlyCounterpart",
+      "path": "siblings/L1GatewayRouter.sol",
+      "line": 13,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "siblings/L1GatewayRouter.sol#L1GatewayRouter.updateTokenMapping",
+      "kind": "function",
+      "name": "updateTokenMapping",
+      "path": "siblings/L1GatewayRouter.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyCounterpart"
+      ],
+      "guarded_by": [
+        "onlyCounterpart"
+      ],
+      "selector": "updateTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping",
+        "counterpart"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "addr",
+            "token"
+          ],
+          "class": 1,
+          "text": "token != address(0)"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "class": 2,
+          "text": "amount > 0"
+        }
+      ],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount",
+            "token"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "siblings/L1GatewayRouter.sol#L1GatewayRouter.checkTokenMapping",
+      "kind": "function",
+      "name": "checkTokenMapping",
+      "path": "siblings/L1GatewayRouter.sol",
+      "line": 27,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "checkTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected",
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "class": 4,
+          "text": "tokenMapping[token] == expected"
+        }
+      ],
+      "uses": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "siblings/L1ReverseCustomGateway.sol#L1ReverseCustomGateway",
+      "kind": "contract",
+      "name": "L1ReverseCustomGateway",
+      "path": "siblings/L1ReverseCustomGateway.sol",
+      "line": 7,
+      "contract_closure": [
+        {
+          "name": "checkTokenMapping",
+          "defining_contract": "L1ReverseCustomGateway",
+          "path": "siblings/L1ReverseCustomGateway.sol",
+          "line": 27,
+          "guards": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected",
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "class": 4,
+              "text": "tokenMapping[token] == expected"
+            }
+          ],
+          "uses": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "updateTokenMapping",
+          "defining_contract": "L1ReverseCustomGateway",
+          "path": "siblings/L1ReverseCustomGateway.sol",
+          "line": 18,
+          "guards": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "addr",
+                "token"
+              ],
+              "class": 1,
+              "text": "token != address(0)"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "class": 2,
+              "text": "amount > 0"
+            }
+          ],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount",
+                "token"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "siblings/L1ReverseCustomGateway.sol#L1ReverseCustomGateway.tokenMapping",
+      "kind": "state-variable",
+      "name": "tokenMapping",
+      "path": "siblings/L1ReverseCustomGateway.sol",
+      "line": null
+    },
+    {
+      "id": "siblings/L1ReverseCustomGateway.sol#L1ReverseCustomGateway.counterpart",
+      "kind": "state-variable",
+      "name": "counterpart",
+      "path": "siblings/L1ReverseCustomGateway.sol",
+      "line": null
+    },
+    {
+      "id": "siblings/L1ReverseCustomGateway.sol#L1ReverseCustomGateway.onlyCounterpart",
+      "kind": "modifier",
+      "name": "onlyCounterpart",
+      "path": "siblings/L1ReverseCustomGateway.sol",
+      "line": 13,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "siblings/L1ReverseCustomGateway.sol#L1ReverseCustomGateway.updateTokenMapping",
+      "kind": "function",
+      "name": "updateTokenMapping",
+      "path": "siblings/L1ReverseCustomGateway.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyCounterpart"
+      ],
+      "guarded_by": [
+        "onlyCounterpart"
+      ],
+      "selector": "updateTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping",
+        "counterpart"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "addr",
+            "token"
+          ],
+          "class": 1,
+          "text": "token != address(0)"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "class": 2,
+          "text": "amount > 0"
+        }
+      ],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount",
+            "token"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "siblings/L1ReverseCustomGateway.sol#L1ReverseCustomGateway.checkTokenMapping",
+      "kind": "function",
+      "name": "checkTokenMapping",
+      "path": "siblings/L1ReverseCustomGateway.sol",
+      "line": 27,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "checkTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected",
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "class": 4,
+          "text": "tokenMapping[token] == expected"
+        }
+      ],
+      "uses": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "siblings/L2CustomGateway.sol#L2CustomGateway",
+      "kind": "contract",
+      "name": "L2CustomGateway",
+      "path": "siblings/L2CustomGateway.sol",
+      "line": 7,
+      "contract_closure": [
+        {
+          "name": "checkTokenMapping",
+          "defining_contract": "L2CustomGateway",
+          "path": "siblings/L2CustomGateway.sol",
+          "line": 27,
+          "guards": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected",
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "class": 4,
+              "text": "tokenMapping[token] == expected"
+            }
+          ],
+          "uses": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "updateTokenMapping",
+          "defining_contract": "L2CustomGateway",
+          "path": "siblings/L2CustomGateway.sol",
+          "line": 18,
+          "guards": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "addr",
+                "token"
+              ],
+              "class": 1,
+              "text": "token != address(0)"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "class": 2,
+              "text": "amount > 0"
+            }
+          ],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount",
+                "token"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "siblings/L2CustomGateway.sol#L2CustomGateway.tokenMapping",
+      "kind": "state-variable",
+      "name": "tokenMapping",
+      "path": "siblings/L2CustomGateway.sol",
+      "line": null
+    },
+    {
+      "id": "siblings/L2CustomGateway.sol#L2CustomGateway.counterpart",
+      "kind": "state-variable",
+      "name": "counterpart",
+      "path": "siblings/L2CustomGateway.sol",
+      "line": null
+    },
+    {
+      "id": "siblings/L2CustomGateway.sol#L2CustomGateway.onlyCounterpart",
+      "kind": "modifier",
+      "name": "onlyCounterpart",
+      "path": "siblings/L2CustomGateway.sol",
+      "line": 13,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "siblings/L2CustomGateway.sol#L2CustomGateway.updateTokenMapping",
+      "kind": "function",
+      "name": "updateTokenMapping",
+      "path": "siblings/L2CustomGateway.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyCounterpart"
+      ],
+      "guarded_by": [
+        "onlyCounterpart"
+      ],
+      "selector": "updateTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping",
+        "counterpart"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "addr",
+            "token"
+          ],
+          "class": 1,
+          "text": "token != address(0)"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "class": 2,
+          "text": "amount > 0"
+        }
+      ],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount",
+            "token"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "siblings/L2CustomGateway.sol#L2CustomGateway.checkTokenMapping",
+      "kind": "function",
+      "name": "checkTokenMapping",
+      "path": "siblings/L2CustomGateway.sol",
+      "line": 27,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "checkTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected",
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "class": 4,
+          "text": "tokenMapping[token] == expected"
+        }
+      ],
+      "uses": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "siblings/L2ERC20Gateway.sol#L2ERC20Gateway",
+      "kind": "contract",
+      "name": "L2ERC20Gateway",
+      "path": "siblings/L2ERC20Gateway.sol",
+      "line": 7,
+      "contract_closure": [
+        {
+          "name": "checkTokenMapping",
+          "defining_contract": "L2ERC20Gateway",
+          "path": "siblings/L2ERC20Gateway.sol",
+          "line": 27,
+          "guards": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected",
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "class": 4,
+              "text": "tokenMapping[token] == expected"
+            }
+          ],
+          "uses": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "updateTokenMapping",
+          "defining_contract": "L2ERC20Gateway",
+          "path": "siblings/L2ERC20Gateway.sol",
+          "line": 18,
+          "guards": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "addr",
+                "token"
+              ],
+              "class": 1,
+              "text": "token != address(0)"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "class": 2,
+              "text": "amount > 0"
+            }
+          ],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount",
+                "token"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "siblings/L2ERC20Gateway.sol#L2ERC20Gateway.tokenMapping",
+      "kind": "state-variable",
+      "name": "tokenMapping",
+      "path": "siblings/L2ERC20Gateway.sol",
+      "line": null
+    },
+    {
+      "id": "siblings/L2ERC20Gateway.sol#L2ERC20Gateway.counterpart",
+      "kind": "state-variable",
+      "name": "counterpart",
+      "path": "siblings/L2ERC20Gateway.sol",
+      "line": null
+    },
+    {
+      "id": "siblings/L2ERC20Gateway.sol#L2ERC20Gateway.onlyCounterpart",
+      "kind": "modifier",
+      "name": "onlyCounterpart",
+      "path": "siblings/L2ERC20Gateway.sol",
+      "line": 13,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "siblings/L2ERC20Gateway.sol#L2ERC20Gateway.updateTokenMapping",
+      "kind": "function",
+      "name": "updateTokenMapping",
+      "path": "siblings/L2ERC20Gateway.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyCounterpart"
+      ],
+      "guarded_by": [
+        "onlyCounterpart"
+      ],
+      "selector": "updateTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping",
+        "counterpart"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "addr",
+            "token"
+          ],
+          "class": 1,
+          "text": "token != address(0)"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "class": 2,
+          "text": "amount > 0"
+        }
+      ],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount",
+            "token"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "siblings/L2ERC20Gateway.sol#L2ERC20Gateway.checkTokenMapping",
+      "kind": "function",
+      "name": "checkTokenMapping",
+      "path": "siblings/L2ERC20Gateway.sol",
+      "line": 27,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "checkTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected",
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "class": 4,
+          "text": "tokenMapping[token] == expected"
+        }
+      ],
+      "uses": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "siblings/L2GatewayRouter.sol#L2GatewayRouter",
+      "kind": "contract",
+      "name": "L2GatewayRouter",
+      "path": "siblings/L2GatewayRouter.sol",
+      "line": 7,
+      "contract_closure": [
+        {
+          "name": "checkTokenMapping",
+          "defining_contract": "L2GatewayRouter",
+          "path": "siblings/L2GatewayRouter.sol",
+          "line": 27,
+          "guards": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected",
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "class": 4,
+              "text": "tokenMapping[token] == expected"
+            }
+          ],
+          "uses": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "updateTokenMapping",
+          "defining_contract": "L2GatewayRouter",
+          "path": "siblings/L2GatewayRouter.sol",
+          "line": 18,
+          "guards": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "addr",
+                "token"
+              ],
+              "class": 1,
+              "text": "token != address(0)"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "class": 2,
+              "text": "amount > 0"
+            }
+          ],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount",
+                "token"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "siblings/L2GatewayRouter.sol#L2GatewayRouter.tokenMapping",
+      "kind": "state-variable",
+      "name": "tokenMapping",
+      "path": "siblings/L2GatewayRouter.sol",
+      "line": null
+    },
+    {
+      "id": "siblings/L2GatewayRouter.sol#L2GatewayRouter.counterpart",
+      "kind": "state-variable",
+      "name": "counterpart",
+      "path": "siblings/L2GatewayRouter.sol",
+      "line": null
+    },
+    {
+      "id": "siblings/L2GatewayRouter.sol#L2GatewayRouter.onlyCounterpart",
+      "kind": "modifier",
+      "name": "onlyCounterpart",
+      "path": "siblings/L2GatewayRouter.sol",
+      "line": 13,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "siblings/L2GatewayRouter.sol#L2GatewayRouter.updateTokenMapping",
+      "kind": "function",
+      "name": "updateTokenMapping",
+      "path": "siblings/L2GatewayRouter.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyCounterpart"
+      ],
+      "guarded_by": [
+        "onlyCounterpart"
+      ],
+      "selector": "updateTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping",
+        "counterpart"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "addr",
+            "token"
+          ],
+          "class": 1,
+          "text": "token != address(0)"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "class": 2,
+          "text": "amount > 0"
+        }
+      ],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount",
+            "token"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "siblings/L2GatewayRouter.sol#L2GatewayRouter.checkTokenMapping",
+      "kind": "function",
+      "name": "checkTokenMapping",
+      "path": "siblings/L2GatewayRouter.sol",
+      "line": 27,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "checkTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected",
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "class": 4,
+          "text": "tokenMapping[token] == expected"
+        }
+      ],
+      "uses": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "id": "siblings/L2ReverseCustomGateway.sol#L2ReverseCustomGateway",
+      "kind": "contract",
+      "name": "L2ReverseCustomGateway",
+      "path": "siblings/L2ReverseCustomGateway.sol",
+      "line": 7,
+      "contract_closure": [
+        {
+          "name": "checkTokenMapping",
+          "defining_contract": "L2ReverseCustomGateway",
+          "path": "siblings/L2ReverseCustomGateway.sol",
+          "line": 27,
+          "guards": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected",
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "class": 4,
+              "text": "tokenMapping[token] == expected"
+            }
+          ],
+          "uses": [
+            {
+              "line": 28,
+              "concept_keys": [
+                "expected"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 28,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            }
+          ]
+        },
+        {
+          "name": "updateTokenMapping",
+          "defining_contract": "L2ReverseCustomGateway",
+          "path": "siblings/L2ReverseCustomGateway.sol",
+          "line": 18,
+          "guards": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "addr",
+                "token"
+              ],
+              "class": 1,
+              "text": "token != address(0)"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "class": 2,
+              "text": "amount > 0"
+            }
+          ],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 21,
+              "concept_keys": [
+                "mapping",
+                "token",
+                "token:mapping"
+              ],
+              "kind": "write"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount",
+                "token"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 22,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "siblings/L2ReverseCustomGateway.sol#L2ReverseCustomGateway.tokenMapping",
+      "kind": "state-variable",
+      "name": "tokenMapping",
+      "path": "siblings/L2ReverseCustomGateway.sol",
+      "line": null
+    },
+    {
+      "id": "siblings/L2ReverseCustomGateway.sol#L2ReverseCustomGateway.counterpart",
+      "kind": "state-variable",
+      "name": "counterpart",
+      "path": "siblings/L2ReverseCustomGateway.sol",
+      "line": null
+    },
+    {
+      "id": "siblings/L2ReverseCustomGateway.sol#L2ReverseCustomGateway.onlyCounterpart",
+      "kind": "modifier",
+      "name": "onlyCounterpart",
+      "path": "siblings/L2ReverseCustomGateway.sol",
+      "line": 13,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": []
+    },
+    {
+      "id": "siblings/L2ReverseCustomGateway.sol#L2ReverseCustomGateway.updateTokenMapping",
+      "kind": "function",
+      "name": "updateTokenMapping",
+      "path": "siblings/L2ReverseCustomGateway.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [
+        "onlyCounterpart"
+      ],
+      "guarded_by": [
+        "onlyCounterpart"
+      ],
+      "selector": "updateTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping",
+        "counterpart"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "addr",
+            "token"
+          ],
+          "class": 1,
+          "text": "token != address(0)"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "class": 2,
+          "text": "amount > 0"
+        }
+      ],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 21,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "write"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount",
+            "token"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 22,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "siblings/L2ReverseCustomGateway.sol#L2ReverseCustomGateway.checkTokenMapping",
+      "kind": "function",
+      "name": "checkTokenMapping",
+      "path": "siblings/L2ReverseCustomGateway.sol",
+      "line": 27,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "checkTokenMapping(address,uint256)",
+      "reads_storage": [
+        "tokenMapping"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected",
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "class": 4,
+          "text": "tokenMapping[token] == expected"
+        }
+      ],
+      "uses": [
+        {
+          "line": 28,
+          "concept_keys": [
+            "expected"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 28,
+          "concept_keys": [
+            "mapping",
+            "token",
+            "token:mapping"
+          ],
+          "kind": "read"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.commitBatch"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.dropMessage"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.proveState"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.replayMessage"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.getActiveStakers"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.finalizeBatch"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.challengeState"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.importGenesisBatch"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.revertBatch"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.updateWithdrawLock"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.auditProof"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.auditDrop"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.auditReplay"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.auditStakers"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.auditGenesis"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.auditRevert"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.auditLock"
+    },
+    {
+      "from": "ranking/Rollup.sol#Rollup",
+      "rel": "extends-interface",
+      "to": "ranking/Rollup.sol#Rollup.auditChallenge"
+    },
+    {
+      "from": "ranking/contracts/mock/MockRollup.sol#MockRollup",
+      "rel": "inherits",
+      "to": "*#Rollup"
+    },
+    {
+      "from": "ranking/contracts/mock/MockRollup.sol#MockRollup",
+      "rel": "extends-interface",
+      "to": "ranking/contracts/mock/MockRollup.sol#MockRollup.setLastFinalizedBatchIndex"
+    },
+    {
+      "from": "siblings/L1ERC20Gateway.sol#L1ERC20Gateway",
+      "rel": "extends-interface",
+      "to": "siblings/L1ERC20Gateway.sol#L1ERC20Gateway.updateTokenMapping"
+    },
+    {
+      "from": "siblings/L1ERC20Gateway.sol#L1ERC20Gateway",
+      "rel": "extends-interface",
+      "to": "siblings/L1ERC20Gateway.sol#L1ERC20Gateway.checkTokenMapping"
+    },
+    {
+      "from": "siblings/L1GatewayRouter.sol#L1GatewayRouter",
+      "rel": "extends-interface",
+      "to": "siblings/L1GatewayRouter.sol#L1GatewayRouter.updateTokenMapping"
+    },
+    {
+      "from": "siblings/L1GatewayRouter.sol#L1GatewayRouter",
+      "rel": "extends-interface",
+      "to": "siblings/L1GatewayRouter.sol#L1GatewayRouter.checkTokenMapping"
+    },
+    {
+      "from": "siblings/L1ReverseCustomGateway.sol#L1ReverseCustomGateway",
+      "rel": "extends-interface",
+      "to": "siblings/L1ReverseCustomGateway.sol#L1ReverseCustomGateway.updateTokenMapping"
+    },
+    {
+      "from": "siblings/L1ReverseCustomGateway.sol#L1ReverseCustomGateway",
+      "rel": "extends-interface",
+      "to": "siblings/L1ReverseCustomGateway.sol#L1ReverseCustomGateway.checkTokenMapping"
+    },
+    {
+      "from": "siblings/L2CustomGateway.sol#L2CustomGateway",
+      "rel": "extends-interface",
+      "to": "siblings/L2CustomGateway.sol#L2CustomGateway.updateTokenMapping"
+    },
+    {
+      "from": "siblings/L2CustomGateway.sol#L2CustomGateway",
+      "rel": "extends-interface",
+      "to": "siblings/L2CustomGateway.sol#L2CustomGateway.checkTokenMapping"
+    },
+    {
+      "from": "siblings/L2ERC20Gateway.sol#L2ERC20Gateway",
+      "rel": "extends-interface",
+      "to": "siblings/L2ERC20Gateway.sol#L2ERC20Gateway.updateTokenMapping"
+    },
+    {
+      "from": "siblings/L2ERC20Gateway.sol#L2ERC20Gateway",
+      "rel": "extends-interface",
+      "to": "siblings/L2ERC20Gateway.sol#L2ERC20Gateway.checkTokenMapping"
+    },
+    {
+      "from": "siblings/L2GatewayRouter.sol#L2GatewayRouter",
+      "rel": "extends-interface",
+      "to": "siblings/L2GatewayRouter.sol#L2GatewayRouter.updateTokenMapping"
+    },
+    {
+      "from": "siblings/L2GatewayRouter.sol#L2GatewayRouter",
+      "rel": "extends-interface",
+      "to": "siblings/L2GatewayRouter.sol#L2GatewayRouter.checkTokenMapping"
+    },
+    {
+      "from": "siblings/L2ReverseCustomGateway.sol#L2ReverseCustomGateway",
+      "rel": "extends-interface",
+      "to": "siblings/L2ReverseCustomGateway.sol#L2ReverseCustomGateway.updateTokenMapping"
+    },
+    {
+      "from": "siblings/L2ReverseCustomGateway.sol#L2ReverseCustomGateway",
+      "rel": "extends-interface",
+      "to": "siblings/L2ReverseCustomGateway.sol#L2ReverseCustomGateway.checkTokenMapping"
+    }
+  ],
+  "stats": {
+    "solidity_files": 9,
+    "other_files_listed": 1,
+    "contracts": 9,
+    "functions": 33,
+    "state_variables": 28,
+    "entry_points": 33,
+    "external_call_edges": 1
+  }
+}

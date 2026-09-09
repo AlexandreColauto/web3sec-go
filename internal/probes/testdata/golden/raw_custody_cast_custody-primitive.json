@@ -1,0 +1,36 @@
+{
+  "sites": 3,
+  "rows": [
+    {
+      "contract": "L1ReverseCustomGateway",
+      "function": "onDropMessage",
+      "line": 23,
+      "concept": "burns",
+      "tier": 0,
+      "gate": "unprivileged",
+      "assertion_gap": 4,
+      "sort_name": "onDropMessage",
+      "consumer": "onDropMessage",
+      "consumer_line": 23,
+      "base": "L1ERC20Gateway",
+      "base_line": 23,
+      "custody": "burns",
+      "forward": [
+        "_deposit"
+      ],
+      "inherited": true
+    }
+  ],
+  "blind": [
+    {
+      "kind": "recovery-without-forward",
+      "key": "L1ERC20Gateway.onDropMessage",
+      "near": null,
+      "contract": "L1ERC20Gateway",
+      "function": "onDropMessage",
+      "line": 23,
+      "reason": "L1ERC20Gateway::onDropMessage pays out of its own balance (['transfer-out']) but no forward path burns or mints — the custody model holds"
+    }
+  ],
+  "blind_total": 1
+}

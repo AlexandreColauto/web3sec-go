@@ -1,0 +1,16 @@
+{
+  "sites": 1,
+  "rows": [],
+  "blind": [
+    {
+      "kind": "no-companion-write",
+      "key": "RewardManager::poke::rewardState",
+      "near": null,
+      "contract": "RewardManager",
+      "function": "poke",
+      "line": 26,
+      "reason": "rewardState is rounded and persisted at line 26, but no other state write in poke moves with it"
+    }
+  ],
+  "blind_total": 1
+}

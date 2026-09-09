@@ -1,0 +1,23 @@
+{
+  "sites": 1,
+  "rows": [
+    {
+      "contract": "RewardManager",
+      "function": "_updateRewardIndex",
+      "line": 36,
+      "concept": "index",
+      "tier": 0,
+      "gate": "unprivileged",
+      "assertion_gap": 0,
+      "sort_name": "_updateRewardIndex",
+      "consumer": "_updateRewardIndex",
+      "consumer_line": 36,
+      "rounded_line": 36,
+      "plain_line": 38,
+      "accumulator": "index",
+      "companion": "rewardState"
+    }
+  ],
+  "blind": [],
+  "blind_total": 0
+}

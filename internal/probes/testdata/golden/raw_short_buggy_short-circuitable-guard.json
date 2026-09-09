@@ -1,0 +1,23 @@
+{
+  "sites": 1,
+  "rows": [
+    {
+      "contract": "EpochQueue",
+      "function": "claimWithdrawRequest",
+      "line": 20,
+      "concept": "epochEndDate != 0",
+      "tier": 0,
+      "gate": "unprivileged",
+      "assertion_gap": 0,
+      "sort_name": "claimWithdrawRequest",
+      "consumer": "claimWithdrawRequest",
+      "consumer_line": 20,
+      "guard": "epochEndDate != 0 && epochNumber <= lastWithdrawRequest[user]",
+      "guard_line": 20,
+      "sentinel": "epochEndDate != 0",
+      "safety": "epochNumber <= lastWithdrawRequest[user]"
+    }
+  ],
+  "blind": [],
+  "blind_total": 0
+}

@@ -1,0 +1,108 @@
+{
+  "sites": 8,
+  "rows": [
+    {
+      "contract": "Rollup",
+      "function": "commitBatch",
+      "line": 14,
+      "concept": "batch:index",
+      "tier": 0,
+      "gate": "unprivileged",
+      "assertion_gap": 4,
+      "sort_name": "commitBatch",
+      "consumer": "commitBatch",
+      "consumer_line": 14,
+      "asserter": "finalizeBatch",
+      "asserter_line": 20,
+      "assert_class": 4,
+      "own_class": 0
+    },
+    {
+      "contract": "Rollup",
+      "function": "commitBatch",
+      "line": 14,
+      "concept": "prev:state",
+      "tier": 0,
+      "gate": "unprivileged",
+      "assertion_gap": 4,
+      "sort_name": "commitBatch",
+      "consumer": "commitBatch",
+      "consumer_line": 14,
+      "asserter": "finalizeBatch",
+      "asserter_line": 20,
+      "assert_class": 4,
+      "own_class": 0
+    },
+    {
+      "contract": "Rollup",
+      "function": "commitBatch",
+      "line": 14,
+      "concept": "prev:state:root",
+      "tier": 0,
+      "gate": "unprivileged",
+      "assertion_gap": 4,
+      "sort_name": "commitBatch",
+      "consumer": "commitBatch",
+      "consumer_line": 14,
+      "asserter": "finalizeBatch",
+      "asserter_line": 20,
+      "assert_class": 4,
+      "own_class": 0
+    },
+    {
+      "contract": "Rollup",
+      "function": "commitBatch",
+      "line": 14,
+      "concept": "state:root",
+      "tier": 0,
+      "gate": "unprivileged",
+      "assertion_gap": 3,
+      "sort_name": "commitBatch",
+      "consumer": "commitBatch",
+      "consumer_line": 14,
+      "asserter": "finalizeBatch",
+      "asserter_line": 20,
+      "assert_class": 4,
+      "own_class": 1
+    }
+  ],
+  "blind": [
+    {
+      "kind": "rejected-site",
+      "key": "Rollup::finalizeBatch::batch:index",
+      "near": null,
+      "contract": "Rollup",
+      "function": "finalizeBatch",
+      "line": 20,
+      "reason": "finalizeBatch asserts batch:index itself (class 4) — no asymmetry"
+    },
+    {
+      "kind": "rejected-site",
+      "key": "Rollup::finalizeBatch::prev:state",
+      "near": null,
+      "contract": "Rollup",
+      "function": "finalizeBatch",
+      "line": 20,
+      "reason": "finalizeBatch asserts prev:state itself (class 4) — no asymmetry"
+    },
+    {
+      "kind": "rejected-site",
+      "key": "Rollup::finalizeBatch::prev:state:root",
+      "near": null,
+      "contract": "Rollup",
+      "function": "finalizeBatch",
+      "line": 20,
+      "reason": "finalizeBatch asserts prev:state:root itself (class 4) — no asymmetry"
+    },
+    {
+      "kind": "rejected-site",
+      "key": "Rollup::finalizeBatch::state:root",
+      "near": null,
+      "contract": "Rollup",
+      "function": "finalizeBatch",
+      "line": 20,
+      "reason": "finalizeBatch asserts state:root itself (class 4) — no asymmetry"
+    }
+  ],
+  "blind_total": 4
+}

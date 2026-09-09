@@ -1,0 +1,439 @@
+{
+  "campaign_id": "C-ad2a843ce2",
+  "snapshot_id": "unpinned",
+  "backend": "regex",
+  "parse_version": "3",
+  "created_at": "2026-09-09T03:34:09.572070+00:00",
+  "entry_count": 14,
+  "nodes": [
+    {
+      "id": "L1ERC20Gateway.sol#IERC20",
+      "kind": "interface",
+      "name": "IERC20",
+      "path": "L1ERC20Gateway.sol",
+      "line": 4,
+      "contract_closure": []
+    },
+    {
+      "id": "L1ERC20Gateway.sol#L1ERC20Gateway",
+      "kind": "contract",
+      "name": "L1ERC20Gateway",
+      "path": "L1ERC20Gateway.sol",
+      "line": 13,
+      "contract_closure": [
+        {
+          "name": "onDropMessage",
+          "defining_contract": "L1ERC20Gateway",
+          "path": "L1ERC20Gateway.sol",
+          "line": 18,
+          "guards": [],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 19,
+              "concept_keys": [
+                "to"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 19,
+              "concept_keys": [
+                "safe",
+                "safe:transfer",
+                "token",
+                "token:safe",
+                "token:safe:transfer",
+                "transfer"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount",
+                "to"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "to"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L1ERC20Gateway.sol#L1ERC20Gateway.token",
+      "kind": "state-variable",
+      "name": "token",
+      "path": "L1ERC20Gateway.sol",
+      "line": null
+    },
+    {
+      "id": "L1ERC20Gateway.sol#L1ERC20Gateway.onDropMessage",
+      "kind": "function",
+      "name": "onDropMessage",
+      "path": "L1ERC20Gateway.sol",
+      "line": 18,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "onDropMessage(address,uint256)",
+      "reads_storage": [
+        "token"
+      ],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [
+        "token.safeTransfer"
+      ],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 19,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 19,
+          "concept_keys": [
+            "to"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 19,
+          "concept_keys": [
+            "safe",
+            "safe:transfer",
+            "token",
+            "token:safe",
+            "token:safe:transfer",
+            "transfer"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount",
+            "to"
+          ],
+          "kind": "emit"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "to"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway",
+      "kind": "contract",
+      "name": "L1ReverseCustomGateway",
+      "path": "L1ReverseCustomGateway.sol",
+      "line": 11,
+      "contract_closure": [
+        {
+          "name": "_burn",
+          "defining_contract": "L1ReverseCustomGateway",
+          "path": "L1ReverseCustomGateway.sol",
+          "line": 19,
+          "guards": [],
+          "uses": [
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "burned",
+                "total",
+                "total:burned"
+              ],
+              "kind": "write"
+            }
+          ]
+        },
+        {
+          "name": "_deposit",
+          "defining_contract": "L1ReverseCustomGateway",
+          "path": "L1ReverseCustomGateway.sol",
+          "line": 14,
+          "guards": [],
+          "uses": [
+            {
+              "line": 15,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 15,
+              "concept_keys": [
+                "from",
+                "msg",
+                "msg:sender",
+                "safe",
+                "safe:transfer",
+                "safe:transfer:from",
+                "sender",
+                "token",
+                "token:safe",
+                "token:safe:transfer",
+                "transfer",
+                "transfer:from"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 16,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            }
+          ]
+        },
+        {
+          "name": "onDropMessage",
+          "defining_contract": "L1ERC20Gateway",
+          "path": "L1ERC20Gateway.sol",
+          "line": 18,
+          "guards": [],
+          "uses": [
+            {
+              "line": 19,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 19,
+              "concept_keys": [
+                "to"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 19,
+              "concept_keys": [
+                "safe",
+                "safe:transfer",
+                "token",
+                "token:safe",
+                "token:safe:transfer",
+                "transfer"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount",
+                "to"
+              ],
+              "kind": "emit"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "amount"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 20,
+              "concept_keys": [
+                "to"
+              ],
+              "kind": "param"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway.totalBurned",
+      "kind": "state-variable",
+      "name": "totalBurned",
+      "path": "L1ReverseCustomGateway.sol",
+      "line": null
+    },
+    {
+      "id": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway._deposit",
+      "kind": "function",
+      "name": "_deposit",
+      "path": "L1ReverseCustomGateway.sol",
+      "line": 14,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "_deposit(address,uint256)",
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [
+        "_burn"
+      ],
+      "calls_external": [
+        "token.safeTransferFrom"
+      ],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 15,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 15,
+          "concept_keys": [
+            "from",
+            "msg",
+            "msg:sender",
+            "safe",
+            "safe:transfer",
+            "safe:transfer:from",
+            "sender",
+            "token",
+            "token:safe",
+            "token:safe:transfer",
+            "transfer",
+            "transfer:from"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 16,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        }
+      ]
+    },
+    {
+      "id": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway._burn",
+      "kind": "function",
+      "name": "_burn",
+      "path": "L1ReverseCustomGateway.sol",
+      "line": 19,
+      "visibility": "internal",
+      "is_entry_point": false,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": null,
+      "reads_storage": [
+        "totalBurned"
+      ],
+      "writes_storage": [
+        "totalBurned"
+      ],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 20,
+          "concept_keys": [
+            "amount"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 20,
+          "concept_keys": [
+            "burned",
+            "total",
+            "total:burned"
+          ],
+          "kind": "write"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "L1ERC20Gateway.sol#L1ERC20Gateway.onDropMessage",
+      "rel": "calls",
+      "to": "*#token.safeTransfer"
+    },
+    {
+      "from": "L1ERC20Gateway.sol#L1ERC20Gateway",
+      "rel": "extends-interface",
+      "to": "L1ERC20Gateway.sol#L1ERC20Gateway.onDropMessage"
+    },
+    {
+      "from": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway",
+      "rel": "inherits",
+      "to": "*#L1ERC20Gateway"
+    },
+    {
+      "from": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway._deposit",
+      "rel": "calls",
+      "to": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway._burn"
+    },
+    {
+      "from": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway._deposit",
+      "rel": "calls",
+      "to": "*#token.safeTransferFrom"
+    },
+    {
+      "from": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway",
+      "rel": "extends-interface",
+      "to": "L1ReverseCustomGateway.sol#L1ReverseCustomGateway._deposit"
+    }
+  ],
+  "stats": {
+    "solidity_files": 2,
+    "other_files_listed": 0,
+    "contracts": 3,
+    "functions": 3,
+    "state_variables": 2,
+    "entry_points": 2,
+    "external_call_edges": 3
+  }
+}

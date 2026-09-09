@@ -1,0 +1,61 @@
+{
+  "sites": 6,
+  "rows": [],
+  "blind": [
+    {
+      "kind": "rejected-site",
+      "key": "Rollup::commitBatch::batch:index",
+      "near": null,
+      "contract": "Rollup",
+      "function": "commitBatch",
+      "line": 16,
+      "reason": "batch:index is asserted only at class 3 in finalizeBatch — below equality-to-persisted-state"
+    },
+    {
+      "kind": "rejected-site",
+      "key": "Rollup::finalizeBatch::batch:index",
+      "near": null,
+      "contract": "Rollup",
+      "function": "finalizeBatch",
+      "line": 21,
+      "reason": "finalizeBatch asserts batch:index itself (class 3) — no asymmetry"
+    },
+    {
+      "kind": "rejected-site",
+      "key": "Rollup::finalizeBatch::finalized:batch",
+      "near": null,
+      "contract": "Rollup",
+      "function": "finalizeBatch",
+      "line": 21,
+      "reason": "finalizeBatch asserts finalized:batch itself (class 3) — no asymmetry"
+    },
+    {
+      "kind": "rejected-site",
+      "key": "Rollup::finalizeBatch::finalized:batch:index",
+      "near": null,
+      "contract": "Rollup",
+      "function": "finalizeBatch",
+      "line": 21,
+      "reason": "finalizeBatch asserts finalized:batch:index itself (class 3) — no asymmetry"
+    },
+    {
+      "kind": "rejected-site",
+      "key": "Rollup::finalizeBatch::last:finalized",
+      "near": null,
+      "contract": "Rollup",
+      "function": "finalizeBatch",
+      "line": 21,
+      "reason": "finalizeBatch asserts last:finalized itself (class 3) — no asymmetry"
+    },
+    {
+      "kind": "rejected-site",
+      "key": "Rollup::finalizeBatch::last:finalized:batch",
+      "near": null,
+      "contract": "Rollup",
+      "function": "finalizeBatch",
+      "line": 21,
+      "reason": "finalizeBatch asserts last:finalized:batch itself (class 3) — no asymmetry"
+    }
+  ],
+  "blind_total": 6
+}
