@@ -60,7 +60,7 @@ func runModel(root string, args []string, r *Runner) error {
 	if len(pos) == 1 {
 		return showLoadedModel(c, r.Out, asJSON)
 	}
-	return loadModelFile(c, pos[1], r.Out, asJSON)
+	return loadModelFile(c, pos[1], r.Out, r.Err, asJSON)
 }
 
 // showLoadedModel is the no-file branch: print the artifact already loaded.
@@ -88,7 +88,7 @@ func showLoadedModel(c *state.Campaign, stdout io.Writer, asJSON bool) error {
 }
 
 // loadModelFile is the file branch: read, load into the orchestrator, report.
-func loadModelFile(c *state.Campaign, path string, stdout io.Writer,
+func loadModelFile(c *state.Campaign, path string, stdout, stderr io.Writer,
 	asJSON bool) error {
 	text, err := t14ReadText(path)
 	if err != nil {
@@ -113,7 +113,7 @@ func loadModelFile(c *state.Campaign, path string, stdout io.Writer,
 	seeded := objInt(res, "invariants_seeded")
 	registered := objInt(res, "invariants_registered")
 	if seeded == 0 {
-		fmt.Fprintln(stdout, "  WARNING: the model declares no invariants — "+
+		fmt.Fprintln(stderr, "  WARNING: the model declares no invariants — "+
 			"the invariant registry was seeded with NOTHING "+
 			"(invariants.seed_empty logged). Every evidence level rise will "+
 			"be guardrail-blocked until the model is refined.")

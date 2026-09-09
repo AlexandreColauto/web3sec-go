@@ -1800,11 +1800,21 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		}
 	}
 
-	// a disproof that owes its sibling
-	if db := objAt(brief, "disproved_siblings"); db.Kind == validation.Arr {
-		for _, sib := range db.A {
-			actions = append(actions, fmt.Sprintf("work sibling of %s: %s",
-				objStr(sib, "sibling_of"), objStr(sib, "question")))
+	// Open SIBLING priorities (the disproof-sibling rule): a DISPROVED
+	// lifecycle finding names its adjacent unchecked property, which spawns
+	// an OPEN priority carrying sibling_of — the neighborhood stays open
+	// until the sibling is worked. Guarded like the criticality block:
+	// plan-less/model-less campaigns get zero new lines.
+	if campaign != nil {
+		if sibPlan, err := planner.LoadPlanReadonly(campaign); err == nil {
+			for _, p := range listAt(sibPlan, "priorities") {
+				if objStr(p, "status") == "open" &&
+					objStr(p, "sibling_of") != "" {
+					actions = append(actions, fmt.Sprintf(
+						"work sibling of %s: %s", objStr(p, "sibling_of"),
+						objStr(p, "question")))
+				}
+			}
 		}
 	}
 

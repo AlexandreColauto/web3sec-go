@@ -1138,8 +1138,9 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_full_ladder_via_cli",
-   "status": "deferred-P1",
-   "notes": "PRODUCTION GAP: internal/cli/cmd_verify.go rejects every flag (`unrecognized arguments: %s`) and never wires the --queue/--exec E6 paths, so the CLI cannot drive the ladder to E6 as the Python test does; the orchestrator/findings E6 machinery itself is ported and pinned elsewhere (internal/orchestrator, internal/cli ladder tests). The row stays deferred until cmd_verify grows the --queue/--exec surface (a production change, out of scope for the testmap sweep)."
+   "notes": "Port 1:1 (T36). PRODUCTION FIX: cmd_verify.go grew the argparse-exact --queue/--exec/--finding/--verifier/--description surface and wires it onto orchestrator.IndependentVerificationQueue / VerifyIndependently (thin wrapper, I3); usage block and every captured error vector are pinned by TestVerifyArgparse in the same file. The test drives init->snap->model->ingest->move->mint->recall->verdict->CONFIRMED->verify --exec (E6)->impact (E7) through the CLI alone, with conftest-equivalent WEBV2_GLOBAL_MEMORY_DIR isolation.",
+   "go_file": "internal/cli/sweep_t36_test.go",
+   "go_func": "TestFullLadderViaCLI"
   },
   {
    "python_file": "tests/test_cli.py",
@@ -2039,8 +2040,9 @@
   {
    "python_file": "tests/test_disproof_sibling.py",
    "python_func": "test_brief_surfaces_open_sibling_priority",
-   "status": "deferred-P1",
-   "notes": "PRODUCTION GAP: internal/briefing/briefing.go never populates the `disproved_siblings` key it reads in NextActions (grep disproved_siblings shows only the reader at line 1804), so BuildBrief can never emit the `work sibling of <fid>: <question>` line the Python test asserts. Python reads the plan's open sibling_of priorities directly. The row stays deferred until the brief emits that block (a production change, out of scope for the testmap sweep); the plan-side sibling_of handling is already pinned by internal/briefing TestReportAnnotatesSiblingPriority."
+   "notes": "Port 1:1 (T36). PRODUCTION FIX: NextActions read a `disproved_siblings` brief key BuildBrief never populated (and Python has no such key at all); it now reads the plan read-only and emits `work sibling of <sibling_of>: <question>` for every OPEN priority carrying sibling_of, exactly as briefing.py does (nil campaign = Python's swallowed exception).",
+   "go_file": "internal/briefing/sweep_t36_test.go",
+   "go_func": "TestBriefSurfacesOpenSiblingPriority"
   },
   {
    "python_file": "tests/test_disproof_sibling.py",
@@ -4972,8 +4974,9 @@
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_find_chains_is_capped",
-   "status": "deferred-P1",
-   "notes": "PRODUCTION GAP (not a test gap): internal/chainengine/chainengine.go:238 uses `continue` where Python's find_chains breaks the enumeration loop once len(seen) >= MAX_PROPOSALS, so Go overshoots the cap (a 500-cap fixture returns 521 chains). Porting the test requires the production fix (change that `continue` to `break`); production edits are out of scope for the testmap sweep, so the row stays deferred with this exact defect recorded. Everything else in tests/test_review_fixes.py::test_find_chains_is_capped (dedup by member set, the cap constant) is already pinned by internal/chainengine tests."
+   "notes": "Port 1:1 (T36). PRODUCTION FIX: chainengine.go split the cap/depth guard \u2014 find_chains BREAKS the enumeration once len(seen) >= MAX_PROPOSALS (the guard bounds memory, not a post-hoc trim); the 13-finding capability-sharing fixture returned 521 chains before, 500 after (Python reference: 500). The test pins the cap constant and the dedup-by-member-set invariant.",
+   "go_file": "internal/chainengine/sweep_t36_test.go",
+   "go_func": "TestFindChainsIsCapped"
   },
   {
    "python_file": "tests/test_review_fixes.py",

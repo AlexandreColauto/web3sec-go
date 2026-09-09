@@ -235,7 +235,13 @@ func FindChains(c *state.Campaign, minLength int) ([]validation.Value, error) {
 						kvOf("capabilities", strArr(setKeys(held)))))
 				}
 			}
-			if len(seen) >= MaxProposals || len(frame.path) >= 5 {
+			// find_chains: once the cap is reached the enumeration BREAKS
+			// (the guard, not a post-hoc trim, bounds memory); the depth
+			// limit only prunes this branch.
+			if len(seen) >= MaxProposals {
+				break
+			}
+			if len(frame.path) >= 5 {
 				continue
 			}
 			for _, cap := range setKeys(held) {
