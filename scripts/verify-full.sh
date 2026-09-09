@@ -12,7 +12,8 @@
 #   5.  go test -count=1 ./... twice; normalized output identical
 #       (Go==Go determinism run — design 7.1)
 #   6.  scripts/sync-assets.sh then diff -r <py>/schema assets/schema
-#   7.  python -m pytest <py>/tests -q (reference baseline still green)
+#   7.  python -m pytest <py>/tests -q (reference baseline — OPT-IN via
+#       WEBV2_REF_PYTEST=1; heavy, orchestrator-only, skip by default)
 #   8.  testmap reconciles with the live Python tree (sync-testmap --check,
 #       then check-testmap.py against count-python-tests.py)
 #   9.  scripts/golden.sh green (Task 17)
@@ -98,14 +99,22 @@ diff -r "$PYROOT/schema" assets/schema || fail 6 "schema diff"
 echo "ok: $(ls assets/schema | wc -l) schemas byte-identical"
 
 # 7. Python reference baseline ------------------------------------------
+# The reference suite (~1450 tests, ~217s, heavy on memory) is opt-in:
+# WEBV2_REF_PYTEST=1 runs it; by default it is skipped with a note. It is
+# for the orchestrator, when genuinely necessary (a phase-gate baseline
+# after the Python twin moved) — never part of a subagent's work.
 step 7 "python reference suite"
-(
-  cd "$PYROOT" && PYTHONPATH=src python3 -m pytest tests -q
-) > .scratch/pytest.log 2>&1
-PYEXIT=$?
-tail -2 .scratch/pytest.log
-[ "$PYEXIT" -eq 0 ] || fail 7 "python reference suite"
-echo "ok: reference suite green"
+if [ -n "${WEBV2_REF_PYTEST:-}" ]; then
+  (
+    cd "$PYROOT" && PYTHONPATH=src python3 -m pytest tests -q
+  ) > .scratch/pytest.log 2>&1
+  PYEXIT=$?
+  tail -2 .scratch/pytest.log
+  [ "$PYEXIT" -eq 0 ] || fail 7 "python reference suite"
+  echo "ok: reference suite green"
+else
+  echo "skip: reference suite (WEBV2_REF_PYTEST=1 to run; last proven green at the P1 gate, 1446 passed)"
+fi
 
 # 8. testmap ------------------------------------------------------------
 step 8 "check-testmap"
