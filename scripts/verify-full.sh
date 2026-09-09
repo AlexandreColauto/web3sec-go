@@ -2,8 +2,8 @@
 #
 # verify-full.sh — Task 18: the single entry point the P0+P1+P2 gate runs.
 #
-# One command (a human or CI) runs to know whether P0, P1 and P2 are clean:
-# fourteen ordered steps, fail-fast with the failing step's name.
+# One command (a human or CI) runs to know whether P0, P1, P2 and P3 are
+# clean: fifteen ordered steps, fail-fast with the failing step's name.
 #
 #   1.  go vet ./... clean
 #   2.  go build ./cmd/webv2 -> /tmp/webv2
@@ -32,8 +32,12 @@
 #       asserting documented exit codes
 #
 # Steps 11/12 build their campaign with P2 state too (exec/mint/ladder/
-# chains/impact), so the cross-audit covers the P2 audit sections — both
-# directions must report all 14 sections incl. sequence_coverage.
+# chains/impact) AND P3 state (snap/index/sinks/prescreen/probes+emit/
+# relations, a disproved rung's queued memory row, report.md), so the
+# cross-audit covers the P2 and P3 audit sections — both directions must
+# report all 14 sections incl. sequence_coverage and probe_surface, and
+# the other twin must read the ladder, the memory row, the probe axes
+# and the report.
 #
 # Exits non-zero at the first failing step, naming it.
 
@@ -58,7 +62,7 @@ fail() {
   exit 1
 }
 
-TOTAL_STEPS=14
+TOTAL_STEPS=15
 
 step() {
   echo
@@ -175,6 +179,10 @@ rm -rf "$SMOKE" "$SMOKE-trunc"
 # lives under .scratch/verify-p1/.
 P1F="$ROOT/.scratch/verify-p1"
 P1BIN="$P1F/webv2"
+# The reference probes package's own blind fixture: one contract whose
+# accumulator axis rejects every site it sees, so `probes blank` has a
+# disposition to record. Snapshotted by both cross-audit twins.
+P3_FIXTURE="$ROOT/internal/probes/testdata/probes/accumulator/blind"
 P1_SEED="verify-p1-cross"
 # The step counter lives in a FILE: every run_p1 call sits inside $(...) — a
 # subshell — so a shell variable cannot carry the number back out.
@@ -195,11 +203,16 @@ run_p1() {
   # whose new_id counter restarts at 0, so a single seed would make the first
   # id of EVERY command identical (two `exec` calls would mint the same EXEC-).
   local seed="$P1_SEED:$P1_STEP"
+  # WEBV2_BASELINES_DIR keeps the Go baseline store out of the repo (D24);
+  # the reference ignores it (its store hangs off its package root, and no
+  # verify-full step registers a baseline in the Python twin).
   if [ "$twin" = py ]; then
     ( cd "$PYROOT" && PYTHONPATH=src WEBV2_NOW="$now" WEBV2_UUID="$seed" \
+        WEBV2_BASELINES_DIR="$P1F/baselines" \
         python3 -m webv2.cli --root "$root" "$@" )
   else
-    WEBV2_NOW="$now" WEBV2_UUID="$seed" "$P1BIN" --root "$root" "$@"
+    WEBV2_NOW="$now" WEBV2_UUID="$seed" WEBV2_BASELINES_DIR="$P1F/baselines" \
+      "$P1BIN" --root "$root" "$@"
   fi
 }
 
@@ -350,6 +363,17 @@ build_campaign() {
     || { echo "$out" >&2; p1_build_fail "$label" "ladder repro"; return 1; }
   out="$(run_p1 "$twin" "$root" ladder "$cid" set-maximal "$f1" "$rung" 2>&1)" \
     || { echo "$out" >&2; p1_build_fail "$label" "ladder set-maximal"; return 1; }
+  # D18 happy path: a disproved rung queues the negative memory row the
+  # OTHER twin must be able to read (p2_cross_read checks `memory`).
+  out="$(run_p1 "$twin" "$root" ladder "$cid" add "$f1" --name dead-end \
+    --description "the only remaining drain path" --axes precondition-removal \
+    --capital 1 --ratio 1 --removes "the timelock" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "ladder add dead-end"; return 1; }
+  rung2="$(grep -oE 'R-[0-9a-f]+' <<<"$out" | head -1)"
+  [ -n "$rung2" ] || { echo "$out" >&2; p1_build_fail "$label" "ladder dead-end rung"; return 1; }
+  out="$(run_p1 "$twin" "$root" ladder "$cid" disprove "$f1" "$rung2" \
+    --reason "the removed timelock precondition is enforced by the guard" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "ladder disprove"; return 1; }
   out="$(run_p1 "$twin" "$root" ladder "$cid" complete "$f1" 2>&1)" \
     || { echo "$out" >&2; p1_build_fail "$label" "ladder complete"; return 1; }
   out="$(run_p1 "$twin" "$root" ladder "$cid" report "$f1" 2>&1)" \
@@ -363,6 +387,35 @@ build_campaign() {
     || { echo "$out" >&2; p1_build_fail "$label" "impact"; return 1; }
   out="$(run_p1 "$twin" "$root" sequence verify "$cid" "$f1" 2>&1)" \
     || { echo "$out" >&2; p1_build_fail "$label" "sequence verify"; return 1; }
+  # The report artifact (the P3 report surface) must be readable by the
+  # other twin's audit/report readers.
+  out="$(run_p1 "$twin" "$root" report "$cid" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "report"; return 1; }
+
+  # --- P3 state (docker-free) -------------------------------------------
+  # The ported structural/probe surface, so the OTHER twin's audit has a
+  # real probe_surface section to validate: snap the reference probes
+  # fixture, index it, read sinks/prescreen, run the probe surface and
+  # EMIT its plan obligations (the audit's probe_surface section fails a
+  # surface that has rows but no emitted priority). The eval store and the
+  # DeFiHackLabs corpus are deliberately NOT read (both unported, D26).
+  local snap
+  out="$(run_p1 "$twin" "$root" snap "$cid" "$P3_FIXTURE" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "p3 snap"; return 1; }
+  snap="$(ls -d "$root/campaigns/$cid"/snapshots/*/ 2>/dev/null | head -1)"
+  [ -n "$snap" ] || { p1_build_fail "$label" "p3 snapshot dir"; return 1; }
+  out="$(run_p1 "$twin" "$root" index "$cid" --src "$snap" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "p3 index"; return 1; }
+  out="$(run_p1 "$twin" "$root" sinks "$cid" --src "$snap" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "p3 sinks"; return 1; }
+  out="$(run_p1 "$twin" "$root" prescreen "$cid" --src "$snap" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "p3 prescreen"; return 1; }
+  out="$(run_p1 "$twin" "$root" probes "$cid" run 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "p3 probes run"; return 1; }
+  out="$(run_p1 "$twin" "$root" probes "$cid" run --emit 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "p3 probes run --emit"; return 1; }
+  out="$(run_p1 "$twin" "$root" relations "$cid" --rebuild 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "p3 relations"; return 1; }
   echo "$cid"
 }
 
@@ -408,6 +461,25 @@ print(f"  ok {sys.argv[1]}: {len(d)} exec records readable")
   grep -q '"state": "complete"' <<<"$out" \
     || { echo "$out" >&2; echo "$label: ladder is not complete" >&2; return 1; }
   echo "  ok $label: ladder report reads the other twin's completed ladder"
+  out="$(run_p1 "$twin" "$root" memory "$cid" 2>&1)" \
+    || { echo "$out" >&2; echo "$label: memory failed" >&2; return 1; }
+  grep -qE 'MEM-[0-9a-f]+' <<<"$out" \
+    || { echo "$out" >&2; echo "$label: no queued memory row" >&2; return 1; }
+  echo "  ok $label: memory view reads the other twin's queued negative row"
+  out="$(run_p1 "$twin" "$root" probes "$cid" list --all --json 2>&1)" \
+    || { echo "$out" >&2; echo "$label: probes list --json failed" >&2; return 1; }
+  python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+# `rows` counts EMITTED candidates: the blind fixture emits none, so the
+# cross-read asserts the published AXES (with their blind keys) and the
+# index pin instead.
+axes = d.get("axes") or []
+assert axes, f"no probe axes: {d}"
+assert d.get("index_sha"), "no index_sha"
+blind = sum(1 for a in axes if a.get("status") == "blind")
+print(f"  ok {sys.argv[1]}: {len(axes)} probe axes ({blind} blind) readable")
+' "$label" <<<"$out" || return 1
 }
 
 # 11. cross-audit (Python -> Go) ------------------------------------------
@@ -444,6 +516,16 @@ cat > "$P1F/fixtures/f1.json" <<'JSON'
  "attacker": {"profile": "arbitrary EOA", "capabilities": []},
  "invariant": {"id": "INV-1", "statement": "balances move atomically"},
  "dedup": {"economic_signature": "0123456789abcdef"}}
+JSON
+cat > "$P1F/fixtures/f1-pre.json" <<'JSON'
+{"title": "Timelock bypass on withdraw",
+ "root_cause": {"class": "logic-error", "description": "mechanism described in detail here"},
+ "affected": [{"path": "src/Vault.sol", "function": "withdraw"}],
+ "attacker": {"profile": "arbitrary EOA", "capabilities": []},
+ "invariant": {"id": "INV-3", "statement": "the timelock gates pause"},
+ "preconditions": [{"description": "the timelock is enforced",
+                    "enforced_by_poc": "false"}],
+ "dedup": {"economic_signature": "fedcba9876543210"}}
 JSON
 cat > "$P1F/fixtures/f2.json" <<'JSON'
 {"title": "Atomic balance violated on withdraw",
@@ -711,5 +793,199 @@ p2_sections_ok "P2 smoke audit" "$P1_OUT" || fail 14 "smoke audit --json section
 p2_ok verify 0 verify "$CID2"
 echo "ok: P2 commands exercised, exit codes as documented"
 
+
+# 15. P3 CLI smoke ---------------------------------------------------------
+# The ported P3 commands, each once in a valid shape against a scratch Go
+# campaign, with the exit code the reference CLI documents:
+#   snap/index/sinks/prescreen 0  structural surface over the blind fixture
+#   probes run/list/--all      0  the candidate surface
+#   probes blank               0  the named attestation closing a BLIND axis
+#   probes run --emit x2       0  plan obligations, idempotent
+#   relations --rebuild        0  typed research-memory graph
+#   resemble                   0  primitive-similarity search
+#   corpus-surface             0  class inventory + exposure (absent corpus, D26)
+#   ladder start/add/disprove  0  the D18 happy path (memory row queued)
+#   memory / --approve         0  queue -> human-approved promotion
+#   shield / --extraction      0  effect adjudication (both directions)
+#   precondition               0  enforced / 1 unknown description (refusal)
+#   publish/globalize/shared   0  root-tier publish + globalize + both-tier view
+#   brief/--json/--deep/report 0  operator cockpit + report
+#   recency --target/--src     0  target-vs-pin freshness
+#   baseline list/add/remove   0  the lifecycle against a scratch store (D24)
+#   forkdiff/--json            0  the baseline comparison
+#   cost/yields                0  cost ledger + derived yield
+#   price set/table/basis      0  price table + price-basis pin
+#   env doctor                 0|1 environment report (0 = no issues)
+#   env doctor --json          0  the machine view
+#   doctor / --json            0  state-repair preflight
+#   run                        3  pipeline walk halts at the first model stage
+#   complete guard             2  documented refusal (short reason)
+#   complete                   0  completion
+#   audit / --json / verify    0  all 14 sections + event-log integrity
+step 15 "P3 CLI smoke: index/probes/memory/publish/baselines/costs/run"
+P1_SEED="verify-p3-smoke"
+p1_step_reset
+SMOKE3="$P1F/smoke3"
+rm -rf "$SMOKE3" "$P1F/baselines"
+mkdir -p "$SMOKE3"
+
+p3_ok() {
+  local label="$1" want="$2"
+  shift 2
+  P1_OUT="$(run_p1 go "$SMOKE3" "$@" 2>&1)"; P1_RC=$?
+  if [ "$P1_RC" -ne "$want" ]; then
+    echo "$P1_OUT"
+    fail 15 "$label: exit $P1_RC, want $want (webv2 $*)"
+  fi
+  printf '  ok %-24s exit=%s  webv2 %s\n' "$label" "$P1_RC" "$*"
+}
+
+p3_ok init 0 init --program VerifyP3Smoke
+CID3="$(grep -oE 'C-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
+[ -n "$CID3" ] || fail 15 "smoke init: no campaign id in output"
+p3_ok model 0 model "$CID3" "$P1F/fixtures/model.json"
+p3_ok plan 0 plan "$CID3"
+p3_ok "ingest f1" 0 ingest "$CID3" --json-file "$P1F/fixtures/f1.json" \
+  --trajectory code --stage smoke3
+F1="$(grep -oE 'F-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
+[ -n "$F1" ] || fail 15 "smoke ingest f1: no finding id in output"
+p3_ok "verdict confirmed" 0 verdict "$CID3" "$F1" --verdict confirmed \
+  --reason "verified by hand"
+p3_ok "move possible" 0 move "$CID3" "$F1" POSSIBLE --reason "triage passed"
+p3_ok "artifact-register" 0 artifact-register "$CID3" "$P1F/fixtures/note.md" \
+  --kind report
+REP3="$(grep -oE 'REP-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
+[ -n "$REP3" ] || fail 15 "smoke artifact-register: no artifact id in output"
+p3_ok "invariant-verify" 0 invariant-verify "$CID3" INV-1 --artifact "$REP3"
+p3_ok "exec pass" 0 exec "$CID3" --command "echo p3-smoke" --finding "$F1"
+SEEDEX="EXEC-$(python3 -c 'import hashlib;print(hashlib.sha256(b"verify-p3-seed-exec").hexdigest()[:10])')"
+seed_p2_exec "$SMOKE3" "$CID3" "$F1" "$SEEDEX" || fail 15 "smoke seed exec"
+p3_ok mint 0 mint "$CID3" "$F1" --exec "$SEEDEX" \
+  --description "sandboxed PoC drains the vault in one withdraw" \
+  --tier T2 --type foundry-test
+# A second finding carries a precondition row, so the `precondition`
+# adjudication has a target (the first finding has none).
+p3_ok "ingest f1-pre" 0 ingest "$CID3" --json-file "$P1F/fixtures/f1-pre.json" \
+  --trajectory code --stage smoke3
+F2="$(grep -oE 'F-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
+[ -n "$F2" ] || fail 15 "smoke ingest f1-pre: no finding id in output"
+p3_ok shield 0 shield "$CID3" "$F1" --reason "the effect is the intended transfer" \
+  --actor smoke
+p3_ok "shield --extraction" 0 shield "$CID3" "$F1" --extraction \
+  --reason "the effect is extraction despite the documented intent" --actor smoke
+p3_ok "precondition enforced" 0 precondition "$CID3" "$F2" \
+  "the timelock is enforced" --enforced
+p3_ok "precondition unknown (refusal)" 1 precondition "$CID3" "$F2" \
+  "no such precondition here" --not-enforced
+p3_ok scope 0 scope "$CID3" --policy "$P1F/fixtures/policy.json"
+
+p3_ok snap 0 snap "$CID3" "$P3_FIXTURE"
+SNAP3="$(ls -d "$SMOKE3/campaigns/$CID3"/snapshots/*/ 2>/dev/null | head -1)"
+[ -n "$SNAP3" ] || fail 15 "smoke snap: no snapshot dir"
+p3_ok index 0 index "$CID3" --src "$SNAP3"
+p3_ok "index --json" 0 index "$CID3" --src "$SNAP3" --json
+p3_ok sinks 0 sinks "$CID3" --src "$SNAP3"
+p3_ok "sinks --json" 0 sinks "$CID3" --src "$SNAP3" --json
+p3_ok prescreen 0 prescreen "$CID3" --src "$SNAP3"
+p3_ok "prescreen --json" 0 prescreen "$CID3" --src "$SNAP3" --json
+p3_ok "probes run" 0 probes "$CID3" run
+p3_ok "probes list" 0 probes "$CID3" list
+p3_ok "probes list --all" 0 probes "$CID3" list --all
+p3_ok "probes list --all --json" 0 probes "$CID3" list --all --json
+AXIS="$(python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+for a in d.get("axes") or []:
+    if a.get("status") == "blind" and a.get("blind"):
+        print(a["axis"]); break
+' <<<"$P1_OUT")"
+KEY="$(python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+for a in d.get("axes") or []:
+    if a.get("status") == "blind" and a.get("blind"):
+        print(a["blind"][0]["key"]); break
+' <<<"$P1_OUT")"
+[ -n "$AXIS" ] && [ -n "$KEY" ] || fail 15 "smoke probes: no blind axis/key published"
+p3_ok "probes list --axis" 0 probes "$CID3" list --axis "$AXIS"
+p3_ok "probes blank" 0 probes "$CID3" blank --axis "$AXIS" \
+  --anchor-blind "$KEY" --reason "the cited key is the only write on this axis" \
+  --actor smoke
+p3_ok "probes list (after blank)" 0 probes "$CID3" list --all
+p3_ok "probes run --emit" 0 probes "$CID3" run --emit
+p3_ok "probes run --emit again" 0 probes "$CID3" run --emit
+p3_ok "plan after emit" 0 plan "$CID3"
+p3_ok "relations --rebuild" 0 relations "$CID3" --rebuild
+p3_ok relations 0 relations "$CID3"
+p3_ok resemble 0 resemble "$CID3" "$F1"
+p3_ok corpus-surface 0 corpus-surface "$CID3"
+
+p3_ok "ladder start" 0 ladder "$CID3" start "$F1"
+p3_ok "ladder add" 0 ladder "$CID3" add "$F1" --name p3-dead-end \
+  --description "drain the vault in one transaction" \
+  --axes precondition-removal --capital 1 --ratio 1 --removes "the timelock"
+RUNG3="$(grep -oE 'R-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
+[ -n "$RUNG3" ] || fail 15 "smoke ladder add: no rung id in output"
+p3_ok "ladder disprove (happy)" 0 ladder "$CID3" disprove "$F1" "$RUNG3" \
+  --reason "the removed timelock precondition is enforced by the guard"
+p3_ok memory 0 memory "$CID3"
+MEM3="$(grep -oE 'MEM-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
+[ -n "$MEM3" ] || fail 15 "smoke memory: no MEM- id in output"
+p3_ok "memory --approve" 0 memory "$CID3" --approve "$MEM3" --by smoke
+p3_ok "memory (after approve)" 0 memory "$CID3"
+p3_ok publish 0 publish "$CID3" --actor smoke
+p3_ok "globalize --tier root" 0 globalize --actor smoke --tier root
+p3_ok shared 0 shared
+p3_ok "shared --verify" 0 shared --verify
+
+p3_ok brief 0 brief "$CID3"
+p3_ok "brief --json" 0 brief "$CID3" --json
+p3_ok "brief --deep" 0 brief "$CID3" --deep
+p3_ok report 0 report "$CID3"
+p3_ok recency 0 recency "$CID3" --target "$SNAP3" --src "$SNAP3"
+p3_ok "recency --json" 0 recency "$CID3" --target "$SNAP3" --src "$SNAP3" --json
+
+p3_ok "baseline list (empty)" 0 baseline list
+p3_ok "forkdiff (no baselines)" 0 forkdiff "$CID3" --src "$SNAP3"
+p3_ok "baseline add" 0 baseline add smoke-baseline --path "$SNAP3" \
+  --source-url "https://example.invalid/smoke" --license MIT
+p3_ok "baseline list" 0 baseline list
+p3_ok forkdiff 0 forkdiff "$CID3" --src "$SNAP3"
+p3_ok "forkdiff --json" 0 forkdiff "$CID3" --src "$SNAP3" --json
+p3_ok "baseline remove" 0 baseline remove smoke-baseline
+p3_ok "baseline list (after)" 0 baseline list
+
+p3_ok "cost model" 0 cost "$CID3" --kind model --amount 12.5 \
+  --trajectory code --actor smoke
+p3_ok "cost human-review" 0 cost "$CID3" --kind human-review --amount 40 \
+  --finding "$F1" --actor smoke
+p3_ok yields 0 yields "$CID3"
+p3_ok "price set" 0 price "$CID3" set ETH 3000 --source coingecko \
+  --as-of 2026-09-09T00:00:00+00:00 --actor smoke
+PRC3="$(grep -oE 'PRC-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
+[ -n "$PRC3" ] || fail 15 "smoke price set: no PRC- id in output"
+p3_ok "price table" 0 price "$CID3" table
+p3_ok "price-basis" 0 price-basis "$CID3" "$F1" "$PRC3"
+
+# env doctor's exit is environment-dependent (0 = no issues found, 1 = at
+# least one missing tool/daemon); both are documented, so accept either.
+P1_OUT="$(run_p1 go "$SMOKE3" env doctor 2>&1)"; P1_RC=$?
+[ "$P1_RC" -eq 0 ] || [ "$P1_RC" -eq 1 ] \
+  || { echo "$P1_OUT"; fail 15 "env doctor: exit $P1_RC, want 0 or 1"; }
+printf '  ok %-24s exit=%s  webv2 env doctor\n' "env doctor" "$P1_RC"
+p3_ok "env doctor --json" 0 env doctor --json
+p3_ok doctor 0 doctor "$CID3"
+p3_ok "doctor --json" 0 doctor "$CID3" --json
+
+p3_ok run 3 run "$CID3"
+p3_ok "complete guard" 2 complete "$CID3" --actor smoke --reason nope
+p3_ok complete 0 complete "$CID3" --actor smoke \
+  --reason "all smoke checks closed with evidence"
+p3_ok audit 0 audit "$CID3"
+p3_ok "audit --json" 0 audit "$CID3" --json
+p2_sections_ok "P3 smoke audit" "$P1_OUT" || fail 15 "smoke audit --json sections"
+p3_ok verify 0 verify "$CID3"
+echo "ok: P3 commands exercised, exit codes as documented"
+
 echo
-echo "VERIFY-FULL GREEN: all 14 steps pass"
+echo "VERIFY-FULL GREEN: all 15 steps pass"

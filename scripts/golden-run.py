@@ -8,7 +8,7 @@ Python webv2 CLI and the Go webv2 binary — both with the clock pinned
 roots, capturing every command's stdout/stderr/exit and the resulting
 artifact trees for check-golden.py to byte-diff.
 
-The recipe has three halves:
+The recipe has four halves:
 
   P0 (steps 00..07, kept verbatim from golden v1 — see docs/gates/P0-gate.md)
       init / status / snap / log / verify / audit / status / audit --json
@@ -41,6 +41,21 @@ The recipe has three halves:
       and impact (priced, priced+artifact, and the UNPRICEABLE named
       decision).
 
+  P3 (docs/gates/golden-v4.md) — the ported P3 surface, over a target that
+      now carries the reference probes package's own Solidity fixtures:
+      index / sinks / prescreen (+ --json), the probe surface (run / list /
+      list --all / list --axis / the named `blank` attestation / run --emit
+      twice), relations --rebuild + view, resemble, corpus-surface, negative
+      memory (ladder disprove on h7 -> MEM- queue -> human approve ->
+      publish -> globalize -> shared / shared --verify), brief (+ --json /
+      --deep), report, recency (+ --json), baseline list, forkdiff (+
+      --json), cost x2, yields, price set/table, price-basis, env doctor
+      (+ --json), doctor (+ --json), the `run` halt (exit 3), and complete
+      (guard + success). A SECOND campaign closes the recipe with
+      `snap --deployment/--chain` (D19): its pin members, manifest roots,
+      events and summary lines are byte-compared, and it is kept last so a
+      fork-pinned snapshot cannot rewrite campaign 1's P1/P2 outputs.
+
   ID PINNING (v3 extension): the reference mints every `new_id` family
       (C-, EXEC-, EV-, ATT-, LAD-, R-, CHAIN-, REP-, ECO-, PRC-) from
       `sha256("<WEBV2_UUID>:<per-process counter>")`, and EVERY CLI
@@ -50,7 +65,10 @@ The recipe has three halves:
       `WEBV2_UUID=<seed>:<step>` instead: both twins derive the same id per
       step, and distinct steps can no longer collide. The finding-id pin
       (`WEBV2_FINDING_IDS=pin` + scripts/golden/sitecustomize.py) keeps its
-      own running `WEBV2_FINDING_ID_SEQ` stream on top of the per-step seed.
+      own running `WEBV2_FINDING_ID_SEQ` stream on top of the per-step seed;
+      the v4 additions are `WEBV2_COST_IDS=pin` + `WEBV2_COST_ID_SEQ` (the
+      cost id is a RAW uuid4 in the reference, like the finding id) and the
+      absent-store pins `WEBV2_EVAL_DIR` / `WEBV2_POC_ROOT` (see D26).
 
 Fixtures live under scripts/golden/ and are referenced by paths RELATIVE to
 the Go repo root; both twins run with cwd=GO_ROOT so a relative path means
@@ -123,6 +141,24 @@ def make_target() -> Path:
         "INV-4: the share price must not move in favor of existing shares; "
         "out-of-band donations are by design and accrue to stakers.\n"
         "INV-9: the oracle price must be fresh within one block.\n")
+    # P3 (v4): a real structural surface for index / sinks / prescreen /
+    # probes. The fixtures are the reference probes package's own vectors
+    # (single-sourced, so they cannot drift from the ported probe code):
+    # `accumulator/blind` + `assertion_strength/clean` publish BLIND keys
+    # (so `probes blank` has a disposition to record) while `cursor`,
+    # `custody` and `short_circuit` emit rows, and the custody pair carries
+    # the unguarded-transfer path `sinks` reports. Each fixture gets its
+    # own subdirectory: `cursor` and `assertion_strength` both ship a
+    # `Rollup.sol`, and the probe ordering is path-based.
+    probe_fixtures = ("accumulator/blind", "cursor/buggy",
+                      "assertion_strength/clean", "custody/buggy",
+                      "short_circuit/buggy")
+    fixture_root = GO_ROOT / "internal" / "probes" / "testdata" / "probes"
+    for sub in probe_fixtures:
+        dest = tgt / "probes" / sub.replace("/", "_")
+        dest.mkdir(parents=True)
+        for f in sorted((fixture_root / sub).glob("*.sol")):
+            dest.joinpath(f.name).write_text(f.read_text())
     return tgt
 
 
@@ -229,6 +265,11 @@ def run_step(twin: str, root: Path, argv: list[str], step: int,
     # a deterministic cross-twin comparison.
     env = dict(os.environ, WEBV2_NOW=now, WEBV2_UUID=seed_for(step),
                WEBV2_FINDING_IDS="pin", WEBV2_FINDING_ID_SEQ=str(fid_base),
+               WEBV2_COST_IDS="pin", WEBV2_COST_ID_SEQ=str(fid_base),
+               WEBV2_EVAL_DIR=str(WORK / "absent-eval"),
+               WEBV2_POC_ROOT=str(WORK / "absent-poc"),
+               WEBV2_BASELINES_DIR=str(WORK / "baselines"),
+               WEBV2_PROMPTS_BASE=str(GO_ROOT / "assets"),
                WEBV2_GLOBAL_MEMORY_DIR=str(WORK / "shared-memory"))
     # Both twins run with cwd=GO_ROOT so a relative fixture path resolves to
     # the same file; the Python package is located via PYTHONPATH.
@@ -260,13 +301,26 @@ def recipe(state: dict) -> list[dict]:
     f = (state["findings"] + ["<F?>"] * 7)[:7]   # [h1..h5, h6, h7]
     art = (state["artifacts"] + ["<ART?>"] * 2)[:2]
     ex = (state["execs"] + ["<EXEC?>"] * 2)[:2]
-    rung = (state["rungs"] + ["<R?>"] * 1)[:1]
+    rung = (state["rungs"] + ["<R?>"] * 2)[:2]
+    # P3: the BLIND axis/key `probes list --all --json` published, the MEM-
+    # row the disproved rung queued, and the PRC- price row.
+    blind = (state.get("blind", []) + ["<AXIS?>", "<KEY?>"])[:2]
+    mem = (state.get("mem", []) + ["<MEM?>"])[:1]
+    prc = (state.get("prc", []) + ["<PRC?>"])[:1]
+    # The active snapshot root: `index`/`sinks`/`prescreen`/`recency`/
+    # `forkdiff` all take --src, and the audit's probe_surface section
+    # compares the probe rows' index_sha against the index of the ACTIVE
+    # SNAPSHOT root. Indexing the raw target instead would leave a second
+    # index (different path prefixes => different sha) and the closing
+    # audit would report the probe surface stale.
+    snap_src = state.get("snapshot") or "<SNAP?>"
+    cid2 = state.get("cid2") or "<C2?>"
     return [
         # ---- P0 half: verbatim golden v1 (docs/gates/P0-gate.md) ----------
         {"name": "init", "exit": 0,
          "argv": ["init", "--program", "Golden"]},
         {"name": "status", "exit": 0, "argv": ["status", cid]},
-        {"name": "snap", "exit": 0,
+        {"name": "snap", "exit": 0, "snapshot": 1,
          "argv": ["snap", cid, state["target"]]},
         {"name": "log", "exit": 0, "argv": ["log", cid]},
         {"name": "verify", "exit": 0, "argv": ["verify", cid]},
@@ -555,12 +609,186 @@ def recipe(state: dict) -> list[dict]:
          "argv": ["impact", cid, f[2], "--unpriceable",
                   "--ceiling", "no defensible USD figure"]},
 
+        # ---- P3 half (golden v4, docs/gates/golden-v4.md) ----------------
+        # Structural surface: index / sinks / prescreen over the target's
+        # real Solidity (src/ + the probes/ fixture trees make_target
+        # materializes).
+        {"name": "index", "exit": 0,
+         "argv": ["index", cid, "--src", snap_src]},
+        {"name": "index-json", "exit": 0,
+         "argv": ["index", cid, "--src", snap_src, "--json"]},
+        {"name": "sinks", "exit": 0,
+         "argv": ["sinks", cid, "--src", snap_src]},
+        {"name": "sinks-json", "exit": 0,
+         "argv": ["sinks", cid, "--src", snap_src, "--json"]},
+        {"name": "prescreen", "exit": 0,
+         "argv": ["prescreen", cid, "--src", snap_src]},
+        {"name": "prescreen-json", "exit": 0,
+         "argv": ["prescreen", cid, "--src", snap_src, "--json"]},
+        # Mechanical candidate surface: run (rows + published BLIND keys),
+        # the operator view (all / one axis / json), the named blank
+        # attestation that closes a BLIND axis, and --emit (plan
+        # obligations, idempotent on the second run).
+        {"name": "probes-run", "exit": 0, "argv": ["probes", cid, "run"]},
+        {"name": "probes-list-all", "exit": 0,
+         "argv": ["probes", cid, "list", "--all"]},
+        {"name": "probes-list-all-json", "exit": 0, "blind": 1,
+         "argv": ["probes", cid, "list", "--all", "--json"]},
+        {"name": "probes-list", "exit": 0, "argv": ["probes", cid, "list"]},
+        {"name": "probes-list-axis", "exit": 0,
+         "argv": ["probes", cid, "list", "--axis", blind[0]]},
+        {"name": "probes-list-axis-json", "exit": 0,
+         "argv": ["probes", cid, "list", "--axis", blind[0], "--json"]},
+        {"name": "probes-blank", "exit": 0,
+         "argv": ["probes", cid, "blank", "--axis", blind[0],
+                  "--anchor-blind", blind[1], "--reason",
+                  "the cited key is the only write on this axis",
+                  "--actor", "golden"]},
+        {"name": "probes-list-after-blank", "exit": 0,
+         "argv": ["probes", cid, "list", "--all"]},
+        {"name": "probes-run-emit", "exit": 0,
+         "argv": ["probes", cid, "run", "--emit"]},
+        {"name": "probes-run-emit-again", "exit": 0,
+         "argv": ["probes", cid, "run", "--emit"]},
+        {"name": "plan-after-emit", "exit": 0, "argv": ["plan", cid]},
+        # Research memory graph (typed edges) + the derived capability delta.
+        {"name": "relations-rebuild", "exit": 0,
+         "argv": ["relations", cid, "--rebuild"]},
+        {"name": "relations-view", "exit": 0, "argv": ["relations", cid]},
+        {"name": "resemble", "exit": 0, "argv": ["resemble", cid, f[0]]},
+        # Corpus sweep. Both twins run with an ABSENT eval + PoC store
+        # (WEBV2_EVAL_DIR / WEBV2_POC_ROOT, see D26): the eval store and the
+        # DeFiHackLabs dataset are unported (P4), and an absent corpus root
+        # is the module's documented legitimate input state. The step still
+        # pins the class-probe layer, the exposure ordering and the report
+        # artifact byte-for-byte.
+        {"name": "corpus-surface", "exit": 0,
+         "argv": ["corpus-surface", cid]},
+        # Negative knowledge -> memory queue -> human approval -> publish to
+        # the shared store -> globalize -> both-tier view. A fresh rung on
+        # the CONFIRMED h7 is disproved (its ladder is untouched by P2), so
+        # learning.queue_memory writes the MEM- row the rest of the block
+        # consumes.
+        {"name": "ladder-start-h7", "exit": 0,
+         "argv": ["ladder", cid, "start", f[6]]},
+        {"name": "ladder-add-h7", "exit": 0, "rungs": 1,
+         "argv": ["ladder", cid, "add", f[6], "--name", "p3-dead-end",
+                  "--description", "drain the vault in one transaction",
+                  "--axes", "precondition-removal",
+                  "--capital", "1", "--ratio", "1",
+                  "--removes", "the timelock"]},
+        {"name": "ladder-disprove-h7", "exit": 0,
+         "argv": ["ladder", cid, "disprove", f[6], rung[1], "--reason",
+                  "the removed timelock precondition is enforced by the "
+                  "guard the rung cannot bypass"]},
+        {"name": "memory-list", "exit": 0, "memory": 1,
+         "argv": ["memory", cid]},
+        {"name": "memory-approve", "exit": 0,
+         "argv": ["memory", cid, "--approve", mem[0], "--by", "golden"]},
+        {"name": "memory-list-after", "exit": 0, "argv": ["memory", cid]},
+        {"name": "publish", "exit": 0,
+         "argv": ["publish", cid, "--actor", "golden"]},
+        {"name": "globalize-root", "exit": 0,
+         "argv": ["globalize", "--actor", "golden", "--tier", "root"]},
+        {"name": "shared", "exit": 0, "argv": ["shared"]},
+        {"name": "shared-verify", "exit": 0, "argv": ["shared", "--verify"]},
+        # Operator cockpit + report + recency.
+        {"name": "brief", "exit": 0, "argv": ["brief", cid]},
+        {"name": "brief-json", "exit": 0, "argv": ["brief", cid, "--json"]},
+        {"name": "brief-deep", "exit": 0, "argv": ["brief", cid, "--deep"]},
+        {"name": "report", "exit": 0, "argv": ["report", cid]},
+        {"name": "recency", "exit": 0,
+         "argv": ["recency", cid, "--target", state["target"],
+                  "--src", snap_src]},
+        {"name": "recency-json", "exit": 0,
+         "argv": ["recency", cid, "--target", state["target"],
+                  "--src", snap_src, "--json"]},
+        # Baseline store: full lifecycle against ONE scratch store pinned by
+        # WEBV2_BASELINES_DIR (D24: the reference hangs the store off its
+        # own package root, the Go twin off cwd; the harness points both at
+        # .scratch/golden/baselines and resets it per twin). list (empty) ->
+        # forkdiff (no baselines) -> add the target as a baseline -> list ->
+        # forkdiff (score 1.00 against itself) -> remove -> list (empty).
+        {"name": "baseline-list-empty", "exit": 0,
+         "argv": ["baseline", "list"]},
+        {"name": "forkdiff-no-baselines", "exit": 0,
+         "argv": ["forkdiff", cid, "--src", snap_src]},
+        {"name": "forkdiff-no-baselines-json", "exit": 0,
+         "argv": ["forkdiff", cid, "--src", snap_src, "--json"]},
+        {"name": "baseline-add", "exit": 0,
+         "argv": ["baseline", "add", "golden-baseline",
+                  "--path", state["target"],
+                  "--source-url", "https://example.invalid/golden",
+                  "--license", "MIT"]},
+        {"name": "baseline-list", "exit": 0, "argv": ["baseline", "list"]},
+        {"name": "forkdiff", "exit": 0,
+         "argv": ["forkdiff", cid, "--src", snap_src]},
+        {"name": "forkdiff-json", "exit": 0,
+         "argv": ["forkdiff", cid, "--src", snap_src, "--json"]},
+        {"name": "baseline-remove", "exit": 0,
+         "argv": ["baseline", "remove", "golden-baseline"]},
+        {"name": "baseline-list-after", "exit": 0,
+         "argv": ["baseline", "list"]},
+        # Economics: operator-reported costs, yield, the price table and the
+        # price-basis pin.
+        {"name": "cost-model", "exit": 0,
+         "argv": ["cost", cid, "--kind", "model", "--amount", "12.5",
+                  "--trajectory", "code", "--actor", "golden"]},
+        {"name": "cost-human", "exit": 0,
+         "argv": ["cost", cid, "--kind", "human-review", "--amount", "40",
+                  "--finding", f[0], "--actor", "golden"]},
+        {"name": "yields", "exit": 0, "argv": ["yields", cid]},
+        {"name": "price-set", "exit": 0, "price": 1,
+         "argv": ["price", cid, "set", "ETH", "3000",
+                  "--source", "coingecko",
+                  "--as-of", "2026-09-08T00:00:00+00:00",
+                  "--actor", "golden"]},
+        {"name": "price-table", "exit": 0, "argv": ["price", cid, "table"]},
+        {"name": "price-basis", "exit": 0,
+         "argv": ["price-basis", cid, f[0], prc[0]]},
+        # Environment + health, then the pipeline walk. `doctor --json`
+        # reports campaign_state.json's byte size, which embeds the model
+        # stage's prompt path (D25: the Go embed mirror adds an `assets/`
+        # segment), so it must run BEFORE `run` records that note.
+        {"name": "env-doctor", "exit": 1, "argv": ["env", "doctor"]},
+        {"name": "env-doctor-json", "exit": 0,
+         "argv": ["env", "doctor", "--json"]},
+        {"name": "doctor", "exit": 0, "argv": ["doctor", cid]},
+        {"name": "doctor-json", "exit": 0, "argv": ["doctor", cid, "--json"]},
+        # `run` halts at the first model stage (exit 3, "needs-model"); the
+        # printed prompt path differs by D25 and is normalized by
+        # check-golden.py.
+        {"name": "run", "exit": 3, "argv": ["run", cid]},
+        {"name": "complete-short-reason", "exit": 2,
+         "argv": ["complete", cid, "--actor", "golden", "--reason", "nope"]},
+        {"name": "complete", "exit": 0,
+         "argv": ["complete", cid, "--actor", "golden", "--reason",
+                  "all golden passes closed with evidence"]},
+
         # ---- closing half: same P0 verbs again, now over the P1 state ----
         {"name": "status-final", "exit": 0, "argv": ["status", cid]},
         {"name": "audit-final", "exit": 0, "argv": ["audit", cid]},
         {"name": "audit-json-final", "exit": 0, "argv": ["audit", cid, "--json"]},
         {"name": "log-tail", "exit": 0, "argv": ["log", cid, "--tail", "5"]},
         {"name": "verify-final", "exit": 0, "argv": ["verify", cid]},
+
+        # ---- D19 golden coverage: a SECOND campaign ---------------------
+        # `snap --deployment/--chain` attaches both pins at snap time. Kept
+        # last on purpose: a fork-pinned snapshot changes the plan's
+        # reachability lines and the sequence-coverage verdict, which would
+        # rewrite campaign 1's already-compared P1/P2 outputs. The two
+        # summary lines, the manifest roots (deployment_merkle_root /
+        # chain_fingerprint), the pin members and the two
+        # snapshot.*_attached events are all byte-compared here.
+        {"name": "init-c2", "exit": 0, "cid2": 1,
+         "argv": ["init", "--program", "Golden Two"]},
+        {"name": "snap-c2-deployment-chain", "exit": 0,
+         "argv": ["snap", cid2, state["target"],
+                  "--deployment", f"{FIX}/deployment.json",
+                  "--chain", f"{FIX}/chain.json"]},
+        {"name": "status-c2", "exit": 0, "argv": ["status", cid2]},
+        {"name": "audit-c2", "exit": 0, "argv": ["audit", cid2]},
+        {"name": "verify-c2", "exit": 0, "argv": ["verify", cid2]},
     ]
 
 
@@ -588,12 +816,18 @@ def main() -> None:
     for twin in ("py", "go"):
         shutil.rmtree(root, ignore_errors=True)
         root.mkdir(parents=True)
+        # The baseline store is pinned (WEBV2_BASELINES_DIR) at ONE scratch
+        # path so both twins print the same store path; reset it per twin
+        # so each starts from the same empty store.
+        shutil.rmtree(WORK / "baselines", ignore_errors=True)
         roots[twin] = str(root)
         caps = WORK / "captures" / twin
         caps.mkdir(parents=True)
         captures[twin] = []
         state = {"cid": "", "findings": [], "artifacts": [],
-                 "execs": [], "rungs": [], "target": str(target)}
+                 "execs": [], "rungs": [], "target": str(target),
+                 "snapshot": "", "cid2": "", "blind": [], "mem": [],
+                 "prc": []}
         states[twin] = state
         # The step LIST is state-independent, but each step's argv embeds ids
         # the pinned stream mints while the run proceeds, so it is rebuilt
@@ -653,6 +887,47 @@ def main() -> None:
                     if not m:
                         sys.exit(f"{twin} step {i:02d}-{name}: no rung id in stdout:\n{out}")
                     state["rungs"].append(m.group(1))
+            if st.get("cid2"):
+                m = re.search(r"C-[0-9a-f]+", out)
+                if not m:
+                    sys.exit(f"{twin} step {i:02d}-{name}: no campaign id in stdout:\n{out}")
+                state["cid2"] = m.group(0)
+            if st.get("snapshot"):
+                # The active snapshot root (content-addressed, identical in
+                # both twins): the canonical --src for every index-consuming
+                # step, and the tree the closing audit re-indexes.
+                snap_dir = root / "campaigns" / state["cid"] / "snapshots"
+                snaps = sorted(p for p in snap_dir.iterdir() if p.is_dir())
+                if not snaps:
+                    sys.exit(f"{twin} step {i:02d}-{name}: no snapshot dir under {snap_dir}")
+                state["snapshot"] = str(snaps[-1])
+            if st.get("blind"):
+                # The BLIND axis the probes view published: the FIRST axis
+                # (in the report's fixed order) whose status is "blind" and
+                # which published at least one key. Both twins must select
+                # the same one, or `probes blank` diverges immediately.
+                try:
+                    doc = json.loads(out)
+                except ValueError as exc:
+                    sys.exit(f"{twin} step {i:02d}-{name}: not JSON: {exc}")
+                for ax in doc.get("axes") or []:
+                    keys = ax.get("blind") or []
+                    if ax.get("status") == "blind" and keys:
+                        state["blind"] = [ax.get("axis"), keys[0].get("key")]
+                        break
+                if not state["blind"]:
+                    sys.exit(f"{twin} step {i:02d}-{name}: no blind axis "
+                             f"published:\n{out[:400]}")
+            if st.get("memory"):
+                m = re.search(r"MEM-[0-9a-f]+", out)
+                if not m:
+                    sys.exit(f"{twin} step {i:02d}-{name}: no memory id in stdout:\n{out}")
+                state["mem"].append(m.group(0))
+            if st.get("price"):
+                m = re.search(r"PRC-[0-9a-f]+", out)
+                if not m:
+                    sys.exit(f"{twin} step {i:02d}-{name}: no price id in stdout:\n{out}")
+                state["prc"].append(m.group(0))
             if name == "init":
                 m = re.search(r"C-[0-9a-f]+", out)
                 if not m:

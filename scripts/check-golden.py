@@ -11,6 +11,11 @@ legitimate differences, each recorded in KNOWN_DIVERGENCES.md:
      environment fingerprint hashes the runtime (python X vs go Y), which
      can never match across implementations; replaced by <ENVHASH>.
 
+The D25 prompt-pack path divergence is NOT normalized here: golden-run.py
+points the reference at the Go twin's byte-identical embed mirror
+(WEBV2_PROMPTS_BASE), so both twins print and hash the SAME prompt path.
+A prompt-path difference is therefore a hard failure, by design.
+
 Everything else must be byte-identical, including every event hash: both
 twins run under the SAME root path (the event chain hashes absolute
 artifact paths) and finding ids are pinned into the same stream in both
@@ -51,10 +56,11 @@ def normalizers(spec: dict, twin: str) -> list[tuple[re.Pattern, str]]:
     ns = []
     ns.append((re.compile(re.escape(spec["roots"][twin])), "<ROOT>"))
     ns.append((re.compile(re.escape(spec["target"])), "<TGT>"))
-    # environment_hash values: extract from each twin's snapshot.json.
+    # environment_hash values: extract from EVERY snapshot.json in both
+    # archived trees (the recipe may pin more than one campaign).
     for t in ("py", "go"):
-        snaps = sorted((Path(spec["trees"][t]) / "campaigns" /
-                        spec["campaign_id"] / "snapshots").glob("*/snapshot.json"))
+        snaps = sorted((Path(spec["trees"][t]) / "campaigns").glob(
+            "*/snapshots/*/snapshot.json"))
         for snap in snaps:
             doc = json.loads(snap.read_text())
             env = (doc.get("manifest") or {}).get("environment_hash")
@@ -76,32 +82,55 @@ def norm_bytes(spec: dict, twin: str, data: bytes) -> bytes:
 
 
 def diff_tree(spec: dict) -> None:
-    py_root = Path(spec["trees"]["py"]) / "campaigns" / spec["campaign_id"]
-    go_root = Path(spec["trees"]["go"]) / "campaigns" / spec["campaign_id"]
-    py_files = sorted(p.relative_to(py_root).as_posix() for p in py_root.rglob("*")
-                      if p.is_file())
-    go_files = sorted(p.relative_to(go_root).as_posix() for p in go_root.rglob("*")
-                      if p.is_file())
-    for f in sorted(set(py_files) - set(go_files)):
-        fails.append(f"tree: py-only file {f}")
-    for f in sorted(set(go_files) - set(py_files)):
-        fails.append(f"tree: go-only file {f}")
-    for f in sorted(set(py_files) & set(go_files)):
-        a = norm_bytes(spec, "py", (py_root / f).read_bytes())
-        b = norm_bytes(spec, "go", (go_root / f).read_bytes())
-        if a != b:
-            fails.append(f"tree: {f} differs")
-            la = a.decode("utf-8", "replace").splitlines()
-            lb = b.decode("utf-8", "replace").splitlines()
-            for i in range(max(len(la), len(lb))):
-                xa = la[i] if i < len(la) else "<missing>"
-                xb = lb[i] if i < len(lb) else "<missing>"
-                if xa != xb:
-                    fails.append(f"    line {i+1} py: {xa[:200]}")
-                    fails.append(f"    line {i+1} go: {xb[:200]}")
-                    break
-    if not any(x.startswith("tree:") for x in fails):
-        print(f"tree: {len(py_files)} files byte-MATCH (normalized)")
+    """Byte-diff EVERY campaign dir in the two archived trees.
+
+    The recipe's main campaign is spec["campaign_id"], but golden v4 also
+    creates a second campaign for the D19 deployment/chain pin, so the diff
+    walks the whole `campaigns/` dir (a campaign present on one side only is
+    itself a failure)."""
+    py_base = Path(spec["trees"]["py"]) / "campaigns"
+    go_base = Path(spec["trees"]["go"]) / "campaigns"
+    camps = sorted({p.name for p in py_base.iterdir() if p.is_dir()} |
+                   {p.name for p in go_base.iterdir() if p.is_dir()})
+    total = 0
+    bad = 0
+    for camp in camps:
+        py_root, go_root = py_base / camp, go_base / camp
+        if not py_root.is_dir():
+            fails.append(f"tree: campaign {camp} missing from the py tree")
+            continue
+        if not go_root.is_dir():
+            fails.append(f"tree: campaign {camp} missing from the go tree")
+            continue
+        py_files = sorted(p.relative_to(py_root).as_posix() for p in py_root.rglob("*")
+                          if p.is_file())
+        go_files = sorted(p.relative_to(go_root).as_posix() for p in go_root.rglob("*")
+                          if p.is_file())
+        total += len(py_files)
+        for f in sorted(set(py_files) - set(go_files)):
+            fails.append(f"tree: py-only file {camp}/{f}")
+            bad += 1
+        for f in sorted(set(go_files) - set(py_files)):
+            fails.append(f"tree: go-only file {camp}/{f}")
+            bad += 1
+        for f in sorted(set(py_files) & set(go_files)):
+            a = norm_bytes(spec, "py", (py_root / f).read_bytes())
+            b = norm_bytes(spec, "go", (go_root / f).read_bytes())
+            if a != b:
+                fails.append(f"tree: {camp}/{f} differs")
+                bad += 1
+                la = a.decode("utf-8", "replace").splitlines()
+                lb = b.decode("utf-8", "replace").splitlines()
+                for i in range(max(len(la), len(lb))):
+                    xa = la[i] if i < len(la) else "<missing>"
+                    xb = lb[i] if i < len(lb) else "<missing>"
+                    if xa != xb:
+                        fails.append(f"    line {i+1} py: {xa[:200]}")
+                        fails.append(f"    line {i+1} go: {xb[:200]}")
+                        break
+    if not bad:
+        print(f"tree: {total} files byte-MATCH across {len(camps)} "
+              f"campaign(s) (normalized)")
 
 
 def audit_json_step(spec: dict, step: int, name: str) -> None:

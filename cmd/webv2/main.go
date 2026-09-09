@@ -127,6 +127,14 @@ func init() {
 			return "COST-" + hex.EncodeToString(sum[:])[:12]
 		})
 	}
+	// Same seam for the baseline store: the reference hangs it off its own
+	// package root (read-only for this port, D24) while the Go twin uses
+	// cwd/baselines. The golden harness pins both at one scratch dir so
+	// baseline add/list/remove/forkdiff compare cross-twin without
+	// mutating either repo. Unset: cwd/baselines, no behavior change.
+	if dir := os.Getenv("WEBV2_BASELINES_DIR"); dir != "" {
+		forkdiff.SetBaselinesDir(dir)
+	}
 }
 
 func main() {

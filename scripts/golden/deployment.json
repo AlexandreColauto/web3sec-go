@@ -1,0 +1,21 @@
+{
+  "network": "ethereum",
+  "contracts": [
+    {
+      "name": "Vault",
+      "address": "0x1111111111111111111111111111111111111111",
+      "bytecode_hash": "0xabababababababababababababababababababababababababababababababab",
+      "implementation_address": null,
+      "proxy_admin": null,
+      "source_match": "verified"
+    },
+    {
+      "name": "Proxy",
+      "address": "0x2222222222222222222222222222222222222222",
+      "bytecode_hash": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "implementation_address": "0x1111111111111111111111111111111111111111",
+      "proxy_admin": "0x3333333333333333333333333333333333333333",
+      "source_match": "unverified"
+    }
+  ]
+}

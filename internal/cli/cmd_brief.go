@@ -171,8 +171,13 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 	}
 	ch := asObjOrEmpty(objAt(b, "critical_hunt"))
 	if ps := objAt(ch, "prescreen"); t14Truthy(ps) {
-		pl := fmt.Sprintf("  prescreen: matched %s",
-			strings.Join(t31Strings(objAt(ps, "matched")), ", "))
+		// Python: ', '.join(ps['matched']) or 'none' — an empty match list
+		// renders the literal "none", not an empty tail.
+		matchedNames := strings.Join(t31Strings(objAt(ps, "matched")), ", ")
+		if matchedNames == "" {
+			matchedNames = "none"
+		}
+		pl := fmt.Sprintf("  prescreen: matched %s", matchedNames)
 		if forced := t31Strings(objAt(ps, "forced")); len(forced) > 0 {
 			pl += " (forced: " + strings.Join(forced, ", ") + ")"
 		}

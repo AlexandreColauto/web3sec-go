@@ -309,53 +309,75 @@ rows marked as golden-normalized — nothing else.
 
 ## P2 (maximization / chains / sequences, T21–T23)
 
-### D18 — `ladder disprove` happy path: the negative-memory row is not written
-- **What:** the reference's `maximization.disprove_rung` finishes by
+### D18 — `ladder disprove` happy path: the negative-memory row is not written — CLOSED 2026-09-09
+- **What (was):** the reference's `maximization.disprove_rung` finishes by
   calling `learning.queue_memory(kind="disproved", …)`, which writes
   `campaigns/<cid>/memory/MEM-<8>.json` **and** appends a `memory.queued`
-  event to `events.jsonl`. The Go twin has no `learning` port: the
-  `maximization.queueMemory` seam (`SetQueueMemory`) is a documented
-  no-op, so Go records the rung's `status="disproved"`, its `reason` and
+  event to `events.jsonl`. The Go twin had no `learning` port: the
+  `maximization.queueMemory` seam (`SetQueueMemory`) was a documented
+  no-op, so Go recorded the rung's `status="disproved"`, its `reason` and
   the `ladder.rung_disproved` event, but neither the memory row nor the
   `memory.queued` event.
-- **Why:** `learning.py` is P3 scope (memory lifecycle, promotion,
-  rejection classes, deciding propositions). Stubbing it would write a
-  schema-invalid or half-populated row; skipping the *event* while writing
-  the row is impossible without forking the hash-chained log.
-- **Golden:** `ladder disprove` is exercised on its two GUARD branches
-  only — a <10-character reason and a reproduced rung — which abort before
-  any write and therefore compare byte-for-byte (both exit 2, both print
-  the reference text). The happy path is deliberately NOT in the recipe:
-  one extra `memory.queued` event would shift every later `seq` and hash
-  in `events.jsonl`, so it cannot be normalized away. The verb's happy
-  path is covered by `internal/maximization` unit tests with the seam
-  installed.
-- **Unblocks:** the P3 `learning.queue_memory` port installs a real
-  writer behind `SetQueueMemory`; the golden then gains a
-  `ladder-disprove` step and this row closes.
+- **Fix (T32, 2026-09-09):** `learning.queue_memory` is ported and the
+  seam is installed at CLI boot (`internal/learning`, wired from
+  `ensureSeams`); the row + `memory.queued` event are written by both
+  twins.
+- **Golden:** golden v4 exercises the HAPPY path — `ladder-disprove-h7`
+  (exit 0) queues the MEM- row, `memory --approve` promotes it and
+  `publish` carries `memory_added 1` to the shared store; the memory row,
+  the `memory.queued` event and every later `seq`/hash compare
+  byte-for-byte. The two GUARD branches (<10-char reason, reproduced rung)
+  remain in the recipe.
+- **Evidence:** `scripts/golden.sh` GREEN (166 steps x 2 twins, 66 tree
+  files across 2 campaigns); `internal/learning` unit tests.
 
-### D19 — `snap --deployment/--chain`: parsed by the Go CLI, dropped
-- **What:** `webv2 snap <campaign> <target> --deployment d.json
+
+### D19 — `snap --deployment/--chain`: parsed by the Go CLI, dropped — CLOSED 2026-09-09
+- **What (was):** `webv2 snap <campaign> <target> --deployment d.json
   --chain c.json` attaches a deployment/chain pin in the reference
   (`snapshot.attach_deployment_pin` / `attach_chain_pin`) and prints the
-  pin summary. The Go CLI parses both flags (so they are not rejected)
-  and then calls `PinSourceSnapshot` without them — the pin file gets no
-  `deployment`/`chain` member and the summary line is not printed.
-- **Why:** the CLI wiring was deferred with the rest of the P1 `snap`
-  flags; the library functions themselves ARE ported and tested
-  (`internal/snapshot/compat.go`, `TestAttachDeploymentAndChainPins`).
-- **Surface:** `snapshot.json`, and every P2 consumer of
-  `sequencepoc.SnapshotHasForkTarget` — a campaign cannot become
-  "fork-pinned" through the Go CLI, so `sequence_coverage` rows are
-  vacuous (`required=0`) in both twins. The docker e2e therefore compares
-  the `sequence_coverage` section and asserts the *vacuous* verdict
-  (`required=0, covered=0`) in both twins.
-- **Golden:** no `--deployment`/`--chain` in the recipe (it would make
-  `snapshot.json` py-only-membered); the flag shape is covered by the
-  Python-side CLI tests, which the testmap marks deferred.
-- **Unblocks:** wiring the two flags into `runSnap` (≈20 lines, mirroring
-  `cmd_snap`'s tail); the docker e2e then gains a chain pin and the
-  coverage check flips to `required>=1, covered>=1`.
+  pin summary. The Go CLI parsed both flags and then called
+  `PinSourceSnapshot` without them — the pin file got no
+  `deployment`/`chain` member and the summary line was not printed.
+- **Resolution (T32, 2026-09-09): CLOSED — the divergence does not
+  reproduce.** The Go CLI has attached both pins since the P0 commit
+  (`internal/cli/cmd_snap.go`: `attachDeployment`/`attachChain` →
+  `snapshot.AttachDeploymentPin`/`snapshot.AttachChainPin`, then the two
+  summary lines), so the "parsed and dropped" description above was
+  stale. T32 proved the behavior end-to-end (probe), added the missing
+  CLI-level test and a golden campaign, and closed the row. No
+  production code change was needed.
+- **Evidence:**
+  - cross-twin probe `.scratch/t32/d19_probe.py`: 6 `snap` invocations
+    (plain, `--deployment`, `--chain`, both, twice) through the Python
+    reference and the Go binary under pinned `WEBV2_NOW`/`WEBV2_UUID` —
+    every stdout/stderr/exit and the full campaign tree
+    (`snapshot.json` incl. both manifest roots + `events.jsonl`) is
+    byte-identical after `<ROOT>`/`<TGT>` normalization. Sample pin:
+    `deployment_merkle_root=706dc6aa…`, `chain_fingerprint=c5a6e5bf…`.
+  - `internal/cli/cmd_snap_test.go` (new): pins the on-disk
+    `deployment`/`chain` members, the 64-hex manifest roots, the active
+    snapshot id, the event order and the two summary lines; plus the
+    missing-file refusal.
+  - library halves already pinned 1:1 by
+    `tests/test_snapshot.py::test_deployment_and_chain_pins` →
+    `internal/snapshot/compat_test.go::TestAttachDeploymentAndChainPins`
+    and `tests/test_design_upgrades.py::test_manifest_refreshes_when_pins_attach`
+    → `internal/snapshot/manifest_test.go::TestManifestAttachRefreshesRoots`.
+- **Surface (was):** `snapshot.json`, and every P2 consumer of
+  `sequencepoc.SnapshotHasForkTarget` — a campaign could not become
+  "fork-pinned" through the Go CLI, so `sequence_coverage` rows were
+  vacuous (`required=0`) in both twins.
+- **Golden:** golden v4 adds a SECOND campaign whose only steps are
+  `init` → `snap --deployment scripts/golden/deployment.json --chain
+  scripts/golden/chain.json` → `status` / `audit` / `verify`, and
+  check-golden.py now byte-diffs EVERY campaign tree (66 files across 2
+  campaigns), so `snapshot.json` (both manifest roots + the pin members),
+  `events.jsonl` (both `snapshot.*_attached` events) and the two summary
+  lines are pinned. It is kept last on purpose: a fork-pinned snapshot
+  changes the plan's reachability lines and the `sequence_coverage`
+  verdict, which would rewrite campaign 1's already-compared P1/P2
+  outputs.
 
 ## P3 (env / costs / history-mining, T26)
 
@@ -392,13 +414,19 @@ rows marked as golden-normalized — nothing else.
   *contract* — one manifest + one directory per baseline, relative
   `src/` trees, byte-identical `baseline.json` — is unaffected, and
   `baseline.json` records no path.
-- **Golden:** no recipe step reads a baselines path; `baseline add/list/
-  remove` and the fork-diff report compare byte-for-byte. The one
-  diagnostic that embeds the destination (`baseline source X overlaps the
-  destination Y`) is compared by `.scratch/t25/argfuzz.py` with both
-  twins in one cwd.
-- **Unblocks:** nothing (host fact, permanent). A future `--baselines-dir`
-  flag would let an operator pin the store explicitly.
+- **Golden:** golden v4 pins ONE scratch store for both twins
+  (`WEBV2_BASELINES_DIR` → `scripts/golden/sitecustomize.py` patches
+  `webv2.forkdiff.BASELINES_DIR`; `cmd/webv2/main.go` calls
+  `forkdiff.SetBaselinesDir`) and resets it per twin, then runs the whole
+  lifecycle: `baseline list` (empty) → `forkdiff`/`--json` (no baselines)
+  → `baseline add` → `list` → `forkdiff`/`--json` (score 1.00 against
+  itself) → `baseline remove` → `list` (empty). No repo is written, and
+  every output compares byte-for-byte. The one diagnostic that embeds the
+  destination (`baseline source X overlaps the destination Y`) is compared
+  by `.scratch/t25/argfuzz.py` with both twins in one cwd.
+- **Unblocks:** nothing (host fact, permanent). `WEBV2_BASELINES_DIR` is
+  the operator-facing version of the "future `--baselines-dir` flag" this
+  row used to ask for.
 
 ### D25 — `prompt_path` carries the embed mirror's `assets/` segment (T30)
 - **What:** `webv2 run` prints `prompt_path` for the halting model
@@ -413,14 +441,41 @@ rows marked as golden-normalized — nothing else.
   would silently drift from the embedded bytes; naming a path that does
   not exist (the old relative `prompts_legacy/...` fallback) is worse
   for the operator than naming the real file.
-- **Golden:** no recipe step invokes `run`, so nothing is normalized for
-  this row. The in-process twin test
-  (`internal/cli/cmd_run_test.go`) pins the whole HALTED block
-  byte-for-byte with `prompt_path` derived from `adapter.PromptPath`, and
-  `.scratch/t30/cross_twin.py` compares the two twins' `run` output with
-  `<ROOT>` and the `assets/` segment normalized.
+- **Golden:** golden v4 DOES invoke `run` (exit 3, the halting model
+  stage). The harness points the reference at the Go twin's byte-identical
+  embed mirror (`WEBV2_PROMPTS_BASE` → `sitecustomize.py` rebases
+  `webv2.adapter.resolve_prompt` + `PROMPTS_DIR`/`LEGACY_PROMPTS_DIR`), so
+  both twins print and hash the SAME prompt path; the HALTED block, the
+  `status` note and the run event hash compare byte-for-byte with NO
+  normalization (check-golden.py normalizes only <ROOT>/<TGT>/<ENVHASH>).
+  The in-process twin test (`internal/cli/cmd_run_test.go`) still pins the
+  HALTED block with `prompt_path` derived from `adapter.PromptPath`.
 - **Unblocks:** permanent (a `go:embed` constraint, not behavior). A
   future build step that copies the pack to the repo root could close it.
+
+### D26 — the eval store and the DeFiHackLabs corpus are unported (P4)
+- **What:** `corpus-surface` reads two datasets beside the reference
+  package: the eval store (`webv2.eval_store.EVAL_DIR` →
+  `<pyroot>/eval/cases.json`, 135 cases) and the DeFiHackLabs corpus
+  (`webv2.datasets.defihacklabs` `POC_ROOT` + incident explorer, 287 PoC
+  files, 930 explorer records). The Go twin has neither: the
+  `corpus.ClassInventory` seams (`SetListEvalCases`, `SetLoadPocRoot`) are
+  unwired in the CLI, so both stores are empty and `poc_missing` is 0.
+  Python would report 135/287/930 and a different `poc_missing`.
+- **Why:** both are P4 scope (dataset ingestion). An absent corpus root is
+  the module's OWN documented legitimate input state — `build_report`
+  degrades the shape leg to `[]` and attribution/`poc_missing` to
+  `({}, 0)` when the root is not a directory — so pinning both twins at an
+  absent root compares the *ported* layers (class inventory, probe classes,
+  exposure ordering, report artifact) without inventing dataset content.
+- **Golden:** `scripts/golden-run.py` exports `WEBV2_EVAL_DIR` /
+  `WEBV2_POC_ROOT` (absent paths under `.scratch/golden/`) and
+  `sitecustomize.py` repoints `webv2.eval_store.EVAL_DIR` and all four
+  `defihacklabs` dataset roots; `corpus-surface` then compares
+  byte-for-byte, including `poc_missing: 0` and `shape_matches: []`.
+- **Unblocks:** the P4 dataset-ingestion port wires `SetListEvalCases` /
+  `SetLoadPocRoot`; the golden then drops the pins and gains the real
+  corpus numbers.
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**

@@ -1,0 +1,6 @@
+{
+  "network": "ethereum",
+  "chain_id": 1,
+  "fork_block": 23456789,
+  "fork_block_hash": "0xefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef"
+}

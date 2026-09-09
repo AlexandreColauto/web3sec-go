@@ -468,7 +468,7 @@
    "python_file": "tests/test_answered.py",
    "python_func": "test_report_flags_unreferenced_answers",
    "status": "deferred-P3",
-   "notes": "report/briefing modules = P3"
+   "notes": "report.go's '## Answer quality' section has no Go test"
   },
   {
    "python_file": "tests/test_archetypes.py",
@@ -801,7 +801,8 @@
   {
    "python_file": "tests/test_bundle_corpus_keys.py",
    "python_func": "test_bundle_still_clean_asserts",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "no Go test asserts build_proposer_context's bundle stays plain-JSON with a known_non_issues row"
   },
   {
    "python_file": "tests/test_bundle_corpus_keys.py",
@@ -2724,7 +2725,8 @@
   {
    "python_file": "tests/test_history_learning.py",
    "python_func": "test_routing_table_and_adapter",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "no Go test pins adapter.route defaults + routing_table + resolve_prompt together (TestEveryMappedPromptFileExists and TestUnknownStageErrorListsKnownStages cover the prompt/error halves)"
   },
   {
    "python_file": "tests/test_independent_verification.py",
@@ -3172,7 +3174,7 @@
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_brief_next_action_names_unattested_family",
    "status": "deferred-P3",
-   "notes": "report/briefing modules = P3"
+   "notes": "no Go test pins the brief's unattested-family divergence line"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
@@ -3226,13 +3228,13 @@
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_report_lists_lens_families",
    "status": "deferred-P3",
-   "notes": "report/briefing modules = P3"
+   "notes": "report.go's lens families rendering has no Go test"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_report_marks_reopened_lens",
    "status": "deferred-P3",
-   "notes": "report/briefing modules = P3"
+   "notes": "report.go's REOPENED rendering has no Go test"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
@@ -3658,37 +3660,44 @@
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_approve_memory_allows_dev_row",
-   "status": "deferred-P3"
+   "go_file": "internal/learning/learning_test.go",
+   "go_func": "TestApproveMemoryAllowsDevRow"
   },
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_approve_memory_rejects_non_dev_rows",
-   "status": "deferred-P3"
+   "go_file": "internal/learning/learning_test.go",
+   "go_func": "TestApproveMemoryRejectsNonDevRows"
   },
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_held_out_and_training_rows_absent_from_proposer_context",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "roles._known_non_issues partition filter has no Go test (the approve/publish partition guards are pinned by learning/sharedmem)"
   },
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_publish_allows_dev_row",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestPublishAllowsDevRow"
   },
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_publish_rejects_non_dev_row_without_store_entry",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestPublishRejectsNonDevRowWithoutStoreEntry"
   },
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_publish_rejects_training_row",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestPublishRejectsTrainingRow"
   },
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_shared_store_held_out_row_absent_dev_row_present",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "the shared-store wrapper unwrap + partition filter has no Go test"
   },
   {
    "python_file": "tests/test_pipeline.py",
@@ -3748,13 +3757,13 @@
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_brief_carries_divergence_and_next_action",
    "status": "deferred-P3",
-   "notes": "report/briefing modules = P3"
+   "notes": "no Go test pins the brief's divergence + L-01 next-action pairing"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_brief_no_plan_is_unchanged",
    "status": "deferred-P3",
-   "notes": "report/briefing modules = P3"
+   "notes": "no Go test pins the no-plan brief shape (divergence None, no divergence action)"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
@@ -3822,13 +3831,13 @@
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_report_renders_hypothesis_lenses",
    "status": "deferred-P3",
-   "notes": "report/briefing modules = P3"
+   "notes": "report.go's '## Hypothesis lenses' section has no Go test"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_report_without_plan_is_unchanged",
    "status": "deferred-P3",
-   "notes": "report/briefing modules = P3"
+   "notes": "report.go's '## Hypothesis lenses' section has no Go test"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
@@ -3982,7 +3991,9 @@
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_model_role_stages_route_to_real_prompts",
-   "status": "deferred-P3"
+   "go_file": "internal/adapter/adapter_test.go",
+   "go_func": "TestEveryMappedPromptFileExists",
+   "notes": "every STAGES row with a prompt resolves through the embedded pack and is non-empty"
   },
   {
    "python_file": "tests/test_playbooks.py",
@@ -3993,7 +4004,8 @@
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_playbook_tool_ids_are_all_in_the_registry",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "no Go test cross-checks every shipped playbook's tool_id against the tool registry"
   },
   {
    "python_file": "tests/test_playbooks.py",
@@ -4154,62 +4166,80 @@
   {
    "python_file": "tests/test_promotion.py",
    "python_func": "test_permission_error_on_unapproved_is_not_a_command",
-   "status": "deferred-P3"
+   "go_file": "internal/learning/learning_test.go",
+   "go_func": "TestPermissionErrorOnUnapprovedIsNotACommand"
   },
   {
    "python_file": "tests/test_promotion.py",
    "python_func": "test_promotion_commands_require_approval",
-   "status": "deferred-P3"
+   "go_file": "internal/learning/learning_test.go",
+   "go_func": "TestPromotionCommandsRequireApproval"
   },
   {
    "python_file": "tests/test_promotion.py",
    "python_func": "test_promotion_commands_single_substrate",
-   "status": "deferred-P3"
+   "go_file": "internal/learning/learning_test.go",
+   "go_func": "TestPromotionCommandsSingleSubstrate"
   },
   {
    "python_file": "tests/test_promotion.py",
    "python_func": "test_publish_promotes_approved_rows",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestPublishSecondCampaignWithApprovedMemory",
+   "notes": "approved memory publishes with memory_added==1; the idempotence half is pinned by TestPublishIsIdempotent"
   },
   {
    "python_file": "tests/test_reachability.py",
    "python_func": "test_brief_surfaces_reachability_for_stuck_class",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "briefing.go renders structurally_unreachable + the floors-set action; no Go test"
   },
   {
    "python_file": "tests/test_reachability.py",
    "python_func": "test_e4_never_diagnosed",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/gate_test.go",
+   "go_func": "TestReachabilityDiagnosticVectors",
+   "notes": "the E4 branch of the vector test"
   },
   {
    "python_file": "tests/test_reachability.py",
    "python_func": "test_e5_deployment_pin_only_rpc_missing",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "TestReachabilityDiagnosticVectors pins E4/E5-no-pins/E6; the deployment-pin-present + RPC-missing branch has no Go vector"
   },
   {
    "python_file": "tests/test_reachability.py",
    "python_func": "test_e5_no_pins",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/gate_test.go",
+   "go_func": "TestReachabilityDiagnosticVectors",
+   "notes": "the E5 source-only-pin branch (pin + FORK_RPC_URL lines)"
   },
   {
    "python_file": "tests/test_reachability.py",
    "python_func": "test_e6_chain_pin_warning_suppressed_for_simulation_classes",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/gate_test.go",
+   "go_func": "TestReachabilityDiagnosticVectors",
+   "notes": "the E6 single-chain branch (share-price-inflation) carries no cross-chain demand"
   },
   {
    "python_file": "tests/test_reachability.py",
    "python_func": "test_e6_needs_chain_pin",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/gate_test.go",
+   "go_func": "TestReachabilityDiagnosticVectors",
+   "notes": "the E6 cross-chain branch demands the exact 'no chain pin' wording"
   },
   {
    "python_file": "tests/test_reachability.py",
    "python_func": "test_floor_starts_from_source_snapshot",
-   "status": "deferred-P3"
+   "go_file": "internal/snapshot/compat_test.go",
+   "go_func": "TestAttachDeploymentAndChainPins",
+   "notes": "the deployment pin lands on the pinned snapshot and the snapshot stays active"
   },
   {
    "python_file": "tests/test_reachability.py",
    "python_func": "test_reachability_clear_after_pins",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "no Go test pins the post-pin clearing branch"
   },
   {
    "python_file": "tests/test_recency.py",
@@ -6452,22 +6482,26 @@
   {
    "python_file": "tests/test_tier1_minor_sweep.py",
    "python_func": "test_s2_critic_bundle_renders_zero_padded_citation",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "critic-bundle invariant lookup is pinned by TestCriticBundleSeesInvariantVerification; the zero-padded INV-001 citation through build_critic_context has no Go test"
   },
   {
    "python_file": "tests/test_tier1_minor_sweep.py",
    "python_func": "test_s3_uncovered_critical_spans_id_spellings",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "uncovered_critical is pinned by TestUncoveredCriticalVectors (INV-1 spellings only); the INV-001/INV-1 span has no Go vector"
   },
   {
    "python_file": "tests/test_tier1_minor_sweep.py",
    "python_func": "test_s4_invalid_regex_pattern_fails_loud_with_value_error",
-   "status": "deferred-P3"
+   "go_file": "internal/archetypes/archetypes_test.go",
+   "go_func": "TestS4InvalidRegexPatternFailsLoudWithValueError"
   },
   {
    "python_file": "tests/test_tier1_minor_sweep.py",
    "python_func": "test_s5_corrupt_overrides_degrade_gracefully",
-   "status": "deferred-P3"
+   "go_file": "internal/archetypes/archetypes_test.go",
+   "go_func": "TestS5CorruptOverridesDegradeGracefully"
   },
   {
    "python_file": "tests/test_trajectory.py",
@@ -6542,117 +6576,140 @@
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_anchors_are_per_probe_and_name_real_row_fields",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestAnchorsArePerProbeAndNameRealRowFields"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_assertion_strength_fires_on_buggy_and_is_blind_on_clean",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestAssertionStrengthFiresOnBuggyAndIsBlindOnClean"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_axis_bookkeeping_records_sites_rows_emitted_tail",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestAxisBookkeepingRecordsSitesRowsEmittedTail"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_blind_axis_always_publishes_a_citable_key",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestBlindAxisAlwaysPublishesACitableKey"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_collapsed_row_keeps_the_weakest_gate_and_its_own_site_first",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestCollapsedRowKeepsTheWeakestGateAndItsOwnSiteFirst"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_custody_primitive_fires_inherited_and_is_blind_on_clean",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestCustodyPrimitiveFiresInheritedAndIsBlindOnClean"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_morph_regression_rows_exist_in_fixtures",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestMorphRegressionRowsExistInFixtures"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_noisy_axis_cannot_evict_a_sparse_axis",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestNoisyAxisCannotEvictASparseAxis"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_pre_v2_index_is_rejected_loudly_by_every_entry_point",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestPreV2IndexIsRejectedLoudlyByEveryEntryPoint"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_quota_ceiling_trims_from_the_noisy_axis_and_records_missing",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestQuotaCeilingTrimsFromTheNoisyAxisAndRecordsMissing"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_ranking_regression_commitBatch_rank_1_and_sibling_collapse",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestRankingRegressionCommitBatchRank1AndSiblingCollapse"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_reserved_floor_is_never_trimmed_by_the_ceiling",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestReservedFloorIsNeverTrimmedByTheCeiling"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_resolve_gate_reports_actor_and_mechanism",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestResolveGateReportsActorAndMechanism"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_row_ids_are_stable_across_line_moves",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestRowIDsAreStableAcrossLineMoves"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_row_ids_follow_the_declared_hash",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestRowIDsFollowTheDeclaredHash"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_run_probes_registers_surface_and_logs_event",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestRunProbesRegistersSurfaceAndLogsEvent"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_sequential_cursor_fires_with_stranded_entry",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestSequentialCursorFiresWithStrandedEntry"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_sibling_collapse_is_one_obligation_on_the_repo_fixture",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestSiblingCollapseIsOneObligationOnTheRepoFixture"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_surface_blockers_are_the_four_state_closure",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestSurfaceBlockersAreTheFourStateClosure"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_surface_is_deterministic",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestSurfaceIsDeterministic"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_surface_validates_against_schema_and_rejects_row_drift",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestSurfaceValidatesAgainstSchemaAndRejectsRowDrift"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_trust_assumption_joins_assumption_carrying_actors",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestTrustAssumptionJoinsAssumptionCarryingActors"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_trust_join_maps_modifier_to_actor_trust",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestTrustJoinMapsModifierToActorTrust"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
@@ -6790,102 +6847,122 @@
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_a_deprioritized_row_discharges_its_axis_but_blocked_does_not",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestADeprioritizedRowDischargesItsAxisButBlockedDoesNot"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_a_moved_anchor_without_a_reemit_leaves_the_lens_open",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestAMovedAnchorWithoutAReemitLeavesTheLensOpen"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_a_new_surface_row_reopens_a_closed_lens",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestANewSurfaceRowReopensAClosedLens"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_a_registered_axis_absent_from_the_surface_is_one_missing_entry",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestARegisteredAxisAbsentFromTheSurfaceIsOneMissingEntry"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_a_sibling_gain_reopens_a_dispositioned_row",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestASiblingGainReopensADispositionedRow"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_blind_axis_needs_a_blank_attestation_to_close",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestBlindAxisNeedsABlankAttestationToClose"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_completion_discovery_depends_on_dispositioned_rows",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestCompletionDiscoveryDependsOnDispositionedRows"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_divergence_status_for_reads_the_campaign_surface_and_index",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestDivergenceStatusForReadsTheCampaignSurfaceAndIndex"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_emit_creates_one_priority_per_row_even_if_a_row_repeats",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestEmitCreatesOnePriorityPerRowEvenIfARowRepeats"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_emit_creates_one_priority_per_row_with_probe_provenance",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestEmitCreatesOnePriorityPerRowWithProbeProvenance"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_emit_twice_creates_no_duplicates",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestEmitTwiceCreatesNoDuplicates"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_grandfathered_campaign_without_a_surface_closes_as_before",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestGrandfatheredCampaignWithoutASurfaceClosesAsBefore"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_plan_schema_accepts_probe_provenance_and_rejects_drift",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestPlanSchemaAcceptsProbeProvenanceAndRejectsDrift"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_probe_risk_maps_rank_onto_the_existing_band_vocabulary",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestProbeRiskMapsRankOntoTheExistingBandVocabulary"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_reemit_does_not_clobber_answered_unless_the_shape_changed",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestReemitDoesNotClobberAnsweredUnlessTheShapeChanged"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_registered_axes_covers_every_probe_and_its_lens",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestRegisteredAxesCoversEveryProbeAndItsLens"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_row_question_is_deterministic_and_names_file_line_anchors",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestRowQuestionIsDeterministicAndNamesFileLineAnchors"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_row_shape_sha_tracks_the_anchor_tuple_not_the_row_id",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestRowShapeShaTracksTheAnchorTupleNotTheRowID"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_row_shape_sha_tracks_the_sibling_set_and_stranded_entry",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestRowShapeShaTracksTheSiblingSetAndStrandedEntry"
   },
   {
    "python_file": "tests/test_probe_emit.py",
    "python_func": "test_stale_surface_leaves_the_lens_open",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/emit_test.go",
+   "go_func": "TestStaleSurfaceLeavesTheLensOpen"
   },
   {
    "python_file": "tests/test_probes.py",
@@ -6909,317 +6986,380 @@
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_surface_stamps_the_tree_hash_and_the_schema_stays_closed",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestSurfaceStampsTheTreeHashAndTheSchemaStaysClosed"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_a_campaign_without_a_surface_is_unaffected",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "no Go test asserts the no-surface brief/report/divergence triple; the surface engine itself is pinned by internal/probes + cmd_probes"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_a_direct_library_closure_of_a_probe_row_must_name_its_anchor",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestADirectLibraryClosureOfAProbeRowMustNameItsAnchor"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_a_grandfathered_brief_does_not_gain_phase_guidance",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "no Go test pins the brief's phase-guidance fallback on a grandfathered (no-surface) campaign"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_answered_on_a_probe_row_requires_an_anchor",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestAnsweredOnAProbeRowRequiresAnAnchor"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_answered_records_the_rows_real_anchor_value",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestAnsweredRecordsTheRowsRealAnchorValue"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_answered_rejects_a_probe_row_the_surface_no_longer_carries",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestAnsweredRejectsAProbeRowTheSurfaceNoLongerCarries"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_answered_rejects_a_ref_that_is_not_the_anchor_it_claims",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestAnsweredRejectsARefThatIsNotTheAnchorItClaims"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_answered_rejects_an_anchor_the_probe_never_produced",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestAnsweredRejectsAnAnchorTheProbeNeverProduced"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_answered_still_works_for_non_probe_priorities",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestAnsweredStillWorksForNonProbePriorities"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_audit_detects_a_stale_surface_and_a_hand_edited_attestation",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestAuditDetectsAStaleSurfaceAndAHandEditedAttestation"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_audit_detects_probe_row_drift_in_both_directions",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestAuditDetectsProbeRowDriftInBothDirections"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_audit_flags_a_blank_attestation_for_an_axis_that_is_not_blind",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestAuditFlagsABlankAttestationForAnAxisThatIsNotBlind"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_audit_flags_surface_rows_that_were_never_emitted",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestAuditFlagsSurfaceRowsThatWereNeverEmitted"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_blank_attestation_closes_a_blind_axis",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestBlankAttestationClosesABlindAxis"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_blank_attestation_requires_a_blind_axis",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestBlankAttestationRequiresABlindAxis"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_blank_rejects_a_key_the_probe_never_published",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestBlankRejectsAKeyTheProbeNeverPublished"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_blank_rejects_an_unregistered_axis_and_a_missing_surface",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestBlankRejectsAnUnregisteredAxisAndAMissingSurface"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_blank_requires_a_written_reason_and_an_actor",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestBlankRequiresAWrittenReasonAndAnActor"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_brief_feeds_open_probe_rows_ahead_of_generic_items",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "briefing.go renders the open-probe-row block; no Go test asserts its placement/order"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_brief_marks_a_stale_surface",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "briefing.go renders the stale marker; no Go test covers the line"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_brief_prints_the_surface_line_and_counts_dispositions",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "briefing.go renders the probe-surface line; no Go test covers the rendered counts"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_ingest_cannot_close_a_probe_row_without_an_anchor",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestIngestCannotCloseAProbeRowWithoutAnAnchor"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_next_actions_ranks_probe_rows_by_the_probe_rank_key",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "no Go test for briefing._next_actions probe-row ranking (the rank key itself is pinned by internal/probes)"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_probes_list_all_shows_blind_keys_and_empty_axes",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestProbesListAllShowsBlindKeysAndEmptyAxes"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_probes_list_axis_filter_accepts_lens_and_axis_name",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestProbesListAxisFilterAcceptsLensAndAxisName"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_probes_list_json_is_machine_readable_and_tracks_staleness",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestProbesListJSONIsMachineReadableAndTracksStaleness"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_probes_list_shows_rows_anchors_and_dispositions",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestProbesListShowsRowsAnchorsAndDispositions"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_probes_list_without_a_surface_fails_loudly",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestProbesListWithoutASurfaceFailsLoudly"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_probes_run_emit_mints_priorities_and_is_idempotent",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestProbesRunEmitMintsPrioritiesAndIsIdempotent"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_probes_run_emit_without_a_plan_fails_loudly",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestProbesRunEmitWithoutAPlanFailsLoudly"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_probes_run_per_axis_quota_is_honoured",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestProbesRunPerAxisQuotaIsHonoured"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_probes_run_without_an_index_names_the_rebuild_command",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestProbesRunWithoutAnIndexNamesTheRebuildCommand"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_probes_run_writes_the_surface_and_reports_every_axis",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestProbesRunWritesTheSurfaceAndReportsEveryAxis"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_report_marks_a_stale_surface",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "report.go renders the STALE marker; no Go test covers the line"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_report_renders_the_mechanical_candidate_surface",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "report.go renders the mechanical-surface section; no Go test"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_accumulator_basis_skew_fires_on_buggy_and_is_silent_on_clean",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestAccumulatorBasisSkewFiresOnBuggyAndIsSilentOnClean"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_accumulator_companion_is_not_the_accumulators_own_persistence",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestAccumulatorCompanionIsNotTheAccumulatorsOwnPersistence"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_accumulator_persists_through_a_plain_copy",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestAccumulatorPersistsThroughAPlainCopy"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_accumulator_recognizes_state_declared_in_a_base_contract",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestAccumulatorRecognizesStateDeclaredInABaseContract"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_axis_names_are_unique_even_when_a_lens_carries_several_probes",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestAxisNamesAreUniqueEvenWhenALensCarriesSeveralProbes"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_blank_store_keys_the_axis_when_three_probes_share_the_lens",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestBlankStoreKeysTheAxisWhenThreeProbesShareTheLens"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_every_new_probe_anchor_field_moves_the_row_shape",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestEveryNewProbeAnchorFieldMovesTheRowShape"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_legacy_lens_attestation_survives_a_sibling_axis_attestation",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestLegacyLensAttestationSurvivesASiblingAxisAttestation"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_new_axes_publish_sites_rows_and_the_four_state_status",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestNewAxesPublishSitesRowsAndTheFourStateStatus"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_new_probe_shape_follows_the_anchor_line_but_row_id_does_not",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestNewProbeShapeFollowsTheAnchorLineButRowIDDoesNot"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_registry_ships_the_six_probes_with_rank_and_anchors",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestRegistryShipsTheSixProbesWithRankAndAnchors"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_short_circuitable_guard_fires_on_the_buggy_guard_and_blinds_on_clean",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestShortCircuitableGuardFiresOnTheBuggyGuardAndBlindsOnClean"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_two_rows_of_each_new_probe_get_distinct_row_ids",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestTwoRowsOfEachNewProbeGetDistinctRowIDs"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_anchor_help_is_derived_from_the_registry",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestAnchorHelpIsDerivedFromTheRegistry"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_blank_axis_help_advertises_the_lens_spelling",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestBlankAxisHelpAdvertisesTheLensSpelling"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_blank_lens_spelling_resolves_to_the_axis_that_published_the_key",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestBlankLensSpellingResolvesToTheAxisThatPublishedTheKey"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_probes_list_axis_filter_by_lens_shows_every_probe_on_it",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestProbesListAxisFilterByLensShowsEveryProbeOnIt"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_no_axis_with_rows_can_report_emitted_with_zero_obligations",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestNoAxisWithRowsCanReportEmittedWithZeroObligations"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_quota_knobs_that_would_rebuild_a_vacuous_closure_are_rejected",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestQuotaKnobsThatWouldRebuildAVacuousClosureAreRejected"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_probes_run_rejects_a_quota_that_obliges_nothing",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestProbesRunRejectsAQuotaThatObligesNothing"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_custody_primitive_fires_on_cast_form_calls_only",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestCustodyPrimitiveFiresOnCastFormCallsOnly"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_floor_reserve_larger_than_total_is_a_loud_warning",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestFloorReserveLargerThanTotalIsALoudWarning"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_test_double_paths_are_recognized_and_rank_neutral",
-   "status": "deferred-P3"
+   "go_file": "internal/probes/probes_test.go",
+   "go_func": "TestTestDoublePathsAreRecognizedAndRankNeutral"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_a_shrunken_quota_cannot_close_a_lens_on_its_tail",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestAShrunkenQuotaCannotCloseALensOnItsTail"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_audit_re_derives_rows_and_catches_a_hand_edited_anchor",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestAuditReDerivesRowsAndCatchesAHandEditedAnchor"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_lens_probe_closure_message_carries_the_counts",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestLensProbeClosureMessageCarriesTheCounts"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_probes_run_and_list_surface_the_floor_overrun_warning",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_probes_test.go",
+   "go_func": "TestProbesRunAndListSurfaceTheFloorOverrunWarning"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
@@ -7607,152 +7747,188 @@
   {
    "python_file": "tests/test_plan_rebuild.py",
    "python_func": "test_bad_file_rebuild_creates_no_archive",
-   "status": "deferred-P3"
+   "go_file": "internal/orchestrator/plan_rebuild_test.go",
+   "go_func": "TestBadRebuildCreatesNoArchive",
+   "notes": "ported at the orchestrator boundary (validate-before-archive); the CLI exit/stderr half is pinned by internal/cli cmd_plan tests"
   },
   {
    "python_file": "tests/test_plan_rebuild.py",
    "python_func": "test_file_on_existing_plan_without_rebuild_fails_loudly",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "no Go test pins the --file-on-existing-plan refusal (exit 2 naming --rebuild)"
   },
   {
    "python_file": "tests/test_plan_rebuild.py",
    "python_func": "test_fresh_campaign_plan_and_rebuild_both_write",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "partially covered by TestPlanBootstrapView/TestPlanRebuildIsQuiet; no single Go test pins all three fresh-campaign branches"
   },
   {
    "python_file": "tests/test_plan_rebuild.py",
    "python_func": "test_mark_answered_rewrites_in_place_without_archiving",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "no Go test pins answered-in-place plan rewrite + the registry sha following the content"
   },
   {
    "python_file": "tests/test_plan_rebuild.py",
    "python_func": "test_no_file_json_on_existing_plan_is_read_only",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_plan_test.go",
+   "go_func": "TestPlanJSON",
+   "notes": "read-only --json view: read_only:true, lens id order, open divergence, note on stderr"
   },
   {
    "python_file": "tests/test_plan_rebuild.py",
    "python_func": "test_no_file_on_existing_plan_is_read_only",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_plan_test.go",
+   "go_func": "TestPlanReadOnlyView",
+   "notes": "bare plan on an existing plan: same view, --rebuild note on stderr"
   },
   {
    "python_file": "tests/test_plan_rebuild.py",
    "python_func": "test_probe_emit_still_rewrites_in_place_without_archiving",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "TestProbesRunEmitMintsPrioritiesAndIsIdempotent pins the in-place emit; no Go test asserts the no-archive/no-plan.superseded half"
   },
   {
    "python_file": "tests/test_plan_rebuild.py",
    "python_func": "test_rebuild_archives_outgoing_plan_and_registers_it",
-   "status": "deferred-P3"
+   "go_file": "internal/planner/archive_test.go",
+   "go_func": "TestArchivePlanByteIdenticalAndRegistered",
+   "notes": "archive_plan: byte-identical 0001 copy + plan.superseded registry row + event fields"
   },
   {
    "python_file": "tests/test_plan_rebuild.py",
    "python_func": "test_two_rebuilds_are_monotonic_and_never_clobber",
-   "status": "deferred-P3"
+   "go_file": "internal/planner/archive_test.go",
+   "go_func": "TestArchivePlanMonotonicAndNeverReusesANumber",
+   "notes": "second rebuild archives 0002 without touching 0001"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_attention_debt_does_not_suppress_the_phase_guidance_fallback",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "no Go test pins the attention-debt/phase-guidance interaction"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_brief_corpus_command_names_the_campaign_and_counts_extra_findings",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "briefing.go renders the corpus line; no Go test covers the rendered brief text"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_brief_has_no_corpus_line_without_irrelevant_checks",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "briefing.go renders the corpus line; no Go test covers the rendered brief text"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_brief_is_clean_on_an_empty_campaign",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "briefing.go renders the corpus line; no Go test covers the rendered brief text"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_brief_line_names_the_discounted_label_and_never_claims_silence",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "briefing.go renders the corpus line; no Go test covers the rendered brief text"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_brief_shows_corpus_line_when_checks_are_irrelevant",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "briefing.go renders the corpus line; no Go test covers the rendered brief text"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_campaign_derived_memory_row_carries_capability_labels",
-   "status": "deferred-P3"
+   "go_file": "internal/learning/learning_test.go",
+   "go_func": "TestCampaignDerivedMemoryRowCarriesCapabilityLabels"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_capability_label_overlap_is_not_stamped",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestCapabilityLabelOverlapIsNotStamped"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_cite_against_a_campaign_derived_row_overlaps_on_capability",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestCiteAgainstACampaignDerivedRowOverlapsOnCapability"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_coarse_class_alone_is_stamped_and_logs_one_gap",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestCoarseClassAloneIsStampedAndLogsOneGap"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_coarse_class_plus_shared_capability_is_not_stamped",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestCoarseClassPlusSharedCapabilityIsNotStamped"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_cwe_overlap_is_not_stamped",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestCWEEOverlapIsNotStamped",
+   "notes": ""
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_discounted_gap_reason_does_not_claim_corpus_silence",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestDiscountedGapReasonDoesNotClaimCorpusSilence"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_discriminative_bug_class_alone_is_overlap",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestDiscriminativeBugClassAloneIsOverlap"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_memory_row_without_capability_labels_keeps_validating",
-   "status": "deferred-P3"
+   "go_file": "internal/learning/learning_test.go",
+   "go_func": "TestMemoryRowWithoutCapabilityLabelsKeepsValidating"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_mixed_cite_is_not_stamped_and_lists_only_overlapping_rows",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestMixedCiteIsNotStampedAndListsOnlyOverlappingRows"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_mixed_cite_where_the_only_shared_class_is_coarse_is_stamped",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestMixedCiteWhereTheOnlySharedClassIsCoarseIsStamped"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_mixed_cite_whose_only_shared_class_is_a_real_lineage_counts",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestMixedCiteWhoseOnlySharedClassIsARealLineageCounts"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_nondiscriminative_classes_is_only_the_taxonomy_catch_all",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestNondiscriminativeClassesIsOnlyTheTaxonomyCatchAll"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_pre_existing_check_without_relevance_still_verifies_unchanged",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestPreExistingCheckWithoutRelevanceStillVerifiesUnchanged"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_prose_only_similarity_scores_zero_overlap",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestProseOnlySimilarityScoresZeroOverlap"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
@@ -7785,107 +7961,135 @@
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_repeating_an_identical_check_logs_no_second_gap",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestRepeatingAnIdenticalCheckLogsNoSecondGap"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_row_terminal_counts_as_capability_label",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestRowTerminalCountsAsCapabilityLabel"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_same_class_cite_counts_for_every_class_but_the_catch_all",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestSameClassCiteCountsForEveryClassButTheCatchAll"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_truly_silent_gap_keeps_the_silence_wording",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestTrulySilentGapKeepsTheSilenceWording"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_twenty_coarse_class_rows_for_a_rollup_finding_are_all_irrelevant",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestTwentyCoarseClassRowsForARollupFindingAreAllIrrelevant"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_two_identical_coarse_recordings_produce_identical_entries",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestTwoIdenticalCoarseRecordingsProduceIdenticalEntries"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_two_identical_recordings_produce_identical_entries",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestTwoIdenticalRecordingsProduceIdenticalEntries"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_zero_overlap_check_is_stamped_logged_and_still_satisfies_gate",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestZeroOverlapCheckIsStampedLoggedAndStillSatisfiesGate"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_zero_row_check_is_stamped_and_logged",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/relevance_test.go",
+   "go_func": "TestZeroRowCheckIsStampedAndLogged"
   },
   {
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_audit_clean_after_decision_and_catches_a_hand_edit",
-   "status": "deferred-P3"
+   "go_file": "internal/audit/unpriceable_test.go",
+   "go_func": "TestAuditUnpriceableCleanThenCatchesAHandEdit",
+   "notes": ""
   },
   {
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_bare_priceable_false_without_a_ceiling_is_not_a_decision",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/unpriceable_test.go",
+   "go_func": "TestUnpriceableDecisionReadsOnlyAnExplicitFalseWithACeiling",
+   "notes": "bare-false / null-ceiling / blank-ceiling cases are all non-decisions"
   },
   {
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_brief_gate_and_report_survive_an_unpriceable_decision",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "no Go test drives brief+gate+report over an unpriceable decision"
   },
   {
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_deficit_names_the_unpriceable_option",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/unpriceable_test.go",
+   "go_func": "TestDeficitNamesTheUnpriceableOption"
   },
   {
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_economic_clause_satisfied_by_named_decision",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_gate_checklist_test.go",
+   "go_func": "TestNamedDecisionLinePrintsForEconomicClass",
+   "notes": "merged: the Go test records the decision via risk.RecordUnpriceable and pins the gate's NAMED DECISION/UNPRICEABLE acceptance; the pre-decision E7 refusal is pinned by TestNamedDecisionLineNeedsAnEconomicClause"
   },
   {
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_priced_impact_behaviour_unchanged",
-   "status": "deferred-P3"
+   "go_file": "internal/risk/unpriceable_test.go",
+   "go_func": "TestPricedImpactBehaviourUnchanged"
   },
   {
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_priced_impact_reverses_the_decision",
-   "status": "deferred-P3"
+   "go_file": "internal/risk/unpriceable_test.go",
+   "go_func": "TestPricedImpactReversesTheDecision"
   },
   {
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_report_prints_unpriceable_where_the_number_used_to_go",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "report.go prints the unpriceable basis; no Go test covers the rendered line"
   },
   {
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_schema_accepts_priceable_false_with_ceiling",
-   "status": "deferred-P3"
+   "go_file": "internal/validation/unpriceable_schema_test.go",
+   "go_func": "TestFindingSchemaAcceptsPriceableFalseWithCeiling",
+   "notes": ""
   },
   {
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_unpriceable_is_mutually_exclusive_with_priced_flags",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_impact_test.go",
+   "go_func": "TestImpactUnpriceableConflict",
+   "notes": "the exact refusal text: --unpriceable cannot be combined with --extractable"
   },
   {
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_unpriceable_records_state_and_event",
-   "status": "deferred-P3"
+   "go_file": "internal/risk/unpriceable_test.go",
+   "go_func": "TestRecordUnpriceableRecordsStateAndEvent",
+   "notes": ""
   },
   {
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_unpriceable_requires_each_named_flag",
-   "status": "deferred-P3"
+   "go_file": "internal/risk/unpriceable_test.go",
+   "go_func": "TestRecordUnpriceableRequiresEachNamedInput",
+   "notes": ""
   },
   {
    "python_file": "tests/test_briefing_memory.py",
@@ -8079,20 +8283,21 @@
   {
    "python_file": "tests/test_work_order.py",
    "python_func": "test_brief_json_stays_additive_and_parses",
-   "status": "deferred-P3",
-   "notes": "PORT-NOTE: the briefing work-list rendering is unported (P3); the shared key it sorts by is ported in internal/risk/workorder_test.go"
+   "notes": "the additive-key contract of build_brief",
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefJSONIsAdditive"
   },
   {
    "python_file": "tests/test_work_order.py",
    "python_func": "test_confirmed_queue_and_bounty_list_are_work_ordered",
    "status": "deferred-P3",
-   "notes": "PORT-NOTE: the briefing work-list rendering is unported (P3); the shared key it sorts by is ported in internal/risk/workorder_test.go"
+   "notes": "no Go test asserts the brief's rendered queue/bounty work order (the shared key is pinned by internal/risk TestWorkOrder*)"
   },
   {
    "python_file": "tests/test_work_order.py",
    "python_func": "test_e6_view_keeps_mandatory_work_first",
    "status": "deferred-P3",
-   "notes": "PORT-NOTE: the briefing work-list rendering is unported (P3); the shared key it sorts by is ported in internal/risk/workorder_test.go"
+   "notes": "no Go test asserts the brief's mandatory-first rendered order"
   },
   {
    "python_file": "tests/test_work_order.py",
@@ -8105,7 +8310,7 @@
    "python_file": "tests/test_work_order.py",
    "python_func": "test_gate_deficits_are_work_ordered",
    "status": "deferred-P3",
-   "notes": "PORT-NOTE: the briefing work-list rendering is unported (P3); the shared key it sorts by is ported in internal/risk/workorder_test.go"
+   "notes": "TestBriefListsTheE6QueueAndGateDeficits pins presence, not order; no Go test asserts gate_deficits work order"
   },
   {
    "python_file": "tests/test_work_order.py",
@@ -8118,13 +8323,13 @@
    "python_file": "tests/test_work_order.py",
    "python_func": "test_memory_recall_pending_is_work_ordered",
    "status": "deferred-P3",
-   "notes": "PORT-NOTE: the briefing work-list rendering is unported (P3); the shared key it sorts by is ported in internal/risk/workorder_test.go"
+   "notes": "TestBriefingKeyIsMemoryRecallPending pins the key, not the order"
   },
   {
    "python_file": "tests/test_work_order.py",
    "python_func": "test_structurally_unreachable_is_work_ordered",
    "status": "deferred-P3",
-   "notes": "PORT-NOTE: the briefing work-list rendering is unported (P3); the shared key it sorts by is ported in internal/risk/workorder_test.go"
+   "notes": "no Go test asserts the brief's structurally_unreachable order"
   },
   {
    "python_file": "tests/test_work_order.py",
