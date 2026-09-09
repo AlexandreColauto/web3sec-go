@@ -82,7 +82,7 @@ func writeLogLines(t *testing.T, c *state.Campaign, lines []string) {
 
 func TestAuditCleanCampaignPasses(t *testing.T) {
 	Setup()
-	if n := SectionNames(); len(n) != 13 {
+	if n := SectionNames(); len(n) != 14 {
 		t.Fatalf("sections not registered; SectionNames()=%v", n)
 	}
 	c := initCampaign(t)
@@ -103,7 +103,7 @@ func TestAuditCleanCampaignPasses(t *testing.T) {
 	want := []string{"event_log", "artifacts", "execs", "findings",
 		"projection", "snapshots", "relations", "floor_policy",
 		"stage_completions", "baselines", "invariant_verification",
-		"probe_surface", "unpriceable"}
+		"sequence_coverage", "probe_surface", "unpriceable"}
 	if got := sectionNames(t, report); !reflect.DeepEqual(got, want) {
 		t.Fatalf("sections = %v, want %v", got, want)
 	}
@@ -463,15 +463,14 @@ func TestAuditSummaryLineFail(t *testing.T) {
 }
 
 // TestAuditRegistryOrderPinned: the section registry exposes every ported
-// section in Python's audit.py code order. Python's section 12
-// (sequence_coverage) is not ported yet, so unpriceable (its 14th) sits
-// directly after probe_surface (13).
+// section in Python's audit.py code order — all 14, sequence_coverage (12)
+// between invariant_verification (11) and probe_surface (13).
 func TestAuditRegistryOrderPinned(t *testing.T) {
 	Setup()
 	want := []string{"event_log", "artifacts", "execs", "findings",
 		"projection", "snapshots", "relations", "floor_policy",
 		"stage_completions", "baselines", "invariant_verification",
-		"probe_surface", "unpriceable"}
+		"sequence_coverage", "probe_surface", "unpriceable"}
 	if got := SectionNames(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("SectionNames() = %v, want %v", got, want)
 	}

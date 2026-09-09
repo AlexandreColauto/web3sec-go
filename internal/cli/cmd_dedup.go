@@ -19,9 +19,11 @@ import (
 
 	"websec/internal/dedup"
 	"websec/internal/findings"
+	"websec/internal/forkpoc"
 	"websec/internal/invariants"
 	"websec/internal/orchestrator"
 	"websec/internal/reproduction"
+	"websec/internal/sequencepoc"
 	"websec/internal/state"
 	"websec/internal/taxonomy"
 	"websec/internal/validation"
@@ -254,6 +256,16 @@ func ensureSeams() {
 		TierOf:                  reproduction.TierOf,
 		NextTier:                reproduction.NextTier,
 		MintIndependentEvidence: reproduction.MintIndependentEvidence,
+	})
+	// sequence_poc: the CONFIRMED gate (findings), the fork-PoC evidence
+	// floor (forkpoc) and the reproduction queue (orchestrator) all read the
+	// same predicate/verifier. One implementation, three seams.
+	findings.SetOnchainSequenceRequired(sequencepoc.OnchainSequenceRequired)
+	findings.SetVerifySequenceCoverage(sequencepoc.VerifySequenceCoverage)
+	forkpoc.SetOnchainSequenceRequired(sequencepoc.OnchainSequenceRequired)
+	forkpoc.SetVerifySequenceCoverage(sequencepoc.VerifySequenceCoverage)
+	orchestrator.SetSequencePOC(orchestrator.SequencePOCAPI{
+		IsSequenceRequired: sequencepoc.IsSequenceRequired,
 	})
 }
 

@@ -1,0 +1,131 @@
+set -u
+LC_ALL=C
+WD=/wd
+cd "$WD" || exit 1
+rm -f seq_err.txt sequence_result.json .sent_once
+
+add_step() {
+  if [ -z "$STEPS" ]; then printf '%s' "$1"; else printf '%s,%s' "$STEPS" "$1"; fi
+}
+add_assert() {
+  if [ -z "$ASSERTS" ]; then printf '%s' "$1"; else printf '%s,%s' "$ASSERTS" "$1"; fi
+}
+emit_result() {
+  printf '{"spec_hash": "%s", "steps": [%s], "final_assertions": [%s], "overall": "%s", "generated_at": "%s"}\n' \
+    "$SPEC_HASH" "$STEPS" "$ASSERTS" "$1" "$GENAT" > "$WD/sequence_result.json"
+}
+dec_mul16_add() {
+  s=$1; d=$2; out=""; carry=$d; i=${#s}
+  while [ "$i" -gt 0 ]; do
+    i=$((i - 1))
+    c=$(expr substr "$s" $((i + 1)) 1)
+    prod=$((c * 16 + carry))
+    out=$(printf '%d%s' "$((prod % 10))" "$out")
+    carry=$((prod / 10))
+  done
+  while [ "$carry" -gt 0 ]; do
+    out=$(printf '%d%s' "$((carry % 10))" "$out")
+    carry=$((carry / 10))
+  done
+  [ -z "$out" ] && out=0
+  printf '%s' "$out"
+}
+hex2dec() {
+  h=${1#0x}; d=0; i=1
+  while [ "$i" -le "${#h}" ]; do
+    c=$(expr substr "$h" "$i" 1)
+    case $c in
+      [0-9]) n=$c ;;
+      a|A) n=10 ;; b|B) n=11 ;; c|C) n=12 ;; d|D) n=13 ;; e|E) n=14 ;; f|F) n=15 ;;
+      *) return 1 ;;
+    esac
+    d=$(dec_mul16_add "$d" "$n") || return 1
+    i=$((i + 1))
+  done
+  printf '%s' "$d"
+}
+dec_cmp() {
+  a=$1; b=$2
+  while [ "${a#0}" != "$a" ]; do a=${a#0}; done
+  while [ "${b#0}" != "$b" ]; do b=${b#0}; done
+  [ -z "$a" ] && a=0
+  [ -z "$b" ] && b=0
+  if [ "${#a}" -lt "${#b}" ]; then echo -1; return; fi
+  if [ "${#a}" -gt "${#b}" ]; then echo 1; return; fi
+  if [ "$a" = "$b" ]; then echo 0; return; fi
+  if [ "$a" \< "$b" ]; then echo -1; else echo 1; fi
+}
+anvil_addr() {
+  n=$1
+  while [ "${n#0}" != "$n" ]; do
+    n=${n#0}
+    [ -z "$n" ] && { n=0; break; }
+  done
+  [ -z "$n" ] && n=0
+  printf '%s\n' "$UNLOCKED" | sed -n "$((n + 1))p"
+}
+sanitize_reason() {
+  head -n1 "$WD/seq_err.txt" | tr '"\\' '  ' | cut -c1-200
+}
+sanitize_field() {
+  printf '%s\n' "$1" | head -n1 | tr '"\\' '  ' | cut -c1-200
+}
+
+SPEC_HASH=sha256:08404aaa8d97e978306b7989dcbfeb79bdd6620d5bc98906fd048123030148b1
+GENAT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+STEPS=""; ASSERTS=""; ASSERTFAIL=0; STEPFAIL=0
+UNLOCKED=$(cast rpc --rpc-url "$FORK_RPC_URL" eth_accounts 2>/dev/null | grep -o '0x[0-9a-fA-F]\{40\}')
+A_attacker=$(anvil_addr 0) || { echo "seq: cannot resolve anvil:0" >&2; exit 1; }
+[ -n "${A_attacker}" ] || { echo "seq: empty address for anvil:0" >&2; exit 1; }
+out=$(cast send --rpc-url "$FORK_RPC_URL" 0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd 'deposit(uint256)' 1000 --from "${A_attacker}" --unlocked 2>"$WD/seq_err.txt")
+rc=$?
+if [ $rc -ne 0 ]; then reason=$(sanitize_reason); echo "seq: step 1 failed (rc=$rc): $reason" >&2; STEPFAIL=1; emit_result fail; exit 1; fi
+tx=$(printf '%s\n' "$out" | grep -oi 'transaction[- ]*hash[: ]*0x[0-9a-fA-F]*' | head -n1 | grep -o '0x[0-9a-fA-F]*')
+STEPS=$(add_step "{\"step\": 1, \"actor\": \"attacker\", \"tx_hash\": \"$tx\", \"status\": \"success\", \"revert_reason\": null}")
+cast rpc --rpc-url "$FORK_RPC_URL" anvil_mine 3 >/dev/null 2>&1 || { echo "seq: anvil_mine before step 2 failed" >&2; exit 1; }
+out=$(cast send --rpc-url "$FORK_RPC_URL" 0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd 'claim()' --private-key "${FORK_KEY_VICTIM:-}" 2>"$WD/seq_err.txt")
+rc=$?
+if [ $rc -eq 0 ]; then echo "seq: step 2 expected revert but succeeded" >&2; emit_result fail; exit 1; fi
+reason=$(sanitize_reason)
+STEPS=$(add_step "{\"step\": 2, \"actor\": \"victim\", \"tx_hash\": null, \"status\": \"revert\", \"revert_reason\": \"$reason\"}")
+raw=$(cast balance --rpc-url "$FORK_RPC_URL" $(anvil_addr 0) 2>"$WD/seq_err.txt") || raw=""
+obs=$(sanitize_field "$raw")
+case $raw in
+  0x*|0X*) norm=$(hex2dec "$raw") || norm="" ;;
+  "") norm="" ;;
+  *[!0-9]*) norm="" ;;
+  *) norm=$raw ;;
+esac
+if [ -z "$norm" ]; then passed=false; else
+c=$(dec_cmp "$norm" 2000)
+case '>=' in
+  ">=") if [ "$c" != "-1" ]; then passed=true; else passed=false; fi ;;
+  "<=") if [ "$c" != "1" ]; then passed=true; else passed=false; fi ;;
+  "==") if [ "$c" = "0" ]; then passed=true; else passed=false; fi ;;
+  "!=") if [ "$c" != "0" ]; then passed=true; else passed=false; fi ;;
+esac
+fi
+if [ "$passed" = "false" ]; then ASSERTFAIL=1; fi
+ASSERTS=$(add_assert "{\"id\": \"A1\", \"kind\": \"balance\", \"observed\": \"$obs\", \"expected\": \">= 2000\", \"passed\": $passed}")
+raw=$(cast storage --rpc-url "$FORK_RPC_URL" 0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd 5 2>"$WD/seq_err.txt") || raw=""
+obs=$(sanitize_field "$raw")
+case $raw in
+  0x*|0X*) norm=$(hex2dec "$raw") || norm="" ;;
+  "") norm="" ;;
+  *[!0-9]*) norm="" ;;
+  *) norm=$raw ;;
+esac
+if [ -z "$norm" ]; then passed=false; else
+c=$(dec_cmp "$norm" 18446744073709551616)
+case == in
+  ">=") if [ "$c" != "-1" ]; then passed=true; else passed=false; fi ;;
+  "<=") if [ "$c" != "1" ]; then passed=true; else passed=false; fi ;;
+  "==") if [ "$c" = "0" ]; then passed=true; else passed=false; fi ;;
+  "!=") if [ "$c" != "0" ]; then passed=true; else passed=false; fi ;;
+esac
+fi
+if [ "$passed" = "false" ]; then ASSERTFAIL=1; fi
+ASSERTS=$(add_assert "{\"id\": \"A2\", \"kind\": \"storage\", \"observed\": \"$obs\", \"expected\": \"== 18446744073709551616\", \"passed\": $passed}")
+if [ "$STEPFAIL" = "0" ] && [ "$ASSERTFAIL" = "0" ]; then OVERALL=pass; else OVERALL=fail; fi
+emit_result "$OVERALL"
+if [ "$OVERALL" = "pass" ]; then echo "seq: PASS spec=$SPEC_HASH steps=2 overall=pass"; exit 0; else echo "seq: overall fail (stepfail=$STEPFAIL assertfail=$ASSERTFAIL)" >&2; exit 1; fi

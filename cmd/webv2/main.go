@@ -14,9 +14,11 @@ import (
 	"websec/internal/cli"
 	"websec/internal/dedup"
 	"websec/internal/findings"
+	"websec/internal/forkpoc"
 	"websec/internal/invariants"
 	"websec/internal/orchestrator"
 	"websec/internal/reproduction"
+	"websec/internal/sequencepoc"
 	"websec/internal/taxonomy"
 	// init() side effects: taxonomy wires findings.SetClassAdvisory,
 	// floors wires findings.SetEffectiveFloor (Python import-time seams),
@@ -60,6 +62,16 @@ func init() {
 		TierOf:                  reproduction.TierOf,
 		NextTier:                reproduction.NextTier,
 		MintIndependentEvidence: reproduction.MintIndependentEvidence,
+	})
+	// sequence_poc -> findings/forkpoc/orchestrator (Python: import-time
+	// module access). Without this the sequence gate is fail-open on the
+	// CONFIRMED path and the queue never flags a multi-tx finding.
+	findings.SetOnchainSequenceRequired(sequencepoc.OnchainSequenceRequired)
+	findings.SetVerifySequenceCoverage(sequencepoc.VerifySequenceCoverage)
+	forkpoc.SetOnchainSequenceRequired(sequencepoc.OnchainSequenceRequired)
+	forkpoc.SetVerifySequenceCoverage(sequencepoc.VerifySequenceCoverage)
+	orchestrator.SetSequencePOC(orchestrator.SequencePOCAPI{
+		IsSequenceRequired: sequencepoc.IsSequenceRequired,
 	})
 	// Golden-suite hook: Python's findings.new_finding_id mints a RAW
 	// uuid4, so the WEBV2_UUID pin never reaches it and the reference twin

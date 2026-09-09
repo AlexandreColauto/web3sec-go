@@ -194,30 +194,12 @@ func assertScenarioSections(t *testing.T, report validation.Value, sc p1Fixture)
 	}
 }
 
-// pythonSummaryWithoutSeqCoverage drops the one section the Go twin does not
-// implement yet (sequence_coverage, Python's section 12, reserved for a
-// later phase), so the remaining summary text is compared byte-for-byte.
-func pythonSummaryWithoutSeqCoverage(line string) string {
-	parts := strings.Split(line, ", ")
-	kept := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if strings.HasPrefix(p, "sequence_coverage=") {
-			continue
-		}
-		kept = append(kept, p)
-	}
-	if len(kept) != len(parts)-1 {
-		return line // no sequence_coverage token: compare verbatim
-	}
-	return strings.Join(kept, ", ")
-}
-
 func assertSummaryOracle(t *testing.T, report validation.Value, pythonLine string) {
 	t.Helper()
 	if pythonLine == "" {
 		t.Fatal("fixture carries no summary_line oracle")
 	}
-	got, want := AuditSummaryLine(report), pythonSummaryWithoutSeqCoverage(pythonLine)
+	got, want := AuditSummaryLine(report), pythonLine
 	if got != want {
 		t.Errorf("summary mismatch\n got: %s\nwant: %s", got, want)
 	}
@@ -244,28 +226,16 @@ func pythonSectionOrder(t *testing.T, fullReport string) []string {
 	return out
 }
 
-// goSectionOrder is Python's order minus the one unported section.
-func goSectionOrder(pythonOrder []string) []string {
-	out := make([]string, 0, len(pythonOrder))
-	for _, name := range pythonOrder {
-		if name == "sequence_coverage" {
-			continue
-		}
-		out = append(out, name)
-	}
-	return out
-}
-
 func TestAuditRegistryOrderMatchesPython(t *testing.T) {
 	Setup()
 	vec := loadP1Vectors(t)
 	sc := vec.fixture(t, "parity_p1")
-	want := goSectionOrder(pythonSectionOrder(t, sc.FullReport))
+	want := pythonSectionOrder(t, sc.FullReport)
 	if got := SectionNames(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("SectionNames() = %v\nwant %v", got, want)
 	}
-	if len(want) != 13 {
-		t.Fatalf("want 13 registered sections, got %d", len(want))
+	if len(want) != 14 {
+		t.Fatalf("want 14 registered sections, got %d", len(want))
 	}
 }
 
@@ -625,8 +595,8 @@ func TestProbeSurfaceSeam(t *testing.T) {
 // (init + floor policy + stage completion + invariant + baseline) is
 // materialized from the Python twin's own files, audited, and the full
 // report is compared section-for-section against the LIVE Python report.
-// The only permitted delta is Python's section 12 (sequence_coverage), which
-// the P0 plan reserves for a later phase.
+// Every section, including Python's section 12 (sequence_coverage), is
+// compared; there is no permitted delta.
 func TestP1FullReportParity(t *testing.T) {
 	vec := loadP1Vectors(t)
 	for _, name := range []string{"parity_p1", "parity_p1_problem"} {
@@ -638,21 +608,13 @@ func TestP1FullReportParity(t *testing.T) {
 			if got := objStr(report, "campaign_id"); got != objStr(py, "campaign_id") {
 				t.Fatalf("campaign_id = %q, want %q", got, objStr(py, "campaign_id"))
 			}
-			var pythonOnly []string
 			shared := 0
 			for _, kv := range objAt(py, "sections").O {
-				if kv.K == "sequence_coverage" {
-					pythonOnly = append(pythonOnly, kv.K)
-					continue
-				}
 				shared++
 				assertSectionOracle(t, report, kv.K, validation.DumpIndented(kv.V))
 			}
-			if !reflect.DeepEqual(pythonOnly, []string{"sequence_coverage"}) {
-				t.Errorf("python-only sections = %v, want [sequence_coverage]", pythonOnly)
-			}
-			if shared != 13 {
-				t.Errorf("shared sections = %d, want 13", shared)
+			if shared != 14 {
+				t.Errorf("shared sections = %d, want 14", shared)
 			}
 			if reportOK(report) != (objAt(py, "ok").Kind == validation.Bool &&
 				objAt(py, "ok").B) {
@@ -660,32 +622,12 @@ func TestP1FullReportParity(t *testing.T) {
 			}
 			assertSummaryOracle(t, report, sc.SummaryLine)
 			// one whole-report comparison: canonical JSON of the Go report
-			// must equal the Python report minus the unported section.
+			// must equal the Python report.
 			got := validation.CanonCompact(report)
-			want := validation.CanonCompact(withoutSection(py, "sequence_coverage"))
+			want := validation.CanonCompact(py)
 			if got != want {
 				t.Errorf("full report mismatch\n got: %s\nwant: %s", got, want)
 			}
 		})
 	}
-}
-
-// withoutSection drops one named section from a report (the documented
-// sequence_coverage delta).
-func withoutSection(report validation.Value, name string) validation.Value {
-	out := make([]validation.KV, 0, len(report.O))
-	for _, top := range report.O {
-		if top.K != "sections" {
-			out = append(out, top)
-			continue
-		}
-		secs := make([]validation.KV, 0, len(top.V.O))
-		for _, s := range top.V.O {
-			if s.K != name {
-				secs = append(secs, s)
-			}
-		}
-		out = append(out, validation.KV{K: top.K, V: validation.VObj(secs...)})
-	}
-	return validation.VObj(out...)
 }

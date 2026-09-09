@@ -1,0 +1,327 @@
+{
+ "events": [
+  "{\"data\":{\"program\":\"Acme\"},\"ref\":\"C-X\",\"type\":\"campaign.created\"}",
+  "{\"data\":{\"bug_class\":\"logic-error\",\"class_advisory\":null,\"intake_warnings\":[],\"model\":null,\"stage\":\"06\",\"trajectory\":\"attacker\"},\"ref\":\"F-X\",\"type\":\"finding.ingested\"}",
+  "{\"data\":{\"actor\":\"triage\",\"from\":\"HYPOTHESIS\",\"reason\":\"triage\",\"to\":\"POSSIBLE\"},\"ref\":\"F-X\",\"type\":\"finding.status\"}",
+  "{\"data\":{\"exit\":0,\"finding\":\"F-X\",\"profile\":\"docker-networkless\",\"reported_by\":\"test-harness\"},\"ref\":\"EXEC-X\",\"type\":\"sandbox.exec.registered\"}",
+  "{\"data\":{\"attempt\":1,\"failure_class\":null,\"outcome\":\"reproduced\"},\"ref\":\"F-X\",\"type\":\"repro.attempt\"}",
+  "{\"data\":{\"evidence_id\":\"EV-X\",\"level\":\"E4\",\"type\":\"foundry-test\"},\"ref\":\"F-X\",\"type\":\"finding.evidence_added\"}",
+  "{\"data\":{\"base_rung\":\"R-X\",\"ladder_id\":\"LAD-X\"},\"ref\":\"F-X\",\"type\":\"ladder.started\"}",
+  "{\"data\":{\"axes\":[\"capital-minimization\"],\"name\":\"dust\",\"rung_id\":\"R-X\"},\"ref\":\"F-X\",\"type\":\"ladder.variant_added\"}",
+  "{\"data\":{\"axis\":\"cap-saturation\",\"note\":\"no payout cap in this code path\"},\"ref\":\"F-X\",\"type\":\"ladder.axis_explored\"}",
+  "{\"data\":{\"axes\":[\"ordering-permutation\"],\"name\":\"sandwich\",\"rung_id\":\"R-X\"},\"ref\":\"F-X\",\"type\":\"ladder.variant_added\"}",
+  "{\"data\":{\"rung_id\":\"R-X\"},\"ref\":\"F-X\",\"type\":\"ladder.rung_disproved\"}",
+  "{\"data\":{\"exit\":0,\"finding\":\"F-X\",\"profile\":\"docker-networkless\",\"reported_by\":\"test-harness\"},\"ref\":\"EXEC-X\",\"type\":\"sandbox.exec.registered\"}",
+  "{\"data\":{\"evidence_id\":\"EV-X\",\"level\":\"E4\",\"type\":\"foundry-test\"},\"ref\":\"F-X\",\"type\":\"finding.evidence_added\"}",
+  "{\"data\":{\"exec_id\":\"EXEC-X\",\"rung_id\":\"R-X\"},\"ref\":\"F-X\",\"type\":\"ladder.rung_reproduced\"}",
+  "{\"data\":{\"capital_usd\":1.0,\"extraction_ratio\":1.0,\"rung_id\":\"R-X\"},\"ref\":\"F-X\",\"type\":\"ladder.claim_pinned\"}",
+  "{\"data\":{\"axis\":\"precondition-removal\",\"note\":\"the deposit precondition is enforced by the code\"},\"ref\":\"F-X\",\"type\":\"ladder.axis_explored\"}",
+  "{\"data\":{\"axis\":\"role-conflation\",\"note\":\"victim role is not open to the attacker here\"},\"ref\":\"F-X\",\"type\":\"ladder.axis_explored\"}",
+  "{\"data\":{\"actor\":\"operator\"},\"ref\":\"F-X\",\"type\":\"ladder.complete\"}"
+ ],
+ "finding": {
+  "affected": [
+   {
+    "function": "deposit",
+    "path": "src/V.sol"
+   }
+  ],
+  "attacker": {
+   "capabilities": [],
+   "profile": "arbitrary EOA",
+   "required_capital_usd": 1
+  },
+  "campaign_id": "C-X",
+  "capabilities": {
+   "granted": [
+    "drain_treasury"
+   ],
+   "required": []
+  },
+  "created_at": "2026-09-06T12:00:00.000000+00:00",
+  "dedup": {
+   "technical_signature": "c385c412bd47fa3f"
+  },
+  "economic_impact": {
+   "extraction_ratio": 1
+  },
+  "evidence": [
+   {
+    "artifact_id": "EXEC-X",
+    "command": "forge test --match-test test_x",
+    "description": "sandboxed unit PoC",
+    "evidence_id": "EV-X",
+    "level": "E4",
+    "produced_at": "2026-09-06T12:00:00.000000+00:00",
+    "sandbox_profile": "docker-networkless",
+    "snapshot_id": "unpinned",
+    "type": "foundry-test"
+   },
+   {
+    "artifact_id": "EXEC-X",
+    "command": "forge test --match-test test_dust",
+    "description": "variant rung dust: dust the pool with one wei",
+    "evidence_id": "EV-X",
+    "level": "E4",
+    "produced_at": "2026-09-06T12:00:00.000000+00:00",
+    "sandbox_profile": "docker-networkless",
+    "snapshot_id": "unpinned",
+    "type": "foundry-test"
+   }
+  ],
+  "finding_id": "F-X",
+  "history": [
+   {
+    "actor": "06",
+    "at": "2026-09-06T12:00:00.000000+00:00",
+    "from": "NEW",
+    "reason": "ingested from 06",
+    "to": "HYPOTHESIS"
+   },
+   {
+    "actor": "triage",
+    "at": "2026-09-06T12:00:00.000000+00:00",
+    "from": "HYPOTHESIS",
+    "reason": "triage",
+    "to": "POSSIBLE"
+   }
+  ],
+  "maximization": {
+   "claim_from": "R-X",
+   "disposition": "complete",
+   "ladder_id": "LAD-X",
+   "maximal_rung_id": "R-X"
+  },
+  "risk": {},
+  "root_cause": {
+   "class": "logic-error",
+   "description": "test fixture: rounding loss on deposit"
+  },
+  "snapshot_ids": {
+   "chain": null,
+   "deployment": null,
+   "source": "unpinned"
+  },
+  "status": "POSSIBLE",
+  "title": "Rounding loss",
+  "trajectory": "attacker",
+  "updated_at": "2026-09-06T12:00:00.000000+00:00",
+  "verification": {
+   "reproduction": {
+    "attempts": [
+     {
+      "artifact_id": "EXEC-X",
+      "attempt_id": "ATT-0b67e5",
+      "command": null,
+      "failure_class": null,
+      "fresh_context": false,
+      "notes": "",
+      "outcome": "reproduced"
+     }
+    ],
+    "status": "reproduced",
+    "tier_reached": "T2"
+   }
+  }
+ },
+ "ladder": {
+  "axes_explored": [
+   "capital-minimization",
+   "cap-saturation",
+   "ordering-permutation",
+   "precondition-removal",
+   "role-conflation"
+  ],
+  "axis_notes": {
+   "cap-saturation": "no payout cap in this code path",
+   "precondition-removal": "the deposit precondition is enforced by the code",
+   "role-conflation": "victim role is not open to the attacker here"
+  },
+  "campaign_id": "C-X",
+  "created_at": "2026-09-06T12:00:00.000000+00:00",
+  "disposition": {
+   "actor": "operator",
+   "at": "2026-09-06T12:00:00.000000+00:00",
+   "reason": null,
+   "state": "complete"
+  },
+  "finding_id": "F-X",
+  "history": [
+   {
+    "at": "2026-09-06T12:00:00.000000+00:00",
+    "event": "disproved",
+    "rung_id": "R-X"
+   },
+   {
+    "at": "2026-09-06T12:00:00.000000+00:00",
+    "event": "reproduced",
+    "exec_id": "EXEC-X",
+    "rung_id": "R-X"
+   },
+   {
+    "at": "2026-09-06T12:00:00.000000+00:00",
+    "event": "claim_pinned",
+    "rung_id": "R-X"
+   }
+  ],
+  "ladder_id": "LAD-X",
+  "maximal_rung_id": "R-X",
+  "updated_at": "2026-09-06T12:00:00.000000+00:00",
+  "variants": [
+   {
+    "added_preconditions": [],
+    "axes": [],
+    "capital_usd": null,
+    "created_at": "2026-09-06T12:00:00.000000+00:00",
+    "description": "as claimed at reproduction: Rounding loss",
+    "evidence_id": null,
+    "exec_id": "EXEC-X",
+    "extraction_ratio": null,
+    "name": "base",
+    "reason": "",
+    "removed_preconditions": [],
+    "reproduced_at": null,
+    "rung_id": "R-X",
+    "status": "reproduced"
+   },
+   {
+    "added_preconditions": [
+     "hold until oracle"
+    ],
+    "axes": [
+     "capital-minimization"
+    ],
+    "capital_usd": 1,
+    "created_at": "2026-09-06T12:00:00.000000+00:00",
+    "description": "dust the pool with one wei",
+    "evidence_id": "EV-X",
+    "exec_id": "EXEC-X",
+    "extraction_ratio": 1,
+    "name": "dust",
+    "reason": "",
+    "removed_preconditions": [
+     "victim stakes"
+    ],
+    "reproduced_at": "2026-09-06T12:00:00.000000+00:00",
+    "rung_id": "R-X",
+    "status": "reproduced"
+   },
+   {
+    "added_preconditions": [],
+    "axes": [
+     "ordering-permutation"
+    ],
+    "capital_usd": null,
+    "created_at": "2026-09-06T12:00:00.000000+00:00",
+    "description": "sandwich the accounting update",
+    "evidence_id": null,
+    "exec_id": null,
+    "extraction_ratio": null,
+    "name": "sandwich",
+    "reason": "the pool rejects 1 wei deposits (MIN_DEPOSIT)",
+    "removed_preconditions": [],
+    "reproduced_at": null,
+    "rung_id": "R-X",
+    "status": "disproved"
+   }
+  ]
+ },
+ "report": {
+  "axes_explored": [
+   "capital-minimization",
+   "cap-saturation",
+   "ordering-permutation",
+   "precondition-removal",
+   "role-conflation"
+  ],
+  "disposition": {
+   "actor": "operator",
+   "at": "2026-09-06T12:00:00.000000+00:00",
+   "reason": null,
+   "state": "complete"
+  },
+  "finding_id": "F-X",
+  "ladder_id": "LAD-X",
+  "maximal": {
+   "added_preconditions": [
+    "hold until oracle"
+   ],
+   "axes": [
+    "capital-minimization"
+   ],
+   "capital_usd": 1,
+   "created_at": "2026-09-06T12:00:00.000000+00:00",
+   "description": "dust the pool with one wei",
+   "evidence_id": "EV-X",
+   "exec_id": "EXEC-X",
+   "extraction_ratio": 1,
+   "name": "dust",
+   "reason": "",
+   "removed_preconditions": [
+    "victim stakes"
+   ],
+   "reproduced_at": "2026-09-06T12:00:00.000000+00:00",
+   "rung_id": "R-X",
+   "status": "reproduced"
+  },
+  "rungs": [
+   {
+    "added_preconditions": [],
+    "axes": [],
+    "capital_usd": null,
+    "created_at": "2026-09-06T12:00:00.000000+00:00",
+    "description": "as claimed at reproduction: Rounding loss",
+    "evidence_id": null,
+    "exec_id": "EXEC-X",
+    "extraction_ratio": null,
+    "name": "base",
+    "reason": "",
+    "removed_preconditions": [],
+    "reproduced_at": null,
+    "rung_id": "R-X",
+    "status": "reproduced"
+   },
+   {
+    "added_preconditions": [
+     "hold until oracle"
+    ],
+    "axes": [
+     "capital-minimization"
+    ],
+    "capital_usd": 1,
+    "created_at": "2026-09-06T12:00:00.000000+00:00",
+    "description": "dust the pool with one wei",
+    "evidence_id": "EV-X",
+    "exec_id": "EXEC-X",
+    "extraction_ratio": 1,
+    "name": "dust",
+    "reason": "",
+    "removed_preconditions": [
+     "victim stakes"
+    ],
+    "reproduced_at": "2026-09-06T12:00:00.000000+00:00",
+    "rung_id": "R-X",
+    "status": "reproduced"
+   },
+   {
+    "added_preconditions": [],
+    "axes": [
+     "ordering-permutation"
+    ],
+    "capital_usd": null,
+    "created_at": "2026-09-06T12:00:00.000000+00:00",
+    "description": "sandwich the accounting update",
+    "evidence_id": null,
+    "exec_id": null,
+    "extraction_ratio": null,
+    "name": "sandwich",
+    "reason": "the pool rejects 1 wei deposits (MIN_DEPOSIT)",
+    "removed_preconditions": [],
+    "reproduced_at": null,
+    "rung_id": "R-X",
+    "status": "disproved"
+   }
+  ],
+  "unexplored_axes": []
+ }
+}

@@ -1,0 +1,708 @@
+// Port tests for internal/maximization (webv2/maximization.py).
+//
+// DEVIATION (declared): the Python repo carries no test_maximization.py (it
+// was deleted with test_cli_ladder.py in commit 300fd74), so these are
+// behavior tests written against the module's own contract, cross-checked
+// against the live Python module with a parity driver (.scratch/).
+package maximization
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"websec/internal/findings"
+	"websec/internal/sandbox"
+	"websec/internal/state"
+	"websec/internal/validation"
+)
+
+func kv(k string, v validation.Value) validation.KV { return validation.KV{K: k, V: v} }
+
+func newCampaign(t *testing.T, name string) *state.Campaign {
+	t.Helper()
+	c, err := state.Init(t.TempDir(), name, state.InitOpts{})
+	if err != nil {
+		t.Fatalf("init campaign: %v", err)
+	}
+	return c
+}
+
+func seedGlobalMemory(t *testing.T) {
+	t.Helper()
+	row := validation.VObj(
+		kv("memory_id", validation.VStr("MEM-shared01")),
+		kv("campaign_id", validation.VStr("ingest:test:case")),
+		kv("finding_id", validation.VNull()),
+		kv("snapshot_id", validation.VNull()),
+		kv("created_at", validation.VStr("2026-09-06T00:00:00+00:00")),
+		kv("kind", validation.VStr("confirmed")),
+		kv("status", validation.VStr("CONFIRMED")),
+		kv("pattern", validation.VStr("Shared memory pattern")),
+		kv("bug_class", validation.VStr("logic-error")),
+		kv("cwe", validation.VNull()),
+		kv("evidence_summary", validation.VStr("Seeded incident.")),
+		kv("partition", validation.VStr("dev")),
+		kv("schema_version", validation.VInt(2)),
+		kv("rejection_class", validation.VNull()),
+		kv("deciding_propositions", validation.VArr()),
+		kv("promotion_status", validation.VStr("promoted")),
+		kv("approved_by", validation.VStr("operator")),
+		kv("approved_at", validation.VStr("2026-09-06T00:00:00+00:00")),
+	)
+	wrapper := validation.VArr(validation.VObj(
+		kv("program_key", validation.VStr("test|other|-")),
+		kv("published_at", validation.VStr("2026-09-06T00:00:00+00:00")),
+		kv("row", row),
+		kv("scope", validation.VStr("global"))))
+	findings.SetSharedMemoryRows(func(string) ([]validation.Value, error) {
+		return wrapper.A, nil
+	})
+	t.Cleanup(func() {
+		findings.SetSharedMemoryRows(
+			func(string) ([]validation.Value, error) { return nil, nil })
+	})
+}
+
+// confirmedFinding ingests and confirms one logic-error finding with a real
+// sandboxed exec, so reproduce_rung has something to mint against.
+func confirmedFinding(t *testing.T, c *state.Campaign, title string) validation.Value {
+	t.Helper()
+	f, err := findings.IngestHypothesis(c, validation.VObj(
+		kv("title", validation.VStr(title)),
+		kv("root_cause", validation.VObj(
+			kv("class", validation.VStr("logic-error")),
+			kv("description", validation.VStr(
+				"test fixture: rounding loss on deposit")))),
+		kv("affected", validation.VArr(validation.VObj(
+			kv("path", validation.VStr("src/V.sol")),
+			kv("function", validation.VStr("deposit"))))),
+		kv("attacker", validation.VObj(
+			kv("profile", validation.VStr("arbitrary EOA")),
+			kv("capabilities", validation.VArr()))),
+		kv("capabilities", validation.VObj(
+			kv("granted", validation.VArr(validation.VStr("drain_treasury"))),
+			kv("required", validation.VArr()))),
+	), "attacker", "06", "")
+	if err != nil {
+		t.Fatalf("ingest: %v", err)
+	}
+	fid := objStr(f, "finding_id")
+	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "triage",
+		"", false); err != nil {
+		t.Fatal(err)
+	}
+	rec := registerExec(t, c, fid)
+	if _, err := findings.AddEvidence(c, fid, validation.VObj(
+		kv("evidence_id", validation.VStr("EV-unit")),
+		kv("level", validation.VStr("E4")),
+		kv("type", validation.VStr("foundry-test")),
+		kv("description", validation.VStr("sandboxed unit PoC")),
+		kv("sandbox_profile", objAt(rec, "profile")),
+		kv("artifact_id", objAt(rec, "exec_id")))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := findings.SetCriticVerdict(c, fid, "confirmed", "checked"); err != nil {
+		t.Fatal(err)
+	}
+	seedGlobalMemory(t)
+	if _, err := findings.RecordMemoryCheck(c, fid, []validation.Value{
+		validation.VObj(
+			kv("memory_ids", validation.VArr(validation.VStr("MEM-shared01"))),
+			kv("mode", validation.VStr("negative")))}); err != nil {
+		t.Fatal(err)
+	}
+	vf, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ver := asObj(objAt(vf, "verification"))
+	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+		kv("tier_reached", validation.VStr("T2")),
+		kv("status", validation.VStr("reproduced")),
+		kv("attempts", validation.VArr())))
+	vf.O = setOrAppend(vf.O, "verification", ver)
+	if err := findings.SaveFinding(c, &vf); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := findings.Transition(c, fid, "CONFIRMED", "gates passed", "",
+		"", false); err != nil {
+		t.Fatalf("transition CONFIRMED: %v", err)
+	}
+	out, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func registerExec(t *testing.T, c *state.Campaign, fid string) validation.Value {
+	t.Helper()
+	rec, err := sandbox.RegisterExec(c, sandbox.RegisterOpts{
+		Profile: "docker-networkless", Command: "forge test --match-test test_x",
+		ReportedBy: "test-harness", FindingID: &fid,
+		StdoutText: "PASS: test_x\n"})
+	if err != nil {
+		t.Fatalf("register exec: %v", err)
+	}
+	return rec
+}
+
+func keysOf(v validation.Value) []string {
+	out := []string{}
+	for _, kv := range v.O {
+		out = append(out, kv.K)
+	}
+	return out
+}
+
+// --- start_ladder ----------------------------------------------------------
+
+func TestStartLadderBaseRungAndIdempotence(t *testing.T) {
+	c := newCampaign(t, "Acme")
+	f := confirmedFinding(t, c, "Rounding loss")
+	fid := objStr(f, "finding_id")
+	lad, err := StartLadder(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantKeys := []string{"ladder_id", "finding_id", "campaign_id", "created_at",
+		"updated_at", "axes_explored", "axis_notes", "variants",
+		"maximal_rung_id", "disposition", "history"}
+	if strings.Join(keysOf(lad), ",") != strings.Join(wantKeys, ",") {
+		t.Fatalf("ladder keys = %v", keysOf(lad))
+	}
+	if !strings.HasPrefix(objStr(lad, "ladder_id"), "LAD-") {
+		t.Fatalf("ladder_id = %s", objStr(lad, "ladder_id"))
+	}
+	base := listOf(lad, "variants").A[0]
+	wantRungKeys := []string{"rung_id", "name", "description", "axes",
+		"capital_usd", "extraction_ratio", "removed_preconditions",
+		"added_preconditions", "status", "exec_id", "evidence_id", "reason",
+		"created_at", "reproduced_at"}
+	if strings.Join(keysOf(base), ",") != strings.Join(wantRungKeys, ",") {
+		t.Fatalf("rung keys = %v", keysOf(base))
+	}
+	if objStr(base, "name") != "base" || objStr(base, "status") != "reproduced" {
+		t.Fatalf("base = %s", validation.CanonCompact(base))
+	}
+	if objStr(base, "description") != "as claimed at reproduction: Rounding loss" {
+		t.Fatalf("description = %s", objStr(base, "description"))
+	}
+	if !strings.HasPrefix(objStr(base, "exec_id"), "EXEC-") {
+		t.Fatalf("base exec_id = %s", objStr(base, "exec_id"))
+	}
+	if objStr(asObj(objAt(lad, "disposition")), "state") != "open" {
+		t.Fatalf("disposition = %v", objAt(lad, "disposition"))
+	}
+	f2, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mx := asObj(objAt(f2, "maximization"))
+	if objStr(mx, "ladder_id") != objStr(lad, "ladder_id") ||
+		objStr(mx, "disposition") != "open" {
+		t.Fatalf("finding.maximization = %v", mx)
+	}
+	// idempotent
+	again, err := StartLadder(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objStr(again, "ladder_id") != objStr(lad, "ladder_id") {
+		t.Fatal("start_ladder is not idempotent")
+	}
+	// the ladder persisted on disk
+	raw, err := os.ReadFile(filepath.Join(c.Dir, "ladders", fid+".json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), objStr(lad, "ladder_id")) {
+		t.Fatal("ladder artifact missing")
+	}
+}
+
+func TestStartLadderAssumedBaseWithoutReproduction(t *testing.T) {
+	c := newCampaign(t, "Acme")
+	f, err := findings.IngestHypothesis(c, validation.VObj(
+		kv("title", validation.VStr("Unproven claim")),
+		kv("root_cause", validation.VObj(
+			kv("class", validation.VStr("logic-error")),
+			kv("description", validation.VStr("mechanism described in detail here")))),
+		kv("affected", validation.VArr(validation.VObj(
+			kv("path", validation.VStr("src/V.sol")),
+			kv("function", validation.VStr("f"))))),
+		kv("attacker", validation.VObj(
+			kv("profile", validation.VStr("arbitrary EOA")),
+			kv("capabilities", validation.VArr()),
+			kv("required_capital_usd", validation.VFloat(250000)))),
+	), "code", "test", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lad, err := StartLadder(c, objStr(f, "finding_id"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := listOf(lad, "variants").A[0]
+	if objStr(base, "status") != "assumed" {
+		t.Fatalf("status = %s", objStr(base, "status"))
+	}
+	if objStr(base, "exec_id") != "" {
+		t.Fatalf("exec_id = %v", objAt(base, "exec_id"))
+	}
+	if got := objAt(base, "capital_usd"); got.Kind != validation.Flt || got.F != 250000 {
+		t.Fatalf("capital = %v", got)
+	}
+}
+
+// --- add_variant / explore_axis -------------------------------------------
+
+func TestAddVariantValidationsAndAxisBookkeeping(t *testing.T) {
+	c := newCampaign(t, "Acme")
+	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	if _, err := AddVariant(c, fid, "dust", "dust the pool with one wei",
+		nil, nil, nil, nil, nil); err == nil ||
+		!strings.Contains(err.Error(), "must name the axis") {
+		t.Fatalf("empty axes err = %v", err)
+	}
+	if _, err := AddVariant(c, fid, "dust", "dust the pool with one wei",
+		[]string{"bogus"}, nil, nil, nil, nil); err == nil ||
+		!strings.Contains(err.Error(), "unknown axis 'bogus'; the axes are "+
+			"('capital-minimization', 'precondition-removal', "+
+			"'role-conflation', 'ordering-permutation', 'cap-saturation')") {
+		t.Fatalf("unknown axis err = %v", err)
+	}
+	if _, err := AddVariant(c, fid, "dust", "dust the pool with one wei",
+		[]string{"capital-minimization"}, nil, nil, nil, nil); err == nil ||
+		!strings.Contains(err.Error(), "no ladder for "+fid) {
+		t.Fatalf("missing ladder err = %v", err)
+	}
+	if _, err := StartLadder(c, fid); err != nil {
+		t.Fatal(err)
+	}
+	cap1, ratio := 1.0, 0.99
+	rung, err := AddVariant(c, fid, "dust", "dust the pool with one wei",
+		[]string{"capital-minimization", "cap-saturation"}, &cap1, &ratio,
+		[]string{"victim stakes"}, []string{"hold until oracle"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objStr(rung, "status") != "assumed" || objStr(rung, "reason") != "" {
+		t.Fatalf("rung = %s", validation.CanonCompact(rung))
+	}
+	if got := listStrings(listOf(rung, "axes")); len(got) != 2 {
+		t.Fatalf("axes = %v", got)
+	}
+	lad, err := LoadLadder(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listOf(*lad, "variants").A) != 2 {
+		t.Fatalf("variants = %v", listOf(*lad, "variants"))
+	}
+	if got := strings.Join(listStrings(listOf(*lad, "axes_explored")), ","); got !=
+		"capital-minimization,cap-saturation" {
+		t.Fatalf("axes_explored = %s", got)
+	}
+}
+
+func TestAddVariantRefusedOnCompleteLadder(t *testing.T) {
+	c := newCampaign(t, "Acme")
+	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	lad, err := StartLadder(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lad.O = setOrAppend(lad.O, "disposition", validation.VObj(
+		kv("state", validation.VStr("complete")),
+		kv("reason", validation.VNull()),
+		kv("actor", validation.VStr("op")),
+		kv("at", validation.VStr("2026-09-06T00:00:00+00:00"))))
+	if _, err := SaveLadder(c, &lad); err != nil {
+		t.Fatal(err)
+	}
+	_, err = AddVariant(c, fid, "late", "a late variant attempt",
+		[]string{"cap-saturation"}, nil, nil, nil, nil)
+	want := "ladder disposition is complete; reopen it with an explicit " +
+		"reason before adding work (webv2 ladder reopen)"
+	if err == nil || err.Error() != want {
+		t.Fatalf("err = %v, want %q", err, want)
+	}
+	// a waived ladder is re-openable
+	lad.O = setOrAppend(lad.O, "disposition", validation.VObj(
+		kv("state", validation.VStr("waived")),
+		kv("reason", validation.VStr("budget exhausted, accepted risk")),
+		kv("actor", validation.VStr("op")),
+		kv("at", validation.VStr("2026-09-06T00:00:00+00:00"))))
+	if _, err := SaveLadder(c, &lad); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AddVariant(c, fid, "late", "a late variant attempt",
+		[]string{"cap-saturation"}, nil, nil, nil, nil); err != nil {
+		t.Fatalf("waived ladder must accept work: %v", err)
+	}
+}
+
+func TestExploreAxisRequiresWrittenNote(t *testing.T) {
+	c := newCampaign(t, "Acme")
+	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	if _, err := StartLadder(c, fid); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ExploreAxis(c, fid, "bogus", "long enough note"); err == nil ||
+		!strings.Contains(err.Error(), "unknown axis") {
+		t.Fatalf("err = %v", err)
+	}
+	if _, err := ExploreAxis(c, fid, "cap-saturation", "nope"); err == nil ||
+		!strings.Contains(err.Error(), "needs a written reason") {
+		t.Fatalf("err = %v", err)
+	}
+	lad, err := ExploreAxis(c, fid, "cap-saturation",
+		"  no payout cap in this code path  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	notes := asObj(objAt(lad, "axis_notes"))
+	if objStr(notes, "cap-saturation") != "no payout cap in this code path" {
+		t.Fatalf("note = %v", notes)
+	}
+	if got := strings.Join(listStrings(listOf(lad, "axes_explored")), ","); got !=
+		"cap-saturation" {
+		t.Fatalf("axes_explored = %s", got)
+	}
+}
+
+// --- reproduce / disprove --------------------------------------------------
+
+func TestReproduceRungBindsExecAndEvidence(t *testing.T) {
+	c := newCampaign(t, "Acme")
+	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	if _, err := StartLadder(c, fid); err != nil {
+		t.Fatal(err)
+	}
+	rung, err := AddVariant(c, fid, "dust", "dust the pool with one wei",
+		[]string{"capital-minimization"}, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := registerExec(t, c, fid)
+	execID := objStr(rec, "exec_id")
+	got, err := ReproduceRung(c, fid, objStr(rung, "rung_id"), execID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objStr(got, "status") != "reproduced" || objStr(got, "exec_id") != execID {
+		t.Fatalf("rung = %s", validation.CanonCompact(got))
+	}
+	if !strings.HasPrefix(objStr(got, "evidence_id"), "EV-") {
+		t.Fatalf("evidence_id = %v", objAt(got, "evidence_id"))
+	}
+	if objStr(got, "reproduced_at") == "" {
+		t.Fatal("reproduced_at missing")
+	}
+	lad2, err := LoadLadder(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hist := listOf(*lad2, "history").A
+	if len(hist) != 1 || objStr(hist[0], "event") != "reproduced" ||
+		objStr(hist[0], "exec_id") != execID {
+		t.Fatalf("history = %v", hist)
+	}
+	// unknown rung: Python's KeyError text (str(e) is repr(message))
+	_, err = ReproduceRung(c, fid, "R-nope", execID, nil)
+	if err == nil || err.Error() != `"unknown rung 'R-nope'; rungs: [`+
+		validation.PyReprStr(objStr(listOf(*lad2, "variants").A[0], "rung_id"))+
+		`, `+validation.PyReprStr(objStr(rung, "rung_id"))+`]"` {
+		t.Fatalf("unknown rung err = %v", err)
+	}
+}
+
+func TestDisproveRungRecordsNegativeMemory(t *testing.T) {
+	c := newCampaign(t, "Acme")
+	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	if _, err := StartLadder(c, fid); err != nil {
+		t.Fatal(err)
+	}
+	rung, err := AddVariant(c, fid, "dust", "dust the pool with one wei",
+		[]string{"capital-minimization"}, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rungID := objStr(rung, "rung_id")
+	if _, err := DisproveRung(c, fid, rungID, "short"); err == nil ||
+		!strings.Contains(err.Error(), "a disproof needs a written reason") {
+		t.Fatalf("err = %v", err)
+	}
+	var got MemoryRequest
+	SetQueueMemory(func(_ *state.Campaign, req MemoryRequest) (validation.Value, error) {
+		got = req
+		return validation.VObj(kv("memory_id", validation.VStr("MEM-neg"))), nil
+	})
+	t.Cleanup(func() { SetQueueMemory(nil) })
+	out, err := DisproveRung(c, fid, rungID,
+		"  the pool rejects 1 wei deposits (MIN_DEPOSIT)  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objStr(out, "status") != "disproved" ||
+		objStr(out, "reason") != "the pool rejects 1 wei deposits (MIN_DEPOSIT)" {
+		t.Fatalf("rung = %s", validation.CanonCompact(out))
+	}
+	if got.Kind != "disproved" || got.Status != "DISPROVED" ||
+		got.FindingID == nil || *got.FindingID != fid {
+		t.Fatalf("memory request = %+v", got)
+	}
+	if got.Pattern != "maximal-exploitation dead end: dust — dust the pool with one wei" {
+		t.Fatalf("pattern = %s", got.Pattern)
+	}
+	if got.EvidenceSummary != "the pool rejects 1 wei deposits (MIN_DEPOSIT)" {
+		t.Fatalf("evidence_summary = %s", got.EvidenceSummary)
+	}
+	if got.Negative == nil || objStr(*got.Negative, "why_safe") !=
+		"the pool rejects 1 wei deposits (MIN_DEPOSIT)" {
+		t.Fatalf("negative = %v", got.Negative)
+	}
+	// a reproduced rung cannot be disproved
+	rec := registerExec(t, c, fid)
+	if _, err := ReproduceRung(c, fid, rungID, objStr(rec, "exec_id"), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DisproveRung(c, fid, rungID, "it actually works fine"); err == nil ||
+		!strings.Contains(err.Error(), "cannot be disproved") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+// --- set_maximal / complete / waive ---------------------------------------
+
+func TestSetMaximalPinsOnlyReproducedRungs(t *testing.T) {
+	c := newCampaign(t, "Acme")
+	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	if _, err := StartLadder(c, fid); err != nil {
+		t.Fatal(err)
+	}
+	capUSD, ratio := 1.0, 1.0
+	rung, err := AddVariant(c, fid, "dust", "dust the pool with one wei",
+		[]string{"capital-minimization"}, &capUSD, &ratio, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rungID := objStr(rung, "rung_id")
+	_, err = SetMaximal(c, fid, rungID)
+	if err == nil || !strings.Contains(err.Error(), "is 'assumed'; the claim "+
+		"may only pin to a REPRODUCED rung") {
+		t.Fatalf("err = %v", err)
+	}
+	rec := registerExec(t, c, fid)
+	if _, err := ReproduceRung(c, fid, rungID, objStr(rec, "exec_id"), nil); err != nil {
+		t.Fatal(err)
+	}
+	f2, err := SetMaximal(c, fid, rungID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mx := asObj(objAt(f2, "maximization"))
+	if objStr(mx, "maximal_rung_id") != rungID ||
+		objStr(mx, "claim_from") != rungID {
+		t.Fatalf("maximization = %v", mx)
+	}
+	if got := objAt(asObj(objAt(f2, "attacker")), "required_capital_usd"); got.Kind !=
+		validation.Flt || got.F != 1 {
+		t.Fatalf("capital = %v", got)
+	}
+	if got := objAt(asObj(objAt(f2, "economic_impact")), "extraction_ratio"); got.Kind !=
+		validation.Flt || got.F != 1 {
+		t.Fatalf("ratio = %v", got)
+	}
+	lad2, err := LoadLadder(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objStr(*lad2, "maximal_rung_id") != rungID {
+		t.Fatalf("ladder maximal = %v", objAt(*lad2, "maximal_rung_id"))
+	}
+}
+
+func TestCompleteLadderGatesAndSuccess(t *testing.T) {
+	c := newCampaign(t, "Acme")
+	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	if _, err := StartLadder(c, fid); err != nil {
+		t.Fatal(err)
+	}
+	_, err := CompleteLadder(c, fid, "operator")
+	if err == nil || !strings.Contains(err.Error(), "ladder not complete: "+
+		"unexplored axes ['capital-minimization', 'precondition-removal', "+
+		"'role-conflation', 'ordering-permutation', 'cap-saturation']") {
+		t.Fatalf("unexplored err = %v", err)
+	}
+	for _, a := range Axes {
+		if _, err := ExploreAxis(c, fid, a, "considered and not applicable"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, err = CompleteLadder(c, fid, "operator")
+	if err == nil || !strings.Contains(err.Error(), "no maximal rung pinned") {
+		t.Fatalf("no-maximal err = %v", err)
+	}
+	rung, err := AddVariant(c, fid, "dust", "dust the pool with one wei",
+		[]string{"capital-minimization"}, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := registerExec(t, c, fid)
+	if _, err := ReproduceRung(c, fid, objStr(rung, "rung_id"),
+		objStr(rec, "exec_id"), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SetMaximal(c, fid, objStr(rung, "rung_id")); err != nil {
+		t.Fatal(err)
+	}
+	lad, err := CompleteLadder(c, fid, "operator")
+	if err != nil {
+		t.Fatal(err)
+	}
+	disp := asObj(objAt(lad, "disposition"))
+	if objStr(disp, "state") != "complete" || objStr(disp, "actor") != "operator" {
+		t.Fatalf("disposition = %v", disp)
+	}
+	f2, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objStr(asObj(objAt(f2, "maximization")), "disposition") != "complete" {
+		t.Fatalf("finding disposition = %v", objAt(f2, "maximization"))
+	}
+}
+
+func TestWaiveLadderIsAttributedAndRecordsWaiver(t *testing.T) {
+	c := newCampaign(t, "Acme")
+	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	if _, err := StartLadder(c, fid); err != nil {
+		t.Fatal(err)
+	}
+	lad, err := WaiveLadder(c, fid, "budget exhausted before the ladder closed",
+		"operator")
+	if err != nil {
+		t.Fatal(err)
+	}
+	disp := asObj(objAt(lad, "disposition"))
+	if objStr(disp, "state") != "waived" ||
+		objStr(disp, "reason") != "budget exhausted before the ladder closed" ||
+		objStr(disp, "actor") != "operator" {
+		t.Fatalf("disposition = %v", disp)
+	}
+	f2, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objStr(asObj(objAt(f2, "maximization")), "disposition") != "waived" {
+		t.Fatalf("finding disposition = %v", objAt(f2, "maximization"))
+	}
+	if _, err := os.Stat(filepath.Join(c.Dir, "waivers.jsonl")); err != nil {
+		t.Fatalf("waiver not recorded: %v", err)
+	}
+}
+
+// --- ladder_report ---------------------------------------------------------
+
+func TestLadderReportDeltasAndUnexplored(t *testing.T) {
+	c := newCampaign(t, "Acme")
+	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	lad, err := StartLadder(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := listOf(lad, "variants").A[0]
+	base.O = setOrAppend(base.O, "capital_usd", validation.VFloat(100000))
+	base.O = setOrAppend(base.O, "extraction_ratio", validation.VFloat(0.5))
+	if err := replaceRung(&lad, base); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SaveLadder(c, &lad); err != nil {
+		t.Fatal(err)
+	}
+	capUSD, ratio := 1.0, 1.0
+	if _, err := AddVariant(c, fid, "dust", "dust the pool with one wei",
+		[]string{"capital-minimization"}, &capUSD, &ratio, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := LadderReport(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rungs := listOf(rep, "rungs").A
+	if len(rungs) != 2 {
+		t.Fatalf("rungs = %v", rungs)
+	}
+	if got := objAt(rungs[1], "capital_delta_usd"); got.Kind != validation.Flt ||
+		got.F != -99999 {
+		t.Fatalf("capital delta = %v", got)
+	}
+	if got := objAt(rungs[1], "extraction_delta"); got.Kind != validation.Flt ||
+		got.F != 0.5 {
+		t.Fatalf("extraction delta = %v", got)
+	}
+	if got := objAt(rungs[0], "capital_delta_usd"); got.Kind != validation.Flt ||
+		got.F != 0 {
+		t.Fatalf("base delta = %v", got)
+	}
+	if objAt(rep, "maximal").Kind != validation.Null {
+		t.Fatalf("maximal = %v", objAt(rep, "maximal"))
+	}
+	if got := strings.Join(listStrings(listOf(rep, "unexplored_axes")), ","); got !=
+		"precondition-removal,role-conflation,ordering-permutation,cap-saturation" {
+		t.Fatalf("unexplored = %s", got)
+	}
+	// absent ladder: {"finding_id": ..., "ladder": None}
+	other, err := LadderReport(c, "F-missing12345")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objAt(other, "ladder").Kind != validation.Null ||
+		objStr(other, "finding_id") != "F-missing12345" {
+		t.Fatalf("absent report = %s", validation.CanonCompact(other))
+	}
+}
+
+func TestLoadLadderValidatesStoredArtifact(t *testing.T) {
+	c := newCampaign(t, "Acme")
+	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	if _, err := StartLadder(c, fid); err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(c.Dir, "ladders", fid+".json")
+	var doc map[string]any
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	delete(doc, "variants")
+	bad, _ := json.Marshal(doc)
+	if err := os.WriteFile(p, bad, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadLadder(c, fid); err == nil ||
+		!strings.Contains(err.Error(), "variants") {
+		t.Fatalf("err = %v, want schema failure naming variants", err)
+	}
+}
+
+func TestTailOfAndNewIDShapes(t *testing.T) {
+	id := state.NewID("x", 6)
+	if !strings.HasPrefix(id, "x-") || len(id) != 8 {
+		t.Fatalf("new_id = %s", id)
+	}
+	if tailOf("LAD-abcdefgh") != "abcdefgh" {
+		t.Fatalf("tail = %s", tailOf("LAD-abcdefgh"))
+	}
+	if !containsStr(SortAxes([]string{"b", "a"}), "a") {
+		t.Fatal("SortAxes broken")
+	}
+}
