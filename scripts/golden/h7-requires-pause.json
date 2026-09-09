@@ -1,0 +1,25 @@
+{
+  "title": "Pause capability lets the holder freeze all withdrawals",
+  "root_cause": {
+    "class": "logic-error",
+    "cwe": "CWE-284",
+    "description": "pause() sets paused = true and every withdraw path returns early while paused, so the pause capability alone is enough to freeze all user funds",
+    "mechanism": "withdraw() short-circuits on the paused flag with no unpause timelock"
+  },
+  "affected": [
+    {"path": "src/Vault.sol", "contract": "Vault", "function": "pause",
+     "lines": [1, 2], "entry_point": true}
+  ],
+  "attacker": {"profile": "arbitrary EOA", "capabilities": ["pause"]},
+  "capabilities": {"granted": [], "required": ["pause"]},
+  "verification": {
+    "reproduction": {"status": "reproduced", "tier_reached": "T1"}
+  },
+  "evidence": [
+    {"evidence_id": "EV-golden-needer",
+     "level": "E7",
+     "type": "manual",
+     "description": "the freeze demonstrated by the registered report",
+     "artifact_id": "REP-00000000"}
+  ]
+}

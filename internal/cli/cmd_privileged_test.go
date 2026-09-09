@@ -93,6 +93,27 @@ func TestPrivilegedPrinter(t *testing.T) {
 }
 
 // TestPrivilegedPrinterEmptyBlocks covers the (none) lines.
+// Port of tests/test_cli_privileged.py::
+// test_privileged_subcommand_two_run_determinism: rendering the same role
+// twice is byte-identical (the printer never iterates a map).
+func TestPrivilegedPrinterTwoRunDeterminism(t *testing.T) {
+	role := validation.VObj(
+		kvT("role", validation.VStr("GOV")),
+		kvT("role_label", validation.VStr("governance")),
+		kvT("baseline", validation.VArr(validation.VStr("call_any_entry_point"))),
+		kvT("exposure_band", validation.VStr("high")),
+		kvT("constraints", validation.VArr()),
+		kvT("direct", validation.VArr()),
+		kvT("chains", validation.VArr()),
+	)
+	var first, second bytes.Buffer
+	printPrivilegedRole(&Runner{Out: &first}, role)
+	printPrivilegedRole(&Runner{Out: &second}, role)
+	if first.String() != second.String() {
+		t.Fatalf("two runs differ:\n%q\n%q", first.String(), second.String())
+	}
+}
+
 func TestPrivilegedPrinterEmptyBlocks(t *testing.T) {
 	role := validation.VObj(
 		kvT("role", validation.VStr("R")),

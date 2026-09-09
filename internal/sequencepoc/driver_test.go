@@ -170,6 +170,14 @@ func TestRunSequenceForwardsForkRPCURL(t *testing.T) {
 		t.Errorf("env = %+v, want FORK_RPC_URL=http://remote-fork:9854",
 			opts.Env)
 	}
+	// run_sequence passes no timeout in the reference, so Sandbox.run's
+	// default (300s) must be in force. Zero means the Go twin kills the
+	// container instantly (time.NewTimer(0)) while the reference runs for
+	// up to five minutes — the P2 docker e2e reproduced exactly that.
+	if opts.Timeout != 300 {
+		t.Errorf("timeout = %d, want the Sandbox.run default 300",
+			opts.Timeout)
+	}
 }
 
 func TestRunSequenceWithoutForkRPCURLInjectsNothing(t *testing.T) {

@@ -23,31 +23,22 @@ rows marked as golden-normalized — nothing else.
 - **Status:** closed by design — the Go twin deliberately matches
   CPython, so this row documents the *mechanism*, not a live divergence.
 
-### D2 — Audit section set: 13 (Go) vs 14 (Python) (Task 13, t15)
-- **What:** `audit` (plain and `--json`) reports every section the
-  implementation has. The Go registry now carries thirteen sections in
-  the Python `audit.py` code order — `event_log`, `artifacts`, `execs`,
+### D2 — Audit section set: 13 (Go) vs 14 (Python) — CLOSED 2026-09-09
+- **What (was):** `audit` reported thirteen sections while the Python
+  reference reported fourteen; the missing one was `sequence_coverage`
+  (Python's section 12), reserved for P2.
+- **Closed by:** `internal/audit` now registers all fourteen sections in
+  the reference's `audit.py` order — `event_log`, `artifacts`, `execs`,
   `findings`, `projection`, `snapshots`, `relations`, `floor_policy`,
   `stage_completions`, `baselines`, `invariant_verification`,
-  `probe_surface`, `unpriceable` — while the Python reference has
-  fourteen. The missing one is `sequence_coverage` (Python's section
-  12), which the P0 plan reserves for a later phase.
-- **Surface:** the plain `audit` summary line lists all sections
-  (`audit PASS: event_log=0 problem(s), …`); `audit --json` carries a
-  `sections` object with the same set.
-- **Why:** `sequence_coverage` reads coverage state (P2) that the Go
-  port does not model yet; stubbing it would be dishonest (it would
-  report "0 problems" over data the implementation does not have).
-- **Parity:** `internal/audit/testdata/p1_audit_vectors.json` holds 21
-  scenarios whose expected bytes were produced by the LIVE Python twin
-  (`.scratch/t15/gen_vectors.py`), and `.scratch/t15/parity_check.py`
-  builds the same P1 campaign independently in both twins, audits it in
-  both, and diffs the full report after id/hash normalization. The only
-  delta is the `sequence_coverage` token/section.
-- **Golden:** the golden checker compares the six P0 section tokens in
-  order and drops the Python-only tokens (plain line) / compares `ok` +
-  the six P0 sections only (`--json`); unchanged by this row.
-- **Unblocks:** the phase that ports `sequence_coverage`; D2 then closes.
+  `sequence_coverage`, `probe_surface`, `unpriceable`.
+- **Golden:** `scripts/check-golden.py` carries `PY_ONLY_SECTIONS = set()`
+  (kept as an empty set so a re-introduction is a hard failure, not a
+  silent pass); the plain `audit` summary line and every `audit --json`
+  section are now compared byte-for-byte in BOTH directions. Both
+  `audit-json` steps report `14 audit section(s) + ok MATCH (py-only:
+  none)`.
+- **Status:** closed.
 
 ### D3 — `environment_hash` / derived `manifest_hash` (Task 11)
 - **What:** `snapshot.json` carries `manifest.environment_hash` (a
@@ -311,6 +302,56 @@ rows marked as golden-normalized — nothing else.
 - **Unblocks:** the P3 env port installs its own implementation over the
   seam and deletes this row; the defaults are already equivalent, so no
   behavior changes when it does.
+
+## P2 (maximization / chains / sequences, T21–T23)
+
+### D18 — `ladder disprove` happy path: the negative-memory row is not written
+- **What:** the reference's `maximization.disprove_rung` finishes by
+  calling `learning.queue_memory(kind="disproved", …)`, which writes
+  `campaigns/<cid>/memory/MEM-<8>.json` **and** appends a `memory.queued`
+  event to `events.jsonl`. The Go twin has no `learning` port: the
+  `maximization.queueMemory` seam (`SetQueueMemory`) is a documented
+  no-op, so Go records the rung's `status="disproved"`, its `reason` and
+  the `ladder.rung_disproved` event, but neither the memory row nor the
+  `memory.queued` event.
+- **Why:** `learning.py` is P3 scope (memory lifecycle, promotion,
+  rejection classes, deciding propositions). Stubbing it would write a
+  schema-invalid or half-populated row; skipping the *event* while writing
+  the row is impossible without forking the hash-chained log.
+- **Golden:** `ladder disprove` is exercised on its two GUARD branches
+  only — a <10-character reason and a reproduced rung — which abort before
+  any write and therefore compare byte-for-byte (both exit 2, both print
+  the reference text). The happy path is deliberately NOT in the recipe:
+  one extra `memory.queued` event would shift every later `seq` and hash
+  in `events.jsonl`, so it cannot be normalized away. The verb's happy
+  path is covered by `internal/maximization` unit tests with the seam
+  installed.
+- **Unblocks:** the P3 `learning.queue_memory` port installs a real
+  writer behind `SetQueueMemory`; the golden then gains a
+  `ladder-disprove` step and this row closes.
+
+### D19 — `snap --deployment/--chain`: parsed by the Go CLI, dropped
+- **What:** `webv2 snap <campaign> <target> --deployment d.json
+  --chain c.json` attaches a deployment/chain pin in the reference
+  (`snapshot.attach_deployment_pin` / `attach_chain_pin`) and prints the
+  pin summary. The Go CLI parses both flags (so they are not rejected)
+  and then calls `PinSourceSnapshot` without them — the pin file gets no
+  `deployment`/`chain` member and the summary line is not printed.
+- **Why:** the CLI wiring was deferred with the rest of the P1 `snap`
+  flags; the library functions themselves ARE ported and tested
+  (`internal/snapshot/compat.go`, `TestAttachDeploymentAndChainPins`).
+- **Surface:** `snapshot.json`, and every P2 consumer of
+  `sequencepoc.SnapshotHasForkTarget` — a campaign cannot become
+  "fork-pinned" through the Go CLI, so `sequence_coverage` rows are
+  vacuous (`required=0`) in both twins. The docker e2e therefore compares
+  the `sequence_coverage` section and asserts the *vacuous* verdict
+  (`required=0, covered=0`) in both twins.
+- **Golden:** no `--deployment`/`--chain` in the recipe (it would make
+  `snapshot.json` py-only-membered); the flag shape is covered by the
+  Python-side CLI tests, which the testmap marks deferred.
+- **Unblocks:** wiring the two flags into `runSnap` (≈20 lines, mirroring
+  `cmd_snap`'s tail); the docker e2e then gains a chain pin and the
+  coverage check flips to `required>=1, covered>=1`.
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**

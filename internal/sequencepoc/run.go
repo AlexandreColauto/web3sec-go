@@ -118,9 +118,12 @@ func sequenceWorkdir(c *state.Campaign, spec validation.Value,
 // sequenceRunOpts is run_sequence's sandbox options. The operator's fork
 // endpoint is forwarded into the container; sandbox._container_argv applies
 // setdefault, so an explicit value wins while an unset var preserves the
-// historic default byte-identically.
+// historic default byte-identically. run_sequence passes no timeout, so the
+// call takes Sandbox.run's default (300s) — spelled out here so the seam
+// tests can see it.
 func sequenceRunOpts(wd string, opts RunSequenceOpts) sandbox.RunOpts {
-	runOpts := sandbox.RunOpts{Workdir: &wd, FindingID: opts.FindingID}
+	runOpts := sandbox.RunOpts{Workdir: &wd, FindingID: opts.FindingID,
+		Timeout: 300}
 	if forkRPC, ok := os.LookupEnv("FORK_RPC_URL"); ok {
 		runOpts.Env = []sandbox.EnvVar{{Key: "FORK_RPC_URL", Value: forkRPC}}
 	}

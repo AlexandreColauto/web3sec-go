@@ -720,6 +720,20 @@ func seedMemoryStore(t *testing.T) {
 	})
 }
 
+// Port of test_independent_verification.py::test_bridge_class_is_dead_end_without_e6:
+// a bridge-message finding carries an E6 CONFIRMED floor, so an E5 bundle is a
+// dead end — the transition itself must refuse and name the missing rung.
+func TestBridgeClassIsDeadEndWithoutE6(t *testing.T) {
+	c := newCampaign(t, "Acme Program")
+	fid := toPossible(t, c, hypoPayload("bridge-message"))
+	attachReproBundle(t, c, fid, "E5", "reproducer-a")
+	_, err := findings.Transition(c, fid, "CONFIRMED",
+		"E5 is not enough for a bridge", "", "", false)
+	if err == nil || !strings.Contains(err.Error(), "E6") {
+		t.Fatalf("err = %v; want the E6 floor refusal", err)
+	}
+}
+
 // Port of test_independent_verification.py::test_mint_e6_requires_a_different_execution.
 func TestMintE6RequiresDifferentExecution(t *testing.T) {
 	c := newCampaign(t, "Acme Program")

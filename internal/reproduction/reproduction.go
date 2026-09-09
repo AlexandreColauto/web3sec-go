@@ -133,6 +133,12 @@ func RecordAttempt(c *state.Campaign, findingID, outcome string,
 	if attempts.Kind != validation.Arr {
 		attempts = validation.VArr()
 	}
+	// record_attempt's `repro.setdefault("attempts", [])` runs BEFORE the
+	// tier write, so on a fresh reproduction dict "attempts" is the FIRST
+	// key and "tier_reached" follows it. JSON key order is part of the
+	// byte-exact cross-twin contract, so the insertion must happen here and
+	// not after the tier block (golden v3 caught the divergence 2026-09-09).
+	repro = setKey(repro, "attempts", attempts)
 	if len(attempts.A) >= maxAttempts {
 		return validation.VNull(), mintErrf(
 			"reproduction budget exhausted for %s (%d attempts)", findingID,

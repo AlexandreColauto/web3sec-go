@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# verify-full.sh — Task 18: the single entry point the P0+P1 gate runs.
+# verify-full.sh — Task 18: the single entry point the P0+P1+P2 gate runs.
 #
-# One command (a human or CI) runs to know whether P0 and P1 are clean:
-# thirteen ordered steps, fail-fast with the failing step's name.
+# One command (a human or CI) runs to know whether P0, P1 and P2 are clean:
+# fourteen ordered steps, fail-fast with the failing step's name.
 #
 #   1.  go vet ./... clean
 #   2.  go build ./cmd/webv2 -> /tmp/webv2
@@ -26,6 +26,14 @@
 #  13.  P1 CLI smoke: the 21 P1 commands each invoked once in a valid shape
 #       against a scratch Go campaign, asserting documented exit codes
 #       (fast form of spec 1.5 item 4; the full RUNBOOK walkthrough is P4)
+#  14.  P2 CLI smoke: the P2 commands each invoked once in a valid shape
+#       against a scratch Go campaign (exec ledger, mint, the full ladder
+#       lifecycle, chains/terminals/privileged, impact, sequence verify),
+#       asserting documented exit codes
+#
+# Steps 11/12 build their campaign with P2 state too (exec/mint/ladder/
+# chains/impact), so the cross-audit covers the P2 audit sections — both
+# directions must report all 14 sections incl. sequence_coverage.
 #
 # Exits non-zero at the first failing step, naming it.
 
@@ -50,7 +58,7 @@ fail() {
   exit 1
 }
 
-TOTAL_STEPS=13
+TOTAL_STEPS=14
 
 step() {
   echo
@@ -159,33 +167,93 @@ rm -rf "$SMOKE" "$SMOKE-trunc"
 
 # --- P1 cross-audit + CLI smoke (spec 1.5 items 3-4) --------------------
 #
-# Shared machinery for steps 11-13: the pinned clock (WEBV2_NOW, +1s per
-# step, reset per campaign) and the pinned id stream (WEBV2_UUID) that both
-# twins honour, exactly as scripts/golden-run.py does — the campaign a twin
-# builds is the same campaign logically, so the other twin's auditor must
-# accept it. Scratch lives under .scratch/verify-p1/.
+# Shared machinery for steps 11-14: the pinned clock (WEBV2_NOW, +1s per
+# step, reset per campaign) and the pinned id stream (WEBV2_UUID, one seed
+# PER STEP — golden v3's rule) that both twins honour, exactly as
+# scripts/golden-run.py does — the campaign a twin builds is the same
+# campaign logically, so the other twin's auditor must accept it. Scratch
+# lives under .scratch/verify-p1/.
 P1F="$ROOT/.scratch/verify-p1"
 P1BIN="$P1F/webv2"
-P1_STEP=0
 P1_SEED="verify-p1-cross"
+# The step counter lives in a FILE: every run_p1 call sits inside $(...) — a
+# subshell — so a shell variable cannot carry the number back out.
+P1_COUNTER="$P1F/step-counter"
+p1_step_reset() { P1_STEP=0; printf '0\n' > "$P1_COUNTER"; }
+p1_step_reset
 
 # run_p1 TWIN ROOT ARGV... — one pinned-clock CLI invocation.
 run_p1() {
   local twin="$1" root="$2"
   shift 2
-  P1_STEP=$((P1_STEP + 1))
+  P1_STEP=$(( $(cat "$P1_COUNTER" 2>/dev/null || echo 0) + 1 ))
+  printf '%s\n' "$P1_STEP" > "$P1_COUNTER"
   local now
   now="$(date -u -d "2026-09-09T12:00:00Z + ${P1_STEP} seconds" \
     +%Y-%m-%dT%H:%M:%S.000000+00:00)"
+  # Per-step seed (golden v3's fix): every CLI invocation is a fresh process
+  # whose new_id counter restarts at 0, so a single seed would make the first
+  # id of EVERY command identical (two `exec` calls would mint the same EXEC-).
+  local seed="$P1_SEED:$P1_STEP"
   if [ "$twin" = py ]; then
-    ( cd "$PYROOT" && PYTHONPATH=src WEBV2_NOW="$now" WEBV2_UUID="$P1_SEED" \
+    ( cd "$PYROOT" && PYTHONPATH=src WEBV2_NOW="$now" WEBV2_UUID="$seed" \
         python3 -m webv2.cli --root "$root" "$@" )
   else
-    WEBV2_NOW="$now" WEBV2_UUID="$P1_SEED" "$P1BIN" --root "$root" "$@"
+    WEBV2_NOW="$now" WEBV2_UUID="$seed" "$P1BIN" --root "$root" "$@"
   fi
 }
 
 p1_build_fail() { echo "cross-audit($1): $2" >&2; return 1; }
+
+# seed_p2_exec ROOT CID FID EXEC_ID — write an externally-reported
+# docker-networkless E4 exec record (the same shape scripts/golden-run.py
+# seeds). It is HARNESS INPUT: byte-identical for both twins, and it lets
+# the docker-free cross-audit exercise `mint` (which refuses host-readonly:
+# "E4+ evidence requires a container/VM profile").
+seed_p2_exec() {
+  local root="$1" cid="$2" fid="$3" exid="$4"
+  local d="$root/campaigns/$cid/execs/$exid"
+  mkdir -p "$d" || return 1
+  # forge-meaningfulness: `mint` refuses output with no test counters /
+  # PASS marker, so the seeded stdout is the golden's exact string.
+  printf 'Suite result: ok. 1 passed; 0 failed\n' > "$d/stdout.log"
+  : > "$d/stderr.log"
+  python3 - "$d" "$cid" "$fid" "$exid" <<'PY'
+import hashlib, json, pathlib, sys
+d, cid, fid, exid = sys.argv[1:5]
+d = pathlib.Path(d)
+h = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+at = "2026-09-09T12:00:59.000000+00:00"
+rec = {
+    "exec_id": exid,
+    "campaign_id": cid,
+    "profile": "docker-networkless",
+    "finding_id": fid,
+    "artifact_id": None,
+    "command": "forge test --match-test test_p2_cross",
+    "workdir": None,
+    "policy_verdict": {
+        "allowed": True, "violations": [],
+        "checked_rules": ["network-egress-tool", "privilege-escalation",
+                          "destructive-path", "secret-access",
+                          "external-publish", "system-write"]},
+    "environment": {"tool_versions": {}, "env_keys": [],
+                    "network_access": "none", "filesystem": "sandbox-tmp"},
+    "container": None,
+    "origin": "externally-reported",
+    "reported_by": "verify-full-harness",
+    "input_hashes": {},
+    "started_at": at, "finished_at": at,
+    "exit_status": 0,
+    "stdout_path": str(d / "stdout.log"),
+    "stderr_path": str(d / "stderr.log"),
+    "artifact_hashes": {
+        "stdout.log": h(d / "stdout.log"),
+        "stderr.log": h(d / "stderr.log")},
+}
+(d / "exec_record.json").write_text(json.dumps(rec, indent=1) + "\n")
+PY
+}
 
 # build_campaign TWIN ROOT LABEL — the RUNBOOK-shaped P1 campaign through
 # one twin: init, model, plan, ingest 2 findings (F1 confirmed via the
@@ -195,7 +263,7 @@ p1_build_fail() { echo "cross-audit($1): $2" >&2; return 1; }
 # the same logical campaign (identical timestamps + campaign id).
 build_campaign() {
   local twin="$1" root="$2" label="$3" out cid f1 f2 rep rc
-  P1_STEP=0
+  p1_step_reset
   mkdir -p "$root" || { p1_build_fail "$label" "mkdir"; return 1; }
   out="$(run_p1 "$twin" "$root" init --program VerifyP1Cross 2>&1)" \
     || { echo "$out" >&2; p1_build_fail "$label" "init"; return 1; }
@@ -234,7 +302,112 @@ build_campaign() {
   [ -n "$rep" ] || { echo "$out" >&2; p1_build_fail "$label" "artifact id"; return 1; }
   out="$(run_p1 "$twin" "$root" invariant-verify "$cid" INV-1 --artifact "$rep" 2>&1)" \
     || { echo "$out" >&2; p1_build_fail "$label" "invariant-verify"; return 1; }
+
+  # --- P2 state (docker-free) -------------------------------------------
+  # The same P2 op-sequence through one twin, so the OTHER twin's audit has
+  # P2 material to read: a real exec ledger (one pass, one failure), an
+  # out-of-band E4 record minted into evidence, the full ladder lifecycle
+  # (start/add/explore x5/repro/set-maximal/complete/report), the
+  # capability/terminal/privileged reports, a priced impact, and the
+  # sequence-coverage read. `sequence run` needs docker+anvil and is NOT
+  # here (scripts/p2-docker-e2e.sh runs it for real).
+  local ex exfail lad rung seedex
+  out="$(run_p1 "$twin" "$root" exec "$cid" --command "echo p2-cross" \
+    --finding "$f1" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "exec pass"; return 1; }
+  out="$(run_p1 "$twin" "$root" exec "$cid" --command "exit 7" \
+    --finding "$f1" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "exec fail"; return 1; }
+  exfail="$(grep -oE 'EXEC-[0-9a-f]+' <<<"$out" | head -1)"
+  [ -n "$exfail" ] || { echo "$out" >&2; p1_build_fail "$label" "exec fail id"; return 1; }
+  out="$(run_p1 "$twin" "$root" classify "$cid" "$exfail" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "classify"; return 1; }
+  out="$(run_p1 "$twin" "$root" execs "$cid" --json 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "execs --json"; return 1; }
+  seedex="EXEC-$(python3 -c 'import hashlib;print(hashlib.sha256(b"verify-p2-seed-exec").hexdigest()[:10])')"
+  seed_p2_exec "$root" "$cid" "$f1" "$seedex" \
+    || { p1_build_fail "$label" "seed exec"; return 1; }
+  out="$(run_p1 "$twin" "$root" mint "$cid" "$f1" --exec "$seedex" \
+    --description "sandboxed PoC drains the vault in one withdraw" \
+    --tier T2 --type foundry-test 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "mint"; return 1; }
+  out="$(run_p1 "$twin" "$root" ladder "$cid" start "$f1" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "ladder start"; return 1; }
+  out="$(run_p1 "$twin" "$root" ladder "$cid" add "$f1" --name dust \
+    --description "dust the pool with one wei" --axes capital-minimization \
+    --capital 1 --ratio 1 --removes "victim stakes" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "ladder add"; return 1; }
+  rung="$(grep -oE 'R-[0-9a-f]+' <<<"$out" | head -1)"
+  [ -n "$rung" ] || { echo "$out" >&2; p1_build_fail "$label" "ladder add rung"; return 1; }
+  for axis in cap-saturation precondition-removal role-conflation \
+              ordering-permutation; do
+    out="$(run_p1 "$twin" "$root" ladder "$cid" explore "$f1" - "$axis" \
+      --note "considered, not applicable here" 2>&1)" \
+      || { echo "$out" >&2; p1_build_fail "$label" "ladder explore $axis"; return 1; }
+  done
+  out="$(run_p1 "$twin" "$root" ladder "$cid" repro "$f1" "$rung" \
+    --exec "$seedex" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "ladder repro"; return 1; }
+  out="$(run_p1 "$twin" "$root" ladder "$cid" set-maximal "$f1" "$rung" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "ladder set-maximal"; return 1; }
+  out="$(run_p1 "$twin" "$root" ladder "$cid" complete "$f1" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "ladder complete"; return 1; }
+  out="$(run_p1 "$twin" "$root" ladder "$cid" report "$f1" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "ladder report"; return 1; }
+  for verb in chains terminals privileged; do
+    out="$(run_p1 "$twin" "$root" "$verb" "$cid" 2>&1)" \
+      || { echo "$out" >&2; p1_build_fail "$label" "$verb"; return 1; }
+  done
+  out="$(run_p1 "$twin" "$root" impact "$cid" "$f1" --extractable 1000 \
+    --max-loss 5000 --required-capital 100 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "impact"; return 1; }
+  out="$(run_p1 "$twin" "$root" sequence verify "$cid" "$f1" 2>&1)" \
+    || { echo "$out" >&2; p1_build_fail "$label" "sequence verify"; return 1; }
   echo "$cid"
+}
+
+# p2_sections_ok LABEL JSON — the audit --json report must carry all 14
+# sections in the reference's order, sequence_coverage included (D2 closed).
+p2_sections_ok() {
+  python3 -c '
+import json, sys
+label = sys.argv[1]
+d = json.load(sys.stdin)
+secs = d.get("sections") or {}
+want = ["event_log", "artifacts", "execs", "findings", "projection",
+        "snapshots", "relations", "floor_policy", "stage_completions",
+        "baselines", "invariant_verification", "sequence_coverage",
+        "probe_surface", "unpriceable"]
+missing = [x for x in want if x not in secs]
+assert not missing, f"{label}: missing sections {missing}"
+assert len(secs) == 14, f"{label}: {len(secs)} sections, want 14"
+print(f"  ok {label}: 14 audit sections incl sequence_coverage")
+' "$1" <<<"$2"
+}
+
+# p2_cross_read TWIN ROOT CID LABEL — the OTHER twin must be able to read
+# the P2 state the first twin wrote: the exec ledger, the ladder report,
+# and the audit's P2 sections.
+p2_cross_read() {
+  local twin="$1" root="$2" cid="$3" label="$4" out ladf fid
+  out="$(run_p1 "$twin" "$root" execs "$cid" --json 2>&1)" \
+    || { echo "$out" >&2; echo "$label: execs --json failed" >&2; return 1; }
+  python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+assert len(d) >= 3, f"{len(d)} exec record(s), want >= 3"
+print(f"  ok {sys.argv[1]}: {len(d)} exec records readable")
+' "$label" <<<"$out" || return 1
+  ladf="$(ls "$root/campaigns/$cid"/ladders/*.json 2>/dev/null | head -1)"
+  [ -n "$ladf" ] || { echo "$label: no ladder file" >&2; return 1; }
+  fid="$(basename "${ladf%.json}")"
+  out="$(run_p1 "$twin" "$root" ladder "$cid" report "$fid" 2>&1)" \
+    || { echo "$out" >&2; echo "$label: ladder report failed" >&2; return 1; }
+  grep -q '"disposition"' <<<"$out" \
+    || { echo "$out" >&2; echo "$label: ladder report has no disposition" >&2; return 1; }
+  grep -q '"state": "complete"' <<<"$out" \
+    || { echo "$out" >&2; echo "$label: ladder is not complete" >&2; return 1; }
+  echo "  ok $label: ladder report reads the other twin's completed ladder"
 }
 
 # 11. cross-audit (Python -> Go) ------------------------------------------
@@ -293,7 +466,7 @@ CID_PY="$(build_campaign py "$P1F/pyroot" python)" \
   || fail 11 "cross-audit build (Python-written campaign)"
 echo "ok: Python built $CID_PY (init/model/plan/ingest x2/verdict/dedup/answered/gate/artifact/invariant)"
 
-P1_STEP=0
+p1_step_reset
 AOUT="$(run_p1 go "$P1F/pyroot" audit "$CID_PY" 2>&1)"; AEXIT=$?
 [ "$AEXIT" -eq 0 ] || { echo "$AOUT"; fail 11 "Go audit of Python campaign (exit $AEXIT)"; }
 grep -q '^audit PASS:' <<<"$AOUT" \
@@ -307,6 +480,10 @@ VOUT="$(run_p1 go "$P1F/pyroot" verify "$CID_PY" 2>&1)"; VEXIT=$?
 python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True, d' \
   <<<"$VOUT" || fail 11 "Go verify of Python campaign: ok is not true"
 echo "ok: Go audit/verify accept the Python-written campaign (ok: true)"
+p2_sections_ok "Go audit of Python campaign" "$AJSON" \
+  || fail 11 "P2 audit sections (Go reading a Python campaign)"
+p2_cross_read go "$P1F/pyroot" "$CID_PY" "Go reading Python P2 state" \
+  || fail 11 "P2 cross-read (Go reading a Python campaign)"
 
 # 12. cross-audit (Go -> Python) ------------------------------------------
 step 12 "cross-audit: a Go-written campaign passes the LIVE Python audit"
@@ -316,7 +493,7 @@ CID_GO="$(build_campaign go "$P1F/goroot" go)" \
   || fail 12 "pinned id stream: python=$CID_PY go=$CID_GO"
 echo "ok: Go built the same campaign id ($CID_GO) under the pinned stream"
 
-P1_STEP=0
+p1_step_reset
 PAOUT="$(run_p1 py "$P1F/goroot" audit "$CID_GO" 2>&1)"; PAEXIT=$?
 [ "$PAEXIT" -eq 0 ] || { echo "$PAOUT"; fail 12 "Python audit of Go campaign (exit $PAEXIT)"; }
 grep -q '^audit PASS:' <<<"$PAOUT" \
@@ -330,6 +507,10 @@ PVOUT="$(run_p1 py "$P1F/goroot" verify "$CID_GO" 2>&1)"; PVEXIT=$?
 python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True, d' \
   <<<"$PVOUT" || fail 12 "Python verify of Go campaign: ok is not true"
 echo "ok: Python audit/verify accept the Go-written campaign (ok: true)"
+p2_sections_ok "Python audit of Go campaign" "$PAJSON" \
+  || fail 12 "P2 audit sections (Python reading a Go campaign)"
+p2_cross_read py "$P1F/goroot" "$CID_GO" "Python reading Go P2 state" \
+  || fail 12 "P2 cross-read (Python reading a Go campaign)"
 
 # 13. P1 CLI smoke ---------------------------------------------------------
 # The 21 P1 commands, each once in a valid shape against a scratch Go
@@ -364,7 +545,7 @@ echo "ok: Python audit/verify accept the Go-written campaign (ok: true)"
 #   waive               0   stage proof waived with actor + reason
 step 13 "P1 CLI smoke: 21 commands, documented exit codes"
 P1_SEED="verify-p1-smoke"
-P1_STEP=0
+p1_step_reset
 SMOKE_ROOT="$P1F/smoke"
 mkdir -p "$SMOKE_ROOT"
 
@@ -416,5 +597,119 @@ p1_ok prove 0 prove "$CID"
 p1_ok waive 0 waive "$CID" code --reason "no code artifact" --actor operator
 echo "ok: 21 P1 commands exercised, exit codes as documented"
 
+# 14. P2 CLI smoke ---------------------------------------------------------
+# The ported P2 commands, each once in a valid shape against a scratch Go
+# campaign, with the exit code the reference CLI documents:
+#   exec (pass/fail)     0   the sandbox runs and the ledger records both
+#   execs / --json / --id 0  the three ledger projections
+#   classify             0   the failure classifier over the exit-7 record
+#   mint                 0   E4 evidence from an out-of-band E4 record
+#   ladder start/show    0   ladder created / rendered
+#   ladder add           0   a variant rung (capital-minimization)
+#   ladder explore x5    0   every exploration axis recorded
+#   ladder repro         0   rung reproduced from the seeded E4 record
+#   ladder disprove      2   guard: a reproduced rung cannot be disproved
+#   ladder set-maximal   0   the claim now follows the measurement
+#   ladder complete      0   ladder closed
+#   ladder report        0   the JSON report
+#   chains/terminals/privileged 0  capability graph + terminal + role views
+#   sequence verify      0   coverage read (vacuous without a fork pin, D19)
+#   impact priced        0   extractable/max-loss/required-capital
+#   impact --artifact    0   E7 evidence bound to a registered artifact
+#   impact --unpriceable 0   the named-decision path
+#   impact (incomplete)  2   documented refusal
+#   audit --json         0   all 14 sections, sequence_coverage included
+#   verify               0   event-log integrity
+step 14 "P2 CLI smoke: exec ledger, mint, ladder, chains, impact, sequence"
+P1_SEED="verify-p2-smoke"
+p1_step_reset
+SMOKE2="$P1F/smoke2"
+rm -rf "$SMOKE2"
+mkdir -p "$SMOKE2"
+
+p2_ok() {
+  local label="$1" want="$2"
+  shift 2
+  P1_OUT="$(run_p1 go "$SMOKE2" "$@" 2>&1)"; P1_RC=$?
+  if [ "$P1_RC" -ne "$want" ]; then
+    echo "$P1_OUT"
+    fail 14 "$label: exit $P1_RC, want $want (webv2 $*)"
+  fi
+  printf '  ok %-24s exit=%s  webv2 %s\n' "$label" "$P1_RC" "$*"
+}
+
+p2_ok init 0 init --program VerifyP2Smoke
+CID2="$(grep -oE 'C-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
+[ -n "$CID2" ] || fail 14 "smoke init: no campaign id in output"
+p2_ok model 0 model "$CID2" "$P1F/fixtures/model.json"
+p2_ok "ingest f1" 0 ingest "$CID2" --json-file "$P1F/fixtures/f1.json" \
+  --trajectory code --stage smoke2
+F1="$(grep -oE 'F-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
+[ -n "$F1" ] || fail 14 "smoke ingest f1: no finding id in output"
+p2_ok "ingest f2" 0 ingest "$CID2" --json-file "$P1F/fixtures/f2.json" \
+  --trajectory code --stage smoke2
+F2="$(grep -oE 'F-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
+[ -n "$F2" ] || fail 14 "smoke ingest f2: no finding id in output"
+p2_ok "verdict confirmed" 0 verdict "$CID2" "$F1" --verdict confirmed \
+  --reason "verified by hand"
+p2_ok "move possible" 0 move "$CID2" "$F1" POSSIBLE --reason "triage passed"
+# The model fixture declares INV-1 on the finding: the invariants guardrail
+# refuses any level rise (mint) until it is log-anchored CHECKED_AGAINST_CODE
+# via a registered artifact.
+p2_ok "artifact-register" 0 artifact-register "$CID2" "$P1F/fixtures/note.md" \
+  --kind report
+REP2="$(grep -oE 'REP-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
+[ -n "$REP2" ] || fail 14 "smoke artifact-register: no artifact id in output"
+p2_ok "invariant-verify" 0 invariant-verify "$CID2" INV-1 --artifact "$REP2"
+p2_ok "exec pass" 0 exec "$CID2" --command "echo p2-smoke" --finding "$F1"
+p2_ok "exec fail" 0 exec "$CID2" --command "exit 7" --finding "$F1"
+EXFAIL="$(grep -oE 'EXEC-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
+[ -n "$EXFAIL" ] || fail 14 "smoke exec fail: no exec id in output"
+p2_ok execs 0 execs "$CID2"
+p2_ok "execs --json" 0 execs "$CID2" --json
+p2_ok "execs --id" 0 execs "$CID2" --id "$EXFAIL"
+p2_ok classify 0 classify "$CID2" "$EXFAIL"
+SEEDEX="EXEC-$(python3 -c 'import hashlib;print(hashlib.sha256(b"verify-p2-seed-exec").hexdigest()[:10])')"
+seed_p2_exec "$SMOKE2" "$CID2" "$F1" "$SEEDEX" || fail 14 "smoke seed exec"
+p2_ok mint 0 mint "$CID2" "$F1" --exec "$SEEDEX" \
+  --description "sandboxed PoC drains the vault in one withdraw" \
+  --tier T2 --type foundry-test
+p2_ok "ladder start" 0 ladder "$CID2" start "$F1"
+p2_ok "ladder show" 0 ladder "$CID2" show "$F1"
+p2_ok "ladder add" 0 ladder "$CID2" add "$F1" --name dust \
+  --description "dust the pool with one wei" --axes capital-minimization \
+  --capital 1 --ratio 1 --removes "victim stakes"
+RUNG="$(grep -oE 'R-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
+[ -n "$RUNG" ] || fail 14 "smoke ladder add: no rung id in output"
+for axis in cap-saturation precondition-removal role-conflation \
+            ordering-permutation; do
+  p2_ok "ladder explore $axis" 0 ladder "$CID2" explore "$F1" - "$axis" \
+    --note "considered, not applicable here"
+done
+p2_ok "ladder repro" 0 ladder "$CID2" repro "$F1" "$RUNG" --exec "$SEEDEX"
+p2_ok "ladder disprove guard" 2 ladder "$CID2" disprove "$F1" "$RUNG" \
+  --reason "the corrected claim did not survive review"
+p2_ok "ladder set-maximal" 0 ladder "$CID2" set-maximal "$F1" "$RUNG"
+p2_ok "ladder complete" 0 ladder "$CID2" complete "$F1"
+p2_ok "ladder report" 0 ladder "$CID2" report "$F1"
+p2_ok chains 0 chains "$CID2"
+p2_ok terminals 0 terminals "$CID2"
+p2_ok privileged 0 privileged "$CID2"
+p2_ok "sequence verify" 0 sequence verify "$CID2" "$F1"
+p2_ok "impact priced" 0 impact "$CID2" "$F1" --extractable 1000 \
+  --max-loss 5000 --required-capital 100
+p2_ok "impact artifact" 0 impact "$CID2" "$F1" --extractable 1000 \
+  --artifact "$P1F/fixtures/note.md" \
+  --description "the priced impact carried by the report"
+p2_ok "impact unpriceable" 0 impact "$CID2" "$F2" --unpriceable \
+  --ceiling "no defensible USD figure" \
+  --reason "the affected asset has no observable market" --actor smoke
+p2_ok "impact incomplete" 2 impact "$CID2" "$F2" --unpriceable \
+  --ceiling "no defensible USD figure"
+p2_ok "audit --json" 0 audit "$CID2" --json
+p2_sections_ok "P2 smoke audit" "$P1_OUT" || fail 14 "smoke audit --json sections"
+p2_ok verify 0 verify "$CID2"
+echo "ok: P2 commands exercised, exit codes as documented"
+
 echo
-echo "VERIFY-FULL GREEN: all 13 steps pass"
+echo "VERIFY-FULL GREEN: all 14 steps pass"

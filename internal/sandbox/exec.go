@@ -259,10 +259,21 @@ func (s *Sandbox) record(execID, command string, opts RunOpts,
 	)
 }
 
+// defaultRunTimeout is Python's `Sandbox.run(timeout: int = 300)` default.
+// Go's zero value for RunOpts.Timeout means "caller said nothing", and a
+// zero-duration timer would kill the process instantly, so an unset timeout
+// must take the reference's default rather than 0 (the P2 docker e2e caught
+// `sequence run` dying with exit -1 because run_sequence passes no timeout).
+const defaultRunTimeout = 300
+
 // execute runs the container argv or the host shell command.
 func (s *Sandbox) execute(containerArgv []string, command string,
 	opts RunOpts) (int, string, string) {
-	timeout := time.Duration(opts.Timeout) * time.Second
+	secs := opts.Timeout
+	if secs <= 0 {
+		secs = defaultRunTimeout
+	}
+	timeout := time.Duration(secs) * time.Second
 	var res ProcResult
 	var err error
 	if containerArgv != nil {

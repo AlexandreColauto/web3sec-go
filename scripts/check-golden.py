@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Golden-suite checker (Task 17).
+"""Golden-suite checker (Tasks 17 + 24).
 
 Byte-diffs the two twin artifact trees (campaign_state.json, events.jsonl,
 the pinned snapshot tree incl. snapshot.json) and every captured
@@ -16,11 +16,12 @@ twins run under the SAME root path (the event chain hashes absolute
 artifact paths) and finding ids are pinned into the same stream in both
 twins (WEBV2_FINDING_IDS=pin + scripts/golden/sitecustomize.py), because
 the Python reference mints finding ids from a raw uuid4 that the
-WEBV2_UUID pin never reached.
+WEBV2_UUID pin never reached. Since v3 the uuid seed is per step
+(<seed>:<step>), so distinct commands cannot collide on the same id.
 
-The `audit --json` steps compare every section the two implementations
-share; sections that exist only in the Python report are an expected,
-recorded difference (KNOWN_DIVERGENCES D2).
+The `audit --json` steps compare EVERY section: Go's audit registry now
+has all 14 sections in the reference's order (D2 closed 2026-09-09), so a
+section present on one side only is a failure in either direction.
 
 Exit 0 = GOLDEN GREEN; exit 1 = divergence reported per file/step.
 """
@@ -32,12 +33,11 @@ import sys
 from pathlib import Path
 
 WORK = Path(__file__).resolve().parent.parent / ".scratch" / "golden"
-P0_SECTIONS = ["event_log", "artifacts", "execs",
-               "findings", "projection", "snapshots"]
-# KNOWN_DIVERGENCES D2: report sections the Python twin emits and the Go
-# twin does not implement yet (deferred-P1/P2 surface). A section present
-# in Go but absent from Python is ALWAYS a failure.
-PY_ONLY_SECTIONS = {"sequence_coverage"}
+# D2 CLOSED (2026-09-09, commit 5160b1a): the Go audit registry registers
+# all 14 reference sections in the reference's order, so no section is
+# Python-only any more. Kept as an empty set so an accidental re-introduction
+# is a hard failure, not a silent pass.
+PY_ONLY_SECTIONS: set[str] = set()
 
 fails: list[str] = []
 
@@ -138,16 +138,6 @@ def audit_json_step(spec: dict, step: int, name: str) -> None:
               f"MATCH (py-only: {', '.join(py_only) or 'none'})")
 
 
-def audit_summary_prefix(line: str) -> str:
-    """The audit summary line reduced to its P0 section tokens, in order:
-    'audit <VERDICT>: event_log=N problem(s), ...'. P1+ tokens are dropped
-    only when they are the recorded D2 py-only sections."""
-    head = line.split(":", 1)[0]
-    toks = re.findall(r"(\w+)=(\d+) problem\(s\)", line)
-    keep = [f"{k}={v} problem(s)" for k, v in toks if k in P0_SECTIONS]
-    return f"{head}: {', '.join(keep)}"
-
-
 def diff_steps(spec: dict) -> None:
     nonzero_ok = []
     for i, name in enumerate(spec["recipe"]):
@@ -168,18 +158,9 @@ def diff_steps(spec: dict) -> None:
             if name.startswith("audit-json") and ext == "out":
                 continue  # handled by audit_json_step
             na, nb = norm_text(spec, "py", a), norm_text(spec, "go", b)
-            if name.startswith("audit") and ext == "out":
-                # KNOWN_DIVERGENCE (audit P0 subset): the summary line lists
-                # every section the implementation has. Compare the six P0
-                # tokens in order; the problem lines that follow must still
-                # be identical.
-                la, lb = na.splitlines(), nb.splitlines()
-                if la and lb and la[0].startswith("audit ") and lb[0].startswith("audit "):
-                    if audit_summary_prefix(la[0]) != audit_summary_prefix(lb[0]):
-                        fails.append(f"step {i:02d} {name}: P0 summary prefix differs\n"
-                                     f"    py: {la[0]}\n    go: {lb[0]}")
-                    la, lb = la[1:], lb[1:]
-                na, nb = "\n".join(la), "\n".join(lb)
+            # D2 CLOSED: the plain `audit` summary line lists all 14 sections
+            # in the reference's order in BOTH twins, so it is compared
+            # byte-for-byte with no token filtering.
             if na != nb:
                 fails.append(f"step {i:02d} {name}.{ext} differs")
                 la, lb = na.splitlines(), nb.splitlines()

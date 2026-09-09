@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Golden-suite orchestrator (Task 17).
+"""Golden-suite orchestrator (Tasks 17 + 24).
 
 Builds the Go binary, then runs the SAME scripted op-sequence through the
 Python webv2 CLI and the Go webv2 binary — both with the clock pinned
@@ -8,7 +8,7 @@ Python webv2 CLI and the Go webv2 binary — both with the clock pinned
 roots, capturing every command's stdout/stderr/exit and the resulting
 artifact trees for check-golden.py to byte-diff.
 
-The recipe has two halves:
+The recipe has three halves:
 
   P0 (steps 00..07, kept verbatim from golden v1 — see docs/gates/P0-gate.md)
       init / status / snap / log / verify / audit / status / audit --json
@@ -25,6 +25,33 @@ The recipe has two halves:
       moved HYPOTHESIS -> POSSIBLE -> CONFIRMED through the CLI,
       then the closing status/audit/audit --json/log/verify.
 
+  P2 (docs/gates/golden-v3.md) — the ported P2 evidence-execution surface:
+      two more gate-passing findings that GRANT / REQUIRE the same
+      capability (h6/h7) moved to CONFIRMED, the exec ledger
+      (exec --dry-run / host exec / failed exec / execs / execs --json /
+      execs --id / classify), an out-of-band E4 exec record seeded by the
+      harness, mint (the ATT-/EV- id families), the full variant ladder
+      lifecycle (start / show / add / explore x4 / repro / set-maximal /
+      complete / report) on the CONFIRMED h5, both byte-comparable
+      `ladder disprove` GUARD branches (short reason, reproduced rung — the
+      happy path writes negative memory, KNOWN_DIVERGENCES D18), chains +
+      terminals + privileged over the capability graph (the CHAIN- id
+      family), `sequence verify` over the empty coverage state (the real
+      fork run needs docker/anvil and lives in scripts/p2-docker-e2e.sh),
+      and impact (priced, priced+artifact, and the UNPRICEABLE named
+      decision).
+
+  ID PINNING (v3 extension): the reference mints every `new_id` family
+      (C-, EXEC-, EV-, ATT-, LAD-, R-, CHAIN-, REP-, ECO-, PRC-) from
+      `sha256("<WEBV2_UUID>:<per-process counter>")`, and EVERY CLI
+      invocation is a fresh process whose counter restarts at 0. A single
+      global seed therefore makes the first id of every command identical
+      (two `exec` calls would mint the SAME EXEC- id). v3 pins
+      `WEBV2_UUID=<seed>:<step>` instead: both twins derive the same id per
+      step, and distinct steps can no longer collide. The finding-id pin
+      (`WEBV2_FINDING_IDS=pin` + scripts/golden/sitecustomize.py) keeps its
+      own running `WEBV2_FINDING_ID_SEQ` stream on top of the per-step seed.
+
 Fixtures live under scripts/golden/ and are referenced by paths RELATIVE to
 the Go repo root; both twins run with cwd=GO_ROOT so a relative path means
 the same file in both. The snapshot target is materialized in a temp dir
@@ -35,6 +62,7 @@ gitdir, which is not reproducible across twins (or runs).
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -48,7 +76,7 @@ GO_ROOT = Path(__file__).resolve().parent.parent
 PY_ROOT = GO_ROOT.parent / "web3sec-final"
 WORK = GO_ROOT / ".scratch" / "golden"
 GOBIN = WORK / "webv2"
-SEED = "golden-p0"
+SEED = "golden-p2"
 NOW_BASE = datetime.datetime(2026, 9, 8, 12, 0, 0, tzinfo=datetime.timezone.utc)
 FIX = "scripts/golden"          # fixture dir, relative to GO_ROOT
 
@@ -56,6 +84,17 @@ FIX = "scripts/golden"          # fixture dir, relative to GO_ROOT
 def now_for(step: int) -> str:
     t = NOW_BASE + datetime.timedelta(seconds=step)
     return t.isoformat(timespec="microseconds").replace("+00:00", "+00:00")
+
+
+def seed_for(step: int) -> str:
+    """The per-step WEBV2_UUID pin (see the module docstring, ID PINNING).
+
+    Every CLI command is a fresh process whose new_id counter restarts at 0,
+    so a single global seed would mint the SAME first id in every command
+    (two `exec` calls would collide on one EXEC- id). Both twins receive the
+    same per-step seed, so ids stay cross-twin identical AND unique across
+    the recipe."""
+    return f"{SEED}:{step:02d}"
 
 
 def make_target() -> Path:
@@ -87,16 +126,84 @@ def make_target() -> Path:
     return tgt
 
 
-def render_gate_pass_payload(artifact_id: str) -> Path:
-    """Materialize h5 with its evidence pointing at the artifact the recipe
-    registered (the fixture ships a REP-00000000 placeholder; the artifact
-    id is minted from the pinned stream while the run proceeds)."""
+def render_gate_pass_payload(artifact_id: str, fixture: str) -> Path:
+    """Materialize a gate-pass fixture with its evidence pointing at the
+    artifact the recipe registered (the fixtures ship a REP-00000000
+    placeholder; the artifact id is minted from the pinned stream while the
+    run proceeds)."""
     out_dir = WORK / "payloads"
     out_dir.mkdir(parents=True, exist_ok=True)
-    src = (GO_ROOT / FIX / "h5-gate-pass.json").read_text()
-    out = out_dir / "h5-gate-pass.json"
+    src = (GO_ROOT / FIX / fixture).read_text()
+    out = out_dir / fixture
     out.write_text(src.replace("REP-00000000", artifact_id))
     return out
+
+
+# --- out-of-band E4 exec records (golden v3) --------------------------------
+#
+# The ladder's `repro` step mints E4 evidence, which the reference only
+# accepts from an exec record whose profile is a container/VM profile. The
+# default golden suite must stay docker-free, so the harness SEEDS one
+# externally-reported exec record per twin exactly the way
+# sandbox.register_exec does (origin="externally-reported", empty
+# tool_versions, a passing stdout.log) — the same out-of-band registration
+# the reference's own CLI test performs with `register_exec`. The record is
+# byte-identical in both twins by construction (same content, same root
+# path), so the tree diff still proves the rest of the P2 surface.
+SEEDED_EXEC_STDOUT = "Suite result: ok. 1 passed; 0 failed\n"
+
+
+def seeded_exec_id(n: int) -> str:
+    """A deterministic EXEC- id for the harness-seeded record. Deliberately
+    NOT drawn from the CLI's per-process new_id stream: the seeded record is
+    harness input, and its id must never collide with an id a real `exec`
+    command minted (or will mint) in the same campaign."""
+    b = bytearray(hashlib.sha256(
+        f"{SEED}:seed-exec:{n}".encode()).digest()[:16])
+    b[6] = (b[6] & 0x0F) | 0x40
+    b[8] = (b[8] & 0x3F) | 0x80
+    return "EXEC-" + bytes(b).hex()[:10]
+
+
+def seed_exec(root: Path, cid: str, step: int, n: int, finding_id: str,
+              command: str, exec_id: str) -> None:
+    out_dir = root / "campaigns" / cid / "execs" / exec_id
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stdout_path = out_dir / "stdout.log"
+    stderr_path = out_dir / "stderr.log"
+    stdout_path.write_text(SEEDED_EXEC_STDOUT)
+    stderr_path.write_text("")
+    at = now_for(step)
+    rec = {
+        "exec_id": exec_id,
+        "campaign_id": cid,
+        "profile": "docker-networkless",
+        "finding_id": finding_id,
+        "artifact_id": None,
+        "command": command,
+        "workdir": None,
+        "policy_verdict": {
+            "allowed": True, "violations": [],
+            "checked_rules": ["network-egress-tool", "privilege-escalation",
+                              "destructive-path", "secret-access",
+                              "external-publish", "system-write"]},
+        "environment": {"tool_versions": {}, "env_keys": [],
+                        "network_access": "none",
+                        "filesystem": "sandbox-tmp"},
+        "container": None,
+        "origin": "externally-reported",
+        "reported_by": "golden-harness",
+        "input_hashes": {},
+        "started_at": at,
+        "finished_at": at,
+        "exit_status": 0,
+        "stdout_path": str(stdout_path),
+        "stderr_path": str(stderr_path),
+        "artifact_hashes": {
+            "stdout.log": hashlib.sha256(stdout_path.read_bytes()).hexdigest(),
+            "stderr.log": hashlib.sha256(stderr_path.read_bytes()).hexdigest()},
+    }
+    (out_dir / "exec_record.json").write_text(json.dumps(rec, indent=1) + "\n")
 
 
 def build_go() -> None:
@@ -120,7 +227,7 @@ def run_step(twin: str, root: Path, argv: list[str], step: int,
     # and cmd/webv2/main.go). WEBV2_GLOBAL_MEMORY_DIR points at an empty
     # dir: the operator's ~/.webv2/shared-memory store must never leak into
     # a deterministic cross-twin comparison.
-    env = dict(os.environ, WEBV2_NOW=now, WEBV2_UUID=SEED,
+    env = dict(os.environ, WEBV2_NOW=now, WEBV2_UUID=seed_for(step),
                WEBV2_FINDING_IDS="pin", WEBV2_FINDING_ID_SEQ=str(fid_base),
                WEBV2_GLOBAL_MEMORY_DIR=str(WORK / "shared-memory"))
     # Both twins run with cwd=GO_ROOT so a relative fixture path resolves to
@@ -150,8 +257,10 @@ def recipe(state: dict) -> list[dict]:
     # and rebuilt before every step, so by the time a step that references
     # f[i]/art[i] executes the real id is there. The step LIST never changes
     # shape, which is what the capture index depends on.
-    f = (state["findings"] + ["<F?>"] * 5)[:5]   # [h1..h5]
+    f = (state["findings"] + ["<F?>"] * 7)[:7]   # [h1..h5, h6, h7]
     art = (state["artifacts"] + ["<ART?>"] * 2)[:2]
+    ex = (state["execs"] + ["<EXEC?>"] * 2)[:2]
+    rung = (state["rungs"] + ["<R?>"] * 1)[:1]
     return [
         # ---- P0 half: verbatim golden v1 (docs/gates/P0-gate.md) ----------
         {"name": "init", "exit": 0,
@@ -254,7 +363,8 @@ def recipe(state: dict) -> list[dict]:
         # below walk the legal HYPOTHESIS -> POSSIBLE -> CONFIRMED path, so
         # the closing status/audit/verify steps see a genuinely CONFIRMED
         # finding.
-        {"name": "ingest-h5", "exit": 0, "findings": 1, "render_h5": True,
+        {"name": "ingest-h5", "exit": 0, "findings": 1,
+         "render": "h5-gate-pass.json",
          "argv": ["ingest", cid, "--json-file",
                   ".scratch/golden/payloads/h5-gate-pass.json",
                   "--stage", "golden", "--trajectory", "code"]},
@@ -271,6 +381,50 @@ def recipe(state: dict) -> list[dict]:
         {"name": "move-h5-confirmed", "exit": 0,
          "argv": ["move", cid, f[4], "CONFIRMED", "--reason",
                   "the golden suite closes the gated finding to CONFIRMED",
+                  "--actor", "golden"]},
+
+        # h6 GRANTS the pause capability and h7 REQUIRES it; both carry the
+        # same gate-passing shape as h5 (reproduced attempt + E7 evidence
+        # bound to the registered artifact), so both can be moved to
+        # CONFIRMED and the chain engine materializes a CHAIN- link from
+        # h6 to h7. That is what exercises the CHAIN-<8> id family.
+        {"name": "ingest-h6", "exit": 0, "findings": 1,
+         "render": "h6-grants-pause.json",
+         "argv": ["ingest", cid, "--json-file",
+                  ".scratch/golden/payloads/h6-grants-pause.json",
+                  "--stage", "golden", "--trajectory", "code"]},
+        {"name": "verdict-h6", "exit": 0,
+         "argv": ["verdict", cid, f[5], "--verdict", "confirmed",
+                  "--reason", "the operator handover is a real capability grant"]},
+        {"name": "recall-h6", "exit": 0,
+         "argv": ["recall", cid, "--finding", f[5], "--mode", "negative"]},
+        {"name": "gate-h6-pass", "exit": 0, "argv": ["gate", cid, f[5]]},
+        {"name": "move-h6-possible", "exit": 0,
+         "argv": ["move", cid, f[5], "POSSIBLE", "--reason",
+                  "the golden suite advances the granter to POSSIBLE",
+                  "--actor", "golden"]},
+        {"name": "move-h6-confirmed", "exit": 0,
+         "argv": ["move", cid, f[5], "CONFIRMED", "--reason",
+                  "the golden suite closes the granter to CONFIRMED",
+                  "--actor", "golden"]},
+        {"name": "ingest-h7", "exit": 0, "findings": 1,
+         "render": "h7-requires-pause.json",
+         "argv": ["ingest", cid, "--json-file",
+                  ".scratch/golden/payloads/h7-requires-pause.json",
+                  "--stage", "golden", "--trajectory", "code"]},
+        {"name": "verdict-h7", "exit": 0,
+         "argv": ["verdict", cid, f[6], "--verdict", "confirmed",
+                  "--reason", "the freeze is a real denial of withdrawal"]},
+        {"name": "recall-h7", "exit": 0,
+         "argv": ["recall", cid, "--finding", f[6], "--mode", "negative"]},
+        {"name": "gate-h7-pass", "exit": 0, "argv": ["gate", cid, f[6]]},
+        {"name": "move-h7-possible", "exit": 0,
+         "argv": ["move", cid, f[6], "POSSIBLE", "--reason",
+                  "the golden suite advances the needer to POSSIBLE",
+                  "--actor", "golden"]},
+        {"name": "move-h7-confirmed", "exit": 0,
+         "argv": ["move", cid, f[6], "CONFIRMED", "--reason",
+                  "the golden suite closes the needer to CONFIRMED",
                   "--actor", "golden"]},
 
         {"name": "invariant-verify", "exit": 0,
@@ -291,6 +445,116 @@ def recipe(state: dict) -> list[dict]:
                   "--reason", "no reachable permanently-stuck state in this state machine",
                   "--families", "none-applicable", "--actor", "golden"]},
 
+        # ---- P2 half: the ported evidence-execution surface (golden v3) ---
+        # exec ledger: the dry-run preview (no record), a real host-readonly
+        # run (EXEC-<10>), a deliberately failing run, the three read views
+        # and the failure classifier.
+        {"name": "exec-dry", "exit": 0,
+         "argv": ["exec", cid, "--command",
+                  "forge test --match-test test_withdraw",
+                  "--profile", "docker-networkless", "--dry-run"]},
+        {"name": "exec-host", "exit": 0, "execs": 1,
+         "argv": ["exec", cid, "--command", "echo golden-exec",
+                  "--finding", f[0]]},
+        {"name": "exec-fail", "exit": 0, "execs": 1,
+         "argv": ["exec", cid, "--command", "exit 7", "--finding", f[0]]},
+        {"name": "execs", "exit": 0, "argv": ["execs", cid]},
+        {"name": "execs-json", "exit": 0, "argv": ["execs", cid, "--json"]},
+        {"name": "execs-id", "exit": 0, "argv": ["execs", cid, "--id", ex[0]]},
+        {"name": "classify", "exit": 0, "argv": ["classify", cid, ex[1]]},
+        # An out-of-band E4 exec record (harness-seeded: the default suite
+        # stays docker-free) and the mint path that records an ATT-<6>
+        # attempt plus an EV-<8> evidence item on h1.
+        {"name": "seed-exec-mint", "seed_exec": {"n": 0, "finding": 0,
+         "command": "forge test --match-test test_withdraw"}},
+        {"name": "mint", "exit": 0,
+         "argv": ["mint", cid, f[0], "--exec", seeded_exec_id(0),
+                  "--description", "unit PoC drains the vault in one withdraw",
+                  "--tier", "T2", "--type", "foundry-test"]},
+        # the full variant ladder lifecycle on the CONFIRMED h5: start ->
+        # add_variant -> the five axes -> reproduce_rung (a seeded E4 record)
+        # -> set_maximal -> complete -> report.
+        {"name": "ladder-start", "exit": 0,
+         "argv": ["ladder", cid, "start", f[4]]},
+        {"name": "ladder-show", "exit": 0,
+         "argv": ["ladder", cid, "show", f[4]]},
+        {"name": "ladder-add", "exit": 0, "rungs": 1,
+         "argv": ["ladder", cid, "add", f[4], "--name", "dust",
+                  "--description", "dust the pool with one wei",
+                  "--axes", "capital-minimization",
+                  "--capital", "1", "--ratio", "1",
+                  "--removes", "victim stakes"]},
+        {"name": "ladder-explore-cap-saturation", "exit": 0,
+         "argv": ["ladder", cid, "explore", f[4], "-", "cap-saturation",
+                  "--note", "considered, not applicable here"]},
+        {"name": "ladder-explore-precondition-removal", "exit": 0,
+         "argv": ["ladder", cid, "explore", f[4], "-",
+                  "precondition-removal", "--note",
+                  "considered, not applicable here"]},
+        {"name": "ladder-explore-role-conflation", "exit": 0,
+         "argv": ["ladder", cid, "explore", f[4], "-", "role-conflation",
+                  "--note", "considered, not applicable here"]},
+        {"name": "ladder-explore-ordering-permutation", "exit": 0,
+         "argv": ["ladder", cid, "explore", f[4], "-",
+                  "ordering-permutation", "--note",
+                  "considered, not applicable here"]},
+        {"name": "seed-exec-ladder", "seed_exec": {"n": 1, "finding": 4,
+         "command": "forge test --match-test test_preview_redeem"}},
+        {"name": "ladder-repro", "exit": 0,
+         "argv": ["ladder", cid, "repro", f[4], rung[0],
+                  "--exec", seeded_exec_id(1)]},
+        # disprove: only the two GUARD branches are byte-comparable. The
+        # happy path queues negative memory, which the reference writes as a
+        # campaigns/<cid>/memory/MEM-*.json row PLUS a memory.queued event —
+        # the Go twin's learning seam is a no-op (KNOWN_DIVERGENCES D18), so
+        # exercising it would fork the event chain. Both guards below abort
+        # before any write, so they compare byte-for-byte.
+        {"name": "ladder-disprove-short-reason", "exit": 2,
+         "argv": ["ladder", cid, "disprove", f[4], rung[0],
+                  "--reason", "nope"]},
+        {"name": "ladder-set-maximal", "exit": 0,
+         "argv": ["ladder", cid, "set-maximal", f[4], rung[0]]},
+        {"name": "ladder-disprove-reproduced", "exit": 2,
+         "argv": ["ladder", cid, "disprove", f[4], rung[0],
+                  "--reason", "the corrected claim did not survive review"]},
+        {"name": "ladder-complete", "exit": 0,
+         "argv": ["ladder", cid, "complete", f[4]]},
+        {"name": "ladder-report", "exit": 0,
+         "argv": ["ladder", cid, "report", f[4]]},
+        # capability graph: h6 grants the pause capability h7 requires, so
+        # the chain engine links them and proposes the pair. NOTE: `chains`
+        # computes and REPORTS; it materializes nothing, and the reference
+        # has no CLI verb for `materialize_chain`, so no CHAIN-<8> file
+        # exists in either tree (the CHAIN- id stream is pinned by
+        # construction and covered by the chainengine unit tests).
+        {"name": "chains", "exit": 0, "argv": ["chains", cid]},
+        {"name": "terminals", "exit": 0, "argv": ["terminals", cid]},
+        {"name": "privileged", "exit": 0, "argv": ["privileged", cid]},
+        # sequence coverage: the golden has no anvil/fork, so `run` is out of
+        # reach (scripts/p2-docker-e2e.sh runs it for real). `verify` is a
+        # pure state read and must agree byte-for-byte on the vacuous
+        # verdict — the h5 ladder finding declares no multi-step
+        # exploit_sequence, so coverage is "not sequence-required".
+        {"name": "sequence-verify", "exit": 0,
+         "argv": ["sequence", "verify", cid, f[4]]},
+        # impact: priced, priced + E7 artifact mint, the UNPRICEABLE named
+        # decision, and the documented exit-2 refusal of an incomplete one.
+        {"name": "impact-priced", "exit": 0,
+         "argv": ["impact", cid, f[0], "--extractable", "1000",
+                  "--max-loss", "5000", "--required-capital", "100"]},
+        {"name": "impact-artifact", "exit": 0,
+         "argv": ["impact", cid, f[0], "--extractable", "1000",
+                  "--artifact", f"{FIX}/artifact.md",
+                  "--description", "the priced impact carried by the report"]},
+        {"name": "impact-unpriceable", "exit": 0,
+         "argv": ["impact", cid, f[2], "--unpriceable",
+                  "--ceiling", "no defensible USD figure",
+                  "--reason", "the affected asset has no observable market",
+                  "--actor", "golden"]},
+        {"name": "impact-unpriceable-incomplete", "exit": 2,
+         "argv": ["impact", cid, f[2], "--unpriceable",
+                  "--ceiling", "no defensible USD figure"]},
+
         # ---- closing half: same P0 verbs again, now over the P1 state ----
         {"name": "status-final", "exit": 0, "argv": ["status", cid]},
         {"name": "audit-final", "exit": 0, "argv": ["audit", cid]},
@@ -302,6 +566,8 @@ def recipe(state: dict) -> list[dict]:
 
 FID_RE = re.compile(r"ingested (F-[0-9a-f]+)")
 ART_RE = re.compile(r"^([A-Z]{3}-[0-9a-f]+):", re.M)
+EXEC_RE = re.compile(r"(EXEC-[0-9a-f]+)")
+RUNG_RE = re.compile(r"rung (R-[0-9a-z]+) recorded")
 
 
 def main() -> None:
@@ -327,7 +593,7 @@ def main() -> None:
         caps.mkdir(parents=True)
         captures[twin] = []
         state = {"cid": "", "findings": [], "artifacts": [],
-                 "target": str(target)}
+                 "execs": [], "rungs": [], "target": str(target)}
         states[twin] = state
         # The step LIST is state-independent, but each step's argv embeds ids
         # the pinned stream mints while the run proceeds, so it is rebuilt
@@ -337,16 +603,31 @@ def main() -> None:
         fid_base = 0
         while i < n_steps:
             st = recipe(state)[i]
-            argv = [str(a) for a in st["argv"]]
-            if st.get("render_h5"):
-                render_gate_pass_payload(state["artifacts"][0])
-            code, out, err = run_step(twin, root, argv, i, fid_base)
+            argv = [str(a) for a in st.get("argv", [])]
             name = st["name"]
+            if st.get("render"):
+                render_gate_pass_payload(state["artifacts"][0], st["render"])
+            if st.get("seed_exec"):
+                # Harness input, not twin output: the SAME externally-reported
+                # E4 record is written into both trees at this step (see the
+                # seed_exec docstring). The capture is a synthetic note so the
+                # step list stays parallel.
+                info = st["seed_exec"]
+                eid = seeded_exec_id(info["n"])
+                seed_exec(root, state["cid"], i, info["n"],
+                          state["findings"][info["finding"]], info["command"],
+                          eid)
+                code = 0
+                err = ""
+                out = (f"seeded externally-reported exec {eid} "
+                       f"(profile docker-networkless, exit 0)\n")
+            else:
+                code, out, err = run_step(twin, root, argv, i, fid_base)
             (caps / f"{i:02d}-{name}.out").write_text(out)
             (caps / f"{i:02d}-{name}.err").write_text(err)
             (caps / f"{i:02d}-{name}.exit").write_text(str(code))
             captures[twin].append({"name": name, "argv": argv, "exit": code,
-                                   "expect_exit": st["exit"]})
+                                   "expect_exit": st.get("exit", 0)})
             if st.get("findings"):
                 for _ in range(st["findings"]):
                     m = FID_RE.search(out)
@@ -360,12 +641,24 @@ def main() -> None:
                     if not m:
                         sys.exit(f"{twin} step {i:02d}-{name}: no artifact id in stdout:\n{out}")
                     state["artifacts"].append(m.group(1))
+            if st.get("execs"):
+                for _ in range(st["execs"]):
+                    m = EXEC_RE.search(out)
+                    if not m:
+                        sys.exit(f"{twin} step {i:02d}-{name}: no exec id in stdout:\n{out}")
+                    state["execs"].append(m.group(1))
+            if st.get("rungs"):
+                for _ in range(st["rungs"]):
+                    m = RUNG_RE.search(out)
+                    if not m:
+                        sys.exit(f"{twin} step {i:02d}-{name}: no rung id in stdout:\n{out}")
+                    state["rungs"].append(m.group(1))
             if name == "init":
                 m = re.search(r"C-[0-9a-f]+", out)
                 if not m:
                     sys.exit(f"{twin} init did not print a campaign id:\n{out}")
                 state["cid"] = m.group(0)
-            if code != st["exit"]:
+            if code != st.get("exit", 0):
                 print(f"[warn] {twin} step {i:02d}-{name}: exit {code}, "
                       f"expected {st['exit']}: {err.strip()[:200]}")
             i += 1

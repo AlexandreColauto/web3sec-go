@@ -1,0 +1,25 @@
+{
+  "title": "Compromised operator can grant itself the pause capability",
+  "root_cause": {
+    "class": "logic-error",
+    "cwe": "CWE-269",
+    "description": "setOperator() accepts an arbitrary address and the operator may then call pause() without the timelock, so a single compromised key grants the pause capability",
+    "mechanism": "setOperator() writes operator = msg.sender's nominee with no timelock or two-step handover"
+  },
+  "affected": [
+    {"path": "src/Vault.sol", "contract": "Vault", "function": "setOperator",
+     "lines": [1, 2], "entry_point": true}
+  ],
+  "attacker": {"profile": "arbitrary EOA", "capabilities": ["setOperator"]},
+  "capabilities": {"granted": ["pause"], "required": []},
+  "verification": {
+    "reproduction": {"status": "reproduced", "tier_reached": "T1"}
+  },
+  "evidence": [
+    {"evidence_id": "EV-golden-granter",
+     "level": "E7",
+     "type": "manual",
+     "description": "the capability grant carried by the registered report",
+     "artifact_id": "REP-00000000"}
+  ]
+}
