@@ -266,8 +266,13 @@ rows marked as golden-normalized — nothing else.
   having none, so the seam is simply absent. The golden suite and
   verify-full pin `WEBV2_GLOBAL_MEMORY_DIR` to an empty directory for
   *both* twins so the operator's real store can never mask a divergence.
-- **Unblocks:** the P3 shared-memory port wires the real store behind a
-  seam and this row closes.
+- **Unblocks:** CLOSED 2026-09-09 by T28 — `internal/sharedmem` (the P3
+  shared-memory port) reads the user-global store, and
+  `WEBV2_GLOBAL_MEMORY_DIR` is honoured in production
+  (`internal/sharedmem/sharedmem.go:56`); the recall tiers and the
+  publish/globalize verbs are wired through `cli.ensureSeams()`. The
+  golden/verify-full pins of the env to an empty directory for both
+  twins stay (they guard the operator's real store, not a divergence).
 
 ### D16 — Finding-id pin is a harness mechanism, not a live difference
 - **What:** under the golden pins (`WEBV2_UUID` seed), the Python
@@ -542,9 +547,14 @@ rows marked as golden-normalized — nothing else.
   `sft.SetStorePath` (used by `internal/sft` and `internal/cli` tests); the
   RUNBOOK walkthrough exercises `sft` from the scratch root with a store it
   creates there.
-- **Unblocks:** a `WEBV2_SFT_STORE` env seam plus a golden recipe pinning
-  both twins at one scratch store (the D24 pattern). Until then, run both
-  twins from their repo roots.
+- **Unblocks:** the `WEBV2_SFT_STORE` env seam is implemented (2026-09-09):
+  `sft.StorePath()` consults it after the explicit `SetStorePath` seam and
+  before the cwd default (`internal/sft/sft.go`, test
+  `TestSFTStorePathEnvOverride`) — point both twins at one store with
+  `WEBV2_SFT_STORE=<pyroot>/sft/examples.json` from any working directory.
+  The default-path difference itself is the D24 packaging fact and stays
+  documented; the golden recipe still omits `sft` (the walkthrough covers
+  it from a scratch root).
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**

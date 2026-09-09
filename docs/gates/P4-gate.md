@@ -128,9 +128,16 @@ file/ldd: ELF 64-bit … statically linked
 webv2 --help / selftest / ingest --example / mini walkthrough (init→snap→index→
 probes run→audit→verify→brief): all green
 binary: dist/webv2
-sha256: ed73d498fbf46f638a70b2c6dc74192a5fb75dacef5c812f856f014111dec75d
+sha256: 020c0cfb37f8c12d5b67c2a26625ebec7776c184dcc088ed1151540a4688a973
 size:   16601250 bytes (16M)
 RELEASE OK: static single binary, embedded assets served, standalone walkthrough clean
+```
+
+_Final rebuild (post-gate): the `WEBV2_SFT_STORE` env seam (D28) and the
+D15/D28 ledger updates landed after the first release build; the sha above
+is the final binary. Cross-twin proof of the seam: from `cwd=/tmp` with
+`WEBV2_SFT_STORE=<pyroot>/sft/examples.json`, both twins' `sft list` print
+the same two curated examples byte-identically._
 ```
 
 - `CGO_ENABLED=0`, `-trimpath`, `-s -w`; `ldd` reports "not a dynamic

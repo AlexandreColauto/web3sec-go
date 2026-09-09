@@ -66,9 +66,15 @@ func SetStorePath(p string) {
 }
 
 // StorePath is store_path: <repo>/sft/examples.json (or the seam override).
+// WEBV2_SFT_STORE points the store at an explicit file (D28: the reference
+// resolves it from its source tree; the binary defaults to the cwd — the
+// override is how the two twins share one store from any working directory).
 func StorePath() string {
 	if storePathOverride != nil {
 		return storePathOverride()
+	}
+	if env := os.Getenv("WEBV2_SFT_STORE"); env != "" {
+		return env
 	}
 	return filepath.Join(RepoRoot, SFTDirName, ExamplesName)
 }

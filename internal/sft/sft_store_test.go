@@ -194,6 +194,20 @@ func TestSFTCorruptStoreFailsLoud(t *testing.T) {
 	}
 }
 
+func TestSFTStorePathEnvOverride(t *testing.T) {
+	root := t.TempDir()
+	env := filepath.Join(root, "elsewhere", "store.json")
+	t.Setenv("WEBV2_SFT_STORE", env)
+	if got := StorePath(); got != env {
+		t.Fatalf("StorePath() = %q, want %q", got, env)
+	}
+	SetStorePath(filepath.Join(root, "explicit.json"))
+	defer SetStorePath("")
+	if got := StorePath(); got != filepath.Join(root, "explicit.json") {
+		t.Fatalf("explicit seam lost to env: %q", got)
+	}
+}
+
 func TestSFTExportJSONLOnlyCurated(t *testing.T) {
 	useStore(t)
 	a, err := AddExample(baseExample(t), "draft")
