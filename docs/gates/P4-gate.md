@@ -32,8 +32,13 @@ Port state: `web3sec-go` HEAD `1254db0` + the T37 working-tree changes in §10
 
 **The cutover itself is NOT triggered by this gate.** The rule requires the
 golden suite to be green for *two consecutive weeks of real campaign use*
-after P4; that clock starts now. Python remains the reference implementation
-and is neither archived nor modified.
+after P4; that clock starts now (2026-09-09). **Operator decision
+(2026-09-09): the Python repository is not touched** — no tag, no banner,
+no archival step; it remains fully developable and the reference
+implementation. The archive procedure (tag `webv2-python-final`,
+deprecation banner, golden keeps the pinned-Python regression) is
+documented in open item 1 below and executes only when the operator
+approves it after the two-week window.
 
 ---
 
@@ -231,20 +236,30 @@ P3 cross-audit smoke and was re-run to prove no regression.
 Nothing blocks the P4 gate. These are recorded so they are decisions, not
 surprises:
 
-1. **Cutover clock.** The spec requires P4's golden suite to be green for
-   *two consecutive weeks of real campaign use* before Python is archived.
-   This gate opens that window (2026-09-09). Until it closes, Python remains
-   the reference and both trees stay.
+1. **Cutover clock + operator decision.** The spec requires P4's golden
+   suite to be green for *two consecutive weeks of real campaign use*
+   before Python is archived. This gate opens that window (2026-09-09).
+   Operator decision (2026-09-09): do not touch the Python repository —
+   the Go repository is the deliverable. The archive procedure when the
+   operator eventually approves it: (a) tag `webv2-python-final` at the
+   last reference commit, (b) a deprecation banner in the Python README
+   pointing at this repository, (c) the golden suite keeps its pinned
+   Python for regression. Until then Python remains the reference and
+   both trees stay developable.
 2. **D26 golden pins.** The golden recipe still exports absent
    `WEBV2_EVAL_DIR`/`WEBV2_POC_ROOT` so CI stays hermetic. Closing that
    requires a small synthetic store (or the 2.5 GB corpora) on every box.
-3. **D15 and D23 have stale blockers.** D15 says the Go twin has no global
-   store (the P3 `internal/sharedmem` port landed and honours
-   `WEBV2_GLOBAL_MEMORY_DIR`); D23's unblock says "porting `sft`", and `sft`
-   is ported. Both need a decision: reproduce the reference quirk (D23) or
-   close the row; re-scope D15 to its remaining `recall`-specific claim.
-4. **D28's seam.** `sft` has no `WEBV2_SFT_STORE` env var yet; run both twins
-   from their repo roots until it lands.
+3. **D15 closed; D23 stays a Python-side issue.** D15 (Go twin had no global
+   store) is CLOSED in the ledger — the P3 `internal/sharedmem` port landed
+   and honours `WEBV2_GLOBAL_MEMORY_DIR` in production. D23 (bare `webv2 env`
+   prints the wrong parser's help via a late-bound closure) is a Python bug;
+   per the operator decision the Python repository is not modified, so the
+   fix lives in `docs/python-twin-issues.md` for the upstream owner.
+4. **D28's seam landed.** `sft.StorePath()` now consults `WEBV2_SFT_STORE`
+   (closeout commit) — cross-twin proof: from `cwd=/tmp` with the env
+   pointed at the reference's committed store, both twins' `sft list` are
+   byte-identical. The default-path difference remains a documented D24-class
+   packaging fact.
 5. **Four RUNBOOK discrepancies** (§2) are reference/runbook bugs; the fixes
    are written out in `docs/runbook-go-notes.md` §3 and
    `docs/python-twin-issues.md`. They are not port defects.
@@ -255,26 +270,24 @@ surprises:
    refusal when no daemon is present; on this box the daemon is live, so the
    real exec/mint/verify chain ran.
 
-## 10. Working-tree changes (uncommitted by design)
+## 10. Final commit state
+
+All P4 work is committed on `main` (59 commits total for the rewrite):
 
 ```
- M KNOWN_DIVERGENCES.md              D26 closed; D27 + D28 added
-?? README.md                        Go quick start (new)
-?? docs/runbook-go-notes.md         runbook substitutions + discrepancies (new)
-?? docs/python-twin-issues.md       reference issues found by the port (new)
-?? docs/gates/P4-gate.md            this report (new)
-?? internal/cli/cmd_selftest.go     verify.py port (new)
-?? internal/cli/cmd_selftest_test.go  6 tests (new)
-?? scripts/release.sh               static binary release (new)
-?? scripts/runbook-walkthrough.sh   140-command runbook walkthrough (new)
-?? scripts/cap-analysis.py          D27 evidence (new)
-?? dist/webv2                       release artifact (new, gitignored)
+ee86315  P4 closeout: the WEBV2_SFT_STORE seam + ledger rows D15/D28
+313e07e  P4 cutover: selftest + RUNBOOK walkthrough + binary release + P4 gate report
+1254db0  P4 parity: the last three rows — testmap is now 1378/1378 real, 0 deferred
+aec1b61  P4 wave 8b: the dataset loaders + the testmap re-triage sweep
+5b018da  P4 wave 8a: dataset tooling — eval store + ingest + metrics + sft
 ```
 
-No EXISTING production module changed for P4 — the phase was tooling, docs
-and the ledger. The only new production file is the `selftest` command
-(`internal/cli/cmd_selftest.go`, registered at order 67). `go.mod`/`go.sum`
-untouched (no new dependencies).
+New production code in P4: the dataset family
+(`internal/{evalstore,ingest,metrics,sft,datasets}`), the `sft` CLI verb
+(order 66) and the `selftest` command (order 67), plus the three parity
+fixes (chain cap, verify E6 flags, brief siblings — the latter three
+inside existing modules). `go.mod`/`go.sum` untouched (no new
+dependencies). `dist/webv2` is the gitignored release artifact.
 
 ## 11. Reproduce
 
