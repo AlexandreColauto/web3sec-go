@@ -256,3 +256,35 @@ func objStr(v validation.Value, key string) string {
 	}
 	return ""
 }
+
+// TestBlockBuilderBudgetCountsRunes is the T38 (golden v5) parity regression:
+// build_context budgets blocks in CHARACTERS (`text[:budget]`,
+// `budget -= len(text)`). Counting bytes would cut a multi-byte rune short and
+// drain extra budget, so the bundle diverges from the reference on any
+// non-ASCII snapshot/plan text.
+func TestBlockBuilderBudgetCountsRunes(t *testing.T) {
+	b := &blockBuilder{budget: 5}
+	b.add("t", "abcd\u2014efgh") // 9 runes / 11 bytes
+	if len(b.blocks) != 1 {
+		t.Fatalf("blocks = %d, want 1", len(b.blocks))
+	}
+	if got := objStr(b.blocks[0], "text"); got != "abcd\u2014" {
+		t.Fatalf("text = %q, want the 5-RUNE cut", got)
+	}
+	if b.budget != 0 {
+		t.Fatalf("budget = %d, want 0 (5 runes charged)", b.budget)
+	}
+	// A byte budget would have charged 11 and dropped the second block.
+	b2 := &blockBuilder{budget: 6}
+	b2.add("a", "abc")      // 3 runes
+	b2.add("b", "d\u2014e") // 3 runes
+	if len(b2.blocks) != 2 || b2.budget != 0 {
+		t.Fatalf("blocks = %d budget = %d, want 2/0", len(b2.blocks), b2.budget)
+	}
+	if got := objStr(b2.blocks[1], "text"); got != "d\u2014e" {
+		t.Fatalf("second block text = %q", got)
+	}
+	if got := truncate("abcd\u2014efgh", 5); got != "abcd\u2014" {
+		t.Fatalf("truncate = %q, want a 5-rune cut", got)
+	}
+}

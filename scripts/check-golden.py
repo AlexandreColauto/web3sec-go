@@ -81,13 +81,49 @@ def norm_bytes(spec: dict, twin: str, data: bytes) -> bytes:
     return norm_text(spec, twin, data.decode("utf-8", "replace")).encode("utf-8")
 
 
+def _diff_files(spec: dict, label: str, py_root: Path,
+                go_root: Path) -> tuple[int, int]:
+    """Byte-diff two mirrored trees; returns (files compared, mismatches)."""
+    py_files = sorted(p.relative_to(py_root).as_posix()
+                      for p in py_root.rglob("*") if p.is_file())
+    go_files = sorted(p.relative_to(go_root).as_posix()
+                      for p in go_root.rglob("*") if p.is_file())
+    bad = 0
+    for f in sorted(set(py_files) - set(go_files)):
+        fails.append(f"tree: py-only file {label}/{f}")
+        bad += 1
+    for f in sorted(set(go_files) - set(py_files)):
+        fails.append(f"tree: go-only file {label}/{f}")
+        bad += 1
+    for f in sorted(set(py_files) & set(go_files)):
+        a = norm_bytes(spec, "py", (py_root / f).read_bytes())
+        b = norm_bytes(spec, "go", (go_root / f).read_bytes())
+        if a != b:
+            fails.append(f"tree: {label}/{f} differs")
+            bad += 1
+            la = a.decode("utf-8", "replace").splitlines()
+            lb = b.decode("utf-8", "replace").splitlines()
+            for i in range(max(len(la), len(lb))):
+                xa = la[i] if i < len(la) else "<missing>"
+                xb = lb[i] if i < len(lb) else "<missing>"
+                if xa != xb:
+                    fails.append(f"    line {i+1} py: {xa[:200]}")
+                    fails.append(f"    line {i+1} go: {xb[:200]}")
+                    break
+    return len(py_files), bad
+
+
 def diff_tree(spec: dict) -> None:
-    """Byte-diff EVERY campaign dir in the two archived trees.
+    """Byte-diff EVERY campaign dir in the two archived trees, plus the
+    per-twin P4 sft store.
 
     The recipe's main campaign is spec["campaign_id"], but golden v4 also
     creates a second campaign for the D19 deployment/chain pin, so the diff
     walks the whole `campaigns/` dir (a campaign present on one side only is
-    itself a failure)."""
+    itself a failure). Golden v5 adds `sft-store/examples.json`: the sft
+    store is a repo-level file, not campaign data, and `sft split` rewrites
+    it — so the harness copies the fixture into the run root per twin and
+    this diff proves the post-split bytes match byte-for-byte."""
     py_base = Path(spec["trees"]["py"]) / "campaigns"
     go_base = Path(spec["trees"]["go"]) / "campaigns"
     camps = sorted({p.name for p in py_base.iterdir() if p.is_dir()} |
@@ -102,35 +138,17 @@ def diff_tree(spec: dict) -> None:
         if not go_root.is_dir():
             fails.append(f"tree: campaign {camp} missing from the go tree")
             continue
-        py_files = sorted(p.relative_to(py_root).as_posix() for p in py_root.rglob("*")
-                          if p.is_file())
-        go_files = sorted(p.relative_to(go_root).as_posix() for p in go_root.rglob("*")
-                          if p.is_file())
-        total += len(py_files)
-        for f in sorted(set(py_files) - set(go_files)):
-            fails.append(f"tree: py-only file {camp}/{f}")
-            bad += 1
-        for f in sorted(set(go_files) - set(py_files)):
-            fails.append(f"tree: go-only file {camp}/{f}")
-            bad += 1
-        for f in sorted(set(py_files) & set(go_files)):
-            a = norm_bytes(spec, "py", (py_root / f).read_bytes())
-            b = norm_bytes(spec, "go", (go_root / f).read_bytes())
-            if a != b:
-                fails.append(f"tree: {camp}/{f} differs")
-                bad += 1
-                la = a.decode("utf-8", "replace").splitlines()
-                lb = b.decode("utf-8", "replace").splitlines()
-                for i in range(max(len(la), len(lb))):
-                    xa = la[i] if i < len(la) else "<missing>"
-                    xb = lb[i] if i < len(lb) else "<missing>"
-                    if xa != xb:
-                        fails.append(f"    line {i+1} py: {xa[:200]}")
-                        fails.append(f"    line {i+1} go: {xb[:200]}")
-                        break
+        n, b = _diff_files(spec, camp, py_root, go_root)
+        total += n
+        bad += b
+    n, b = _diff_files(spec, "sft-store",
+                       Path(spec["trees"]["py"]) / "sft-store",
+                       Path(spec["trees"]["go"]) / "sft-store")
+    total += n
+    bad += b
     if not bad:
         print(f"tree: {total} files byte-MATCH across {len(camps)} "
-              f"campaign(s) (normalized)")
+              f"campaign(s) + sft-store (normalized)")
 
 
 def audit_json_step(spec: dict, step: int, name: str) -> None:

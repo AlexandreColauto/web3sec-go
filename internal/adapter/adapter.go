@@ -525,14 +525,19 @@ type blockBuilder struct {
 }
 
 // add appends one block, truncating its text to the remaining budget.
+// The budget is counted in CHARACTERS, exactly like the reference
+// (`text = text[:budget]; budget -= len(text)`), so a multi-byte rune
+// straddling the boundary must not shorten the block (or drain extra budget).
 func (b *blockBuilder) add(title, text string) {
 	if b.budget <= 0 {
 		return
 	}
-	if int64(len(text)) > b.budget {
-		text = text[:b.budget]
+	runes := []rune(text)
+	if int64(len(runes)) > b.budget {
+		runes = runes[:b.budget]
 	}
-	b.budget -= int64(len(text))
+	b.budget -= int64(len(runes))
+	text = string(runes)
 	b.blocks = append(b.blocks, validation.VObj(
 		validation.KV{K: "title", V: validation.VStr(title)},
 		validation.KV{K: "text", V: validation.VStr(text)}))
@@ -690,9 +695,11 @@ func mustRel(stage string) string {
 	return rel
 }
 
+// truncate is Python's `s[:n]`: a CHARACTER slice (the reference caps block
+// text with `[:cap]` before the budget clip).
 func truncate(s string, n int) string {
-	if len(s) > n {
-		return s[:n]
+	if runes := []rune(s); len(runes) > n {
+		return string(runes[:n])
 	}
 	return s
 }

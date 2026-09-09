@@ -243,16 +243,23 @@ func backfillStructured(f validation.Value) validation.Value {
 		validation.KV{K: "pivot_count", V: validation.VInt(0)})
 }
 
+// clipRunes is Python's `s[:n]` for a string: a CHARACTER slice, so a
+// multi-byte rune straddling the budget must not shorten the line relative
+// to the reference (backfill_trace uses `a['text'][:60]`).
+func clipRunes(s string, n int) string {
+	if runes := []rune(s); len(runes) > n {
+		return string(runes[:n])
+	}
+	return s
+}
+
 // backfillTrace is the assistant trace skeleton: the arc markers, the
 // assumption lines translated from the finding, and the structured JSON block.
 func backfillTrace(structured validation.Value) string {
 	aLines := []string{}
 	if list := objAt(structured, "assumptions"); list.Kind == validation.Arr {
 		for _, a := range list.A {
-			text := getDefaultStr(a, "text", "")
-			if len(text) > 60 {
-				text = text[:60]
-			}
+			text := clipRunes(getDefaultStr(a, "text", ""), 60)
 			aLines = append(aLines, getDefaultStr(a, "id", "A?")+" ("+text+
 				"): -> "+objStr(a, "status")+". "+objStr(a, "reason"))
 		}

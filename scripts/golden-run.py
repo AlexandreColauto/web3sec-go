@@ -41,6 +41,18 @@ The recipe has four halves:
       and impact (priced, priced+artifact, and the UNPRICEABLE named
       decision).
 
+  P4 (docs/gates/P4-gate.md) — the ported P4 surface, over the committed
+      P4 fixture (scripts/golden/p4/, built from the read-only reference by
+      scripts/golden/p4/build.py): the sft verb group (list / lint x3 /
+      split / report / export x2 / backfill) against a per-twin store copy,
+      with the post-split store bytes compared as a tree file. The three P4
+      env seams (WEBV2_POC_ROOT / WEBV2_EVAL_DIR / WEBV2_SFT_STORE) now
+      point at the fixture, so the existing P3 `corpus-surface` step runs
+      against the REAL 30-record DeFiHackLabs slice + the REAL 4-case eval
+      store and its shape matches carry record_id / memory_ids / bug_class
+      attribution (the fixture's shared-memory store seeds the published
+      `ingest:defihacklabs:<record_id>` rows the attribution joins on).
+
   P3 (docs/gates/golden-v4.md) — the ported P3 surface, over a target that
       now carries the reference probes package's own Solidity fixtures:
       index / sinks / prescreen (+ --json), the probe surface (run / list /
@@ -67,8 +79,9 @@ The recipe has four halves:
       (`WEBV2_FINDING_IDS=pin` + scripts/golden/sitecustomize.py) keeps its
       own running `WEBV2_FINDING_ID_SEQ` stream on top of the per-step seed;
       the v4 additions are `WEBV2_COST_IDS=pin` + `WEBV2_COST_ID_SEQ` (the
-      cost id is a RAW uuid4 in the reference, like the finding id) and the
-      absent-store pins `WEBV2_EVAL_DIR` / `WEBV2_POC_ROOT` (see D26).
+      cost id is a RAW uuid4 in the reference, like the finding id). The
+      v4 absent-store pins `WEBV2_EVAL_DIR` / `WEBV2_POC_ROOT` are GONE in
+      v5 — both now point at the committed P4 fixture (see D26).
 
 Fixtures live under scripts/golden/ and are referenced by paths RELATIVE to
 the Go repo root; both twins run with cwd=GO_ROOT so a relative path means
@@ -97,6 +110,15 @@ GOBIN = WORK / "webv2"
 SEED = "golden-p2"
 NOW_BASE = datetime.datetime(2026, 9, 8, 12, 0, 0, tzinfo=datetime.timezone.utc)
 FIX = "scripts/golden"          # fixture dir, relative to GO_ROOT
+# Golden v5 (T38): the P4 fixture. A 30-record REAL DeFiHackLabs slice,
+# a 4-case eval store and the sft store + lint fixtures, all built from
+# the read-only reference by scripts/golden/p4/build.py. The three P4
+# env seams point here (see run_step); WEBV2_SFT_STORE is a per-twin
+# copy inside the run root because `sft split` writes the store.
+P4_FIX = FIX + "/p4"
+P4_DATASETS = P4_FIX + "/datasets"
+P4_EVAL = P4_FIX + "/eval"
+P4_SFT = P4_FIX + "/sft"
 
 
 def now_for(step: int) -> str:
@@ -255,7 +277,7 @@ def build_go() -> None:
 
 
 def run_step(twin: str, root: Path, argv: list[str], step: int,
-             fid_base: int) -> tuple[int, str, str]:
+             fid_base: int, sft_store: str) -> tuple[int, str, str]:
     now = now_for(step)
     # WEBV2_FINDING_IDS=pin + WEBV2_FINDING_ID_SEQ: Python's
     # findings.new_finding_id is a raw uuid4, so the two twins must be
@@ -266,8 +288,12 @@ def run_step(twin: str, root: Path, argv: list[str], step: int,
     env = dict(os.environ, WEBV2_NOW=now, WEBV2_UUID=seed_for(step),
                WEBV2_FINDING_IDS="pin", WEBV2_FINDING_ID_SEQ=str(fid_base),
                WEBV2_COST_IDS="pin", WEBV2_COST_ID_SEQ=str(fid_base),
-               WEBV2_EVAL_DIR=str(WORK / "absent-eval"),
-               WEBV2_POC_ROOT=str(WORK / "absent-poc"),
+               # Golden v5: the P4 seams point at the committed fixture
+               # (was: absent dirs, D26). WEBV2_SFT_STORE is the per-twin
+               # store copy inside the run root.
+               WEBV2_EVAL_DIR=str(GO_ROOT / P4_EVAL),
+               WEBV2_POC_ROOT=str(GO_ROOT / P4_DATASETS),
+               WEBV2_SFT_STORE=sft_store,
                WEBV2_BASELINES_DIR=str(WORK / "baselines"),
                WEBV2_PROMPTS_BASE=str(GO_ROOT / "assets"),
                WEBV2_GLOBAL_MEMORY_DIR=str(WORK / "shared-memory"))
@@ -789,6 +815,39 @@ def recipe(state: dict) -> list[dict]:
         {"name": "status-c2", "exit": 0, "argv": ["status", cid2]},
         {"name": "audit-c2", "exit": 0, "argv": ["audit", cid2]},
         {"name": "verify-c2", "exit": 0, "argv": ["verify", cid2]},
+
+        # ---- P4 golden coverage (v5, T38) --------------------------------
+        # The sft verb group over the committed fixture store (WEBV2_SFT_STORE
+        # -> <root>/sft-store/examples.json, a per-twin copy). The store
+        # carries the reference's 2 curated examples + 2 constructed drafts;
+        # `split` writes it back, so the post-split bytes are a tree file
+        # (root/sft-store/) compared byte-for-byte. Lint is run on FILES: the
+        # curated PASS, the hard dedup refusal, and the rubric refusal (the
+        # refusal text is golden-pinned, exit 1). Kept last: sft touches no
+        # campaign artifact, but a store write must not sit between two
+        # steps that read the store.
+        {"name": "sft-list", "exit": 0, "argv": ["sft", "list"]},
+        {"name": "sft-list-curated", "exit": 0,
+         "argv": ["sft", "list", "--status", "curated"]},
+        {"name": "sft-list-draft", "exit": 0,
+         "argv": ["sft", "list", "--status", "draft"]},
+        {"name": "sft-lint-pass", "exit": 0,
+         "argv": ["sft", "lint", f"{P4_SFT}/lint-pass.json"]},
+        {"name": "sft-lint-dedup", "exit": 1,
+         "argv": ["sft", "lint", f"{P4_SFT}/lint-dedup.json"]},
+        {"name": "sft-lint-reject", "exit": 1,
+         "argv": ["sft", "lint", f"{P4_SFT}/lint-reject.json"]},
+        {"name": "sft-split", "exit": 0,
+         "argv": ["sft", "split", "--seed", "42"]},
+        {"name": "sft-list-split", "exit": 0, "argv": ["sft", "list"]},
+        {"name": "sft-list-training", "exit": 0,
+         "argv": ["sft", "list", "--partition", "training"]},
+        {"name": "sft-report", "exit": 0, "argv": ["sft", "report"]},
+        {"name": "sft-export", "exit": 0, "argv": ["sft", "export"]},
+        {"name": "sft-export-training", "exit": 0,
+         "argv": ["sft", "export", "--partition", "training"]},
+        {"name": "sft-backfill", "exit": 0,
+         "argv": ["sft", "backfill", cid, f[0]]},
     ]
 
 
@@ -820,6 +879,19 @@ def main() -> None:
         # path so both twins print the same store path; reset it per twin
         # so each starts from the same empty store.
         shutil.rmtree(WORK / "baselines", ignore_errors=True)
+        # Golden v5 (T38): the per-twin sft store is a copy of the fixture
+        # inside the run root, so `sft split` mutates a throwaway file and
+        # the bytes after the split are archived + compared with the
+        # campaign tree. The shared-memory store is reset to the fixture's
+        # 20 published prior rows per twin, so publish/globalize/shared see
+        # the same starting store in both twins (previously the Go run saw
+        # the Python run's leftovers).
+        sft_store = root / "sft-store" / "examples.json"
+        sft_store.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(GO_ROOT / P4_SFT / "examples.json", sft_store)
+        shutil.rmtree(WORK / "shared-memory", ignore_errors=True)
+        shutil.copytree(GO_ROOT / P4_FIX / "shared-memory",
+                        WORK / "shared-memory")
         roots[twin] = str(root)
         caps = WORK / "captures" / twin
         caps.mkdir(parents=True)
@@ -856,7 +928,8 @@ def main() -> None:
                 out = (f"seeded externally-reported exec {eid} "
                        f"(profile docker-networkless, exit 0)\n")
             else:
-                code, out, err = run_step(twin, root, argv, i, fid_base)
+                code, out, err = run_step(twin, root, argv, i, fid_base,
+                                           str(sft_store))
             (caps / f"{i:02d}-{name}.out").write_text(out)
             (caps / f"{i:02d}-{name}.err").write_text(err)
             (caps / f"{i:02d}-{name}.exit").write_text(str(code))

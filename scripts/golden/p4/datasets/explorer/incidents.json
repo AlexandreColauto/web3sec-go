@@ -1,0 +1,272 @@
+[
+  {
+    "date": "20260902",
+    "name": "Geb",
+    "type": "Access Control Bypass",
+    "Lost": 5.9436,
+    "lossType": "ETH",
+    "Contract": "",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20260901",
+    "name": "FloatProtocol",
+    "type": "Flash Loan",
+    "Lost": 28000.0,
+    "lossType": "USD",
+    "Contract": "",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20260831",
+    "name": "TectonicFi",
+    "type": "Price Manipulation",
+    "Lost": 74000000.0,
+    "lossType": "USD",
+    "Contract": "",
+    "chain": "Cronos"
+  },
+  {
+    "date": "20260831",
+    "name": "Aquifer",
+    "type": "CPI Exploit",
+    "Lost": 2500000.0,
+    "lossType": "USD",
+    "Contract": "",
+    "chain": "Solana"
+  },
+  {
+    "date": "20260826",
+    "name": "FHToken",
+    "type": "Deflationary Token Exploit",
+    "Lost": 20000.0,
+    "lossType": "USD",
+    "Contract": "",
+    "chain": "BSC"
+  },
+  {
+    "date": "20260826",
+    "name": "MAYAChain",
+    "type": "Accounting Flaw",
+    "Lost": 1760000.0,
+    "lossType": "USD",
+    "Contract": "",
+    "chain": "MAYAChain"
+  },
+  {
+    "date": "20260823",
+    "name": "TermFinance",
+    "type": "Governance Attack",
+    "Lost": 8500000.0,
+    "lossType": "USD",
+    "Contract": "",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20260809",
+    "name": "USM",
+    "type": "Flash Loan + Pricing Logic Flaw",
+    "Lost": 136000.0,
+    "lossType": "USD",
+    "Contract": "",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20260807",
+    "name": "ZKPanther",
+    "type": "Governance Attack",
+    "Lost": 5120000.0,
+    "lossType": "ZKP",
+    "Contract": "",
+    "chain": "Base"
+  },
+  {
+    "date": "20260804",
+    "name": "Nereus",
+    "type": "Proxy Upgrade Attack",
+    "Lost": 23760.0,
+    "lossType": "USD",
+    "Contract": "",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20260730",
+    "name": "UnprotectedArbBot",
+    "type": "Unprotected arbitrary-call forwarder drained via pre-granted WETH allowance",
+    "Lost": 16.623,
+    "lossType": "WETH",
+    "Contract": "src/test/2026-07/UnprotectedArbBot_exp.sol",
+    "chain": "Base"
+  },
+  {
+    "date": "20260726",
+    "name": "ChainConnect",
+    "type": "Bridge Exploit",
+    "Lost": 329.0,
+    "lossType": "ETH",
+    "Contract": "",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20260725",
+    "name": "Projekt",
+    "type": "Flash Loan Attack",
+    "Lost": 560000.0,
+    "lossType": "USD",
+    "Contract": "",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20260724",
+    "name": "LienFinance",
+    "type": "Access Control / Bond Minting Flaw",
+    "Lost": 542144.0,
+    "lossType": "USDC",
+    "Contract": "",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20260715",
+    "name": "Drips",
+    "type": "Integer Overflow",
+    "Lost": 24882.0,
+    "lossType": "DAI",
+    "Contract": "",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20260712",
+    "name": "Sodium",
+    "type": "Signature Validation Bypass",
+    "Lost": 21157.0,
+    "lossType": "USD",
+    "Contract": "",
+    "chain": "Arbitrum"
+  },
+  {
+    "date": "20260706",
+    "name": "SummerFinance",
+    "type": "Share Manipulation",
+    "Lost": 6000000.0,
+    "lossType": "USD",
+    "Contract": "",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20260706",
+    "name": "SummerFi",
+    "type": "FleetCommander NAV Inflation via Depegged xUSD",
+    "Lost": 6000000.0,
+    "lossType": "USD",
+    "Contract": "src/test/2026-07/SummerFi_exp.sol",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20260629",
+    "name": "AIDC",
+    "type": "Smart Contract Logic Flaw",
+    "Lost": 220.12,
+    "lossType": "WBNB",
+    "Contract": "",
+    "chain": "BSC"
+  },
+  {
+    "date": "20260615",
+    "name": "Thetanuts",
+    "type": "Index vault component-share accounting flaw",
+    "Lost": 105471.5,
+    "lossType": "USDC",
+    "Contract": "src/test/2026-06/Thetanuts_exp.sol",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20260530",
+    "name": "AROS",
+    "type": "Signature Replay",
+    "Lost": 295000.0,
+    "lossType": "USD",
+    "Contract": "src/test/2026-05/AROS_exp.sol",
+    "chain": "Unknown"
+  },
+  {
+    "date": "20260527",
+    "name": "Joe Agent",
+    "type": "Reentrancy in removeLiquidityViaContract",
+    "Lost": 45000.0,
+    "lossType": "USD",
+    "Contract": "src/test/2026-05/JoeAgent_exp.sol",
+    "chain": "BSC"
+  },
+  {
+    "date": "20260510",
+    "name": "Renegade",
+    "type": "Uninitialized Proxy",
+    "Lost": 209000.0,
+    "lossType": "USD",
+    "Contract": "src/test/2026-05/Renegade_exp.sol",
+    "chain": "Arbitrum"
+  },
+  {
+    "date": "20260420",
+    "name": "ThetanutsVaultShareRounding",
+    "type": "Vault Share Rounding Manipulation",
+    "Lost": 0.15,
+    "lossType": "WBTC",
+    "Contract": "src/test/2026-04/ThetanutsVaultShareRounding_exp.sol",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20260315",
+    "name": "Venus THE",
+    "type": "BorrowBehalf + Donation Attack",
+    "Lost": 913858.2633605214,
+    "lossType": "CAKE",
+    "Contract": "src/test/2026-03/Venus_THE_exp.sol",
+    "chain": "Unknown"
+  },
+  {
+    "date": "20251020",
+    "name": "SharwaFinance",
+    "type": "Post Insolvency Check",
+    "Lost": 146000.0,
+    "lossType": "USD",
+    "Contract": "src/test/2025-10/SharwaFinance_exp.sol",
+    "chain": "Arbitrum"
+  },
+  {
+    "date": "20250518",
+    "name": "KRC",
+    "type": "deflationary token",
+    "Lost": 7000.0,
+    "lossType": "USD",
+    "Contract": "src/test/2025-05/KRC_token_exp.sol",
+    "chain": "Unknown"
+  },
+  {
+    "date": "20241217",
+    "name": "GemPad",
+    "type": "Reentrancy",
+    "Lost": 1800000.0,
+    "lossType": "USD",
+    "Contract": "",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20220608",
+    "name": "Optimism-Wintermute",
+    "type": "Bridge Attack",
+    "Lost": 20000000.0,
+    "lossType": "USD",
+    "Contract": "src/test/2022-06/Optimism_exp.sol",
+    "chain": "Ethereum"
+  },
+  {
+    "date": "20220423",
+    "name": "Akutar NFT",
+    "type": "Denial Of Service",
+    "Lost": 34000000.0,
+    "lossType": "USD",
+    "Contract": "src/test/2022-04/AkutarNFT_exp.sol",
+    "chain": "Ethereum"
+  }
+]

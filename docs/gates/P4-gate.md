@@ -25,7 +25,7 @@ Port state: `web3sec-go` HEAD `1254db0` + the T37 working-tree changes in §10
 | 2 | RUNBOOK walkthrough executed against the Go binary | **PASS** — §2, 140/140 commands |
 | 3 | binary release (embed assets) | **PASS** — §3, static 16 MB, standalone |
 | 4 | docs updated (README quick start, runbook notes, twin issues) | **PASS** — §4 |
-| 5 | divergence ledger: D26 closed, D27 + D28 added | **PASS** — §5 |
+| 5 | divergence ledger: D26 closed, D27 + D28 added (T38 adds D29) | **PASS** — §5 |
 | 6 | P4 gate report (this document) | **PASS** — §6 |
 | — | full test-suite parity gate | **PASS** — §7 |
 | — | cross-twin CI green | **PASS** — §8 |
@@ -169,9 +169,10 @@ is read-only for this port).
 
 | row | change | evidence |
 |-----|--------|----------|
-| **D26** | **CLOSED** | the T33/T34 seams are wired in the CLI (`cli.WireT33Seams` → `corpus.SetListEvalCases` + trajectory/metrics case lookups; `cli.WireT34Seams` → `SetLoadPocRecords` + `SetRoots`/`SetPocRoot`). With the REAL stores mounted, both twins print `15 classes probed, 254 PoC files with signal, 135 records without a resolvable PoC` and the `corpus_surface.json` artifacts are byte-identical apart from `generated_at`; class weights match exactly (access-control w=172 score=11.152, logic-error w=320 score=6.245, reentrancy w=60 score=5.931, unchecked-external-call w=34 score=5.129, oracle-manipulation w=139 score=3.565). Script: `.scratch/t37/d26_check.sh`. The golden recipe keeps the absent-store pins as a hermetic-environment choice, not a divergence. |
+| **D26** | **CLOSED** | the T33/T34 seams are wired in the CLI (`cli.WireT33Seams` → `corpus.SetListEvalCases` + trajectory/metrics case lookups; `cli.WireT34Seams` → `SetLoadPocRecords` + `SetRoots`/`SetPocRoot`). With the REAL stores mounted, both twins print `15 classes probed, 254 PoC files with signal, 135 records without a resolvable PoC` and the `corpus_surface.json` artifacts are byte-identical apart from `generated_at`; class weights match exactly (access-control w=172 score=11.152, logic-error w=320 score=6.245, reentrancy w=60 score=5.931, unchecked-external-call w=34 score=5.129, oracle-manipulation w=139 score=3.565). Script: `.scratch/t37/d26_check.sh`. T38 closes the golden caveat: the recipe now points both P4 seams at the committed `scripts/golden/p4/` fixture (§8), so the absent-store pins are gone. |
 | **D27** | **ADDED** | `chains` proposal ORDER is `PYTHONHASHSEED`-dependent in the reference (sets), sorted (deterministic per fixture) in Go. `scripts/cap-analysis.py` proves the substantive parity live: both twins cap at exactly 500 with 500 distinct member sets; Go repeats identically over the same fixture; Python's order digest differs for seeds 0/1/2/3; with the cap raised Python enumerates **793** distinct member sets and BOTH capped sets are subsets of it (0 outside). The exact cut — and hence the overlap between the two cuts (275-373/500 observed) — is a per-run value because `new_finding_id` is a raw uuid4 in both twins and `WEBV2_UUID` does not pin it; the asserted properties are stable. Permanent while the reference iterates sets. |
-| **D28** | **ADDED** | the `sft` store path is source-relative in the reference (`repo_root()/sft/examples.json`) and cwd-relative in the Go binary — the same host fact as D24. Evidence: from `cwd=/tmp` the Python twin lists the two committed examples, the Go twin reads an empty store; from the repo root both agree. No recipe drives `sft`, so nothing is normalized; the embedder seam is `sft.SetStorePath`. |
+| **D29** | **ADDED (T38)** | three character-vs-byte / `null`-vs-`[]` divergences the P4 fixture surfaced in the memory + bundle path (`deciding_propositions` verbatim, rune-clipped `pattern`/`evidence_summary`/assumption text, rune-counted context budget) — all **fixed in the Go twin** with unit tests and byte-identical in the golden; nothing normalized. See the ledger row for the per-site evidence. |
+| **D28** | **ADDED** | the `sft` store path is source-relative in the reference (`repo_root()/sft/examples.json`) and cwd-relative in the Go binary — the same host fact as D24. Evidence: from `cwd=/tmp` the Python twin lists the two committed examples, the Go twin reads an empty store; from the repo root both agree. T38 drives the whole `sft` verb group through both twins with `WEBV2_SFT_STORE` (a per-twin fixture copy), so nothing is normalized; the embedder seam is `sft.SetStorePath`. |
 
 Ledger hygiene (rows whose stated blockers have since been satisfied) is
 recorded as an open item in §9.
@@ -206,11 +207,12 @@ green by the walkthrough (check `selftest-full`, exit 0, `ALL PASS`).
 
 ```
 $ bash scripts/golden.sh
-golden run complete: campaign C-34c0ce6f4b (166 steps x 2 twins)
-tree: 66 files byte-MATCH across 2 campaign(s) (normalized)
-steps: 166 commands x 2 twins (declared nonzero: gate-h1=1, gate-h3=1,
+golden run complete: campaign C-34c0ce6f4b (179 steps x 2 twins)
+tree: 68 files byte-MATCH across 2 campaign(s) + sft-store (normalized)
+steps: 179 commands x 2 twins (declared nonzero: gate-h1=1, gate-h3=1,
   prove-learning=1, ladder-disprove-short-reason=2, ladder-disprove-reproduced=2,
-  impact-unpriceable-incomplete=2, env-doctor=1, run=3, complete-short-reason=2)
+  impact-unpriceable-incomplete=2, env-doctor=1, run=3, complete-short-reason=2,
+  sft-lint-dedup=1, sft-lint-reject=1)
 step 07  audit-json: 14 audit section(s) + ok MATCH (py-only: none)
 step 158 audit-json-final: 14 audit section(s) + ok MATCH (py-only: none)
 GOLDEN GREEN: all artifacts and command outputs byte-match (normalized per KNOWN_DIVERGENCES)
@@ -231,6 +233,38 @@ The P4 command surface itself (selftest, sft, the full cheat sheet) is covered
 by deliverable 2's walkthrough plus §7's suite; `verify-full.sh` remains the
 P3 cross-audit smoke and was re-run to prove no regression.
 
+**Golden v5 (T38, 2026-09-09) — the P4 modules are now IN the recipe.** The
+recipe grew 166 → 179 steps:
+
+* 13 new `sft` steps — `list` (plain, `--status curated`, `--status draft`,
+  `--partition training`), `lint` on three committed fixture files (a curated
+  PASS, an exact-duplicate hard dedup refusal with exit 1, and a TODO/rubric
+  refusal with exit 1), `split --seed 42`, `report`, `export` (all and
+  `--partition training`) and `backfill`. `split` REWRITES the store, so
+  `WEBV2_SFT_STORE` points at a per-twin copy inside the run root and the
+  post-split bytes are a compared tree file (`sft-store/examples.json`) — that
+  is why the tree count moved 66 → 68.
+* the existing P3 `corpus-surface` step now runs against the REAL P4 stores,
+  because all three seams point at the committed fixture:
+  `WEBV2_POC_ROOT` → the 30-record DeFiHackLabs slice (18 mapped bug classes
+  + 1 unmapped, 19 PoC files), `WEBV2_EVAL_DIR` → the 4-case tamper-evident
+  eval store (3 dev + 1 held-out) and `WEBV2_SFT_STORE` → the per-twin store.
+  Its `corpus_surface.json` therefore carries non-zero class weights with
+  eval-case and memory-row components, and `shape_matches` carries
+  `record_id` / `memory_ids` / `bug_class` attribution.
+
+The fixture is REAL-FORMAT and hermetic: `python3 scripts/golden/p4/build.py
+--check` reproduces it byte-for-byte from the read-only reference, so CI needs
+neither the 2.5 GB corpora nor the reference checkout at run time (open item 2,
+now resolved).
+
+The fixture immediately paid for itself: the new `sft-backfill` capture
+surfaced three byte divergences the ASCII-only v4 recipe could never reach —
+`deciding_propositions: null` vs `[]` on v2 rows, and character-vs-byte
+clipping in the roles/corpus/sft/adapter paths. All three were real Go port
+bugs, all three are fixed with unit tests and the step is now byte-identical
+(D29); **nothing was normalized**.
+
 ## 9. Open items and residuals
 
 Nothing blocks the P4 gate. These are recorded so they are decisions, not
@@ -246,9 +280,14 @@ surprises:
    pointing at this repository, (c) the golden suite keeps its pinned
    Python for regression. Until then Python remains the reference and
    both trees stay developable.
-2. **D26 golden pins.** The golden recipe still exports absent
-   `WEBV2_EVAL_DIR`/`WEBV2_POC_ROOT` so CI stays hermetic. Closing that
-   requires a small synthetic store (or the 2.5 GB corpora) on every box.
+2. **D26 golden pins — RESOLVED (T38, 2026-09-09).** The golden recipe no
+   longer exports absent `WEBV2_EVAL_DIR`/`WEBV2_POC_ROOT`. Both — plus the
+   new `WEBV2_SFT_STORE` seam — point at the committed `scripts/golden/p4/`
+   fixture (a REAL-FORMAT 30-record DeFiHackLabs slice, a 4-case eval store
+   and 20 published shared-memory rows, reproduced byte-for-byte by
+   `python3 scripts/golden/p4/build.py --check`), so the P3 `corpus-surface`
+   step exercises the REAL stores in CI without the 2.5 GB corpora. See D26
+   and §8.
 3. **D15 closed; D23 stays a Python-side issue.** D15 (Go twin had no global
    store) is CLOSED in the ledger — the P3 `internal/sharedmem` port landed
    and honours `WEBV2_GLOBAL_MEMORY_DIR` in production. D23 (bare `webv2 env`
@@ -299,7 +338,8 @@ export GOCACHE=$PWD/.scratch/gocache GOPATH=$PWD/.scratch/gopath \
 go run ./cmd/webv2 selftest --full        # deliverable 1 (fast: drop --full)
 bash scripts/runbook-walkthrough.sh       # deliverable 2, ~10 s
 bash scripts/release.sh                   # deliverable 3
-bash scripts/golden.sh                    # 166 steps x 2 twins, ~30 s
+bash scripts/golden.sh                    # 179 steps x 2 twins, ~35 s
+python3 scripts/golden/p4/build.py --check   # fixture drift guard (needs the reference repo)
 bash scripts/verify-full.sh               # 15 steps, ~90 s
 bash scripts/p2-docker-e2e.sh             # real docker + anvil, ~40 s
 go test ./... -count=1                    # 59 packages

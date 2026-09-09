@@ -482,13 +482,21 @@ rows marked as golden-normalized — nothing else.
   score=5.931, unchecked-external-call w=34 score=5.129,
   oracle-manipulation w=139 score=3.565). The reproduction script is
   `.scratch/t37/d26_check.sh`.
-- **Golden:** `scripts/golden-run.py` still exports the ABSENT-store pins
-  (`WEBV2_EVAL_DIR` / `WEBV2_POC_ROOT` under `.scratch/golden/`) so the
-  recipe stays hermetic and compares the ported layers at a legitimate
-  absent-input state. The pins are now an *environment choice*, not a
-  divergence: dropping them requires the 2.5 GB corpora on every CI box.
-- **Unblocks:** closed. A future recipe can mount a small synthetic store
-  and drop the pins.
+- **Golden:** golden v5 (T38, 2026-09-09) closes the hermeticity gap that
+  golden v4 left open. `scripts/golden/p4/` commits a REAL-FORMAT fixture —
+  a 30-record DeFiHackLabs slice (18 mapped bug classes + 1 unmapped, PoC
+  and no-PoC mix) with 19 PoC `.sol` files, a 4-case tamper-evident eval
+  store (3 dev + 1 held-out) and 20 published shared-memory rows, all
+  reproduced byte-for-byte from the read-only reference by
+  `python3 scripts/golden/p4/build.py --check`. The recipe now exports
+  `WEBV2_EVAL_DIR` / `WEBV2_POC_ROOT` at that fixture for BOTH twins, so
+  the existing P3 `corpus-surface` step runs against the REAL stores and its
+  `corpus_surface.json` (class weights incl. eval-case + memory-row
+  components, shape_matches carrying record_id / memory_ids / bug_class
+  attribution, `poc_missing`) is compared byte-for-byte. The ABSENT pins
+  are gone: a bigger corpus is now an operator choice, not a CI requirement.
+- **Unblocks:** closed, and the hermetic recipe no longer needs the 2.5 GB
+  corpora on every box.
 
 ### D27 — `chains` proposal ORDER is PYTHONHASHSEED-dependent (T36)
 - **What:** `chainengine.FindChains` enumerates simple capability chains up
@@ -542,19 +550,56 @@ rows marked as golden-normalized — nothing else.
   path would break every relocation. The reference's store is committed to
   git, so a wrong path silently reads an EMPTY dataset instead of failing
   loudly; the port keeps the reference's documented empty-store behavior.
-- **Golden:** no recipe drives `sft` (golden v4 and `scripts/verify-full.sh`
-  both omit it), so nothing is normalized. The embedder seam is
-  `sft.SetStorePath` (used by `internal/sft` and `internal/cli` tests); the
-  RUNBOOK walkthrough exercises `sft` from the scratch root with a store it
-  creates there.
+- **Golden:** golden v5 (T38, 2026-09-09) now drives the `sft` verb group —
+  `list` (plain / `--status` / `--partition`), `lint` on three committed
+  fixture files (PASS, hard dedup refusal, rubric refusal), `split --seed
+  42`, `report`, `export` (all / `--partition training`) and `backfill` —
+  through both twins with `WEBV2_SFT_STORE` pointing at a PER-TWIN copy of
+  the fixture store inside the run root. Because `split` rewrites the store,
+  the post-split bytes are a compared tree file
+  (`root/sft-store/examples.json`), so the store schema, the cluster-hash
+  partitioning and the id minting are all byte-diffed.
 - **Unblocks:** the `WEBV2_SFT_STORE` env seam is implemented (2026-09-09):
   `sft.StorePath()` consults it after the explicit `SetStorePath` seam and
   before the cwd default (`internal/sft/sft.go`, test
   `TestSFTStorePathEnvOverride`) — point both twins at one store with
   `WEBV2_SFT_STORE=<pyroot>/sft/examples.json` from any working directory.
   The default-path difference itself is the D24 packaging fact and stays
-  documented; the golden recipe still omits `sft` (the walkthrough covers
-  it from a scratch root).
+  documented; golden v5 closes the "no recipe drives sft" caveat.
+
+### D29 — character-vs-byte clipping and `null`-vs-`[]` in the memory/bundle path — CLOSED 2026-09-09 (T38)
+- **What (was):** golden v5's P4 fixture was the first run to put REAL
+  multi-byte and v2-shaped rows through the shared-memory / proposer-bundle
+  path, and it exposed three Go-vs-Python byte divergences that the
+  ASCII-only v4 recipe could not reach:
+  1. `roles.summarizeNonIssue` emitted `deciding_propositions: []` for a
+     schema_version-2 row whose field is ABSENT; the reference passes
+     `row.get(...)` through verbatim, so Python emitted `null`. Every
+     campaign negative-memory row in the backfilled proposer bundle
+     diverged.
+  2. `roles.summarizeNonIssue` and `corpus.SharedMemoryBlock` clipped
+     `pattern`/`evidence_summary` by BYTES; the reference slices CHARACTERS
+     (`[:300]`/`[:200]`), so a multi-byte rune straddling the budget
+     shortened the row (the P4 ingest rows' descriptions carry em/en
+     dashes).
+  3. `sft.backfillTrace` (`a['text'][:60]`) and `adapter.blockBuilder`
+     (`text[:budget]`, `budget -= len(text)`) had the same byte/character
+     mismatch; the adapter's byte budget also mis-charged the remaining
+     budget.
+- **Fix:** `internal/roles/context.go` passes the v2 field through
+  verbatim (`validation.VArr()` only for v1) and clips by runes;
+  `internal/corpus/report.go` (`clipRunes`), `internal/sft/backfill.go`
+  (`clipRunes`) and `internal/adapter/adapter.go` (`add`/`truncate`) now
+  count characters, matching Python's `s[:n]`.
+- **Evidence:** `scripts/golden.sh` GREEN (179 steps × 2 twins, 68 tree
+  files across 2 campaigns + `sft-store/`) — the `sft-backfill` capture was
+  the failing step before the fix and is byte-identical after it. Unit
+  tests: `internal/roles/t38_context_test.go`,
+  `internal/corpus/corpus_test.go::TestSharedMemoryBlockClipsSummaryByRunes`,
+  `internal/sft/sft_backfill_test.go::TestBackfillTraceClipsAssumptionTextByRunes`,
+  `internal/adapter/adapter_test.go::TestBlockBuilderBudgetCountsRunes`.
+- **Unblocks:** closed; ASCII-only behavior is unchanged, so no golden
+  normalization was needed.
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**

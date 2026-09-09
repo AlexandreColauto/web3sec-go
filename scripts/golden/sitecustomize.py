@@ -18,14 +18,15 @@ under WEBV2_FINDING_IDS=pin. No reference file is edited.
 
 Three store roots are repointed by the same harness:
 
-  * ``WEBV2_EVAL_DIR`` -> ``webv2.eval_store.EVAL_DIR`` (the eval store
-    is unported in Go — see D26) — an ABSENT store, which is a documented
-    legitimate input state;
+  * ``WEBV2_EVAL_DIR`` -> ``webv2.eval_store.EVAL_DIR`` — golden v5 points
+    it at the committed P4 fixture store (4 real cases) so the corpus sweep
+    exercises the REAL eval store;
   * ``WEBV2_POC_ROOT`` -> ``webv2.datasets.defihacklabs`` dataset roots
-    (POC_ROOT + EXPLORER_DIR/INCIDENTS_FILE/ROOTCAUSE_FILE; the
-    DeFiHackLabs clone and its incident explorer live beside the
-    reference repo, and both the shape leg and poc_missing attribution
-    read them) — likewise ABSENT;
+    (POC_ROOT + EXPLORER_DIR/INCIDENTS_FILE/ROOTCAUSE_FILE) — golden v5
+    points it at the committed 30-record DeFiHackLabs slice, so the shape
+    leg and the record attribution both see real data;
+  * ``WEBV2_SFT_STORE`` -> ``webv2.sft_dataset.store_path`` — golden v5
+    points it at the per-twin fixture store copy;
   * ``WEBV2_BASELINES_DIR`` -> ``webv2.forkdiff.BASELINES_DIR`` — one
     scratch dir shared with the Go twin (D24), so baseline add/list/
     remove/forkdiff compare without writing either repo;
@@ -68,6 +69,15 @@ if os.environ.get("WEBV2_UUID"):
     }
     _PATCHES = {m: (a, os.environ[e]) for m, (a, e) in _PATCHES.items()
                 if os.environ.get(e)}
+
+    # Golden v5 (T38): the sft store hangs off the reference package root
+    # (repo_root()/sft/examples.json); WEBV2_SFT_STORE repoints the
+    # store_path() FUNCTION at the fixture copy the harness pins, so the
+    # Python twin reads/writes exactly the store the Go twin's
+    # sft.StorePath() env seam resolves.
+    _sft_store = os.environ.get("WEBV2_SFT_STORE")
+    if _sft_store:
+        _PATCHES["webv2.sft_dataset"] = ("STORE_PATH", _sft_store)
 
     _poc_base = os.environ.get("WEBV2_POC_ROOT")
     if _poc_base:
@@ -121,6 +131,11 @@ if os.environ.get("WEBV2_UUID"):
                     if isinstance(_value, dict):
                         for k, v in _value.items():
                             setattr(module, k, v)
+                    elif _attr == "STORE_PATH":
+                        # sft_dataset: the store is resolved by a FUNCTION
+                        # (store_path), not a module constant.
+                        module.store_path = (
+                            lambda _p=_pathlib.Path(_value): _p)
                     elif _attr == "PROMPTS_BASE":
                         # resolve_prompt is the ONE path builder the CLI uses
                         # (`run`/`status`); rebase it on the embed mirror and

@@ -1,0 +1,226 @@
+{
+  "Akutar NFT": {
+    "type": "DoS, ERC721",
+    "date": "2022-04-23",
+    "rootCause": "Incorrect validation and External calls can fail deliberately.\n\nVulnerable code snippet:\n\n(1)DOS\n\n[https://etherscan.io/address/0xf42c318dbfbaab0eee040279c6a2588fa01a961d#code#L585](https://etherscan.io/address/0xf42c318dbfbaab0eee040279c6a2588fa01a961d#code#L585)\n\nBidder can be a malicious contract to cause DOS.\n\n```solidity\nfunction processRefunds() external {\n      require(block.timestamp > expiresAt, \"Auction still in progress\");\n      uint256 _refundProgress = refundProgress;\n      uint256 _bidIndex = bidIndex;\n      require(_refundProgress < _bidIndex, \"Refunds already processed\");\n      \n      uint256 gasUsed;\n      uint256 gasLeft = gasleft();\n      uint256 price = getPrice();\n      \n      for (uint256 i=_refundProgress; gasUsed < 5000000 && i < _bidIndex; i++) {\n          bids memory bidData = allBids[i];\n          if (bidData.finalProcess == 0) {\n            uint256 refund = (bidData.price - price) * bidData.bidsPlaced;\n            uint256 passes = mintPassOwner[bidData.bidder];\n            if (passes > 0) {\n                refund += mintPassDiscount * (bidData.bidsPlaced < passes ? bidData.bidsPlaced : passes);\n            }\n            allBids[i].finalProcess = 1;\n            if (refund > 0) {\n                (bool sent, ) = bidData.bidder.call{value: refund}(\"\"); // low-lecel call\n                require(sent, \"Failed to refund bidder\");\n```\n\nHow to fix, follow favor pull over push for external calls.\n\n[https://consensysdiligence.github.io/smart-contract-best-practices/development-recommendations/general/external-calls/#favor-pull-over-push-for-external-calls](https://consensysdiligence.github.io/smart-contract-best-practices/development-recommendations/general/external-calls/#favor-pull-over-push-for-external-calls)\n\n(2)Fund lock\n\n[https://etherscan.io/address/0xf42c318dbfbaab0eee040279c6a2588fa01a961d#code#L618](https://etherscan.io/address/0xf42c318dbfbaab0eee040279c6a2588fa01a961d#code#L618)\n\nIt should compare with `_bidIndex` instead of `totalBids`. Due to this issue, the requirement will never be satisfied, and the Ether in the contract can be locked for ever\n\n```solidity\nfunction claimProjectFunds() external onlyOwner {\n        require(block.timestamp > expiresAt, \"Auction still in progress\");\n        require(refundProgress >= totalBids, \"Refunds not yet processed\"); // wrong **//vulnerable point**\n        require(akuNFTs.airdropProgress() >= totalBids, \"Airdrop not complete\");\n\n        (bool sent, ) = project.call{value: address(this).balance}(\"\");\n        require(sent, \"Failed to withdraw\");        \n    }\n```",
+    "images": [],
+    "Lost": "$34 M",
+    "Contract": "https://github.com/SunWeb3Sec/DeFiHackLabs#20220423-akutar-nft---denial-of-service"
+  },
+  "Optimism-Wintermute": {
+    "type": "Bridge, Signature",
+    "date": "2022-06-08",
+    "rootCause": "contract does not use eip155 to prevent replay attacks\n\nVulnerable code snippet:\n\n[https://etherscan.io/address/0x76e2cfc1f5fa8f6a5b3fc4c8f4788f0116861f9b#code#L71](https://etherscan.io/address/0x76e2cfc1f5fa8f6a5b3fc4c8f4788f0116861f9b#code#L71)\n\nTo create a contract address on Optimism that is the same as the one on Ethereum, we just need to make sure that the two parameters, sender\u2019s address and the nonce, are the same as the ones used in generating the valid address on Ethereum.\n\n```solidity\n/// @dev Allows to create new proxy contact and execute a message call to the new proxy within one transaction.\n    /// @param masterCopy Address of master copy.\n    /// @param data Payload for message call sent to new proxy contract.\n    function createProxy(address masterCopy, bytes memory data)\n        public\n        returns (Proxy proxy)\n    {\n        proxy = new Proxy(masterCopy);\n        if (data.length > 0)\n            // solium-disable-next-line security/no-inline-assembly\n            assembly {\n                if eq(call(gas, proxy, 0, add(data, 0x20), mload(data), 0, 0), 0) { revert(0, 0) }\n            }\n        emit ProxyCreation(proxy);\n    }\n```",
+    "images": [],
+    "Lost": "$3M OP",
+    "Contract": "https://github.com/SunWeb3Sec/DeFiHackLabs#20220608-optimism---wintermute---signature-replay"
+  },
+  "KRC": {
+    "type": "Deflationary token reserve desync via transfer+skim",
+    "date": "2025-05-18",
+    "rootCause": "KRC is a fee-on-transfer (deflationary) token. The attacker exploited the interaction between its transfer fee/burn and the PancakeSwap pair's `skim` function to desynchronize the pair's cached reserves from its real token balances. With nested DODO and PancakeV3 flashloans of USDT, the attacker first swapped USDT into KRC to set up an imbalance, then performed a sequence of ~17 precise `transfer(pair, amount)` followed by `pair.skim(this)` calls. Because the deflationary token burns/taxes on each transfer, repeatedly sending KRC into the pair and skimming caused the pair's internal reserves to drift away from actual balances, lowering the effective KRC price. The attacker then executed a single `pair.swap(0, 355361...)` to extract a large amount of USDT against the corrupted reserves, repaid both flashloans, and netted ~$7k. Root cause: AMM pair reserve accounting being manipulable through a deflationary token's transfer fee combined with `skim`.\n\n**Vulnerable code snippet:**\n\n```solidity\n// repeat ~17x: deflationary transfer into pair then skim desyncs reserves\nkrcToken.transfer(address(krc_pair), 26158607120271760914);\nkrc_pair.skim(address(this));\n... // 16 more transfer+skim rounds with decreasing amounts\n// then extract USDT against the corrupted reserves\nkrc_pair.swap(0, 355361934507515425212391, address(this), new bytes(0));\n```\n\n**Attack Tx:**\n\n[https://bscscan.com/tx/0x78f242dee5b8e15a43d23d76bce827f39eb3ac54b44edcd327c5d63de3848daf](https://bscscan.com/tx/0x78f242dee5b8e15a43d23d76bce827f39eb3ac54b44edcd327c5d63de3848daf)\n\n**Analysis:**\n\n[OpenZeppelin post-mortem](https://x.com/OpenZeppelin/status/1953111764536561867)",
+    "images": [],
+    "Lost": "$7.0K",
+    "Contract": "https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2025-05/KRCToken_pair_exp.sol"
+  },
+  "SharwaFinance": {
+    "type": "Sharwa Finance Post-Insolvency Check Bypass",
+    "date": "2025-10-20",
+    "rootCause": "Sharwa Finance's margin trading system failed to properly enforce solvency on a margin account across the increase/decrease long position flow. Using a Morpho flash loan of USDC, the attacker created a margin account, supplied liquidity to the SF LP pool, provided collateral, and opened a large WBTC long via `increaseLongPosition`. In a second transaction (next block) the attacker flash-loaned WBTC, swapped it on Uniswap V3 to skew accounting, and called `decreaseLongPosition` with nearly the full position size. Because the position/collateral accounting and the post-trade insolvency check were inadequate (the check happened in a way the attacker could game across the swap and position-decrease), the attacker was able to withdraw more value than they put in, draining ~146K USD in WBTC. The flaw is a missing/incorrect post-operation insolvency validation on the margin account.\n\n**Vulnerable code snippet:**\n\n```solidity\n// increase then decrease a leveraged long with no sound post-trade solvency check\ntradeRouter.increaseLongPosition(marginAccountID, address(WBTC), 36_200_000);\n// ... next tx, after manipulating balances via V3 swaps ...\ntradeRouter.decreaseLongPosition(marginAccountID, address(WBTC), 36_199_999);\n```\n\n**Attack Tx:**\n\n[https://app.blocksec.com/explorer/tx/arbitrum/0xd64729c528e6689cb18b0c90345ab0c9ed18fea44247c89af2f1374643fc89c2](https://app.blocksec.com/explorer/tx/arbitrum/0xd64729c528e6689cb18b0c90345ab0c9ed18fea44247c89af2f1374643fc89c2)\n\n**Analysis:**\n\n[https://blog.verichains.io/p/vulnerability-analysis-deconstructing](https://blog.verichains.io/p/vulnerability-analysis-deconstructing)",
+    "images": [],
+    "Lost": "$146.0K",
+    "Contract": "https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2025-10/SharwaFinance_exp.sol"
+  },
+  "Venus THE": {
+    "type": "Venus THE BorrowBehalf + Donation Attack",
+    "date": "2026-03-15",
+    "rootCause": "The Venus vTHE market combined two flaws. First, six EOAs (including the victim) had pre-approved the future attack-contract address to spend their THE; the attacker used those standing allowances to pull ~36M THE and donate it directly into the vTHE contract. A direct token donation into a Compound-fork money market is not booked through `mint`, so it silently inflates the market's cash / exchange rate and therefore the value of the victim's vTHE collateral. Second, Venus's `borrowBehalf(borrower, amount)` lets a third party open debt on another account's behalf without that account's authorization. With the victim's collateral artificially over-valued by the donation, the attacker called `borrowBehalf(VICTIM, ...)` to borrow USDC, CAKE and WBNB against the victim while receiving the cash itself, then minted vUSDC and re-borrowed/re-donated THE to keep the collateral inflated. The result: debt piled onto the victim, real assets (CAKE + WBNB) extracted to the attacker.\n\n**Vulnerable code snippet:**\n\n```solidity\n// donation directly inflates vTHE cash / exchange rate (not via mint)\nTHE.transferFrom(donorEOA, address(VTHE), amount);\n// borrowBehalf opens debt on the victim, cash goes to caller\nVUSDC.borrowBehalf(VICTIM, USDC_BORROW_AMOUNT);\nVCAKE.borrowBehalf(VICTIM, CAKE_BORROW_AMOUNT);\nVWBNB.borrowBehalf(VICTIM, WBNB_BORROW_AMOUNT);\n```\n\n**Attack Tx:**\n\n[https://bscscan.com/tx/0x4f477e941c12bbf32a58dc12db7bb0cb4d31d41ff25b2457e6af3c15d7f5663f](https://bscscan.com/tx/0x4f477e941c12bbf32a58dc12db7bb0cb4d31d41ff25b2457e6af3c15d7f5663f)\n\n**Analysis:**\n\n[https://bscscan.com/address/0x86e06EAfa6A1eA631Eab51DE500E3D474933739f](https://bscscan.com/address/0x86e06EAfa6A1eA631Eab51DE500E3D474933739f)",
+    "images": [],
+    "Lost": "913.9K CAKE",
+    "Contract": "https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2026-03/Venus_THE_exp.sol"
+  },
+  "Renegade": {
+    "type": "Renegade Dark Pool Uninitialized Proxy Takeover",
+    "date": "2026-05-10",
+    "rootCause": "Renegade's Dark Pool proxy (an Arbitrum Stylus contract) left its `initialize` function callable by anyone \u2014 it had never been locked after deployment. The attacker called `initialize(...)` with attacker-controlled parameters, setting itself as owner and injecting an attacker-controlled logic address into proxy storage. The attacker then called `updateWallet(...)`, which delegatecalls the injected logic from the proxy's storage context. Because the proxy executed attacker code under its own context, the attacker's `drainTokens` routine swept every token the proxy held (26 different assets including 104,383 USDC, ~$209K total) to the attacker. Root cause: an unprotected/uninitialized initializer on an upgradeable proxy that lets an attacker set the implementation logic and execute it via delegatecall.\n\n**Vulnerable code snippet:**\n\n```solidity\n// initialize was never locked -> attacker becomes owner & injects logic\nDARK_POOL.initialize(address(this) /*injectedLogic*/, ..., EXPLOITER /*owner*/);\n// updateWallet delegatecalls the attacker-injected logic from proxy context\nDARK_POOL.updateWallet(\"\", \"\", \"\", \"\"); // -> logic.delegatecall(drainTokens)\n```\n\n**Attack Tx:**\n\n[https://arbiscan.io/tx/0x0e494685ace16d372066c5b4db959b58ebac6d88166c2d9d618e0e421dc0c77e](https://arbiscan.io/tx/0x0e494685ace16d372066c5b4db959b58ebac6d88166c2d9d618e0e421dc0c77e)\n\n**Analysis:**\n\n[https://x.com/renegade_fi/status/2053531772634427599](https://x.com/renegade_fi/status/2053531772634427599)",
+    "images": [],
+    "Lost": "$209.0K",
+    "Contract": "https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2026-05/Renegade_exp.sol"
+  },
+  "Joe Agent": {
+    "type": "Joe Agent removeLiquidityViaContract Reentrancy",
+    "date": "2026-05-27",
+    "rootCause": "Joe Agent lets a user park LP inside the token contract (`zapNativeForLP` / `addLiquidityViaContract`), tracked per-user in `lpInfo[user].lpAmount`. `removeLiquidityViaContract(liquidity,...)` pulls that LP out of PancakeSwap, unwraps the WBNB, and forwards the BNB to the user with a low-level call -- but only updates `lpInfo[user].lpAmount` AFTER that external call, violating checks-effects-interactions. Because `lpInfo` is still un-zeroed when the BNB arrives, the attacker's `receive()` re-enters `removeLiquidityViaContract` with the same `liquidity` value repeatedly. Each re-entry passes the `liquidity <= lpInfo[user].lpAmount` check and burns a fresh slice of pooled LP (belonging to all depositors, not just the attacker). ~25 nested calls drained 25 x 2.5 = 62.5 BNB plus the JOE side of every burned LP against a single ~437 LP position the attacker only paid for once (~$45K).\n\n**Vulnerable code snippet:**\n\n```solidity\n// removeLiquidityViaContract sends BNB BEFORE zeroing the ledger:\n(bool ok,) = msg.sender.call{value: bnbOut}(\"\");   // <- external call / re-entry point\n// ... lpInfo[user].lpAmount -= liquidity;          // effect applied only AFTER the call\n```\n\n**Attack Tx:**\n\n[https://bscscan.com/tx/0xd16a1c3dcd84427b2c7dcccbe1854c1c5bf65900460e1a44a95c1aaaf140c3a5](https://bscscan.com/tx/0xd16a1c3dcd84427b2c7dcccbe1854c1c5bf65900460e1a44a95c1aaaf140c3a5)\n\n**Analysis:**\n\n[SlowMist](https://x.com/SlowMist_Team/status/2059887450663551352)",
+    "images": [],
+    "Lost": "$45.0K",
+    "Contract": "https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2026-05/JoeAgent_exp.sol"
+  },
+  "AROS": {
+    "type": "AROS Signature Replay / Reusable claimPrincipal + claimYield Signatures",
+    "date": "2026-05-30",
+    "rootCause": "AROS gates its reward distribution behind admin-signed messages consumed by `claimPrincipal(...)` and `claimYield(...)`, but the signature scheme is replayable / forgeable: the attacker supplies fixed (r,s,v) signatures to mint/withdraw large AROS principal and yield amounts to themselves. Backed by a long chain of V3 flash loans (Moolah, Balancer, Aave, Venus and ~25 Pancake/Uniswap V3 pools) for working capital, the attacker pumps the AROS/USDT pool, replays the signed `claimPrincipal` and `claimYield` calls to extract AROS, then dumps it back into USDT, draining the AROS/USDT LP for ~$295K. Root cause is missing nonce/binding validation on the claim signatures, allowing reuse of valid admin signatures to drain rewards.\n\n**Vulnerable code snippet:**\n\n```solidity\nAROS.claimPrincipal(1, 3, 199_269e18, deadline,\n    abi.encodePacked(PRINCIPAL_SIG_R, PRINCIPAL_SIG_S, PRINCIPAL_SIG_V)); // replayed admin sig\nAROS.claimYield(1, 3, 568_633e18, REFERRAL_POOL, ..., DIVIDEND_POOL, ..., deadline,\n    abi.encodePacked(YIELD_SIG_R, YIELD_SIG_S, YIELD_SIG_V));             // replayed admin sig\n```\n\n**Attack Tx:**\n\n[https://bscscan.com/tx/0xe89fe640ec5241edfca7d8dcae77a0a4270dee15e4bbd043fc60e393aabf41e1](https://bscscan.com/tx/0xe89fe640ec5241edfca7d8dcae77a0a4270dee15e4bbd043fc60e393aabf41e1)\n\n**Analysis:**\n\n[TenArmor](https://x.com/TenArmorAlert/status/2061289921990570349)",
+    "images": [],
+    "Lost": "$295.0K",
+    "Contract": "https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2026-05/AROS_exp.sol"
+  },
+  "Thetanuts": {
+    "type": "Thetanuts Index Vault Component-Share Accounting Flaw",
+    "date": "2026-06-15",
+    "rootCause": "The Thetanuts index vault lets holders `claim()` a proportional basket of underlying component-vault shares (BTC/ETH/AVAX/BNB/MATIC USD vaults) for their index shares, and `mint()` new index shares by depositing component shares. The accounting is broken: an attacker can claim out the component shares and then re-mint replacement index shares while the component-vault transfer amounts pulled by mint stay at zero (the mint does not actually charge/transfer the component shares it should). The attacker flash-loans nearly the entire index-share balance from Aave's aToken, claims the component shares from the borrowed index shares, then loops `mint()` to fabricate enough index shares to repay the Aave flash loan - at no real cost. After repaying the loan, the claimed component vault shares (later converted to USDC via initWithdraw) plus residual shares are pure profit, ~105,471 USDC.\n\n**Vulnerable code snippet:**\n\n```solidity\n// step 2: claim component shares from borrowed index shares\nindexVault.claim(borrowedShares);\n// step 3: remint index shares to repay Aave while component transfer amounts stay 0\nwhile (indexVault.balanceOf(address(this)) < repaymentShares) {\n    uint256 supplyBoundedMint = indexVault.totalSupply() - 1;\n    uint256 mintAmount = remaining < supplyBoundedMint ? remaining : supplyBoundedMint;\n    indexVault.mint(mintAmount);\n}\n```\n\n**Attack Tx:**\n\n[https://etherscan.io/tx/0xbba9f138fe39503bfd1aa62932dbd6ab35d37d23d48e4b7bf2988a9d5dc39fec](https://etherscan.io/tx/0xbba9f138fe39503bfd1aa62932dbd6ab35d37d23d48e4b7bf2988a9d5dc39fec)\n\n**Analysis:**\n\n[https://x.com/PeckShieldAlert/status/2066540451126190312](https://x.com/PeckShieldAlert/status/2066540451126190312)",
+    "images": [],
+    "Lost": "$105.5K",
+    "Contract": "https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2026-06/Thetanuts_exp.sol"
+  },
+  "Sharwa Finance": {
+    "type": "Business Logic Flaw",
+    "date": "2025-10-20",
+    "rootCause": "Sharwa Finance's margin trading system contains a logic flaw: LP pool shares deposited as collateral could be immediately withdrawn by the same depositor within the same transaction, with no accounting check that an open leveraged position was still relying on those funds. In the first attack transaction, the attacker flashloaned 40M USDC from Morpho, deposited it into the SF-LP-USDC supply pool to receive LP shares, provided 2.2M USDC as margin collateral to open a long WBTC position, and then immediately called `pool.withdraw` to reclaim all LP shares \u2014 effectively opening a leveraged position with zero net capital locked. In the second transaction, the attacker flashloaned WBTC, sold it on Uniswap V3 to suppress the WBTC/USDC price, called `decreaseLongPosition` to close at the depressed price (which, due to the accounting mismatch between the opening and closing valuations, released excess USDC), swapped the USDC back to WBTC, and repaid the flash loan, netting approximately $146K.\n\n**Vulnerable code snippet:**\n```solidity\n// Open a leveraged long position...\ntradeRouter.increaseLongPosition(marginAccountID, address(WBTC), 36_200_000);\n// ...then immediately withdraw LP collateral with no lock preventing it\npool.withdraw(pool.balanceOf(address(this)));\n```\n\n**Attack Tx:**\n\n[0xd64729c528e6689cb18b0c90345ab0c9ed18fea44247c89af2f1374643fc89c2](https://app.blocksec.com/explorer/tx/arbitrum/0xd64729c528e6689cb18b0c90345ab0c9ed18fea44247c89af2f1374643fc89c2)\n\n**Analysis:**\n\n[Phalcon Alert](https://x.com/Phalcon_xyz/status/1980220633335349598)",
+    "images": [],
+    "Lost": "$146K",
+    "Contract": "https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2025-10/SharwaFinance_exp.sol"
+  },
+  "GemPad": {
+    "type": "Reentrancy in collectFees Function",
+    "date": "2024-12-17",
+    "rootCause": "GemPad, a no-code smart contract deployment platform, was exploited for approximately $1.9\u20132.2 million across Ethereum, BNB Chain, and Base due to a reentrancy vulnerability in the `collectFees` function of its `GempadLock` liquidity locker contract. The `collectFees` function collected fees before updating internal state, and critically lacked a reentrancy guard. An attacker deployed a malicious token whose `transfer` callback re-entered the `collectFees` function mid-execution: each reentrant call triggered another fee collection cycle while the balance checks still reflected the pre-drain state, causing them to report more tokens as locked than actually were. This allowed the attacker to drain several multiples of the value they originally locked. Because the same vulnerable contract template was deployed across three chains, the exploit was replicated on all of them, affecting at least 27 projects whose liquidity was locked in GemPad's locker. Funds were subsequently routed through Tornado Cash.\n\n**Attack Tx:**\n\n[0x2bb6d2ca3b52a01ff9ec01c931f68762ded9a05693ea65d911a20602eea02763](https://etherscan.io/tx/0x2bb6d2ca3b52a01ff9ec01c931f68762ded9a05693ea65d911a20602eea02763)\n\n**Analysis:**\n\n[Explained: The GemPad Hack (December 2024)](https://www.halborn.com/blog/post/explained-the-gempad-hack-december-2024)",
+    "images": [],
+    "Lost": "$1.8M",
+    "Contract": ""
+  },
+  "AIDC": {
+    "type": "Smart Contract Logic Flaw",
+    "date": "2026-06-29",
+    "rootCause": "AIDCToken's `_sellTransfer()` accumulates a 30% burn amount without deducting it from the seller. Any non-Pair transfer triggers `_executeAccumulatedBurn()`, which incorrectly burns tokens from the `uniswapPair` balance instead of the seller. After burning, `sync()` is called, artificially deflating the AIDC reserve in the AMM, enabling repeated reserve manipulation and a final swap that drained WBNB from the Pancake V2 AIDC/WBNB Pair. Attacker: 0x89eb2c99e970d831525c7a52badc290afa116b63, Vulnerable Contract: 0x5021d71859f81b4c905b573591db8f9cc4a0c6fe (AIDCToken)\n\n**Source:** [https://twitter.com/SlowMist_Team/status/2071437371590238249](https://twitter.com/SlowMist_Team/status/2071437371590238249)",
+    "images": [],
+    "Lost": "220.12 WBNB",
+    "Contract": ""
+  },
+  "SummerFinance": {
+    "type": "Share Manipulation",
+    "date": "2026-07-06",
+    "rootCause": "Donation-sensitive valuation in Ark integrations (MorphoV2VaultArk and SiloManagedVaultArk) allowed reported totalAssets to be inflated intra-transaction. Attacker accumulated deprecated vgUSDC at negligible cost, triggered vault reallocations that distorted downstream share pricing, deposited $64.8M to obtain inflated vault exposure, then redeemed $70.9M against inflated FleetCommander accounting.\n\n**Attack Tx:** [https://etherscan.io/tx/0x0db528c44f23fc7fa4544684a2fab81096450a14aae8bc89f42cd0592d43da12](https://etherscan.io/tx/0x0db528c44f23fc7fa4544684a2fab81096450a14aae8bc89f42cd0592d43da12)\n\n**Source:** [https://twitter.com/CertiKAlert/status/2074043519422099514](https://twitter.com/CertiKAlert/status/2074043519422099514)",
+    "images": [],
+    "Lost": "$6.00M",
+    "Contract": ""
+  },
+  "Drips": {
+    "type": "Integer Overflow",
+    "date": "2026-07-15",
+    "rootCause": "Signed-integer cast vulnerability in DaiDripsHub._give() function. Attacker passed amt = 2^128 - reserveBalance, causing int128(amt) to wrap to a negative value. -int128(amt) then became positive, flipping the intended deposit into a reserve withdrawal, draining entire DaiReserve to attacker.\n\n**Attack Tx:** [https://etherscan.io/tx/0xc38a6e2259a85ced94238a0b0a49697992f2a6b8140c28f3fd2343d3d8434130](https://etherscan.io/tx/0xc38a6e2259a85ced94238a0b0a49697992f2a6b8140c28f3fd2343d3d8434130)\n\n**Source:** [https://twitter.com/DefimonAlerts/status/2077085434849411365](https://twitter.com/DefimonAlerts/status/2077085434849411365)",
+    "images": [],
+    "Lost": "$24.9K",
+    "Contract": ""
+  },
+  "Sodium": {
+    "type": "Signature Validation Bypass",
+    "date": "2026-07-12",
+    "rootCause": "ERC-4337 smart wallet vulnerability in _validateSignature for executeWithSodiumAuthSession path. Returns valid when sessionKey == signer without verifying session-add auth proof. Attacker supplied userOps signed by attacker's own EIP-1271 contract with self-chosen sessionKey, causing EntryPoint to charge high gas fees to victim wallets' deposits. Used maxFeePerGas \u2248 4062 gwei with callGasLimit=0, draining ~0.5 ETH per wallet from 300+ users. ~11.76 ETH stolen in single transaction.\n\n**Attack Tx:** [https://arbiscan.io/tx/0x738995176c3bbd22f8deabd7a1e6b89a044231781b39aa2f350897535e6d7bc1](https://arbiscan.io/tx/0x738995176c3bbd22f8deabd7a1e6b89a044231781b39aa2f350897535e6d7bc1)\n\n**Source:** [https://twitter.com/DefimonAlerts/status/2076542689248469132](https://twitter.com/DefimonAlerts/status/2076542689248469132)",
+    "images": [],
+    "Lost": "$21.2K",
+    "Contract": ""
+  },
+  "LienFinance": {
+    "type": "Access Control / Bond Minting Flaw",
+    "date": "2026-07-24",
+    "rootCause": "GeneralizedDotc OTC pools drained via permissionless bond group registration and flawed multiset integrity in BondMakerCollateralizedEth.exchangeEquivalentBonds(); attacker-deployed contract minted unbacked bonds with crafted payoff functions, repeated exception bondIDs to mask missing inputs, swapped worthless bonds for USDC via three pre-authorized liquidity pools; _calcRateBondToErc20 oracle inflated bond valuations.\n\n**Attack Tx:** [https://etherscan.io/tx/0xb96d572b557a12f5ef193e88cca86123a6ae1b6e98b0eeee265870c85848e0e7](https://etherscan.io/tx/0xb96d572b557a12f5ef193e88cca86123a6ae1b6e98b0eeee265870c85848e0e7)\n\n**Source:** [https://twitter.com/DefimonAlerts/status/2080531008365920472](https://twitter.com/DefimonAlerts/status/2080531008365920472)",
+    "images": [],
+    "Lost": "$542.1K",
+    "Contract": ""
+  },
+  "Projekt": {
+    "type": "Flash Loan Attack",
+    "date": "2026-07-25",
+    "rootCause": "A permissionless 'buy-to-earn' reward vault (0x574f...42cb) was exploited via a flash loan attack. The attacker flash-loaned ~14K WETH from Morpho, used it to manipulate token balances across multiple Uniswap V2 memecoin pairs (Kirby Inu, ROTTSCHILD, etc.), and registered huge fake 'purchase' allocations via the unverified trackPurchase() function. The function read the buyer's token balance delta without verifying actual ETH was spent, allowing the attacker to drain ~301.7 ETH (~$560K) from the vault's reward pool via massWithdraw(). The flash loan was repaid in the same transaction.\n\n**Attack Tx:** [https://etherscan.io/tx/0x90f40d3c3b60370f7287d51d972ef54596c46e98f21af91b03a4e84c5e410f64](https://etherscan.io/tx/0x90f40d3c3b60370f7287d51d972ef54596c46e98f21af91b03a4e84c5e410f64)\n\n**Source:** [https://twitter.com/DefimonAlerts/status/2081781283584106959](https://twitter.com/DefimonAlerts/status/2081781283584106959)",
+    "images": [],
+    "Lost": "$560.0K",
+    "Contract": ""
+  },
+  "ChainConnect": {
+    "type": "Bridge Exploit",
+    "date": "2026-07-26",
+    "rootCause": "ChainConnect bridge exploited on July 26. Attacker held ~329 ETH for ransom; whitehat agreement reached: attacker returned 280 ETH (85% of total stolen) to 0x840B3De19e3FAB72fa9A168bD8Dd71B678c57989 and retained ~49 ETH (15%) as bounty. Recovery confirmed July 31, 2026.\n\n**Attack Tx:** [https://etherscan.io/tx/0xa6df21e27c5228af87e35122b506751c642fe012b2f61c84e046625718d0c85b](https://etherscan.io/tx/0xa6df21e27c5228af87e35122b506751c642fe012b2f61c84e046625718d0c85b)\n\n**Source:** [https://twitter.com/DefimonAlerts/status/2083213179333534148](https://twitter.com/DefimonAlerts/status/2083213179333534148)",
+    "images": [],
+    "Lost": "329.00 ETH",
+    "Contract": ""
+  },
+  "Nereus": {
+    "type": "Proxy Upgrade Attack",
+    "date": "2026-08-04",
+    "rootCause": "NereusShapeshiftersMarket NFT marketplace (TransparentUpgradeableProxy 0x6de0...6d73) drained via malicious implementation upgrade. Proxy admin key (0x863b...4076, EIP-7702-delegated EOA) was compromised and used to call ProxyAdmin.upgradeAndCall, swapping implementation to a freshly deployed drainer contract (0x60f8...23d1). Drainer's selector 0x8961ec50 swept entire ETH balance to attacker address. Attacker (0xd9cb...8f5f) extracted 12.74 ETH.\n\n**Attack Tx:** [https://etherscan.io/tx/0x125e0a7046004a5886cd0908907ae85bf8716567b4464e11570d588425b0bc93](https://etherscan.io/tx/0x125e0a7046004a5886cd0908907ae85bf8716567b4464e11570d588425b0bc93)\n\n**Source:** [https://twitter.com/DefimonAlerts/status/2084871269854384356](https://twitter.com/DefimonAlerts/status/2084871269854384356)",
+    "images": [],
+    "Lost": "$23.8K",
+    "Contract": ""
+  },
+  "ZKPanther": {
+    "type": "Governance Attack",
+    "date": "2026-08-07",
+    "rootCause": "Attacker submitted a governance proposal named 'zkp-reexploit' to upgrade each ZKP proxy to a drainer implementation. The attacker posted a 'yes' answer with 0.5 ETH bond. No honest party counter-bonded within the 12h timeout + 8h cooldown. The answer finalized and governance module executed the drain.\n\n**Source:** [https://twitter.com/DefimonAlerts/status/2085673531409400047](https://twitter.com/DefimonAlerts/status/2085673531409400047)",
+    "images": [],
+    "Lost": "5120000.00 ZKP",
+    "Contract": ""
+  },
+  "USM": {
+    "type": "Flash Loan + Pricing Logic Flaw",
+    "date": "2026-08-09",
+    "rootCause": "Attacker flash-loaned WETH from Balancer and exploited pricing logic flaw in USM's defund() function. The function calculates ETH redemption value using arithmetic mean of current and estimated final FUM sell prices, but lacks 'split invariance.' By calling defund() 64\u201365 times instead of once for a large position burn, combined with per-redemption state contraction (adjShrinkFactor) and integer rounding, attacker extracted significantly more ETH than fair value. The chunked exits inflated the effective FUM sell price far above the oracle mark, draining ~70.83 ETH from the USM ETH pool.\n\n- Attacker EOA: 0xb92b2e47680c89da8f951b8963ef469f461a50fc\n- Attacker Contract: 0x5a5e29ba89663a3558273354e990426f3cac7de7\n- Victim Contract: 0x2a7fff44c19f39468064ab5e5c304de01d591675\n\n**Attack Tx:** [https://etherscan.io/tx/0xfae5e751b8ce01457cbb6b529839f24a0cff50faaabcbd0fd02ca0cf559b050e](https://etherscan.io/tx/0xfae5e751b8ce01457cbb6b529839f24a0cff50faaabcbd0fd02ca0cf559b050e)\n\n**Source:** [https://twitter.com/CertiKAlert/status/2086641169078055208](https://twitter.com/CertiKAlert/status/2086641169078055208)",
+    "images": [],
+    "Lost": "$136.0K",
+    "Contract": ""
+  },
+  "TermFinance": {
+    "type": "Governance Attack",
+    "date": "2026-08-23",
+    "rootCause": "Attacker cheaply acquired a majority of a sparsely-held DAO governance token, then passed malicious proposals to seize control of Term's vaults. Drained ~2,843 ETH ($6.87M) and 1.68M USDC ($1.68M). Funds currently at 0xD5183d8BfC65a50863C62aF2538198A8288FFc13.\n\nTx #1: https://etherscan.io/tx/0xd354a15b15cb73d30908f411aee3f795ec86737a4d080e9a818ac4d6d3014129\nTx #2: https://etherscan.io/tx/0x9f273f9a5a20c2fc957b06bbfa45db486390eede4a7f44fbe1a2eb6744c2e8a0\n\nAttacker addresses:\n- 0xa908b3472d76e7744bab0a5911768a4a6300612b\n- 0x686457a7468b9b31c5dba43b1b16077b48520691\n\n**Attack Tx:** [https://etherscan.io/tx/0xd354a15b15cb73d30908f411aee3f795ec86737a4d080e9a818ac4d6d3014129](https://etherscan.io/tx/0xd354a15b15cb73d30908f411aee3f795ec86737a4d080e9a818ac4d6d3014129)\n\n**Source:** [https://twitter.com/DefimonAlerts/status/2091422624249217259](https://twitter.com/DefimonAlerts/status/2091422624249217259)",
+    "images": [],
+    "Lost": "$8.50M",
+    "Contract": ""
+  },
+  "FHToken": {
+    "type": "Deflationary Token Exploit",
+    "date": "2026-08-26",
+    "rootCause": "Flawed deflationary token in FH/USDT PancakeSwap V2 pool. The _transfer function incorrectly executed sell-tax logic (80% burn, 20% to treasury) from pool's own balance before seller's net amount arrived, causing reserve mismatch. Attacker exploited repeated buy/sell cycles to drain USDT from pool.\n\n**Attack Tx:** [https://bscscan.com/tx/0x7a3cadc2f33e000b0091307df62db2f5cc79ab8e0b022fd84de9e1c2c0745bd2](https://bscscan.com/tx/0x7a3cadc2f33e000b0091307df62db2f5cc79ab8e0b022fd84de9e1c2c0745bd2)\n\n**Source:** [https://twitter.com/SlowMist_Team/status/2092457395666751707](https://twitter.com/SlowMist_Team/status/2092457395666751707)",
+    "images": [],
+    "Lost": "$20.0K",
+    "Contract": ""
+  },
+  "MAYAChain": {
+    "type": "Accounting Flaw",
+    "date": "2026-08-26",
+    "rootCause": "Chained accounting flaw in low-liquidity pool enabling fund drainage.\n\n**Source:** [https://twitter.com/Phalcon_xyz/status/2092538466257227909](https://twitter.com/Phalcon_xyz/status/2092538466257227909)",
+    "images": [],
+    "Lost": "$1.76M",
+    "Contract": ""
+  },
+  "TectonicFi": {
+    "type": "Price Manipulation",
+    "date": "2026-08-31",
+    "rootCause": "Price manipulation exploit on Tectonic Fi. Attacker drained ~$74M total across multiple addresses. ~$6M was bridged to Ethereum before the chain was paused, leaving ~$60M stuck on Cronos. Funds located at: 0x7d4e7e5dcb0ccc66b4f0f8b0f30da5078ad4f2dc (~$60M on Cronos), 0x215adfc84332d8dfdd5afc77af69cceec0bcd3fc (~$8M on Cronos), 0xc40472dd (~$6M on Ethereum).\n\n**Source:** [https://twitter.com/PeckShieldAlert/status/2094217367434015065](https://twitter.com/PeckShieldAlert/status/2094217367434015065)",
+    "images": [],
+    "Lost": "$74.00M",
+    "Contract": ""
+  },
+  "FloatProtocol": {
+    "type": "Flash Loan",
+    "date": "2026-09-01",
+    "rootCause": "Uniswap V3 spot price (slot0) manipulation via flash loans enabled incorrect LP share pricing in Hypervisor contracts. Attacker manipulated currentTick()/getTotalAmounts() by swapping large amounts on V3 pool to distort slot0, then repeatedly deposited/withdrew with inflated share values. Critical functions lacked TWAP/oracle validation and slippage protection. Loss: 10.71 ETH. Attacker: 0xaea29218262dc6b0904ca077f6527c49dfd426d9.\n\n**Attack Tx:** [https://etherscan.io/tx/0x3d7549db65344da2a41067e17791b17fac16ec6b8e5132e82e243f6541de5cff](https://etherscan.io/tx/0x3d7549db65344da2a41067e17791b17fac16ec6b8e5132e82e243f6541de5cff)\n\n**Source:** [https://twitter.com/SlowMist_Team/status/2094373942291026287](https://twitter.com/SlowMist_Team/status/2094373942291026287)",
+    "images": [],
+    "Lost": "$28.0K",
+    "Contract": ""
+  },
+  "Aquifer": {
+    "type": "CPI Exploit",
+    "date": "2026-08-31",
+    "rootCause": "Caller-controlled input-side token program was not pinned to canonical SPL Token Program. Aquifer trusted CPI results without verifying actual tokenIn balance delta, allowing attackers to receive real output tokens without providing required input. Attacker supplied malicious tokenProgram during swap that returned success without executing actual token transfer. Exploited via 90+ attack transactions.\n\n**Attack Tx:** [https://solscan.io/tx/2BANKvZf8qop1BcZuEH766h3JzfNFMndF8dzzWmk8uJ2ecgDDWCcH6PfaG3KgDWicC9qqNyCGUHZ5JMeh7z55Siy](https://solscan.io/tx/2BANKvZf8qop1BcZuEH766h3JzfNFMndF8dzzWmk8uJ2ecgDDWCcH6PfaG3KgDWicC9qqNyCGUHZ5JMeh7z55Siy)\n\n**Source:** [https://twitter.com/Phalcon_xyz/status/2094654751581610363](https://twitter.com/Phalcon_xyz/status/2094654751581610363)",
+    "images": [],
+    "Lost": "$2.50M",
+    "Contract": ""
+  },
+  "Geb": {
+    "type": "Access Control Bypass",
+    "date": "2026-09-02",
+    "rootCause": "`GebProxyActions.quitSystem` lacks caller access control. Victims previously called it directly instead of via DSProxy delegatecall, causing `ownsSAFE[safe]` to be set to the GebProxyActions contract. Attacker called `GebProxyActions.quitSystem(manager, safe, dst)` directly, bypassing `GebSafeManager`'s `safeAllowed` check and transferring collateral to themselves. **Attacker:** `0xb929c7215c0ec8ebad5fbf73b1da63bccfff1896`\n\n**Attack Tx:** [https://etherscan.io/tx/0xfbce28e35c26358110dd9ed91f9ceef588acb264c3cf6c573df65ca21335058f](https://etherscan.io/tx/0xfbce28e35c26358110dd9ed91f9ceef588acb264c3cf6c573df65ca21335058f)\n\n**Source:** [https://twitter.com/SlowMist_Team/status/2094986310683705835](https://twitter.com/SlowMist_Team/status/2094986310683705835)",
+    "images": [],
+    "Lost": "5.94 ETH",
+    "Contract": ""
+  }
+}

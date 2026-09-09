@@ -371,3 +371,26 @@ func TestSFTTodoGuardBlocksCuration(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// TestBackfillTraceClipsAssumptionTextByRunes is the T38 (golden v5)
+// regression: backfill_trace renders `a['text'][:60]` — a CHARACTER slice.
+// A byte slice would cut a multi-byte assumption text short and diverge from
+// the Python twin's draft.
+func TestBackfillTraceClipsAssumptionTextByRunes(t *testing.T) {
+	long := strings.Repeat("abcd\u2014", 30) // 150 runes / 210 bytes
+	structured := validation.VObj(
+		validation.KV{K: "assumptions", V: validation.VArr(validation.VObj(
+			validation.KV{K: "id", V: validation.VStr("A1")},
+			validation.KV{K: "text", V: validation.VStr(long)},
+			validation.KV{K: "status", V: validation.VStr("OPEN")},
+			validation.KV{K: "reason", V: validation.VStr("r")},
+		))})
+	trace := backfillTrace(structured)
+	want := "A1 (" + string([]rune(long)[:60]) + "): -> OPEN. r"
+	if !strings.Contains(trace, want) {
+		t.Fatalf("trace lacks the rune-clipped assumption line:\n%s", trace)
+	}
+	if strings.Contains(trace, "A1 ("+long[:60]+")") {
+		t.Fatal("trace used a BYTE slice for the assumption text")
+	}
+}

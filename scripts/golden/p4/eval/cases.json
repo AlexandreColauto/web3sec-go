@@ -1,0 +1,150 @@
+[
+  {
+    "case_id": "CASE-4c021ae7d475",
+    "source": {
+      "dataset": "defihacklabs",
+      "record_id": "defihacklabs-20260706-summerfi",
+      "url": "https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2026-07/SummerFi_exp.sol"
+    },
+    "partition": "dev",
+    "program": {
+      "program": "SummerFi",
+      "platform": "Ethereum",
+      "chains": [
+        "Ethereum"
+      ]
+    },
+    "gold": {
+      "outcome": "confirmed-exploitable",
+      "bug_class": "share-price-inflation",
+      "severity": null,
+      "root_cause": "SummerFi (20260706) was exploited via FleetCommander NAV Inflation via Depegged xUSD.",
+      "locations": [
+        {
+          "file": "src/test/2026-07/SummerFi_exp.sol"
+        }
+      ]
+    },
+    "code": {
+      "repo": "https://github.com/SunWeb3Sec/DeFiHackLabs",
+      "commit": "6b882d98fca8cffee723a817796b5e57d2df2d18",
+      "files": [
+        "src/test/2026-07/SummerFi_exp.sol"
+      ]
+    },
+    "notes": "SummerFi - FleetCommander NAV Inflation via Depegged xUSD (Ethereum, 20260706)\n\nSummerFi (20260706, Ethereum) was exploited via FleetCommander NAV Inflation via Depegged xUSD. Reported loss: 6000000.0 USD.",
+    "created_at": "2026-09-08T12:00:00.000000+00:00",
+    "schema_version": 2
+  },
+  {
+    "case_id": "CASE-f26056562f84",
+    "source": {
+      "dataset": "defihacklabs",
+      "record_id": "defihacklabs-20260629-aidc",
+      "url": "https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2026-06/AIDC_exp.sol"
+    },
+    "partition": "dev",
+    "program": {
+      "program": "AIDC",
+      "platform": "BNB Chain",
+      "chains": [
+        "BNB Chain"
+      ]
+    },
+    "gold": {
+      "outcome": "confirmed-exploitable",
+      "bug_class": "logic-error",
+      "severity": null,
+      "root_cause": "AIDCToken's `_sellTransfer()` accumulates a 30% burn amount without deducting it from the seller. Any non-Pair transfer triggers `_executeAccumulatedBurn()`, which incorrectly burns tokens from the `uniswapPair` balance instead of the seller. After burning, `sync()` is called, artificially deflating the AIDC reserve in the AMM, enabling repeated reserve manipulation and a final swap that drained WBNB from the Pancake V2 AIDC/WBNB Pair. Attacker: 0x89eb2c99e970d831525c7a52badc290afa116b63, Vulnerable Contract: 0x5021d71859f81b4c905b573591db8f9cc4a0c6fe (AIDCToken)\n\n**Source:** [https://twitter.com/SlowMist_Team/status/2071437371590238249](https://twitter.com/SlowMist_Team/status/2071437371590238249)",
+      "locations": [
+        {
+          "file": "src/test/2026-06/AIDC_exp.sol"
+        }
+      ]
+    },
+    "code": {
+      "repo": "https://github.com/SunWeb3Sec/DeFiHackLabs",
+      "commit": "6b882d98fca8cffee723a817796b5e57d2df2d18",
+      "files": [
+        "src/test/2026-06/AIDC_exp.sol"
+      ]
+    },
+    "notes": "AIDC - Smart Contract Logic Flaw (BNB Chain, 20260629)\n\nAIDCToken's `_sellTransfer()` accumulates a 30% burn amount without deducting it from the seller. Any non-Pair transfer triggers `_executeAccumulatedBurn()`, which incorrectly burns tokens from the `uniswapPair` balance instead of the seller. After burning, `sync()` is called, artificially deflating the AIDC reserve in the AMM, enabling repeated reserve manipulation and a final swap that drained WBNB from the Pancake V2 AIDC/WBNB Pair. Attacker: 0x89eb2c99e970d831525c7a52badc290afa116b63, Vulnerable Contract: 0x5021d71859f81b4c905b573591db8f9cc4a0c6fe (AIDCToken)\n\n**Source:** [https://twitter.com/SlowMist_Team/status/2071437371590238249](https://twitter.com/SlowMist_Team/status/2071437371590238249)",
+    "created_at": "2026-09-08T12:00:00.000000+00:00",
+    "schema_version": 2
+  },
+  {
+    "case_id": "CASE-7bc3278d1f18",
+    "source": {
+      "dataset": "defihacklabs",
+      "record_id": "defihacklabs-20260809-usm",
+      "url": "https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2026-08/USM_exp.sol"
+    },
+    "partition": "held-out",
+    "program": {
+      "program": "USM",
+      "platform": "Ethereum",
+      "chains": [
+        "Ethereum"
+      ]
+    },
+    "gold": {
+      "outcome": "confirmed-exploitable",
+      "bug_class": "oracle-manipulation",
+      "severity": null,
+      "root_cause": "Attacker flash-loaned WETH from Balancer and exploited pricing logic flaw in USM's defund() function. The function calculates ETH redemption value using arithmetic mean of current and estimated final FUM sell prices, but lacks 'split invariance.' By calling defund() 64–65 times instead of once for a large position burn, combined with per-redemption state contraction (adjShrinkFactor) and integer rounding, attacker extracted significantly more ETH than fair value. The chunked exits inflated the effective FUM sell price far above the oracle mark, draining ~70.83 ETH from the USM ETH pool.\n\n- Attacker EOA: 0xb92b2e47680c89da8f951b8963ef469f461a50fc\n- Attacker Contract: 0x5a5e29ba89663a3558273354e990426f3cac7de7\n- Victim Contract: 0x2a7fff44c19f39468064ab5e5c304de01d591675\n\n**Attack Tx:** [https://etherscan.io/tx/0xfae5e751b8ce01457cbb6b529839f24a0cff50faaabcbd0fd02ca0cf559b050e](https://etherscan.io/tx/0xfae5e751b8ce01457cbb6b529839f24a0cff50faaabcbd0fd02ca0cf559b050e)\n\n**Source:** [https://twitter.com/CertiKAlert/status/2086641169078055208](https://twitter.com/CertiKAlert/status/2086641169078055208)",
+      "locations": [
+        {
+          "file": "src/test/2026-08/USM_exp.sol"
+        }
+      ]
+    },
+    "code": {
+      "repo": "https://github.com/SunWeb3Sec/DeFiHackLabs",
+      "commit": "6b882d98fca8cffee723a817796b5e57d2df2d18",
+      "files": [
+        "src/test/2026-08/USM_exp.sol"
+      ]
+    },
+    "notes": "USM - Flash Loan + Pricing Logic Flaw (Ethereum, 20260809)\n\nAttacker flash-loaned WETH from Balancer and exploited pricing logic flaw in USM's defund() function. The function calculates ETH redemption value using arithmetic mean of current and estimated final FUM sell prices, but lacks 'split invariance.' By calling defund() 64–65 times instead of once for a large position burn, combined with per-redemption state contraction (adjShrinkFactor) and integer rounding, attacker extracted significantly more ETH than fair value. The chunked exits inflated the effective FUM sell price far above the oracle mark, draining ~70.83 ETH from the USM ETH pool.\n\n- Attacker EOA: 0xb92b2e47680c89da8f951b8963ef469f461a50fc\n- Attacker Contract: 0x5a5e29ba89663a3558273354e990426f3cac7de7\n- Victim Contract: 0x2a7fff44c19f39468064ab5e5c304de01d591675\n\n**Attack Tx:** [https://etherscan.io/tx/0xfae5e751b8ce01457cbb6b529839f24a0cff50faaabcbd0fd02ca0cf559b050e](https://etherscan.io/tx/0xfae5e751b8ce01457cbb6b529",
+    "created_at": "2026-09-08T12:00:00.000000+00:00",
+    "schema_version": 2
+  },
+  {
+    "case_id": "CASE-b44fba77e2b1",
+    "source": {
+      "dataset": "defihacklabs",
+      "record_id": "defihacklabs-20260712-sodium",
+      "url": "https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2026-07/Sodium_exp.sol"
+    },
+    "partition": "dev",
+    "program": {
+      "program": "Sodium",
+      "platform": "Arbitrum",
+      "chains": [
+        "Arbitrum"
+      ]
+    },
+    "gold": {
+      "outcome": "confirmed-exploitable",
+      "bug_class": "unmapped",
+      "severity": null,
+      "root_cause": "ERC-4337 smart wallet vulnerability in _validateSignature for executeWithSodiumAuthSession path. Returns valid when sessionKey == signer without verifying session-add auth proof. Attacker supplied userOps signed by attacker's own EIP-1271 contract with self-chosen sessionKey, causing EntryPoint to charge high gas fees to victim wallets' deposits. Used maxFeePerGas ≈ 4062 gwei with callGasLimit=0, draining ~0.5 ETH per wallet from 300+ users. ~11.76 ETH stolen in single transaction.\n\n**Attack Tx:** [https://arbiscan.io/tx/0x738995176c3bbd22f8deabd7a1e6b89a044231781b39aa2f350897535e6d7bc1](https://arbiscan.io/tx/0x738995176c3bbd22f8deabd7a1e6b89a044231781b39aa2f350897535e6d7bc1)\n\n**Source:** [https://twitter.com/DefimonAlerts/status/2076542689248469132](https://twitter.com/DefimonAlerts/status/2076542689248469132)",
+      "locations": [
+        {
+          "file": "src/test/2026-07/Sodium_exp.sol"
+        }
+      ]
+    },
+    "code": {
+      "repo": "https://github.com/SunWeb3Sec/DeFiHackLabs",
+      "commit": "6b882d98fca8cffee723a817796b5e57d2df2d18",
+      "files": [
+        "src/test/2026-07/Sodium_exp.sol"
+      ]
+    },
+    "notes": "Sodium - Signature Validation Bypass (Arbitrum, 20260712)\n\nERC-4337 smart wallet vulnerability in _validateSignature for executeWithSodiumAuthSession path. Returns valid when sessionKey == signer without verifying session-add auth proof. Attacker supplied userOps signed by attacker's own EIP-1271 contract with self-chosen sessionKey, causing EntryPoint to charge high gas fees to victim wallets' deposits. Used maxFeePerGas ≈ 4062 gwei with callGasLimit=0, draining ~0.5 ETH per wallet from 300+ users. ~11.76 ETH stolen in single transaction.\n\n**Attack Tx:** [https://arbiscan.io/tx/0x738995176c3bbd22f8deabd7a1e6b89a044231781b39aa2f350897535e6d7bc1](https://arbiscan.io/tx/0x738995176c3bbd22f8deabd7a1e6b89a044231781b39aa2f350897535e6d7bc1)\n\n**Source:** [https://twitter.com/DefimonAlerts/status/2076542689248469132](https://twitter.com/DefimonAlerts/status/2076542689248469132)",
+    "created_at": "2026-09-08T12:00:00.000000+00:00",
+    "schema_version": 2
+  }
+]

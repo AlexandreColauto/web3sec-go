@@ -225,10 +225,7 @@ func SharedMemoryBlock(c *state.Campaign, bugClass *string,
 	}
 	rows := make([]validation.Value, 0, len(pool))
 	for _, it := range pool {
-		summary := objStr(it.row, "evidence_summary")
-		if len(summary) > 300 {
-			summary = summary[:300]
-		}
+		summary := clipRunes(objStr(it.row, "evidence_summary"), 300)
 		rows = append(rows, validation.VObj(
 			validation.KV{K: "memory_id", V: objAt(it.row, "memory_id")},
 			validation.KV{K: "scope", V: it.scope},
@@ -242,6 +239,18 @@ func SharedMemoryBlock(c *state.Campaign, bugClass *string,
 		validation.KV{K: "total_visible", V: validation.VInt(int64(len(items)))},
 		validation.KV{K: "filtered_by_bug_class", V: validation.VBool(filtered)},
 	), nil
+}
+
+// clipRunes is Python's `s[:n]` for a string: a CHARACTER slice. The
+// reference clips shared-memory evidence summaries with `[:300]`, so a
+// multi-byte rune straddling the budget must not shorten the row relative to
+// the reference (golden v5 surfaced this on the P4 fixture's ingest rows,
+// whose descriptions carry em dashes and en dashes).
+func clipRunes(s string, n int) string {
+	if runes := []rune(s); len(runes) > n {
+		return string(runes[:n])
+	}
+	return s
 }
 
 // CorpusSurfaceBlock is corpus_surface_block: the compact bundle view of the

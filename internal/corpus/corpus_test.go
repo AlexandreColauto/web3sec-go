@@ -569,6 +569,33 @@ func TestSharedMemoryBlockFiltersByBugClass(t *testing.T) {
 	}
 }
 
+// TestSharedMemoryBlockClipsSummaryByRunes is the T38 (golden v5) regression:
+// the reference clips `evidence_summary` with `[:300]` — CHARACTERS. The P4
+// fixture's ingest rows carry em/en dashes in their descriptions, so a byte
+// slice cut the summary 1-2 runes early and the backfilled proposer bundle
+// diverged from the Python twin.
+func TestSharedMemoryBlockClipsSummaryByRunes(t *testing.T) {
+	long := strings.Repeat("abcd\u2014", 100) // 500 runes / 700 bytes
+	withSeams(t, []validation.Value{
+		wrapRow(seedRow(t, "MEM-b9999", "reentrancy", long))}, nil)
+	c := newCampaign(t, "clip-program")
+	block, err := SharedMemoryBlock(c, nil, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := listAt(block, "rows")
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want 1", len(rows))
+	}
+	got := objStr(rows[0], "evidence_summary")
+	if n := len([]rune(got)); n != 300 {
+		t.Fatalf("summary runes = %d, want 300 (byte-sliced?)", n)
+	}
+	if !strings.HasSuffix(got, "\u2014") {
+		t.Fatalf("summary cut mid-rune: %q", got)
+	}
+}
+
 func TestSharedMemoryBlockFallbackWhenClassUnknown(t *testing.T) {
 	withSeams(t, []validation.Value{wrapRow(seedRow(t, "MEM-b0001",
 		"reentrancy", "X exploited via reentrancy."))}, nil)

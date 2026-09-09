@@ -401,3 +401,31 @@ func toPlain(cases []validation.Value) []any {
 	}
 	return out
 }
+
+// TestEvalDirEnvOverride pins the WEBV2_EVAL_DIR seam the golden v5 harness
+// (T38) uses: EvalDir consults the env var AFTER the explicit SetEvalDir
+// override and BEFORE the cwd-relative default, so the store, its cases path
+// and its sidecar path all follow it — and ResetEvalDir falls back to the env
+// value rather than the default.
+func TestEvalDirEnvOverride(t *testing.T) {
+	ResetEvalDir()
+	t.Cleanup(ResetEvalDir)
+	dir := t.TempDir()
+	t.Setenv("WEBV2_EVAL_DIR", dir)
+	if got := EvalDir(); got != dir {
+		t.Fatalf("EvalDir() = %q, want the WEBV2_EVAL_DIR override %q", got, dir)
+	}
+	if got := CasesPath(); got != filepath.Join(dir, CasesName) {
+		t.Fatalf("CasesPath() = %q, want %q", got,
+			filepath.Join(dir, CasesName))
+	}
+	if got := SidecarPath(); got != filepath.Join(dir, SidecarName) {
+		t.Fatalf("SidecarPath() = %q, want %q", got,
+			filepath.Join(dir, SidecarName))
+	}
+	// The explicit override wins over the env seam.
+	SetEvalDir(filepath.Join(dir, "explicit"))
+	if got := EvalDir(); got != filepath.Join(dir, "explicit") {
+		t.Fatalf("EvalDir() with SetEvalDir = %q, want the explicit dir", got)
+	}
+}

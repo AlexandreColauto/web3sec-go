@@ -295,12 +295,15 @@ func summarizeNonIssue(row validation.Value, activePin string) validation.Value 
 		}
 	}
 	rowPin := objStr(row, "snapshot_id")
-	deciding := []validation.Value{}
+	// deciding_propositions is passed through VERBATIM for v2 rows (Python:
+	// `row.get("deciding_propositions") if schema_version >= 2 else []`), so
+	// an absent/None field serializes as null, not [] — the v2 schema makes
+	// the distinction load-bearing for the boundary's differs_from_memory
+	// check. v1 rows carry no proposition structure and always emit [].
+	deciding := validation.VArr()
 	if sv := objAt(row, "schema_version"); sv.Kind == validation.Int &&
 		sv.I >= 2 {
-		if dp := objAt(row, "deciding_propositions"); dp.Kind == validation.Arr {
-			deciding = dp.A
-		}
+		deciding = objAt(row, "deciding_propositions")
 	}
 	policyContingent := false
 	if rejectionClass.Kind == validation.Str {
@@ -316,8 +319,7 @@ func summarizeNonIssue(row validation.Value, activePin string) validation.Value 
 			V: validation.VStr(truncate(objStr(row, "pattern"), 300))},
 		validation.KV{K: "evidence_summary",
 			V: validation.VStr(truncate(objStr(row, "evidence_summary"), 200))},
-		validation.KV{K: "deciding_propositions",
-			V: validation.VArr(deciding...)},
+		validation.KV{K: "deciding_propositions", V: deciding},
 		validation.KV{K: "pin_diverged",
 			V: validation.VBool(rowPin != "" && activePin != "" &&
 				rowPin != activePin)},
@@ -837,9 +839,13 @@ func contains(xs []string, want string) bool {
 	return false
 }
 
+// truncate is Python's `s[:n]`: a CHARACTER slice, not a byte slice. The
+// reference clips pattern/evidence_summary with `[:300]`/`[:200]`, so a
+// multi-byte rune straddling the budget must not shorten the cut (the same
+// rule roles.truncatedMarker documents for _bounded_json).
 func truncate(s string, n int) string {
-	if len(s) > n {
-		return s[:n]
+	if runes := []rune(s); len(runes) > n {
+		return string(runes[:n])
 	}
 	return s
 }
