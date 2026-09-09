@@ -453,29 +453,98 @@ rows marked as golden-normalized — nothing else.
 - **Unblocks:** permanent (a `go:embed` constraint, not behavior). A
   future build step that copies the pack to the repo root could close it.
 
-### D26 — the eval store and the DeFiHackLabs corpus are unported (P4)
-- **What:** `corpus-surface` reads two datasets beside the reference
+### D26 — the eval store and the DeFiHackLabs corpus are unported (P4) — CLOSED 2026-09-09
+- **What (was):** `corpus-surface` reads two datasets beside the reference
   package: the eval store (`webv2.eval_store.EVAL_DIR` →
-  `<pyroot>/eval/cases.json`, 135 cases) and the DeFiHackLabs corpus
-  (`webv2.datasets.defihacklabs` `POC_ROOT` + incident explorer, 287 PoC
-  files, 930 explorer records). The Go twin has neither: the
-  `corpus.ClassInventory` seams (`SetListEvalCases`, `SetLoadPocRoot`) are
-  unwired in the CLI, so both stores are empty and `poc_missing` is 0.
-  Python would report 135/287/930 and a different `poc_missing`.
-- **Why:** both are P4 scope (dataset ingestion). An absent corpus root is
-  the module's OWN documented legitimate input state — `build_report`
-  degrades the shape leg to `[]` and attribution/`poc_missing` to
-  `({}, 0)` when the root is not a directory — so pinning both twins at an
-  absent root compares the *ported* layers (class inventory, probe classes,
-  exposure ordering, report artifact) without inventing dataset content.
-- **Golden:** `scripts/golden-run.py` exports `WEBV2_EVAL_DIR` /
-  `WEBV2_POC_ROOT` (absent paths under `.scratch/golden/`) and
-  `sitecustomize.py` repoints `webv2.eval_store.EVAL_DIR` and all four
-  `defihacklabs` dataset roots; `corpus-surface` then compares
-  byte-for-byte, including `poc_missing: 0` and `shape_matches: []`.
-- **Unblocks:** the P4 dataset-ingestion port wires `SetListEvalCases` /
-  `SetLoadPocRoot`; the golden then drops the pins and gains the real
-  corpus numbers.
+  `<pyroot>/eval/cases.json`) and the DeFiHackLabs corpus
+  (`webv2.datasets.defihacklabs` `POC_ROOT` + incident explorer). The Go
+  twin had neither: `corpus.SetListEvalCases` / `corpus.SetLoadPocRecords`
+  stayed on their absent-store defaults in the CLI, so both stores were
+  empty and `poc_missing` was 0.
+- **Closed by:** T33/T34. `internal/evalstore` and
+  `internal/datasets/defihacklabs` are ported, and `cmd/webv2` installs both
+  seams at init (`cli.WireT33Seams()` → `SetListEvalCases` +
+  `trajectory`/`metrics` case lookups; `cli.WireT34Seams()` →
+  `SetLoadPocRecords` + `SetRoots`/`SetPocRoot` from `WEBV2_POC_ROOT`).
+- **Evidence (2026-09-09):** with the REAL stores mounted
+  (`WEBV2_EVAL_DIR=<pyroot>/eval`, `WEBV2_POC_ROOT` → a base holding
+  `DeFiHackLabs/` + `explorer/{incidents,rootcause_data}.json`) both twins
+  print the identical surface line — `15 classes probed, 254 PoC files with
+  signal, 135 records without a resolvable PoC` — and the
+  `corpus_surface.json` artifacts are byte-identical apart from
+  `generated_at` (class weights match exactly: access-control w=172
+  score=11.152, logic-error w=320 score=6.245, reentrancy w=60
+  score=5.931, unchecked-external-call w=34 score=5.129,
+  oracle-manipulation w=139 score=3.565). The reproduction script is
+  `.scratch/t37/d26_check.sh`.
+- **Golden:** `scripts/golden-run.py` still exports the ABSENT-store pins
+  (`WEBV2_EVAL_DIR` / `WEBV2_POC_ROOT` under `.scratch/golden/`) so the
+  recipe stays hermetic and compares the ported layers at a legitimate
+  absent-input state. The pins are now an *environment choice*, not a
+  divergence: dropping them requires the 2.5 GB corpora on every CI box.
+- **Unblocks:** closed. A future recipe can mount a small synthetic store
+  and drop the pins.
+
+### D27 — `chains` proposal ORDER is PYTHONHASHSEED-dependent (T36)
+- **What:** `chainengine.FindChains` enumerates simple capability chains up
+  to depth 5 and caps the result at `MAX_PROPOSALS = 500`. The Python
+  reference iterates `caps_held` and `needs[cap]` as **sets**, so the order
+  in which candidates enter the cap is a function of the interpreter's hash
+  seed: on the 13-finding capability-sharing fixture the capped proposal
+  order digests into 4 distinct values across `PYTHONHASHSEED=0..3` (fixed
+  fixture). The Go twin sorts both neighbour sets, so given the same finding
+  ids its cut is stable across repeated runs.
+- **Why:** there is no canonical Python byte order to match. Every seed
+  produces a *different* legitimate 500-set; matching one seed would make
+  the Go twin reproducible only against that seed and would break on the
+  next Python run. The cap SEMANTICS are what the contract promises, and
+  those are identical (500 proposals, 500 distinct member sets, the same
+  793-member space). This is the port's only declared `chains` deviation;
+  `internal/chainengine/chainengine.go` documents it at the function.
+- **Evidence (2026-09-09, `scripts/cap-analysis.py`, run live):** both
+  twins cap at exactly 500 with 500 distinct member sets; Go is
+  deterministic across repeated runs **over the same fixture**; Python's
+  digests differ for seeds 0/1/2/3; with the cap raised Python enumerates
+  **793** distinct member sets (stable — a function of the fixture graph
+  alone) and BOTH capped sets are subsets of it, with 0 outside. The
+  overlap between the two cuts is substantial but **a per-run value**
+  (275-373/500 observed over 6 runs), because `new_finding_id` is a raw
+  uuid4 in both twins and is NOT pinned by `WEBV2_UUID` — every invocation
+  renames the findings, which permutes Go's sort order and Python's set
+  iteration. Script exit 0 = analysis green.
+- **Golden:** golden v4 never drives `chains` into the cap, so no recipe
+  normalization is needed. The T36 cross-twin harness captured 15 cap steps
+  and 14 are byte-identical — the exception is exactly this enumeration
+  order. `scripts/cap-analysis.py` is the standing proof.
+- **Unblocks:** permanent while the reference iterates sets. If the Python
+  side switches to sorted iteration, the Go twin already matches and this
+  row is deleted.
+
+### D28 — the `sft` store path is cwd-relative in the Go binary (P4)
+- **What:** the reference's `sft_dataset.store_path()` is
+  `repo_root()/sft/examples.json`, where `repo_root()` is
+  `Path(__file__).resolve().parents[2]` — the *source tree*, so `sft` reads
+  and writes the committed dataset from any working directory. The Go twin's
+  `sft.StorePath()` is `<process cwd>/sft/examples.json` (`sft.RepoRoot`), so
+  the two twins read different stores unless both run from their repo roots.
+- **Evidence (2026-09-09):** from `cwd=/tmp`,
+  `PYTHONPATH=<pyroot>/src python3 -m webv2.cli sft list` prints the two
+  committed examples (`SFT-0001 curated confirmed-critical …`,
+  `SFT-0002 curated real-weakness-non-exploitable …`); `webv2 sft list` from
+  the same cwd prints nothing (empty store). From the repo root both agree.
+- **Why:** the same host fact as D24 — a compiled binary cannot recover the
+  directory the source package was installed from, and pinning an absolute
+  path would break every relocation. The reference's store is committed to
+  git, so a wrong path silently reads an EMPTY dataset instead of failing
+  loudly; the port keeps the reference's documented empty-store behavior.
+- **Golden:** no recipe drives `sft` (golden v4 and `scripts/verify-full.sh`
+  both omit it), so nothing is normalized. The embedder seam is
+  `sft.SetStorePath` (used by `internal/sft` and `internal/cli` tests); the
+  RUNBOOK walkthrough exercises `sft` from the scratch root with a store it
+  creates there.
+- **Unblocks:** a `WEBV2_SFT_STORE` env seam plus a golden recipe pinning
+  both twins at one scratch store (the D24 pattern). Until then, run both
+  twins from their repo roots.
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**
