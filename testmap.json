@@ -415,42 +415,58 @@
   {
    "python_file": "tests/test_adapter_prompts.py",
    "python_func": "test_budget_classes_are_the_declared_set",
-   "status": "deferred-P1"
+   "go_file": "internal/adapter/adapter_test.go",
+   "go_func": "TestBudgetClassesAreTheDeclaredSet",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/adapter/adapter_test.go)"
   },
   {
    "python_file": "tests/test_adapter_prompts.py",
    "python_func": "test_campaign_local_routing_override_wins",
-   "status": "deferred-P1"
+   "go_file": "internal/adapter/adapter_test.go",
+   "go_func": "TestCampaignLocalRoutingOverrideWins",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/adapter/adapter_test.go)"
   },
   {
    "python_file": "tests/test_adapter_prompts.py",
    "python_func": "test_deterministic_stage_has_no_prompt",
-   "status": "deferred-P1"
+   "go_file": "internal/adapter/adapter_test.go",
+   "go_func": "TestDeterministicStageHasNoPrompt",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/adapter/adapter_test.go)"
   },
   {
    "python_file": "tests/test_adapter_prompts.py",
    "python_func": "test_every_mapped_prompt_file_exists",
-   "status": "deferred-P1"
+   "go_file": "internal/adapter/adapter_test.go",
+   "go_func": "TestEveryMappedPromptFileExists",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/adapter/adapter_test.go)"
   },
   {
    "python_file": "tests/test_adapter_prompts.py",
    "python_func": "test_no_unmapped_prompt_files",
-   "status": "deferred-P1"
+   "go_file": "internal/adapter/adapter_test.go",
+   "go_func": "TestNoUnmappedPromptFiles",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/adapter/adapter_test.go)"
   },
   {
    "python_file": "tests/test_adapter_prompts.py",
    "python_func": "test_unknown_stage_error_lists_known_stages",
-   "status": "deferred-P1"
+   "go_file": "internal/adapter/adapter_test.go",
+   "go_func": "TestUnknownStageErrorListsKnownStages",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/adapter/adapter_test.go)"
   },
   {
    "python_file": "tests/test_answered.py",
    "python_func": "test_answered_cli_records_provenance",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/sweep_t35_test.go",
+   "go_func": "TestAnsweredCLIRecordsProvenance",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_answered.py",
    "python_func": "test_answered_cli_requires_reason",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_answered_test.go",
+   "go_func": "TestAnsweredRequiresReason",
+   "notes": "1:1 (exit 2 + exact --reason message)"
   },
   {
    "python_file": "tests/test_answered.py",
@@ -467,8 +483,9 @@
   {
    "python_file": "tests/test_answered.py",
    "python_func": "test_report_flags_unreferenced_answers",
-   "status": "deferred-P3",
-   "notes": "report.go's '## Answer quality' section has no Go test"
+   "notes": "1:1 port: the '## Answer quality' section flags an answered priority with no evidence ref and leaves the referenced one unflagged.",
+   "go_file": "internal/report/sweep_t35_answers_test.go",
+   "go_func": "TestReportFlagsUnreferencedAnswers"
   },
   {
    "python_file": "tests/test_archetypes.py",
@@ -728,7 +745,9 @@
   {
    "python_file": "tests/test_budget.py",
    "python_func": "test_ceiling_change_is_logged",
-   "status": "deferred-P1"
+   "go_file": "internal/state/sweep_t35_test.go",
+   "go_func": "TestCeilingChangeIsLogged",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_budget.py",
@@ -745,17 +764,23 @@
   {
    "python_file": "tests/test_budget.py",
    "python_func": "test_pipeline_halts_when_ceiling_crossed",
-   "status": "deferred-P1"
+   "go_file": "internal/pipeline/pipeline_test.go",
+   "go_func": "TestCostCeilingHaltMatchesPython",
+   "notes": "halted + pipeline.budget_halt vector (recorded-spend half: costs TestWithinAndExceeded)"
   },
   {
    "python_file": "tests/test_budget.py",
    "python_func": "test_pipeline_runs_normally_within_ceiling",
-   "status": "deferred-P1"
+   "go_file": "internal/pipeline/sweep_t35_test.go",
+   "go_func": "TestPipelineRunsNormallyWithinCeiling",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_budget.py",
    "python_func": "test_state_schema_accepts_ceiling",
-   "status": "deferred-P1"
+   "go_file": "internal/state/sweep_t35_test.go",
+   "go_func": "TestStateSchemaAcceptsCeiling",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_budget.py",
@@ -766,43 +791,58 @@
   {
    "python_file": "tests/test_budget_discovery.py",
    "python_func": "test_budget_output_shows_discovery_position",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_budget_test.go",
+   "go_func": "TestBudgetNoCeiling",
+   "notes": "1:1 (\"discovery: 0/400 findings recorded\")"
   },
   {
    "python_file": "tests/test_budget_discovery.py",
    "python_func": "test_cli_set_discovery",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_budget_test.go",
+   "go_func": "TestBudgetSetDiscovery",
+   "notes": "1:1 (--set-discovery 7 -> line + report)"
   },
   {
    "python_file": "tests/test_budget_discovery.py",
    "python_func": "test_cli_set_discovery_conflicts_with_set",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_budget_test.go",
+   "go_func": "TestBudgetErrors",
+   "notes": "1:1 (exit 2 \"cannot be combined\")"
   },
   {
    "python_file": "tests/test_budget_discovery.py",
    "python_func": "test_cli_set_discovery_rejects_zero",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_budget_test.go",
+   "go_func": "TestBudgetErrors",
+   "notes": "1:1 (exit 2 positive integer)"
   },
   {
    "python_file": "tests/test_budget_discovery.py",
    "python_func": "test_exhaustion_message_names_the_command",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/sweep_t35_test.go",
+   "go_func": "TestExhaustionMessageNamesTheCommand",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_budget_discovery.py",
    "python_func": "test_set_discovery_budget_rejects_nonpositive",
-   "status": "deferred-P1"
+   "go_file": "internal/state/sweep_t35_test.go",
+   "go_func": "TestSetDiscoveryBudgetRejectsNonpositive",
+   "notes": "1:1 port (T35); bool arm is unrepresentable in Go (int64)"
   },
   {
    "python_file": "tests/test_budget_discovery.py",
    "python_func": "test_set_discovery_budget_updates_and_logs",
-   "status": "deferred-P1"
+   "go_file": "internal/state/sweep_t35_test.go",
+   "go_func": "TestSetDiscoveryBudgetUpdatesAndLogs",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_bundle_corpus_keys.py",
    "python_func": "test_bundle_still_clean_asserts",
-   "status": "deferred-P3",
-   "notes": "no Go test asserts build_proposer_context's bundle stays plain-JSON with a known_non_issues row"
+   "notes": "1:1 port: with a seeded shared-store row the proposer bundle still serializes as plain JSON (canonical compact form re-parses) and keeps its negative_memory block.",
+   "go_file": "internal/roles/sweep_t35_test.go",
+   "go_func": "TestBundleStillCleanAsserts"
   },
   {
    "python_file": "tests/test_bundle_corpus_keys.py",
@@ -1052,12 +1092,16 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_audit_has_floor_policy_section",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/sweep_t35_test.go",
+   "go_func": "TestAuditHasFloorPolicySection",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_brief_shows_stages_and_budget",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/sweep_t35_test.go",
+   "go_func": "TestBriefShowsStagesAndBudget",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_cli.py",
@@ -1071,7 +1115,9 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_execs_lists_ledger",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_execs_test.go",
+   "go_func": "TestExecsEmptyLedger",
+   "notes": "1:1 (\"no exec records in this campaign\")"
   },
   {
    "python_file": "tests/test_cli.py",
@@ -1092,7 +1138,8 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_full_ladder_via_cli",
-   "status": "deferred-P1"
+   "status": "deferred-P1",
+   "notes": "PRODUCTION GAP: internal/cli/cmd_verify.go rejects every flag (`unrecognized arguments: %s`) and never wires the --queue/--exec E6 paths, so the CLI cannot drive the ladder to E6 as the Python test does; the orchestrator/findings E6 machinery itself is ported and pinned elsewhere (internal/orchestrator, internal/cli ladder tests). The row stays deferred until cmd_verify grows the --queue/--exec surface (a production change, out of scope for the testmap sweep)."
   },
   {
    "python_file": "tests/test_cli.py",
@@ -1104,28 +1151,37 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_ingest_json_outputs_advisory_and_warnings",
-   "status": "deferred-P1",
-   "notes": "the CLI --json envelope is untested; the advisory/intake-warning VALUES are covered by internal/findings/ingest_test.go::TestIntakeCheckpointSeamAdvisory and taxonomy.ClassAdvisory"
+   "notes": "1:1 port (T35)",
+   "go_file": "internal/cli/sweep_t35_test.go",
+   "go_func": "TestIngestJSONOutputsAdvisoryAndWarnings"
   },
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_init_status_log_verify_audit",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/sweep_t35_test.go",
+   "go_func": "TestInitStatusLogVerifyAudit",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_lifecycle_trajectory_is_valid",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/sweep_t35_test.go",
+   "go_func": "TestLifecycleTrajectoryIsValid",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_mint_rejects_host_profile",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_mint_test.go",
+   "go_func": "TestMintHostProfileRefused",
+   "notes": "1:1 (exit 2 + container/VM)"
   },
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_mint_requires_description",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_mint_test.go",
+   "go_func": "TestMintEmptyDescription",
+   "notes": "1:1 (exit 2 + description refusal)"
   },
   {
    "python_file": "tests/test_cli.py",
@@ -1158,7 +1214,9 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_run_halts_honestly_at_the_first_model_stage",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cmd_run_test.go",
+   "go_func": "TestRunHaltsHonestlyAtTheFirstModelStage",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/cli/cmd_run_test.go)"
   },
   {
    "python_file": "tests/test_cli.py",
@@ -1170,7 +1228,9 @@
   {
    "python_file": "tests/test_cli.py",
    "python_func": "test_snap_pins_a_source_snapshot",
-   "status": "deferred-P1"
+   "go_file": "internal/cli/cli_test.go",
+   "go_func": "TestSnapFoundryToolchainLine",
+   "notes": "1:1 (stdout \"pinned src-content-\")"
   },
   {
    "python_file": "tests/test_cli.py",
@@ -1470,14 +1530,16 @@
   {
    "python_file": "tests/test_criticality.py",
    "python_func": "test_brief_coverage_vault_not_covered_by_vaultproxy",
-   "status": "deferred-P3",
-   "notes": "brief-side integration; the ranker itself is pinned by internal/structidx TestCriticalityGolden"
+   "notes": "1:1 port: coverage[Vault] is false when the plan only covers VaultProxy and Vault lands in uncovered_consensus_critical; with the divergence gate open the criticality line still precedes the divergence line.",
+   "go_file": "internal/briefing/sweep_t35_crit_test.go",
+   "go_func": "TestBriefCoverageVaultNotCoveredByVaultProxy"
   },
   {
    "python_file": "tests/test_criticality.py",
    "python_func": "test_brief_flags_untouched_consensus_critical",
-   "status": "deferred-P3",
-   "notes": "brief-side integration; the ranker itself is pinned by internal/structidx TestCriticalityGolden"
+   "notes": "1:1 port: a brief over a model whose Rollup contract hosts a state machine and is untouched emits a next action naming consensus-critical + Rollup.",
+   "go_file": "internal/briefing/sweep_t35_crit_test.go",
+   "go_func": "TestBriefFlagsUntouchedConsensusCritical"
   },
   {
    "python_file": "tests/test_criticality.py",
@@ -1500,172 +1562,240 @@
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_assign_partitions_math",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/defihacklabs/defihacklabs_test.go",
+   "go_func": "TestDefihacklabsAssignPartitionsMath",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_clip_text_boundaries",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/defihacklabs/defihacklabs_test.go",
+   "go_func": "TestDefihacklabsClipTextBoundaries",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_collision_ids_and_rca_first_in_file_order",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/defihacklabs/defihacklabs_test.go",
+   "go_func": "TestDefihacklabsCollisionIDsAndRCAFirstInFileOrder",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_commit_and_repo_rules",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/forge/forge_test.go",
+   "go_func": "TestForgeCommitAndRepoRules",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_commit_ref_rules",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/scabench/scabench_test.go",
+   "go_func": "TestScabenchCommitRefRules",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_cwe_label_extraction",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/forge/forge_test.go",
+   "go_func": "TestForgeCWELabelExtraction",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_extract_poclink",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/defihacklabs/defihacklabs_test.go",
+   "go_func": "TestDefihacklabsExtractPoclink",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_ingest_record_pure_paths",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/defihacklabs/defihacklabs_test.go",
+   "go_func": "TestDefihacklabsIngestRecordPurePaths",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_ingest_record_pure_shapes_forge",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/forge/forge_test.go",
+   "go_func": "TestForgeIngestRecordPureShapes",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_ingest_record_pure_shapes_scabench",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/scabench/scabench_test.go",
+   "go_func": "TestScabenchIngestRecordPureShapes",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_integration_3590_records_shapes_and_histogram",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/forge/forge_test.go",
+   "go_func": "TestForgeIntegration3590RecordsShapesAndHistogram",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_integration_555_records_all_held_out_unmapped",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/scabench/scabench_test.go",
+   "go_func": "TestScabenchIntegration555RecordsAllHeldOutUnmapped",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_integration_ingest_record_shapes_defihacklabs",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/defihacklabs/defihacklabs_test.go",
+   "go_func": "TestDefihacklabsIntegrationIngestRecordShapes",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_integration_ingest_record_shapes_forge",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/forge/forge_test.go",
+   "go_func": "TestForgeIntegrationIngestRecordShapes",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_integration_ingest_record_shapes_scabench",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/scabench/scabench_test.go",
+   "go_func": "TestScabenchIntegrationIngestRecordShapes",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_integration_length_compliance",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/defihacklabs/defihacklabs_test.go",
+   "go_func": "TestDefihacklabsIntegrationLengthCompliance",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_integration_poc_resolution_on_disk",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/defihacklabs/defihacklabs_test.go",
+   "go_func": "TestDefihacklabsIntegrationPocResolutionOnDisk",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_integration_record_count_and_partitions",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/defihacklabs/defihacklabs_test.go",
+   "go_func": "TestDefihacklabsIntegrationRecordCountAndPartitions",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_long_description_paragraph_truncated",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/scabench/scabench_test.go",
+   "go_func": "TestScabenchLongDescriptionParagraphTruncated",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_normalize_chain",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/defihacklabs/defihacklabs_test.go",
+   "go_func": "TestDefihacklabsNormalizeChain",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_outcome_severity_prior_table",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/forge/forge_test.go",
+   "go_func": "TestForgeOutcomeSeverityPriorTable",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_poc_resolution_fallback_variant_and_miss",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/defihacklabs/defihacklabs_test.go",
+   "go_func": "TestDefihacklabsPocResolutionFallbackVariantAndMiss",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_record_shape_and_pinned_mapping_forge",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/forge/forge_test.go",
+   "go_func": "TestForgeRecordShapeAndPinnedMapping",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_record_shape_and_pinned_mapping_scabench",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/scabench/scabench_test.go",
+   "go_func": "TestScabenchRecordShapeAndPinnedMapping",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_record_shape_contract_hit",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/defihacklabs/defihacklabs_test.go",
+   "go_func": "TestDefihacklabsRecordShapeContractHit",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_registry_guarded_import_defihacklabs",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/datasets_test.go",
+   "go_func": "TestDatasetsRegistryGuardedImportDefihacklabs",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_registry_guarded_import_forge",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/datasets_test.go",
+   "go_func": "TestDatasetsRegistryGuardedImportForge",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_registry_guarded_imports_scabench",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/datasets_test.go",
+   "go_func": "TestDatasetsRegistryGuardedImportsScabench",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_root_cause_cause_section",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/forge/forge_test.go",
+   "go_func": "TestForgeRootCauseCauseSection",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_short_description_composed_from_title",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/scabench/scabench_test.go",
+   "go_func": "TestScabenchShortDescriptionComposedFromTitle",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_title_length_rules_direct",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/scabench/scabench_test.go",
+   "go_func": "TestScabenchTitleLengthRulesDirect",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_uffff_stripped",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/scabench/scabench_test.go",
+   "go_func": "TestScabenchUffffStripped",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_unknown_severity_rejected_forge",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/forge/forge_test.go",
+   "go_func": "TestForgeUnknownSeverityRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_datasets.py",
    "python_func": "test_unknown_severity_rejected_scabench",
-   "status": "deferred-P4"
+   "go_file": "internal/datasets/scabench/scabench_test.go",
+   "go_func": "TestScabenchUnknownSeverityRejected",
+   "notes": ""
   },
   {
    "python_file": "tests/test_dedup_determinism.py",
@@ -1688,117 +1818,163 @@
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_audit_detects_edited_manifest",
-   "status": "deferred-P1"
+   "go_file": "internal/audit/sweep_t35_test.go",
+   "go_func": "TestAuditDetectsEditedManifest",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_blocked_model_stage_does_not_starve_independent_branch",
-   "status": "deferred-P1"
+   "go_file": "internal/pipeline/sweep_t35_test.go",
+   "go_func": "TestBlockedModelStageDoesNotStarveIndependentBranch",
+   "notes": "1:1 port (T35): blocked_stages=[hostile-review], reproduction ran, chaining held, resume runs the join"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_canonical_dag_joins_are_explicit",
-   "status": "deferred-P1"
+   "go_file": "internal/pipeline/pipeline_test.go",
+   "go_func": "TestJoinsTableMatchesPythonGolden",
+   "notes": "1:1 via joins.json: set == StageIDs, every canonical join kind is all, chaining deps"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_capital_breakdown_defaults_for_unprofiled_findings",
-   "status": "deferred-P1"
+   "go_file": "internal/chainengine/sweep_t35_test.go",
+   "go_func": "TestCapitalBreakdownDefaultsForUnprofiledFindings",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_capital_breakdown_rejects_unknown_fields",
-   "status": "deferred-P1"
+   "go_file": "internal/chainengine/chainengine_test.go",
+   "go_func": "TestMaterializeChainTerminalAnnotationGates",
+   "notes": "1:1 (\"unknown capital_breakdown fields\")"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_capital_is_summed_along_the_path",
-   "status": "deferred-P1"
+   "go_file": "internal/chainengine/sweep_t35_test.go",
+   "go_func": "TestCapitalIsSummedAlongThePath",
+   "notes": "1:1 port (T35): 2000+5000=7000"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_capital_profile_flows_through_paths",
-   "status": "deferred-P1"
+   "go_file": "internal/chainengine/sweep_t35_test.go",
+   "go_func": "TestCapitalProfileFlowsThroughPaths",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_default_class_deficit_keeps_ladder_wording",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/sweep_t35_test.go",
+   "go_func": "TestDefaultClassDeficitKeepsLadderWording",
+   "notes": "1:1 port (T35): exact \"evidence level E0 < required E4 for CONFIRMED\""
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_default_gate_is_single_any_type_clause",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/findings_test.go",
+   "go_func": "TestGateRequirements",
+   "notes": "1:1 (POSSIBLE E2 / CONFIRMED E4, Types nil)"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_direct_terminal_is_single_finding_from_baseline",
-   "status": "deferred-P1"
+   "go_file": "internal/chainengine/chainengine_test.go",
+   "go_func": "TestTerminalReportShapeAndBaseline",
+   "notes": "1:1 (direct=[fid], baseline [call_any_entry_point])"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_economic_gate_accepts_independent_repro_as_alternative",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/sweep_t35_test.go",
+   "go_func": "TestEconomicGateAcceptsIndependentReproAsAlternative",
+   "notes": "1:1 port (T35): E5 differential satisfies the disjunction"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_economic_gate_fork_only_is_insufficient",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/sweep_t35_test.go",
+   "go_func": "TestEconomicGateForkOnlyIsInsufficient",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_economic_gate_is_three_clauses",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/sweep_t35_test.go",
+   "go_func": "TestEconomicGateIsThreeClauses",
+   "notes": "1:1 port (T35): exact type sets + min levels"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_economic_gate_symbolic_does_not_satisfy_local_poc",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/sweep_t35_test.go",
+   "go_func": "TestEconomicGateSymbolicDoesNotSatisfyLocalPOC",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_evidence_cannot_substitute_for_missing_clause",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/sweep_t35_test.go",
+   "go_func": "TestEvidenceCannotSubstituteForMissingClause",
+   "notes": "1:1 port (T35): 4 items, deficit names unit-test only"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_full_confirmation_of_economic_class_with_three_clauses",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/sweep_t35_test.go",
+   "go_func": "TestFullConfirmationOfEconomicClassWithThreeClauses",
+   "notes": "1:1 port (T35): full transition to CONFIRMED"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_join_any_is_honored_by_the_scheduler",
-   "status": "deferred-P1"
+   "go_file": "internal/pipeline/sweep_t35_test.go",
+   "go_func": "TestJoinAnyIsHonoredByTheScheduler",
+   "notes": "1:1 port (T35): chaining re-specified to any-join runs off reproduction alone"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_join_specs_validate",
-   "status": "deferred-P1"
+   "go_file": "internal/pipeline/pipeline_test.go",
+   "go_func": "TestJoinValidationMessagesMatchPython",
+   "notes": "1:1 for the validation half; the semantics half (quorum 2-of-3, any, predicate) is TestJoinSatisfiedSemanticsMatchPython"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_legacy_snapshot_without_manifest_still_audits_clean",
-   "status": "deferred-P1"
+   "go_file": "internal/audit/sweep_t35_test.go",
+   "go_func": "TestLegacySnapshotWithoutManifestStillAuditsClean",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_manifest_is_self_describing_and_self_consistent",
-   "status": "deferred-P1"
+   "go_file": "internal/snapshot/sweep_t35_test.go",
+   "go_func": "TestManifestIsSelfDescribingAndSelfConsistent",
+   "notes": "1:1 port (T35): all seven keys, lock/toolchain digests, null pins, both recomputations"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_manifest_refreshes_when_pins_attach",
-   "status": "deferred-P1"
+   "go_file": "internal/snapshot/manifest_test.go",
+   "go_func": "TestManifestAttachRefreshesRoots",
+   "notes": "1:1 (deployment then chain attach change manifest_hash; on-disk snapshot re-validated)"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_materialize_terminal_chain_annotates_and_verifies",
-   "status": "deferred-P1"
+   "go_file": "internal/chainengine/sweep_t35_test.go",
+   "go_func": "TestMaterializeTerminalChainAnnotatesAndVerifies",
+   "notes": "1:1 port (T35): terminal doc + dedup_meta JSON + terminal_report materialized list"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_materialize_terminal_chain_with_capital_breakdown",
-   "status": "deferred-P1"
+   "go_file": "internal/chainengine/chainengine_test.go",
+   "go_func": "TestMaterializeChainTerminalAnnotationGates",
+   "notes": "1:1 (net_at_risk_usd 200 carried through)"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
@@ -1809,27 +1985,37 @@
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_stage_deps_encode_the_parallel_edge",
-   "status": "deferred-P1"
+   "go_file": "internal/pipeline/pipeline_test.go",
+   "go_func": "TestTopologicalOrderMatchesPythonGolden",
+   "notes": "1:1 via the topo.json oracle: deps for every stage + topological precedence"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_terminal_capability_must_be_granted_by_via_finding",
-   "status": "deferred-P1"
+   "go_file": "internal/chainengine/chainengine_test.go",
+   "go_func": "TestMaterializeChainTerminalAnnotationGates",
+   "notes": "1:1 (\"is not granted by\")"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_terminal_path_from_baseline_through_two_findings",
-   "status": "deferred-P1"
+   "go_file": "internal/chainengine/sweep_t35_test.go",
+   "go_func": "TestTerminalPathFromBaselineThroughTwoFindings",
+   "notes": "1:1 port (T35): path, terminal_capability, terminal_finding, summed capital 5000, shortest_by_terminal"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_terminal_search_honors_explicit_baseline",
-   "status": "deferred-P1"
+   "go_file": "internal/chainengine/chainengine_test.go",
+   "go_func": "TestTerminalReportShapeAndBaseline",
+   "notes": "1:1 (role baseline reaches the role-required drain)"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_terminal_search_ignores_unconfirmed_findings",
-   "status": "deferred-P1"
+   "go_file": "internal/chainengine/sweep_t35_test.go",
+   "go_func": "TestTerminalSearchIgnoresUnconfirmedFindings",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
@@ -1846,52 +2032,71 @@
   {
    "python_file": "tests/test_disproof_sibling.py",
    "python_func": "test_adjacent_clear_adds_no_priority",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortAdjacentClearAddsNoPriority",
+   "notes": "1:1 (clear returns None, adds no row)"
   },
   {
    "python_file": "tests/test_disproof_sibling.py",
    "python_func": "test_brief_surfaces_open_sibling_priority",
-   "status": "deferred-P1"
+   "status": "deferred-P1",
+   "notes": "PRODUCTION GAP: internal/briefing/briefing.go never populates the `disproved_siblings` key it reads in NextActions (grep disproved_siblings shows only the reader at line 1804), so BuildBrief can never emit the `work sibling of <fid>: <question>` line the Python test asserts. Python reads the plan's open sibling_of priorities directly. The row stays deferred until the brief emits that block (a production change, out of scope for the testmap sweep); the plan-side sibling_of handling is already pinned by internal/briefing TestReportAnnotatesSiblingPriority."
   },
   {
    "python_file": "tests/test_disproof_sibling.py",
    "python_func": "test_disproof_of_lifecycle_finding_adds_sibling_priority",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortDisproofOfLifecycleFindingAddsSibling",
+   "notes": "1:1 (one open sibling priority for F-001)"
   },
   {
    "python_file": "tests/test_disproof_sibling.py",
    "python_func": "test_lifecycle_disproof_without_adjacent_raises",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortLifecycleDisproofWithoutAdjacentRaises",
+   "notes": "1:1 (exact AdjacentRequiredMsg)"
   },
   {
    "python_file": "tests/test_disproof_sibling.py",
    "python_func": "test_non_lifecycle_disproof_is_noop",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortNonLifecycleDisproofIsNoop",
+   "notes": "1:1 (None + no priority)"
   },
   {
    "python_file": "tests/test_disproof_sibling.py",
    "python_func": "test_nonlifecycle_noop_leaves_priorities_unchanged",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortNonLifecycleDisproofIsNoop",
+   "notes": "1:1 (asserts the priority count is unchanged)"
   },
   {
    "python_file": "tests/test_disproof_sibling.py",
    "python_func": "test_report_annotates_sibling_priority",
-   "status": "deferred-P1"
+   "go_file": "internal/report/sweep_t35_test.go",
+   "go_func": "TestReportAnnotatesSiblingPriority",
+   "notes": "1:1 port (T35): \"(open, sibling of F-001)\" in the Answer-quality block"
   },
   {
    "python_file": "tests/test_disproof_sibling.py",
    "python_func": "test_transition_disproof_with_adjacent_spawns_sibling",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortTransitionDisproofWithAdjacentSpawnsSibling",
+   "notes": "1:1 (DISPROVED + one sibling_of row)"
   },
   {
    "python_file": "tests/test_disproof_sibling.py",
    "python_func": "test_transition_rejects_lifecycle_disproof_without_adjacent",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/ports_test.go",
+   "go_func": "TestPortTransitionRejectsLifecycleDisproofWithoutAdjacent",
+   "notes": "1:1 via the wired findings seam: guard fires before persist, status stays POSSIBLE"
   },
   {
    "python_file": "tests/test_disproof_sibling.py",
    "python_func": "test_whitespace_adjacent_is_rejected_before_persist",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/answered_test.go",
+   "go_func": "TestSiblingRescanOracle",
+   "notes": "whitespace arm of the sibling_rescan oracle (exact error); persistence ordering pinned by TestPortTransitionRejectsLifecycleDisproofWithoutAdjacent"
   },
   {
    "python_file": "tests/test_doctor.py",
@@ -2362,8 +2567,9 @@
   {
    "python_file": "tests/test_findings.py",
    "python_func": "test_fresh_context_guidance",
-   "status": "deferred-P1",
-   "notes": "blocked: reproduction.record_attempt (P2) renders the guidance"
+   "notes": "1:1 port: environment failure -> action=retry with fresh_context=true; hypothesis-wrong -> hypothesis-likely-dead. The stale skip stub TestFreshContextGuidanceUnported in internal/findings remains as a marker but the row points at the real port.",
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestRecordAttemptGuidance"
   },
   {
    "python_file": "tests/test_findings.py",
@@ -2749,8 +2955,9 @@
   {
    "python_file": "tests/test_history_learning.py",
    "python_func": "test_routing_table_and_adapter",
-   "status": "deferred-P3",
-   "notes": "no Go test pins adapter.route defaults + routing_table + resolve_prompt together (TestEveryMappedPromptFileExists and TestUnknownStageErrorListsKnownStages cover the prompt/error halves)"
+   "notes": "1:1 port: Route defaults (adversarial-critic expensive, hypothesis-triage cheap), routing_table[exploit-chaining].budget_class, an unknown stage erroring like KeyError, and a mapped stage's prompt resolving to text containing 'Stage 01'.",
+   "go_file": "internal/adapter/sweep_t35_routing_test.go",
+   "go_func": "TestRoutingTableAndAdapter"
   },
   {
    "python_file": "tests/test_independent_verification.py",
@@ -2929,7 +3136,9 @@
   {
    "python_file": "tests/test_ingest.py",
    "python_func": "test_preconditions_has_schema_description",
-   "status": "deferred-P1"
+   "go_file": "internal/validation/sweep_t35b_test.go",
+   "go_func": "TestFindingSchemaDescribesPreconditionsAndAssumptions",
+   "notes": "1:1 port against the embedded assets/schema/finding.schema.json descriptions."
   },
   {
    "python_file": "tests/test_ingest.py",
@@ -3073,8 +3282,9 @@
   {
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_audit_flags_unregistered_verification_artifact",
-   "status": "deferred-P1",
-   "notes": "blocked: audit section 11 invariant_verification (P1 gate task)"
+   "notes": "1:1 port via the inv_unknown_artifact vector: a CHECKED_AGAINST_CODE entry whose verified_by is not a registered artifact fails section 11 with 'verified_by ... is not a registered artifact'.",
+   "go_file": "internal/audit/p1_sections_test.go",
+   "go_func": "TestInvariantVerificationScenariosMatchPython"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
@@ -3231,8 +3441,9 @@
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_brief_next_action_names_unattested_family",
-   "status": "deferred-P3",
-   "notes": "no Go test pins the brief's unattested-family divergence line"
+   "notes": "1:1 port: an answered lens that attested only `withdraw` of its two families produces a divergence next action naming the unattested family `mint`.",
+   "go_file": "internal/briefing/sweep_t35_crit_test.go",
+   "go_func": "TestBriefNextActionNamesUnattestedFamily"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
@@ -3285,14 +3496,16 @@
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_report_lists_lens_families",
-   "status": "deferred-P3",
-   "notes": "report.go's lens families rendering has no Go test"
+   "notes": "1:1 port: report.md renders the lens line's [families: ...; attested: ...] projection.",
+   "go_file": "internal/report/sweep_t35_answers_test.go",
+   "go_func": "TestReportListsLensFamilies"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
    "python_func": "test_report_marks_reopened_lens",
-   "status": "deferred-P3",
-   "notes": "report.go's REOPENED rendering has no Go test"
+   "notes": "1:1 port: report.md marks a reopened lens with REOPENED and its reopen_reason.",
+   "go_file": "internal/report/sweep_t35_answers_test.go",
+   "go_func": "TestReportMarksReopenedLens"
   },
   {
    "python_file": "tests/test_lens_exhaustive.py",
@@ -3467,147 +3680,198 @@
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_critic_verdict_illegal_move_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestCriticVerdictIllegalMoveRejected",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_critic_verdict_stale_claim_version_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestCriticVerdictStaleClaimVersionRejected",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_critic_verdict_unknown_assumption_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestCriticVerdictUnknownAssumptionRejected",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_critic_verdict_with_hallucinated_evidence_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestCriticVerdictWithHallucinatedEvidenceRejected",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_critic_verdict_without_evidence_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestCriticVerdictWithoutEvidenceRejected",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_hypothesis_override_must_name_real_memory",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestHypothesisOverrideMustNameRealMemory",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_hypothesis_with_exploit_sequence_carries_into_finding",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestHypothesisWithExploitSequenceCarriesIntoFinding",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_hypothesis_with_nonunknown_assumption_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestHypothesisWithNonUnknownAssumptionRejected",
+   "notes": "1:1 port (T35 sweep; normalized-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_hypothesis_with_unknown_tool_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestHypothesisWithUnknownToolRejected",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_hypothesis_without_exploit_sequence_has_no_key",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestHypothesisWithoutExploitSequenceHasNoKey",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_malformed_hypothesis_rejected_and_state_untouched",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestMalformedHypothesisRejectedAndStateUntouched",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_plan_unknown_finding_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestPlanUnknownFindingRejected",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_reproducer_request_pin_drift_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestReproducerRequestPinDriftRejected",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_reproducer_request_unknown_profile_rejected",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestReproducerRequestUnknownProfileRejected",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_reproducer_request_valid_accepted",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestReproducerRequestValidAccepted",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_request_record_validation",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestRequestRecordValidation",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_role_kind_matrix_enforced",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestRoleKindMatrixEnforced",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_utility_not_matched_for_different_hypothesis",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestUtilityNotMatchedForDifferentHypothesis",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_utility_override_declared",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestUtilityOverrideDeclared",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_utility_re_raised_when_hypothesis_matches_prior",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestUtilityReRaisedWhenHypothesisMatchesPrior",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_utility_v1_row_falls_back_to_class_match",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestUtilityV1RowFallsBackToClassMatch",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_valid_critic_verdict_applies",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestValidCriticVerdictApplies",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_boundary.py",
    "python_func": "test_valid_hypothesis_ingests",
-   "status": "deferred-P1"
+   "go_file": "internal/boundary/boundary_test.go",
+   "go_func": "TestValidHypothesisIngests",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/boundary/boundary_test.go)"
   },
   {
    "python_file": "tests/test_model_integration.py",
    "python_func": "test_end_to_end_campaign_walkthrough",
-   "status": "deferred-P2",
-   "notes": "internal/roles + the model-boundary bundle builders are not ported (P3 scope): the end-to-end walkthrough needs the proposer/critic/reproducer bundles this wave does not build"
+   "notes": "1:1 port: init -> pin -> playbook -> proposer bundle -> boundary ingest -> evidence -> critic bundle -> verdict -> memory queue -> human approval -> promotion surface -> integrity, plus exactly two finding.assumption_transition events backing every assumption status.",
+   "go_file": "internal/boundary/sweep_t35_test.go",
+   "go_func": "TestEndToEndCampaignWalkthrough"
   },
   {
    "python_file": "tests/test_model_integration.py",
    "python_func": "test_negative_memory_staleness_end_to_end",
-   "status": "deferred-P2",
-   "notes": "internal/roles + the model-boundary bundle builders are not ported (P3 scope): the end-to-end walkthrough needs the proposer/critic/reproducer bundles this wave does not build"
+   "notes": "1:1 port: v2 DISPROVED prior pin-diverges after re-pin and still re-raises a matching hypothesis (memory.utility re_raised); a NON-ECONOMIC prior derives below-threshold in queue_memory and surfaces policy-contingent, pin-matched.",
+   "go_file": "internal/boundary/sweep_t35_test.go",
+   "go_func": "TestNegativeMemoryStalenessEndToEnd"
   },
   {
    "python_file": "tests/test_model_integration.py",
    "python_func": "test_role_bundles_agree_with_boundary_role_contract",
-   "status": "deferred-P2",
-   "notes": "internal/roles + the model-boundary bundle builders are not ported (P3 scope): the end-to-end walkthrough needs the proposer/critic/reproducer bundles this wave does not build"
+   "notes": "1:1 port: bundle response schemas \u2286 ROLE_RESPONSES, critic permitted_checks \u2286 tool_registry, reproducer profiles \u2286 sandbox.Profiles, and the registry is exactly ANALYSIS_TOOLS \u222a PROFILES.",
+   "go_file": "internal/boundary/sweep_t35_test.go",
+   "go_func": "TestRoleBundlesAgreeWithBoundaryRoleContract"
   },
   {
    "python_file": "tests/test_model_integration.py",
    "python_func": "test_role_kind_matrix_end_to_end",
-   "status": "deferred-P2",
-   "notes": "internal/roles + the model-boundary bundle builders are not ported (P3 scope): the end-to-end walkthrough needs the proposer/critic/reproducer bundles this wave does not build"
+   "notes": "1:1 port: the full 3-role x 4-kind matrix \u2014 the role's own shape validates with campaign state, every other role's shape is refused with 'may not emit'.",
+   "go_file": "internal/boundary/sweep_t35_test.go",
+   "go_func": "TestRoleKindMatrixEndToEnd"
   },
   {
    "python_file": "tests/test_model_integration.py",
    "python_func": "test_trajectory_integrity_end_to_end",
-   "status": "deferred-P2",
-   "notes": "internal/roles + the model-boundary bundle builders are not ported (P3 scope): the end-to-end walkthrough needs the proposer/critic/reproducer bundles this wave does not build"
+   "notes": "1:1 port: one rejected generation plus the full request -> ingest -> evidence -> verdict -> reproducer round trip; model.* stamps (prompt_version/context_hash from the real prompt artifact and bundle, payload_sha256, request_sha256) and both verifiers green (4 events).",
+   "go_file": "internal/boundary/sweep_t35_test.go",
+   "go_func": "TestTrajectoryIntegrityEndToEnd"
   },
   {
    "python_file": "tests/test_orchestrator.py",
@@ -3630,102 +3894,142 @@
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_all_playbooks_are_listed",
-   "status": "deferred-P1"
+   "go_file": "internal/playbooks/sweep_t35_test.go",
+   "go_func": "TestAllPlaybooksAreListed",
+   "notes": "1:1 port: the three new playbooks plus the original three are listed by available_playbooks()."
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_broken_store_loader_fails_closed",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestBrokenStoreLoaderFailsClosed",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_caller_exclusion_overrides_derivation",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestCallerExclusionOverridesDerivation",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_case_absent_from_store_fails_closed",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestCaseAbsentFromStoreFailsClosed",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_dev_case_derives_visible",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestDevCaseDerivesVisible",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_exclusion_without_reason_rejected_before_write",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestExclusionWithoutReasonRejectedBeforeWrite",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_hand_written_outcome_event_flagged_by_verify",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestHandWrittenOutcomeEventFlaggedByVerify",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_held_out_case_derives_hidden_and_excluded",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestHeldOutCaseDerivesHiddenAndExcluded",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_invalid_evidence_tier_rejected_before_write",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestInvalidEvidenceTierRejectedBeforeWrite",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_invalid_final_status_rejected_before_write",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestInvalidFinalStatusRejectedBeforeWrite",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_invalid_outcome_rejected_before_write",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestInvalidOutcomeRejectedBeforeWrite",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_new_playbook_tool_ids_are_in_the_registry",
-   "status": "deferred-P1"
+   "go_file": "internal/playbooks/sweep_t35_registry_test.go",
+   "go_func": "TestNewPlaybookToolIDsAreInTheRegistry",
+   "notes": "1:1 port: every hunt_order tool_id and preferred_tool of the three new playbooks is in boundary.ToolRegistry()."
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_new_playbooks_load_and_validate",
-   "status": "deferred-P1"
+   "go_file": "internal/playbooks/sweep_t35_test.go",
+   "go_func": "TestNewPlaybooksLoadAndValidate",
+   "notes": "1:1 port: reentrancy/upgrade-initializer/bridge-message load with bug_class and evidence_floor E4/E3/E4."
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_outcome_event_confirmed_exploitable_via_case_id_visible",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestOutcomeEventConfirmedExploitableViaCaseIDVisible",
+   "notes": "1:1 port (T35 sweep; normalized-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_outcome_event_roundtrip",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestOutcomeEventRoundtrip",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_outcome_schema_and_writer_vocabulary_cannot_drift",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestOutcomeSchemaAndWriterVocabularyCannotDrift",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_training_case_derives_hidden_and_excluded",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestTrainingCaseDerivesHiddenAndExcluded",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_unknown_finding_rejected_before_write",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestUnknownFindingRejectedBeforeWrite",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_unreadable_case_store_fails_closed",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestUnreadableCaseStoreFailsClosed",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_outcome_events.py",
    "python_func": "test_unrecognized_partition_fails_closed",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestUnrecognizedPartitionFailsClosed",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_partition_guards.py",
@@ -3742,8 +4046,9 @@
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_held_out_and_training_rows_absent_from_proposer_context",
-   "status": "deferred-P3",
-   "notes": "roles._known_non_issues partition filter has no Go test (the approve/publish partition guards are pinned by learning/sharedmem)"
+   "notes": "1:1 port: a campaign-local dev row appears in known_non_issues while held-out and training rows are filtered out.",
+   "go_file": "internal/roles/sweep_t35_partition_test.go",
+   "go_func": "TestHeldOutAndTrainingRowsAbsentFromProposerContext"
   },
   {
    "python_file": "tests/test_partition_guards.py",
@@ -3766,8 +4071,9 @@
   {
    "python_file": "tests/test_partition_guards.py",
    "python_func": "test_shared_store_held_out_row_absent_dev_row_present",
-   "status": "deferred-P3",
-   "notes": "the shared-store wrapper unwrap + partition filter has no Go test"
+   "notes": "1:1 port: the partition filter also holds through the shared-store wrapper ({program_key, published_at, row}) unwrap.",
+   "go_file": "internal/roles/sweep_t35_partition_test.go",
+   "go_func": "TestSharedStoreHeldOutRowAbsentDevRowPresent"
   },
   {
    "python_file": "tests/test_pipeline.py",
@@ -3826,14 +4132,16 @@
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_brief_carries_divergence_and_next_action",
-   "status": "deferred-P3",
-   "notes": "no Go test pins the brief's divergence + L-01 next-action pairing"
+   "notes": "1:1 port (T35)",
+   "go_file": "internal/briefing/sweep_t35_plan_test.go",
+   "go_func": "TestBriefCarriesDivergenceAndNextAction"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_brief_no_plan_is_unchanged",
-   "status": "deferred-P3",
-   "notes": "no Go test pins the no-plan brief shape (divergence None, no divergence action)"
+   "notes": "1:1 port (T35)",
+   "go_file": "internal/briefing/sweep_t35_plan_test.go",
+   "go_func": "TestBriefNoPlanIsUnchanged"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
@@ -3844,17 +4152,23 @@
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_discovery_proof_blocks_on_diversity",
-   "status": "deferred-P1"
+   "go_file": "internal/completion/sweep_t35_test.go",
+   "go_func": "TestDiscoveryProofBlocksOnDiversity",
+   "notes": "1:1 port (T35): missing \"diversity:...\""
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_discovery_proof_blocks_on_open_lenses",
-   "status": "deferred-P1"
+   "go_file": "internal/completion/sweep_t35_test.go",
+   "go_func": "TestDiscoveryProofBlocksOnOpenLenses",
+   "notes": "1:1 port (T35): missing \"L-03:...\" + note names the divergence gate"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_discovery_proof_passes_when_gate_closed",
-   "status": "deferred-P1"
+   "go_file": "internal/completion/sweep_t35_test.go",
+   "go_func": "TestDiscoveryProofPassesWhenGateClosed",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
@@ -3865,7 +4179,9 @@
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_divergence_gate_is_waivable",
-   "status": "deferred-P1"
+   "go_file": "internal/completion/sweep_t35_test.go",
+   "go_func": "TestDivergenceGateIsWaivable",
+   "notes": "1:1 port (T35): Waive removes the L-02 block and waivers.jsonl records it"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
@@ -3900,14 +4216,16 @@
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_report_renders_hypothesis_lenses",
-   "status": "deferred-P3",
-   "notes": "report.go's '## Hypothesis lenses' section has no Go test"
+   "notes": "1:1 port (T35); Python's DEVIATION (generate returns a Path) is preserved",
+   "go_file": "internal/report/sweep_t35_plan_test.go",
+   "go_func": "TestReportRendersHypothesisLenses"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
    "python_func": "test_report_without_plan_is_unchanged",
-   "status": "deferred-P3",
-   "notes": "report.go's '## Hypothesis lenses' section has no Go test"
+   "notes": "1:1 port (T35)",
+   "go_file": "internal/report/sweep_t35_plan_test.go",
+   "go_func": "TestReportWithoutPlanIsUnchanged"
   },
   {
    "python_file": "tests/test_plan_lenses.py",
@@ -4074,8 +4392,9 @@
   {
    "python_file": "tests/test_playbooks.py",
    "python_func": "test_playbook_tool_ids_are_all_in_the_registry",
-   "status": "deferred-P3",
-   "notes": "no Go test cross-checks every shipped playbook's tool_id against the tool registry"
+   "notes": "1:1 port: every shipped playbook's tool ids are in boundary.ToolRegistry().",
+   "go_file": "internal/playbooks/sweep_t35_registry_test.go",
+   "go_func": "TestPlaybookToolIDsAreAllInTheRegistry"
   },
   {
    "python_file": "tests/test_playbooks.py",
@@ -4261,8 +4580,9 @@
   {
    "python_file": "tests/test_reachability.py",
    "python_func": "test_brief_surfaces_reachability_for_stuck_class",
-   "status": "deferred-P3",
-   "notes": "briefing.go renders structurally_unreachable + the floors-set action; no Go test"
+   "notes": "1:1 port: a cross-chain-replay finding appears in findings.structurally_unreachable with floor E6 and a pin demand in missing, and a next action names the finding with `floors set`.",
+   "go_file": "internal/briefing/sweep_t35_reach_test.go",
+   "go_func": "TestBriefSurfacesReachabilityForStuckClass"
   },
   {
    "python_file": "tests/test_reachability.py",
@@ -4274,8 +4594,9 @@
   {
    "python_file": "tests/test_reachability.py",
    "python_func": "test_e5_deployment_pin_only_rpc_missing",
-   "status": "deferred-P3",
-   "notes": "TestReachabilityDiagnosticVectors pins E4/E5-no-pins/E6; the deployment-pin-present + RPC-missing branch has no Go vector"
+   "notes": "1:1 port: with a deployment pin attached the pin demand is gone but FORK_RPC_URL is still demanded; setting FORK_RPC_URL clears E5.",
+   "go_file": "internal/findings/sweep_t35_reach_test.go",
+   "go_func": "TestE5DeploymentPinOnlyRpcMissing"
   },
   {
    "python_file": "tests/test_reachability.py",
@@ -4308,8 +4629,9 @@
   {
    "python_file": "tests/test_reachability.py",
    "python_func": "test_reachability_clear_after_pins",
-   "status": "deferred-P3",
-   "notes": "no Go test pins the post-pin clearing branch"
+   "notes": "1:1 port: deployment+chain pin plus FORK_RPC_URL clears the E6 diagnostic entirely.",
+   "go_file": "internal/findings/sweep_t35_reach_test.go",
+   "go_func": "TestReachabilityClearAfterPins"
   },
   {
    "python_file": "tests/test_recency.py",
@@ -4560,32 +4882,44 @@
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_add_evidence_rejects_failed_or_silent_exec",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/sweep_t35b_test.go",
+   "go_func": "TestAddEvidenceRejectsFailedOrSilentExec",
+   "notes": "1:1 port: add_evidence checks the EXEC ledger (exit status + captured output) before citing it."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_audit_projection_flags_phantom_artifact",
-   "status": "deferred-P1"
+   "go_file": "internal/audit/audit_test.go",
+   "go_func": "TestAuditProjectionDriftIsCaught",
+   "notes": "1:1 port: a state artifact row with no artifact.registered event is flagged."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_audit_projection_flags_phantom_finding_file",
-   "status": "deferred-P1"
+   "go_file": "internal/audit/sweep_t35b_test.go",
+   "go_func": "TestAuditProjectionFlagsPhantomFindingFile",
+   "notes": "1:1 port: a finding file with neither finding.ingested nor chain.materialized is flagged."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_audit_projection_flags_phantom_snapshot",
-   "status": "deferred-P1"
+   "go_file": "internal/audit/sweep_t35b_test.go",
+   "go_func": "TestAuditProjectionFlagsPhantomSnapshot",
+   "notes": "1:1 port: a state snapshot row with no snapshot.pinned event is flagged."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_audit_rehashes_pinned_snapshots",
-   "status": "deferred-P1"
+   "go_file": "internal/audit/audit_test.go",
+   "go_func": "TestAuditSnapshotMutatedIsCaught",
+   "notes": "1:1 port: mutating the pinned tree in place fails the snapshots section with the modified-after-pinning hash problem."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_b1_independent_mint_rejects_original_reporters_exec",
-   "status": "deferred-P1"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestMintE6RequiresDifferentReporter",
+   "notes": "1:1 port (B1): the E6 mint keys independence on the exec's actual reporter, not the verifier string."
   },
   {
    "python_file": "tests/test_review_fixes.py",
@@ -4603,82 +4937,113 @@
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_container_env_is_isolated_from_host",
-   "status": "deferred-P1"
+   "go_file": "internal/sandbox/sweep_t35_test.go",
+   "go_func": "TestContainerEnvIsolatedFromHost",
+   "notes": "1:1 port, live-docker integration with the same _docker_ready skip."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_container_profile_requires_live_daemon",
-   "status": "deferred-P1"
+   "go_file": "internal/sandbox/ext_test.go",
+   "go_func": "TestContainerProfileRequiresRuntime",
+   "notes": "1:1 port (docker daemon probe stubbed false; NewSandbox refuses with the runtime-infrastructure message)."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_docker_network_none_blocks_egress",
-   "status": "deferred-P1"
+   "go_file": "internal/sandbox/sweep_t35_test.go",
+   "go_func": "TestDockerNetworkNoneBlocksEgress",
+   "notes": "1:1 port, live-docker integration with the same _docker_ready skip."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_docker_profile_runs_inside_a_container",
-   "status": "deferred-P1"
+   "go_file": "internal/sandbox/sweep_t35_test.go",
+   "go_func": "TestDockerProfileRunsInsideAContainer",
+   "notes": "1:1 port, live-docker integration; skips (t.Skip) without a daemon+image exactly as the Python _docker_ready guard does."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_e4_exec_must_belong_to_the_finding",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/sweep_t35b_test.go",
+   "go_func": "TestE4ExecMustBelongToTheFinding",
+   "notes": "1:1 port: the profile fallback cannot cross findings; the exec still backs its own finding."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_find_chains_is_capped",
-   "status": "deferred-P1"
+   "status": "deferred-P1",
+   "notes": "PRODUCTION GAP (not a test gap): internal/chainengine/chainengine.go:238 uses `continue` where Python's find_chains breaks the enumeration loop once len(seen) >= MAX_PROPOSALS, so Go overshoots the cap (a 500-cap fixture returns 521 chains). Porting the test requires the production fix (change that `continue` to `break`); production edits are out of scope for the testmap sweep, so the row stays deferred with this exact defect recorded. Everything else in tests/test_review_fixes.py::test_find_chains_is_capped (dedup by member set, the cap constant) is already pinned by internal/chainengine tests."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_independent_mint_rejects_failed_exec",
-   "status": "deferred-P1"
+   "go_file": "internal/reproduction/sweep_t35_test.go",
+   "go_func": "TestIndependentMintRejectsFailedExec",
+   "notes": "1:1 port: the E6 mint refuses an exit-1 exec."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_independent_mint_rejects_silent_exec",
-   "status": "deferred-P1"
+   "go_file": "internal/reproduction/sweep_t35_test.go",
+   "go_func": "TestIndependentMintRejectsSilentExec",
+   "notes": "1:1 port: the E6 mint refuses an exit-0 silent rerun."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_link_test_requires_registered_artifact",
-   "status": "deferred-P1"
+   "go_file": "internal/invariants/sweep_t35_test.go",
+   "go_func": "TestLinkTestRequiresRegisteredArtifact",
+   "notes": "1:1 port: link_test rejects an unregistered artifact id and lands test_status=held for a registered one."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_mint_rejects_exec_with_nonzero_exit",
-   "status": "deferred-P1"
+   "go_file": "internal/reproduction/sweep_t35_test.go",
+   "go_func": "TestMintRejectsExecWithNonzeroExit",
+   "notes": "1:1 port: mint_repro_evidence refuses an exit-1 exec."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_mint_rejects_silent_exec",
-   "status": "deferred-P1"
+   "go_file": "internal/reproduction/sweep_t35_test.go",
+   "go_func": "TestMintRejectsSilentExec",
+   "notes": "1:1 port: mint_repro_evidence refuses an exit-0 exec with empty captured output."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_pin_snapshot_dedups_repin",
-   "status": "deferred-P1"
+   "go_file": "internal/snapshot/pin_test.go",
+   "go_func": "TestPinRepinIdenticalIsNoop",
+   "notes": "1:1 port: re-pinning identical content reuses snapshot_id and content_hash."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_record_attempt_rejects_unknown_outcome",
-   "status": "deferred-P1"
+   "go_file": "internal/reproduction/reproduction_test.go",
+   "go_func": "TestRecordAttemptOutcomeValidation",
+   "notes": "1:1 port: unknown attempt outcome is refused with the same message."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_s1_confirmation_gate_requires_fork_tier_at_e5_floor",
-   "status": "deferred-P1"
+   "go_file": "internal/findings/gate_test.go",
+   "go_func": "TestGateReproductionTierVector",
+   "notes": "1:1 port of the E5-floor half (tier_reached T2 < T3); the E4-floor negative half is TestConfirmationGateHasNoTierClauseAtE4Floor in internal/findings/sweep_t35b_test.go."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_s1_mint_rejects_tier_above_recorded_ladder",
-   "status": "deferred-P1"
+   "go_file": "internal/reproduction/sweep_t35_test.go",
+   "go_func": "TestMintRejectsTierAboveRecordedLadder",
+   "notes": "1:1 port: tier=T3 above the empty ladder is refused; recording T2 then minting T2 succeeds."
   },
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_s3_verify_log_survives_malformed_lines",
-   "status": "deferred-P1"
+   "go_file": "internal/state/verifylog_test.go",
+   "go_func": "TestVerifyLogMalformedLine",
+   "notes": "1:1 port (S3): a torn log line is reported as malformed_lines=1 with the chain check skipped past it, never raised."
   },
   {
    "python_file": "tests/test_review_fixes.py",
@@ -4690,7 +5055,9 @@
   {
    "python_file": "tests/test_review_fixes.py",
    "python_func": "test_tripwire_denies_rm_rf_home",
-   "status": "deferred-P1"
+   "go_file": "internal/sandbox/sweep_t35_test.go",
+   "go_func": "TestTripwireDeniesRmRfHome",
+   "notes": "1:1 port: rm -rf /home/victim trips destructive-path, /tmp stays allowed."
   },
   {
    "python_file": "tests/test_risk_amplifiers.py",
@@ -4707,37 +5074,51 @@
   {
    "python_file": "tests/test_risk_amplifiers.py",
    "python_func": "test_playbook_schema_accepts_amplifiers",
-   "status": "deferred-P1"
+   "go_file": "internal/playbooks/sweep_t35_test.go",
+   "go_func": "TestPlaybookSchemaAcceptsAmplifiers",
+   "notes": "1:1 port: the shipped playbook validates and its amplifiers are a subset of AMPS."
   },
   {
    "python_file": "tests/test_risk_amplifiers.py",
    "python_func": "test_shipped_playbook_tags",
-   "status": "deferred-P1"
+   "go_file": "internal/playbooks/sweep_t35_test.go",
+   "go_func": "TestShippedPlaybookTags",
+   "notes": "1:1 port: the six class->tag vectors (subtests)."
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_assert_clean_catches_injected_field",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestAssertCleanCatchesInjectedField",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_brief_critical_hunt_section",
-   "status": "deferred-P1"
+   "go_file": "internal/briefing/sweep_t35_hunt_test.go",
+   "go_func": "TestBriefCriticalHuntSection",
+   "notes": "1:1 port: critical_hunt.prescreen.matched carries unguarded-asset-transfer, fork_diff.summary is set, invariant_verification.total==0, stale_artifacts empty."
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_brief_degrades_on_malformed_recency",
-   "status": "deferred-P1"
+   "go_file": "internal/briefing/sweep_t35_hunt_test.go",
+   "go_func": "TestBriefDegradesOnMalformedRecency",
+   "notes": "1:1 port (I3): wrong-shape recency.json degrades to defaults plus a problem note (never an exception); a non-list hot_files yields an empty section."
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_brief_degrades_on_malformed_structural_index",
-   "status": "deferred-P1"
+   "go_file": "internal/briefing/sweep_t35_hunt_test.go",
+   "go_func": "TestBriefDegradesOnMalformedStructuralIndex",
+   "notes": "1:1 port (I3): a non-dict structural_index.json degrades the amplifier section to defaults plus a problem note."
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_brief_omits_stale_hunt_blocks",
-   "status": "deferred-P1"
+   "go_file": "internal/briefing/sweep_t35_hunt_test.go",
+   "go_func": "TestBriefOmitsStaleHuntBlocks",
+   "notes": "1:1 port (I1): after a re-pin the brief omits prescreen/fork_diff/recency/amplifiers, lists all five stale artifacts with re_run commands, reports no problems, and the proposer bundle omits the same blocks."
   },
   {
    "python_file": "tests/test_role_isolation.py",
@@ -4756,192 +5137,268 @@
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_critic_bundle_benign_actor_audit_flags_echo",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestCriticBundleBenignActorAuditFlagsEcho",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_critic_bundle_excludes_all_proposer_reasoning",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestCriticBundleExcludesAllProposerReasoning",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_critic_bundle_includes_minimal_evidence_only",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestCriticBundleIncludesMinimalEvidenceOnly",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_critic_bundle_no_audit_for_code_reading_class",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestCriticBundleNoAuditForCodeReadingClass",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_critic_bundle_sees_invariant_verification",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestCriticBundleSeesInvariantVerification",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_critic_bundle_statement_less_legacy_entry",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestCriticBundleStatementLessLegacyEntry",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_prescribed_reruns_clear_stale",
-   "status": "deferred-P1"
+   "go_file": "internal/briefing/sweep_t35_hunt_test.go",
+   "go_func": "TestPrescribedRerunsClearStale",
+   "notes": "1:1 port (I2): following the prescribed re-run sequence clears STALE and the brief renders prescreen/fork_diff/recency/amplifiers again."
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_proposer_bundle_carries_fresh_blocks",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestProposerBundleCarriesFreshBlocks",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_proposer_bundle_carries_simulation_directive",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestProposerBundleCarriesSimulationDirective",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_proposer_bundle_excludes_critic_reasoning_and_bounty",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestProposerBundleExcludesCriticReasoningAndBounty",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_proposer_bundle_omits_directive_for_code_reading",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestProposerBundleOmitsDirectiveForCodeReading",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_reproducer_bundle_has_claim_but_no_verdict_or_bounty",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestReproducerBundleHasClaimButNoVerdictOrBounty",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_reproducer_context_refuses_hypothetical_status",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestReproducerContextRefusesHypotheticalStatus",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_stale_blocks_are_omitted_and_flagged",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestStaleBlocksAreOmittedAndFlagged",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_role_isolation.py",
    "python_func": "test_structural_stats_follow_staleness_rule",
-   "status": "deferred-P1"
+   "go_file": "internal/roles/roles_test.go",
+   "go_func": "TestStructuralStatsFollowStalenessRule",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/roles/roles_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_bad_campaign_local_policy_fails_loud_naming_it",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestBadCampaignLocalPolicyFailsLoudNamingIt",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_bad_policy_missing_tool_id_fails_loud_naming_it",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestBadPolicyMissingToolIDFailsLoudNamingIt",
+   "notes": "1:1 port (T35 sweep; normalized-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_bridge_message_gate_uses_true_e6_floor",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestBridgeMessageGateUsesTrueE6Floor",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_decide_next_logs_routing_decided_and_log_stays_green",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestDecideNextLogsRoutingDecidedAndLogStaysGreen",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_decide_next_with_nothing_unresolved_selects_none",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestDecideNextWithNothingUnresolvedSelectsNone",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_dependency_chain_ranks_highest_impact_resolver_first",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestDependencyChainRanksHighestImpactResolverFirst",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_dependency_impact_counts_only_unresolved_and_is_cycle_safe",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestDependencyImpactCountsOnlyUnresolvedAndIsCycleSafe",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_effective_floor_is_max_of_playbook_and_class_confirm_floor",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestEffectiveFloorIsMaxOfPlaybookAndClassConfirmFloor",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_empty_when_all_blocking_assumptions_resolved",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestEmptyWhenAllBlockingAssumptionsResolved",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_example_policy_covers_every_registry_tool",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestExamplePolicyCoversEveryRegistryTool",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_gate_value_gap_scales_with_option_tier",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestGateValueGapScalesWithOptionTier",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_hunt_order_fallback_when_no_usable_options",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestHuntOrderFallbackWhenNoUsableOptions",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_load_policy_two_tier_layering",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestLoadPolicyTwoTierLayering",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_next_actions_is_pure",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestNextActionsIsPure",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_non_blocking_and_legacy_unverified_statuses",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestNonBlockingAndLegacyUnverifiedStatuses",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_policy_override_with_zero_cost_weight_changes_order",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestPolicyOverrideWithZeroCostWeightChangesOrder",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_policy_rejects_bad_weights_tiers_costs",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestPolicyRejectsBadWeightsTiersCosts",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_ranking_is_deterministic_with_assumption_id_tiebreak",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestRankingIsDeterministicWithAssumptionIDTiebreak",
+   "notes": "1:1 port (T35 sweep; normalized-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_resolved_floor_zeroes_gate_value",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestResolvedFloorZeroesGateValue",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_score_candidate_shape_and_weights",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestScoreCandidateShapeAndWeights",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_true_floor_flips_ranking_via_ceiling_compression",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestTrueFloorFlipsRankingViaCeilingCompression",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_unknown_tool_in_verification_options_is_skipped",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestUnknownToolInVerificationOptionsIsSkipped",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_routing.py",
    "python_func": "test_upgrade_initializer_gate_uses_true_e4_floor",
-   "status": "deferred-P1"
+   "go_file": "internal/routing/routing_test.go",
+   "go_func": "TestUpgradeInitializerGateUsesTrueE4Floor",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/routing/routing_test.go)"
   },
   {
    "python_file": "tests/test_runbook_flow.py",
@@ -5312,8 +5769,9 @@
   {
    "python_file": "tests/test_sequence_guidance.py",
    "python_func": "test_critic_bundle_hides_distinctive_actor_values",
-   "status": "deferred-P2",
-   "notes": "internal/roles is not ported (P3 scope): build_proposer_context / build_critic_context have no Go twin yet"
+   "notes": "1:1 port: hostile actor strings never survive into the serialized critic bundle; the proposer leg still sees the full row.",
+   "go_file": "internal/roles/sweep_t35_test.go",
+   "go_func": "TestCriticBundleHidesDistinctiveActorValues"
   },
   {
    "python_file": "tests/test_sequence_guidance.py",
@@ -5339,8 +5797,9 @@
   {
    "python_file": "tests/test_sequence_guidance.py",
    "python_func": "test_roles_parity_shared_helper",
-   "status": "deferred-P2",
-   "notes": "internal/roles is not ported (P3 scope): build_proposer_context / build_critic_context have no Go twin yet"
+   "notes": "1:1 port: the critic leg is a counts-only projection (finding_id/steps/n_actors/note) of the proposer's shared-helper row; the solo finding is absent from both.",
+   "go_file": "internal/roles/sweep_t35_test.go",
+   "go_func": "TestRolesParitySharedHelper"
   },
   {
    "python_file": "tests/test_sequence_pin_gate.py",
@@ -5672,7 +6131,9 @@
   {
    "python_file": "tests/test_severity_split.py",
    "python_func": "test_finding_schema_accepts_new_fields",
-   "status": "deferred-P1"
+   "go_file": "internal/validation/sweep_t35b_test.go",
+   "go_func": "TestFindingSchemaAcceptsSeveritySplitFields",
+   "notes": "1:1 port: reported_severity enum + the five impact_vector properties."
   },
   {
    "python_file": "tests/test_severity_split.py",
@@ -6500,47 +6961,65 @@
   {
    "python_file": "tests/test_symmetry_teeth.py",
    "python_func": "test_brief_surfaces_primitive_less_l04_family",
-   "status": "deferred-P1"
+   "go_file": "internal/briefing/sweep_t35_test.go",
+   "go_func": "TestBriefSurfacesPrimitiveLessL04Family",
+   "notes": "1:1 port (T35): divergence.missing names the withdraw family"
   },
   {
    "python_file": "tests/test_symmetry_teeth.py",
    "python_func": "test_l04_closed_when_every_family_has_a_primitive",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/sweep_t35_test.go",
+   "go_func": "TestL04ClosedWhenEveryFamilyHasAPrimitive",
+   "notes": "1:1 port (T35); the sym_ok oracle case pins it byte-exactly too"
   },
   {
    "python_file": "tests/test_symmetry_teeth.py",
    "python_func": "test_l04_empty_primitive_list_does_not_count",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/sweep_t35_test.go",
+   "go_func": "TestL04EmptyPrimitiveListDoesNotCount",
+   "notes": "1:1 port (T35); the sym_empty_prim oracle case pins it byte-exactly too"
   },
   {
    "python_file": "tests/test_symmetry_teeth.py",
    "python_func": "test_l04_open_when_a_family_has_no_quoted_primitive",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/sweep_t35_test.go",
+   "go_func": "TestL04OpenWhenAFamilyHasNoQuotedPrimitive",
+   "notes": "1:1 port (T35); the sym_missing oracle case pins it byte-exactly too"
   },
   {
    "python_file": "tests/test_symmetry_teeth.py",
    "python_func": "test_l04_whitespace_primitive_does_not_count",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/sweep_t35_test.go",
+   "go_func": "TestL04WhitespacePrimitiveDoesNotCount",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_symmetry_teeth.py",
    "python_func": "test_lens_schema_has_symmetry_and_priority_has_sibling_of",
-   "status": "deferred-P1"
+   "go_file": "internal/validation/sweep_t35_test.go",
+   "go_func": "TestLensSchemaHasSymmetryAndPriorityHasSiblingOf",
+   "notes": "1:1 port (T35)"
   },
   {
    "python_file": "tests/test_symmetry_teeth.py",
    "python_func": "test_reopened_l04_carries_no_stale_symmetry",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/sweep_t35_test.go",
+   "go_func": "TestReopenedL04CarriesNoStaleSymmetry",
+   "notes": "1:1 port (T35): reopen drops symmetry + families_checked"
   },
   {
    "python_file": "tests/test_symmetry_teeth.py",
    "python_func": "test_report_renders_symmetry_primitives",
-   "status": "deferred-P1"
+   "go_file": "internal/report/sweep_t35_test.go",
+   "go_func": "TestReportRendersSymmetryPrimitives",
+   "notes": "1:1 port (T35): \"family -> primitives\" lines"
   },
   {
    "python_file": "tests/test_symmetry_teeth.py",
    "python_func": "test_round5_lens_entry_still_validates_without_symmetry",
-   "status": "deferred-P1"
+   "go_file": "internal/planner/sweep_t35_test.go",
+   "go_func": "TestRound5LensEntryStillValidatesWithoutSymmetry",
+   "notes": "1:1 port (T35); the round-4 precedent is TestPortRound4LensEntryStillValidates"
   },
   {
    "python_file": "tests/test_taxonomy.py",
@@ -6672,14 +7151,16 @@
   {
    "python_file": "tests/test_tier1_minor_sweep.py",
    "python_func": "test_s2_critic_bundle_renders_zero_padded_citation",
-   "status": "deferred-P3",
-   "notes": "critic-bundle invariant lookup is pinned by TestCriticBundleSeesInvariantVerification; the zero-padded INV-001 citation through build_critic_context has no Go test"
+   "notes": "1:1 port: a finding citing INV-001 is answered by the registry key INV-1 in the critic bundle's invariant_verification (statement + UNVERIFIED).",
+   "go_file": "internal/roles/sweep_t35_test.go",
+   "go_func": "TestS2CriticBundleRendersZeroPaddedCitation"
   },
   {
    "python_file": "tests/test_tier1_minor_sweep.py",
    "python_func": "test_s3_uncovered_critical_spans_id_spellings",
-   "status": "deferred-P3",
-   "notes": "uncovered_critical is pinned by TestUncoveredCriticalVectors (INV-1 spellings only); the INV-001/INV-1 span has no Go vector"
+   "notes": "1:1 port: a critical invariant registered as INV-001 is still reported uncovered when the model spells it INV-1.",
+   "go_file": "internal/invariants/sweep_t35_spans_test.go",
+   "go_func": "TestUncoveredCriticalSpansIDSpellings"
   },
   {
    "python_file": "tests/test_tier1_minor_sweep.py",
@@ -6696,72 +7177,100 @@
   {
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_dangling_data_finding_id_flagged",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestDanglingDataFindingIDFlagged",
+   "notes": "1:1 port (T35 sweep; normalized-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_dangling_ref_flagged",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestDanglingRefFlagged",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_hand_written_malformed_event_flagged",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestHandWrittenMalformedEventFlagged",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_model_request_definition_matches_boundary_schema",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestModelRequestDefinitionMatchesBoundarySchema",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_model_trajectory_excludes_non_model_events",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestModelTrajectoryExcludesNonModelEvents",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_model_trajectory_on_empty_campaign",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestModelTrajectoryOnEmptyCampaign",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_record_model_event_missing_context_hash_logs_nothing",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestRecordModelEventMissingContextHashLogsNothing",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_record_model_event_rejects_non_object_data",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestRecordModelEventRejectsNonObjectData",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_record_model_event_request_success_path",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestRecordModelEventRequestSuccessPath",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_record_model_event_roundtrip",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestRecordModelEventRoundtrip",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_record_model_event_unknown_type_raises",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestRecordModelEventUnknownTypeRaises",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_verify_trajectory_ok_on_boundary_roundtrip",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestVerifyTrajectoryOkOnBoundaryRoundtrip",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_verify_trajectory_reports_corrupt_finding_json",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestVerifyTrajectoryReportsCorruptFindingJSON",
+   "notes": "1:1 port (T35 sweep; normalized-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_trajectory.py",
    "python_func": "test_verify_trajectory_survives_torn_log",
-   "status": "deferred-P1"
+   "go_file": "internal/trajectory/trajectory_test.go",
+   "go_func": "TestVerifyTrajectorySurvivesTornLog",
+   "notes": "1:1 port (T35 sweep; exact-name Go twin in internal/trajectory/trajectory_test.go)"
   },
   {
    "python_file": "tests/test_probes.py",
@@ -7182,8 +7691,9 @@
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_a_campaign_without_a_surface_is_unaffected",
-   "status": "deferred-P3",
-   "notes": "no Go test asserts the no-surface brief/report/divergence triple; the surface engine itself is pinned by internal/probes + cmd_probes"
+   "notes": "1:1 port (T35): brief/report/audit/divergence all unaffected",
+   "go_file": "internal/cli/sweep_t35_probes_test.go",
+   "go_func": "TestACampaignWithoutASurfaceIsUnaffected"
   },
   {
    "python_file": "tests/test_probes_cli.py",
@@ -7194,8 +7704,9 @@
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_a_grandfathered_brief_does_not_gain_phase_guidance",
-   "status": "deferred-P3",
-   "notes": "no Go test pins the brief's phase-guidance fallback on a grandfathered (no-surface) campaign"
+   "notes": "1:1 port (T35): 1 attention lead + exactly 3 divergence lines, no orchestrator.*",
+   "go_file": "internal/briefing/sweep_t35_probes_test.go",
+   "go_func": "TestAGrandfatheredBriefDoesNotGainPhaseGuidance"
   },
   {
    "python_file": "tests/test_probes_cli.py",
@@ -7290,20 +7801,23 @@
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_brief_feeds_open_probe_rows_ahead_of_generic_items",
-   "status": "deferred-P3",
-   "notes": "briefing.go renders the open-probe-row block; no Go test asserts its placement/order"
+   "notes": "1:1 port (T35)",
+   "go_file": "internal/briefing/sweep_t35_probes_test.go",
+   "go_func": "TestBriefFeedsOpenProbeRowsAheadOfGenericItems"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_brief_marks_a_stale_surface",
-   "status": "deferred-P3",
-   "notes": "briefing.go renders the stale marker; no Go test covers the line"
+   "notes": "1:1 port (T35)",
+   "go_file": "internal/cli/sweep_t35_probes_test.go",
+   "go_func": "TestBriefMarksAStaleSurface"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_brief_prints_the_surface_line_and_counts_dispositions",
-   "status": "deferred-P3",
-   "notes": "briefing.go renders the probe-surface line; no Go test covers the rendered counts"
+   "notes": "1:1 port (T35)",
+   "go_file": "internal/cli/sweep_t35_probes_test.go",
+   "go_func": "TestBriefPrintsTheSurfaceLineAndCountsDispositions"
   },
   {
    "python_file": "tests/test_probes_cli.py",
@@ -7314,8 +7828,9 @@
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_next_actions_ranks_probe_rows_by_the_probe_rank_key",
-   "status": "deferred-P3",
-   "notes": "no Go test for briefing._next_actions probe-row ranking (the rank key itself is pinned by internal/probes)"
+   "notes": "1:1 port (T35): pure unit test of the rank key order",
+   "go_file": "internal/briefing/sweep_t35_probes_test.go",
+   "go_func": "TestNextActionsRanksProbeRowsByTheProbeRankKey"
   },
   {
    "python_file": "tests/test_probes_cli.py",
@@ -7380,14 +7895,16 @@
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_report_marks_a_stale_surface",
-   "status": "deferred-P3",
-   "notes": "report.go renders the STALE marker; no Go test covers the line"
+   "notes": "1:1 port (T35)",
+   "go_file": "internal/report/sweep_t35_probes_test.go",
+   "go_func": "TestReportMarksAStaleSurface"
   },
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_report_renders_the_mechanical_candidate_surface",
-   "status": "deferred-P3",
-   "notes": "report.go renders the mechanical-surface section; no Go test"
+   "notes": "1:1 port (T35)",
+   "go_file": "internal/report/sweep_t35_probes_test.go",
+   "go_func": "TestReportRendersTheMechanicalCandidateSurface"
   },
   {
    "python_file": "tests/test_probes.py",
@@ -7944,20 +8461,23 @@
   {
    "python_file": "tests/test_plan_rebuild.py",
    "python_func": "test_file_on_existing_plan_without_rebuild_fails_loudly",
-   "status": "deferred-P3",
-   "notes": "no Go test pins the --file-on-existing-plan refusal (exit 2 naming --rebuild)"
+   "notes": "1:1 port (T35)",
+   "go_file": "internal/cli/sweep_t35_test.go",
+   "go_func": "TestPlanFileOnExistingPlanWithoutRebuildFailsLoudly"
   },
   {
    "python_file": "tests/test_plan_rebuild.py",
    "python_func": "test_fresh_campaign_plan_and_rebuild_both_write",
-   "status": "deferred-P3",
-   "notes": "partially covered by TestPlanBootstrapView/TestPlanRebuildIsQuiet; no single Go test pins all three fresh-campaign branches"
+   "notes": "1:1 port (T35)",
+   "go_file": "internal/cli/sweep_t35_test.go",
+   "go_func": "TestFreshCampaignPlanAndRebuildBothWrite"
   },
   {
    "python_file": "tests/test_plan_rebuild.py",
    "python_func": "test_mark_answered_rewrites_in_place_without_archiving",
-   "status": "deferred-P3",
-   "notes": "no Go test pins answered-in-place plan rewrite + the registry sha following the content"
+   "notes": "1:1 port (T35)",
+   "go_file": "internal/planner/sweep_t35_test.go",
+   "go_func": "TestMarkAnsweredRewritesInPlaceWithoutArchiving"
   },
   {
    "python_file": "tests/test_plan_rebuild.py",
@@ -7976,8 +8496,9 @@
   {
    "python_file": "tests/test_plan_rebuild.py",
    "python_func": "test_probe_emit_still_rewrites_in_place_without_archiving",
-   "status": "deferred-P3",
-   "notes": "TestProbesRunEmitMintsPrioritiesAndIsIdempotent pins the in-place emit; no Go test asserts the no-archive/no-plan.superseded half"
+   "notes": "1:1 port (T35)",
+   "go_file": "internal/cli/sweep_t35_test.go",
+   "go_func": "TestProbeEmitRewritesInPlaceWithoutArchiving"
   },
   {
    "python_file": "tests/test_plan_rebuild.py",
@@ -7996,38 +8517,44 @@
   {
    "python_file": "tests/test_probes_cli.py",
    "python_func": "test_attention_debt_does_not_suppress_the_phase_guidance_fallback",
-   "status": "deferred-P3",
-   "notes": "no Go test pins the attention-debt/phase-guidance interaction"
+   "notes": "1:1 port (T35)",
+   "go_file": "internal/briefing/sweep_t35_probes_test.go",
+   "go_func": "TestAttentionDebtDoesNotSuppressThePhaseGuidanceFallback"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_brief_corpus_command_names_the_campaign_and_counts_extra_findings",
-   "status": "deferred-P3",
-   "notes": "briefing.go renders the corpus line; no Go test covers the rendered brief text"
+   "notes": "1:1 port: asserts the rendered corpus: next-action line (count wording, discounted label, runnable `webv2 recall <campaign> --finding <id>`, +K more) and the corpus_recall counts.",
+   "go_file": "internal/briefing/sweep_t35_corpus_test.go",
+   "go_func": "TestBriefCorpusCommandNamesCampaignAndCountsExtraFindings"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_brief_has_no_corpus_line_without_irrelevant_checks",
-   "status": "deferred-P3",
-   "notes": "briefing.go renders the corpus line; no Go test covers the rendered brief text"
+   "notes": "1:1 port: asserts the rendered corpus: next-action line (count wording, discounted label, runnable `webv2 recall <campaign> --finding <id>`, +K more) and the corpus_recall counts.",
+   "go_file": "internal/briefing/sweep_t35_corpus_test.go",
+   "go_func": "TestBriefHasNoCorpusLineWithoutIrrelevantChecks"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_brief_is_clean_on_an_empty_campaign",
-   "status": "deferred-P3",
-   "notes": "briefing.go renders the corpus line; no Go test covers the rendered brief text"
+   "notes": "1:1 port: asserts the rendered corpus: next-action line (count wording, discounted label, runnable `webv2 recall <campaign> --finding <id>`, +K more) and the corpus_recall counts.",
+   "go_file": "internal/briefing/sweep_t35_corpus_test.go",
+   "go_func": "TestBriefIsCleanOnAnEmptyCampaign"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_brief_line_names_the_discounted_label_and_never_claims_silence",
-   "status": "deferred-P3",
-   "notes": "briefing.go renders the corpus line; no Go test covers the rendered brief text"
+   "notes": "1:1 port: asserts the rendered corpus: next-action line (count wording, discounted label, runnable `webv2 recall <campaign> --finding <id>`, +K more) and the corpus_recall counts.",
+   "go_file": "internal/briefing/sweep_t35_corpus_test.go",
+   "go_func": "TestBriefLineNamesDiscountedLabelAndNeverClaimsSilence"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
    "python_func": "test_brief_shows_corpus_line_when_checks_are_irrelevant",
-   "status": "deferred-P3",
-   "notes": "briefing.go renders the corpus line; no Go test covers the rendered brief text"
+   "notes": "1:1 port: asserts the rendered corpus: next-action line (count wording, discounted label, runnable `webv2 recall <campaign> --finding <id>`, +K more) and the corpus_recall counts.",
+   "go_file": "internal/briefing/sweep_t35_corpus_test.go",
+   "go_func": "TestBriefShowsCorpusLineWhenChecksAreIrrelevant"
   },
   {
    "python_file": "tests/test_recall_relevance.py",
@@ -8219,8 +8746,9 @@
   {
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_brief_gate_and_report_survive_an_unpriceable_decision",
-   "status": "deferred-P3",
-   "notes": "no Go test drives brief+gate+report over an unpriceable decision"
+   "notes": "1:1 port: brief/report/budget exit 0 over a CONFIRMED unpriceable finding and `gate` stops on the missing policy, never on priceable:false.",
+   "go_file": "internal/cli/sweep_t35_unprice_test.go",
+   "go_func": "TestBriefGateAndReportSurviveAnUnpriceableDecision"
   },
   {
    "python_file": "tests/test_unpriceable_impact.py",
@@ -8250,8 +8778,9 @@
   {
    "python_file": "tests/test_unpriceable_impact.py",
    "python_func": "test_report_prints_unpriceable_where_the_number_used_to_go",
-   "status": "deferred-P3",
-   "notes": "report.go prints the unpriceable basis; no Go test covers the rendered line"
+   "notes": "1:1 port: a gate-ready economic finding with a withdrawn invented figure and a recorded UNPRICEABLE decision renders 'economically extractable: UNPRICEABLE (ceiling: ...)' and never the withdrawn 630,450 or $None.",
+   "go_file": "internal/report/sweep_t35_unprice_test.go",
+   "go_func": "TestReportPrintsUnpriceableWhereTheNumberUsedToGo"
   },
   {
    "python_file": "tests/test_unpriceable_impact.py",
@@ -8480,14 +9009,16 @@
   {
    "python_file": "tests/test_work_order.py",
    "python_func": "test_confirmed_queue_and_bounty_list_are_work_ordered",
-   "status": "deferred-P3",
-   "notes": "no Go test asserts the brief's rendered queue/bounty work order (the shared key is pinned by internal/risk TestWorkOrder*)"
+   "notes": "1:1 port: builds two findings whose ids sort opposite to consequence (F-000000000001 low, F-ffffffffffff high) and asserts the brief's rendered work-list order (risk.work_order_key), including the mandatory-first E6 view.",
+   "go_file": "internal/briefing/sweep_t35_workorder_test.go",
+   "go_func": "TestConfirmedQueueAndBountyListAreWorkOrdered"
   },
   {
    "python_file": "tests/test_work_order.py",
    "python_func": "test_e6_view_keeps_mandatory_work_first",
-   "status": "deferred-P3",
-   "notes": "no Go test asserts the brief's mandatory-first rendered order"
+   "notes": "1:1 port: builds two findings whose ids sort opposite to consequence (F-000000000001 low, F-ffffffffffff high) and asserts the brief's rendered work-list order (risk.work_order_key), including the mandatory-first E6 view.",
+   "go_file": "internal/briefing/sweep_t35_workorder_test.go",
+   "go_func": "TestE6ViewKeepsMandatoryWorkFirst"
   },
   {
    "python_file": "tests/test_work_order.py",
@@ -8499,8 +9030,9 @@
   {
    "python_file": "tests/test_work_order.py",
    "python_func": "test_gate_deficits_are_work_ordered",
-   "status": "deferred-P3",
-   "notes": "TestBriefListsTheE6QueueAndGateDeficits pins presence, not order; no Go test asserts gate_deficits work order"
+   "notes": "1:1 port: builds two findings whose ids sort opposite to consequence (F-000000000001 low, F-ffffffffffff high) and asserts the brief's rendered work-list order (risk.work_order_key), including the mandatory-first E6 view.",
+   "go_file": "internal/briefing/sweep_t35_workorder_test.go",
+   "go_func": "TestGateDeficitsAreWorkOrdered"
   },
   {
    "python_file": "tests/test_work_order.py",
@@ -8512,14 +9044,16 @@
   {
    "python_file": "tests/test_work_order.py",
    "python_func": "test_memory_recall_pending_is_work_ordered",
-   "status": "deferred-P3",
-   "notes": "TestBriefingKeyIsMemoryRecallPending pins the key, not the order"
+   "notes": "1:1 port: builds two findings whose ids sort opposite to consequence (F-000000000001 low, F-ffffffffffff high) and asserts the brief's rendered work-list order (risk.work_order_key), including the mandatory-first E6 view.",
+   "go_file": "internal/briefing/sweep_t35_workorder_test.go",
+   "go_func": "TestMemoryRecallPendingIsWorkOrdered"
   },
   {
    "python_file": "tests/test_work_order.py",
    "python_func": "test_structurally_unreachable_is_work_ordered",
-   "status": "deferred-P3",
-   "notes": "no Go test asserts the brief's structurally_unreachable order"
+   "notes": "1:1 port: builds two findings whose ids sort opposite to consequence (F-000000000001 low, F-ffffffffffff high) and asserts the brief's rendered work-list order (risk.work_order_key), including the mandatory-first E6 view.",
+   "go_file": "internal/briefing/sweep_t35_workorder_test.go",
+   "go_func": "TestStructurallyUnreachableIsWorkOrdered"
   },
   {
    "python_file": "tests/test_work_order.py",

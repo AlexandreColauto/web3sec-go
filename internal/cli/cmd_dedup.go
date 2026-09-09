@@ -297,6 +297,8 @@ func ensureSeams() {
 	// T33: the eval_store seams (trajectory/metrics case_partition and
 	// corpus.class_inventory).
 	wireT33Seams()
+	// T34: the dataset record loader (corpus_surface attribution).
+	wireT34Seams()
 }
 
 // docMapSeam adapts invariants.DocumentedInvariants to findings' seam shape.
