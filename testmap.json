@@ -650,67 +650,80 @@
   {
    "python_file": "tests/test_briefing.py",
    "python_func": "test_brief_bounty_gate_is_a_view",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefBountyGateIsAView"
   },
   {
    "python_file": "tests/test_briefing.py",
    "python_func": "test_brief_deep_folds_in_the_audit",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefDeepFoldsInTheAudit"
   },
   {
    "python_file": "tests/test_briefing.py",
    "python_func": "test_brief_empty_campaign_does_not_crash",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefEmptyCampaignDoesNotCrash"
   },
   {
    "python_file": "tests/test_briefing.py",
    "python_func": "test_brief_flags_a_materializable_chain",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefFlagsAMaterializableChain"
   },
   {
    "python_file": "tests/test_briefing.py",
    "python_func": "test_brief_is_a_pure_view",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefIsAPureView"
   },
   {
    "python_file": "tests/test_briefing.py",
    "python_func": "test_brief_json_roundtrip",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefJSONRoundtrip"
   },
   {
    "python_file": "tests/test_briefing.py",
    "python_func": "test_brief_lists_the_e6_queue_and_gate_deficits",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefListsTheE6QueueAndGateDeficits"
   },
   {
    "python_file": "tests/test_briefing.py",
    "python_func": "test_brief_pending_memory_and_relations",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefPendingMemoryAndRelations"
   },
   {
    "python_file": "tests/test_briefing.py",
    "python_func": "test_brief_terminal_and_economics_sections",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefTerminalAndEconomicsSections"
   },
   {
    "python_file": "tests/test_briefing_memory.py",
    "python_func": "test_briefing_key_is_memory_recall_pending",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefingKeyIsMemoryRecallPending"
   },
   {
    "python_file": "tests/test_briefing_memory.py",
    "python_func": "test_briefing_wording_names_the_action",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefingWordingNamesTheAction"
   },
   {
    "python_file": "tests/test_briefing_memory.py",
    "python_func": "test_cli_brief_renders_memory_recall",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t31_test.go",
+   "go_func": "TestCLIBriefRendersMemoryRecall"
   },
   {
    "python_file": "tests/test_briefing_memory.py",
    "python_func": "test_verified_check_clears_the_pending_flag",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestVerifiedCheckClearsThePendingFlag"
   },
   {
    "python_file": "tests/test_budget.py",
@@ -819,42 +832,50 @@
   {
    "python_file": "tests/test_campaign_complete.py",
    "python_func": "test_brief_stops_suggesting_work_when_closed",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefStopsSuggestingWorkWhenClosed"
   },
   {
    "python_file": "tests/test_campaign_complete.py",
    "python_func": "test_cli_complete",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t31_test.go",
+   "go_func": "TestCLIComplete"
   },
   {
    "python_file": "tests/test_campaign_complete.py",
    "python_func": "test_cli_complete_rejects_thin_reason",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t31_test.go",
+   "go_func": "TestCLICompleteRejectsThinReason"
   },
   {
    "python_file": "tests/test_campaign_complete.py",
    "python_func": "test_complete_requires_actor_and_written_reason",
-   "status": "deferred-P3"
+   "go_file": "internal/state/campaign_complete_test.go",
+   "go_func": "TestCompleteRequiresActorAndWrittenReason"
   },
   {
    "python_file": "tests/test_campaign_complete.py",
    "python_func": "test_complete_sets_phase_and_records_decision",
-   "status": "deferred-P3"
+   "go_file": "internal/state/campaign_complete_test.go",
+   "go_func": "TestCompleteSetsPhaseAndRecordsDecision"
   },
   {
    "python_file": "tests/test_campaign_complete.py",
    "python_func": "test_next_respects_closure",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t31_test.go",
+   "go_func": "TestNextRespectsClosure"
   },
   {
    "python_file": "tests/test_campaign_complete.py",
    "python_func": "test_reopening_by_running_a_stage_moves_the_phase",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t31_test.go",
+   "go_func": "TestReopeningByRunningAStageMovesThePhase"
   },
   {
    "python_file": "tests/test_campaign_complete.py",
    "python_func": "test_status_shows_complete_phase",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t31_test.go",
+   "go_func": "TestStatusShowsCompletePhase"
   },
   {
    "python_file": "tests/test_campaign_memory_strip.py",
@@ -4319,102 +4340,122 @@
   {
    "python_file": "tests/test_report_clusters.py",
    "python_func": "test_attested_causation_edges_are_surfaced",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestAttestedCausationEdgesAreSurfaced"
   },
   {
    "python_file": "tests/test_report_clusters.py",
    "python_func": "test_clusters_group_by_class_and_location",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestClustersGroupByClassAndLocation"
   },
   {
    "python_file": "tests/test_report_clusters.py",
    "python_func": "test_credit_scope_on_immunized_sibling",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestCreditScopeOnImmunizedSibling"
   },
   {
    "python_file": "tests/test_report_clusters.py",
    "python_func": "test_no_credit_scope_note_without_siblings",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestNoCreditScopeNoteWithoutSiblings"
   },
   {
    "python_file": "tests/test_report_clusters.py",
    "python_func": "test_report_renders_cluster_section",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestReportRendersClusterSection"
   },
   {
    "python_file": "tests/test_report_clusters.py",
    "python_func": "test_report_surfaces_attested_causation",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestReportSurfacesAttestedCausation"
   },
   {
    "python_file": "tests/test_report_clusters.py",
    "python_func": "test_report_without_clustering_has_no_section",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestReportWithoutClusteringHasNoSection"
   },
   {
    "python_file": "tests/test_report_clusters.py",
    "python_func": "test_single_member_classes_are_not_clusters",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestSingleMemberClassesAreNotClusters"
   },
   {
    "python_file": "tests/test_report_privileged.py",
    "python_func": "test_constraints_render_with_valid_entry",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestConstraintsRenderWithValidEntry"
   },
   {
    "python_file": "tests/test_report_privileged.py",
    "python_func": "test_count_pluralizes",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestCountPluralizes"
   },
   {
    "python_file": "tests/test_report_privileged.py",
    "python_func": "test_junk_entries_dropped_valid_kept",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestJunkEntriesDroppedValidKept"
   },
   {
    "python_file": "tests/test_report_privileged.py",
    "python_func": "test_malformed_model_fails_soft",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestMalformedModelFailsSoft"
   },
   {
    "python_file": "tests/test_report_privileged.py",
    "python_func": "test_multi_step_paths_reported_when_present",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestMultiStepPathsReportedWhenPresent"
   },
   {
    "python_file": "tests/test_report_privileged.py",
    "python_func": "test_no_model_artifact_renders_nothing",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestNoModelArtifactRendersNothing"
   },
   {
    "python_file": "tests/test_report_privileged.py",
    "python_func": "test_privileged_section_two_runs_byte_identical",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestPrivilegedSectionTwoRunsByteIdentical"
   },
   {
    "python_file": "tests/test_report_privileged.py",
    "python_func": "test_role_without_terminal_paths_is_listed",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestRoleWithoutTerminalPathsIsListed"
   },
   {
    "python_file": "tests/test_report_privileged.py",
    "python_func": "test_section_absent_without_privileges_is_byte_identical",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestSectionAbsentWithoutPrivilegesIsByteIdentical"
   },
   {
    "python_file": "tests/test_report_privileged.py",
    "python_func": "test_section_renders_with_privileges",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestSectionRendersWithPrivileges"
   },
   {
    "python_file": "tests/test_report_privileged.py",
    "python_func": "test_top_level_list_artifact_does_not_crash_the_privileged_track",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestTopLevelListArtifactDoesNotCrashThePrivilegedTrack"
   },
   {
    "python_file": "tests/test_report_privileged.py",
    "python_func": "test_unparseable_model_artifact_renders_no_section",
-   "status": "deferred-P3"
+   "go_file": "internal/report/report_test.go",
+   "go_func": "TestUnparseableModelArtifactRendersNoSection"
   },
   {
    "python_file": "tests/test_review_fixes.py",
@@ -7214,67 +7255,80 @@
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_a_displaced_queue_action_is_re_emitted_right_after_the_lead",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestADisplacedQueueActionIsReEmittedRightAfterTheLead"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_a_future_per_priority_timestamp_would_beat_the_plan_clock",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestAFuturePerPriorityTimestampWouldBeatThePlanClock"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_a_stale_lens_never_outranks_a_critical_unverified_invariant",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestAStaleLensNeverOutranksACriticalUnverifiedInvariant"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_age_format_branches",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestAgeFormatBranches"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_age_uses_the_briefs_own_generated_at",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestAgeUsesTheBriefsOwnGeneratedAt"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_blocked_is_not_a_disposition",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBlockedIsNotADisposition"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_brief_json_is_additive",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefJSONIsAdditive"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_brief_without_plan_or_invariants_has_no_debt_line",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefWithoutPlanOrInvariantsHasNoDebtLine"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_cli_brief_on_empty_campaign_exits_zero_and_prints_no_debt_line",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t31_test.go",
+   "go_func": "TestCLIBriefOnEmptyCampaignExitsZeroAndPrintsNoDebtLine"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_cli_brief_prints_the_debt_block",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t31_test.go",
+   "go_func": "TestCLIBriefPrintsTheDebtBlock"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_closed_campaign_has_no_debt_lines",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestClosedCampaignHasNoDebtLines"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_invariant_debt_line_shape_and_command",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestInvariantDebtLineShapeAndCommand"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_invariant_total_counts_only_dict_entries",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestInvariantTotalCountsOnlyDictEntries"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
@@ -7342,37 +7396,44 @@
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_no_debt_lines_when_nothing_is_untouched",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestNoDebtLinesWhenNothingIsUntouched"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_oldest_untouched_ties_break_on_the_lowest_id",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestOldestUntouchedTiesBreakOnTheLowestID"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_probe_row_queue_command_carries_the_required_anchor_flag",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestProbeRowQueueCommandCarriesTheRequiredAnchorFlag"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_queue_debt_line_shape_and_command",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestQueueDebtLineShapeAndCommand"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_the_critical_invariant_leads_an_open_lens_line",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestTheCriticalInvariantLeadsAnOpenLensLine"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_the_queue_leads_both_kinds_when_it_is_high_consequence",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestTheQueueLeadsBothKindsWhenItIsHighConsequence"
   },
   {
    "python_file": "tests/test_attention_ledger.py",
    "python_func": "test_two_highest_consequence_items_lead_the_divergence_gate",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestTwoHighestConsequenceItemsLeadTheDivergenceGate"
   },
   {
    "python_file": "tests/test_gate_checklist.py",
@@ -7920,32 +7981,38 @@
   {
    "python_file": "tests/test_noop_reporting.py",
    "python_func": "test_brief_has_no_problem_line_on_a_closed_campaign",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefHasNoProblemLineOnAClosedCampaign"
   },
   {
    "python_file": "tests/test_noop_reporting.py",
    "python_func": "test_brief_has_no_problem_line_when_only_junk_findings_exist",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefHasNoProblemLineWhenOnlyJunkFindingsExist"
   },
   {
    "python_file": "tests/test_noop_reporting.py",
    "python_func": "test_brief_has_no_problem_line_when_the_graph_has_edges",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefHasNoProblemLineWhenTheGraphHasEdges"
   },
   {
    "python_file": "tests/test_noop_reporting.py",
    "python_func": "test_brief_has_no_problem_line_without_findings",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefHasNoProblemLineWithoutFindings"
   },
   {
    "python_file": "tests/test_noop_reporting.py",
    "python_func": "test_brief_problems_names_the_unwritten_graph",
-   "status": "deferred-P3"
+   "go_file": "internal/briefing/briefing_test.go",
+   "go_func": "TestBriefProblemsNamesTheUnwrittenGraph"
   },
   {
    "python_file": "tests/test_noop_reporting.py",
    "python_func": "test_cli_brief_prints_the_problem_line",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t31_test.go",
+   "go_func": "TestCLIBriefPrintsTheProblemLine"
   },
   {
    "python_file": "tests/test_noop_reporting.py",
