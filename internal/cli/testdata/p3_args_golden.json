@@ -1,0 +1,931 @@
+[
+ {
+  "argv": [
+   "index"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: the following arguments are required: campaign, --src\n"
+ },
+ {
+  "argv": [
+   "index",
+   "-h"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 index [-h] --src SRC [--json] campaign\n\npositional arguments:\n  campaign\n\noptions:\n  -h, --help  show this help message and exit\n  --src SRC   source tree to index\n  --json\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "index",
+   "--help"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 index [-h] --src SRC [--json] campaign\n\npositional arguments:\n  campaign\n\noptions:\n  -h, --help  show this help message and exit\n  --src SRC   source tree to index\n  --json\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "index",
+   "-hx"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 index [-h] --src SRC [--json] campaign\n\npositional arguments:\n  campaign\n\noptions:\n  -h, --help  show this help message and exit\n  --src SRC   source tree to index\n  --json\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "index",
+   "-h=y"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: argument -h/--help: ignored explicit argument 'y'\n"
+ },
+ {
+  "argv": [
+   "index",
+   "--help=y"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: argument -h/--help: ignored explicit argument 'y'\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: the following arguments are required: --src\n"
+ },
+ {
+  "argv": [
+   "index",
+   "--src",
+   "x"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: the following arguments are required: campaign\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "--src"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: argument --src: expected one argument\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "--src=x"
+  ],
+  "code": 1,
+  "stdout": "",
+  "stderr": "source tree not found: x\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "--src=",
+   "--json"
+  ],
+  "code": 1,
+  "stdout": "",
+  "stderr": "error: malformed campaign id: 'c'\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "--src",
+   "/nonexistent/t25"
+  ],
+  "code": 1,
+  "stdout": "",
+  "stderr": "source tree not found: /nonexistent/t25\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "--json"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: the following arguments are required: --src\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "-x"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: the following arguments are required: --src\n"
+ },
+ {
+  "argv": [
+   "index",
+   "-x",
+   "c"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: the following arguments are required: --src\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "--src",
+   "x",
+   "-x"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: -x\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "--src",
+   "x",
+   "--json"
+  ],
+  "code": 1,
+  "stdout": "",
+  "stderr": "source tree not found: x\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "--src",
+   "x",
+   "--json=y"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: argument --json: ignored explicit argument 'y'\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "--src",
+   "x",
+   "--json="
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: argument --json: ignored explicit argument ''\n"
+ },
+ {
+  "argv": [
+   "index",
+   "--",
+   "c",
+   "--src",
+   "x"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: the following arguments are required: --src\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "--src",
+   "x",
+   "--"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: --\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "--"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: the following arguments are required: --src\n"
+ },
+ {
+  "argv": [
+   "index",
+   "--",
+   "-h"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: the following arguments are required: --src\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "--src",
+   "x",
+   "--",
+   "extra"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: -- extra\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "--src",
+   "x",
+   "-h"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 index [-h] --src SRC [--json] campaign\n\npositional arguments:\n  campaign\n\noptions:\n  -h, --help  show this help message and exit\n  --src SRC   source tree to index\n  --json\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "index",
+   "-1"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: the following arguments are required: --src\n"
+ },
+ {
+  "argv": [
+   "index",
+   "-"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 index [-h] --src SRC [--json] campaign\nwebv2 index: error: the following arguments are required: --src\n"
+ },
+ {
+  "argv": [
+   "index",
+   "c",
+   "extra",
+   "--src",
+   "x"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: extra\n"
+ },
+ {
+  "argv": [
+   "index",
+   "--src",
+   "x",
+   "--src",
+   "y",
+   "c"
+  ],
+  "code": 1,
+  "stdout": "",
+  "stderr": "source tree not found: y\n"
+ },
+ {
+  "argv": [
+   "sinks"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 sinks [-h] --src SRC [--json] campaign\nwebv2 sinks: error: the following arguments are required: campaign, --src\n"
+ },
+ {
+  "argv": [
+   "sinks",
+   "-h"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 sinks [-h] --src SRC [--json] campaign\n\npositional arguments:\n  campaign\n\noptions:\n  -h, --help  show this help message and exit\n  --src SRC   source tree to slice\n  --json\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "sinks",
+   "--help"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 sinks [-h] --src SRC [--json] campaign\n\npositional arguments:\n  campaign\n\noptions:\n  -h, --help  show this help message and exit\n  --src SRC   source tree to slice\n  --json\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "sinks",
+   "c"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 sinks [-h] --src SRC [--json] campaign\nwebv2 sinks: error: the following arguments are required: --src\n"
+ },
+ {
+  "argv": [
+   "sinks",
+   "c",
+   "--src",
+   "/nonexistent/t25"
+  ],
+  "code": 1,
+  "stdout": "",
+  "stderr": "source tree not found: /nonexistent/t25\n"
+ },
+ {
+  "argv": [
+   "sinks",
+   "c",
+   "--json",
+   "--src=x"
+  ],
+  "code": 1,
+  "stdout": "",
+  "stderr": "source tree not found: x\n"
+ },
+ {
+  "argv": [
+   "sinks",
+   "c",
+   "--bogus"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 sinks [-h] --src SRC [--json] campaign\nwebv2 sinks: error: the following arguments are required: --src\n"
+ },
+ {
+  "argv": [
+   "sinks",
+   "c",
+   "--src",
+   "x",
+   "--",
+   "extra"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: -- extra\n"
+ },
+ {
+  "argv": [
+   "forkdiff"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 forkdiff [-h] --src SRC [--json] campaign\nwebv2 forkdiff: error: the following arguments are required: campaign, --src\n"
+ },
+ {
+  "argv": [
+   "forkdiff",
+   "-h"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 forkdiff [-h] --src SRC [--json] campaign\n\npositional arguments:\n  campaign\n\noptions:\n  -h, --help  show this help message and exit\n  --src SRC   source tree to fingerprint\n  --json\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "forkdiff",
+   "--help"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 forkdiff [-h] --src SRC [--json] campaign\n\npositional arguments:\n  campaign\n\noptions:\n  -h, --help  show this help message and exit\n  --src SRC   source tree to fingerprint\n  --json\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "forkdiff",
+   "c",
+   "--src",
+   "/nonexistent/t25"
+  ],
+  "code": 1,
+  "stdout": "",
+  "stderr": "source tree not found: /nonexistent/t25\n"
+ },
+ {
+  "argv": [
+   "forkdiff",
+   "c",
+   "--src",
+   "x",
+   "--json"
+  ],
+  "code": 1,
+  "stdout": "",
+  "stderr": "source tree not found: x\n"
+ },
+ {
+  "argv": [
+   "forkdiff",
+   "c",
+   "--src"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 forkdiff [-h] --src SRC [--json] campaign\nwebv2 forkdiff: error: argument --src: expected one argument\n"
+ },
+ {
+  "argv": [
+   "baseline"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 baseline [-h] {add,list,remove} ...\nwebv2 baseline: error: the following arguments are required: baseline_cmd\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "-h"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 baseline [-h] {add,list,remove} ...\n\npositional arguments:\n  {add,list,remove}\n\noptions:\n  -h, --help         show this help message and exit\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "--help"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 baseline [-h] {add,list,remove} ...\n\npositional arguments:\n  {add,list,remove}\n\noptions:\n  -h, --help         show this help message and exit\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "bogus"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 baseline [-h] {add,list,remove} ...\nwebv2 baseline: error: argument baseline_cmd: invalid choice: 'bogus' (choose from 'add', 'list', 'remove')\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "add"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 baseline add [-h] --path PATH [--source-url SOURCE_URL]\n                          [--license LICENSE]\n                          name\nwebv2 baseline add: error: the following arguments are required: name, --path\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "list"
+  ],
+  "code": 0,
+  "stdout": "",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "remove"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 baseline remove [-h] name\nwebv2 baseline remove: error: the following arguments are required: name\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "list",
+   "-h"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 baseline list [-h]\n\noptions:\n  -h, --help  show this help message and exit\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "list",
+   "--help"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 baseline list [-h]\n\noptions:\n  -h, --help  show this help message and exit\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "-h"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 baseline add [-h] --path PATH [--source-url SOURCE_URL]\n                          [--license LICENSE]\n                          name\n\npositional arguments:\n  name\n\noptions:\n  -h, --help            show this help message and exit\n  --path PATH\n  --source-url SOURCE_URL\n  --license LICENSE\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "--help"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 baseline add [-h] --path PATH [--source-url SOURCE_URL]\n                          [--license LICENSE]\n                          name\n\npositional arguments:\n  name\n\noptions:\n  -h, --help            show this help message and exit\n  --path PATH\n  --source-url SOURCE_URL\n  --license LICENSE\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "remove",
+   "-h"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 baseline remove [-h] name\n\npositional arguments:\n  name\n\noptions:\n  -h, --help  show this help message and exit\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "remove",
+   "--help"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 baseline remove [-h] name\n\npositional arguments:\n  name\n\noptions:\n  -h, --help  show this help message and exit\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "n"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 baseline add [-h] --path PATH [--source-url SOURCE_URL]\n                          [--license LICENSE]\n                          name\nwebv2 baseline add: error: the following arguments are required: --path\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "n",
+   "--path"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 baseline add [-h] --path PATH [--source-url SOURCE_URL]\n                          [--license LICENSE]\n                          name\nwebv2 baseline add: error: argument --path: expected one argument\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "n",
+   "--path",
+   "/nonexistent/t25"
+  ],
+  "code": 1,
+  "stdout": "",
+  "stderr": "error: invalid baseline name 'n' (expected [a-z0-9][a-z0-9-]{1,40})\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "okname",
+   "--path",
+   "/nonexistent/t25"
+  ],
+  "code": 1,
+  "stdout": "",
+  "stderr": "error: baseline source not a directory: /nonexistent/t25\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "okname",
+   "--path",
+   "/nonexistent/t25",
+   "--source-url",
+   "https://example.test/x",
+   "--license",
+   "MIT"
+  ],
+  "code": 1,
+  "stdout": "",
+  "stderr": "error: baseline source not a directory: /nonexistent/t25\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "okname",
+   "--path",
+   "/nonexistent/t25",
+   "--bogus"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: --bogus\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "okname",
+   "--bogus",
+   "--path",
+   "/nonexistent/t25"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: --bogus\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "okname",
+   "--path=/nonexistent/t25",
+   "--source-url="
+  ],
+  "code": 1,
+  "stdout": "",
+  "stderr": "error: baseline source not a directory: /nonexistent/t25\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "remove",
+   "c"
+  ],
+  "code": 1,
+  "stdout": "",
+  "stderr": "error: invalid baseline name 'c' (expected [a-z0-9][a-z0-9-]{1,40})\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "remove",
+   "okname"
+  ],
+  "code": 0,
+  "stdout": "baseline okname removed\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "remove",
+   "okname",
+   "--"
+  ],
+  "code": 0,
+  "stdout": "baseline okname removed\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "remove",
+   "okname",
+   "extra"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: extra\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "list",
+   "--"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: --\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "list",
+   "x",
+   "--"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: x --\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "--",
+   "list"
+  ],
+  "code": 0,
+  "stdout": "",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "list",
+   "--",
+   "x"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: -- x\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "n",
+   "--path",
+   "/nonexistent/t25",
+   "--",
+   "x"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: -- x\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "--",
+   "n",
+   "--path",
+   "/nonexistent/t25"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 baseline add [-h] --path PATH [--source-url SOURCE_URL]\n                          [--license LICENSE]\n                          name\nwebv2 baseline add: error: the following arguments are required: --path\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "n",
+   "--",
+   "--path",
+   "/nonexistent/t25"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 baseline add [-h] --path PATH [--source-url SOURCE_URL]\n                          [--license LICENSE]\n                          name\nwebv2 baseline add: error: the following arguments are required: --path\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "-x",
+   "list"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: -x\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "list",
+   "-x"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: -x\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "-h",
+   "n"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 baseline add [-h] --path PATH [--source-url SOURCE_URL]\n                          [--license LICENSE]\n                          name\n\npositional arguments:\n  name\n\noptions:\n  -h, --help            show this help message and exit\n  --path PATH\n  --source-url SOURCE_URL\n  --license LICENSE\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "remove",
+   "n",
+   "-h"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 baseline remove [-h] name\n\npositional arguments:\n  name\n\noptions:\n  -h, --help  show this help message and exit\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "add",
+   "n",
+   "--path",
+   "/nonexistent/t25",
+   "-h"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 baseline add [-h] --path PATH [--source-url SOURCE_URL]\n                          [--license LICENSE]\n                          name\n\npositional arguments:\n  name\n\noptions:\n  -h, --help            show this help message and exit\n  --path PATH\n  --source-url SOURCE_URL\n  --license LICENSE\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "--json",
+   "list"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: --json\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "--json",
+   "remove",
+   "c"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: --json\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "--src",
+   "list",
+   "--src"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: --src --src\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "--json",
+   "add",
+   "n"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 baseline add [-h] --path PATH [--source-url SOURCE_URL]\n                          [--license LICENSE]\n                          name\nwebv2 baseline add: error: the following arguments are required: --path\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "--json",
+   "list",
+   "-h"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 baseline list [-h]\n\noptions:\n  -h, --help  show this help message and exit\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "--json",
+   "add",
+   "-h"
+  ],
+  "code": 0,
+  "stdout": "usage: webv2 baseline add [-h] --path PATH [--source-url SOURCE_URL]\n                          [--license LICENSE]\n                          name\n\npositional arguments:\n  name\n\noptions:\n  -h, --help            show this help message and exit\n  --path PATH\n  --source-url SOURCE_URL\n  --license LICENSE\n",
+  "stderr": ""
+ },
+ {
+  "argv": [
+   "baseline",
+   "--json",
+   "bogus"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 baseline [-h] {add,list,remove} ...\nwebv2 baseline: error: argument baseline_cmd: invalid choice: 'bogus' (choose from 'add', 'list', 'remove')\n"
+ },
+ {
+  "argv": [
+   "baseline",
+   "-x",
+   "remove",
+   "okname"
+  ],
+  "code": 2,
+  "stdout": "",
+  "stderr": "usage: webv2 [-h] [--root ROOT]\n             {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...\nwebv2: error: unrecognized arguments: -x\n"
+ }
+]

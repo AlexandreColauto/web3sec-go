@@ -1,0 +1,194 @@
+{
+ "sink_functions": [
+  {
+   "function_id": "Vault.sol#Vault.deposit",
+   "sink_calls": [
+    "token.transferFrom"
+   ]
+  },
+  {
+   "function_id": "Vault.sol#Vault.rescueTokens",
+   "sink_calls": [
+    "token.transfer"
+   ]
+  },
+  {
+   "function_id": "Vault.sol#Vault.withdraw",
+   "sink_calls": [
+    "token.transfer"
+   ]
+  }
+ ],
+ "backward_slice": [
+  {
+   "sink_function": "Vault.sol#Vault.deposit",
+   "sink_calls": [
+    "token.transferFrom"
+   ],
+   "reachable_functions": [
+    "Vault.sol#Vault.deposit"
+   ],
+   "entry_points": [
+    {
+     "id": "Vault.sol#Vault.deposit",
+     "name": "deposit",
+     "authz_guarded": false
+    }
+   ],
+   "unguarded_entry_points": [
+    "Vault.sol#Vault.deposit"
+   ],
+   "state_vars_read_on_paths": [
+    "_shares",
+    "token",
+    "totalShares"
+   ]
+  },
+  {
+   "sink_function": "Vault.sol#Vault.rescueTokens",
+   "sink_calls": [
+    "token.transfer"
+   ],
+   "reachable_functions": [
+    "Vault.sol#Vault.rescueTokens"
+   ],
+   "entry_points": [
+    {
+     "id": "Vault.sol#Vault.rescueTokens",
+     "name": "rescueTokens",
+     "authz_guarded": true
+    }
+   ],
+   "unguarded_entry_points": [],
+   "state_vars_read_on_paths": [
+    "token"
+   ]
+  },
+  {
+   "sink_function": "Vault.sol#Vault.withdraw",
+   "sink_calls": [
+    "token.transfer"
+   ],
+   "reachable_functions": [
+    "Vault.sol#Vault.withdraw"
+   ],
+   "entry_points": [
+    {
+     "id": "Vault.sol#Vault.withdraw",
+     "name": "withdraw",
+     "authz_guarded": false
+    }
+   ],
+   "unguarded_entry_points": [
+    "Vault.sol#Vault.withdraw"
+   ],
+   "state_vars_read_on_paths": [
+    "_shares",
+    "token",
+    "totalShares"
+   ]
+  }
+ ],
+ "sink2_functions": [
+  {
+   "function_id": "Probes.sol#SinkProbes.borrow",
+   "sink_calls": [
+    "lender.flashLoan"
+   ]
+  },
+  {
+   "function_id": "Probes.sol#SinkProbes.forward",
+   "sink_calls": [
+    "low-level.call"
+   ]
+  },
+  {
+   "function_id": "Probes.sol#SinkProbes.proxyTo",
+   "sink_calls": [
+    "low-level.delegatecall"
+   ]
+  }
+ ],
+ "sink2_slice": [
+  {
+   "sink_function": "Probes.sol#SinkProbes.borrow",
+   "sink_calls": [
+    "lender.flashLoan"
+   ],
+   "reachable_functions": [
+    "Probes.sol#SinkProbes.borrow"
+   ],
+   "entry_points": [
+    {
+     "id": "Probes.sol#SinkProbes.borrow",
+     "name": "borrow",
+     "authz_guarded": false
+    }
+   ],
+   "unguarded_entry_points": [
+    "Probes.sol#SinkProbes.borrow"
+   ],
+   "state_vars_read_on_paths": [
+    "lender"
+   ]
+  },
+  {
+   "sink_function": "Probes.sol#SinkProbes.forward",
+   "sink_calls": [
+    "low-level.call"
+   ],
+   "reachable_functions": [
+    "Probes.sol#SinkProbes.forward"
+   ],
+   "entry_points": [
+    {
+     "id": "Probes.sol#SinkProbes.forward",
+     "name": "forward",
+     "authz_guarded": false
+    }
+   ],
+   "unguarded_entry_points": [
+    "Probes.sol#SinkProbes.forward"
+   ],
+   "state_vars_read_on_paths": []
+  },
+  {
+   "sink_function": "Probes.sol#SinkProbes.proxyTo",
+   "sink_calls": [
+    "low-level.delegatecall"
+   ],
+   "reachable_functions": [
+    "Probes.sol#SinkProbes.proxyTo"
+   ],
+   "entry_points": [
+    {
+     "id": "Probes.sol#SinkProbes.proxyTo",
+     "name": "proxyTo",
+     "authz_guarded": false
+    }
+   ],
+   "unguarded_entry_points": [
+    "Probes.sol#SinkProbes.proxyTo"
+   ],
+   "state_vars_read_on_paths": []
+  }
+ ],
+ "amplifier_signals": {
+  "delegatecall": [
+   "Manipulator.sol#Manipulator.attack"
+  ],
+  "flash-loan": [
+   "Manipulator.sol#Manipulator.attack"
+  ],
+  "oracle": [
+   "Manipulator.sol#Manipulator.attack"
+  ],
+  "cross-chain": [
+   "Manipulator.sol#Manipulator.attack"
+  ],
+  "bridge": [
+   "Manipulator.sol#BridgeLike"
+  ]
+ },
+ "amplifier_signals_v1": {}
+}

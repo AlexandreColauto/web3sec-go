@@ -17,14 +17,21 @@ import (
 	"strconv"
 	"strings"
 
+	"websec/internal/costs"
 	"websec/internal/dedup"
+	"websec/internal/envgo"
 	"websec/internal/findings"
+	"websec/internal/forkdiff"
 	"websec/internal/forkpoc"
+	"websec/internal/histmining"
 	"websec/internal/invariants"
 	"websec/internal/orchestrator"
+	"websec/internal/pipeline"
 	"websec/internal/reproduction"
+	"websec/internal/sandbox"
 	"websec/internal/sequencepoc"
 	"websec/internal/state"
+	"websec/internal/structidx"
 	"websec/internal/taxonomy"
 	"websec/internal/validation"
 )
@@ -267,6 +274,24 @@ func ensureSeams() {
 	orchestrator.SetSequencePOC(orchestrator.SequencePOCAPI{
 		IsSequenceRequired: sequencepoc.IsSequenceRequired,
 	})
+	// D17: the env port (internal/envgo) now backs the sandbox seams — the
+	// transcription in envseam.go stays as the seam default.
+	sandbox.SetClassifyFailure(envgo.ClassifyFailure)
+	sandbox.SetSandboxPreflight(envgo.SandboxPreflight)
+	sandbox.SetDockerImageProbe(envgo.DockerImageProbe)
+	// costs: the pipeline's budget gate reads costs.jsonl.
+	pipeline.SetCosts(costs.API{})
+	// structidx: the structural index seams (Python: import-time module
+	// access). Idempotent; Wire covers orchestrator/coverage/reproduction/
+	// planner, the two calls below cover histmining's recency seam.
+	structidx.Wire()
+	histmining.SetIndexAPI(histmining.IndexAPI{
+		EnsureFreshIndex: structidx.EnsureFreshIndex,
+		SinkFunctions:    structidx.SinkFunctions,
+	})
+	// forkdiff: the baselines audit section (audit.py section 10) reads the
+	// baselines directory and the T0-parser fingerprint from here.
+	forkdiff.Wire()
 }
 
 // docMapSeam adapts invariants.DocumentedInvariants to findings' seam shape.

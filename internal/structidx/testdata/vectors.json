@@ -1,0 +1,1174 @@
+{
+ "concept_keys": [
+  {
+   "expr": "prevStateRoot",
+   "keys": [
+    "prev",
+    "prev:state",
+    "prev:state:root",
+    "root",
+    "state",
+    "state:root"
+   ]
+  },
+  {
+   "expr": "getPrevStateHash",
+   "keys": [
+    "prev",
+    "prev:state",
+    "prev:state:root",
+    "root",
+    "state",
+    "state:root"
+   ]
+  },
+  {
+   "expr": "newStateRoot",
+   "keys": [
+    "new",
+    "new:state",
+    "new:state:root",
+    "root",
+    "state",
+    "state:root"
+   ]
+  },
+  {
+   "expr": "address",
+   "keys": [
+    "addr"
+   ]
+  },
+  {
+   "expr": "tokenAddress",
+   "keys": [
+    "addr",
+    "token",
+    "token:addr"
+   ]
+  },
+  {
+   "expr": "tokenAddr",
+   "keys": [
+    "addr",
+    "token",
+    "token:addr"
+   ]
+  },
+  {
+   "expr": "address(0)",
+   "keys": [
+    "addr"
+   ]
+  },
+  {
+   "expr": "uint256 length",
+   "keys": []
+  },
+  {
+   "expr": "getAmount",
+   "keys": [
+    "amount"
+   ]
+  },
+  {
+   "expr": "mapping",
+   "keys": [
+    "mapping"
+   ]
+  },
+  {
+   "expr": "tokenMapping[token]",
+   "keys": [
+    "mapping",
+    "token",
+    "token:mapping"
+   ]
+  },
+  {
+   "expr": "prevStateRoot[batchIndex] == stateRoot",
+   "keys": [
+    "batch",
+    "batch:index",
+    "index",
+    "prev",
+    "prev:state",
+    "prev:state:root",
+    "root",
+    "state",
+    "state:root"
+   ]
+  },
+  {
+   "expr": "msg.sender",
+   "keys": [
+    "msg",
+    "msg:sender",
+    "sender"
+   ]
+  },
+  {
+   "expr": "a.b.c",
+   "keys": []
+  },
+  {
+   "expr": "",
+   "keys": []
+  },
+  {
+   "expr": "  ",
+   "keys": []
+  },
+  {
+   "expr": "amount",
+   "keys": [
+    "amount"
+   ]
+  },
+  {
+   "expr": "amount > 0 && amount <= 1e18",
+   "keys": [
+    "amount"
+   ]
+  },
+  {
+   "expr": "keccak256(abi.encode(leaf, proof, root)) == storedHash",
+   "keys": [
+    "abi",
+    "abi:encode",
+    "encode",
+    "keccak256",
+    "leaf",
+    "proof",
+    "root",
+    "stored",
+    "stored:root"
+   ]
+  },
+  {
+   "expr": "whitelist[who]",
+   "keys": [
+    "whitelist",
+    "who"
+   ]
+  },
+  {
+   "expr": "stateRoots[who] == amount",
+   "keys": [
+    "amount",
+    "roots",
+    "state",
+    "state:roots",
+    "who"
+   ]
+  }
+ ],
+ "split_ident": [
+  {
+   "name": "prevStateRoot",
+   "parts": [
+    "prev",
+    "state",
+    "root"
+   ]
+  },
+  {
+   "name": "_stakes",
+   "parts": [
+    "stakes"
+   ]
+  },
+  {
+   "name": "tokenAddress",
+   "parts": [
+    "token",
+    "addr"
+   ]
+  },
+  {
+   "name": "AB",
+   "parts": []
+  },
+  {
+   "name": "a",
+   "parts": []
+  },
+  {
+   "name": "",
+   "parts": []
+  },
+  {
+   "name": "_",
+   "parts": []
+  },
+  {
+   "name": "getAmount",
+   "parts": [
+    "amount"
+   ]
+  },
+  {
+   "name": "HTTPServer",
+   "parts": [
+    "server"
+   ]
+  },
+  {
+   "name": "already_snake",
+   "parts": [
+    "already",
+    "snake"
+   ]
+  }
+ ],
+ "param_types": [
+  {
+   "params": "uint256 amount",
+   "types": "uint256"
+  },
+  {
+   "params": "address who, uint256 amount",
+   "types": "address,uint256"
+  },
+  {
+   "params": "uint256[] calldata amounts",
+   "types": "uint256[]"
+  },
+  {
+   "params": "uint256[3] calldata amounts",
+   "types": "uint256[3]"
+  },
+  {
+   "params": "",
+   "types": ""
+  },
+  {
+   "params": "  ",
+   "types": ""
+  },
+  {
+   "params": "bytes memory data",
+   "types": "bytes"
+  },
+  {
+   "params": "(uint256 a, uint256 b) pair",
+   "types": "uint256"
+  },
+  {
+   "params": "address, uint256",
+   "types": "address,uint256"
+  },
+  {
+   "params": "IERC20 token, uint256[] memory xs",
+   "types": "IERC20,uint256[]"
+  },
+  {
+   "params": "mapping(address => uint256) storage m",
+   "types": "mapping"
+  }
+ ],
+ "guard_strength": [
+  {
+   "cond": "enabled",
+   "class": 0
+  },
+  {
+   "cond": "amount != 0",
+   "class": 1
+  },
+  {
+   "cond": "amount <= 1e18",
+   "class": 2
+  },
+  {
+   "cond": "whitelist[who]",
+   "class": 3
+  },
+  {
+   "cond": "stateRoots[who] == amount",
+   "class": 4
+  },
+  {
+   "cond": "x == y",
+   "class": 3
+  },
+  {
+   "cond": "length != 0",
+   "class": 1
+  },
+  {
+   "cond": "a > 0",
+   "class": 2
+  },
+  {
+   "cond": "!ok",
+   "class": 0
+  },
+  {
+   "cond": "b == 0",
+   "class": 3
+  },
+  {
+   "cond": "c == keccak256(x)",
+   "class": 4
+  },
+  {
+   "cond": "d == e[f]",
+   "class": 4
+  },
+  {
+   "cond": "g == h()",
+   "class": 4
+  },
+  {
+   "cond": "i != bytes32(0)",
+   "class": 1
+  },
+  {
+   "cond": "j != address(0)",
+   "class": 1
+  },
+  {
+   "cond": "k.length > 0",
+   "class": 2
+  },
+  {
+   "cond": "l >= 5",
+   "class": 2
+  },
+  {
+   "cond": "m == n && o == p",
+   "class": 3
+  },
+  {
+   "cond": "",
+   "class": 0
+  },
+  {
+   "cond": "trusted",
+   "class": 3
+  },
+  {
+   "cond": "isMember[x]",
+   "class": 3
+  }
+ ],
+ "pyre": [
+  {
+   "label": "ext_call_basic",
+   "pattern": "\\b([A-Za-z_]\\w*)\\s*\\.\\s*([A-Za-z_]\\w*)\\s*(?=\\(|\\{)",
+   "input": "a.b(x); c.d{e}(y); e . f (z); q.r; s.t()",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     3,
+     0,
+     1,
+     2,
+     3
+    ],
+    [
+     8,
+     11,
+     8,
+     9,
+     10,
+     11
+    ],
+    [
+     19,
+     25,
+     19,
+     20,
+     23,
+     24
+    ],
+    [
+     35,
+     38,
+     35,
+     36,
+     37,
+     38
+    ]
+   ]
+  },
+  {
+   "label": "ext_call_cast_form",
+   "pattern": "\\b([A-Za-z_]\\w*)\\s*\\.\\s*([A-Za-z_]\\w*)\\s*(?=\\(|\\{)",
+   "input": "IMorphERC20Upgradeable(token).burn(to, amt);",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": []
+  },
+  {
+   "label": "member_call",
+   "pattern": "\\s*([A-Za-z_]\\w*)\\s*(?=\\(|\\{)",
+   "input": ". burn(to, amt)",
+   "mode": "match",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": []
+  },
+  {
+   "label": "member_call_brace",
+   "pattern": "\\s*([A-Za-z_]\\w*)\\s*(?=\\(|\\{)",
+   "input": "  foo {",
+   "mode": "match",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     6,
+     2,
+     5
+    ]
+   ]
+  },
+  {
+   "label": "member_call_none",
+   "pattern": "\\s*([A-Za-z_]\\w*)\\s*(?=\\(|\\{)",
+   "input": ".9foo",
+   "mode": "match",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": []
+  },
+  {
+   "label": "contract_decl",
+   "pattern": "\\b(?:abstract\\s+)?(contract|interface|library)\\s+([A-Za-z_]\\w*)(?:\\s+is\\s+([^{;]+))?\\s*(?=\\{)",
+   "input": "abstract contract A is B, C(1) { } interface I { } library L { } contract D{}",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     31,
+     9,
+     17,
+     18,
+     19,
+     23,
+     31
+    ],
+    [
+     35,
+     47,
+     35,
+     44,
+     45,
+     46,
+     -1,
+     -1
+    ],
+    [
+     51,
+     61,
+     51,
+     58,
+     59,
+     60,
+     -1,
+     -1
+    ],
+    [
+     65,
+     75,
+     65,
+     73,
+     74,
+     75,
+     -1,
+     -1
+    ]
+   ]
+  },
+  {
+   "label": "contract_no_is",
+   "pattern": "\\b(?:abstract\\s+)?(contract|interface|library)\\s+([A-Za-z_]\\w*)(?:\\s+is\\s+([^{;]+))?\\s*(?=\\{)",
+   "input": "contract E {",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     11,
+     0,
+     8,
+     9,
+     10,
+     -1,
+     -1
+    ]
+   ]
+  },
+  {
+   "label": "state_vars",
+   "pattern": "^\\s*(?:mapping\\s*\\([^;]*?\\)|[\\w\\[\\]\\.]+(?:\\s*\\[[^\\]]*\\])*)\\s+(?:public|private|internal|constant|immutable|\\s)*\\s*([A-Za-z_]\\w*)\\s*(?:=\\s*[^;]+)?;",
+   "input": "contract X {\n    uint256 public totalStaked;\n    mapping(address => uint256) private _stakes;\n    IERC20 public stakingToken;\n    uint256[3] internal arr;\n    bytes32 constant HASH = keccak256(\"x\");\n    mapping(uint256 => bytes32) private prevStateRoot;\n    uint256 private constant B = 3;\n    function f() internal { uint256 local = 1; }\n}",
+   "mode": "findall",
+   "fold": false,
+   "multi": true,
+   "at": 0,
+   "spans": [
+    [
+     13,
+     44,
+     32,
+     43
+    ],
+    [
+     45,
+     93,
+     85,
+     92
+    ],
+    [
+     94,
+     125,
+     112,
+     124
+    ],
+    [
+     126,
+     154,
+     150,
+     153
+    ],
+    [
+     155,
+     198,
+     176,
+     180
+    ],
+    [
+     199,
+     253,
+     239,
+     252
+    ],
+    [
+     254,
+     289,
+     283,
+     284
+    ]
+   ]
+  },
+  {
+   "label": "state_vars_tight",
+   "pattern": "^\\s*(?:mapping\\s*\\([^;]*?\\)|[\\w\\[\\]\\.]+(?:\\s*\\[[^\\]]*\\])*)\\s+(?:public|private|internal|constant|immutable|\\s)*\\s*([A-Za-z_]\\w*)\\s*(?:=\\s*[^;]+)?;",
+   "input": "uint256 a;uint256 b;",
+   "mode": "findall",
+   "fold": false,
+   "multi": true,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     10,
+     8,
+     9
+    ]
+   ]
+  },
+  {
+   "label": "lvalue_member",
+   "pattern": "([A-Za-z_]\\w*(?:\\s*\\.\\s*[A-Za-z_]\\w*|\\s*\\[[^\\]]*\\])*)\\s*$",
+   "input": "\n    _stakes[msg.sender] ",
+   "mode": "search",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     5,
+     25,
+     5,
+     24
+    ]
+   ]
+  },
+  {
+   "label": "lvalue_chain",
+   "pattern": "([A-Za-z_]\\w*(?:\\s*\\.\\s*[A-Za-z_]\\w*|\\s*\\[[^\\]]*\\])*)\\s*$",
+   "input": "a.b.c ",
+   "mode": "search",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     6,
+     0,
+     5
+    ]
+   ]
+  },
+  {
+   "label": "lvalue_none",
+   "pattern": "([A-Za-z_]\\w*(?:\\s*\\.\\s*[A-Za-z_]\\w*|\\s*\\[[^\\]]*\\])*)\\s*$",
+   "input": "a.b.c + ",
+   "mode": "search",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": []
+  },
+  {
+   "label": "lvalue_space",
+   "pattern": "([A-Za-z_]\\w*(?:\\s*\\.\\s*[A-Za-z_]\\w*|\\s*\\[[^\\]]*\\])*)\\s*$",
+   "input": "   ",
+   "mode": "search",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": []
+  },
+  {
+   "label": "assign_simple",
+   "pattern": "(?<![=!<>+\\-*/%&|^:])=(?![=>])|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=",
+   "input": "x = y",
+   "mode": "search",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     2,
+     3
+    ]
+   ]
+  },
+  {
+   "label": "assign_plus",
+   "pattern": "(?<![=!<>+\\-*/%&|^:])=(?![=>])|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=",
+   "input": "x += y",
+   "mode": "search",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     2,
+     4
+    ]
+   ]
+  },
+  {
+   "label": "assign_eqeq",
+   "pattern": "(?<![=!<>+\\-*/%&|^:])=(?![=>])|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=",
+   "input": "x == y",
+   "mode": "search",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": []
+  },
+  {
+   "label": "assign_gte",
+   "pattern": "(?<![=!<>+\\-*/%&|^:])=(?![=>])|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=",
+   "input": "x >= y",
+   "mode": "search",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": []
+  },
+  {
+   "label": "assign_arrow",
+   "pattern": "(?<![=!<>+\\-*/%&|^:])=(?![=>])|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=",
+   "input": "x => y",
+   "mode": "search",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": []
+  },
+  {
+   "label": "assign_mixed",
+   "pattern": "(?<![=!<>+\\-*/%&|^:])=(?![=>])|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=",
+   "input": "a != b && c = d",
+   "mode": "search",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     12,
+     13
+    ]
+   ]
+  },
+  {
+   "label": "assign_none",
+   "pattern": "(?<![=!<>+\\-*/%&|^:])=(?![=>])|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=",
+   "input": "x == y != z",
+   "mode": "search",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": []
+  },
+  {
+   "label": "specials",
+   "pattern": "\\bconstructor\\s*(?=\\()",
+   "input": "  constructor ( address a ) {",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     2,
+     14
+    ]
+   ]
+  },
+  {
+   "label": "specials_none",
+   "pattern": "\\bconstructor\\s*(?=\\()",
+   "input": "constructor;",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": []
+  },
+  {
+   "label": "param_lookbehind",
+   "pattern": "(?<!\\.)\\bamount\\b",
+   "input": "x.amount amount + amount1",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     9,
+     15
+    ]
+   ]
+  },
+  {
+   "label": "param_lookbehind_chain",
+   "pattern": "(?<!\\.)\\btoken\\b",
+   "input": "token; a.token; b . token; token)",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     5
+    ],
+    [
+     20,
+     25
+    ],
+    [
+     27,
+     32
+    ]
+   ]
+  },
+  {
+   "label": "unicode_function_ident",
+   "pattern": "\\bfunction\\s+([A-Za-z_]\\w*)\\s*\\(",
+   "input": "function rel\u00e9ase() external { }",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     17,
+     9,
+     16
+    ]
+   ]
+  },
+  {
+   "label": "unicode_modifier_ident",
+   "pattern": "\\bmodifier\\s+([A-Za-z_]\\w*)\\s*(\\([^)]*\\))?\\s*\\{",
+   "input": "modifier only\u00d8wner() { _; }",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     22,
+     9,
+     18,
+     18,
+     20
+    ]
+   ]
+  },
+  {
+   "label": "unicode_state_ident",
+   "pattern": "^\\s*(?:mapping\\s*\\([^;]*?\\)|[\\w\\[\\]\\.]+(?:\\s*\\[[^\\]]*\\])*)\\s+(?:public|private|internal|constant|immutable|\\s)*\\s*([A-Za-z_]\\w*)\\s*(?:=\\s*[^;]+)?;",
+   "input": "uint256 public \u00e9scrow;",
+   "mode": "findall",
+   "fold": false,
+   "multi": true,
+   "at": 0,
+   "spans": []
+  },
+  {
+   "label": "unicode_member_call",
+   "pattern": "\\s*([A-Za-z_]\\w*)\\s*(?=\\(|\\{)",
+   "input": "  rel\u00e9ase (",
+   "mode": "match",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     10,
+     2,
+     9
+    ]
+   ]
+  },
+  {
+   "label": "unicode_word_class",
+   "pattern": "[A-Za-z_]\\w*",
+   "input": "rel\u00e9ase ab",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     7
+    ],
+    [
+     8,
+     10
+    ]
+   ]
+  },
+  {
+   "label": "unicode_word_boundary",
+   "pattern": "\\bfoo\\b",
+   "input": "\u00e9foo foo foo\u00e9 foo",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     5,
+     8
+    ],
+    [
+     14,
+     17
+    ]
+   ]
+  },
+  {
+   "label": "unicode_nonword_boundary",
+   "pattern": "\\Boo\\B",
+   "input": "foo food oof",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     5,
+     7
+    ]
+   ]
+  },
+  {
+   "label": "unicode_digit_class",
+   "pattern": "[<>]=?\\s*\\d",
+   "input": ">= \u0663  >= 3",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     4
+    ],
+    [
+     6,
+     10
+    ]
+   ]
+  },
+  {
+   "label": "unicode_space_class",
+   "pattern": "a\\sb",
+   "input": "a\u00a0b a\u2028b a\u001cb a b",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     3
+    ],
+    [
+     4,
+     7
+    ],
+    [
+     8,
+     11
+    ],
+    [
+     12,
+     15
+    ]
+   ]
+  },
+  {
+   "label": "unicode_space_class2",
+   "pattern": "[\\s\\v]+",
+   "input": "x\u00a0\u2028\u001cy",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     1,
+     4
+    ]
+   ]
+  },
+  {
+   "label": "unicode_negated_word",
+   "pattern": "\\W+",
+   "input": "a\u00e9b _c",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     3,
+     4
+    ]
+   ]
+  },
+  {
+   "label": "unicode_negated_digit",
+   "pattern": "\\D+",
+   "input": "1\u06632",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": []
+  },
+  {
+   "label": "unicode_lookbehind",
+   "pattern": "(?<!\\w)\\u00e9scrow\\b",
+   "input": "\u00e9scrow x.\u00e9scrow \u00e9scrow",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     6
+    ],
+    [
+     9,
+     15
+    ],
+    [
+     16,
+     22
+    ]
+   ]
+  },
+  {
+   "label": "unicode_fold_ident",
+   "pattern": "(?i)\\bOMEGA\\b",
+   "input": "\u03a9mega \u03c9mega OMEGA",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     12,
+     17
+    ]
+   ]
+  },
+  {
+   "label": "fold_guard_dotted_i",
+   "pattern": "(?i)\\bexists\\b",
+   "input": "ex\u0130sts e\u017fi\u017fts eXists EX\u0130STS",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     6
+    ],
+    [
+     14,
+     20
+    ],
+    [
+     21,
+     27
+    ]
+   ]
+  },
+  {
+   "label": "fold_kelvin_long_s",
+   "pattern": "(?i)[ks]",
+   "input": "K \u212a k \u017f S s",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     1
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     4,
+     5
+    ],
+    [
+     6,
+     7
+    ],
+    [
+     8,
+     9
+    ],
+    [
+     10,
+     11
+    ]
+   ]
+  },
+  {
+   "label": "fold_sharp_s",
+   "pattern": "(?i)ss",
+   "input": "\u00df \u1e9e SS ss",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     4,
+     6
+    ],
+    [
+     7,
+     9
+    ]
+   ]
+  },
+  {
+   "label": "fold_accent",
+   "pattern": "(?i)\\u00e9",
+   "input": "\u00c9 \u00e9 e\u0301",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     1
+    ],
+    [
+     2,
+     3
+    ]
+   ]
+  },
+  {
+   "label": "fold_strafe",
+   "pattern": "(?i)\\bstra\\u00dfe\\b",
+   "input": "STRASSE stra\u00dfe STRA\u1e9eE stra\u00dfE",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     8,
+     14
+    ],
+    [
+     15,
+     21
+    ],
+    [
+     22,
+     28
+    ]
+   ]
+  },
+  {
+   "label": "fold_omega",
+   "pattern": "(?i)\\u03a9",
+   "input": "\u03a9 \u03c9 \u2126",
+   "mode": "findall",
+   "fold": false,
+   "multi": false,
+   "at": 0,
+   "spans": [
+    [
+     0,
+     1
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     4,
+     5
+    ]
+   ]
+  }
+ ]
+}

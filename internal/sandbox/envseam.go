@@ -397,9 +397,27 @@ func scalarText(v validation.Value) string {
 	}
 }
 
+// dockerImageProbeFn is the installed image probe (the env seam, D17).
+var dockerImageProbeFn = defaultDockerImageProbe
+
+// SetDockerImageProbe installs the webv2.env.docker_image_probe
+// implementation; nil restores the transcribed default.
+func SetDockerImageProbe(f func(*string) validation.Value) {
+	if f == nil {
+		f = defaultDockerImageProbe
+	}
+	dockerImageProbeFn = f
+}
+
 // DockerImageProbe is env.docker_image_probe: the exact image the container
 // profiles would run, plus whether the reference is digest-pinned.
 func DockerImageProbe(image *string) validation.Value {
+	return dockerImageProbeFn(image)
+}
+
+// defaultDockerImageProbe is the transcription env.py's docker_image_probe
+// (the seam default until internal/envgo is wired over it).
+func defaultDockerImageProbe(image *string) validation.Value {
 	name := DockerImage()
 	if image != nil {
 		name = *image

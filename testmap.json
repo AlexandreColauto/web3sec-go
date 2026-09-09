@@ -714,12 +714,14 @@
   {
    "python_file": "tests/test_budget.py",
    "python_func": "test_clear_ceiling_returns_to_no_limit",
-   "status": "deferred-P1"
+   "go_file": "internal/costs/costs_test.go",
+   "go_func": "TestClearCeilingReturnsToNoLimit"
   },
   {
    "python_file": "tests/test_budget.py",
    "python_func": "test_no_limit_is_explicit",
-   "status": "deferred-P1"
+   "go_file": "internal/costs/costs_test.go",
+   "go_func": "TestNoLimitIsExplicit"
   },
   {
    "python_file": "tests/test_budget.py",
@@ -739,7 +741,8 @@
   {
    "python_file": "tests/test_budget.py",
    "python_func": "test_within_and_exceeded",
-   "status": "deferred-P1"
+   "go_file": "internal/costs/costs_test.go",
+   "go_func": "TestWithinAndExceeded"
   },
   {
    "python_file": "tests/test_budget_discovery.py",
@@ -1401,27 +1404,32 @@
   {
    "python_file": "tests/test_criticality.py",
    "python_func": "test_brief_coverage_vault_not_covered_by_vaultproxy",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "brief-side integration; the ranker itself is pinned by internal/structidx TestCriticalityGolden"
   },
   {
    "python_file": "tests/test_criticality.py",
    "python_func": "test_brief_flags_untouched_consensus_critical",
-   "status": "deferred-P3"
+   "status": "deferred-P3",
+   "notes": "brief-side integration; the ranker itself is pinned by internal/structidx TestCriticalityGolden"
   },
   {
    "python_file": "tests/test_criticality.py",
    "python_func": "test_consensus_critical_ranks_above_peripheral",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestCriticalityGolden"
   },
   {
    "python_file": "tests/test_criticality.py",
    "python_func": "test_path_qualified_token_matches_contract_not_prefix",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestCriticalityGolden"
   },
   {
    "python_file": "tests/test_criticality.py",
    "python_func": "test_vault_not_matched_by_vaultproxy",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestCriticalityGolden"
   },
   {
    "python_file": "tests/test_datasets.py",
@@ -1729,7 +1737,8 @@
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_record_cost_validates_inputs",
-   "status": "deferred-P1"
+   "go_file": "internal/costs/costs_test.go",
+   "go_func": "TestRecordCostValidatesInputs"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
@@ -1759,12 +1768,14 @@
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_yield_report_and_allocation_advice",
-   "status": "deferred-P1"
+   "go_file": "internal/costs/costs_test.go",
+   "go_func": "TestYieldReportAndAllocationAdvice"
   },
   {
    "python_file": "tests/test_design_upgrades.py",
    "python_func": "test_zero_cost_is_a_reporting_gap_not_infinite_yield",
-   "status": "deferred-P1"
+   "go_file": "internal/costs/costs_test.go",
+   "go_func": "TestZeroCostIsAReportingGapNotInfiniteYield"
   },
   {
    "python_file": "tests/test_disproof_sibling.py",
@@ -1819,107 +1830,128 @@
   {
    "python_file": "tests/test_doctor.py",
    "python_func": "test_cli_doctor_json",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_doctor_test.go",
+   "go_func": "TestCLIDoctorJSON"
   },
   {
    "python_file": "tests/test_doctor.py",
    "python_func": "test_cli_doctor_runs_and_reports",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_doctor_test.go",
+   "go_func": "TestCLIDoctorRunsAndReports"
   },
   {
    "python_file": "tests/test_doctor.py",
    "python_func": "test_snapshot_scope_no_pin",
-   "status": "deferred-P3"
+   "go_file": "internal/doctor/doctor_test.go",
+   "go_func": "TestSnapshotScopeNoPin"
   },
   {
    "python_file": "tests/test_doctor.py",
    "python_func": "test_snapshot_scope_reports_shape_and_warns",
-   "status": "deferred-P3"
+   "go_file": "internal/doctor/doctor_test.go",
+   "go_func": "TestSnapshotScopeReportsShapeAndWarns"
   },
   {
    "python_file": "tests/test_doctor.py",
    "python_func": "test_state_health_leaves_small_notes_and_log_untouched",
-   "status": "deferred-P3"
+   "go_file": "internal/doctor/doctor_test.go",
+   "go_func": "TestStateHealthLeavesSmallNotesAndLogUntouched"
   },
   {
    "python_file": "tests/test_doctor.py",
    "python_func": "test_state_health_truncates_artifact_notes",
-   "status": "deferred-P3"
+   "go_file": "internal/doctor/doctor_test.go",
+   "go_func": "TestStateHealthTruncatesArtifactNotes"
   },
   {
    "python_file": "tests/test_doctor.py",
    "python_func": "test_state_health_truncates_oversized_note",
-   "status": "deferred-P3"
+   "go_file": "internal/doctor/doctor_test.go",
+   "go_func": "TestStateHealthTruncatesOversizedNote"
   },
   {
    "python_file": "tests/test_doctor_preflight.py",
    "python_func": "test_cli_doctor_prints_preflight",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_doctor_test.go",
+   "go_func": "TestCLIDoctorPrintsPreflight"
   },
   {
    "python_file": "tests/test_doctor_preflight.py",
    "python_func": "test_cli_exec_fails_fast_on_missing_workdir",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_exec_test.go",
+   "go_func": "TestExecMissingWorkdirPreflight"
   },
   {
    "python_file": "tests/test_doctor_preflight.py",
    "python_func": "test_doctor_includes_preflight",
-   "status": "deferred-P3"
+   "go_file": "internal/doctor/doctor_test.go",
+   "go_func": "TestDoctorIncludesPreflight"
   },
   {
    "python_file": "tests/test_doctor_preflight.py",
    "python_func": "test_preflight_host_readonly_skips_container_checks",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestPreflightHostReadonlySkipsContainerChecks"
   },
   {
    "python_file": "tests/test_doctor_preflight.py",
    "python_func": "test_preflight_image_absent_warns_not_fails",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestPreflightImageAbsentWarnsNotFails"
   },
   {
    "python_file": "tests/test_doctor_preflight.py",
    "python_func": "test_preflight_missing_daemon_fails_with_fix",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestPreflightMissingDaemonFailsWithFix"
   },
   {
    "python_file": "tests/test_doctor_preflight.py",
    "python_func": "test_preflight_no_compiler_pin_is_na",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestPreflightNoCompilerPinIsNA"
   },
   {
    "python_file": "tests/test_doctor_preflight.py",
    "python_func": "test_preflight_ok_when_daemon_image_and_cache_present",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestPreflightOKWhenDaemonImageAndCachePresent"
   },
   {
    "python_file": "tests/test_doctor_preflight.py",
    "python_func": "test_preflight_solc_cache_missing_fails_with_exact_path",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestPreflightSolcCacheMissingFailsWithExactPath"
   },
   {
    "python_file": "tests/test_doctor_preflight.py",
    "python_func": "test_preflight_solc_cache_present_ok",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestPreflightSolcCachePresentOK"
   },
   {
    "python_file": "tests/test_doctor_preflight.py",
    "python_func": "test_preflight_solc_unset_warns",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestPreflightSolcUnsetWarns"
   },
   {
    "python_file": "tests/test_doctor_preflight.py",
    "python_func": "test_preflight_workdir_file_fails",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestPreflightWorkdirFileFails"
   },
   {
    "python_file": "tests/test_doctor_preflight.py",
    "python_func": "test_preflight_workdir_missing_fails_with_fix",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestPreflightWorkdirMissingFailsWithFix"
   },
   {
    "python_file": "tests/test_doctor_preflight.py",
    "python_func": "test_preflight_workdir_ok",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestPreflightWorkdirOK"
   },
   {
    "python_file": "tests/test_economics_transforms.py",
@@ -1948,22 +1980,26 @@
   {
    "python_file": "tests/test_env_solc.py",
    "python_func": "test_doctor_probe_none_without_pinned_compiler",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestDoctorProbeNoneWithoutPinnedCompiler"
   },
   {
    "python_file": "tests/test_env_solc.py",
    "python_func": "test_doctor_probe_reports_absent_compiler",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestDoctorProbeReportsAbsentCompiler"
   },
   {
    "python_file": "tests/test_env_solc.py",
    "python_func": "test_doctor_probe_reports_present_compiler",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestDoctorProbeReportsPresentCompiler"
   },
   {
    "python_file": "tests/test_env_solc.py",
    "python_func": "test_doctor_probe_skipped_without_daemon",
-   "status": "deferred-P3"
+   "go_file": "internal/envgo/envgo_test.go",
+   "go_func": "TestDoctorProbeSkippedWithoutDaemon"
   },
   {
    "python_file": "tests/test_env_solc.py",
@@ -2484,92 +2520,111 @@
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_audit_flags_baseline_drift",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestAuditFlagsBaselineDrift"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_audit_survives_corrupt_manifest_json",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestAuditSurvivesCorruptManifestJSON"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_audit_survives_manifest_missing_baselines_key",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestAuditSurvivesManifestMissingBaselinesKey"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_audit_survives_unreadable_baseline_entry",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestAuditSurvivesUnreadableBaselineEntry"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_baseline_add_list_remove",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestBaselineAddListRemove"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_baseline_name_is_traversal_safe",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestBaselineNameIsTraversalSafe"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_confirmation_gate_ignores_fork_diff",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/forkdiff_seam_test.go",
+   "go_func": "TestConfirmationGateIgnoresForkDiff"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_finding_schema_accepts_fork_diff",
-   "status": "deferred-P3"
+   "go_file": "internal/findings/forkdiff_seam_test.go",
+   "go_func": "TestConfirmationGateIgnoresForkDiff",
+   "notes": "SaveFinding validates the five schema-pinned keys (additionalProperties: false)"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_fingerprint_deterministic",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestFingerprintDeterministic"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_forkdiff_report_artifact_and_event",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestForkdiffReportArtifactAndEvent"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_forkdiff_report_without_baselines",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestForkdiffReportWithoutBaselines"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_match_partial_boundary",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestMatchBoundaries"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_match_strong_boundary",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestMatchBoundaries"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_match_strong_partial_none",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestMatchStrongPartialNone"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_match_weights_are_pinned",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestMatchWeightsArePinned"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_readd_baseline_replaces_content",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestReaddBaselineReplacesContent"
   },
   {
    "python_file": "tests/test_forkdiff.py",
    "python_func": "test_readd_baseline_with_itself_as_source_fails_loudly",
-   "status": "deferred-P3"
+   "go_file": "internal/forkdiff/forkdiff_test.go",
+   "go_func": "TestReaddBaselineWithItselfAsSourceFails"
   },
   {
    "python_file": "tests/test_history_learning.py",
    "python_func": "test_deployment_verification_verdicts",
-   "status": "deferred-P3"
+   "go_file": "internal/histmining/histmining_test.go",
+   "go_func": "TestDeploymentVerificationVerdicts"
   },
   {
    "python_file": "tests/test_history_learning.py",
@@ -2584,7 +2639,8 @@
   {
    "python_file": "tests/test_history_learning.py",
    "python_func": "test_mine_git_history_finds_fix",
-   "status": "deferred-P3"
+   "go_file": "internal/histmining/histmining_test.go",
+   "go_func": "TestMineGitHistoryFindsFix"
   },
   {
    "python_file": "tests/test_history_learning.py",
@@ -2594,7 +2650,8 @@
   {
    "python_file": "tests/test_history_learning.py",
    "python_func": "test_patch_delta_hypotheses",
-   "status": "deferred-P3"
+   "go_file": "internal/histmining/histmining_test.go",
+   "go_func": "TestPatchDeltaHypotheses"
   },
   {
    "python_file": "tests/test_history_learning.py",
@@ -4062,17 +4119,20 @@
   {
    "python_file": "tests/test_recency.py",
    "python_func": "test_changed_in_window_excludes_stale_but_scanned_files",
-   "status": "deferred-P3"
+   "go_file": "internal/histmining/histmining_test.go",
+   "go_func": "TestChangedInWindowExcludesStaleButScannedFiles"
   },
   {
    "python_file": "tests/test_recency.py",
    "python_func": "test_recency_scores_rank_fresh_exposed_first",
-   "status": "deferred-P3"
+   "go_file": "internal/histmining/histmining_test.go",
+   "go_func": "TestRecencyScoresRankFreshExposedFirst"
   },
   {
    "python_file": "tests/test_recency.py",
    "python_func": "test_recency_scores_without_git_history",
-   "status": "deferred-P3"
+   "go_file": "internal/histmining/histmining_test.go",
+   "go_func": "TestRecencyScoresWithoutGitHistory"
   },
   {
    "python_file": "tests/test_relations.py",
@@ -5896,132 +5956,158 @@
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_amplifier_signals_detected",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestValueFlowGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_amplifier_signals_empty_on_quiet_tree",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestValueFlowGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_backward_slice_reaches_unguarded_entries",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestValueFlowGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_backward_slice_reports_state_vars_on_paths",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestValueFlowGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_contract_nodes_and_inheritance",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_external_calls_and_low_level",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_functions_visibility_modifiers",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_index_tree_is_pure_and_matches_wrapper",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_index_validates_against_schema",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexValidatesAgainstSchema"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_internal_call_edges",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_non_solidity_tree_degrades",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestNonSolidityTreeDegrades"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_overloads_with_different_params_have_different_selectors",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_path_exists",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_selector_drops_param_names_and_keywords",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_selector_field_on_external_functions",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_selector_keeps_array_suffixes",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_sink_detects_delegatecall_only_function",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestValueFlowGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_sink_detects_flashloan_call",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestValueFlowGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_sink_detects_low_level_call",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestValueFlowGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_sink_functions_detected",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestValueFlowGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_specials_detected",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_specials_have_null_selector",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_state_variables",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_storage_write_tracking",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_unguarded_surface",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestValueFlowGolden"
   },
   {
    "python_file": "tests/test_structural_index.py",
    "python_func": "test_value_flow_report_artifact_and_event",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/campaign_test.go",
+   "go_func": "TestValueFlowReportRegistersAndConverges"
   },
   {
    "python_file": "tests/test_symmetry_teeth.py",
@@ -6403,112 +6489,135 @@
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_closure_entries_sorted_and_shaped",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_closure_is_transitive",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_closure_keeps_defining_contract_and_override_wins",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_closure_uses_the_defining_bodys_facts",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_concept_keys_fold_address_into_addr",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestConceptKeysVectors"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_concept_keys_fold_prev_state_root_into_hash",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestConceptKeysVectors"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_guard_class_is_independent_of_concept_keys",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestGuardStrengthVectors"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_guard_class_scale_zero_to_four",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestGuardStrengthVectors"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_guard_concept_keys_fold_identifiers",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestConceptKeysVectors"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_guard_with_nested_commas_is_not_truncated",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestGuardStrengthVectors"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_guards_are_sorted_and_normalized",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestGuardStrengthVectors"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_guards_statement_order_line_and_class",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestGuardStrengthVectors"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_if_guard_only_when_it_reverts",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestGuardStrengthVectors"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_index_is_deterministic_across_runs_and_paths",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexDeterministicAndArtifactBytes"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_saved_artifacts_are_byte_identical",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexDeterministicAndArtifactBytes"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_schema_rejects_malformed_v2_facts",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexValidatesAgainstSchema"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_sibling_fixture_is_seven_identical_signatures",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden",
+   "notes": "the structural fixture carries the seven sibling gateways"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_uses_cover_compound_write_as_read_and_write",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_uses_exclude_modifier_bodies",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_uses_kinds_and_concepts",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_v1_consumers_still_see_the_old_surface",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_v2_index_validates_against_schema",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexValidatesAgainstSchema"
   },
   {
    "python_file": "tests/test_probe_emit.py",
@@ -6613,17 +6722,21 @@
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_index_sha_changes_when_a_guard_changes_in_the_tree",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/campaign_test.go",
+   "go_func": "TestIndexShaChangesWithGuardAndIsRebuildStable"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_index_sha_ignores_exactly_the_volatile_index_keys",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/campaign_test.go",
+   "go_func": "TestIndexShaIgnoresVolatileKeys"
   },
   {
    "python_file": "tests/test_probes.py",
    "python_func": "test_index_sha_is_rebuild_stable_for_an_unchanged_tree",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/campaign_test.go",
+   "go_func": "TestIndexShaChangesWithGuardAndIsRebuildStable",
+   "notes": "index_sha is ported in internal/structidx; probes.campaign_index_sha is installed through planner.SetCampaignIndexSha"
   },
   {
    "python_file": "tests/test_probes.py",
@@ -6943,27 +7056,33 @@
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_cast_and_chained_calls_are_indexed_in_statement_order",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_ensure_fresh_index_rebuilds_pre_v3_and_reuses_v3",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/campaign_test.go",
+   "go_func": "TestEnsureFreshIndexReusesPinnedAndRebuildsStale"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_parse_version_is_v3_and_every_node_is_an_index",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestIndexTreeGolden",
+   "notes": "parse_version pinned by every fixture golden"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_pre_v3_index_is_rejected_loudly",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/structidx_test.go",
+   "go_func": "TestRequireParseVersion"
   },
   {
    "python_file": "tests/test_structural_index_v2.py",
    "python_func": "test_save_index_refuses_pre_v3",
-   "status": "deferred-P3"
+   "go_file": "internal/structidx/campaign_test.go",
+   "go_func": "TestSaveIndexRejectsStaleParseVersion"
   },
   {
    "python_file": "tests/test_attention_ledger.py",

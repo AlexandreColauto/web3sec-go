@@ -196,6 +196,66 @@ func writeCanonObj(b *strings.Builder, v Value, compact bool) {
 	b.WriteByte('}')
 }
 
+// DumpsOrdered serializes v like CPython json.dumps(v) with the default
+// ", " / ": " separators and INSERTION order (ascii selects ensure_ascii).
+// Canon sorts keys because that is the hash form; a log written without
+// sort_keys (costs.jsonl) needs this one.
+func DumpsOrdered(v Value, ascii bool) string {
+	var b strings.Builder
+	writeOrdered(&b, v, ascii)
+	return b.String()
+}
+
+func writeOrdered(b *strings.Builder, v Value, ascii bool) {
+	switch v.Kind {
+	case Null:
+		b.WriteString("null")
+	case Bool:
+		if v.B {
+			b.WriteString("true")
+		} else {
+			b.WriteString("false")
+		}
+	case Int:
+		b.WriteString(IntText(v))
+	case Flt:
+		b.WriteString(PythonFloat(v.F))
+	case Str:
+		b.WriteByte('"')
+		if ascii {
+			writeEscaped(b, v.S)
+		} else {
+			writeEscapedRaw(b, v.S)
+		}
+		b.WriteByte('"')
+	case Arr:
+		b.WriteByte('[')
+		for i, e := range v.A {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			writeOrdered(b, e, ascii)
+		}
+		b.WriteByte(']')
+	case Obj:
+		b.WriteByte('{')
+		for i, kv := range v.O {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteByte('"')
+			if ascii {
+				writeEscaped(b, kv.K)
+			} else {
+				writeEscapedRaw(b, kv.K)
+			}
+			b.WriteString("\": ")
+			writeOrdered(b, kv.V, ascii)
+		}
+		b.WriteByte('}')
+	}
+}
+
 // writeEscaped writes s with CPython ensure_ascii=True escaping.
 func writeEscaped(b *strings.Builder, s string) {
 	for i := 0; i < len(s); {
@@ -248,11 +308,20 @@ func writeU4(b *strings.Builder, r rune) {
 // (WriteJson adds it).
 func DumpIndented(v Value) string {
 	var b strings.Builder
-	writeIndented(&b, v, 0)
+	writeIndented(&b, v, 0, false)
 	return b.String()
 }
 
-func writeIndented(b *strings.Builder, v Value, depth int) {
+// DumpIndentedASCII renders json.dumps(v, indent=2) with CPython's default
+// ensure_ascii=True: same layout as DumpIndented, but every non-ASCII rune
+// becomes a \uXXXX escape (surrogate pair above 0xffff).
+func DumpIndentedASCII(v Value) string {
+	var b strings.Builder
+	writeIndented(&b, v, 0, true)
+	return b.String()
+}
+
+func writeIndented(b *strings.Builder, v Value, depth int, ascii bool) {
 	pad := strings.Repeat("  ", depth)
 	inner := pad + "  "
 	switch v.Kind {
@@ -270,7 +339,11 @@ func writeIndented(b *strings.Builder, v Value, depth int) {
 		b.WriteString(PythonFloat(v.F))
 	case Str:
 		b.WriteByte('"')
-		writeEscapedRaw(b, v.S)
+		if ascii {
+			writeEscaped(b, v.S)
+		} else {
+			writeEscapedRaw(b, v.S)
+		}
 		b.WriteByte('"')
 	case Arr:
 		if len(v.A) == 0 {
@@ -283,7 +356,7 @@ func writeIndented(b *strings.Builder, v Value, depth int) {
 				b.WriteString(",\n")
 			}
 			b.WriteString(inner)
-			writeIndented(b, e, depth+1)
+			writeIndented(b, e, depth+1, ascii)
 		}
 		b.WriteString("\n" + pad + "]")
 	case Obj:
@@ -298,9 +371,13 @@ func writeIndented(b *strings.Builder, v Value, depth int) {
 			}
 			b.WriteString(inner)
 			b.WriteByte('"')
-			writeEscapedRaw(b, kv.K)
+			if ascii {
+				writeEscaped(b, kv.K)
+			} else {
+				writeEscapedRaw(b, kv.K)
+			}
 			b.WriteString("\": ")
-			writeIndented(b, kv.V, depth+1)
+			writeIndented(b, kv.V, depth+1, ascii)
 		}
 		b.WriteString("\n" + pad + "}")
 	}

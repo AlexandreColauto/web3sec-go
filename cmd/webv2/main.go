@@ -12,13 +12,20 @@ import (
 	"strconv"
 
 	"websec/internal/cli"
+	"websec/internal/costs"
 	"websec/internal/dedup"
+	"websec/internal/envgo"
 	"websec/internal/findings"
+	"websec/internal/forkdiff"
 	"websec/internal/forkpoc"
+	"websec/internal/histmining"
 	"websec/internal/invariants"
 	"websec/internal/orchestrator"
+	"websec/internal/pipeline"
 	"websec/internal/reproduction"
+	"websec/internal/sandbox"
 	"websec/internal/sequencepoc"
+	"websec/internal/structidx"
 	"websec/internal/taxonomy"
 	// init() side effects: taxonomy wires findings.SetClassAdvisory,
 	// floors wires findings.SetEffectiveFloor (Python import-time seams),
@@ -73,6 +80,19 @@ func init() {
 	orchestrator.SetSequencePOC(orchestrator.SequencePOCAPI{
 		IsSequenceRequired: sequencepoc.IsSequenceRequired,
 	})
+	// T26 seams: env (D17), costs, and the structural index that
+	// histmining's recency scores read. Same targets as cli.ensureSeams,
+	// which the command handlers call for in-process callers.
+	sandbox.SetClassifyFailure(envgo.ClassifyFailure)
+	sandbox.SetSandboxPreflight(envgo.SandboxPreflight)
+	sandbox.SetDockerImageProbe(envgo.DockerImageProbe)
+	pipeline.SetCosts(costs.API{})
+	structidx.Wire()
+	histmining.SetIndexAPI(histmining.IndexAPI{
+		EnsureFreshIndex: structidx.EnsureFreshIndex,
+		SinkFunctions:    structidx.SinkFunctions,
+	})
+	forkdiff.Wire()
 	// Golden-suite hook: Python's findings.new_finding_id mints a RAW
 	// uuid4, so the WEBV2_UUID pin never reaches it and the reference twin
 	// emits a fresh finding id per run. The cross-twin golden harness sets
@@ -89,6 +109,20 @@ func init() {
 			sum := sha256.Sum256([]byte(fmt.Sprintf("%s:fid:%d", seed, base+draw)))
 			draw++
 			return "F-" + hex.EncodeToString(sum[:])[:12]
+		})
+	}
+	// Same hook for cost ids (costs.record_cost mints a RAW uuid4 too):
+	// WEBV2_COST_IDS=pin + WEBV2_COST_ID_SEQ draws the identical
+	// sha256("<seed>:fid:<n>")[:12] stream the Python shim patches into
+	// uuid.uuid4, so costs.jsonl compares byte-for-byte across twins.
+	if os.Getenv("WEBV2_COST_IDS") == "pin" {
+		base, _ := strconv.Atoi(os.Getenv("WEBV2_COST_ID_SEQ"))
+		draw := 0
+		seed := os.Getenv("WEBV2_UUID")
+		costs.SetCostIDSource(func() string {
+			sum := sha256.Sum256([]byte(fmt.Sprintf("%s:fid:%d", seed, base+draw)))
+			draw++
+			return "COST-" + hex.EncodeToString(sum[:])[:12]
 		})
 	}
 }

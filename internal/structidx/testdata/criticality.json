@@ -1,0 +1,227 @@
+{
+ "model": {
+  "state_machines": [
+   {
+    "name": "rollup",
+    "states": [],
+    "transitions": []
+   }
+  ],
+  "contracts": [
+   {
+    "name": "Rollup",
+    "path": "Rollup.sol",
+    "entry_points": [
+     "commitBatch",
+     "finalize"
+    ]
+   },
+   {
+    "name": "Vault",
+    "path": "Vault.sol",
+    "entry_points": [
+     "deposit",
+     "withdraw"
+    ]
+   },
+   {
+    "name": "Utils",
+    "path": "Utils.sol",
+    "entry_points": [
+     "version"
+    ]
+   }
+  ],
+  "actors": [],
+  "assets": [],
+  "oracles": [],
+  "upgrade_paths": [],
+  "relations": [],
+  "economic_relations": [],
+  "invariants": []
+ },
+ "model2": {
+  "state_machines": [
+   {
+    "name": "Vault",
+    "states": [],
+    "transitions": []
+   }
+  ],
+  "contracts": [
+   {
+    "name": "Vault",
+    "path": "Vault.sol",
+    "entry_points": [
+     "deposit",
+     "withdraw"
+    ]
+   },
+   {
+    "name": "VaultProxy",
+    "path": "VaultProxy.sol",
+    "entry_points": [
+     "upgradeTo"
+    ]
+   }
+  ],
+  "actors": [],
+  "assets": [],
+  "oracles": [],
+  "upgrade_paths": [],
+  "relations": [],
+  "economic_relations": [],
+  "invariants": []
+ },
+ "model3": {
+  "state_machines": [
+   {
+    "name": "src/VaultProxy.sol",
+    "states": [],
+    "transitions": []
+   }
+  ],
+  "contracts": [
+   {
+    "name": "Vault",
+    "path": "Vault.sol",
+    "entry_points": [
+     "deposit",
+     "withdraw"
+    ]
+   },
+   {
+    "name": "VaultProxy",
+    "path": "src/VaultProxy.sol",
+    "entry_points": [
+     "upgradeTo"
+    ]
+   }
+  ],
+  "actors": [],
+  "assets": [],
+  "oracles": [],
+  "upgrade_paths": [],
+  "relations": [],
+  "economic_relations": [],
+  "invariants": []
+ },
+ "rank": [
+  {
+   "contract": "Rollup",
+   "tier": "consensus-critical",
+   "reasons": [
+    "hosts a state machine"
+   ]
+  },
+  {
+   "contract": "Utils",
+   "tier": "peripheral",
+   "reasons": [
+    "no high-criticality signal"
+   ]
+  },
+  {
+   "contract": "Vault",
+   "tier": "peripheral",
+   "reasons": [
+    "no high-criticality signal"
+   ]
+  }
+ ],
+ "rank2": [
+  {
+   "contract": "Vault",
+   "tier": "consensus-critical",
+   "reasons": [
+    "hosts a state machine"
+   ]
+  },
+  {
+   "contract": "VaultProxy",
+   "tier": "peripheral",
+   "reasons": [
+    "no high-criticality signal"
+   ]
+  }
+ ],
+ "rank3": [
+  {
+   "contract": "VaultProxy",
+   "tier": "consensus-critical",
+   "reasons": [
+    "hosts a state machine"
+   ]
+  },
+  {
+   "contract": "Vault",
+   "tier": "peripheral",
+   "reasons": [
+    "no high-criticality signal"
+   ]
+  }
+ ],
+ "crit_hit": [
+  {
+   "name": "Vault",
+   "tokens": [
+    "VaultProxy",
+    "vaultproxy"
+   ],
+   "hit": false
+  },
+  {
+   "name": "Rollup",
+   "tokens": [
+    "Rollup.sol"
+   ],
+   "hit": true
+  },
+  {
+   "name": "Rollup",
+   "tokens": [
+    "rollup"
+   ],
+   "hit": true
+  },
+  {
+   "name": "VaultProxy",
+   "tokens": [
+    "src/VaultProxy.sol"
+   ],
+   "hit": true
+  },
+  {
+   "name": "Vault",
+   "tokens": [
+    "src/VaultProxy.sol"
+   ],
+   "hit": false
+  },
+  {
+   "name": "Vault",
+   "tokens": [
+    "VaultProxy"
+   ],
+   "hit": false
+  },
+  {
+   "name": "Rollup",
+   "tokens": [
+    "Rollup.finalize"
+   ],
+   "hit": true
+  },
+  {
+   "name": "Vault",
+   "tokens": [
+    "Rollup.sol#Rollup.commitBatch"
+   ],
+   "hit": false
+  }
+ ],
+ "index_sha": {
+  "structural": "514a29454e202f9627932be7e8c421f0f95a1868ebbe4d3e90c891f747cc0166",
+  "v1": "c553cb5e548c015bdfd32dacd08a29171b012ffb928c9373b0f35ff5cbbbdbc7"
+ }
+}

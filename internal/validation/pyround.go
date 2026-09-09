@@ -18,6 +18,8 @@ import (
 // n=0 matches CPython round(x) as a value (CPython returns an int;
 // webv2 never calls with n=0). Non-finite input panics: every webv2
 // call site is finite by construction (ratios of counts, bounded sums).
+func PyRound(x float64, n int) float64 { return pythonRound(x, n) }
+
 func pythonRound(x float64, n int) float64 {
 	if n < 0 {
 		panic("pythonRound: negative ndigits unsupported (unused in webv2)")

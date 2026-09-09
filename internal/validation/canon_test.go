@@ -61,3 +61,33 @@ func TestCanonJSON(t *testing.T) {
 		})
 	}
 }
+
+// TestDumpsOrdered pins json.dumps' non-sorted form: insertion order, the
+// default ", " / ": " separators, and ensure_ascii on demand. This is the
+// costs.jsonl encoder (Canon sorts keys because it is the hash form).
+func TestDumpsOrdered(t *testing.T) {
+	// CPython 3.14: json.dumps({"b": 1, "a": "é"}) == '{"b": 1, "a": "\u00e9"}'
+	v := VObj(KV{"b", VInt(1)}, KV{"a", VStr("\u00e9")},
+		KV{"c", VArr(VNull(), VBool(false), VFloat(2.5))})
+	if got, want := DumpsOrdered(v, true),
+		"{\"b\": 1, \"a\": \"\\u00e9\", \"c\": [null, false, 2.5]}"; got != want {
+		t.Errorf("ascii\n got: %q\nwant: %q", got, want)
+	}
+	if got, want := DumpsOrdered(v, false),
+		"{\"b\": 1, \"a\": \"é\", \"c\": [null, false, 2.5]}"; got != want {
+		t.Errorf("raw\n got: %q\nwant: %q", got, want)
+	}
+	// Ints stay ints, nested objects keep their own order.
+	nested := VObj(KV{"z", VObj(KV{"y", VInt(1)}, KV{"x", VInt(2)})},
+		KV{"a", VInt(3)})
+	if got, want := DumpsOrdered(nested, true),
+		"{\"z\": {\"y\": 1, \"x\": 2}, \"a\": 3}"; got != want {
+		t.Errorf("nested\n got: %q\nwant: %q", got, want)
+	}
+	if got := DumpsOrdered(VObj(), true); got != "{}" {
+		t.Errorf("empty obj = %q", got)
+	}
+	if got := DumpsOrdered(VArr(), true); got != "[]" {
+		t.Errorf("empty arr = %q", got)
+	}
+}

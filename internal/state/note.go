@@ -13,6 +13,10 @@ import (
 // full content belongs in a registered artifact.
 const NOTE_CAP = 4096
 
+// CapNote is cap_note, exported for doctor's note repair: webv2.doctor
+// caps stage/artifact notes in the projection with exactly this function.
+func CapNote(note validation.Value) string { return capNote(note) }
+
 // capNote is Python's cap_note: null -> ""; strings pass through capped;
 // other values are serialized (sorted, ensure_ascii) so a handler return
 // value can never smuggle a payload into the state file. Truncation is

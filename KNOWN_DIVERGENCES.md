@@ -299,9 +299,13 @@ rows marked as golden-normalized — nothing else.
   byte-for-byte against the live Python by `.scratch/t20/parity.py`
   (45/45 cases: the four verbs, the solc-cache preflight refusal, every
   `classify` verdict, `exec --help` for all four commands).
-- **Unblocks:** the P3 env port installs its own implementation over the
-  seam and deletes this row; the defaults are already equivalent, so no
-  behavior changes when it does.
+- **Unblocks:** CLOSED by T26 — `internal/envgo` (the `webv2.env` port)
+  is now installed over `SetClassifyFailure` / `SetSandboxPreflight` /
+  `SetDockerImageProbe` by `cli.ensureSeams()` and `cmd/webv2`'s
+  `init()`. The transcription stays as the seam default and is
+  byte-identical to the port (`.scratch/t26/parity.py`: 127/127
+  cross-twin checks byte-exact, including `env doctor` text/`--json` and
+  the `doctor` preflight section).
 
 ## P2 (maximization / chains / sequences, T21–T23)
 
@@ -352,6 +356,49 @@ rows marked as golden-normalized — nothing else.
 - **Unblocks:** wiring the two flags into `runSnap` (≈20 lines, mirroring
   `cmd_snap`'s tail); the docker e2e then gains a chain pin and the
   coverage check flips to `required>=1, covered>=1`.
+
+## P3 (env / costs / history-mining, T26)
+
+### D23 — bare `webv2 env` prints the wrong help in the reference
+- **What:** `build_parser()` gives the `env` parser a
+  `set_defaults(func=lambda a: (s.print_help() ...))` closure whose `s`
+  is late-bound; by the time the lambda runs `s` has been rebound to the
+  LAST subparser built (today `sft`). The reference therefore prints the
+  `sft` usage block (exit 0) for bare `webv2 env`; the Go twin prints the
+  `env` usage block.
+- **Why:** reproducing it would hard-code another task's parser help into
+  `cmd_env.go`, and the quirk would have to be re-pinned when `sft` lands.
+- **Golden:** no recipe runs bare `webv2 env`; `env doctor` (both
+  surfaces) and `env <bad-action>` compare byte-for-byte.
+- **Unblocks:** porting `sft`, then printing that parser's help from
+  `runEnv` (≈3 lines) closes this row.
+
+## P3 (knowledge & memory: structural index / forkdiff, T25)
+
+### D24 — `baselines` hangs off the binary's cwd, not the package root
+- **What:** Python's `forkdiff.REPO_ROOT` is `Path(__file__).resolve()
+  .parent.parent.parent` and `BASELINES_DIR = REPO_ROOT / "baselines"`, so
+  the store lives beside the *source package* (an absolute path). A Go
+  binary has no source-relative root, so `forkdiff.RepoRoot` defaults to
+  the ABSOLUTE working directory (`SetRepoRoot` / `SetBaselinesDir` let an
+  embedder or CLI repoint it). Both are absolute, but the prefix differs
+  unless the two twins run with the same cwd — which every parity harness
+  in this repo does (`scripts/golden.sh` runs both with `cwd=GO_ROOT`;
+  `.scratch/t25/cross_twin.py` and `argfuzz.py` run both from one temp
+  cwd).
+- **Why:** there is no portable way to recover "the directory the Python
+  package was installed from" from a compiled binary; pinning a path
+  constant would be worse (it would break every relocation). The
+  *contract* — one manifest + one directory per baseline, relative
+  `src/` trees, byte-identical `baseline.json` — is unaffected, and
+  `baseline.json` records no path.
+- **Golden:** no recipe step reads a baselines path; `baseline add/list/
+  remove` and the fork-diff report compare byte-for-byte. The one
+  diagnostic that embeds the destination (`baseline source X overlaps the
+  destination Y`) is compared by `.scratch/t25/argfuzz.py` with both
+  twins in one cwd.
+- **Unblocks:** nothing (host fact, permanent). A future `--baselines-dir`
+  flag would let an operator pin the store explicitly.
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**

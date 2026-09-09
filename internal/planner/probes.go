@@ -111,12 +111,31 @@ func defaultProbesAPI() ProbesAPI {
 var (
 	probesMu  sync.RWMutex
 	probesAPI = defaultProbesAPI()
+	// probesOwnsIndexSha records whether the last SetProbes supplied its
+	// own CampaignIndexSha. When it did not, PB() layers in the seam
+	// installed by SetCampaignIndexSha (the structural-index port), so an
+	// unrelated SetProbes call cannot silently drop the §5.7 tree hash.
+	probesOwnsIndexSha bool
+
+	indexShaMu sync.RWMutex
+	indexShaFn func(*state.Campaign) *string
 )
+
+// SetCampaignIndexSha installs only the structural-index hash seam
+// (probes.campaign_index_sha). Unlike a SetProbes call it cannot disturb any
+// other probes hook, and it survives a later SetProbes that leaves
+// CampaignIndexSha nil.
+func SetCampaignIndexSha(fn func(c *state.Campaign) *string) {
+	indexShaMu.Lock()
+	indexShaFn = fn
+	indexShaMu.Unlock()
+}
 
 // SetProbes installs the probes implementation. Nil function fields (and a nil
 // Probes map) fall back to the feature-absent default, so a partial install
 // can never nil-panic. Passing a fully nil ProbesAPI restores the default.
 func SetProbes(p ProbesAPI) {
+	ownsIndexSha := p.CampaignIndexSha != nil
 	d := defaultProbesAPI()
 	if p.RegisteredAxes == nil {
 		p.RegisteredAxes = d.RegisteredAxes
@@ -153,14 +172,26 @@ func SetProbes(p ProbesAPI) {
 	}
 	probesMu.Lock()
 	probesAPI = p
+	probesOwnsIndexSha = ownsIndexSha
 	probesMu.Unlock()
 }
 
-// PB is the installed probes implementation (the Python `PB` alias).
+// PB is the installed probes implementation (the Python `PB` alias). The
+// structural-index hash seam is layered in unless the probes port supplied
+// its own (see SetCampaignIndexSha).
 func PB() ProbesAPI {
 	probesMu.RLock()
-	defer probesMu.RUnlock()
-	return probesAPI
+	p, owns := probesAPI, probesOwnsIndexSha
+	probesMu.RUnlock()
+	if !owns {
+		indexShaMu.RLock()
+		fn := indexShaFn
+		indexShaMu.RUnlock()
+		if fn != nil {
+			p.CampaignIndexSha = fn
+		}
+	}
+	return p
 }
 
 // RegisteredAxes is PB.registered_axes().

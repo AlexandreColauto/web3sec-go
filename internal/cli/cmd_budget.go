@@ -3,19 +3,14 @@ package cli
 // cmd_budget: `webv2 budget <campaign> [--set USD] [--set-discovery N]
 // [--clear] [--actor A] [--json]` — the cost position against the operator's
 // ceiling plus the deterministic discovery ceiling. cli.py cmd_budget
-// verbatim (costs.budget_status is ported locally: the costs module is not
-// part of this task).
+// verbatim over costs.budget_status (T26).
 
 import (
-	"errors"
 	"fmt"
-	"math"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
-	"websec/internal/findings"
+	"websec/internal/costs"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -144,6 +139,27 @@ func splitFlag(arg string) (string, string, bool) {
 	return arg, "", false
 }
 
+// isNegNumberCLI is argparse's _negative_number_matcher: when a parser
+// declares no options that look like negative numbers (none of ours do),
+// `-1` and `-1.5` are positionals/values, not flags.
+func isNegNumberCLI(arg string) bool {
+	if len(arg) < 2 || arg[0] != '-' {
+		return false
+	}
+	body := arg[1:]
+	dot := -1
+	for i := 0; i < len(body); i++ {
+		switch {
+		case body[i] >= '0' && body[i] <= '9':
+		case body[i] == '.' && dot < 0:
+			dot = i
+		default:
+			return false
+		}
+	}
+	return body != "" && body != "."
+}
+
 // budgetSetDiscovery is the --set-discovery branch.
 func budgetSetDiscovery(c *state.Campaign, a *budgetArgs, r *Runner) error {
 	if a.set != nil || a.clear {
@@ -184,7 +200,7 @@ func budgetShow(c *state.Campaign, a *budgetArgs, r *Runner) error {
 			return err
 		}
 	}
-	st, err := t14BudgetStatus(c)
+	st, err := costs.BudgetStatus(c)
 	if err != nil {
 		return err
 	}
@@ -215,118 +231,6 @@ func budgetShow(c *state.Campaign, a *budgetArgs, r *Runner) error {
 		objInt(disc, "discovery_findings_so_far"),
 		objInt(disc, "max_discovery_findings"))
 	return nil
-}
-
-// t14BudgetStatus is costs.budget_status. Order of keys is Python's dict
-// insertion order (limit_usd, spent_usd, status, remaining_usd, ...).
-func t14BudgetStatus(c *state.Campaign) (validation.Value, error) {
-	budget, err := c.Budget()
-	if err != nil {
-		return validation.VNull(), err
-	}
-	spent, err := t14TotalCost(c)
-	if err != nil {
-		return validation.VNull(), err
-	}
-	limit := objAt(budget, "max_total_cost_usd")
-	if limit.Kind == validation.Null {
-		return validation.VObj(
-			validation.KV{K: "limit_usd", V: validation.VNull()},
-			validation.KV{K: "spent_usd", V: spent},
-			validation.KV{K: "status", V: validation.VStr("no-limit")},
-			validation.KV{K: "remaining_usd", V: validation.VNull()},
-			validation.KV{K: "note", V: validation.VStr(
-				"no max_total_cost_usd set — spend is unbounded; set one in " +
-					"the campaign budget to halt the pipeline when the " +
-					"ceiling is crossed")},
-		), nil
-	}
-	lim := objFlt(budget, "max_total_cost_usd")
-	remaining := lim - t14ValueFlt(spent)
-	status := "within"
-	if remaining < 0 {
-		status = "exceeded"
-	}
-	return validation.VObj(
-		validation.KV{K: "limit_usd", V: validation.VFloat(lim)},
-		validation.KV{K: "spent_usd", V: spent},
-		validation.KV{K: "status", V: validation.VStr(status)},
-		validation.KV{K: "remaining_usd", V: validation.VFloat(remaining)},
-		validation.KV{K: "over_by_usd", V: validation.VFloat(
-			math.Max(0, -remaining))},
-	), nil
-}
-
-// t14TotalCost is yield_report(c)["totals"]["total_cost_usd"]. Python builds
-// one trajectory row per cost entry AND per CONFIRMED finding (its kinds
-// default to 0.0), then sums the rows; sum() over NO rows at all is the INT
-// 0, so a campaign with neither a cost row nor a CONFIRMED finding reports
-// spent_usd as 0 (not 0.0) — the JSON dump shows the difference.
-func t14TotalCost(c *state.Campaign) (validation.Value, error) {
-	trajs := map[string]struct{}{}
-	total := 0.0
-	path := filepath.Join(c.Dir, "costs.jsonl")
-	raw, err := os.ReadFile(path)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return validation.VNull(), err
-	}
-	for _, line := range strings.Split(string(raw), "\n") {
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		row, perr := validation.ParseOrdered([]byte(line))
-		if perr != nil {
-			return validation.VNull(), perr
-		}
-		// d[e["kind"]] only counts the kinds COST_KINDS names; a row of any
-		// other kind still creates the trajectory row (with 0.0 kinds).
-		if t14CostKind(objStr(row, "kind")) {
-			total += objFlt(row, "amount_usd")
-		}
-		trajs[t14TrajectoryOf(objStr(row, "trajectory"))] = struct{}{}
-	}
-	all, err := findings.LoadAllFindings(c)
-	if err != nil {
-		return validation.VNull(), err
-	}
-	for _, f := range all {
-		if objStr(f, "status") != "CONFIRMED" {
-			continue
-		}
-		trajs[t14TrajectoryOf(objStr(f, "trajectory"))] = struct{}{}
-	}
-	if len(trajs) == 0 {
-		return validation.VInt(0), nil
-	}
-	return validation.VFloat(total), nil
-}
-
-// t14CostKinds is costs.COST_KINDS.
-var t14CostKinds = []string{"model", "compute", "human-review"}
-
-func t14CostKind(kind string) bool {
-	for _, k := range t14CostKinds {
-		if k == kind {
-			return true
-		}
-	}
-	return false
-}
-
-// t14TrajectoryOf is `e.get("trajectory") or "unattributed"`.
-func t14TrajectoryOf(traj string) string {
-	if traj == "" {
-		return "unattributed"
-	}
-	return traj
-}
-
-// t14ValueFlt widens an Int/Flt value to float64.
-func t14ValueFlt(v validation.Value) float64 {
-	if v.Kind == validation.Int {
-		return float64(v.I)
-	}
-	return v.F
 }
 
 // objFlt is objAt + the float value (ints widen; absent is 0.0).

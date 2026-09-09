@@ -26,6 +26,10 @@ func nowIso() string {
 		now.Format("2006-01-02T15:04:05"), now.Nanosecond()/1000)
 }
 
+// NowIso is now_iso, exported for the modules that stamp their own reports
+// (doctor's repaired_at, history mining's generated_at).
+func NowIso() string { return nowIso() }
+
 // newId is Python's new_id: prefix + "-" + the first n hex chars of a
 // fresh uuid4 (version and variant bits set, as uuid.uuid4 does).
 // uuidPinCounter advances once per pinned id; it is the deterministic
