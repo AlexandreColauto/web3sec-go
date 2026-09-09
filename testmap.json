@@ -859,17 +859,20 @@
   {
    "python_file": "tests/test_campaign_memory_strip.py",
    "python_func": "test_campaign_typed_root_and_stripped_rows_approve",
-   "status": "deferred-P3"
+   "go_file": "internal/learning/learning_test.go",
+   "go_func": "TestCampaignTypedRootAndStrippedRowsApprove"
   },
   {
    "python_file": "tests/test_campaign_memory_strip.py",
    "python_func": "test_strip_idempotent_no_duplicate_log",
-   "status": "deferred-P3"
+   "go_file": "internal/learning/learning_test.go",
+   "go_func": "TestStripIdempotentNoDuplicateLog"
   },
   {
    "python_file": "tests/test_campaign_memory_strip.py",
    "python_func": "test_strip_removes_field_and_logs_event",
-   "status": "deferred-P3"
+   "go_file": "internal/learning/learning_test.go",
+   "go_func": "TestStripRemovesFieldAndLogsEvent"
   },
   {
    "python_file": "tests/test_cap_role_labels.py",
@@ -2670,12 +2673,14 @@
   {
    "python_file": "tests/test_history_learning.py",
    "python_func": "test_drift_report_and_hypotheses",
-   "status": "deferred-P3"
+   "go_file": "internal/learning/learning_test.go",
+   "go_func": "TestDriftReportAndHypotheses"
   },
   {
    "python_file": "tests/test_history_learning.py",
    "python_func": "test_memory_promotion_requires_human",
-   "status": "deferred-P3"
+   "go_file": "internal/learning/learning_test.go",
+   "go_func": "TestMemoryPromotionRequiresHuman"
   },
   {
    "python_file": "tests/test_history_learning.py",
@@ -2686,7 +2691,8 @@
   {
    "python_file": "tests/test_history_learning.py",
    "python_func": "test_negative_memory_local_lookup",
-   "status": "deferred-P3"
+   "go_file": "internal/learning/learning_test.go",
+   "go_func": "TestNegativeMemoryLocalLookup"
   },
   {
    "python_file": "tests/test_history_learning.py",
@@ -4205,92 +4211,110 @@
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_audit_flags_a_drifted_edge",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestAuditFlagsADriftedEdge"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_audit_flags_a_forged_edge",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestAuditFlagsAForgedEdge"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_capability_delta_survives_a_materialized_chain",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestCapabilityDeltaSurvivesAMaterializedChain"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_causation_is_human_gated_and_audited",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestCausationIsHumanGatedAndAudited"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_chained_with_requires_a_real_chain",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestChainedWithRequiresARealChain"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_delta_ignores_exogenous_attacker_held_caps",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestDeltaIgnoresExogenousAttackerHeldCaps"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_disproved_by_only_from_disproved_memory",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestDisprovedByOnlyFromDisprovedMemory"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_edge_is_log_anchored_and_idempotent",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestEdgeIsLogAnchoredAndIdempotent"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_fixed_by_requires_a_mined_commit_on_the_affected_path",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestFixedByRequiresAMinedCommitOnTheAffectedPath"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_mint_all_deterministic_is_idempotent",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestMintAllDeterministicIsIdempotent"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_observed_in_covers_every_pin",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestObservedInCoversEveryPin"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_reintroduced_by_requires_date_order",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestReintroducedByRequiresDateOrder"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_relation_vocabulary_is_closed",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestRelationVocabularyIsClosed"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_relations_schema_rejects_unknown_fields",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestRelationsSchemaRejectsUnknownFields"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_resemblance_capability_delta_flagship",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestResemblanceCapabilityDeltaFlagship"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_resemblance_excludes_unrelated_findings",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestResemblanceExcludesUnrelatedFindings"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_resemblance_is_never_stored",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestResemblanceIsNeverStored"
   },
   {
    "python_file": "tests/test_relations.py",
    "python_func": "test_validated_by_only_for_e4_plus_with_an_exec",
-   "status": "deferred-P3"
+   "go_file": "internal/relations/relations_test.go",
+   "go_func": "TestValidatedByOnlyForE4PlusWithAnExec"
   },
   {
    "python_file": "tests/test_report_clusters.py",
@@ -5879,152 +5903,182 @@
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_global_scope_row_is_recalled_for_any_program",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestGlobalScopeRowIsRecalledForAnyProgram"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_global_scope_signatures_are_recalled_for_any_program",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestGlobalScopeSignaturesAreRecalledForAnyProgram"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_manifest_chain_catches_a_deleted_publish",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestManifestChainCatchesADeletedPublish"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_manifest_chain_catches_an_edited_record",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestManifestChainCatchesAnEditedRecord"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_merged_tiers_dedupe_and_union_visibility",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestMergedTiersDedupeAndUnionVisibility"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_publish_is_idempotent",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestPublishIsIdempotent"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_publish_only_confirmed_and_approved",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestPublishOnlyConfirmedAndApproved"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_publish_requires_a_policy",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestPublishRequiresAPolicy"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_publish_requires_an_actor",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestPublishRequiresAnActor"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_publish_second_campaign_with_approved_memory",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestPublishSecondCampaignWithApprovedMemory"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_publish_to_global_tier_is_visible_from_another_root",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestPublishToGlobalTierIsVisibleFromAnotherRoot"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_recall_excludes_the_candidates_own_campaign",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestRecallExcludesTheCandidatesOwnCampaign"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_recall_filters_by_program",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestRecallFiltersByProgram"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_recall_finds_a_cross_campaign_primitive",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestRecallFindsACrossCampaignPrimitive"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_recall_ignores_exogenous_required_caps",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestRecallIgnoresExogenousRequiredCaps"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_recall_is_advisory_and_writes_nothing",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestRecallIsAdvisoryAndWritesNothing"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_recall_surfaces_approved_memory",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestRecallSurfacesApprovedMemory"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_recall_without_a_policy_is_honest",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestRecallWithoutAPolicyIsHonest"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_recall_without_policy_still_returns_global_rows",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestRecallWithoutPolicyStillReturnsGlobalRows"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_set_scope_is_manifest_logged_and_keeps_verify_green",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestSetScopeIsManifestLoggedAndKeepsVerifyGreen"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_set_scope_requires_an_actor",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestSetScopeRequiresAnActor"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_signature_is_derived_not_raw",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestSignatureIsDerivedNotRaw"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_store_is_at_the_root_level",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestStoreIsAtTheRootLevel"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_store_view_reports_both_tiers",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestStoreViewReportsBothTiers"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_verify_flags_a_hand_edit",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestVerifyFlagsAHandEdit"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_verify_passes_on_a_clean_store",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestVerifyPassesOnACleanStore"
   },
   {
    "python_file": "tests/test_shared_memory.py",
    "python_func": "test_verify_reports_a_missing_store_as_ok",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestVerifyReportsAMissingStoreAsOk"
   },
   {
    "python_file": "tests/test_shared_memory_migration.py",
    "python_func": "test_migration_is_idempotent",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestMigrationIsIdempotent"
   },
   {
    "python_file": "tests/test_shared_memory_migration.py",
    "python_func": "test_migration_strips_field_and_appends_manifest",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestMigrationStripsFieldAndAppendsManifest"
   },
   {
    "python_file": "tests/test_shared_memory_migration.py",
    "python_func": "test_migration_verifies_after_rewrite",
-   "status": "deferred-P3"
+   "go_file": "internal/sharedmem/sharedmem_test.go",
+   "go_func": "TestMigrationVerifiesAfterRewrite"
   },
   {
    "python_file": "tests/test_structural_index.py",
@@ -7896,42 +7950,50 @@
   {
    "python_file": "tests/test_noop_reporting.py",
    "python_func": "test_memory_listing_unchanged_with_rows",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t28_test.go",
+   "go_func": "TestMemoryListingUnchangedWithRows"
   },
   {
    "python_file": "tests/test_noop_reporting.py",
    "python_func": "test_memory_no_rows_says_so_and_names_the_next_command",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t28_test.go",
+   "go_func": "TestMemoryNoRowsSaysSoAndNamesTheNextCommand"
   },
   {
    "python_file": "tests/test_noop_reporting.py",
    "python_func": "test_memory_promoted_row_says_already_promoted",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t28_test.go",
+   "go_func": "TestMemoryPromotedRowSaysAlreadyPromoted"
   },
   {
    "python_file": "tests/test_noop_reporting.py",
    "python_func": "test_memory_reapprove_is_explicit_and_writes_nothing",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t28_test.go",
+   "go_func": "TestMemoryReapproveIsExplicitAndWritesNothing"
   },
   {
    "python_file": "tests/test_noop_reporting.py",
    "python_func": "test_memory_reapprove_of_held_out_row_still_refuses",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t28_test.go",
+   "go_func": "TestMemoryReapproveOfHeldOutRowStillRefuses"
   },
   {
    "python_file": "tests/test_noop_reporting.py",
    "python_func": "test_publish_noop_names_the_reason_and_the_command",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t28_test.go",
+   "go_func": "TestPublishNoopNamesTheReasonAndTheCommand"
   },
   {
    "python_file": "tests/test_noop_reporting.py",
    "python_func": "test_publish_noop_when_everything_is_already_published",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t28_test.go",
+   "go_func": "TestPublishNoopWhenEverythingIsAlreadyPublished"
   },
   {
    "python_file": "tests/test_noop_reporting.py",
    "python_func": "test_publish_that_adds_rows_keeps_todays_output",
-   "status": "deferred-P3"
+   "go_file": "internal/cli/cmd_t28_test.go",
+   "go_func": "TestPublishThatAddsRowsKeepsTodaysOutput"
   },
   {
    "python_file": "tests/test_work_order.py",

@@ -292,6 +292,8 @@ func ensureSeams() {
 	// forkdiff: the baselines audit section (audit.py section 10) reads the
 	// baselines directory and the T0-parser fingerprint from here.
 	forkdiff.Wire()
+	// T28: the learning/relations/shared_memory seams (D15/D18 closure).
+	wireT28Seams()
 }
 
 // docMapSeam adapts invariants.DocumentedInvariants to findings' seam shape.

@@ -217,10 +217,15 @@ func strArr(items []string) validation.Value {
 func strList(v validation.Value) []string {
 	switch v.Kind {
 	case validation.Arr:
+		// Python's normalize_labels runs str() over EVERY element, so a
+		// recorded precondition (a dict) becomes its repr and still yields a
+		// label — the prose fallback capabilities.required documents.
 		out := make([]string, 0, len(v.A))
 		for _, e := range v.A {
 			if e.Kind == validation.Str {
 				out = append(out, e.S)
+			} else {
+				out = append(out, validation.PyRepr(e))
 			}
 		}
 		return out

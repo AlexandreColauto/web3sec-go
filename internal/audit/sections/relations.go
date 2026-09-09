@@ -4,10 +4,10 @@
 // whose support disappeared is drift: the structure moved (or the edge was
 // forged) and the graph no longer describes it.
 //
-// The re-derivation itself lives in relations.py (a P3 module that is not
-// ported yet), so this section is a seam: RelationsAPI.VerifyRelations is
-// the whole section, and the default is the exact dict Python returns when
-// the campaign has no relations artifact at all
+// The re-derivation itself lives in internal/relations (the T28 port), so
+// this section is a seam: RelationsAPI.VerifyRelations is the whole
+// section, and the default is the exact dict Python returns when the
+// campaign has no relations artifact at all
 // (load_relations -> [] -> {"checked": 0, "problems": [], "ok": True}).
 // Python does NOT wrap this section in try/except, so an error propagates
 // out of audit_campaign; the Go section mirrors that.
@@ -18,8 +18,8 @@ import (
 	"websec/internal/validation"
 )
 
-// RelationsAPI is the relations.verify_relations seam. The P3 relations
-// port implements it; until then the default reproduces the empty-campaign
+// RelationsAPI is the relations.verify_relations seam. internal/relations
+// implements it (relations.API); the default reproduces the empty-campaign
 // answer byte-for-byte.
 type RelationsAPI interface {
 	VerifyRelations(c *state.Campaign) (validation.Value, error)

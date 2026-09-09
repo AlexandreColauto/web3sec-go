@@ -8,13 +8,12 @@ package cli
 // load_planner_hints seam is wired to the local twin).
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
+	"websec/internal/learning"
 	"websec/internal/planner"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -62,7 +61,8 @@ func runHint(root string, args []string, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	row, err := t14PlannerHint(c, a.kind, a.content, a.sourceRef, a.actor)
+	row, err := learning.PlannerHint(c, learning.HintOpts{Kind: a.kind,
+		Content: a.content, SourceRef: a.sourceRef, Actor: a.actor})
 	if err != nil {
 		return err
 	}
@@ -148,78 +148,16 @@ func t14FlagGiven(args []string, name string) bool {
 	return false
 }
 
-// t14PlannerHint is learning.planner_hint: append-only, attributed, logged.
-// Hints are SUGGESTIONS to the planner: they never mutate the plan or a
-// finding on their own.
-func t14PlannerHint(c *state.Campaign, kind, content, sourceRef,
-	actor string) (validation.Value, error) {
-	if !t14InList(kind, t14HintKinds) {
-		return validation.VNull(), fmt.Errorf(
-			"invalid hint kind %s; kinds: %v", validation.PyReprStr(kind),
-			t14PyTuple(t14HintKinds))
-	}
-	if len([]rune(strings.TrimSpace(content))) < 10 {
-		return validation.VNull(), errors.New(
-			"a planner hint needs substantive content (>=10 chars)")
-	}
-	if actor == "" {
-		actor = "reflection"
-	}
-	hintID := "HINT-" + strings.SplitN(state.NewID("x", 8), "-", 2)[1]
-	row := validation.VObj(
-		validation.KV{K: "hint_id", V: validation.VStr(hintID)},
-		validation.KV{K: "campaign_id", V: validation.VStr(c.CampaignID)},
-		validation.KV{K: "kind", V: validation.VStr(kind)},
-		validation.KV{K: "content", V: validation.VStr(strings.TrimSpace(content))},
-		validation.KV{K: "source_ref", V: validation.VStr(sourceRef)},
-		validation.KV{K: "actor", V: validation.VStr(actor)},
-		validation.KV{K: "at", V: validation.VStr(t14NowIso())},
-	)
-	path := filepath.Join(c.Dir, "planner_hints.jsonl")
-	fh, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return validation.VNull(), t14OSError(path, err)
-	}
-	if _, err := fh.WriteString(t14PyJSONLine(row) + "\n"); err != nil {
-		fh.Close()
-		return validation.VNull(), err
-	}
-	if err := fh.Close(); err != nil {
-		return validation.VNull(), err
-	}
-	data := validation.VObj(
-		validation.KV{K: "kind", V: validation.VStr(kind)},
-		validation.KV{K: "actor", V: validation.VStr(actor)},
-	)
-	if _, err := c.Log("learning.planner_hint", &hintID, &data); err != nil {
-		return validation.VNull(), err
-	}
-	return row, nil
-}
-
 // t14LoadPlannerHints is learning.load_planner_hints(campaign,
 // kind="priority"): the rows the work queue consumes, in file order.
 func t14LoadPlannerHints(c *state.Campaign) ([]planner.PlannerHint, error) {
-	path := filepath.Join(c.Dir, "planner_hints.jsonl")
-	raw, err := os.ReadFile(path)
+	kind := "priority"
+	rows, err := learning.LoadPlannerHints(c, &kind)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
 		return nil, err
 	}
 	var out []planner.PlannerHint
-	for _, line := range strings.Split(string(raw), "\n") {
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		row, perr := validation.ParseOrdered([]byte(line))
-		if perr != nil {
-			return nil, perr
-		}
-		if objStr(row, "kind") != "priority" {
-			continue
-		}
+	for _, row := range rows {
 		out = append(out, planner.PlannerHint{
 			HintID:  objStr(row, "hint_id"),
 			Content: objStr(row, "content"),

@@ -37,6 +37,9 @@ type ladderArgs struct {
 }
 
 func runLadder(root string, args []string, r *Runner) int {
+	// D18: `disprove` queues negative memory through maximization's
+	// learning seam, so the seam must be installed on this path too.
+	ensureSeams()
 	return t14Dispatch(root, r, func() error {
 		a, err := parseLadder(args, r)
 		if err != nil || a == nil {
