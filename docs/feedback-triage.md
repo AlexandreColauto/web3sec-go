@@ -604,3 +604,118 @@ joined into a path; `budget --clear --set` and
 | `sft` version-bump semantics on re-curation | Whether a no-op update should bump `version` is a dataset-contract call. |
 | `probes` `--flag=value` parity | 23 verbs accept the `=` form; `probes` does not. Cosmetic until someone scripts it. |
 | E6 queue tie-break by realised impact | The ordering is deliberate and pinned by `TestIndependentVerificationQueueOrdersMandatoryFirst`; changing the key is a contract change, not a bug fix. |
+
+---
+
+## 2026-09-10 — external review triage (P0 batch)
+
+Inputs: `../morph/webv2-workspace/reviews/webv2-framework-review.md`
+(defects D1–D9) and `../morph/webv2-workspace/reviews/eval-retro-gold-findings.md`
+(the consumption miss). This section records what the P0 batch
+(`docs/superpowers/plans/2026-09-10-p0-review-consumption.md`, commits
+`2dbea50` → `b4a8397`) closed, what it deliberately left to the P1
+consumption plan, and one correction to the eval retro's premise. The P0
+plan's "out of scope" list *is* the P1 list, so nothing below is news to
+the plan — it is recorded here so it is not dropped.
+
+Reproductions below were re-run against a throwaway copy of the operator's
+campaign `C-21dd6a7642` with a binary built from HEAD; see "Where the
+reproductions live" at the end.
+
+### Closed by this batch
+
+| item | commit | reproduction that used to fail | evidence it is fixed |
+|---|---|---|---|
+| **D1** schema-legal custody label | `2dbea50` "Emit a schema-legal custody label and keep divergence row identity" + `10477d4` "Restrict the omitted-field rule to the custody key so other gaps still fail loudly" | `probes C-21dd6a7642 run --emit` → `error: probe_surface validation failed at rows/5/custody: 'transfer-in' is not one of ['burns', 'mints']` | the same command now exits 0 and emits (`emit: created 16, updated 54, kept 0, reopened 0, orphaned 8` on the copy); `symCustodyLabel` writes `custody` only for mint→`mints`/burn→`burns` and `idSlots` falls back to `observed`; tests `TestCustodyPrimitiveOmitsCustodyForNonCreditDivergences`, `TestCustodyPrimitiveIdentitySurvivesOmittedCustody`, `TestMintAndBurnCustodyLabelsSurviveTheOmission`, `TestFinalizeKeepsAbsentDeclaredFieldsExceptCustody` |
+| **D8** gate blocker wording | `53d182f` "Make the gate's fork blocker state the precise reason" | `gate C-21dd6a7642` → `blocker: no proven mainnet fork PoC (the latest required step)` | now prints `blocker: no proven mainnet fork PoC: fork-level evidence exists but no fork-runner exec has verified sequence coverage — run a T4 sequence PoC (webv2 sequence run); a single-call fork PoC cannot prove this multi-step exploit` (reproduced on the copy); `TestForkPocBlockerCarriesStatusReason`; the waiver path is unchanged (`TestForkPocWaiverBlockerUnchanged`) and only the pinned gates snapshot moved |
+| **D6** report precision | `022d986` "Report a non-negative false-positive ratio over the critic-confirmed set" | `report.md` → `- **precision:** critic-confirmed: 4  - evidence-confirmed: 5  - false-positive ratio: -25.0%` | now `- **precision:** critic-confirmed: 4  - evidence-confirmed: 5  - false-positive ratio: 0.0%` (reproduced on the copy); the ratio is `criticNoEvidenceN/criticN`, bounded to [0, 100], and `n/a (no critic-confirmed findings)` when the denominator is zero (`TestReportPrecisionRatioNeverNegative`, `TestReportPrecisionRatioNoCriticConfirmed`) |
+| **D4** memory queue command | `5041d54` "Queue the memory row a terminal finding needs" | `prove C-21dd6a7642 \| grep '^learning'` → `learning  open  [authoritative] — F-6791c9aee0b5: no memory entry for this terminal finding (learning.queue_memory); …` | `memory C-21dd6a7642 --queue-finding F-6791c9aee0b5 --kind confirmed` prints `MEM-5440ce05 queued for F-6791c9aee0b5 (CONFIRMED) — approve with: webv2 memory C-21dd6a7642 --approve MEM-5440ce05 --by NAME`, and `prove` then drops that finding from the `learning` line (both reproduced on the copy); tests `TestMemoryQueueFindingSatisfiesLearningProof`, `TestMemoryQueueFindingRejectsNonMemoryStatus`, `TestMemoryQueueFindingKindDerivation` |
+| **D5** coverage reason + help | `b4a8397` "Name the actors a sequence PoC is missing and document the coverage rule" | `sequence verify` on a two-actor `exploit_sequence` executed by one actor printed only `executed steps use 1 distinct actor(s) but the declared exploit needs 2 — a single-account PoC cannot cover a multi-actor exploit`, and `sequence run --help` never mentioned coverage | the reason now ends `; missing: <declared label>` (sorted, verbatim, nothing appended when coverage is met or exceeded), and the help states the rule; tests `TestActorGapReasonNamesMissingActor`, `TestActorGapReasonSortsAndKeepsLabelsVerbatim`, `TestActorCoverageMetYieldsNoActorReason`, `TestExecutedActorSupersetYieldsNoActorReason`, plus the `run --help` line in `internal/cli/cmd_sequence_test.go` |
+
+**D1 residual (open).** On the campaign copy the sanctioned repair now runs
+but does not reach a clean audit: `probes run --emit --per-axis 30 --total 70`
+(the quotas the surface records) rebuilds 70 rows where the original had 62,
+the `trust-assumption` axis under-fills 29 → 21 rows, and `audit` still
+reports 8 `[probe_surface]` problems — plan priorities Q-253…Q-260 cite probe
+rows the rebuilt surface no longer carries — down from 24 before the emit
+(the copy also carries 4 unrelated `[artifacts]` missing-file problems). So
+the plan's "audit then reports zero `[probe_surface]` problems" acceptance is
+**not** reproduced here; the abort is gone (the defect D1 names), and
+plan↔surface identity drift on this copy is a separate open item.
+
+### Still open (deferred, with the reason)
+
+| item | evidence at HEAD | why deferred |
+|---|---|---|
+| **D2** capability graph has no writer | `chainengine/materialize.go:437` is the `capability gap: F-… -> F-… (grants …, needs …)` error; the graph reads `capabilities.granted`/`capabilities.required` (materialize.go:429). Grep finds no writer: there is no `link` verb and no command that sets those keys, so `chain`/`chains` is a gate feature the operator cannot populate (`capability links: 0`) | recording edges is a new mutation surface over the finding payload plus `show` rendering — a subsystem, not a P0 fix; the plan allows exactly one new flag (`--queue-finding`) |
+| **D3** severity floor has no mutation surface | `bounty/bounty.go:298` (`blast_radius`) and `:312` (`require_invariant_violation`) read those keys in the policy rules; outside tests the only other reader is `risk/risk.go` (its own scoring) and nothing writes them — no `severity` verb, no idempotent payload patch | it needs a decision about whether the policy inputs are operator-set or ingest-only, plus a mutation surface (or a documented idempotent patch) |
+| **D7** tooling failure ≡ coverage failure | `cmd_sequence.go:394-401` renders every `VerifySequenceCoverage` reason as a FAIL row; a missing `sequence_result.json` (`sequencepoc/run.go:215`) produces a reason of the same shape as a genuine actor/step gap, so `EXEC-9ff37b9a43` reads as a permanent coverage FAIL | distinguishing tooling failure from coverage needs a classification on the reason and a retryability rule — a contract change to `sequence verify`, and it pairs with D9 |
+| **D9** budget has no attempt classes | `reproduction.RecordAttempt` enforces one `max_repro_attempts_per_finding` counter (`state/campaign.go:86`, default 6) over every outcome; 3/6 attempts went to `http://host.docker.internal:8545` being unreachable and to tooling probes, and the sanctioned fix was hand-editing `campaign_state.json` (backup `campaign_state.json.bak-prebudget`) | attempt classes are a new axis on the attempt ledger plus a migration/decision for the existing counter; out of the P0 plan's scope |
+
+**Correction to the eval retro's premise.** The retro says the campaign
+reached `bounty-gate` with "every authoritative stage green"
+(`eval-retro-gold-findings.md` §3a). `prove` on the campaign copy does not
+agree — `discovery` is open and authoritative:
+
+```
+$ webv2 --root . prove C-21dd6a7642
+discovery                  open  [authoritative] — Q-001: Can the drain-capable roles (user, staker, challenger, rollu; Q-143: Within its stated constraints (timelocked=no, threshold=n/a); Q-144: Within its stated constraints (timelocked=no, threshold=n/a)
+```
+
+(`hostile-review`, `maximal-exploitation` and `protocol-model` are the
+authoritative stages that were DONE.) The real gap is therefore not "every
+gate was green" but what the green gates measure, in three parts: **(a)** the
+bounty gate never consumes coverage — grep finds no `probe`/`coverage` read
+anywhere in `internal/bounty/`, so `bounty-gate DONE` is independent of 0/62
+probes worked; **(b)** the `discovery` bar is the whole plan —
+`proofDiscovery` (`completion/proofs.go:197`) drains `planner.WorkQueue`, so
+it demands all 261 priorities, not the tier-0 / risk≥0.85 slice that would
+have surfaced G-01's Q-199 (risk 0.9); and **(c)** `brief` renders the probe
+surface as a bare count — `probe surface: 62 rows (0 dispositioned, 62 open)`
+next to `questions worked 0/261`, with no ranked-coverage line.
+
+### The P1 consumption batch (the eval retro's asks)
+
+One line each on why it matters and what it costs; this is the P0 plan's
+"out of scope" list.
+
+| ask | why it matters | what it costs |
+|---|---|---|
+| provenance (`probe_row_id` on findings) | none of the four confirmed findings cites a probe row (`provenance keys: []`), so probe burn-down, family concentration and "predicted, never tested: 2 tier-0 rank-1 rows" are not computable | a new finding-payload field validated by ingest and rendered in `show`/report, plus schema + golden vectors and a story for findings already written |
+| a scoped ranked-coverage gate consumed by the bounty gate | every gate measured the quality of what the campaign had; none measured which ranked hypotheses were tested, so the gate passed with 0/62 probes worked and 0/261 priorities answered | a new gate clause and waiver vocabulary, and a decision on the scope (tier-0 / risk≥0.85) — unscoped it is a blanket block |
+| a per-row probe disposition verb | the surface has 0/62 dispositioned rows and no per-row lifecycle; the only consumer is the stage that ran once | a new CLI surface plus disposition storage; it must be one-row-one-reason or it recreates the G-01 closure at scale (see C4 above) |
+| consequence-shaped row rendering | G-01 was the #1-ranked row and was skimmed because its `why` reads as `class 4 … class-0 guard … equality-to-persisted-state`, not as an attack, while G-02's reads as one | a renderer change over every probe's `why`; must stay deterministic and must not move row ids or ranks |
+
+### Task 4 residual — the two terminal-status vocabularies disagree
+
+Carried out of Task 4's review (real, deferred, outside D4's fix):
+`completion.TerminalStatuses` (`internal/completion/completion.go:34`) is
+`CONFIRMED, DISPROVED, DUPLICATE, OUT_OF_SCOPE, INFORMATIONAL, CHAIN`, while
+`learning.MEMORY_STATUSES` (`internal/learning/learning.go:21`) is
+`CONFIRMED, DISPROVED, DUPLICATE, OUT_OF_SCOPE, INTENDED_BEHAVIOR,
+UNREACHABLE, NON-ECONOMIC, TEST-HARNESS-ONLY`. The learning proof therefore
+demands a memory row for a terminal finding whose status is `INFORMATIONAL`
+or `CHAIN`, and `memory --queue-finding` is required to refuse exactly those
+(status ∉ `MEMORY_STATUSES`). Two options: **widen** `MEMORY_STATUSES` with
+`INFORMATIONAL`/`CHAIN` — which edits `assets/schema/memory.schema.json`, and
+assets are hash-pinned by `assets/testdata/asset_manifest.json`; or **narrow**
+`TerminalStatuses` so the learning proof stops tracking those two — a change
+to a gate's own scope. Either is a gate/vocabulary decision, not a bug fix.
+
+### Where the reproductions live
+
+The plan's reproductions rest on controller-side scratch, not repo fixtures:
+
+- the campaign copy is `.scratch/morph-eval/campaigns/C-21dd6a7642`
+  (untracked; the binary's `--root .` is `.scratch/morph-eval`);
+- `.scratch/review/lead/webv3` is a **stale, pre-fix** build — its output
+  reproduces the original symptoms and must not be read as HEAD behavior;
+- to re-run: copy the campaign to a throwaway dir, build HEAD
+  (`GOCACHE=.scratch/gocache go build -o /tmp/webv2 ./cmd/webv2` —
+  `$HOME/.cache/go-build` is read-only in this environment), and pass
+  `--root <copy>`. Prefer a copy: `probes run --emit`, `report` and
+  `memory --queue-finding` all write.
+
+---
+
+*End of the 2026-09-10 P0 batch record.*
