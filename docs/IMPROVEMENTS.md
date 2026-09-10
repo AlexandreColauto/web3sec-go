@@ -430,6 +430,97 @@ the existing `chains` verb file); `assets/schema/chain.schema.json`.
 **Tests:** unproven gate pass/reject, pin relaxation, provenance stamping,
 golden-safe (no new output for existing campaigns without the flag).
 
+**As landed (B3):**
+- `internal/chainengine/materialize.go` carries the whole change.
+  `MaterializeOpts{Unproven bool}` + `MaterializeChainOpts(...)` are the new
+  entry point; `MaterializeChain` (the Python-era signature, six args) now
+  delegates with `Unproven: false`, so every existing caller and byte shape is
+  untouched. `loadChainMembersMode` drops the status gate only for unproven;
+  `checkPinsMode` is the gate table described below; `chainLinksMode` adds
+  `link_evidence` (`bestEvidenceLevel`: the strongest E-level on the link's
+  `from_finding`, `E0` when it has none) to each link for unproven;
+  `writeChainDoc` appends `provenance` only when non-empty (a proven doc has
+  no such key — the pre-B3 byte shape); the event is
+  `chain.materialized_unproven` with data `{members, evidence_floor,
+  provenance}` and no `super_finding`.
+- **No super-finding — a deliberate tightening of the design.** The design
+  asked for an unproven chain that (a) is never counted as evidence-confirmed
+  and (b) prices its liveness terminal. In Go the price lives on the CHAIN
+  super-finding's `economic_impact`, and a CHAIN-status finding is read as
+  confirmed by *at least* the report's confirmed count, the bounty-gate re-run
+  inside `Generate`, `TerminalReport`, the briefing and relations — so (a)
+  cannot hold while a super-finding exists without filtering every one of
+  those consumers, and each miss silently upgrades a lead. Materializing the
+  doc alone gives (a) structurally: the members keep their statuses, no
+  finding is written, and no code path can see the chain as evidence. The
+  cost is (b): with no finding there is no `economic_impact`, so the price is
+  **not** asserted — the report's unproven section states the price that would
+  apply ("a liveness freeze would price at the blast-radius floor … no price
+  is asserted") and names the terminal (`derivedTerminal`, which is exactly
+  B1's `FindTerminalChainsMode(..., includeHypothesis=true)` seam, matching
+  the derived path set to the member set and carrying `via_finding` +
+  `total_capital_required_usd`). `livenessImpact` therefore keeps its original
+  single-argument signature: no dead `unproven` branch. Documented as a
+  divergence rather than silently.
+- **Pin relaxation, as implemented.** The design's literal words ("share one
+  pin OR be pinned to the active snapshot") collapse to the proven rule for a
+  non-empty set — a set that is all-active *is* a shared pin — so the
+  meaningful relaxation is admitting a mixed set. `checkPinsMode(pins,
+  unproven)` therefore accepts any set of non-null pins for unproven
+  (including ingest's `unpinned` placeholder, which is what a finding carries
+  when no snapshot was active yet) and still refuses a member with no pin at
+  all: a chain with no stated basis is not a lead. The proven path is
+  byte-for-byte the old rule and error text.
+- CLI `internal/cli/cmd_chain.go`, **ord 72**: `webv2 chain <campaign>
+  <finding> <finding> [...] [--unproven] [--note NOTE] [--title TITLE]`.
+  Positionals are greedy (argparse `nargs='+'`), `--flag=VALUE` works,
+  `--unproven=true` is rejected as argparse rejects an explicit argument to
+  `store_true`, `-h/--help` prints the verb's help block (Go-only verb — the
+  prose is ours), and a refusal from the proven gate maps to exit 2 with
+  `chain failed: … — pass --unproven to materialize a hypothesis-level
+  chain`. Default title is the member path `<F-a> -> <F-b>` (deterministic, and
+  comfortably past the chain schema's 10-rune title floor); `--note` becomes
+  the narrative. Success prints one line: `CHAIN-…: unproven chain materialized
+  from 2 members (evidence floor E0), terminal liveness_loss via F-…, no
+  super-finding (hypothesis-level)`. (`adversarial-game` from B2 gained the
+  same `-h/--help` treatment in this wave.)
+- `chains` renders the provenance as a suffix on the materialized row and
+  splits its headline when one exists (`materialized chains: 2 (1 unproven —
+  hypothesis-level leads, not evidence)`) — both appended only when an
+  unproven chain is present, so a campaign without one prints the pre-B3
+  bytes; same marker on the `terminals` rows (an unproven chain's terminal is
+  a destination, not a result). Adapter `structuredOutputs()` gains the
+  `chain` key.
+- Report (`internal/report/report.go`): `splitChainsByProvenance` is the one
+  split (field presence; a pre-B3 doc with no `provenance` key is proven), the
+  `- chains materialized: **N**` line counts `len(provenChains)`, and when
+  `len(unprovenChains) > 0` a `- unproven chains (hypothesis-level): N — leads
+  only, never counted as confirmed` line follows. The unproven chains render
+  in their own `## Unproven chains (hypothesis-level)` section after the
+  proven `### CHAIN:` blocks: `### UNPROVEN CHAIN: <title>`, id + provenance +
+  evidence floor, members, narrative, per-link `from-member evidence E…`, and
+  the terminal with the no-price-asserted note. Both blocks are
+  presence-gated, so a campaign without an unproven chain is byte-identical to
+  pre-B3 (asserted in the tests, not assumed).
+- Schema `assets/schema/chain.schema.json`: `provenance` (enum `["proven",
+  "unproven"]`, default `proven`) as an optional top-level property, and
+  `link_evidence` (enum `E0`–`E7`) as an optional property of each
+  `capability_links` entry — both additive, neither required, so every
+  existing chain doc still validates.
+- Tests: `internal/chainengine/unproven_test.go` (6 — doc/provenance/
+  link-evidence/derived-terminal/no-super-finding/event, cross-snapshot pins
+  vs the proven refusal, the proven refusal + proven byte shape with a
+  super-finding, the `checkPinsMode` table, duplicate rejection),
+  `internal/cli/cmd_chain_test.go` (5 — help, six argparse vectors, the
+  unproven path end to end through `chains`, the proven refusal hint, the
+  missing-campaign mapping), `internal/report/report_unproven_test.go` (2 —
+  the section + count lines + "chain id appears exactly once", and the
+  presence gate).
+- Golden: **no oracle updates and no normalization**. No fixture calls
+  `chain --unproven` (`MaterializeChain` stays the default path), the schema
+  additions are optional, and the new verb's help/usage text is not captured
+  by any scenario step. `scripts/golden.sh` and `go test ./...` are green.
+
 ### B4. Disposition linter (D1 — would have caught the G-01 miss)
 
 From `docs/feedback-triage.md:277-299` (open since 2026-09-09): G-01 sat at

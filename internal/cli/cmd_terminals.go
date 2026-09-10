@@ -55,10 +55,16 @@ func printTerminals(r *Runner, rep validation.Value) {
 	fmt.Fprintf(r.Out, "materialized terminal chains: %d\n", len(materialized.A))
 	for _, ch := range materialized.A {
 		t := objAt(ch, "terminal")
-		fmt.Fprintf(r.Out, "  %s [%s] -> %s via %s (floor %s)\n",
+		line := fmt.Sprintf("  %s [%s] -> %s via %s (floor %s)",
 			objStr(ch, "chain_id"), objStr(ch, "status"),
 			objStr(t, "capability"), scalarStr(objAt(t, "via_finding")),
 			objStr(ch, "evidence_floor"))
+		// B3: an unproven chain's terminal is the lead's destination, not a
+		// result — say so. A proven chain renders exactly as before.
+		if objStr(ch, "provenance") == "unproven" {
+			line += " — UNPROVEN (hypothesis-level)"
+		}
+		fmt.Fprintln(r.Out, line)
 	}
 }
 

@@ -738,7 +738,39 @@ Bug-hunt sweep).
   at ingest; and the report gains two presence-gated blocks — the three
   clause lines in the finding section, and a "### LIVENESS FINDINGS — who
   profits from the freeze" subsection listing every liveness finding at any
-  status (`who_profits` or `UNANSWERED (gate check15)`). Golden stays green
+  status (`who_profits` or `UNANSWERED (gate check15)`). **B3** chain
+  materialization at HYPOTHESIS (Go-only — the Python twin is retired):
+  `MaterializeChainOpts(..., MaterializeOpts{Unproven: true})` opened the
+  chain engine's materializer to its first non-test caller path
+  (`MaterializeChain` now delegates with `Unproven: false`; the proven path's
+  bytes and behavior are unchanged). `--unproven` loads members at **any**
+  status, relaxes `checkPinsMode` to "every member carries a source pin"
+  (mixed pins are legal — a lead may span the snapshots its members were
+  filed against, and ingest's `unpinned` placeholder counts; a null pin is
+  still refused), stamps `provenance: "unproven"` on the chain doc, adds
+  `link_evidence` (E0–E7, the strongest level on the link's `from_finding`)
+  to each `capability_links` entry, and derives the terminal from
+  `FindTerminalChainsMode(..., includeHypothesis=true)` when the caller
+  passes none; it logs `chain.materialized_unproven` (data: members,
+  evidence_floor, provenance) and creates **no** super-finding, so nothing
+  downstream can count a hypothesis-level chain as evidence-confirmed (the
+  deliberate tightening: a CHAIN-status super-finding would leak the lead
+  into the confirmed count and the bounty-gate re-run). The CLI verb is
+  `webv2 chain <campaign> <finding> <finding> [...] [--unproven] [--note N]
+  [--title T]` (`internal/cli/cmd_chain.go`, ord 72; a proven refusal on
+  hypothesis members exits 2 with the `--unproven` hint); `chains` appends a
+  provenance marker to a materialized row and splits its headline count
+  (`materialized chains: N (M unproven — hypothesis-level leads, not
+  evidence)`) only when an unproven chain exists, `terminals` appends the same
+  marker to a row only when the doc says `unproven`; the report gains a presence-gated "## Unproven chains
+  (hypothesis-level)" section (its own UNPROVEN CHAIN heading, per-link
+  evidence levels, and the derived terminal carrying an explicit "no price is
+  asserted" note — an unproven chain has no super-finding, hence no
+  `economic_impact`), the `- chains materialized: **N**` summary line counts
+  **proven** chains only, and a presence-gated `- unproven chains
+  (hypothesis-level): N — leads only, never counted as confirmed` line sits
+  beside it; the adapter's `structuredOutputs` gains the `chain` key. Golden
+  stays green
   without normalization: no golden campaign declares a liveness finding or
   the clause, so every change is presence-gated behind a capability or field
   no existing finding carries. Intentional oracle updates that
@@ -756,6 +788,12 @@ Bug-hunt sweep).
   vectors, catalog + unknown-check lists). `scripts/golden.sh` stays green
   without normalization — its recipe policy carries no `accepted_risks` and
   its gate steps predate any CONFIRMED finding.
+  **B3** adds no oracle updates for
+  the same reason: no golden fixture calls `chain --unproven` (the flag is
+  new, `MaterializeChain` remains the default path), the `chain.schema.json`
+  additions (`provenance`, `link_evidence`) are optional additive properties,
+  and the new `chain` verb's `--help` text — like B2's `adversarial-game`
+  help, added in the same wave — is not captured by any scenario step.
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**

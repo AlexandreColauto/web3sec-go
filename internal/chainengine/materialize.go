@@ -28,19 +28,43 @@ func blastRank(b string) int {
 	return -1
 }
 
+// MaterializeOpts are the B3 switches. The zero value is the original
+// CONFIRMED-only materialization, byte-for-byte.
+type MaterializeOpts struct {
+	// Unproven materializes a HYPOTHESIS-LEVEL chain: members may sit at
+	// any status, the shared-pin gate relaxes to "every member carries a
+	// source pin" (mixed pins are legal — see checkPinsMode), every link
+	// carries its member's evidence level, the chain doc is stamped
+	// provenance "unproven", the event is chain.materialized_unproven, and
+	// NO super-finding is created. An unproven chain is a document, never a
+	// finding, so no CONFIRMED/CHAIN consumer (submission table, gate,
+	// counting, audit) can mistake it for an evidence-confirmed result.
+	Unproven bool
+}
+
 // MaterializeChain is materialize_chain(): create a CHAIN super-finding.
 // A nil terminal skips the annotation; links is accepted for signature
 // compatibility but never trusted (continuity is recomputed).
 func MaterializeChain(c *state.Campaign, memberIDs []string, title, narrative string,
 	links []validation.Value, terminal *validation.Value) (validation.Value, error) {
+	return MaterializeChainOpts(c, memberIDs, title, narrative, links, terminal,
+		MaterializeOpts{})
+}
+
+// MaterializeChainOpts is MaterializeChain with the B3 switches (see
+// MaterializeOpts). Only the unproven branch differs; the proven branch is
+// the original code path, unchanged.
+func MaterializeChainOpts(c *state.Campaign, memberIDs []string, title, narrative string,
+	links []validation.Value, terminal *validation.Value,
+	opts MaterializeOpts) (validation.Value, error) {
 	if len(memberIDs) < 2 {
 		return validation.VNull(), fmt.Errorf("a chain needs >= 2 members")
 	}
-	members, err := loadChainMembers(c, memberIDs)
+	members, err := loadChainMembersMode(c, memberIDs, opts.Unproven)
 	if err != nil {
 		return validation.VNull(), err
 	}
-	computed, err := chainLinks(members)
+	computed, err := chainLinksMode(members, opts.Unproven)
 	if err != nil {
 		return validation.VNull(), err
 	}
@@ -54,38 +78,115 @@ func MaterializeChain(c *state.Campaign, memberIDs []string, title, narrative st
 	if err := chainDuplicate(c, csig); err != nil {
 		return validation.VNull(), err
 	}
+	// B3: an unproven chain derives its terminal from the hypothesis-mode
+	// terminal search (B1's includeHypothesis seam) when the caller names
+	// none, so a HYPOTHESIS liveness finding can still price its liveness
+	// terminal. The derivation only *offers* an annotation — terminalAnnotation
+	// still verifies the capability against the via_finding.
+	if opts.Unproven && terminal == nil {
+		terminal = derivedTerminal(c, memberIDs)
+	}
 	terminalDoc, err := terminalAnnotation(c, memberIDs, members, terminal)
 	if err != nil {
 		return validation.VNull(), err
 	}
-	economicImpact := chainBlastRadius(members)
-	if terminalDoc != nil &&
-		capabilities.IsLivenessTerminal(objStr(*terminalDoc, "capability")) {
-		economicImpact = livenessImpact(economicImpact)
-	}
 
-	chainFinding, err := chainFindingDoc(c, memberIDs, members, title, narrative,
-		chainID, csig, floor, computed, economicImpact, terminalDoc)
-	if err != nil {
-		return validation.VNull(), err
-	}
-	if err := findings.SaveFinding(c, &chainFinding); err != nil {
-		return validation.VNull(), err
+	provenance, superID := "", ""
+	if opts.Unproven {
+		// No finding, hence no priceable artifact: the terminal the doc
+		// names is a LEAD's destination, and the report states that the
+		// liveness price (blast-radius floor, no USD figure) is NOT
+		// asserted for a hypothesis-level chain. Creating a CHAIN-status
+		// super-finding here would make the lead indistinguishable from a
+		// confirmed result in every downstream consumer (the submission
+		// count, the bounty gate re-run in report generation, the terminal
+		// search), which is exactly what "unproven" must prevent.
+		provenance = "unproven"
+	} else {
+		economicImpact := chainBlastRadius(members)
+		if terminalDoc != nil &&
+			capabilities.IsLivenessTerminal(objStr(*terminalDoc, "capability")) {
+			economicImpact = livenessImpact(economicImpact)
+		}
+		chainFinding, err := chainFindingDoc(c, memberIDs, members, title,
+			narrative, chainID, csig, floor, computed, economicImpact,
+			terminalDoc)
+		if err != nil {
+			return validation.VNull(), err
+		}
+		if err := findings.SaveFinding(c, &chainFinding); err != nil {
+			return validation.VNull(), err
+		}
+		superID = objStr(chainFinding, "finding_id")
 	}
 	ref := chainID
 	data := validation.VObj(
 		kvOf("members", strArr(memberIDs)),
 		kvOf("evidence_floor", validation.VStr(floor)),
-		kvOf("super_finding", validation.VStr(objStr(chainFinding, "finding_id"))),
 	)
-	if _, err := c.Log("chain.materialized", &ref, &data); err != nil {
+	if provenance != "" {
+		data.O = append(data.O, kvOf("provenance", validation.VStr(provenance)))
+	}
+	if superID != "" {
+		data.O = append(data.O, kvOf("super_finding", validation.VStr(superID)))
+	}
+	event := "chain.materialized"
+	if opts.Unproven {
+		event = "chain.materialized_unproven"
+	}
+	if _, err := c.Log(event, &ref, &data); err != nil {
 		return validation.VNull(), err
 	}
 
 	return writeChainDoc(chainDocInput{campaign: c, chainID: chainID,
 		signature: csig, title: title, narrative: narrative,
 		memberIDs: memberIDs, links: computed, floor: floor,
-		terminal: terminalDoc})
+		terminal: terminalDoc, provenance: provenance})
+}
+
+// maxDeriveDepth is the B3 terminal-search depth (the terminal report's
+// working depth).
+const maxDeriveDepth = 5
+
+// derivedTerminal is the B3 terminal derivation: the hypothesis-mode
+// terminal search is asked for reachable terminal paths, and a path whose
+// member set is exactly this chain's members becomes the terminal
+// annotation. No match (or a search error) means no annotation — the chain
+// still materializes, just unpriced. The search's own proposal cap applies,
+// so a campaign with hundreds of competing paths may miss a match; that
+// degrades to "unpriced", never to a wrong price.
+func derivedTerminal(c *state.Campaign, memberIDs []string) *validation.Value {
+	paths, err := FindTerminalChainsMode(c, nil, maxDeriveDepth,
+		len(memberIDs), true)
+	if err != nil {
+		return nil
+	}
+	want := setOf(memberIDs)
+	for _, p := range paths {
+		path := strList(objAt(p, "path"))
+		if len(path) != len(want) {
+			continue
+		}
+		got := setOf(path)
+		if len(got) != len(want) {
+			continue
+		}
+		if !subsetOf(got, want) {
+			continue
+		}
+		term := objStr(p, "terminal_finding")
+		if term == "" {
+			continue
+		}
+		doc := validation.VObj(
+			kvOf("capability", validation.VStr(objStr(p, "terminal_capability"))),
+			kvOf("via_finding", validation.VStr(term)),
+			kvOf("total_capital_required_usd",
+				objAt(p, "total_capital_required_usd")),
+		)
+		return &doc
+	}
+	return nil
 }
 
 // chainDuplicate is the idempotence guard: a chain over this exact member set
@@ -115,7 +216,12 @@ type chainDocInput struct {
 	memberIDs []string
 	links     []validation.Value
 	floor     string
-	terminal  *validation.Value
+	// provenance is "unproven" for a hypothesis-level chain (B3); empty
+	// means the doc carries no provenance key at all, so every chain
+	// materialized before B3 keeps its exact bytes (the schema's implied
+	// default is "proven").
+	provenance string
+	terminal   *validation.Value
 }
 
 // writeChainDoc builds, validates and persists the CHAIN document.
@@ -135,6 +241,11 @@ func writeChainDoc(in chainDocInput) (validation.Value, error) {
 	if in.terminal != nil {
 		chainDoc.O = append(chainDoc.O, kvOf("terminal", *in.terminal))
 	}
+	// B3: only present for an unproven chain (see chainDocInput.provenance).
+	if in.provenance != "" {
+		chainDoc.O = append(chainDoc.O,
+			kvOf("provenance", validation.VStr(in.provenance)))
+	}
 	if err := validation.Validate(chainDoc, "chain", 1); err != nil {
 		return validation.VNull(), err
 	}
@@ -150,6 +261,15 @@ func writeChainDoc(in chainDocInput) (validation.Value, error) {
 // pinned to the SAME source snapshot.
 func loadChainMembers(c *state.Campaign,
 	memberIDs []string) ([]validation.Value, error) {
+	return loadChainMembersMode(c, memberIDs, false)
+}
+
+// loadChainMembersMode is loadChainMembers with the B3 switch: the
+// unproven mode drops the status gate (a HYPOTHESIS .. POSSIBLE member is
+// the whole point) and relaxes the pin gate to "one shared pin, or every
+// member pinned to the active snapshot". The proven mode is unchanged.
+func loadChainMembersMode(c *state.Campaign, memberIDs []string,
+	unproven bool) ([]validation.Value, error) {
 	members := make([]validation.Value, 0, len(memberIDs))
 	for _, m := range memberIDs {
 		f, err := findings.LoadFinding(c, m)
@@ -158,24 +278,32 @@ func loadChainMembers(c *state.Campaign,
 		}
 		members = append(members, f)
 	}
-	unconfirmed := []string{}
-	for _, m := range members {
-		switch objStr(m, "status") {
-		case "CONFIRMED", "CHAIN":
-		default:
-			unconfirmed = append(unconfirmed, objStr(m, "finding_id"))
+	if !unproven {
+		unconfirmed := []string{}
+		for _, m := range members {
+			switch objStr(m, "status") {
+			case "CONFIRMED", "CHAIN":
+			default:
+				unconfirmed = append(unconfirmed, objStr(m, "finding_id"))
+			}
 		}
-	}
-	if len(unconfirmed) > 0 {
-		return nil, &findings.IllegalTransition{Msg: fmt.Sprintf(
-			"chain members must each be CONFIRMED first: %s",
-			pyListRepr(unconfirmed))}
+		if len(unconfirmed) > 0 {
+			return nil, &findings.IllegalTransition{Msg: fmt.Sprintf(
+				"chain members must each be CONFIRMED first: %s",
+				pyListRepr(unconfirmed))}
+		}
 	}
 	pins := []validation.Value{}
 	for _, m := range members {
 		pins = append(pins, objAt(objAt(m, "snapshot_ids"), "source"))
 	}
-	if err := checkPins(pins); err != nil {
+	if !unproven {
+		if err := checkPins(pins); err != nil {
+			return nil, err
+		}
+		return members, nil
+	}
+	if err := checkPinsMode(pins, true); err != nil {
 		return nil, err
 	}
 	return members, nil
@@ -237,6 +365,18 @@ func livenessImpact(impact validation.Value) validation.Value {
 
 // checkPins is the snapshot guard: exactly one distinct, non-null source pin.
 func checkPins(pins []validation.Value) error {
+	return checkPinsMode(pins, false)
+}
+
+// checkPinsMode is checkPins with the B3 switch. The shared-pin rule is a
+// PROOF constraint: it exists so every member of a proven chain was verified
+// against the same code. A hypothesis-level chain proves nothing, so the
+// honest relaxation is "every member carries a source pin" — mixed pins
+// (including the "unpinned" placeholder ingest writes when no snapshot was
+// active yet) are legal, because a proposal is allowed to span the snapshots
+// its members were filed against. A member with NO pin at all is still
+// refused: that chain has no stated basis even as a lead.
+func checkPinsMode(pins []validation.Value, unproven bool) error {
 	distinct := map[string]struct{}{}
 	hasNone := false
 	for _, p := range pins {
@@ -246,21 +386,42 @@ func checkPins(pins []validation.Value) error {
 		}
 		distinct[pyStr(p)] = struct{}{}
 	}
-	if len(distinct) > 1 || hasNone {
-		shown := setKeys(distinct)
-		if hasNone {
-			shown = append(shown, "None")
-			sort.Strings(shown)
+	if !unproven {
+		if len(distinct) > 1 || hasNone {
+			shown := setKeys(distinct)
+			if hasNone {
+				shown = append(shown, "None")
+				sort.Strings(shown)
+			}
+			return fmt.Errorf("chain members are pinned to different/missing "+
+				"source snapshots (%s); re-verify onto one pin first",
+				pyListRepr(shown))
 		}
-		return fmt.Errorf("chain members are pinned to different/missing "+
-			"source snapshots (%s); re-verify onto one pin first",
+		return nil
+	}
+	if hasNone {
+		shown := setKeys(distinct)
+		shown = append(shown, "None")
+		sort.Strings(shown)
+		return fmt.Errorf("chain members must each carry a source pin: "+
+			"unpinned member(s) among %s — pin the finding, or start from "+
+			"a snapshot, before proposing a hypothesis-level chain",
 			pyListRepr(shown))
 	}
+	// unproven: any non-null pin set is accepted (see the doc comment).
 	return nil
 }
 
 // chainLinks recomputes capability continuity from the members themselves.
 func chainLinks(members []validation.Value) ([]validation.Value, error) {
+	return chainLinksMode(members, false)
+}
+
+// chainLinksMode is chainLinks with the B3 switch: an unproven chain stamps
+// every link with its FROM member's own best evidence level, so a reader (and
+// the report) can see how thin each hop of a hypothesis-level chain is.
+func chainLinksMode(members []validation.Value,
+	unproven bool) ([]validation.Value, error) {
 	out := []validation.Value{}
 	for i := 0; i+1 < len(members); i++ {
 		a, b := members[i], members[i+1]
@@ -278,14 +439,36 @@ func chainLinks(members []validation.Value) ([]validation.Value, error) {
 				pyListRepr(setKeys(aCaps)), pyListRepr(setKeys(bNeeds)))
 		}
 		sort.Strings(overlap)
-		out = append(out, validation.VObj(
+		link := validation.VObj(
 			kvOf("from_finding", validation.VStr(objStr(a, "finding_id"))),
 			kvOf("granted", validation.VStr(overlap[0])),
 			kvOf("to_finding", validation.VStr(objStr(b, "finding_id"))),
 			kvOf("required", validation.VStr(overlap[0])),
-		))
+		)
+		if unproven {
+			link.O = append(link.O, kvOf("link_evidence",
+				validation.VStr(bestEvidenceLevel(a))))
+		}
+		out = append(out, link)
 	}
 	return out, nil
+}
+
+// bestEvidenceLevel is a member's strongest evidence item, "E0" when it has
+// none (a HYPOTHESIS member with no evidence yet). An unknown level is
+// skipped rather than fatal: this is a rendering aid, not a gate.
+func bestEvidenceLevel(m validation.Value) string {
+	best, bestIdx := "E0", 0
+	for _, e := range listOf(m, "evidence").A {
+		idx, err := findings.LevelIndex(objStr(e, "level"))
+		if err != nil {
+			continue
+		}
+		if idx > bestIdx {
+			best, bestIdx = objStr(e, "level"), idx
+		}
+	}
+	return best
 }
 
 // chainFloor is the weakest member's best evidence level.

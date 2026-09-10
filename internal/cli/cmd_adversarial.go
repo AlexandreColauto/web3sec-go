@@ -26,6 +26,24 @@ const adversarialUsage = `usage: webv2 adversarial-game [-h] --who-profit WHO --
                                campaign finding
 `
 
+// adversarialHelp is the argparse-style help block (Go-only verb: the prose
+// is ours, the wrapping is argparse's 80-column house style).
+const adversarialHelp = adversarialUsage + `
+record the adversarial-game answers the bounty gate requires of a live
+liveness finding: who profits from the protocol being down, the mechanism
+that pays them, and how it interacts with the path to the terminal.
+
+positional arguments:
+  campaign              campaign id
+  finding               finding id (F-...)
+
+options:
+  -h, --help            show this help message and exit
+  --who-profit WHO      who profits while the protocol is degraded
+  --mechanism MECH      how the profit is realised
+  --interplay INTERPLAY how that interacts with the exploit path
+`
+
 func runAdversarialGame(root string, args []string, r *Runner) int {
 	return t14Dispatch(root, r, func() error {
 		return adversarialCmd(root, args, r)
@@ -41,6 +59,9 @@ func adversarialCmd(root string, args []string, r *Runner) error {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
+		case a == "-h" || a == "--help":
+			fmt.Fprint(r.Out, adversarialHelp)
+			return nil
 		case a == "--who-profit" && i+1 < len(args):
 			who = args[i+1]
 			i++

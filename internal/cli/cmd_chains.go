@@ -44,11 +44,33 @@ func printChains(r *Runner, rep validation.Value) {
 			t14List(p, "members")), " -> "))
 	}
 	materialized := t14List(rep, "materialized")
-	fmt.Fprintf(r.Out, "materialized chains: %d\n", len(materialized.A))
+	// B3: the headline counts what was materialized, but an unproven chain
+	// is not a result — say how much of the count is lead-only. Gated on a
+	// non-zero unproven count, so a campaign without one prints the
+	// pre-B3 line byte-for-byte.
+	unproven := 0
 	for _, ch := range materialized.A {
-		fmt.Fprintf(r.Out, "  %s [%s] %s (floor %s)\n",
+		if objStr(ch, "provenance") == "unproven" {
+			unproven++
+		}
+	}
+	if unproven == 0 {
+		fmt.Fprintf(r.Out, "materialized chains: %d\n", len(materialized.A))
+	} else {
+		fmt.Fprintf(r.Out, "materialized chains: %d (%d unproven — "+
+			"hypothesis-level leads, not evidence)\n", len(materialized.A),
+			unproven)
+	}
+	for _, ch := range materialized.A {
+		// B3: an unproven chain says so; a proven chain renders exactly as
+		// before (the marker is appended only when the field is present).
+		line := fmt.Sprintf("  %s [%s] %s (floor %s)",
 			objStr(ch, "chain_id"), objStr(ch, "status"),
 			objStr(ch, "title"), objStr(ch, "evidence_floor"))
+		if objStr(ch, "provenance") == "unproven" {
+			line += " — provenance unproven (hypothesis-level)"
+		}
+		fmt.Fprintln(r.Out, line)
 	}
 }
 

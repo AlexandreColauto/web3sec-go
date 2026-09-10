@@ -67,6 +67,20 @@
           },
           "required": {
             "type": "string"
+          },
+          "link_evidence": {
+            "type": "string",
+            "enum": [
+              "E0",
+              "E1",
+              "E2",
+              "E3",
+              "E4",
+              "E5",
+              "E6",
+              "E7"
+            ],
+            "description": "IMPROVEMENTS B3: the FROM member's own strongest evidence level, stamped on every link of an UNPROVEN (hypothesis-level) chain so each hop's thinness is visible. Absent on proven chains."
           }
         }
       }
@@ -213,6 +227,14 @@
         "rejected"
       ],
       "default": "proposed"
+    },
+    "provenance": {
+      "enum": [
+        "proven",
+        "unproven"
+      ],
+      "default": "proven",
+      "description": "IMPROVEMENTS B3: \"unproven\" marks a HYPOTHESIS-LEVEL chain — the members are not (all) independently CONFIRMED, so the chain is a lead, not an evidence-confirmed result. It carries no super-finding and is never counted as confirmed. Absent means \"proven\" (every chain written before B3 keeps its bytes)."
     },
     "validation": {
       "type": "object",

@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"websec/internal/bounty"
+	"websec/internal/capabilities"
 	"websec/internal/completion"
 	"websec/internal/coverage"
 	"websec/internal/economics"
@@ -536,6 +537,10 @@ func Generate(campaign *state.Campaign) (string, error) {
 		}
 		chains = append(chains, doc)
 	}
+	// B3: a chain doc is either evidence-confirmed (the materialization hard
+	// gate) or hypothesis-level ("unproven"). The split is by field
+	// presence: pre-B3 docs carry no provenance key at all and stay proven.
+	provenChains, unprovenChains := splitChainsByProvenance(chains)
 	mem, err := learning.AllMemory(campaign)
 	if err != nil {
 		return "", err
@@ -727,7 +732,13 @@ func Generate(campaign *state.Campaign) (string, error) {
 	} else {
 		L = append(L, "- **confirmed: 0**")
 	}
-	L = append(L, fmt.Sprintf("- chains materialized: **%d**", len(chains)))
+	L = append(L, fmt.Sprintf("- chains materialized: **%d**", len(provenChains)))
+	// B3: presence-gated — an unproven chain is a lead, and the count line
+	// above must never absorb it.
+	if len(unprovenChains) > 0 {
+		L = append(L, fmt.Sprintf("- unproven chains (hypothesis-level): %d — "+
+			"leads only, never counted as confirmed", len(unprovenChains)))
+	}
 	L = append(L, fmt.Sprintf("- disproved: %d  - duplicates: %d  "+
 		"- out-of-scope: %d", disproved, duplicates, outOfScope))
 	L = append(L, "")
@@ -962,7 +973,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 		L = append(L, sec...)
 	}
 
-	for _, ch := range chains {
+	for _, ch := range provenChains {
 		var sf validation.Value
 		foundSF := false
 		for _, f := range chainF {
@@ -995,6 +1006,62 @@ func Generate(campaign *state.Campaign) (string, error) {
 				objStr(sf, "finding_id")))
 		}
 		L = append(L, "")
+	}
+
+	// B3: the unproven (hypothesis-level) chains get their own clearly marked
+	// section — never the CHAIN: heading, never the submission count. Each
+	// hop carries its member's evidence level. Presence-gated: a campaign
+	// without an unproven chain gains no bytes.
+	if len(unprovenChains) > 0 {
+		L = append(L, "## Unproven chains (hypothesis-level)")
+		L = append(L, "")
+		L = append(L, "These are LEADS, not results: at least one member is "+
+			"not independently CONFIRMED, so nothing here counts as "+
+			"evidence-confirmed and nothing here enters the submission table.")
+		L = append(L, "")
+		for _, ch := range unprovenChains {
+			L = append(L, fmt.Sprintf("### UNPROVEN CHAIN: %s", objStr(ch, "title")))
+			L = append(L, "")
+			L = append(L, fmt.Sprintf("- id: `%s` — provenance %s, evidence floor %s",
+				objStr(ch, "chain_id"), pyStr(objAt(ch, "provenance")),
+				pyStr(objAt(ch, "evidence_floor"))))
+			quoted := []string{}
+			for _, m := range strList(objAt(ch, "members")) {
+				quoted = append(quoted, "`"+m+"`")
+			}
+			L = append(L, "- members: "+strings.Join(quoted, ", "))
+			if objStr(ch, "narrative") != "" {
+				L = append(L, "- narrative: "+objStr(ch, "narrative"))
+			}
+			for _, lnk := range listAt(ch, "capability_links") {
+				line := fmt.Sprintf("- `%s` grants *%s* → `%s` requires it",
+					objStr(lnk, "from_finding"), objStr(lnk, "granted"),
+					objStr(lnk, "to_finding"))
+				if lvl := objStr(lnk, "link_evidence"); lvl != "" {
+					line += " (from-member evidence " + lvl + ")"
+				}
+				L = append(L, line)
+			}
+			if t := asObj(objAt(ch, "terminal")); len(t.O) > 0 {
+				// An unproven chain has no super-finding, hence no
+				// economic_impact: the terminal is the LEAD's destination.
+				// State the price that would apply, and that it is not
+				// asserted here — a hypothesis must not carry a number.
+				cap := objStr(t, "capability")
+				note := "UNPROVEN: this is the lead's destination, not a " +
+					"priced result — no price or capital figure is asserted " +
+					"for a hypothesis-level chain"
+				if capabilities.IsLivenessTerminal(cap) {
+					note = "UNPROVEN: a liveness freeze would price at the " +
+						"blast-radius floor (no USD figure is defensible), " +
+						"but this chain is a hypothesis-level lead, so no " +
+						"price is asserted"
+				}
+				L = append(L, fmt.Sprintf("- terminal: *%s* via `%s` — %s",
+					cap, objStr(t, "via_finding"), note))
+			}
+			L = append(L, "")
+		}
 	}
 
 	dismissed := []validation.Value{}
@@ -1644,4 +1711,19 @@ func floatVal(v validation.Value) float64 {
 		return v.F
 	}
 	return 0
+}
+
+// splitChainsByProvenance is the B3 split: a chain doc whose provenance is
+// "unproven" is a hypothesis-level lead, everything else (including every
+// pre-B3 doc, which carries no provenance key at all) is evidence-confirmed.
+func splitChainsByProvenance(chains []validation.Value) (proven,
+	unproven []validation.Value) {
+	for _, ch := range chains {
+		if objStr(ch, "provenance") == "unproven" {
+			unproven = append(unproven, ch)
+		} else {
+			proven = append(proven, ch)
+		}
+	}
+	return proven, unproven
 }
