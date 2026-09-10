@@ -170,16 +170,25 @@ Added after Task 2, found while implementing it. Task numbering is the order the
 tasks were written, not the order they run: **this task runs before Task 3**, so
 Task 3's record covers both code changes.
 
-The same placeholder defect lives in a second file.
-`internal/planner/answered.go:221-222` and `:227-228` tell the operator to run
-`` `webv2 probes <campaign> run` `` / `` `--emit` `` with a literal
-`<campaign>`. These are the errors an operator sees while dispositioning a probe
-row — the same moment the audit hints serve — and both are uncopyable.
+The same placeholder defect lives in two more places, both found by the Task 2
+review and the Task 2 implementer:
+
+- `internal/planner/answered.go:221-222` and `:227-228` tell the operator to run
+  `` `webv2 probes <campaign> run` `` / `` `--emit` `` with a literal
+  `<campaign>`. These are the errors an operator sees while dispositioning a
+  probe row — the same moment the audit hints serve — and both are uncopyable.
+- `internal/planner/probeview.go:36` falls back to the literal when
+  `plan.campaign_id` is empty; `internal/planner/gates.go:293` repeats it. Both
+  are reachable for a hand-loaded plan JSON.
+
+Every operator-facing repair hint in the framework must name the campaign.
 
 Files:
 
 - `internal/planner/answered.go` — the two error strings.
-- the package's test file covering those two errors — tests.
+- `internal/planner/probeview.go` and, if it repeats the literal,
+  `internal/planner/gates.go`.
+- the package's test file covering those errors — tests.
 
 Requirements:
 
