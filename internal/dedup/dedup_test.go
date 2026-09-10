@@ -1,7 +1,6 @@
 package dedup
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -883,26 +882,32 @@ func TestResolveCandidateSameMergesYounger(t *testing.T) {
 	}
 }
 
-func TestResolveCandidateNoteFailsSchema(t *testing.T) {
+// TestResolveCandidateNoteRecordsOnBothSides is the D14 regression: the
+// reference (and this port before the fix) rejected a valid --note because
+// dedup_meta declared string-only additionalProperties while candidate_notes
+// is written as a dict. The schema now declares candidate_notes as a string
+// map, so a substantive note records cleanly on BOTH sides.
+func TestResolveCandidateNoteRecordsOnBothSides(t *testing.T) {
 	wireSeams(t)
 	c := pinnedCamp(t)
 	f, g := flaggedPair(t, c)
-	_, err := ResolveCandidate(c, fid(f), fid(g), "distinct", "a substantive note", "critic")
-	if err == nil {
-		t.Fatal("a note must fail: dedup_meta values are schema-typed strings")
+	const note = "a substantive note"
+	if _, err := ResolveCandidate(c, fid(f), fid(g), "distinct", note, "critic"); err != nil {
+		t.Fatalf("a valid note must now record (D14 fixed): %v", err)
 	}
-	// Python raises SchemaError at the same path, so nothing was written
-	// byte-exact against the Python SchemaError text
-	want := fmt.Sprintf("finding validation failed at dedup_meta/candidate_notes: "+
-		"{'%s': 'a substantive note'} is not of type 'string' (+0 more errors)", fid(g))
-	wantErr(t, "note schema", err, want)
-	rec, err := findings.LoadFinding(c, fid(f))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if objAt(objAt(rec, "dedup"), "candidate_verdicts").Kind != validation.Null {
-		t.Fatalf("a failed save wrote candidate_verdicts: %s",
-			validation.CanonCompact(objAt(rec, "dedup")))
+	for _, rec := range []string{fid(f), fid(g)} {
+		other := fid(g)
+		if rec == other {
+			other = fid(f)
+		}
+		loaded, err := findings.LoadFinding(c, rec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := objStr(objAt(objAt(loaded, "dedup_meta"), "candidate_notes"), other)
+		if got != note {
+			t.Fatalf("candidate_notes[%s] = %q, want %q", other, got, note)
+		}
 	}
 }
 

@@ -872,6 +872,58 @@ func WaiveLadder(c *state.Campaign, findingID, reason, actor string) (validation
 	return lad, nil
 }
 
+// ReopenLadder is reopen_ladder: un-close a closed (complete or waived)
+// ladder so more work can be added. requireOpen refuses mutation of a
+// COMPLETE ladder and points here; reopening is reasoned, attributed and
+// logged. An already-open ladder needs no reopening. (B2: the escape hatch
+// the requireOpen error message always advertised but never existed.)
+func ReopenLadder(c *state.Campaign, findingID, reason, actor string) (validation.Value, error) {
+	ladPtr, err := LoadLadder(c, findingID)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	if ladPtr == nil {
+		return validation.VNull(), fmt.Errorf("no ladder for %s",
+			noneText(findingID))
+	}
+	lad := *ladPtr
+	if objStr(asObj(objAt(lad, "disposition")), "state") == "open" {
+		return validation.VNull(), fmt.Errorf("ladder is already open — " +
+			"nothing to reopen")
+	}
+	trimmed := strings.TrimSpace(reason)
+	if trimmed == "" {
+		return validation.VNull(), fmt.Errorf("reopening a closed ladder " +
+			"needs a written reason (the audit trail, not a bypass)")
+	}
+	lad.O = setOrAppend(lad.O, "disposition", validation.VObj(
+		kvOf("state", validation.VStr("open")),
+		kvOf("reason", validation.VStr(trimmed)),
+		kvOf("actor", validation.VStr(actor)),
+		kvOf("at", validation.VStr(nowIso()))))
+	if _, err := SaveLadder(c, &lad); err != nil {
+		return validation.VNull(), err
+	}
+	f, err := findings.LoadFinding(c, findingID)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	mx := asObj(objAt(f, "maximization"))
+	mx.O = setOrAppend(mx.O, "disposition", validation.VStr("open"))
+	f.O = setOrAppend(f.O, "maximization", mx)
+	if err := findings.SaveFinding(c, &f); err != nil {
+		return validation.VNull(), err
+	}
+	ref := findingID
+	data := validation.VObj(
+		kvOf("reason", validation.VStr(trimmed)),
+		kvOf("actor", validation.VStr(actor)))
+	if _, err := c.Log("ladder.reopen", &ref, &data); err != nil {
+		return validation.VNull(), err
+	}
+	return lad, nil
+}
+
 // LadderReport is ladder_report: the ladder with claim-vs-measured deltas.
 func LadderReport(c *state.Campaign, findingID string) (validation.Value, error) {
 	ladPtr, err := LoadLadder(c, findingID)

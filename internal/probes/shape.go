@@ -93,7 +93,8 @@ func ProbeRisk(row validation.Value) (string, float64) {
 // declared anchor order.
 func RowAnchorPairs(row validation.Value, index *validation.Value) []string {
 	paths := map[string]string{}
-	if index != nil {
+	hasIndex := index != nil
+	if hasIndex {
 		paths = contractPaths(*index)
 	}
 	out := []string{}
@@ -129,13 +130,9 @@ func RowAnchorPairs(row validation.Value, index *validation.Value) []string {
 			if contract.Kind == validation.Str {
 				contractStr = contract.S
 			}
-			token, ok := paths[contractStr]
-			if !ok {
-				if contractStr != "" {
-					token = contractStr
-				} else {
-					token = "?"
-				}
+			token, resolved := resolveAnchorToken(paths, hasIndex, contractStr)
+			if !resolved {
+				continue // unresolvable with an index: no fabricated citation
 			}
 			pair := token + "#L" + itoa(int(line.I))
 			if !containsStr(out, pair) {
@@ -203,7 +200,8 @@ func AnchorRef(row validation.Value, anchor string,
 	}
 	if anchor == "sibling" {
 		paths := map[string]string{}
-		if index != nil {
+		hasIndex := index != nil
+		if hasIndex {
 			paths = contractPaths(*index)
 		}
 		pairs := []string{}
@@ -213,13 +211,9 @@ func AnchorRef(row validation.Value, anchor string,
 				continue
 			}
 			contract := vStr(s, "contract")
-			token, ok := paths[contract]
-			if !ok {
-				if contract != "" {
-					token = contract
-				} else {
-					token = "?"
-				}
+			token, resolved := resolveAnchorToken(paths, hasIndex, contract)
+			if !resolved {
+				continue
 			}
 			pair := token + "#L" + itoa(int(line.I))
 			if !containsStr(pairs, pair) {
@@ -235,19 +229,17 @@ func AnchorRef(row validation.Value, anchor string,
 		line := vGet(row, fields[1])
 		if line.Kind == validation.Int && line.I > 0 {
 			paths := map[string]string{}
-			if index != nil {
+			hasIndex := index != nil
+			if hasIndex {
 				paths = contractPaths(*index)
 			}
 			contract := vStr(row, fields[0])
-			token, ok := paths[contract]
-			if !ok {
-				if contract != "" {
-					token = contract
-				} else {
-					token = "?"
-				}
+			token, resolved := resolveAnchorToken(paths, hasIndex, contract)
+			if resolved {
+				return token + "#L" + itoa(int(line.I)), nil
 			}
-			return token + "#L" + itoa(int(line.I)), nil
+			// Unresolvable with an index: fall through to the raw value
+			// rather than fabricate a "Name#L" citation.
 		}
 	}
 	return renderAnchorValue(value), nil

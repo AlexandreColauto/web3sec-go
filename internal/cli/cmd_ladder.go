@@ -91,6 +91,8 @@ func ladderDispatch(c *state.Campaign, a *ladderArgs, r *Runner) error {
 		return ladderComplete(c, a, r)
 	case "waive":
 		return ladderWaive(c, a, r)
+	case "reopen":
+		return ladderReopen(c, a, r)
 	}
 	return ladderReport(c, a, r)
 }
@@ -218,6 +220,25 @@ func ladderWaive(c *state.Campaign, a *ladderArgs, r *Runner) error {
 	return nil
 }
 
+// ladderReopen is `webv2 ladder <c> reopen <f> --reason ... --actor ...`:
+// the escape hatch requireOpen's error message points to (B2).
+func ladderReopen(c *state.Campaign, a *ladderArgs, r *Runner) error {
+	if a.finding == "" {
+		return errors.New("no finding None in " + c.CampaignID)
+	}
+	actor := a.actor
+	if actor == "" {
+		actor = "cli"
+	}
+	lad, err := maximization.ReopenLadder(c, a.finding, a.reason, actor)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(r.Out, "ladder %s REOPENED (actor %s) — the closed ladder "+
+		"is open again\n", objStr(lad, "ladder_id"), actor)
+	return nil
+}
+
 func ladderReport(c *state.Campaign, a *ladderArgs, r *Runner) error {
 	rep, err := maximization.LadderReport(c, a.finding)
 	if err != nil {
@@ -269,6 +290,14 @@ func parseLadder(args []string, r *Runner) (*ladderArgs, error) {
 		case 4:
 			a.axis = pos[i]
 		}
+	}
+	// FIXED-IN-GO (python-twin-issues P3): `explore` takes no rung, so the
+	// natural form `explore F <axis>` must bind the positional to the axis,
+	// not to the rung slot (the reference bound it to rung and failed with
+	// "unknown axis None"). The legacy `explore F <dummy-rung> <axis>`
+	// keeps working: when an axis positional follows, nothing moves.
+	if a.action == "explore" && a.axis == "" && a.rung != "" {
+		a.axis, a.rung = a.rung, ""
 	}
 	if !t14InList(a.action, t23LadderActions) {
 		return nil, t14ArgparseErr(t23LadderUsage, "ladder",

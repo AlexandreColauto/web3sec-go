@@ -392,6 +392,12 @@ var (
 		return "missing", "no patch verification recorded (webv2 immunize " +
 			"... against the FORK PoC)"
 	}
+	// B4: contract-name → source-path resolver for the scope check. The
+	// default is a no-op (empty) — the real resolver (structidx) is wired by
+	// the CLI's ensureSeams, which is the top module free of the
+	// structidx→orchestrator→bounty import cycle. When it returns empty the
+	// scope check falls back to name-only matching (the pre-B4 behaviour).
+	contractPathFunc = func(*state.Campaign, string) string { return "" }
 	confirmedRemediation = findings.GATE_REMEDIATION
 )
 
@@ -457,6 +463,17 @@ func SetImmunizationDetail(f func(validation.Value) (string, string)) {
 	immunizationDetailFunc = f
 }
 
+// SetContractPathResolver installs the contract-name → source-path resolver
+// the scope check uses (B4): a path-based scope entry can match a
+// name-carrying finding only if the name resolves to its source path. nil
+// restores the default (read the saved structural index; empty when absent).
+func SetContractPathResolver(f func(*state.Campaign, string) string) {
+	if f == nil {
+		f = func(*state.Campaign, string) string { return "" }
+	}
+	contractPathFunc = f
+}
+
 // SetConfirmedGateRemediation overrides the CONFIRMED-gate half of the
 // gate-explain catalog (findings.GATE_REMEDIATION by default); nil restores
 // that default.
@@ -515,16 +532,45 @@ func (g *gate) add(name, result, detail, remediation string) {
 	g.checks = append(g.checks, entry)
 }
 
-// targetOf is the in-scope target: affected[0].contract or affected[0].path.
-func targetOf(f validation.Value) string {
+// scopeTargets returns the strings the scope policy is matched against for
+// this finding, deduplicated and order-preserving. A name-carrying finding is
+// matched on the name (the primary target, the pre-B4 behaviour) AND (B4) the
+// path the name resolves to via the structural index — so a path-based scope
+// entry can match a name-carrying finding (the campaign's false "everything
+// is out of scope" was the name never resolving to the path the scope named).
+// A nameless finding falls back to its recorded path, exactly as before.
+func (g *gate) scopeTargets() []string {
 	first := validation.VObj()
-	if aff := objAt(f, "affected"); aff.Kind == validation.Arr && len(aff.A) > 0 {
+	if aff := objAt(g.f, "affected"); aff.Kind == validation.Arr && len(aff.A) > 0 {
 		first = aff.A[0]
 	}
+	name := ""
 	if c := objAt(first, "contract"); c.Kind == validation.Str && c.S != "" {
-		return c.S
+		name = c.S
 	}
-	return objStr(first, "path")
+	out := []string{}
+	seen := map[string]bool{}
+	add := func(s string) {
+		if s == "" || seen[s] {
+			return
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	if name != "" {
+		// The name is the primary target (the pre-B4 behaviour — the name
+		// takes precedence over the recorded path). B4 adds the path the
+		// name resolves to via the structural index, so a path-based scope
+		// entry can match a name-carrying finding. The recorded path is NOT
+		// a separate candidate: a name-carrying finding is scoped by its
+		// name (and where that name lives), not by an independent path field.
+		add(name)
+		add(contractPathFunc(g.campaign, name))
+	} else {
+		// No name: fall back to the recorded path (the pre-B4 behaviour).
+		add(objStr(first, "path"))
+	}
+	return out
 }
 
 // check1 is security-confirmed (deterministic, from finding status).
@@ -560,24 +606,34 @@ func (g *gate) check2() error {
 	return nil
 }
 
-// check3 is scope.
+// check3 is scope. A finding is in scope if ANY of its candidate targets
+// (name, path, and the name's structidx-resolved path — B4) matches a scope
+// entry; the failure is reported against the primary target (the name, else
+// the path) exactly as before.
 func (g *gate) check3() error {
-	target := targetOf(g.f)
-	ok, why, err := InScope(g.policy, target)
-	if err != nil {
-		return err
-	}
-	switch {
-	case ok && target != "":
-		g.add("in-scope", "pass", why, "")
-	case target != "":
-		g.add("in-scope", "fail", why, "")
-		g.blockers = append(g.blockers,
-			"target "+validation.PyReprStr(target)+" out of scope")
-	default:
+	targets := g.scopeTargets()
+	if len(targets) == 0 {
 		g.add("in-scope", "unknown", "no affected component recorded", "")
 		g.blockers = append(g.blockers, "no affected component to scope-check")
+		return nil
 	}
+	primaryWhy := ""
+	for i, t := range targets {
+		ok, why, err := InScope(g.policy, t)
+		if err != nil {
+			return err
+		}
+		if i == 0 {
+			primaryWhy = why
+		}
+		if ok {
+			g.add("in-scope", "pass", why, "")
+			return nil
+		}
+	}
+	g.add("in-scope", "fail", primaryWhy, "")
+	g.blockers = append(g.blockers,
+		"target "+validation.PyReprStr(targets[0])+" out of scope")
 	return nil
 }
 
@@ -913,28 +969,46 @@ func (g *gate) check11() error {
 }
 
 // check12 is immunization — the patch BLOCKS the fork PoC and all 3 boundary
-// mutations. A patch that only blocks a unit test is not a patch.
-func (g *gate) check12() {
+// mutations. A patch that only blocks a unit test is not a patch. Like its
+// siblings, an explicit waiver (stage "immunization") records the check as
+// passed-waived rather than failed (B1: with the fork PoC waived, this
+// unconditional requirement made submission_ready permanently unreachable).
+func (g *gate) check12() error {
 	state, detail := immunizationDetailFunc(g.f)
 	if state == "immunized" {
 		g.add("immunization", "pass", detail, "")
-		return
+		return nil
+	}
+	findingID := objStr(g.f, "finding_id")
+	rows, err := waiversFunc(g.campaign, "immunization")
+	if err != nil {
+		return err
+	}
+	for _, w := range rows {
+		subject := objStr(w, "subject")
+		if subject != "*" && subject != findingID {
+			continue
+		}
+		g.add("immunization", "pass", "waived by "+pyStrAny(objAt(w, "actor"))+
+			": "+headRunes(pyStrAny(objAt(w, "reason")), 80), "")
+		return nil
 	}
 	g.add("immunization", "fail", state+": "+detail, "")
 	g.blockers = append(g.blockers, "not immunized ("+state+") — the patch "+
 		"must block the FORK PoC and its 3 boundary mutations")
+	return nil
 }
 
 // run executes the twelve checks in Python order.
 func (g *gate) run() error {
 	g.check1()
 	for _, check := range []func() error{g.check2, g.check3, g.check4, g.check5,
-		g.check6, g.check7, g.check8, g.check9, g.check10, g.check11} {
+		g.check6, g.check7, g.check8, g.check9, g.check10, g.check11,
+		g.check12} {
 		if err := check(); err != nil {
 			return err
 		}
 	}
-	g.check12()
 	return nil
 }
 

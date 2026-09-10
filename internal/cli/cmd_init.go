@@ -1,14 +1,18 @@
 package cli
 
-// cmd_init: `webv2 init --program PROG` — create a campaign.
-// Prints `initialized {id} at {dir}` plus the next-step line (cli.py
-// cmd_init verbatim).
+// cmd_init: `webv2 init --program PROG` — create a campaign, then drop the
+// two operating docs (RUNBOOK.md + AGENT_BOOTSTRAP.md) into the campaign
+// directory so the working repo carries its own docs even in a fresh
+// workspace. Prints `initialized {id} at {dir}` plus the next-step line.
 
 import (
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"websec/assets"
 	"websec/internal/state"
 )
 
@@ -40,8 +44,30 @@ func runInit(root string, args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
+	if err := writeRunbookDocs(c.Dir); err != nil {
+		return err
+	}
 	fmt.Fprintf(stdout, "initialized %s at %s\n", c.CampaignID, c.Dir)
-	fmt.Fprintln(stdout, "next: webv2 snap <campaign> <target>  (or use the Python API for pins)")
+	fmt.Fprintf(stdout, "wrote %s and %s into the campaign\n",
+		filepath.Join(c.Dir, "RUNBOOK.md"), filepath.Join(c.Dir, "AGENT_BOOTSTRAP.md"))
+	fmt.Fprintln(stdout, "next: webv2 snap <campaign> <target>   (full lifecycle: RUNBOOK.md in the campaign dir)")
+	return nil
+}
+
+// writeRunbookDocs copies the embedded operating docs (RUNBOOK.md,
+// AGENT_BOOTSTRAP.md) into dir. A failure is returned so init fails loudly
+// rather than silently leaving a campaign without its docs.
+func writeRunbookDocs(dir string) error {
+	for _, d := range assets.RunbookNames {
+		raw, err := assets.RunbookFS.ReadFile(d.Embed)
+		if err != nil {
+			return fmt.Errorf("init: reading embedded %s: %w", d.Name, err)
+		}
+		dst := filepath.Join(dir, d.Name)
+		if err := os.WriteFile(dst, raw, 0o644); err != nil {
+			return fmt.Errorf("init: writing %s: %w", d.Name, err)
+		}
+	}
 	return nil
 }
 

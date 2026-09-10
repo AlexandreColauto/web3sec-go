@@ -90,7 +90,14 @@ func CriticalityRank(model, index validation.Value) []validation.Value {
 	for _, sm := range objList(objAt(model, "state_machines")) {
 		unionInto(smTokens, critTokens(objAt(sm, "name")))
 		for _, s := range objList(objAt(sm, "states")) {
-			unionInto(smTokens, critTokens(s))
+			// States are objects ({id, terminal, ...}), not bare strings —
+			// critTokens is string-only, so tokenize the state's id (the
+			// state name); a bare-string state still works via the fallback.
+			if s.Kind == validation.Obj {
+				unionInto(smTokens, critTokens(objAt(s, "id")))
+			} else {
+				unionInto(smTokens, critTokens(s))
+			}
 		}
 		for _, t := range objList(objAt(sm, "transitions")) {
 			for _, key := range []string{"contract", "on", "from", "to",

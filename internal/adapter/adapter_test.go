@@ -61,6 +61,27 @@ func TestNoUnmappedPromptFiles(t *testing.T) {
 	}
 }
 
+// TestProtocolModelRoutesToKnowledgeGraphPrompt pins feedback-triage A4: the
+// protocol-model stage (the one the pipeline actually runs) must serve the
+// current prompts/37 knowledge-graph prompt, not the legacy 02 draft the
+// reference still routed it to.
+func TestProtocolModelRoutesToKnowledgeGraphPrompt(t *testing.T) {
+	_, rel, err := StageConfig("protocol-model")
+	if err != nil {
+		t.Fatalf("stage config: %v", err)
+	}
+	if rel != "prompts/37_protocol_knowledge_graph.md" {
+		t.Fatalf("protocol-model routes to %q, want prompts/37", rel)
+	}
+	p, err := PromptPath("protocol-model")
+	if err != nil {
+		t.Fatalf("prompt path: %v", err)
+	}
+	if !strings.HasSuffix(p, "37_protocol_knowledge_graph.md") {
+		t.Fatalf("PromptPath = %q, want the 37 knowledge-graph prompt", p)
+	}
+}
+
 func TestUnknownStageErrorListsKnownStages(t *testing.T) {
 	_, err := Route(nil, "discovery-specialists")
 	if err == nil {

@@ -17,13 +17,73 @@ import (
 	"websec/internal/validation"
 )
 
-// DetectToolchain is _detect_toolchain: foundry.toml [profile.default].sol
-// is the solc the build will ask for. A bare string becomes the compiler;
-// a list of non-empty strings is comma-joined. ANY parse error, a missing
-// file, or no usable profile.default.sol -> Null (Python: except
+// DetectToolchain is _detect_toolchain: foundry.toml [profile.default].solc
+// is the solc the build will ask for. Real Foundry projects write ``solc``;
+// the legacy ``sol`` key is a fallback only (python-twin-issues P1: the
+// original read only ``sol`` and returned None for every real foundry.toml).
+// A bare string becomes the compiler; a list of non-empty strings is
+// comma-joined. ANY parse error, a missing file, or no usable
+// profile.default.solc/sol -> Null (Python: except
 // Exception: return None — total, deterministic).
+//
+// feedback-triage A9: the staging root's foundry.toml wins when it is
+// usable; otherwise the pinned tree is walked depth-first in lexicographic
+// order (monorepo targets keep the build config under a subdirectory such
+// as contracts/) and the first USABLE foundry.toml is used. Build/junk
+// directories are skipped.
 func DetectToolchain(staging string) validation.Value {
-	raw, err := os.ReadFile(filepath.Join(staging, "foundry.toml"))
+	if v := detectToolchainFile(filepath.Join(staging, "foundry.toml"));
+		v.Kind != validation.Null {
+		return v
+	}
+	for _, p := range nestedFoundryTOMLs(staging) {
+		if v := detectToolchainFile(p); v.Kind != validation.Null {
+			return v
+		}
+	}
+	return validation.VNull()
+}
+
+// foundryWalkSkip are the directories the A9 walk never descends into:
+// VCS metadata and build/junk output that may carry foreign foundry.toml
+// files but never the target's own build config.
+var foundryWalkSkip = map[string]struct{}{
+	".git":         {},
+	"node_modules": {},
+	"out":          {},
+	"cache":        {},
+}
+
+// nestedFoundryTOMLs returns every foundry.toml below staging in
+// filepath.WalkDir order (depth-first, lexicographic — deterministic),
+// excluding the root's own file (the caller checks it first). Unreadable
+// entries are skipped, never fatal.
+func nestedFoundryTOMLs(staging string) []string {
+	out := []string{}
+	_ = filepath.WalkDir(staging, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if p != staging {
+				if _, skip := foundryWalkSkip[d.Name()]; skip {
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
+		if d.Name() == "foundry.toml" {
+			out = append(out, p)
+		}
+		return nil
+	})
+	return out
+}
+
+// detectToolchainFile parses one foundry.toml (the reference's exact
+// semantics: any error or unusable profile.default.solc/sol -> Null).
+func detectToolchainFile(path string) validation.Value {
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		return validation.VNull()
 	}
@@ -44,7 +104,10 @@ func DetectToolchain(staging string) validation.Value {
 	if def == nil {
 		return validation.VNull()
 	}
-	sol, ok := def["sol"]
+	sol, ok := def["solc"]
+	if !ok {
+		sol, ok = def["sol"] // legacy fallback (python-twin-issues P1)
+	}
 	if !ok {
 		return validation.VNull()
 	}

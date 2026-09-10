@@ -93,7 +93,11 @@ var Stages = []Stage{
 	{"coverage-accounting", "deterministic", ""},
 
 	{"protocol-reconstruction", "standard", "prompts_legacy/01_protocol_reconstruction.md"},
-	{"protocol-model", "standard", "prompts_legacy/02_protocol_model.md"},
+	// feedback-triage A4: the campaign's protocol-model bootstrap runs the
+	// current knowledge-graph prompt (prompts/37); the legacy 02 prompt was
+	// the pre-knowledge-graph draft. Intentional divergence from the
+	// reference (KNOWN_DIVERGENCES).
+	{"protocol-model", "standard", "prompts/37_protocol_knowledge_graph.md"},
 	{"protocol-knowledge-graph", "standard", "prompts/37_protocol_knowledge_graph.md"},
 	{"invariant-generation", "standard", "prompts_legacy/04_invariant_generation.md"},
 	{"economics-model", "expensive", "prompts_legacy/05_accounting_economic_audit.md"},
@@ -495,7 +499,12 @@ func UnmappedPrompts() ([]string, error) {
 		}
 		sort.Strings(names)
 		for _, n := range names {
-			if n == "README.md" || mapped[n] {
+			// README.md is pack metadata; 02_protocol_model.md is
+			// intentionally orphaned by feedback-triage A4 — the
+			// protocol-model stage now routes to the current
+			// prompts/37 knowledge-graph prompt.
+			if n == "README.md" || n == "02_protocol_model.md" ||
+				mapped[n] {
 				continue
 			}
 			loose = append(loose, dir.rel+"/"+n)

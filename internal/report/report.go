@@ -572,7 +572,11 @@ func Generate(campaign *state.Campaign) (string, error) {
 				if len(question) > 100 {
 					question = question[:100]
 				}
-				if status == "answered" && ref.Kind == validation.Null {
+				// An empty-string closed_ref is "no usable ref" too, not just
+				// an absent (null) one.
+				noRef := ref.Kind == validation.Null ||
+					(ref.Kind == validation.Str && ref.S == "")
+				if status == "answered" && noRef {
 					why := "no reason recorded"
 					if reason != "" {
 						why = "reason recorded, but no exec/finding/artifact " +
@@ -837,6 +841,23 @@ func Generate(campaign *state.Campaign) (string, error) {
 	return out, nil
 }
 
+// immunizationWaived reports whether an explicit immunization waiver covers
+// this finding (subject '*' waives the whole stage). B1: mirrors the
+// fork-PoC waiver check so a waived immunization renders as a caveat.
+func immunizationWaived(campaign *state.Campaign, f validation.Value) bool {
+	waivers, err := completion.Waivers(campaign, "immunization")
+	if err != nil {
+		return false
+	}
+	for _, w := range waivers {
+		subj := objStr(w, "subject")
+		if subj == "*" || subj == objStr(f, "finding_id") {
+			return true
+		}
+	}
+	return false
+}
+
 func riskScore(f validation.Value) float64 {
 	v := asObj(objAt(asObj(objAt(f, "risk")), "validated"))
 	s := objAt(v, "score")
@@ -965,6 +986,9 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		out = append(out, fmt.Sprintf("- validated risk: **%s/10 (%s)**",
 			pyStr(objAt(v, "score")), pyStr(objAt(v, "band"))))
 	}
+	if rv := objStr(risk, "reversibility"); rv != "" {
+		out = append(out, "- reversibility: **"+rv+"** (validated_risk component)")
+	}
 	iv := asObj(objAt(risk, "impact_vector"))
 	if len(iv.O) > 0 {
 		out = append(out, fmt.Sprintf("- impact vector: %s/%s/%s/%s (score %s)",
@@ -1028,19 +1052,18 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	if len(ev) > 0 {
 		out = append(out, "")
 		out = append(out, "**Evidence (ladder):**")
-		sortedEv := append([]validation.Value{}, ev...)
-		badLevel := false
-		sort.SliceStable(sortedEv, func(i, j int) bool {
-			ii, jj := evidenceIndex(objStr(sortedEv[i], "level")),
-				evidenceIndex(objStr(sortedEv[j], "level"))
-			if ii < 0 || jj < 0 {
-				badLevel = true
+		// Validate every level up front: a bad level in a single-item
+		// evidence array would never trip the sort comparator below.
+		for _, e := range ev {
+			if evidenceIndex(objStr(e, "level")) < 0 {
+				return nil, fmt.Errorf("unknown evidence level")
 			}
-			return ii < jj
-		})
-		if badLevel {
-			return nil, fmt.Errorf("unknown evidence level")
 		}
+		sortedEv := append([]validation.Value{}, ev...)
+		sort.SliceStable(sortedEv, func(i, j int) bool {
+			return evidenceIndex(objStr(sortedEv[i], "level")) <
+				evidenceIndex(objStr(sortedEv[j], "level"))
+		})
 		for _, e := range sortedEv {
 			line := fmt.Sprintf("- %s [%s] %s", objStr(e, "level"),
 				objStr(e, "type"), pyStr(objAt(e, "description")))
@@ -1179,8 +1202,14 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		marks := map[string]string{"immunized": "**IMMUNIZED**",
 			"bypass": "**BYPASS FOUND**", "partial": "**PARTIAL**",
 			"missing": "**NOT VERIFIED**"}
+		mark, immRendered := marks[immState], immDetail
+		if immState != "immunized" && immunizationWaived(campaign, f) {
+			// B1: an explicit immunization waiver renders as a caveat,
+			// matching how the fork-PoC waiver renders above.
+			mark, immRendered = "**WAIVED**", "waiver on the record"
+		}
 		out = append(out, fmt.Sprintf("- patch verification: %s — %s",
-			marks[immState], immDetail))
+			mark, immRendered))
 		if immState == "immunized" {
 			cls := objStr(rc, "class")
 			siblings := []validation.Value{}

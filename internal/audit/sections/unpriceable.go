@@ -124,7 +124,17 @@ func pyEqual(a, b validation.Value) bool {
 		if len(a.O) != len(b.O) {
 			return false
 		}
+		// Verify the key sets are identical: objAt returns VNull for an
+		// ABSENT key, so without this a differing null-valued key (e.g.
+		// {a:null} vs {b:null}) would compare equal.
+		bkeys := make(map[string]bool, len(b.O))
+		for _, kv := range b.O {
+			bkeys[kv.K] = true
+		}
 		for _, kv := range a.O {
+			if !bkeys[kv.K] {
+				return false
+			}
 			if !pyEqual(kv.V, objAt(b, kv.K)) {
 				return false
 			}

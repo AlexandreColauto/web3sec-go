@@ -75,7 +75,12 @@ func WorkQueue(campaign *state.Campaign, plan, model validation.Value,
 	includeHints bool) ([]validation.Value, error) {
 	out := []validation.Value{}
 	for _, p := range listOf(plan, "priorities") {
-		if st := objStr(p, "status"); st == "answered" || st == "deprioritized" {
+		// Closed priorities (answered / not-applicable / deprioritized) never
+		// re-enter the queue: a not-applicable row was a legitimate closing
+		// disposition (planner.gates) and re-queueing it kept the discovery
+		// proof permanently blocked (feedback-triage A1).
+		if st := objStr(p, "status"); st == "answered" ||
+			st == "not-applicable" || st == "deprioritized" {
 			continue
 		}
 		cost := objStr(p, "budget_class")

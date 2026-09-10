@@ -140,11 +140,21 @@ func printEnvDoctor(r *Runner, report validation.Value) {
 		status = "chain " + scalarStr(objAt(rpc, "chain_id"))
 	}
 	fmt.Fprintf(r.Out, "fork RPC:      %s — %s\n", url, status)
+	// feedback-triage A7: when the doctor cross-checked the profiles
+	// against the campaign floor (profile_fit), an available profile whose
+	// evidence ceiling is below the floor is marked as such instead of a
+	// bare "ok" — "present, floor will refuse".
+	fit := objAt(report, "profile_fit")
 	profs := []string{}
 	for _, kv := range objAt(report, "profiles").O {
 		verdict := "NO"
 		if t26Truthy(kv.V, "") {
 			verdict = "ok"
+			if fit.Kind == validation.Obj {
+				if fv := objStr(fit, kv.K); fv != "" && fv != "ok" {
+					verdict = fv
+				}
+			}
 		}
 		profs = append(profs, kv.K+"="+verdict)
 	}

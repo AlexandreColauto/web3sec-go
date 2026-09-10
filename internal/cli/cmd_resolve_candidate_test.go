@@ -5,10 +5,14 @@ package cli
 // Ports: tests/test_dedup.py's resolve_candidate contract through the CLI:
 // the verdict is recorded on BOTH sides, 'same' merges the younger side, an
 // unflagged pair is a KeyError-shaped exit-2 line, and a note shorter than 5
-// chars is refused. The note path reproduces the reference's own schema
-// failure (dedup_meta.candidate_notes is declared as a string map) — a
-// byte-exact port of the bug, pinned here so a future "fix" cannot silently
-// diverge.
+// chars is refused.
+//
+// FIXED-IN-GO (python-twin-issues P2 / D14 closed): the reference's
+// `--note` path validated its own write and rejected it (dedup_meta's
+// additionalProperties allowed strings only, candidate_notes is a dict).
+// The Go schema now declares candidate_notes explicitly as a string map, so
+// a valid note records cleanly on both sides — pinned by
+// TestResolveCandidateNoteRecordsOnBothSides.
 
 import (
 	"strings"
@@ -115,6 +119,35 @@ func TestResolveCandidateNoteTooShort(t *testing.T) {
 	if errS != "resolve-candidate failed: a candidate verdict note, when "+
 		"given, must be substantive\n" {
 		t.Fatalf("stderr %q", errS)
+	}
+}
+
+// TestResolveCandidateNoteRecordsOnBothSides is the D14 regression: the
+// reference (and this port before the fix) refused a valid --note with
+// `finding validation failed at dedup_meta/candidate_notes: … is not of type
+// 'string'` (exit 2). The schema now accepts the dict the writer produces.
+func TestResolveCandidateNoteRecordsOnBothSides(t *testing.T) {
+	c, root, f1, f2 := t15Pair(t)
+	note := "different root cause"
+	code, _, errS := run(t, "--root", root, "resolve-candidate",
+		c.CampaignID, objStr(f2, "finding_id"), objStr(f1, "finding_id"),
+		"--verdict", "distinct", "--note", note, "--actor", "operator")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	for _, f := range []validation.Value{f1, f2} {
+		reloaded, err := findings.LoadFinding(c, objStr(f, "finding_id"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		other := objStr(f1, "finding_id")
+		if objStr(f, "finding_id") == other {
+			other = objStr(f2, "finding_id")
+		}
+		notes := objAt(objAt(reloaded, "dedup_meta"), "candidate_notes")
+		if got := scalarStr(objAt(notes, other)); got != note {
+			t.Fatalf("candidate_notes[%s] = %q, want %q", other, got, note)
+		}
 	}
 }
 

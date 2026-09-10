@@ -18,6 +18,7 @@ import (
 	"websec/internal/findings"
 	"websec/internal/invariants"
 	"websec/internal/learning"
+	"websec/internal/pipeline"
 	"websec/internal/planner"
 	"websec/internal/relations"
 	"websec/internal/sandbox"
@@ -274,6 +275,35 @@ func TestBriefIsAPureView(t *testing.T) {
 	if hasKey(reloaded, "bounty") {
 		t.Errorf("the view wrote a bounty block: %s",
 			validation.DumpIndented(objAt(reloaded, "bounty")))
+	}
+}
+
+// TestBriefStageCountIgnoresSubStages pins feedback-triage A5: the stage
+// ledger carries sub-stage rows (discovery-specialist, hypothesis-triage,
+// ...) that are not among the canonical pipeline stages. The cockpit's
+// "stages N/M" must count the top-level set on both sides — before the fix
+// a campaign with all 17 stages done plus two done sub-stages reported
+// "stages 19/17".
+func TestBriefStageCountIgnoresSubStages(t *testing.T) {
+	camp := newCamp(t, "Acme Program")
+	for _, id := range pipeline.StageIDs {
+		if err := camp.SetStage(id, "done", validation.VNull(), nil); err != nil {
+			t.Fatalf("set stage %s: %v", id, err)
+		}
+	}
+	for _, sub := range []string{"discovery-specialist", "hypothesis-triage"} {
+		if err := camp.SetStage(sub, "done", validation.VNull(), nil); err != nil {
+			t.Fatalf("set sub-stage %s: %v", sub, err)
+		}
+	}
+	b := build(t, camp, false)
+	campSec := objAt(b, "campaign")
+	done := intField(campSec, "stages_done")
+	total := intField(campSec, "stages_total")
+	if done != int64(len(pipeline.StageIDs)) ||
+		total != int64(len(pipeline.StageIDs)) {
+		t.Fatalf("stages %d/%d, want %d/%d (sub-stages excluded)",
+			done, total, len(pipeline.StageIDs), len(pipeline.StageIDs))
 	}
 }
 
@@ -1214,6 +1244,45 @@ func TestInvariantTotalCountsOnlyDictEntries(t *testing.T) {
 	}
 	if got := objInt(attInvariants(t, att), "unverified"); got != 1 {
 		t.Errorf("unverified = %d, want 1", got)
+	}
+}
+
+// TestContradictedModelInvariantIsNotUnverified (B3): a CONTRADICTED model
+// invariant is a CONFIRMING verdict (the invariant is falsified by code — the
+// attack works), so ChInvariants must not list it under unverified_model. An
+// UNVERIFIED model invariant must still be listed.
+func TestContradictedModelInvariantIsNotUnverified(t *testing.T) {
+	camp := newCamp(t, "Contradicted Model")
+	inv(t, camp, "INV-CONTRA", "security", "critical", "CONTRADICTED", "")
+	inv(t, camp, "INV-UNVER", "security", "high", "UNVERIFIED", "")
+	inv(t, camp, "INV-CHK", "security", "high", "CHECKED_AGAINST_CODE", "")
+	problems := []string{}
+	section := ChInvariants(camp, &problems)
+	var unverified []string
+	for _, v := range listAt(section, "unverified_model") {
+		if v.Kind == validation.Str {
+			unverified = append(unverified, v.S)
+		}
+	}
+	has := func(id string) bool {
+		for _, u := range unverified {
+			if u == id {
+				return true
+			}
+		}
+		return false
+	}
+	if has("INV-CONTRA") {
+		t.Errorf("unverified_model = %v; a CONTRADICTED model invariant is "+
+			"confirming and must not be listed", unverified)
+	}
+	if has("INV-CHK") {
+		t.Errorf("unverified_model = %v; a CHECKED_AGAINST_CODE invariant "+
+			"must not be listed", unverified)
+	}
+	if !has("INV-UNVER") {
+		t.Errorf("unverified_model = %v; an UNVERIFIED model invariant "+
+			"must be listed", unverified)
 	}
 }
 

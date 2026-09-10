@@ -8,7 +8,6 @@ package cli
 // the unknown-stage note (a deterministic stage without an advisory proof).
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -51,26 +50,39 @@ func TestProveAllStagesBoard(t *testing.T) {
 	}
 }
 
-func TestProveStageJSONAndExitCode(t *testing.T) {
+func TestProveStageHumanSummaryAndExitCode(t *testing.T) {
 	// An unresolved tier-3 candidate pair is what makes the dedup proof open
 	// (a fresh campaign has no advisory dedup proof at all).
+	// feedback-triage A6: --stage now prints the same human-readable line
+	// as the board view instead of the raw proof JSON (intentional
+	// divergence); the exit code is still the done/not-done verdict.
 	c, root, _, _ := t15Pair(t)
 	code, out, errS := run(t, "--root", root, "prove", c.CampaignID,
 		"--stage", "dedup")
 	if code != 1 {
 		t.Fatalf("exit %d, want 1 (the proof is not done): %q", code, errS)
 	}
-	var doc map[string]any
-	if err := json.Unmarshal([]byte(out), &doc); err != nil {
-		t.Fatalf("not JSON: %v\n%s", err, out)
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("expected one summary line:\n%s", out)
 	}
-	got := keyOrder(t, out)
-	want := []string{"done", "missing", "note", "stage", "authoritative"}
-	if strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Fatalf("key order %v, want %v", got, want)
+	ln := lines[0]
+	if len(ln) < 27 || ln[26] != ' ' {
+		t.Fatalf("line %q is not 26-column padded", ln)
 	}
-	if doc["stage"] != "dedup" || doc["done"] != false {
-		t.Fatalf("doc %v", doc)
+	if got := strings.TrimRight(ln[:26], " "); got != "dedup" {
+		t.Fatalf("stage column %q, want dedup", got)
+	}
+	// mark is "open " and the Sprintf adds its own separator space, so the
+	// rendered line carries "open  [advisory]" (two spaces).
+	if !strings.Contains(ln, "open  [advisory]") {
+		t.Fatalf("line %q lacks the open mark + basis", ln)
+	}
+	if !strings.Contains(ln, "[advisory] — ") {
+		t.Fatalf("line %q lacks basis and missing subjects", ln)
+	}
+	if !strings.Contains(ln, "no normalization verdict") {
+		t.Fatalf("line %q must name the missing subject", ln)
 	}
 }
 

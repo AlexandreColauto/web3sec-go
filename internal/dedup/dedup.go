@@ -233,9 +233,17 @@ func RunDedup(campaign *state.Campaign, autoMerge bool) (validation.Value, error
 	if err != nil {
 		return validation.VNull(), err
 	}
+	// Non-duplicatable statuses: a finding in one of these cannot legally
+	// transition to DUPLICATE (see findings.ALLOWED_TRANSITIONS), so it is
+	// excluded from grouping. Merging one would abort the whole sweep with
+	// an illegal transition.
+	nonDuplicatable := map[string]bool{
+		"DUPLICATE": true, "OUT_OF_SCOPE": true, "DISPROVED": true,
+		"CHAIN": true, "INFORMATIONAL": true,
+	}
 	live := make([]validation.Value, 0, len(all))
 	for _, f := range all {
-		if s := objStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" {
+		if nonDuplicatable[objStr(f, "status")] {
 			continue
 		}
 		live = append(live, f)
@@ -412,7 +420,11 @@ func autoMergePair(campaign *state.Campaign, keep, dup validation.Value) (bool, 
 	if err != nil {
 		return false, err
 	}
-	if snapshot.ReverifyRequired(dup, active) {
+	// Cross-snapshot on EITHER side needs re-verification (mirror the
+	// tier-3 check): evidence gathered against different code must be
+	// flagged, never auto-merged.
+	if snapshot.ReverifyRequired(dup, active) ||
+		snapshot.ReverifyRequired(keep, active) {
 		dupID, keepID := objStr(dup, "finding_id"), objStr(keep, "finding_id")
 		ids := valueStrings(getDeep(dup, "dedup", "possible_duplicate_of"))
 		if !containsStr(ids, keepID) {

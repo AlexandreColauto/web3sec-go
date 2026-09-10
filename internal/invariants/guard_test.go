@@ -342,7 +342,12 @@ func TestConfirmationGateReportsInvariantUnverified(t *testing.T) {
 	}
 }
 
-func TestContradictedInvariantBlocksConfirmationGate(t *testing.T) {
+// TestContradictedInvariantSatisfiesConfirmationGate (B3): CONTRADICTED is
+// the strongest confirming verdict — the invariant is falsified by code (the
+// attack works) — so a properly-contradicted invariant SATISFIES the
+// invariant-unverified gate check. (Before B3 it was gated out, which let
+// operators game the status.)
+func TestContradictedInvariantSatisfiesConfirmationGate(t *testing.T) {
 	c := invCamp(t)
 	wireFindings(t)
 	if _, err := SeedFromModel(c, modelWithInvariants()); err != nil {
@@ -356,8 +361,96 @@ func TestContradictedInvariantBlocksConfirmationGate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if gateByID(gates, "invariant-unverified") != nil {
+		t.Errorf("gate ids = %v, a properly-contradicted invariant must "+
+			"satisfy the check", gateIDs(gates))
+	}
+}
+
+// TestHandEditedContradictedWithoutEventBlocks (B3 anti-forgery): a
+// hand-edited registry entry claiming CONTRADICTED with no append-only
+// invariant.contradicted log event must still block — the hash-chained log is
+// the anti-forgery anchor, not the status field.
+func TestHandEditedContradictedWithoutEventBlocks(t *testing.T) {
+	c := invCamp(t)
+	wireFindings(t)
+	if _, err := SeedFromModel(c, modelWithInvariants()); err != nil {
+		t.Fatal(err)
+	}
+	links, err := LoadLinks(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := objAt(links, "invariants")
+	entry := objAt(reg, "INV-2")
+	entry.O = setOrAppend(entry.O, "status", validation.VStr("CONTRADICTED"))
+	entry.O = setOrAppend(entry.O, "contradiction",
+		validation.VStr("src/V.sol#L40"))
+	reg.O = setOrAppend(reg.O, "INV-2", entry)
+	links.O = setOrAppend(links.O, "invariants", reg)
+	if _, err := SaveLinks(c, links); err != nil {
+		t.Fatal(err)
+	}
+	f := findingWithInvariant(t, c, "INV-2")
+	gates, err := findings.ConfirmationGateDetail(c, f)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if gateByID(gates, "invariant-unverified") == nil {
-		t.Errorf("gate ids = %v, want invariant-unverified", gateIDs(gates))
+		t.Errorf("gate ids = %v, hand-edited CONTRADICTED without a log "+
+			"event must not pass", gateIDs(gates))
+	}
+}
+
+// TestIsVerifiedContradictedAnchors (B3): the CONTRADICTED branch of
+// IsVerified — a file anchor needs only the matching log event; an
+// artifact-id anchor must additionally resolve to a REGISTERED artifact.
+func TestIsVerifiedContradictedAnchors(t *testing.T) {
+	c := invCamp(t)
+	artID := registeredArtifact(t, c, "inv-contrad.md", "poc\n")
+	// (a) file anchor + matching log event -> verified
+	fileEntry := validation.VObj(
+		kv("status", validation.VStr("CONTRADICTED")),
+		kv("contradiction", validation.VStr("src/V.sol#L40")))
+	fileEvents := []validation.Value{
+		validation.VObj(
+			kv("type", validation.VStr("invariant.contradicted")),
+			kv("ref", validation.VStr("INV-2")),
+			kv("data", validation.VObj(
+				kv("evidence", validation.VStr("src/V.sol#L40")))))}
+	if !IsVerified(fileEntry, c, "INV-2", fileEvents) {
+		t.Error("file-anchored CONTRADICTED with a log event must be verified")
+	}
+	// (b) file anchor but no matching log event -> not verified
+	if IsVerified(fileEntry, c, "INV-2", nil) {
+		t.Error("file-anchored CONTRADICTED without a log event must not be verified")
+	}
+	// (c) registered artifact-id anchor + matching log event -> verified
+	artEntry := validation.VObj(
+		kv("status", validation.VStr("CONTRADICTED")),
+		kv("contradiction", validation.VStr(artID)))
+	artEvents := []validation.Value{
+		validation.VObj(
+			kv("type", validation.VStr("invariant.contradicted")),
+			kv("ref", validation.VStr("INV-2")),
+			kv("data", validation.VObj(
+				kv("evidence", validation.VStr(artID)))))}
+	if !IsVerified(artEntry, c, "INV-2", artEvents) {
+		t.Error("artifact-anchored CONTRADICTED with a log event must be verified")
+	}
+	// (d) artifact-id anchor that does not resolve -> not verified
+	badArt := "DOC-00000000"
+	badArtEntry := validation.VObj(
+		kv("status", validation.VStr("CONTRADICTED")),
+		kv("contradiction", validation.VStr(badArt)))
+	badArtEvents := []validation.Value{
+		validation.VObj(
+			kv("type", validation.VStr("invariant.contradicted")),
+			kv("ref", validation.VStr("INV-2")),
+			kv("data", validation.VObj(
+				kv("evidence", validation.VStr(badArt)))))}
+	if IsVerified(badArtEntry, c, "INV-2", badArtEvents) {
+		t.Error("CONTRADICTED anchored to an unregistered artifact must not be verified")
 	}
 }
 

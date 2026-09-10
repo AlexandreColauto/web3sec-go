@@ -30,6 +30,10 @@ type impactArgs struct {
 	ceiling         string
 	reason          string
 	actor           string
+	// reversibility (IMPROVEMENTS E5): victim-perspective recoverability —
+	// irreversible | trusted-party | reversible, or "none" to clear. May be
+	// passed alone (a classification-only call) or alongside the USD flags.
+	reversibility string
 }
 
 func runImpact(root string, args []string, r *Runner) int {
@@ -50,24 +54,45 @@ func impactBody(c *state.Campaign, a *impactArgs, r *Runner) error {
 	if a.unpriceable {
 		return impactUnpriceable(c, a, r)
 	}
-	if a.extractable == nil && a.maxLoss == nil {
+	hasUSD := a.extractable != nil || a.maxLoss != nil
+	if !hasUSD && a.reversibility == "" {
 		return t14ExitErr(2, "impact requires --extractable USD and/or "+
-			"--max-loss USD\n")
+			"--max-loss USD, or --reversibility MODE\n")
 	}
-	if _, err := risk.RecordEconomicImpact(c, a.finding, t23Flt(a.extractable),
-		t23Flt(a.maxLoss), t23Flt(a.requiredCapital)); err != nil {
-		return err
+	if hasUSD {
+		if _, err := risk.RecordEconomicImpact(c, a.finding, t23Flt(a.extractable),
+			t23Flt(a.maxLoss), t23Flt(a.requiredCapital)); err != nil {
+			return err
+		}
+	}
+	if a.reversibility != "" {
+		if _, err := risk.RecordReversibility(c, a.finding,
+			a.reversibility); err != nil {
+			return err
+		}
 	}
 	f, err := findings.LoadFinding(c, a.finding)
 	if err != nil {
 		return err
 	}
-	imp := objAt(f, "economic_impact")
 	band := objAt(objAt(objAt(f, "risk"), "validated"), "band")
-	fmt.Fprintf(r.Out, "%s: impact recorded — extractable $%s, max loss "+
-		"$%s (risk band %s)\n", a.finding, scalarStr(objAt(imp,
-		"extractable_usd")), scalarStr(objAt(imp, "max_loss_usd")),
-		scalarStr(band))
+	if hasUSD {
+		imp := objAt(f, "economic_impact")
+		fmt.Fprintf(r.Out, "%s: impact recorded — extractable $%s, max loss "+
+			"$%s (risk band %s)\n", a.finding, scalarStr(objAt(imp,
+			"extractable_usd")), scalarStr(objAt(imp, "max_loss_usd")),
+			scalarStr(band))
+	}
+	if a.reversibility != "" {
+		rv := objStr(objAt(f, "risk"), "reversibility")
+		if a.reversibility == "none" {
+			fmt.Fprintf(r.Out, "%s: reversibility cleared (risk band %s)\n",
+				a.finding, scalarStr(band))
+		} else {
+			fmt.Fprintf(r.Out, "%s: reversibility recorded — %s (risk band %s)\n",
+				a.finding, rv, scalarStr(band))
+		}
+	}
 	return impactArtifact(c, a, r)
 }
 
@@ -248,6 +273,8 @@ func impactStrDst(a *impactArgs, arg string) (string, *string) {
 		return arg, &a.reason
 	case "--actor":
 		return arg, &a.actor
+	case "--reversibility":
+		return arg, &a.reversibility
 	}
 	return "", nil
 }
@@ -274,7 +301,7 @@ func impactEq(a *impactArgs, arg string) (bool, error) {
 		dst  *string
 	}{{"--artifact", &a.artifact}, {"--description", &a.description},
 		{"--ceiling", &a.ceiling}, {"--reason", &a.reason},
-		{"--actor", &a.actor}} {
+		{"--actor", &a.actor}, {"--reversibility", &a.reversibility}} {
 		if strings.HasPrefix(arg, f.name+"=") {
 			*f.dst = strings.TrimPrefix(arg, f.name+"=")
 			return true, nil

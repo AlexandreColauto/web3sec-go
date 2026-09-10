@@ -1,48 +1,40 @@
 #!/usr/bin/env python3
-"""Golden-suite checker (Tasks 17 + 24).
+"""Golden-suite checker (Go-only).
 
-Byte-diffs the two twin artifact trees (campaign_state.json, events.jsonl,
-the pinned snapshot tree incl. snapshot.json) and every captured
-command's stdout/stderr/exit. Normalizes exactly two classes of
-legitimate differences, each recorded in KNOWN_DIVERGENCES.md:
+The Python twin is retired — Go is the source of truth. This no longer
+byte-diffs two implementations; it validates the single Go run that
+golden-run.py captured:
 
-  1. the run root path (and the target path) — replaced by <ROOT>/<TGT>;
-  2. environment_hash + every manifest_hash derived from it — the
-     environment fingerprint hashes the runtime (python X vs go Y), which
-     can never match across implementations; replaced by <ENVHASH>.
+  1. every recipe step exits with the code the recipe declares
+     (the integration smoke: the full 179-step op-sequence runs cleanly);
+  2. the campaign artifact tree is well-formed (campaign_state.json and
+     events.jsonl parse, and the event hash chain is intact: first
+     prev_hash is the genesis hash, each next prev_hash is the prior
+     event_hash);
+  3. every `audit --json` step reports all 14 registered sections and a
+     boolean ok (the audit surface is complete).
 
-The D25 prompt-pack path divergence is NOT normalized here: golden-run.py
-points the reference at the Go twin's byte-identical embed mirror
-(WEBV2_PROMPTS_BASE), so both twins print and hash the SAME prompt path.
-A prompt-path difference is therefore a hard failure, by design.
-
-Everything else must be byte-identical, including every event hash: both
-twins run under the SAME root path (the event chain hashes absolute
-artifact paths) and finding ids are pinned into the same stream in both
-twins (WEBV2_FINDING_IDS=pin + scripts/golden/sitecustomize.py), because
-the Python reference mints finding ids from a raw uuid4 that the
-WEBV2_UUID pin never reached. Since v3 the uuid seed is per step
-(<seed>:<step>), so distinct commands cannot collide on the same id.
-
-The `audit --json` steps compare EVERY section: Go's audit registry now
-has all 14 sections in the reference's order (D2 closed 2026-09-09), so a
-section present on one side only is a failure in either direction.
-
-Exit 0 = GOLDEN GREEN; exit 1 = divergence reported per file/step.
+Exit 0 = GOLDEN GREEN; exit 1 = a validation failure is reported per
+step/tree/section.
 """
 from __future__ import annotations
 
 import json
-import re
-import sys
 from pathlib import Path
 
 WORK = Path(__file__).resolve().parent.parent / ".scratch" / "golden"
-# D2 CLOSED (2026-09-09, commit 5160b1a): the Go audit registry registers
-# all 14 reference sections in the reference's order, so no section is
-# Python-only any more. Kept as an empty set so an accidental re-introduction
-# is a hard failure, not a silent pass.
-PY_ONLY_SECTIONS: set[str] = set()
+
+# The 14 audit sections in report (registration) order — pinned to the Go
+# registry (internal/audit/sections/register.go). A section missing here is
+# a hard failure in either direction.
+EXPECTED_SECTIONS: list[str] = [
+    "event_log", "artifacts", "execs", "findings", "projection",
+    "snapshots", "relations", "floor_policy", "stage_completions",
+    "baselines", "invariant_verification", "sequence_coverage",
+    "probe_surface", "unpriceable",
+]
+
+GENESIS_HASH = "0" * 64
 
 fails: list[str] = []
 
@@ -51,192 +43,128 @@ def load_spec() -> dict:
     return json.loads((WORK / "spec.json").read_text())
 
 
-def normalizers(spec: dict, twin: str) -> list[tuple[re.Pattern, str]]:
-    """(pattern, replacement) pairs applied to both text and bytes."""
-    ns = []
-    ns.append((re.compile(re.escape(spec["roots"][twin])), "<ROOT>"))
-    ns.append((re.compile(re.escape(spec["target"])), "<TGT>"))
-    # environment_hash values: extract from EVERY snapshot.json in both
-    # archived trees (the recipe may pin more than one campaign).
-    for t in ("py", "go"):
-        snaps = sorted((Path(spec["trees"][t]) / "campaigns").glob(
-            "*/snapshots/*/snapshot.json"))
-        for snap in snaps:
-            doc = json.loads(snap.read_text())
-            env = (doc.get("manifest") or {}).get("environment_hash")
-            man = (doc.get("manifest") or {}).get("manifest_hash")
-            for val in (env, man):
-                if val:
-                    ns.append((re.compile(re.escape(val)), "<ENVHASH>"))
-    return ns
-
-
-def norm_text(spec: dict, twin: str, text: str) -> str:
-    for pat, repl in normalizers(spec, twin):
-        text = pat.sub(repl, text)
-    return text
-
-
-def norm_bytes(spec: dict, twin: str, data: bytes) -> bytes:
-    return norm_text(spec, twin, data.decode("utf-8", "replace")).encode("utf-8")
-
-
-def _diff_files(spec: dict, label: str, py_root: Path,
-                go_root: Path) -> tuple[int, int]:
-    """Byte-diff two mirrored trees; returns (files compared, mismatches)."""
-    py_files = sorted(p.relative_to(py_root).as_posix()
-                      for p in py_root.rglob("*") if p.is_file())
-    go_files = sorted(p.relative_to(go_root).as_posix()
-                      for p in go_root.rglob("*") if p.is_file())
-    bad = 0
-    for f in sorted(set(py_files) - set(go_files)):
-        fails.append(f"tree: py-only file {label}/{f}")
-        bad += 1
-    for f in sorted(set(go_files) - set(py_files)):
-        fails.append(f"tree: go-only file {label}/{f}")
-        bad += 1
-    for f in sorted(set(py_files) & set(go_files)):
-        a = norm_bytes(spec, "py", (py_root / f).read_bytes())
-        b = norm_bytes(spec, "go", (go_root / f).read_bytes())
-        if a != b:
-            fails.append(f"tree: {label}/{f} differs")
-            bad += 1
-            la = a.decode("utf-8", "replace").splitlines()
-            lb = b.decode("utf-8", "replace").splitlines()
-            for i in range(max(len(la), len(lb))):
-                xa = la[i] if i < len(la) else "<missing>"
-                xb = lb[i] if i < len(lb) else "<missing>"
-                if xa != xb:
-                    fails.append(f"    line {i+1} py: {xa[:200]}")
-                    fails.append(f"    line {i+1} go: {xb[:200]}")
-                    break
-    return len(py_files), bad
-
-
-def diff_tree(spec: dict) -> None:
-    """Byte-diff EVERY campaign dir in the two archived trees, plus the
-    per-twin P4 sft store.
-
-    The recipe's main campaign is spec["campaign_id"], but golden v4 also
-    creates a second campaign for the D19 deployment/chain pin, so the diff
-    walks the whole `campaigns/` dir (a campaign present on one side only is
-    itself a failure). Golden v5 adds `sft-store/examples.json`: the sft
-    store is a repo-level file, not campaign data, and `sft split` rewrites
-    it — so the harness copies the fixture into the run root per twin and
-    this diff proves the post-split bytes match byte-for-byte."""
-    py_base = Path(spec["trees"]["py"]) / "campaigns"
-    go_base = Path(spec["trees"]["go"]) / "campaigns"
-    camps = sorted({p.name for p in py_base.iterdir() if p.is_dir()} |
-                   {p.name for p in go_base.iterdir() if p.is_dir()})
-    total = 0
-    bad = 0
-    for camp in camps:
-        py_root, go_root = py_base / camp, go_base / camp
-        if not py_root.is_dir():
-            fails.append(f"tree: campaign {camp} missing from the py tree")
-            continue
-        if not go_root.is_dir():
-            fails.append(f"tree: campaign {camp} missing from the go tree")
-            continue
-        n, b = _diff_files(spec, camp, py_root, go_root)
-        total += n
-        bad += b
-    n, b = _diff_files(spec, "sft-store",
-                       Path(spec["trees"]["py"]) / "sft-store",
-                       Path(spec["trees"]["go"]) / "sft-store")
-    total += n
-    bad += b
-    if not bad:
-        print(f"tree: {total} files byte-MATCH across {len(camps)} "
-              f"campaign(s) + sft-store (normalized)")
-
-
-def audit_json_step(spec: dict, step: int, name: str) -> None:
-    """Compare an `audit --json` report on every shared section."""
-    def report(twin: str) -> dict:
-        f = WORK / "captures" / twin / f"{step:02d}-{name}.out"
-        return json.loads(norm_text(spec, twin, f.read_text()))
-
-    a, b = report("py"), report("go")
-    sa, sb = a.get("sections", {}), b.get("sections", {})
-    go_only = sorted(set(sb) - set(sa))
-    py_only = sorted(set(sa) - set(sb))
-    for k in go_only:
-        fails.append(f"step {step:02d} {name}: go-only audit section {k}")
-    for k in py_only:
-        if k not in PY_ONLY_SECTIONS:
-            fails.append(f"step {step:02d} {name}: undocumented py-only audit "
-                         f"section {k} (add to PY_ONLY_SECTIONS + "
-                         f"KNOWN_DIVERGENCES if intended)")
-    shared = sorted(set(sa) & set(sb))
-    bad = [k for k in shared if sa[k] != sb[k]]
-    if a.get("campaign_id") != b.get("campaign_id") or a.get("ok") != b.get("ok"):
-        bad.append("<ok/campaign_id>")
-    if bad:
-        fails.append(f"step {step:02d} {name}: audit sections differ: "
-                     + ", ".join(bad))
-        for k in bad:
-            if k in sa or k in sb:
-                fails.append(f"    section {k}:\n"
-                             f"      py: {json.dumps(sa.get(k), sort_keys=True)[:400]}\n"
-                             f"      go: {json.dumps(sb.get(k), sort_keys=True)[:400]}")
+def check_tree(spec: dict) -> None:
+    """Validate the Go campaign tree: key artifacts parse and the event
+    hash chain is intact."""
+    camp = Path(spec["trees"]["go"]) / "campaigns" / spec["campaign_id"]
+    if not camp.is_dir():
+        fails.append(f"tree: campaign dir missing: {camp}")
+        return
+    # campaign_state.json parses
+    st_path = camp / "campaign_state.json"
+    if not st_path.is_file():
+        fails.append(f"tree: missing {st_path.name}")
     else:
-        print(f"step {step:02d} {name}: {len(shared)} audit section(s) + ok "
-              f"MATCH (py-only: {', '.join(py_only) or 'none'})")
-
-
-def diff_steps(spec: dict) -> None:
-    nonzero_ok = []
-    for i, name in enumerate(spec["recipe"]):
-        expected = spec["expected_exit"][i]
-        for ext in ("out", "err", "exit"):
-            a = (WORK / "captures" / "py" / f"{i:02d}-{name}.{ext}").read_text()
-            b = (WORK / "captures" / "go" / f"{i:02d}-{name}.{ext}").read_text()
-            if ext == "exit":
-                if a.strip() != b.strip():
-                    fails.append(f"step {i:02d} {name}: exit py={a.strip()} "
-                                 f"go={b.strip()}")
-                elif a.strip() != str(expected):
-                    fails.append(f"step {i:02d} {name}: exit {a.strip()}, "
-                                 f"recipe declares {expected}")
-                elif expected != 0:
-                    nonzero_ok.append(f"{name}={expected}")
+        try:
+            json.loads(st_path.read_text())
+        except ValueError as exc:
+            fails.append(f"tree: campaign_state.json does not parse: {exc}")
+    # events.jsonl parses line-by-line and the hash chain is intact
+    ev_path = camp / "events.jsonl"
+    if not ev_path.is_file():
+        fails.append(f"tree: missing {ev_path.name}")
+    else:
+        prev = GENESIS_HASH
+        n = 0
+        for ln, line in enumerate(ev_path.read_text().splitlines(), 1):
+            if not line.strip():
                 continue
-            if name.startswith("audit-json") and ext == "out":
-                continue  # handled by audit_json_step
-            na, nb = norm_text(spec, "py", a), norm_text(spec, "go", b)
-            # D2 CLOSED: the plain `audit` summary line lists all 14 sections
-            # in the reference's order in BOTH twins, so it is compared
-            # byte-for-byte with no token filtering.
-            if na != nb:
-                fails.append(f"step {i:02d} {name}.{ext} differs")
-                la, lb = na.splitlines(), nb.splitlines()
-                for j in range(max(len(la), len(lb))):
-                    xa = la[j] if j < len(la) else "<missing>"
-                    xb = lb[j] if j < len(lb) else "<missing>"
-                    if xa != xb:
-                        fails.append(f"    line {j+1} py: {xa[:200]}")
-                        fails.append(f"    line {j+1} go: {xb[:200]}")
-                        break
-    print(f"steps: {len(spec['recipe'])} commands x 2 twins "
+            try:
+                e = json.loads(line)
+            except ValueError as exc:
+                fails.append(f"tree: events.jsonl line {n + 1} does not "
+                             f"parse: {exc}")
+                break
+            if e.get("prev_hash") != prev:
+                fails.append(f"tree: events.jsonl line {n + 1} (seq "
+                             f"{e.get('seq')}): prev_hash {e.get('prev_hash')!r} "
+                             f"!= prior event_hash {prev!r}")
+                break
+            eh = e.get("event_hash")
+            if not eh:
+                fails.append(f"tree: events.jsonl line {n + 1} (seq "
+                             f"{e.get('seq')}): no event_hash")
+                break
+            prev = eh
+            n += 1
+        else:
+            n_files = sum(1 for p in
+                          Path(spec["trees"]["go"]).rglob("*") if p.is_file())
+            print(f"tree: campaign {spec['campaign_id']} well-formed "
+                  f"({n} events, chain intact; {n_files} files archived)")
+
+
+def check_steps(spec: dict) -> None:
+    """Every step must exit with the code the recipe declared."""
+    nonzero_ok: list[str] = []
+    for i, name in enumerate(spec["recipe"]):
+        expected = str(spec["expected_exit"][i])
+        f = WORK / "captures" / "go" / f"{i:02d}-{name}.exit"
+        if not f.is_file():
+            fails.append(f"step {i:02d} {name}: missing exit capture")
+            continue
+        got = f.read_text().strip()
+        if got != expected:
+            errf = f.with_suffix(".err")
+            err = errf.read_text().strip()[:200] if errf.is_file() else ""
+            fails.append(f"step {i:02d} {name}: exit {got}, recipe declares "
+                         f"{expected}" + (f" — {err}" if err else ""))
+        elif expected != "0":
+            nonzero_ok.append(f"{name}={expected}")
+    print(f"steps: {len(spec['recipe'])} commands "
           f"({'all exit 0' if not nonzero_ok else 'declared nonzero: ' + ', '.join(nonzero_ok)})")
+
+
+def check_audit(spec: dict, step: int, name: str) -> None:
+    """An `audit --json` report must carry all 14 sections + boolean ok."""
+    f = WORK / "captures" / "go" / f"{step:02d}-{name}.out"
+    try:
+        doc = json.loads(f.read_text())
+    except ValueError as exc:
+        fails.append(f"step {step:02d} {name}: audit --json not JSON: {exc}")
+        return
+    if not isinstance(doc, dict):
+        fails.append(f"step {step:02d} {name}: audit --json not an object")
+        return
+    ok = doc.get("ok")
+    if not isinstance(ok, bool):
+        fails.append(f"step {step:02d} {name}: audit ok is not a boolean "
+                     f"({ok!r})")
+    sections = doc.get("sections")
+    if not isinstance(sections, dict):
+        fails.append(f"step {step:02d} {name}: audit sections missing/not an "
+                     f"object")
+        return
+    have = set(sections)
+    want = set(EXPECTED_SECTIONS)
+    missing = sorted(want - have)
+    extra = sorted(have - want)
+    if missing:
+        fails.append(f"step {step:02d} {name}: missing audit section(s): "
+                     + ", ".join(missing))
+    if extra:
+        fails.append(f"step {step:02d} {name}: unexpected audit section(s): "
+                     + ", ".join(extra))
+    if not missing and not extra:
+        print(f"step {step:02d} {name}: {len(have)} audit sections + ok "
+              f"(ok={ok}) present")
 
 
 def main() -> None:
     spec = load_spec()
-    diff_tree(spec)
-    diff_steps(spec)
+    check_tree(spec)
+    check_steps(spec)
     for i, name in enumerate(spec["recipe"]):
         if name.startswith("audit-json"):
-            audit_json_step(spec, i, name)
+            check_audit(spec, i, name)
     print()
     if fails:
-        print("GOLDEN RED — divergences:")
+        print("GOLDEN RED — failures:")
         for f in fails:
             print("  " + f)
-        sys.exit(1)
-    print("GOLDEN GREEN: all artifacts and command outputs byte-match "
-          "(normalized per KNOWN_DIVERGENCES)")
+        raise SystemExit(1)
+    print("GOLDEN GREEN: Go run validates (exit codes, tree + event chain, "
+          "audit surface)")
 
 
 if __name__ == "__main__":

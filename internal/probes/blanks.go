@@ -2,6 +2,7 @@ package probes
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -12,10 +13,13 @@ const BlankReasonMin = 10
 
 // surfaceAxis is _surface_axis.
 func surfaceAxis(surface validation.Value, axisName string) *validation.Value {
-	for i, a := range vObjList(surface, "axes") {
+	// Return the matching (filtered) element itself. Indexing the RAW list
+	// with a filtered-list index would return the wrong axis whenever a
+	// non-object precedes the match.
+	for _, a := range vObjList(surface, "axes") {
 		if vStr(a, "axis") == axisName {
-			axes := vList(surface, "axes")
-			return &axes[i]
+			matched := a
+			return &matched
 		}
 	}
 	return nil
@@ -101,7 +105,9 @@ func SetBlank(c *state.Campaign, axis, anchorBlind, reason,
 		return validation.VNull(), errf("a blank attestation must name its " +
 			"actor (who decided the probe saw nothing)")
 	}
-	if len(strings.TrimSpace(reason)) < BlankReasonMin {
+	// Count characters, not bytes (matches the complete-reason check): a
+	// multibyte reason is >= N chars even when it is < N bytes.
+	if utf8.RuneCountInString(strings.TrimSpace(reason)) < BlankReasonMin {
 		return validation.VNull(), errf("a blank attestation requires a "+
 			"written reason (>= %d chars): the point is the audit trail, not "+
 			"the shrug", BlankReasonMin)

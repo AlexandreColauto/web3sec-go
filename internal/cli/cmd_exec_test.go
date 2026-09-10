@@ -121,11 +121,15 @@ func TestExecDryRunContainer(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
+	// FOUNDRY_LINT_ON_BUILD=false is injected by default (feedback-triage
+	// A3) — an intentional divergence from the reference argv.
 	want := "exec preview [docker-networkless]  available: yes\n" +
 		"  network: none\n" +
 		"  workdir: (sandbox tmpfs) (tmpfs)\n" +
+		"  env keys: FOUNDRY_LINT_ON_BUILD\n" +
 		"  $ docker run --rm --init --network none --tmpfs " +
-		"/wd:rw,size=1g -w /wd --entrypoint /bin/sh " +
+		"/wd:rw,size=1g -w /wd -e FOUNDRY_LINT_ON_BUILD=false " +
+		"--entrypoint /bin/sh " +
 		"ghcr.io/foundry-rs/foundry:latest -c 'forge build'\n" +
 		"  note: entrypoint is pinned to /bin/sh -c (the image's entrypoint " +
 		"is never used) — the command runs verbatim as a shell string\n"
@@ -150,10 +154,11 @@ func TestExecDryRunEnvKeys(t *testing.T) {
 	want := "exec preview [fork-runner]  available: yes\n" +
 		"  network: bridge-host-gateway\n" +
 		"  workdir: (sandbox tmpfs) (tmpfs)\n" +
-		"  env keys: A, B, FORK_RPC_URL\n" +
+		"  env keys: A, B, FORK_RPC_URL, FOUNDRY_LINT_ON_BUILD\n" +
 		"  $ docker run --rm --init --add-host " +
 		"host.docker.internal:host-gateway --tmpfs /wd:rw,size=1g -w /wd " +
 		"-e A=1 -e B=2 -e FORK_RPC_URL=http://host.docker.internal:8545 " +
+		"-e FOUNDRY_LINT_ON_BUILD=false " +
 		"--entrypoint /bin/sh ghcr.io/foundry-rs/foundry:latest " +
 		"-c 'forge test'\n" +
 		"  note: entrypoint is pinned to /bin/sh -c (the image's entrypoint " +
@@ -365,8 +370,10 @@ func TestExecDryRunNoDaemon(t *testing.T) {
 		"the runtime to execute this profile\n" +
 		"  network: none\n" +
 		"  workdir: (sandbox tmpfs) (tmpfs)\n" +
+		"  env keys: FOUNDRY_LINT_ON_BUILD\n" +
 		"  $ docker run --rm --init --network none --tmpfs " +
-		"/wd:rw,size=1g -w /wd --entrypoint /bin/sh " +
+		"/wd:rw,size=1g -w /wd -e FOUNDRY_LINT_ON_BUILD=false " +
+		"--entrypoint /bin/sh " +
 		"ghcr.io/foundry-rs/foundry:latest -c 'forge build'\n" +
 		"  note: entrypoint is pinned to /bin/sh -c (the image's entrypoint " +
 		"is never used) — the command runs verbatim as a shell string\n"

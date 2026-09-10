@@ -30,7 +30,7 @@ const t23ImpactUsage = `usage: webv2 impact [-h] [--extractable EXTRACTABLE] [--
                     [--required-capital REQUIRED_CAPITAL]
                     [--artifact ARTIFACT] [--description DESCRIPTION]
                     [--unpriceable] [--ceiling CEILING] [--reason REASON]
-                    [--actor ACTOR]
+                    [--actor ACTOR] [--reversibility REVERSIBILITY]
                     campaign finding
 `
 
@@ -39,13 +39,13 @@ const t23LadderUsage = `usage: webv2 ladder [-h] [--name NAME] [--description DE
                     [--removes REMOVES] [--note NOTE] [--reason REASON]
                     [--exec EXEC_ID] [--actor ACTOR]
                     campaign
-                    {start,show,explore,add,repro,disprove,set-maximal,complete,waive,report}
+                    {start,show,explore,add,repro,disprove,set-maximal,complete,waive,reopen,report}
                     [finding] [rung] [axis]
 `
 
 // t23LadderActions is the action choice list, in cli.py order.
 var t23LadderActions = []string{"start", "show", "explore", "add", "repro",
-	"disprove", "set-maximal", "complete", "waive", "report"}
+	"disprove", "set-maximal", "complete", "waive", "reopen", "report"}
 
 // --- argparse help (stdout, exit 0) ----------------------------------------
 
@@ -80,7 +80,7 @@ const t23ImpactHelp = `usage: webv2 impact [-h] [--extractable EXTRACTABLE] [--m
                     [--required-capital REQUIRED_CAPITAL]
                     [--artifact ARTIFACT] [--description DESCRIPTION]
                     [--unpriceable] [--ceiling CEILING] [--reason REASON]
-                    [--actor ACTOR]
+                    [--actor ACTOR] [--reversibility REVERSIBILITY]
                     campaign finding
 
 positional arguments:
@@ -105,6 +105,11 @@ options:
                         defensible)
   --reason REASON       written reason for --unpriceable
   --actor ACTOR         who decided (required with --unpriceable)
+  --reversibility REVERSIBILITY
+                        victim-perspective recoverability: irreversible
+                        (+3.0), trusted-party (+2.0) or reversible (+0.0) in
+                        validated_risk; 'none' clears the classification
+                        (IMPROVEMENTS E5)
 `
 
 const t23LadderHelp = `usage: webv2 ladder [-h] [--name NAME] [--description DESCRIPTION]
@@ -112,12 +117,12 @@ const t23LadderHelp = `usage: webv2 ladder [-h] [--name NAME] [--description DES
                     [--removes REMOVES] [--note NOTE] [--reason REASON]
                     [--exec EXEC_ID] [--actor ACTOR]
                     campaign
-                    {start,show,explore,add,repro,disprove,set-maximal,complete,waive,report}
+                    {start,show,explore,add,repro,disprove,set-maximal,complete,waive,reopen,report}
                     [finding] [rung] [axis]
 
 positional arguments:
   campaign
-  {start,show,explore,add,repro,disprove,set-maximal,complete,waive,report}
+  {start,show,explore,add,repro,disprove,set-maximal,complete,waive,reopen,report}
   finding               the finding (report: optional)
   rung                  rung id (repro/disprove/set-maximal)
   axis                  axis (explore)
@@ -133,9 +138,9 @@ options:
   --removes REMOVES     semicolon-separated removed preconditions (add)
   --note NOTE           written reason (explore: why the axis is not
                         applicable)
-  --reason REASON       written reason (disprove/waive)
+  --reason REASON       written reason (disprove/waive/reopen)
   --exec EXEC_ID        EXEC id (repro)
-  --actor ACTOR         who acts (complete/waive)
+  --actor ACTOR         who acts (complete/waive/reopen)
 `
 
 // --- python float formatting ----------------------------------------------

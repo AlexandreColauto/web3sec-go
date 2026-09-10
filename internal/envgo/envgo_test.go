@@ -264,6 +264,48 @@ func TestDoctorProbeNoneWithoutPinnedCompiler(t *testing.T) {
 	}
 }
 
+// TestDoctorProfileFitMarksFloorGap pins feedback-triage A7: the doctor used
+// to print "docker-networkless=ok" next to a campaign whose max CONFIRMED
+// floor the profile cannot back. The report now carries a profile_fit
+// section that pre-runs the same floor comparison and marks the gap.
+// (The reference's class floors top out at E6, so against the default
+// floor only fork-runner's direct E5 shape gets close; E6 always needs the
+// independent-reproduction step on top.)
+func TestDoctorProfileFitMarksFloorGap(t *testing.T) {
+	c, _ := campaignWithPin(t, "fit7")
+	prev := dockerProbe
+	dockerProbe = stubImage(true, true, false)
+	t.Cleanup(func() { dockerProbe = prev })
+	stubDaemon(t, true)
+	// ProfileAvailable probes the sandbox's own daemon seam
+	sandbox.SetDockerDaemonOK(func() bool { return true })
+	t.Cleanup(func() { sandbox.SetDockerDaemonOK(nil) })
+	stubRun(t, procResult{ReturnCode: 0, Stdout: "solc-0.8.24\n"})
+
+	report, err := Doctor(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fit := objAt(report, "profile_fit")
+	if fit.Kind != validation.Obj {
+		t.Fatalf("profile_fit = %s, want an object",
+			validation.DumpIndented(fit))
+	}
+	if got := objStr(fit, "docker-networkless"); got !=
+		"E4-only (campaign floor E6)" {
+		t.Errorf("docker-networkless fit = %q", got)
+	}
+	if got := objStr(fit, "fork-runner"); got !=
+		"E5-only (campaign floor E6)" {
+		t.Errorf("fork-runner fit = %q", got)
+	}
+	// host-readonly has no evidence ceiling and is never fit-marked
+	if objAt(fit, "host-readonly").Kind != validation.Null {
+		t.Errorf("host-readonly must not appear in profile_fit: %s",
+			validation.DumpIndented(fit))
+	}
+}
+
 // --- tests/test_doctor_preflight.py ----------------------------------------
 
 func TestPreflightOKWhenDaemonImageAndCachePresent(t *testing.T) {

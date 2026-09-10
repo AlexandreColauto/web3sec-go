@@ -114,3 +114,26 @@ func TestWorkQueueSkipsTerminalStatuses(t *testing.T) {
 	requireJSON(t, "trajectory enum", objAt(queue[0], "trajectories"),
 		jsonValue(t, `["economic"]`))
 }
+
+// TestWorkQueueSkipsNotApplicable pins feedback-triage A1: a priority closed
+// as not-applicable (a legitimate closing disposition per planner.gates) must
+// not re-enter the work queue — before the fix it re-queued forever and the
+// discovery completion proof could never complete.
+func TestWorkQueueSkipsNotApplicable(t *testing.T) {
+	camp := newCampaign(t, "wqna")
+	plan := jsonValue(t, `{"priorities":[
+		{"id":"Q-001","question":"a","risk":0.9,"trajectories":["A-code"],
+		 "status":"not-applicable","budget_class":"cheap"},
+		{"id":"Q-002","question":"b","risk":0.4,"trajectories":["A-code"],
+		 "status":"open","budget_class":"cheap"}]}`)
+	queue, err := WorkQueue(camp, plan, validation.VObj(), false)
+	if err != nil {
+		t.Fatalf("work_queue: %v", err)
+	}
+	if len(queue) != 1 {
+		t.Fatalf("expected 1 live row (not-applicable dropped), got %d",
+			len(queue))
+	}
+	requireJSON(t, "live row", objAt(queue[0], "priority_id"),
+		validation.VStr("Q-002"))
+}

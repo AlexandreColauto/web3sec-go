@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Golden-suite orchestrator (Tasks 17 + 24).
 
-Builds the Go binary, then runs the SAME scripted op-sequence through the
-Python webv2 CLI and the Go webv2 binary — both with the clock pinned
-(WEBV2_NOW, monotonic +1s per step) and the id stream pinned
-(WEBV2_UUID seed, identical derivation in both twins) — into two fresh
-roots, capturing every command's stdout/stderr/exit and the resulting
-artifact trees for check-golden.py to byte-diff.
+The Python twin is retired (Go is the source of truth). Builds the Go
+binary and runs the scripted op-sequence through the Go webv2 CLI with the
+clock pinned (WEBV2_NOW, monotonic +1s per step) and the id stream pinned
+(WEBV2_UUID seed) into a fresh root, capturing every command's
+stdout/stderr/exit and the resulting artifact tree for check-golden.py to
+validate (declared exit codes, tree + event-chain integrity, audit surface).
 
 The recipe has four halves:
 
@@ -867,12 +867,13 @@ def main() -> None:
     trees: dict[str, str] = {}
     captures: dict[str, list] = {}
     states: dict[str, dict] = {}
-    # BOTH twins run under the SAME root path, sequentially: every event
-    # hash covers absolute artifact paths, so two different roots could
-    # never produce the same event chain. The Python tree is archived to
-    # .scratch/golden/tree-py before the Go run re-creates .scratch/golden/root.
+    # GO-ONLY (Python twin retired — Go is the source of truth). The single
+    # Go run uses one root path; every event hash covers absolute artifact
+    # paths, so the archived tree is self-consistent. The run is captured
+    # (stdout/stderr/exit per step + the artifact tree) for check-golden.py
+    # to validate against the recipe's declared exit codes.
     root = WORK / "root"
-    for twin in ("py", "go"):
+    for twin in ("go",):
         shutil.rmtree(root, ignore_errors=True)
         root.mkdir(parents=True)
         # The baseline store is pinned (WEBV2_BASELINES_DIR) at ONE scratch
@@ -1015,9 +1016,6 @@ def main() -> None:
         shutil.move(str(root), str(archived))
         trees[twin] = str(archived)
 
-    if states["py"]["cid"] != states["go"]["cid"]:
-        sys.exit(f"campaign ids differ: py={states['py']['cid']} "
-                 f"go={states['go']['cid']} (pinned id stream out of sync)")
 
     spec = {
         "seed": SEED,
@@ -1025,16 +1023,16 @@ def main() -> None:
         "roots": roots,
         "trees": trees,
         "target": str(target),
-        "campaign_id": states["py"]["cid"],
-        "recipe": [c["name"] for c in captures["py"]],
-        "expected_exit": [c["expect_exit"] for c in captures["py"]],
+        "campaign_id": states["go"]["cid"],
+        "recipe": [c["name"] for c in captures["go"]],
+        "expected_exit": [c["expect_exit"] for c in captures["go"]],
         "captures": captures,
     }
     (WORK / "spec.json").write_text(json.dumps(spec, indent=1))
-    print(f"golden run complete: campaign {states['py']['cid']} "
-          f"({len(spec['recipe'])} steps x 2 twins)")
-    print(f"  run root (both twins): {roots['py']}")
-    print(f"  archived trees: {trees['py']} | {trees['go']}")
+    print(f"golden run complete: campaign {states['go']['cid']} "
+          f"({len(spec['recipe'])} steps, Go-only)")
+    print(f"  run root: {roots['go']}")
+    print(f"  archived tree: {trees['go']}")
 
 
 if __name__ == "__main__":

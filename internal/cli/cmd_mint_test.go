@@ -26,7 +26,10 @@ func TestMintHappy(t *testing.T) {
 	}
 }
 
-// TestMintIdempotent pins the no-op line (same exec, same finding).
+// TestMintIdempotent pins the no-op line (same exec, same type).
+// feedback-triage A2: the no-op is keyed on (exec, type), not exec alone,
+// and the message now names the type (intentional divergence from the
+// reference wording — KNOWN_DIVERGENCES).
 func TestMintIdempotent(t *testing.T) {
 	f := t20Setup(t)
 	args := []string{"--root", f.root, "mint", f.c.CampaignID, f.fid,
@@ -38,8 +41,31 @@ func TestMintIdempotent(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
-	want := f.fid + ": exec " + f.pass + " already minted — idempotent " +
-		"no-op (evidence level E4)\n"
+	want := f.fid + ": exec " + f.pass + " already minted as foundry-test " +
+		"— idempotent no-op (evidence level E4)\n"
+	if out != want {
+		t.Fatalf("out\n%q\nwant\n%q", out, want)
+	}
+}
+
+// TestMintSameExecSecondTypeLands pins feedback-triage A2 at the CLI level:
+// after a default (foundry-test) mint, the same exec under a different
+// --type must MINT, not no-op.
+func TestMintSameExecSecondTypeLands(t *testing.T) {
+	f := t20Setup(t)
+	if code, _, errS := run(t, "--root", f.root, "mint", f.c.CampaignID,
+		f.fid, "--exec", f.pass, "--description", "unit PoC drains",
+		"--tier", "T2"); code != 0 {
+		t.Fatalf("first mint exit %d: %q", code, errS)
+	}
+	code, out, errS := run(t, "--root", f.root, "mint", f.c.CampaignID,
+		f.fid, "--exec", f.pass, "--description", "differential pass",
+		"--tier", "T2", "--type", "unit-test")
+	if code != 0 {
+		t.Fatalf("second-type mint exit %d: %q", code, errS)
+	}
+	want := f.fid + ": minted unit-test evidence from " + f.pass +
+		" — level E4\n"
 	if out != want {
 		t.Fatalf("out\n%q\nwant\n%q", out, want)
 	}

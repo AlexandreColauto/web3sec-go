@@ -91,6 +91,7 @@ var t14FindingLegend = []string{
 	"risk/impact_vector/privilege_class: unprivileged|semi-privileged|role|owner",
 	"risk/impact_vector/recoverability: unknown|low|medium|high",
 	"risk/impact_vector/insolvency_risk: low|medium|high",
+	"risk/reversibility: irreversible|trusted-party|reversible",
 	"dedup/candidate_verdicts/additionalProperties: same|distinct",
 	"verification/reproduction/tier_reached: none|T0|T1|T2|T3|T4",
 	"verification/reproduction/status: not_attempted|attempted|reproduced|failed|blocked|falsified",

@@ -110,8 +110,10 @@ func (c *Campaign) Complete(actor, reason string) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	st.O = append(st.O, kv("completed_by", validation.VStr(actor)))
-	st.O = append(st.O, kv("completed_reason", validation.VStr(reason)))
+	// setOrAppend (not append): a re-Complete must replace, not duplicate,
+	// the keys — duplicate keys corrupt the projection.
+	st.O = setOrAppend(st.O, "completed_by", validation.VStr(actor))
+	st.O = setOrAppend(st.O, "completed_reason", validation.VStr(reason))
 	if err := c.save(st); err != nil {
 		return validation.VNull(), err
 	}

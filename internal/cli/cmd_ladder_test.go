@@ -29,7 +29,8 @@ func TestLadderArgparse(t *testing.T) {
 	t23WantArgparse(t, []string{"ladder", "C", "bogus"}, t23LadderUsage,
 		"webv2 ladder: error: argument action: invalid choice: 'bogus' "+
 			"(choose from 'start', 'show', 'explore', 'add', 'repro', "+
-			"'disprove', 'set-maximal', 'complete', 'waive', 'report')\n")
+			"'disprove', 'set-maximal', 'complete', 'waive', 'reopen', "+
+			"'report')\n")
 	t23WantArgparse(t, []string{"ladder", "C", "start", "--capital", "abc"},
 		t23LadderUsage,
 		"webv2 ladder: error: argument --capital: invalid float value: "+
@@ -104,6 +105,36 @@ func TestLadderStartAndShow(t *testing.T) {
 	}
 	if out != prettyASCII(*lad)+"\n" {
 		t.Fatalf("show stdout\n%q\nwant\n%q", out, prettyASCII(*lad)+"\n")
+	}
+}
+
+// TestLadderExploreNaturalAxisForm pins the FIXED-IN-GO behavior
+// (python-twin-issues P3): `explore F <axis>` binds the positional to the
+// axis. The reference bound it to the rung slot instead and failed with
+// "unknown axis None", so the natural call was unusable as documented.
+// The legacy `explore F <dummy-rung> <axis>` form keeps working.
+func TestLadderExploreNaturalAxisForm(t *testing.T) {
+	c, root, fid := t23Campaign(t, "ladder-natural")
+	t23StartLadder(t, root, c.CampaignID, fid)
+	code, out, errS := run(t, "--root", root, "ladder", c.CampaignID,
+		"explore", fid, "capital-minimization", "--note",
+		"no capital reduction possible on this path")
+	if code != 0 {
+		t.Fatalf("natural form exit %d: %q", code, errS)
+	}
+	if want := "axis capital-minimization explored (1/5: " +
+		"capital-minimization)\n"; out != want {
+		t.Fatalf("natural form stdout %q, want %q", out, want)
+	}
+	code, out, errS = run(t, "--root", root, "ladder", c.CampaignID,
+		"explore", fid, "-", "precondition-removal", "--note",
+		"the precondition is structural and cannot be removed")
+	if code != 0 {
+		t.Fatalf("legacy form exit %d: %q", code, errS)
+	}
+	if want := "axis precondition-removal explored (2/5: " +
+		"capital-minimization, precondition-removal)\n"; out != want {
+		t.Fatalf("legacy form stdout %q, want %q", out, want)
 	}
 }
 
@@ -224,6 +255,49 @@ func TestLadderWaive(t *testing.T) {
 		t.Fatalf("waive exit %d: %q", code, errS)
 	}
 	if out != "ladder for "+fid+" WAIVED (logged, actor operator)\n" {
+		t.Fatalf("stdout %q", out)
+	}
+}
+
+// TestLadderReopen (B2): the CLI path for `ladder reopen` — an open ladder
+// is refused, a closed (waived) ladder reopens only with a written reason,
+// and the success line is asserted.
+func TestLadderReopen(t *testing.T) {
+	c, root, fid := t23Campaign(t, "ladder-reopen")
+	ladID := t23StartLadder(t, root, c.CampaignID, fid)
+	// an open ladder needs no reopening
+	code, out, errS := run(t, "--root", root, "ladder", c.CampaignID,
+		"reopen", fid, "--reason", "nope", "--actor", "op")
+	if code != 2 || out != "" {
+		t.Fatalf("open reopen exit %d out %q", code, out)
+	}
+	if errS != "ladder reopen failed: ladder is already open — nothing to "+
+		"reopen\n" {
+		t.Fatalf("stderr %q", errS)
+	}
+	// close it (waive), then reopen requires a written reason
+	if code, _, errS = run(t, "--root", root, "ladder", c.CampaignID, "waive",
+		fid, "--reason", "budget exhausted before the ladder closed",
+		"--actor", "operator"); code != 0 {
+		t.Fatalf("waive exit %d: %q", code, errS)
+	}
+	code, out, errS = run(t, "--root", root, "ladder", c.CampaignID, "reopen",
+		fid, "--actor", "op2")
+	if code != 2 || out != "" {
+		t.Fatalf("no-reason reopen exit %d out %q", code, out)
+	}
+	if errS != "ladder reopen failed: reopening a closed ladder needs a "+
+		"written reason (the audit trail, not a bypass)\n" {
+		t.Fatalf("stderr %q", errS)
+	}
+	code, out, errS = run(t, "--root", root, "ladder", c.CampaignID, "reopen",
+		fid, "--reason", "a cheaper rung appeared after the waiver",
+		"--actor", "op2")
+	if code != 0 {
+		t.Fatalf("reopen exit %d: %q", code, errS)
+	}
+	if out != "ladder "+ladID+" REOPENED (actor op2) — the closed ladder is "+
+		"open again\n" {
 		t.Fatalf("stdout %q", out)
 	}
 }

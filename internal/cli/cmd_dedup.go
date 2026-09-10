@@ -17,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 
+	"websec/internal/bounty"
+	"websec/internal/corpus"
 	"websec/internal/costs"
 	"websec/internal/dedup"
 	"websec/internal/envgo"
@@ -288,6 +290,22 @@ func ensureSeams() {
 	histmining.SetIndexAPI(histmining.IndexAPI{
 		EnsureFreshIndex: structidx.EnsureFreshIndex,
 		SinkFunctions:    structidx.SinkFunctions,
+	})
+	// B4: the scope check (bounty) resolves a finding's contract name to its
+	// source path via the structural index, so a path-based scope entry can
+	// match a name-carrying finding. Wired here (the top module) because the
+	// structidx→orchestrator→bounty import cycle bars a direct dependency;
+	// empty when there is no active snapshot or no matching contract node.
+	bounty.SetContractPathResolver(func(c *state.Campaign, name string) string {
+		root, err := corpus.ActiveSnapshotRoot(c)
+		if err != nil || root == "" {
+			return ""
+		}
+		idx, err := structidx.EnsureFreshIndex(c, root)
+		if err != nil || idx.Kind != validation.Obj {
+			return ""
+		}
+		return structidx.ContractPath(idx, name)
 	})
 	// forkdiff: the baselines audit section (audit.py section 10) reads the
 	// baselines directory and the T0-parser fingerprint from here.

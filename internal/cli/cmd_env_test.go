@@ -50,6 +50,13 @@ func t26EnvReport() validation.Value {
 			validation.VStr("solc missing"),
 		)},
 		validation.KV{K: "ok", V: validation.VBool(false)},
+		// feedback-triage A7: the floor cross-check. docker-networkless is
+		// available but E4-only against this campaign's E6 floor;
+		// vm-snapshot is unavailable and so absent from the fit.
+		validation.KV{K: "profile_fit", V: validation.VObj(
+			validation.KV{K: "docker-networkless",
+				V: validation.VStr("E4-only (campaign floor E6)")},
+		)},
 	)
 }
 
@@ -61,7 +68,8 @@ func TestPrintEnvDoctorText(t *testing.T) {
 		"image:         ghcr.io/x/img — present (tag reference!)\n" +
 		"  local digest: sha256:ab\n" +
 		"fork RPC:      (unset) — UNREACHABLE (not set)\n" +
-		"profiles:      host-readonly=ok docker-networkless=ok vm-snapshot=NO\n" +
+		"profiles:      host-readonly=ok docker-networkless=E4-only " +
+			"(campaign floor E6) vm-snapshot=NO\n" +
 		"campaign:      max CONFIRMED floor E6, chain pin NO\n" +
 		"solc:          0.8.24 — ABSENT from image\n" +
 		"\nISSUES:\n" +

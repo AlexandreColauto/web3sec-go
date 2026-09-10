@@ -44,14 +44,20 @@ Not substitutable, and why:
 - `WEBV2_PYTHON` / `PYTHONPATH` knobs have no Go meaning; the Go binary
   embeds its assets (`go:embed`) instead of reading `src/`.
 
-## 3. Runbook text vs. code — four discrepancies (both twins)
+## 3. Runbook text vs. code — four discrepancies
 
 Each row was executed **verbatim** by `scripts/runbook-walkthrough.sh` and is
 asserted for the *documented refusal*, then re-run in the working form. All
-four behave identically in `python3 -m webv2.cli` — these are runbook bugs or
-reference bugs, not port divergences. Per the runbook's own rule ("if this
+four originally behaved identically in `python3 -m webv2.cli` — runbook bugs
+or reference bugs, not port divergences. Per the runbook's own rule ("if this
 document and the code disagree, the code wins and this file is a bug"), the
 runbook is what needs the edit.
+
+Since the Python twin is **deprecated and no longer maintained**, three of the
+four reference bugs are now fixed in the Go twin only and are flagged
+**FIXED-IN-GO, 2026-09-09** (R3 ladder `explore`, R4 `solc` detection, R5
+`resolve-candidate --note`). R1 (the skipped `POSSIBLE` transition) is a pure
+runbook typo, not a code bug, and stays as-is in both twins.
 
 ### R1 — §6a skips the `POSSIBLE` transition (L488 vs L425)
 
@@ -88,53 +94,73 @@ what input/path variant was tested and what it extracted   (exit 2)
 (The `>=5 chars` rule and the three-mutation minimum are correct; only the
 example is not.)
 
-### R3 — `ladder explore` positional order (L693)
+### R3 — `ladder explore` positional order (L693) — FIXED-IN-GO, 2026-09-09
 
 The cheat sheet writes
 `ladder C-xxx … explore|… F-xxx [RUNG|AXIS] … explore: AXIS --note`. The
-argparse shape is positional `finding rung axis`, so `explore F-xxx AXIS`
-binds AXIS to **rung** and leaves axis empty. Both twins exit 2:
+reference argparse shape is positional `finding rung axis`, so
+`explore F-xxx AXIS` binds AXIS to **rung** and leaves axis empty — the
+**Python twin** still exits 2:
 
 ```
 ladder explore failed: unknown axis None; the axes are ('capital-minimization',
 'precondition-removal', 'role-conflation', 'ordering-permutation', 'cap-saturation')
 ```
 
-**Fix:** name a rung placeholder, then the axis (the rung is ignored by
-`explore_axis`), and give a `--note` of at least 10 characters:
+The **Go twin is fixed** (python-twin-issues P3 / divergence D30): a trailing
+positional after the finding now binds to the axis for the `explore` action,
+so the documented natural form works:
 
 ```bash
-webv2 ladder C-xxx explore F-xxx R-any capital-minimization --note "already the cheapest variant"
+webv2 ladder C-xxx explore F-xxx capital-minimization --note "already the cheapest variant"
 ```
 
-### R4 — `snap` promises a toolchain line for any `foundry.toml` (L685)
+The legacy dummy-rung form `explore F-xxx R-any capital-minimization --note …`
+still works in both twins (give a `--note` of at least 10 characters).
+
+### R4 — `snap` promises a toolchain line for any `foundry.toml` (L685) — FIXED-IN-GO, 2026-09-09
 
 The cheat sheet says "a foundry.toml is read automatically (toolchain line +
-config recorded)". Both twins read **`profile.default.sol`**, while real
-Foundry configs use **`solc`**:
+config recorded)". The reference reads only **`profile.default.sol`**, while
+real Foundry configs use **`solc`** — so the **Python twin** still needs
+`sol =`:
 
 ```bash
 $ printf '[profile.default]\nsolc = "0.8.24"\n' > target/foundry.toml
-$ webv2 --root . snap C-xxx target
-pinned src-… (git-dirty, 2 files)          # no toolchain line
-$ printf '[profile.default]\nsol = "0.8.24"\n' > target/foundry.toml
+$ python3 -m webv2.cli --root . snap C-xxx target
+pinned src-… (git-dirty, 2 files)          # no toolchain line (reference)
+```
+
+The **Go twin is fixed** (python-twin-issues P1): it reads **`solc`** first
+and falls back to legacy **`sol`**, so the documented promise now holds:
+
+```bash
+$ printf '[profile.default]\nsolc = "0.8.24"\n' > target/foundry.toml
 $ webv2 --root . snap C-xxx target
 pinned src-… (git-dirty, 2 files)
   toolchain: foundry — solc 0.8.24 (detected from the pinned tree)
 ```
 
-Confirmed identical in Python (`webv2.snapshot._detect_toolchain` returns
-`None` for the `solc` key). See `docs/python-twin-issues.md` P1. Until the
-reference reads `solc`, treat the toolchain line as opt-in via `sol =` and do
-not rely on it for pre-provisioning the solc cache.
+Pinned by `TestToolchainSolcKeyDetected`
+(`internal/snapshot/toolchain_test.go`). `sol`-only configs are unaffected.
 
-### R5 (minor) — `resolve-candidate --note` is unusable in both twins
+### R5 (minor) — `resolve-candidate --note` — FIXED-IN-GO, 2026-09-09
 
-Cheat sheet L695 documents `--note N`; both twins exit 2 with the byte-exact
-schema error recorded as **D14** in `KNOWN_DIVERGENCES.md`
-(`dedup_meta/candidate_notes` is declared `string`, written as a dict). Omit
-`--note` — that is what `scripts/golden-run.py` and `scripts/verify-full.sh`
-do — and the verdict is recorded.
+Cheat sheet L695 documents `--note N`. The **Python twin** still exits 2 with
+the schema error recorded as **D14** in `KNOWN_DIVERGENCES.md`
+(`dedup_meta/candidate_notes` was declared `string`, written as a dict).
+
+The **Go twin is fixed** (python-twin-issues P2): the schema now declares
+`candidate_notes` as a string map, so `--note` records cleanly on both sides:
+
+```bash
+webv2 resolve-candidate C-xxx F-xxx F-yyy --verdict distinct --note "different root cause"
+```
+
+Pinned by `TestResolveCandidateNoteRecordsOnBothSides`
+(`internal/cli/cmd_resolve_candidate_test.go`). The golden recipe and
+`verify-full.sh` still omit `--note` so the byte-diff against the (buggy,
+deprecated) reference stays green.
 
 ## 4. Exit codes asserted by the walkthrough
 

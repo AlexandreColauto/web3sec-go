@@ -88,7 +88,10 @@ func dirExists(p string) bool {
 
 // pruneExcludes is _prune_excludes: physically remove from staging every
 // file or directory whose NAME is in excludes, at any depth. Returns the
-// sorted top-level names affected, for the record. Required on the
+// sorted RELATIVE subpaths of the entries that matched, for the record
+// (feedback-triage A10: the old code aggregated each match to its first
+// path component, so a deep build-artifact dir inside an in-scope project
+// made the whole top-level directory look excluded). Required on the
 // git-worktree path (which checks out the whole tree); a no-op on the
 // copytree path where ignore already pruned.
 func pruneExcludes(staging string, excludes map[string]struct{}) []string {
@@ -119,27 +122,28 @@ func pruneExcludes(staging string, excludes map[string]struct{}) []string {
 			_ = os.Remove(p) // unlink (fails on dirs -> ignored)
 		}
 	}
-	top := map[string]struct{}{}
+	// A10: report the actual matched subpath, not just the top-level
+	// component, so a deep match inside an in-scope dir is not mistaken
+	// for the whole dir being out of scope.
+	paths := map[string]struct{}{}
 	for _, p := range victims {
 		rel, err := filepath.Rel(staging, p)
 		if err != nil || rel == "." {
 			continue
 		}
-		top[strings.Split(rel, string(os.PathSeparator))[0]] = struct{}{}
+		paths[filepath.ToSlash(rel)] = struct{}{}
 	}
-	out := make([]string, 0, len(top))
-	for k := range top {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
+	return sortedKeys(paths)
 }
 
-// excludedNamesIn is _excluded_names_in: the top-level names in target that
-// the prune set will drop. Computed from the target (not the staging)
-// because on the copytree path the exclusion already happened at copy time.
+// excludedNamesIn is _excluded_names_in: the paths in target that the prune
+// set will drop, at whatever depth they match. Computed from the target
+// (not the staging) because on the copytree path the exclusion already
+// happened at copy time. A10: returns the full relative subpath of each
+// match (a deep match under an in-scope dir must not be reported as the
+// whole top-level dir being excluded).
 func excludedNamesIn(target string, names map[string]struct{}) []string {
-	top := map[string]struct{}{}
+	paths := map[string]struct{}{}
 	_ = filepath.WalkDir(target, func(p string, d os.DirEntry, err error) error {
 		if err != nil || p == target {
 			return nil
@@ -147,13 +151,18 @@ func excludedNamesIn(target string, names map[string]struct{}) []string {
 		if _, bad := names[d.Name()]; bad {
 			rel, rerr := filepath.Rel(target, p)
 			if rerr == nil && rel != "." && rel != "" {
-				top[strings.Split(rel, string(os.PathSeparator))[0]] = struct{}{}
+				paths[filepath.ToSlash(rel)] = struct{}{}
 			}
 		}
 		return nil
 	})
-	out := make([]string, 0, len(top))
-	for k := range top {
+	return sortedKeys(paths)
+}
+
+// sortedKeys returns the sorted string keys of a set.
+func sortedKeys(m map[string]struct{}) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
 		out = append(out, k)
 	}
 	sort.Strings(out)
@@ -261,7 +270,7 @@ func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Valu
 			pruneSet[k] = struct{}{}
 		}
 	}
-	prunedTop := excludedNamesIn(targetAbs, pruneSet)
+	prunedPaths := excludedNamesIn(targetAbs, pruneSet)
 
 	staging := snapRoot + string(os.PathSeparator) +
 		"staging-" + strings.ReplaceAll(snapNowIso(), ":", "") +
@@ -366,9 +375,9 @@ func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Valu
 		validation.KV{K: "root", V: validation.VStr(final)},
 		validation.KV{K: "file_count", V: validation.VInt(int64(fileCount))},
 	)
-	if len(prunedTop) > 0 {
-		names := make([]validation.Value, len(prunedTop))
-		for i, n := range prunedTop {
+	if len(prunedPaths) > 0 {
+		names := make([]validation.Value, len(prunedPaths))
+		for i, n := range prunedPaths {
 			names[i] = validation.VStr(n)
 		}
 		source.O = append(source.O, validation.KV{K: "excluded", V: validation.VArr(names...)})
@@ -385,11 +394,13 @@ func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Valu
 		validation.KV{K: "chain", V: validation.VNull()},
 		validation.KV{K: "config", V: cfg},
 	)
-	if len(prunedTop) > 0 {
-		// The prune is SCOPE: record which top-level names this pin
-		// deliberately does NOT cover, in the snapshot and on the log.
-		names := make([]validation.Value, len(prunedTop))
-		for i, n := range prunedTop {
+	if len(prunedPaths) > 0 {
+		// The prune is SCOPE: record the subpaths this pin deliberately
+		// does NOT cover (A10: the actual matched paths, at their real
+		// depth — not an aggregated top-level name), in the snapshot and
+		// on the log.
+		names := make([]validation.Value, len(prunedPaths))
+		for i, n := range prunedPaths {
 			names[i] = validation.VStr(n)
 		}
 		data := validation.VObj(

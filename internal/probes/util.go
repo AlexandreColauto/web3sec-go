@@ -38,11 +38,32 @@ func contractPaths(index validation.Value) map[string]string {
 			continue
 		}
 		path := vGet(n, "path")
+		// Only map contracts that have a real source path. A node without a
+		// path can't anchor to a file, so omit it (mapping name->name here
+		// would make the resolver emit a bogus "Name#L" citation).
 		if vTruthy(path) {
 			out[name] = pyStr(path)
-		} else {
-			out[name] = name
 		}
 	}
 	return out
+}
+
+// resolveAnchorToken maps a contract name to an anchor file token.
+//
+// With an index (hasIndex), a contract that is not resolvable to a real path
+// resolves to NOTHING (ok=false) — the caller must skip it rather than
+// fabricate a "Name#L" citation that names no file. Without an index there is
+// nothing to check against, so the bare name (or "?" when empty) is the best
+// available token.
+func resolveAnchorToken(paths map[string]string, hasIndex bool, contractStr string) (string, bool) {
+	if token, ok := paths[contractStr]; ok {
+		return token, true
+	}
+	if hasIndex {
+		return "", false
+	}
+	if contractStr != "" {
+		return contractStr, true
+	}
+	return "?", true
 }

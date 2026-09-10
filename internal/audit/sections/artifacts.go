@@ -45,7 +45,7 @@ func Artifacts(c *state.Campaign) (validation.Value, error) {
 		if actual != stored.S {
 			problems = append(problems, validation.VStr(
 				fmt.Sprintf("%s: content hash mismatch (stored %s..., actual %s...)",
-					objStr(a, "artifact_id"), stored.S[:12], actual[:12])))
+					objStr(a, "artifact_id"), trunc12(stored.S), actual[:12])))
 		}
 	}
 	return validation.VObj(

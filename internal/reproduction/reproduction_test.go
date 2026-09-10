@@ -346,6 +346,55 @@ func TestMintReproEvidenceIsIdempotent(t *testing.T) {
 	}
 }
 
+// TestMintReproEvidenceSameExecDifferentType pins feedback-triage A2: the
+// reference keyed idempotency on the exec alone, so minting the same exec
+// under a second evidence type silently hit the no-op branch and never
+// landed. Fixed: the (exec, type) pair is the key — a second type mints, a
+// repeat of the same type is still a no-op.
+func TestMintReproEvidenceSameExecDifferentType(t *testing.T) {
+	c := newCampaign(t, "integrity2")
+	fid := integrityHypo(t, c, "reentrancy")
+	rec := sandboxedExec(t, c, fid, "docker-networkless", "pytest-harness")
+	execID := objStr(rec, "exec_id")
+	tier := "T2"
+	if _, err := RecordAttempt(c, fid, "reproduced",
+		RecordOpts{ExecID: &execID, Tier: &tier}); err != nil {
+		t.Fatal(err)
+	}
+	// First mint: no explicit type → tier-derived foundry-test (E4).
+	out1, err := MintReproEvidence(c, fid, execID, "drains via reentry",
+		&tier, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Second mint: same exec, explicit second type → must land.
+	diff := "differential"
+	out2, err := MintReproEvidence(c, fid, execID, "differential check", &tier,
+		&diff)
+	if err != nil {
+		t.Fatalf("second-type mint refused: %v", err)
+	}
+	count := map[string]int{}
+	for _, e := range objAt(out2, "evidence").A {
+		if objStr(e, "artifact_id") == execID {
+			count[objStr(e, "type")]++
+		}
+	}
+	if count["foundry-test"] != 1 || count["differential"] != 1 {
+		t.Fatalf("evidence by type = %v, want one foundry-test and one "+
+			"differential", count)
+	}
+	// Third mint: same exec, same type as the first → still a no-op.
+	out3, err := MintReproEvidence(c, fid, execID, "again", &tier, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objStr(out3, "finding_id") != objStr(out1, "finding_id") ||
+		len(objAt(out3, "evidence").A) != len(objAt(out2, "evidence").A) {
+		t.Fatal("same-(exec,type) mint must be an idempotent no-op")
+	}
+}
+
 // Port of test_evidence_integrity.py::test_mint_reject_forge_no_tests.
 func TestMintRejectForgeNoTests(t *testing.T) {
 	c := newCampaign(t, "integrity")

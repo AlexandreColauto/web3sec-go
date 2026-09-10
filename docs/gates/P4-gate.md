@@ -288,12 +288,19 @@ surprises:
    `python3 scripts/golden/p4/build.py --check`), so the P3 `corpus-surface`
    step exercises the REAL stores in CI without the 2.5 GB corpora. See D26
    and §8.
-3. **D15 closed; D23 stays a Python-side issue.** D15 (Go twin had no global
-   store) is CLOSED in the ledger — the P3 `internal/sharedmem` port landed
-   and honours `WEBV2_GLOBAL_MEMORY_DIR` in production. D23 (bare `webv2 env`
-   prints the wrong parser's help via a late-bound closure) is a Python bug;
-   per the operator decision the Python repository is not modified, so the
-   fix lives in `docs/python-twin-issues.md` for the upstream owner.
+3. **D15 closed; D23 closed as a fixed papercut; D14/D30 FIXED-IN-GO.**
+   D15 (Go twin had no global store) is CLOSED in the ledger — the P3
+   `internal/sharedmem` port landed and honours `WEBV2_GLOBAL_MEMORY_DIR` in
+   production. D23 (bare `webv2 env` prints the wrong parser's help via a
+   late-bound closure) is a Python bug; with the Python repository deprecated
+   the decision was taken 2026-09-09: the Go behavior is correct, so D23 is
+   CLOSED as a fixed papercut (the row documents the permanent reference
+   divergence). D14 (`resolve-candidate --note` rejected by its own schema)
+   and D30 (`ladder explore` natural axis form) are FIXED-IN-GO the same day
+   (schema widened / positional rebound), each with a regression test; the
+   golden recipe and `verify-full.sh` still omit those two paths so the
+   byte-diff against the buggy reference stays green. Details in
+   `docs/python-twin-issues.md` (P2, P3, P4).
 4. **D28's seam landed.** `sft.StorePath()` now consults `WEBV2_SFT_STORE`
    (closeout commit) — cross-twin proof: from `cwd=/tmp` with the env
    pointed at the reference's committed store, both twins' `sft list` are

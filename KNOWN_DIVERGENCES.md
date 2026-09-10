@@ -7,6 +7,19 @@ milestone that closes it (or `permanent` with justification). The
 cross-twin golden suite (`scripts/golden.sh`) normalizes exactly the
 rows marked as golden-normalized — nothing else.
 
+> **Source-of-truth change (2026-09-09).** The Python twin is **retired**
+> (operator decision; `docs/gates/P4-gate.md` §9.1): the Go port is now the
+> source of truth and is no longer tracked for byte-compatibility with
+> Python. `scripts/golden.sh` is **Go-only** — it validates the single Go run
+> (exit codes, tree + event chain, the 14-section audit surface) and no
+> longer byte-diffs against the Python twin. The rows below are kept as a
+> historical record of *where and why* the twins diverged; their
+> golden-normalization hooks are dormant. New Go-only bug-fixes and
+> intentional improvements (the 2026-09-09 full review: Tier A/B fixes and
+> the C1–C13 bug-hunt sweep, `docs/feedback-triage.md`) change no golden
+> bytes and therefore carry **no row here** — see
+> [Go improvements over the reference](#go-improvements-over-the-reference-2026-09-09-review).
+
 ## P0 (this phase)
 
 ### D1 — Canonical float formatting (Task 2)
@@ -239,21 +252,28 @@ rows marked as golden-normalized — nothing else.
   exercises these literals.
 - **Unblocks:** none planned (pathological payload).
 
-### D14 — `resolve-candidate --note`: the reference bug, faithfully reproduced
-- **What:** `resolve-candidate … --verdict same|distinct --note N` fails
-  in *both* twins with the identical byte-exact error
+### D14 — `resolve-candidate --note`: reference bug — FIXED-IN-GO, 2026-09-09
+- **What (was):** `resolve-candidate … --verdict same|distinct --note N`
+  failed in *both* twins with the identical byte-exact error
   `finding validation failed at dedup_meta/candidate_notes:
   {'F-…': '…'} is not of type 'string'` (exit 2). The reference's
   `dedup.py` writes `dedup_meta.candidate_notes` as a dict
-  `{other_finding_id: note}` while `finding.schema.json` declares
+  `{other_finding_id: note}` while `finding.schema.json` declared
   `dedup_meta.additionalProperties: {"type": "string"}` — the reference
-  validates its own write and rejects it.
-- **Why:** PYTHON WINS includes reproducing reference bugs; "fixing" only
-  the Go side would create a divergence. The golden recipe and the
-  verify-full P1 smoke deliberately omit `--note` (documented in
-  `scripts/golden-run.py` and `scripts/verify-full.sh` step 13).
-- **Unblocks:** an upstream Python fix to the schema or the writer; then
-  the `--note` path is ported back and this row is deleted.
+  validated its own write and rejected it.
+- **Fix (Go only):** the reference is deprecated and will not be patched,
+  so the Go twin deliberately diverges. `assets/schema/finding.schema.json`
+  now declares `dedup_meta.properties.candidate_notes` as
+  `{"type": "object", "additionalProperties": {"type": "string"}}`, which
+  JSON-Schema precedence lets the writer's dict pass. A valid `--note`
+  now records cleanly on BOTH sides.
+- **Golden:** the recipe and the verify-full P1 smoke STILL omit `--note`
+  (the deprecated Python twin rejects it, so a byte-diff of the `--note`
+  path would go red). The fixed path is pinned instead by
+  `TestResolveCandidateNoteRecordsOnBothSides`
+  (`internal/cli/cmd_resolve_candidate_test.go`).
+- **Status:** closed for the Go twin; the row documents the permanent
+  reference divergence. See `docs/python-twin-issues.md` P2.
 
 ### D15 — `WEBV2_GLOBAL_MEMORY_DIR` is honoured by the Python twin only
 - **What:** the Python reference's `recall` consults the user-global
@@ -386,19 +406,22 @@ rows marked as golden-normalized — nothing else.
 
 ## P3 (env / costs / history-mining, T26)
 
-### D23 — bare `webv2 env` prints the wrong help in the reference
+### D23 — bare `webv2 env` prints the wrong help in the reference — CLOSED 2026-09-09 (fixed papercut)
 - **What:** `build_parser()` gives the `env` parser a
   `set_defaults(func=lambda a: (s.print_help() ...))` closure whose `s`
   is late-bound; by the time the lambda runs `s` has been rebound to the
   LAST subparser built (today `sft`). The reference therefore prints the
   `sft` usage block (exit 0) for bare `webv2 env`; the Go twin prints the
   `env` usage block.
-- **Why:** reproducing it would hard-code another task's parser help into
-  `cmd_env.go`, and the quirk would have to be re-pinned when `sft` lands.
+- **Decision:** the stated unblocker (porting `sft`) landed and the row
+  stayed open "awaiting a decision". Decision taken 2026-09-09 with the
+  reference deprecated: the Go behavior is the CORRECT one — a bare
+  `webv2 env` must print the `env` usage block. The reference bug is
+  permanent (the Python twin is no longer maintained), so this row
+  documents a fixed papercut, not a live divergence to close.
 - **Golden:** no recipe runs bare `webv2 env`; `env doctor` (both
   surfaces) and `env <bad-action>` compare byte-for-byte.
-- **Unblocks:** porting `sft`, then printing that parser's help from
-  `runEnv` (≈3 lines) closes this row.
+- **Status:** closed. See `docs/python-twin-issues.md` P4.
 
 ## P3 (knowledge & memory: structural index / forkdiff, T25)
 
@@ -600,6 +623,55 @@ rows marked as golden-normalized — nothing else.
   `internal/adapter/adapter_test.go::TestBlockBuilderBudgetCountsRunes`.
 - **Unblocks:** closed; ASCII-only behavior is unchanged, so no golden
   normalization was needed.
+
+### D30 — `ladder explore` natural form: the reference bug, FIXED-IN-GO (2026-09-09)
+- **What (was):** the reference binds `ladder` positionals as
+  `finding, rung, axis` for every action, so the documented natural call
+  `webv2 ladder C explore F-xxx capital-minimization --note "…"` bound the
+  axis to the RUNG slot and failed with `unknown axis None; the axes are
+  (…)`. The only working form was the undocumented dummy-rung
+  `explore F-xxx R-any capital-minimization --note "…"` (python-twin-issues
+  P3).
+- **Fix (Go only):** `parseLadder` (`internal/cli/cmd_ladder.go`) treats a
+  trailing positional as the axis when the action is `explore` and no axis
+  positional follows: the natural form now works, and the legacy
+  dummy-rung form is unchanged (when an axis positional follows, nothing
+  moves). No usage/help text changed, so no golden normalization is needed.
+- **Golden:** the recipe drives the legacy form (`explore F - <axis>`),
+  which behaves identically in both twins; the natural form is pinned by
+  `TestLadderExploreNaturalAxisForm`
+  (`internal/cli/cmd_ladder_test.go`), including the legacy form.
+- **Status:** closed for the Go twin; the row documents the permanent
+  reference divergence (the Python twin is deprecated and unfixed).
+
+## Go improvements over the reference (2026-09-09 review)
+
+Since the Python twin is retired, these are **intentional Go improvements**
+over the reference (bug-fixes and hardening), not divergences to reconcile.
+None changes a golden byte (the golden fixtures do not exercise these paths,
+and the golden is Go-only), so none carries a normalization row. Full detail,
+file:line, and regression tests: `docs/feedback-triage.md` (Tier A/B + the
+Bug-hunt sweep).
+
+- **Tier A (A1–A10)** — `not-applicable` closes a priority; mint idempotency
+  keyed on `(exec, type)`; `FOUNDRY_LINT_ON_BUILD` defaulted; adapter prompt
+  repointed; `stages 19/17` counted distinct; silent empty `verify`/raw `prove`
+  humanized; `env doctor` pre-runs floor checks; report-freshness is a pure
+  rule (log head is `report.generated`); nested `foundry.toml` walked; `snap`
+  scope fix.
+- **Tier B (B1–B5)** — immunization gate gains a waiver branch; `ladder
+  reopen` implemented (`ReopenLadder`); the invariant gate accepts
+  `CONTRADICTED` as confirming; scope matches a contract name against the name
+  *and* the path it resolves to; probe anchors validated against the index
+  (`resolveAnchorToken`).
+- **Bug-hunt sweep (C1–C13)** — short-hash panic guard (`trunc12`); report
+  evidence-level validated for all slice sizes; empty-string `closed_ref`
+  flagged; `pyEqual` compares key sets; `autoMergePair` checks both sides for
+  cross-snapshot; `RunDedup` excludes all non-duplicatable states;
+  `Complete` replaces rather than duplicates keys; `collectFiles` skips
+  non-regular entries; `criticality` tokenizes state ids; `surfaceAxis`
+  index fix; `ListCampaigns` follows symlinks; `AllExecs` avoids glob
+  metacharacters; `BlankReasonMin` counts characters not bytes.
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**

@@ -247,6 +247,38 @@ func TestExtraExcludeIsRecorded(t *testing.T) {
 	}
 }
 
+// TestDeepExcludeReportsSubpath pins feedback-triage A10: a bulk-excluded
+// dir nested UNDER an in-scope project root (a monorepo's contracts/data)
+// must be reported at its real depth, not aggregated to the top-level
+// directory — the old behaviour made the whole contracts/ tree look out of
+// scope.
+func TestDeepExcludeReportsSubpath(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "target")
+	writeFiles(t, target, map[string]string{
+		"README.md":                "# monorepo\n",
+		"contracts/foundry.toml":   "[profile.default]\nsolc = \"0.8.24\"\n",
+		"contracts/src/Vault.sol":  "contract Vault {}",
+		"contracts/data/f000.dat":  "x",
+		"contracts/data/f001.dat":  "x",
+	})
+	c := pinCampaign(t, root, "C-pindeepexcl001")
+	snap := mustPin(t, c, target, nil, nil)
+	src := objField(t, snap, "source")
+	ex := objField(t, src, "excluded")
+	// The deep match must be reported by its full relative subpath...
+	if len(ex.A) != 1 || ex.A[0].S != "contracts/data" {
+		t.Fatalf("excluded = %v, want exactly [contracts/data]", ex)
+	}
+	// ...and the in-scope project root itself must NOT be pruned.
+	if _, err := os.Stat(filepath.Join(strField(t, src, "root"), "contracts", "src", "Vault.sol")); err != nil {
+		t.Fatalf("in-scope contracts/src was pruned: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(strField(t, src, "root"), "contracts", "data")); !os.IsNotExist(err) {
+		t.Fatal("contracts/data survived the prune")
+	}
+}
+
 func TestNoPruneNoExcludedField(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, "target")

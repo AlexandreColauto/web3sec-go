@@ -60,7 +60,7 @@ func Snapshots(c *state.Campaign) (validation.Value, error) {
 			if actual != recorded.S {
 				problems = append(problems, validation.VStr(
 					fmt.Sprintf("%s: content hash mismatch (stored %s..., actual %s...) — the pinned copy was modified after pinning",
-						name, recorded.S[:12], actual[:12])))
+						name, trunc12(recorded.S), actual[:12])))
 			}
 			// The self-describing manifest (where present).
 			manifest := objAt(snap, "manifest")

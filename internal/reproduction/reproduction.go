@@ -260,8 +260,35 @@ func guidanceFor(outcome string, repro, attempts validation.Value,
 	)
 }
 
-// MintReproEvidence is mint_repro_evidence. Idempotent: an exec can back at
-// most ONE evidence item per finding.
+// EffectiveEvidenceType is the type a mint would record for (tier arg,
+// finding): the explicit --type wins, else the tier-derived default
+// (E4→foundry-test, E5→fork-test). Shared by the idempotency checks so the
+// CLI fast path and the library mint can never disagree.
+func EffectiveEvidenceType(tier, evidenceType *string, f validation.Value) string {
+	recorded := TierOf(asDict(objAt(asDict(objAt(f, "verification")), "reproduction")))
+	claimTier := recorded
+	if tier != nil {
+		claimTier = *tier
+	}
+	level := "E4"
+	if claimTier == "T3" || claimTier == "T4" {
+		level = "E5"
+	}
+	etype := "foundry-test"
+	if level == "E5" {
+		etype = "fork-test"
+	}
+	if evidenceType != nil {
+		etype = *evidenceType
+	}
+	return etype
+}
+
+// MintReproEvidence is mint_repro_evidence. Idempotent per (exec, type): an
+// exec can back at most ONE evidence item per finding PER EVIDENCE TYPE —
+// the same exec may back a second item of a different type (feedback-triage
+// A2: the reference keyed on exec alone, so a second type silently never
+// landed and the economic floors demanded a duplicate run).
 func MintReproEvidence(c *state.Campaign, findingID, execID, description string,
 	tier, evidenceType *string) (validation.Value, error) {
 	if evidenceType != nil && !inList(MintableTypes, *evidenceType) {
@@ -276,9 +303,10 @@ func MintReproEvidence(c *state.Campaign, findingID, execID, description string,
 	if err != nil {
 		return validation.VNull(), err
 	}
+	etype := EffectiveEvidenceType(tier, evidenceType, f)
 	for _, e := range objAt(f, "evidence").A {
-		if objStr(e, "artifact_id") == execID {
-			return f, nil // same exec already minted: nothing to do
+		if objStr(e, "artifact_id") == execID && objStr(e, "type") == etype {
+			return f, nil // same exec already minted this type: nothing to do
 		}
 	}
 	profile := objStr(rec, "profile")
@@ -323,13 +351,9 @@ func MintReproEvidence(c *state.Campaign, findingID, execID, description string,
 	if claimTier == "T3" || claimTier == "T4" {
 		level = "E5"
 	}
-	etype := "foundry-test"
-	if level == "E5" {
-		etype = "fork-test"
-	}
-	if evidenceType != nil {
-		etype = *evidenceType
-	}
+	// etype was derived above (EffectiveEvidenceType) for the idempotency
+	// check — the same value, so the minted item and the no-op decision
+	// always agree.
 	item := evidenceItem(execID, level, etype, description, rec, f)
 	out, err := findings.AddEvidence(c, findingID, item)
 	return out, mintWrap(err)
@@ -426,26 +450,43 @@ func AttemptAndMint(c *state.Campaign, findingID, execID, description string,
 	prior := reproductionState(f)
 	priorStatus, priorTier := optField(prior, "status"), optField(prior,
 		"tier_reached")
-	guidance, err := RecordAttempt(c, findingID, "reproduced", RecordOpts{
-		ExecID: &execID, Tier: tier})
-	if err != nil {
-		return validation.VNull(), err
-	}
-	if objStr(guidance, "action") != "mint-evidence" {
-		rollErr := undoAttempt(c, findingID, priorStatus, priorTier)
-		if rollErr != nil {
-			return validation.VNull(), rollErr
+	// A re-cite of an exec an earlier attempt already cited is NOT a new
+	// attempt — it is a second evidence type for the same run
+	// (feedback-triage A2). record_attempt refuses reused execs by design
+	// (a re-run must be a NEW exec); skipping it here lets the (exec, type)
+	// idempotency check in mint_repro_evidence decide: same type is a
+	// no-op, a different type mints.
+	execCited := false
+	for _, a := range objAt(prior, "attempts").A {
+		if objStr(a, "artifact_id") == execID {
+			execCited = true
+			break
 		}
-		return validation.VNull(), mintErrf(
-			"attempt recorded but guidance is %s, not mint-evidence — check "+
-				"the attempt's exec/tier", validation.PyReprStr(
-				objStr(guidance, "action")))
+	}
+	if !execCited {
+		guidance, err := RecordAttempt(c, findingID, "reproduced",
+			RecordOpts{ExecID: &execID, Tier: tier})
+		if err != nil {
+			return validation.VNull(), err
+		}
+		if objStr(guidance, "action") != "mint-evidence" {
+			rollErr := undoAttempt(c, findingID, priorStatus, priorTier)
+			if rollErr != nil {
+				return validation.VNull(), rollErr
+			}
+			return validation.VNull(), mintErrf(
+				"attempt recorded but guidance is %s, not mint-evidence — "+
+					"check the attempt's exec/tier", validation.PyReprStr(
+					objStr(guidance, "action")))
+		}
 	}
 	out, err := MintReproEvidence(c, findingID, execID, description, tier,
 		evidenceType)
 	if err != nil {
-		if rollErr := undoAttempt(c, findingID, priorStatus, priorTier); rollErr != nil {
-			return validation.VNull(), rollErr
+		if !execCited {
+			if rollErr := undoAttempt(c, findingID, priorStatus, priorTier); rollErr != nil {
+				return validation.VNull(), rollErr
+			}
 		}
 		return validation.VNull(), err
 	}

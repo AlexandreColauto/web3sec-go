@@ -27,7 +27,7 @@
         "content_hash":  { "type": "string", "description": "sha256 over every file in the pinned copy, path-sorted, path prefixed" },
         "root":          { "type": "string", "description": "filesystem path of the immutable pinned copy" },
         "file_count":    { "type": "integer", "minimum": 0 },
-        "excluded":      { "type": "array", "items": { "type": "string" }, "description": "top-level names pruned from this pin by the bulk-default or --exclude sets — an audit pin that silently drops scope is a scope-drift bug, so the prune is recorded, not hidden" }
+        "excluded":      { "type": "array", "items": { "type": "string" }, "description": "relative subpaths pruned from this pin by the bulk-default or --exclude sets, reported at their real depth (a deep match under an in-scope dir is its own subpath, not the top-level dir) — an audit pin that silently drops scope is a scope-drift bug, so the prune is recorded, not hidden" }
       }
     },
 

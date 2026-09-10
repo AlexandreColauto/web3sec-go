@@ -194,8 +194,15 @@ func proofBountyGate(c *state.Campaign) (validation.Value, error) {
 	return proofResult(len(missing) == 0, missing, note), nil
 }
 
-// proofReport is _proof_report: the report stamps the event-log head it was
-// generated from, so a later logged event makes it visibly stale.
+// proofReport is the report-freshness proof (Go is the source of truth —
+// feedback-triage A8). The reference compared the report's state-head stamp
+// against the ABSOLUTE log head with strict equality; but generate() stamps
+// the head it read and THEN logs its own events (artifact refresh +
+// report.generated), so that equality could never pass for a real report and
+// the proof sat permanently red. The Go rule: the report is fresh iff the
+// LAST event in the log IS the report's own report.generated — i.e. nothing
+// has been logged since its generation. Fail-closed: an empty log, or a log
+// that was never generated (a hand-written report), is stale.
 func proofReport(c *state.Campaign) (validation.Value, error) {
 	p := filepath.Join(campaignDir(c), "report.md")
 	if !fileExists(p) {
@@ -207,28 +214,33 @@ func proofReport(c *state.Campaign) (validation.Value, error) {
 		return validation.VNull(), err
 	}
 	headHash := ""
+	fresh := false
 	if len(events) > 0 {
-		if h := objAt(events[len(events)-1], "event_hash"); h.Kind == validation.Str {
+		head := events[len(events)-1]
+		if h := objAt(head, "event_hash"); h.Kind == validation.Str {
 			headHash = h.S
 		}
+		fresh = objStr(head, "type") == "report.generated"
 	}
 	raw, err := os.ReadFile(p)
 	if err != nil {
 		return validation.VNull(), err
 	}
-	// Python: read_text(errors="replace") — invalid UTF-8 becomes U+FFFD.
+	// The stamp is informational only under the Go rule (it names the head
+	// the report was generated from, for the stale message).
+	// read_text(errors="replace") semantics: invalid UTF-8 becomes U+FFFD.
 	text := strings.ToValidUTF8(string(raw), "\uFFFD")
 	stamped, found := stampOf(text)
-	if headHash != "" && (!found || stamped != headHash) {
-		repr := "None"
-		if found {
-			repr = validation.PyReprStr(stamped)
-		}
-		msg := fmt.Sprintf("report.md is stale (generated at log head %s, "+
-			"head is %s) — regenerate", repr, validation.PyReprStr(headHash))
-		return proofResult(false, []string{msg}, "stale report"), nil
+	if fresh {
+		return proofResult(true, []string{}, "report fresh"), nil
 	}
-	return proofResult(true, []string{}, "report fresh"), nil
+	repr := "None"
+	if found {
+		repr = validation.PyReprStr(stamped)
+	}
+	msg := fmt.Sprintf("report.md is stale (generated at log head %s, "+
+		"head is %s) — regenerate", repr, validation.PyReprStr(headHash))
+	return proofResult(false, []string{msg}, "stale report"), nil
 }
 
 // stampOf is the `<!-- state-head: <hash> -->` scan: the first matching line

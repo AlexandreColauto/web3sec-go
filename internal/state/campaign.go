@@ -214,7 +214,10 @@ func ListCampaigns(root string) []string {
 	}
 	var out []string
 	for _, e := range entries {
-		if !e.IsDir() {
+		// os.Stat (not e.IsDir): a symlinked campaign dir is a valid
+		// campaign; ReadDir's entry type reports the link, not the target.
+		fi, err := os.Stat(filepath.Join(cdir, e.Name()))
+		if err != nil || !fi.IsDir() {
 			continue
 		}
 		if _, err := os.Stat(filepath.Join(cdir, e.Name(), "campaign_state.json")); err == nil {

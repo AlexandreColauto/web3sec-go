@@ -41,6 +41,17 @@ var wLevel = map[string]float64{
 	"E5": 2.5, "E6": 3.0, "E7": 3.0,
 }
 
+// wReversibility is the victim-perspective recoverability weight inside
+// validated_risk (IMPROVEMENTS E5): funds the victim can never get back are
+// worse than funds a trusted party might return at its discretion, which are
+// worse than funds the victim or the protocol can restore. The field is
+// ABSENT by default — a finding that never classified recoverability scores
+// exactly as before (0.0 contribution), so existing campaigns are
+// byte-identical.
+var wReversibility = map[string]float64{
+	"irreversible": 3.0, "trusted-party": 2.0, "reversible": 0.0,
+}
+
 // priorBase is the triage base table inside prior_risk.
 var priorBase = map[string]float64{
 	"access-control": 0.9, "authorization": 0.9, "upgrade-initializer": 0.85,
@@ -171,6 +182,21 @@ func validatedScore(finding validation.Value) (float64, []string, error) {
 		score += bump
 		rationale = append(rationale,
 			"extractable($"+pyUsd0f(usd)+") +"+validation.PythonFloat(bump))
+	}
+	// Reversibility (IMPROVEMENTS E5): the victim-perspective recoverability
+	// classification, when present. Absent field = no line, no weight — the
+	// byte-identical guarantee for findings that never classified it.
+	if rv := orStr(objAt(orObj(objAt(finding, "risk")), "reversibility")); rv != "" {
+		if w, ok := wReversibility[rv]; ok {
+			score += w
+			rationale = append(rationale,
+				"reversibility("+rv+") +"+validation.PythonFloat(w))
+		} else {
+			// An unrecognized value contributes nothing but is surfaced, so a
+			// typo can never silently inflate or deflate the band.
+			rationale = append(rationale,
+				"reversibility("+rv+") +0.0 (unrecognized)")
+		}
 	}
 	return score, rationale, nil
 }

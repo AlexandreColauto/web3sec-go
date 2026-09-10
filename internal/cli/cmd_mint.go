@@ -137,23 +137,27 @@ func runMint(root string, args []string, r *Runner) int {
 	if err != nil {
 		return r.withErr(root, func() error { return err })
 	}
-	for _, e := range objAt(f, "evidence").A {
-		if objStr(e, "artifact_id") == execID {
-			level, err := findings.FindingLevel(f)
-			if err != nil {
-				return r.withErr(root, func() error { return err })
-			}
-			fmt.Fprintf(r.Out, "%s: exec %s already minted — idempotent "+
-				"no-op (evidence level %s)\n", pos[1], execID, level)
-			return 0
-		}
-	}
 	var tierPtr, typePtr *string
 	if haveTier {
 		tierPtr = &tier
 	}
 	if haveType {
 		typePtr = &etype
+	}
+	// Idempotency is per (exec, type) — the same exec may back a second
+	// evidence item of a DIFFERENT type (feedback-triage A2: the reference
+	// keyed on exec alone, so the second type silently never landed).
+	effectiveType := reproduction.EffectiveEvidenceType(tierPtr, typePtr, f)
+	for _, e := range objAt(f, "evidence").A {
+		if objStr(e, "artifact_id") == execID && objStr(e, "type") == effectiveType {
+			level, err := findings.FindingLevel(f)
+			if err != nil {
+				return r.withErr(root, func() error { return err })
+			}
+			fmt.Fprintf(r.Out, "%s: exec %s already minted as %s — idempotent "+
+				"no-op (evidence level %s)\n", pos[1], execID, effectiveType, level)
+			return 0
+		}
 	}
 	out, err := reproduction.AttemptAndMint(c, pos[1], execID, description,
 		tierPtr, typePtr)

@@ -53,6 +53,24 @@ func hasPrefix2(s, p string) bool {
 	return len(s) >= len(p) && s[:len(p)] == p
 }
 
+// ContractPath resolves a contract name to its source path in the structural
+// index: the first contract/interface/library node whose name matches. Empty
+// string when there is no matching node (or no nodes at all). (B4: the scope
+// check resolves a finding's contract name to a path so a path-based scope
+// entry can match a name-carrying finding.)
+func ContractPath(index validation.Value, name string) string {
+	for _, n := range nodesOf(index, "") {
+		k := objStr(n, "kind")
+		if k != "contract" && k != "interface" && k != "library" {
+			continue
+		}
+		if objStr(n, "name") == name {
+			return objStr(n, "path")
+		}
+	}
+	return ""
+}
+
 // ExternalSurface is external_surface: the entry-point function nodes.
 func ExternalSurface(index validation.Value) []validation.Value {
 	out := []validation.Value{}

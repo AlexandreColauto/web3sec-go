@@ -158,7 +158,7 @@ func strValues(items []string) []validation.Value {
 	return out
 }
 
-// seamStub is the fixed answer of the five unported-module seams.
+// seamStub is the fixed answer of the unported-module seams.
 type seamStub struct {
 	ladder    validation.Value
 	price     validation.Value
@@ -167,6 +167,8 @@ type seamStub struct {
 	waivers   []validation.Value
 	immState  string
 	immDetail string
+	// B4: contract-name → source-path map for the scope check's resolver seam.
+	contractPaths map[string]string
 }
 
 // installSeams wires the five seams to the stub and restores the defaults on
@@ -182,11 +184,25 @@ func installSeams(t *testing.T, s seamStub) {
 	SetForkPocStatus(func(*state.Campaign, string) (bool, string, error) {
 		return s.forkOK, s.forkWhy, nil
 	})
-	SetWaivers(func(*state.Campaign, string) ([]validation.Value, error) {
-		return s.waivers, nil
+	// Stage-aware: mirrors completion.Waivers(c, stage), which filters rows
+	// by exact stage match. (B1: check12 now consults the "immunization"
+	// stage, so a fork-PoC waiver must not leak into it.)
+	SetWaivers(func(_ *state.Campaign, stage string) ([]validation.Value, error) {
+		var out []validation.Value
+		for _, w := range s.waivers {
+			if objStr(w, "stage") == stage {
+				out = append(out, w)
+			}
+		}
+		return out, nil
 	})
 	SetImmunizationDetail(func(validation.Value) (string, string) {
 		return s.immState, s.immDetail
+	})
+	// B4: contract-name → source-path resolver. Empty map (or absent key)
+	// yields "", the pre-B4 name-only behaviour.
+	SetContractPathResolver(func(_ *state.Campaign, name string) string {
+		return s.contractPaths[name]
 	})
 	t.Cleanup(func() {
 		SetLoadLadder(nil)
@@ -194,6 +210,7 @@ func installSeams(t *testing.T, s seamStub) {
 		SetForkPocStatus(nil)
 		SetWaivers(nil)
 		SetImmunizationDetail(nil)
+		SetContractPathResolver(nil)
 	})
 }
 
@@ -433,6 +450,75 @@ func TestFullSubmissionReady(t *testing.T) {
 	}
 }
 
+// TestImmunizationWaiverUnblocks (B1): a CONFIRMED finding that is NOT
+// immunized is still submission_ready when an explicit immunization waiver
+// covers it (mirroring the fork-PoC waiver); without the waiver the same
+// finding is blocked by "not immunized".
+func TestImmunizationWaiverUnblocks(t *testing.T) {
+	c := fixtureCampaign(t)
+	fid := fixtureConfirmed(t, c)
+	stub := submissionReadySeamsFor("PRC-abc123")
+	stub.immState = "missing"
+	stub.immDetail = "no patch recorded"
+	stub.waivers = []validation.Value{validation.VObj(
+		kv("stage", validation.VStr("immunization")),
+		kv("subject", validation.VStr("*")),
+		kv("reason", validation.VStr(
+			"patch lands in a follow-up PR; fork PoC waived for the same submission")),
+		kv("actor", validation.VStr("alice")),
+	)}
+	installSeams(t, stub)
+	result, err := EvaluateBountyGate(c, fid, testPolicy(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := objAt(result, "submission_ready"); got.Kind != validation.Bool || !got.B {
+		t.Errorf("submission_ready = %s, want True (waiver unblocks immunization)",
+			validation.PyRepr(got))
+	}
+	if anyContains(objAt(result, "blocking_reasons"), "not immunized") {
+		t.Errorf("unexpected immunization blocker in %s",
+			validation.CanonCompact(objAt(result, "blocking_reasons")))
+	}
+	found := false
+	for _, ck := range objAt(result, "policy_checks").A {
+		if objStr(ck, "check") == "immunization" {
+			found = true
+			if objStr(ck, "result") != "pass" {
+				t.Errorf("immunization result = %s, want pass",
+					objStr(ck, "result"))
+			}
+			if !strings.Contains(objStr(ck, "detail"), "waived by alice") {
+				t.Errorf("immunization detail = %q, want 'waived by alice'",
+					objStr(ck, "detail"))
+			}
+		}
+	}
+	if !found {
+		t.Error("no immunization row in policy_checks")
+	}
+
+	// No waiver: the same finding is blocked on immunization.
+	c2 := fixtureCampaign(t)
+	fid2 := fixtureConfirmed(t, c2)
+	stub2 := submissionReadySeamsFor("PRC-abc123")
+	stub2.immState = "missing"
+	stub2.immDetail = "no patch recorded"
+	installSeams(t, stub2)
+	result2, err := EvaluateBountyGate(c2, fid2, testPolicy(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := objAt(result2, "submission_ready"); got.Kind != validation.Bool || got.B {
+		t.Errorf("submission_ready = %s, want False (no waiver)",
+			validation.PyRepr(got))
+	}
+	if !anyContains(objAt(result2, "blocking_reasons"), "not immunized") {
+		t.Errorf("expected 'not immunized' blocker in %s",
+			validation.CanonCompact(objAt(result2, "blocking_reasons")))
+	}
+}
+
 func TestOutOfScopeTargetBlocks(t *testing.T) {
 	c, fid := bountyFixture(t)
 	f, err := findings.LoadFinding(c, fid)
@@ -456,6 +542,47 @@ func TestOutOfScopeTargetBlocks(t *testing.T) {
 		t.Errorf("no scope blocker in %s",
 			validation.CanonCompact(objAt(result, "blocking_reasons")))
 	}
+}
+
+// B4: a name-carrying finding matches a path-based scope entry only if the
+// contract name resolves to its source path via the structural index. The
+// campaign's false "everything is out of scope" was the name never resolving
+// to the path the scope named.
+func TestScopeResolvesContractNameToPath(t *testing.T) {
+	f := baseFinding()
+	// A name-only affected component (no path) — the shape that previously
+	// could never match a path-based scope entry.
+	f = withField(f, "affected", validation.VArr(
+		validation.VObj(kv("contract", validation.VStr("Vault")))))
+	// A path-based scope entry: only the resolved path can match it.
+	policy := testPolicy()
+	policy.O = setOrAppend(policy.O, "scope", validation.VArr(
+		validation.VObj(kv("target", validation.VStr("src/Vault.sol")),
+			kv("kind", validation.VStr("path")))))
+
+	scopeResult := func(t *testing.T, seams seamStub) string {
+		t.Helper()
+		installSeams(t, seams)
+		c := vectorCamp(t, "")
+		g := &gate{campaign: c, policy: policy, f: f}
+		if err := g.check3(); err != nil {
+			t.Fatal(err)
+		}
+		return objStr(g.checks[0], "result")
+	}
+
+	t.Run("name_only_without_resolver_is_out_of_scope", func(t *testing.T) {
+		if got := scopeResult(t, seamStub{}); got != "fail" {
+			t.Errorf("in-scope = %s, want fail (pre-B4 name-only behaviour)", got)
+		}
+	})
+	t.Run("resolver_maps_name_to_path_is_in_scope", func(t *testing.T) {
+		got := scopeResult(t, seamStub{
+			contractPaths: map[string]string{"Vault": "src/Vault.sol"}})
+		if got != "pass" {
+			t.Errorf("in-scope = %s, want pass (B4 resolves the name to the path)", got)
+		}
+	})
 }
 
 func TestKnownIssueBlocks(t *testing.T) {

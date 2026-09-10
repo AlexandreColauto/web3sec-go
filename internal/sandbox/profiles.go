@@ -265,6 +265,16 @@ func BuildContainerArgv(profile, command string, workdir *string,
 		}
 		containerEnv = append(containerEnv, EnvVar{Key: "FORK_RPC_URL", Value: url})
 	}
+	// The foundry image lints on every `forge build` and PANICS on the
+	// first lint hit in a fresh pin — the operator had to hand-set
+	// FOUNDRY_LINT_ON_BUILD=false before any Solidity target could build
+	// (feedback-triage A3, recommendation #10). Default it off for every
+	// container profile (all run the foundry image); an explicit operator
+	// env entry still wins.
+	if !hasEnvKey(containerEnv, "FOUNDRY_LINT_ON_BUILD") {
+		containerEnv = append(containerEnv,
+			EnvVar{Key: "FOUNDRY_LINT_ON_BUILD", Value: "false"})
+	}
 	for _, e := range containerEnv {
 		argv = append(argv, "-e", e.Key+"="+e.Value)
 	}

@@ -400,6 +400,16 @@ func Doctor(campaign *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
+	// feedback-triage A7: a profile that is merely AVAILABLE is not a
+	// profile this campaign can USE — docker-networkless=ok next to
+	// "max CONFIRMED floor E5" pointed the operator at an E4-only
+	// container the floor loop was about to refuse. Pre-run the same
+	// floor comparison and record the per-profile fit (appended after
+	// solc: the Python-compatible key prefix is untouched).
+	fit, err := profileFit(profiles, strAt(req, "max_confirm_floor"))
+	if err != nil {
+		return validation.VNull(), err
+	}
 	result.O = append(result.O, validation.KV{K: "campaign", V: req})
 	all := append([]validation.Value{}, objAt(result, "issues").A...)
 	all = append(all, objAt(req, "issues").A...)
@@ -418,8 +428,50 @@ func Doctor(campaign *state.Campaign) (validation.Value, error) {
 		solcV = *solc
 	}
 	result.O = append(result.O, validation.KV{K: "solc", V: solcV})
+	result.O = append(result.O, validation.KV{K: "profile_fit", V: fit})
 	result = setKey(result, "ok", validation.VBool(len(all) == 0))
 	return result, nil
+}
+
+// profileMaxLevel is the highest evidence level each E4-capable profile can
+// honestly back: the isolated containers prove at most E4; fork-runner is
+// the E5 shape (a T3/T4 fork test).
+var profileMaxLevel = map[string]string{
+	"docker-networkless": "E4",
+	"docker-gvisor":      "E4",
+	"vm-snapshot":        "E4",
+	"fork-runner":        "E5",
+}
+
+// profileFit is the A7 cross-check: for every AVAILABLE container profile,
+// whether its evidence ceiling meets the campaign's max CONFIRMED floor.
+// Unavailable profiles are skipped — their "NO" verdict already says all
+// there is; host-readonly has no evidence ceiling at all.
+func profileFit(profiles validation.Value, maxFloor string) (validation.Value, error) {
+	fit := validation.VObj()
+	fIdx, err := findings.LevelIndex(maxFloor)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	for _, kv := range profiles.O {
+		cap, ok := profileMaxLevel[kv.K]
+		if !ok || !truthy(kv.V) {
+			continue
+		}
+		cIdx, err := findings.LevelIndex(cap)
+		if err != nil {
+			return validation.VNull(), err
+		}
+		if cIdx >= fIdx {
+			fit.O = append(fit.O, validation.KV{K: kv.K,
+				V: validation.VStr("ok")})
+		} else {
+			fit.O = append(fit.O, validation.KV{K: kv.K,
+				V: validation.VStr(cap + "-only (campaign floor " +
+					maxFloor + ")")})
+		}
+	}
+	return fit, nil
 }
 
 func hasDockerCLI() bool {

@@ -607,6 +607,81 @@ func TestWaiveLadderIsAttributedAndRecordsWaiver(t *testing.T) {
 	}
 }
 
+// TestReopenLadder (B2): the escape hatch requireOpen's error message always
+// advertised. An open ladder is refused, a closed (complete) ladder refuses
+// mutation until reopened with a written reason, and the reopened ladder
+// accepts work again.
+func TestReopenLadder(t *testing.T) {
+	c := newCampaign(t, "Acme")
+	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	if _, err := StartLadder(c, fid); err != nil {
+		t.Fatal(err)
+	}
+	// (a) an already-open ladder needs no reopening
+	if _, err := ReopenLadder(c, fid, "any reason here", "op"); err == nil ||
+		!strings.Contains(err.Error(), "already open") {
+		t.Fatalf("open-ladder reopen err = %v", err)
+	}
+	// close the ladder for real (the requireOpen-refusing state)
+	for _, a := range Axes {
+		if _, err := ExploreAxis(c, fid, a, "considered and not applicable"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rung, err := AddVariant(c, fid, "dust", "dust the pool with one wei",
+		[]string{"capital-minimization"}, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := registerExec(t, c, fid)
+	if _, err := ReproduceRung(c, fid, objStr(rung, "rung_id"),
+		objStr(rec, "exec_id"), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SetMaximal(c, fid, objStr(rung, "rung_id")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := CompleteLadder(c, fid, "operator"); err != nil {
+		t.Fatal(err)
+	}
+	// a complete ladder refuses mutation and points at reopen (a valid axis
+	// is passed so the check reaches requireOpen, past the axis validation)
+	if _, err := AddVariant(c, fid, "more", "more work",
+		[]string{"cap-saturation"}, nil, nil, nil, nil); err == nil ||
+		!strings.Contains(err.Error(), "reopen") {
+		t.Fatalf("complete-ladder AddVariant err = %v (want reopen hint)", err)
+	}
+	// (b) reopening with no written reason is refused
+	if _, err := ReopenLadder(c, fid, "", "op"); err == nil ||
+		!strings.Contains(err.Error(), "needs a written reason") {
+		t.Fatalf("no-reason reopen err = %v", err)
+	}
+	// (c) reopen with a reason: open again, attributed, finding kept in sync
+	lad, err := ReopenLadder(c, fid, "a cheaper rung appeared after closure", "op2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	disp := asObj(objAt(lad, "disposition"))
+	if objStr(disp, "state") != "open" || objStr(disp, "actor") != "op2" {
+		t.Fatalf("disposition = %v", disp)
+	}
+	if !strings.Contains(objStr(disp, "reason"), "cheaper rung") {
+		t.Fatalf("reason = %q", objStr(disp, "reason"))
+	}
+	f2, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objStr(asObj(objAt(f2, "maximization")), "disposition") != "open" {
+		t.Fatalf("finding disposition = %v", objAt(f2, "maximization"))
+	}
+	// the reopened ladder accepts work again (requireOpen no longer refuses)
+	if _, err := AddVariant(c, fid, "dust2", "dust again",
+		[]string{"cap-saturation"}, nil, nil, nil, nil); err != nil {
+		t.Fatalf("AddVariant after reopen = %v (want allowed)", err)
+	}
+}
+
 // --- ladder_report ---------------------------------------------------------
 
 func TestLadderReportDeltasAndUnexplored(t *testing.T) {

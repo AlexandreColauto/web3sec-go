@@ -820,6 +820,15 @@
       "additionalProperties": {
         "type": "string"
       },
+      "properties": {
+        "candidate_notes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "resolve-candidate --note, keyed by the other finding id (fixed-in-Go: the reference schema rejected the reference writer's own dict — python-twin-issues P2)"
+        }
+      },
       "description": "bookkeeping extras; capability_links is a JSON-encoded array for schema simplicity"
     },
     "tags": {
@@ -1067,6 +1076,10 @@
             "insolvency_risk": {"enum": ["low", "medium", "high"]},
             "score": {"type": "number", "minimum": 0}
           }
+        },
+        "reversibility": {
+          "enum": ["irreversible", "trusted-party", "reversible"],
+          "description": "victim-perspective recoverability (IMPROVEMENTS E5). irreversible: the victim has no path to recover; trusted-party: recovery only via discretionary trusted-party intervention; reversible: the victim or protocol can restore state. Adds a validated_risk weight (3.0 / 2.0 / 0.0); absent = no weight, byte-identical scoring."
         },
         "bounty_score": {
           "type": "number",

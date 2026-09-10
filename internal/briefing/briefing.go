@@ -599,8 +599,13 @@ func ChInvariants(campaign *state.Campaign,
 			byStatus = append(byStatus, validation.KV{K: st,
 				V: validation.VInt(1)})
 		}
+		// A confirming verdict is CHECKED_AGAINST_CODE or CONTRADICTED (B3:
+		// CONTRADICTED = the invariant is falsified by code, i.e. the attack
+		// works — the strongest confirmation). Only model invariants with a
+		// NON-confirming status are "unverified" and owed a check.
 		if objStr(e.V, "source") == "model" &&
-			objStr(e.V, "status") != "CHECKED_AGAINST_CODE" {
+			objStr(e.V, "status") != "CHECKED_AGAINST_CODE" &&
+			objStr(e.V, "status") != "CONTRADICTED" {
 			unverified = append(unverified, e.K)
 		}
 	}
@@ -1319,10 +1324,21 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 
 	huntProblems := []string{}
 
+	// feedback-triage A5: the stage ledger also carries sub-stage rows the
+	// orchestrator emits per pass (discovery-specialist,
+	// hypothesis-triage, dedup-normalization, independent-reproduction,
+	// ...). Those are not among the canonical pipeline stages, so counting
+	// every done row let the cockpit report "stages 19/17". The denominator
+	// is len(pipeline.StageIDs), so the numerator must count the same
+	// top-level set.
+	topLevel := make(map[string]bool, len(pipeline.StageIDs))
+	for _, id := range pipeline.StageIDs {
+		topLevel[id] = true
+	}
 	stages := asObj(objAt(st, "stages"))
 	stagesDone := int64(0)
 	for _, s := range stages.O {
-		if objStr(s.V, "status") == "done" {
+		if topLevel[s.K] && objStr(s.V, "status") == "done" {
 			stagesDone++
 		}
 	}

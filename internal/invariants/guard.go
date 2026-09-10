@@ -64,38 +64,95 @@ func AssertInvariantsVerified(c *state.Campaign, finding validation.Value) error
 }
 
 // IsVerified is _is_verified: the single shared verdict. An invariant counts
-// as verified only if its status is CHECKED_AGAINST_CODE, its verified_by
-// resolves to a REGISTERED artifact, AND the append-only log carries an
-// invariant.verified event for that id referencing that same artifact — a
-// hand-edited registry entry cannot forge a hash-chained log event.
+// as verified if it carries a CONFIRMING verdict backed by the append-only
+// log — a hand-edited registry entry cannot forge a hash-chained log event:
+//
+//   - CHECKED_AGAINST_CODE: verified_by resolves to a REGISTERED artifact and
+//     the log carries an invariant.verified event for that id referencing that
+//     same artifact.
+//   - CONTRADICTED (B3): the invariant is FALSIFIED by code — the attack
+//     works — the strongest confirming outcome. Its contradiction anchor is
+//     non-empty (and, when it is a registered artifact id, resolves), and the
+//     log carries an invariant.contradicted event for that id referencing that
+//     same anchor. Previously only CHECKED_AGAINST_CODE was accepted, which
+//     gated out the very evidence that the exploit works.
 func IsVerified(entry validation.Value, c *state.Campaign, invariantID string,
 	events []validation.Value) bool {
 	if entry.Kind != validation.Obj {
 		return false
 	}
-	if objStr(entry, "status") != "CHECKED_AGAINST_CODE" {
-		return false
-	}
-	artID := objStr(entry, "verified_by")
-	if artID == "" {
-		return false
-	}
-	if _, err := c.Artifact(artID); err != nil {
-		return false
-	}
-	want := NormalizeInvID(invariantID)
-	for _, ev := range events {
-		if objStr(ev, "type") != "invariant.verified" {
-			continue
+	switch objStr(entry, "status") {
+	case "CONTRADICTED":
+		evid := objStr(entry, "contradiction")
+		if evid == "" {
+			return false
 		}
-		if NormalizeInvID(pyStr(objAt(ev, "ref"))) != want {
-			continue
+		if isArtifactID(evid) {
+			if _, err := c.Artifact(evid); err != nil {
+				return false
+			}
 		}
-		if objStr(objAt(ev, "data"), "artifact") == artID {
-			return true
+		want := NormalizeInvID(invariantID)
+		for _, ev := range events {
+			if objStr(ev, "type") != "invariant.contradicted" {
+				continue
+			}
+			if NormalizeInvID(pyStr(objAt(ev, "ref"))) != want {
+				continue
+			}
+			if objStr(objAt(ev, "data"), "evidence") == evid {
+				return true
+			}
 		}
+		return false
+	case "CHECKED_AGAINST_CODE":
+		artID := objStr(entry, "verified_by")
+		if artID == "" {
+			return false
+		}
+		if _, err := c.Artifact(artID); err != nil {
+			return false
+		}
+		want := NormalizeInvID(invariantID)
+		for _, ev := range events {
+			if objStr(ev, "type") != "invariant.verified" {
+				continue
+			}
+			if NormalizeInvID(pyStr(objAt(ev, "ref"))) != want {
+				continue
+			}
+			if objStr(objAt(ev, "data"), "artifact") == artID {
+				return true
+			}
+		}
+		return false
 	}
 	return false
+}
+
+// isArtifactID reports whether s matches the registered-artifact id shape
+// <KIND3UPPER>-<8 lowercase hex> (state.newId + RegisterArtifact). A file
+// anchor such as "src/Vault.sol:42" never matches, so a CONTRADICTED entry
+// anchored to source text is accepted as written.
+func isArtifactID(s string) bool {
+	if len(s) != 12 {
+		return false
+	}
+	for i := 0; i < 3; i++ {
+		if s[i] < 'A' || s[i] > 'Z' {
+			return false
+		}
+	}
+	if s[3] != '-' {
+		return false
+	}
+	for i := 4; i < 12; i++ {
+		ch := s[i]
+		if !((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f')) {
+			return false
+		}
+	}
+	return true
 }
 
 // invariantIDs is _invariant_ids: every invariant id a finding hangs off

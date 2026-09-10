@@ -918,6 +918,12 @@ func collectFiles(root string) ([]string, error) {
 			}
 			return nil
 		}
+		// Regular files only: a dangling symlink (or FIFO/socket/device
+		// file) is not a dir, so it would reach os.ReadFile below and abort
+		// the whole index build.
+		if !d.Type().IsRegular() {
+			return nil
+		}
 		rel, rerr := filepath.Rel(root, path)
 		if rerr != nil {
 			return rerr

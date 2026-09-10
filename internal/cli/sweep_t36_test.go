@@ -201,9 +201,10 @@ func TestFullLadderViaCLI(t *testing.T) {
 		t.Fatalf("verify --exec exit %d out %q err %q want %q", code, out,
 			errS, want)
 	}
-	// the queue is empty once E6 is recorded
+	// the queue is empty once E6 is recorded — feedback-triage A6: an
+	// empty queue says so instead of printing nothing
 	code, out, errS = run(t, "--root", root, "verify", cid, "--queue")
-	if code != 0 || out != "" {
+	if code != 0 || out != "queue empty — nothing to verify\n" {
 		t.Fatalf("verify --queue after exit %d out %q err %q", code, out, errS)
 	}
 	// the same exec cannot back E6 twice (handler-level exit 2)

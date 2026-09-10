@@ -166,6 +166,14 @@ func verifyQueue(c *state.Campaign, r *Runner) error {
 	if err != nil {
 		return err
 	}
+	if len(q.A) == 0 {
+		// feedback-triage A6: the reference printed nothing on an empty
+		// queue — an operator who mistyped the campaign or finished every
+		// verification saw silence and had to re-derive that it was a
+		// success. Say so.
+		fmt.Fprintln(r.Out, "queue empty — nothing to verify")
+		return nil
+	}
 	for _, item := range q.A {
 		flag := "advisory"
 		if objBool(item, "mandatory") {

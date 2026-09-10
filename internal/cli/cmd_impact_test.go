@@ -10,6 +10,9 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"websec/internal/findings"
+	"websec/internal/validation"
 )
 
 var t23ImpactECORe = regexp.MustCompile(`^ECO-[0-9a-f]+$`)
@@ -70,9 +73,49 @@ func TestImpactRequiresFigure(t *testing.T) {
 	if code != 2 || out != "" {
 		t.Fatalf("exit %d out %q err %q", code, out, errS)
 	}
-	want := "impact requires --extractable USD and/or --max-loss USD\n"
+	want := "impact requires --extractable USD and/or --max-loss USD, or --reversibility MODE\n"
 	if errS != want {
 		t.Fatalf("stderr %q want %q", errS, want)
+	}
+}
+
+// TestImpactReversibilityOnly pins the E5 classification-only call: no USD
+// figure, just the victim-perspective recoverability, and the recalibrated
+// band in the output line.
+func TestImpactReversibilityOnly(t *testing.T) {
+	c, root, fid := t23Campaign(t, "impact-reversibility")
+	code, out, errS := run(t, "--root", root, "impact", c.CampaignID, fid,
+		"--reversibility", "irreversible")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if !strings.HasPrefix(out, fid+": reversibility recorded — irreversible (risk band ") {
+		t.Fatalf("out %q", out)
+	}
+	f, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := objStr(objAt(f, "risk"), "reversibility"); got != "irreversible" {
+		t.Errorf("stored reversibility = %q", got)
+	}
+	score := objAt(objAt(objAt(f, "risk"), "validated"), "score")
+	if score.Kind != validation.Flt || score.F < 6.5 {
+		t.Errorf("validated score = %v; want >= 6.5 after +3.0", score)
+	}
+}
+
+// TestImpactReversibilityInvalidMode pins the closed-set error (exit 1,
+// finding untouched).
+func TestImpactReversibilityInvalidMode(t *testing.T) {
+	c, root, fid := t23Campaign(t, "impact-reversibility-bad")
+	code, out, errS := run(t, "--root", root, "impact", c.CampaignID, fid,
+		"--reversibility", "unrecoverable-ish")
+	if code != 1 || out != "" {
+		t.Fatalf("exit %d out %q err %q", code, out, errS)
+	}
+	if !strings.Contains(errS, "reversibility must be one of") {
+		t.Fatalf("stderr %q", errS)
 	}
 }
 

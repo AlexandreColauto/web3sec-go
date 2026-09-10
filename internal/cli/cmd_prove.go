@@ -53,7 +53,28 @@ func runProve(root string, args []string, r *Runner) int {
 				"(deterministic stage without an advisory proof)\n", stage)
 			return 0
 		}
-		fmt.Fprintln(r.Out, prettyASCII(pr))
+		// feedback-triage A6: the reference dumped the raw proof JSON here
+		// — the operator asking "is this stage provably done?" got a wall
+		// of nested dicts. Print the same human-readable line the
+		// no--stage view uses; the exit code remains the done/not-done
+		// verdict (intentional divergence from the reference).
+		mark := "open "
+		if pyTruthyCLI(objAt(pr, "done")) {
+			mark = "DONE "
+		}
+		auth := "advisory"
+		if pyTruthyCLI(objAt(pr, "authoritative")) {
+			auth = "authoritative"
+		}
+		line := fmt.Sprintf("%s %s [%s]", pyLeft(stage, 26), mark, auth)
+		if !pyTruthyCLI(objAt(pr, "done")) {
+			missing := strListCLI(objAt(pr, "missing"))
+			if len(missing) > 3 {
+				missing = missing[:3]
+			}
+			line += " — " + strings.Join(missing, "; ")
+		}
+		fmt.Fprintln(r.Out, line)
 		if !pyTruthyCLI(objAt(pr, "done")) {
 			return 1
 		}
