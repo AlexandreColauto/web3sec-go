@@ -618,7 +618,10 @@ consumption plan, and one correction to the eval retro's premise. The P0
 plan's "out of scope" list *is* the P1 list, so nothing below is news to
 the plan — it is recorded here so it is not dropped. It also carries the
 follow-up emit-quota plan (`docs/superpowers/plans/2026-09-10-emit-quota-repair.md`,
-commits `1164289` → `9a4f809`), whose entries are the audit's-repair-hint row
+commits `1164289` → `9a4f809`; the range also carries two plan-amendment
+commits, `12da714` "Plan: name the campaign in the planner's disposition
+errors too" and `3cb90d1` "Plan: widen Task 4 to every uncopyable campaign
+placeholder"), whose entries are the audit's-repair-hint row
 and the placeholder sweep below.
 
 Reproductions below were re-run against a throwaway copy of the operator's
@@ -634,7 +637,7 @@ reproductions live" at the end.
 | **D6** report precision | `022d986` "Report a non-negative false-positive ratio over the critic-confirmed set" | `report.md` → `- **precision:** critic-confirmed: 4  - evidence-confirmed: 5  - false-positive ratio: -25.0%` | now `- **precision:** critic-confirmed: 4  - evidence-confirmed: 5  - false-positive ratio: 0.0%` (reproduced on the copy); the ratio is `criticNoEvidenceN/criticN`, bounded to [0, 100], and `n/a (no critic-confirmed findings)` when the denominator is zero (`TestReportPrecisionRatioNeverNegative`, `TestReportPrecisionRatioNoCriticConfirmed`) |
 | **D4** memory queue command | `5041d54` "Queue the memory row a terminal finding needs" | `prove C-21dd6a7642 \| grep '^learning'` → `learning  open  [authoritative] — F-6791c9aee0b5: no memory entry for this terminal finding (learning.queue_memory); …` | `memory C-21dd6a7642 --queue-finding F-6791c9aee0b5 --kind confirmed` prints `MEM-5440ce05 queued for F-6791c9aee0b5 (CONFIRMED) — approve with: webv2 memory C-21dd6a7642 --approve MEM-5440ce05 --by NAME`, and `prove` then drops that finding from the `learning` line (both reproduced on the copy); tests `TestMemoryQueueFindingSatisfiesLearningProof`, `TestMemoryQueueFindingRejectsNonMemoryStatus`, `TestMemoryQueueFindingKindDerivation` |
 | **D5** coverage reason + help | `b4a8397` "Name the actors a sequence PoC is missing and document the coverage rule" | `sequence verify` on a two-actor `exploit_sequence` executed by one actor printed only `executed steps use 1 distinct actor(s) but the declared exploit needs 2 — a single-account PoC cannot cover a multi-actor exploit`, and `sequence run --help` never mentioned coverage | the reason now ends `; missing: <declared label>` (sorted, verbatim, nothing appended when coverage is met or exceeded), and the help states the rule; tests `TestActorGapReasonNamesMissingActor`, `TestActorGapReasonSortsAndKeepsLabelsVerbatim`, `TestActorCoverageMetYieldsNoActorReason`, `TestExecutedActorSupersetYieldsNoActorReason`, plus the `run --help` line in `internal/cli/cmd_sequence_test.go` |
-| **the audit's repair hint** (the suggested bare `probes run --emit` rebuilt the surface with default quotas and made the audit worse) | `1164289` "Let a bare probes run repair the surface it already has" + `0df62af` "Name the surface artifact when a bare probes run cannot read it" + `d818150` "Make the recorded-quota case discriminate on what the fixture can show" + `3ba046a` "Name the campaign and the recorded quotas in the audit's repair hints" + `e9c1f67` "Name the recorded quotas at the blank attestation's last repair hint" | on the copy, bare `probes C-21dd6a7642 run --emit` printed `emit: created 12, updated 28, kept 0, reopened 0, orphaned 34` (40 rows against the original 62) and `audit C-21dd6a7642` reported 34 `[probe_surface]` problems whose repair hint read `(re-run webv2 probes <campaign> run --emit)` | bare `probes C-21dd6a7642 run --emit` prints `emit: created 16, updated 54, kept 0, reopened 0, orphaned 8` — the surface's own recorded `--per-axis 30 --total 70` — and `audit C-21dd6a7642` reports 8 `[probe_surface]` problems, each naming the campaign and quoting the quotas: ``… re-run `webv2 probes C-21dd6a7642 run --emit` (rebuilds with the surface's recorded --per-axis 30 --total 70)``; no problem string contains `<campaign>` (reproduced on fresh copies of the campaign; `d818150` makes the parity fixture discriminate the recorded-quota case) |
+| **the audit's repair hint** (the suggested bare `probes run --emit` rebuilt the surface with default quotas and made the audit worse) | `1164289` "Let a bare probes run repair the surface it already has" + `0df62af` "Name the surface artifact when a bare probes run cannot read it" + `d818150` "Make the recorded-quota case discriminate on what the fixture can show" + `3ba046a` "Name the campaign and the recorded quotas in the audit's repair hints" + `e9c1f67` "Name the recorded quotas at the blank attestation's last repair hint" | on the copy, bare `probes C-21dd6a7642 run --emit` printed `emit: created 12, updated 28, kept 0, reopened 0, orphaned 34` (40 rows emitted against the original 62 recorded in the P0 measurement below) and `audit C-21dd6a7642` reported 34 `[probe_surface]` problems whose repair hint read `(re-run webv2 probes <campaign> run --emit)` | bare `probes C-21dd6a7642 run --emit` prints `emit: created 16, updated 54, kept 0, reopened 0, orphaned 8` — the surface's own recorded `--per-axis 30 --total 70` — and `audit C-21dd6a7642` reports 8 `[probe_surface]` problems, all eight naming the campaign and quoting the quotas: ``… re-run `webv2 probes C-21dd6a7642 run --emit` (rebuilds with the surface's recorded --per-axis 30 --total 70)``; no problem string contains `<campaign>` (reproduced on fresh copies of the campaign; `d818150` makes the parity fixture discriminate the recorded-quota case) |
 
 **D1 residual (open).** The D1 row above records the bare-command default as
 it stood at the P0 batch; that half of the residual is now closed (see the
@@ -652,7 +655,7 @@ abort is gone (the defect D1 names) and the hint no longer makes the surface
 worse, but plan↔surface identity on this copy is a separate open item.
 
 **The `<campaign>` placeholder sweep (Task 4 of the emit-quota plan, added
-mid-plan).** The audit hint was the visible end of a defect class: an
+mid-plan by `3cb90d1`).** The audit hint was the visible end of a defect class: an
 operator-facing repair hint that had the campaign id in hand but printed the
 literal `<campaign>` metavariable. `70047f5` "Name the campaign in the
 planner's probe-row repair hints", `7def13b` "Name the campaign in the rest
@@ -804,7 +807,7 @@ The plan's reproductions rest on controller-side scratch, not repo fixtures:
 - the campaign copy is `.scratch/morph-eval/campaigns/C-21dd6a7642`
   (untracked; the binary's `--root .` is `.scratch/morph-eval`);
 - the emit-quota record's before/after pair is `.scratch/bin/webv2-pre`
-  (built from `535366a`, the head before that plan's first commit) and
+  (built from `535366a`, the commit immediately before `1164289`) and
   `.scratch/bin/webv2` (built from its head), each run against a fresh copy —
   `.scratch/morph-eval-pre/campaigns/C-21dd6a7642` for the former (both
   copies are untracked and gitignored);
