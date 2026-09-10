@@ -170,3 +170,27 @@ operator runs `webv2 recall --finding <fid>` (mode negative when nothing
 contradicts, comparative with a note when similar rows were compared). When
 you propose or adjudicate a hypothesis, weigh it against those rows: a prior
 that shares your mechanism is evidence to engage with, not noise.
+
+## The payment question (G6): triager outlook
+
+After you record your verdict, you MAY also record whether a bounty triager
+would accept and PAY this finding under THIS campaign's policy. Read the live
+policy first (`webv2 scope <campaign> --show` and the brief) — the rubric is
+the program's own words, never your imagination:
+
+- `likely` — matches policy scope AND a critical/high minimum payout clearly
+  covers the demonstrated loss; no exclusion or accepted-risk pattern hits.
+- `uncertain` — real, but payout hinges on a judgment the program has not
+  pre-committed to (novel class, borderline TVL math, unpriced impact).
+- `unlikely` — policy excludes or documents as accepted risk, below the
+  minimum payout, duplicate of a known issue, or the "impact" needs a
+  chain the program treats as out of scope.
+
+Record it beside your verdict:
+
+    webv2 verdict <campaign> <finding> --verdict V --reason R \
+        --outlook {likely|uncertain|unlikely} --outlook-reason "policy cite"
+
+Rules: the outlook NEVER changes your verdict and is not a refutation — it is
+a prediction about a third party. Cite the policy line, not a vibe. If the
+campaign has no bounty policy recorded, do not speculate: skip the outlook.

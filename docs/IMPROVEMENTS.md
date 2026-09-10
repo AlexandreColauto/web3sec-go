@@ -2,10 +2,11 @@
 
 Date: 2026-09-10 · Status: waves A–D + C0 + E5 LANDED; E1–E4 deferred by
 principle 6; D8 awaits a decision; the port-scaffolding cleanup is wave F
-(`docs/LEANNESS_REVIEW.md`). **Wave G PROPOSED 2026-09-10 (source: the
-"Beyond Smart Contracts" hybrid-defense report + our deep-research deliverable
-"Deconstructing Claims, Validating AI, and Weighting Risks"; each G item awaits
-an approve/defer review decision).**
+(`docs/LEANNESS_REVIEW.md`). **Wave G tranche 1 LANDED 2026-09-10 (G1, G6, G7;
+source: the "Beyond Smart Contracts" hybrid-defense report + our deep-research
+deliverable "Deconstructing Claims, Validating AI, and Weighting Risks");
+tranches 2–4 (G2/G3, G4, G5, G8–G12) remain PROPOSED, awaiting an
+approve/defer review decision.**
 
 Source: the Morph L2 rollup campaign (`C-42bd211e3e`, 537 events, 52 findings,
 snapshot `22ca805e`) against the gold-standard eval with two planted bugs
@@ -1900,13 +1901,13 @@ money (principle 2).
 
 | item | one-liner | effort | gate-for |
 |---|---|---|---|
-| G1 | detector output as first-class evidence + corroboration factor | M | — |
+| G1 | detector output as first-class evidence + corroboration factor — LANDED (tranche 1, 2026-09-10) | M | — |
 | G2 | per-class three-weight table (search / acceptance / severity-if-real) | M | G3 |
 | G3 | acceptance priors from the adjudicated outcome store + A3 backtest | L | G2 |
 | G4 | gold-eval expansion (≥15 scenarios, clean control, CIs on recall) | M | claims |
 | G5 | two-layer defense matcher: `mitigation_present` vs check13 | M | G1 |
-| G6 | critic triager-outlook rubric (prompt data, policy-injected) | S | — |
-| G7 | claim-intake checklist + `provenance[]` on baked-in external claims | S | — |
+| G6 | critic triager-outlook rubric (prompt data, policy-injected) — LANDED (tranche 1, 2026-09-10) | S | — |
+| G7 | claim-intake checklist + `provenance[]` on baked-in external claims — LANDED (tranche 1, 2026-09-10) | S | — |
 | G8 | invariants → Halmos/forge PBT harnesses as an evidence rung | L | — |
 | G9 | beyond-contract `components[]` + two data-only playbooks | M | G3 |
 | G10 | cross-chain assumption table + separator/finality archetypes | S–M | — |
@@ -1942,6 +1943,11 @@ finding, never credited by the acceptance score.
   detector profile the report says nobody publishes — we compute our own.
 - CLI: `ingest <CID> --from slither --json-file out.json` (flag on the existing
   verb).
+- **Deferred (tranche 1):** the dataset vocabulary additions (`slither`/
+  `aderyn` in `internal/ingest/ingest.go:47` and the
+  `evaluation_case.schema.json` enum), `--backtest`, and any automatic
+  corroboration detection REMAIN deferred. Corroboration is recorded only on
+  operator-resolved pairs (per this tranche).
 
 **Anchors:** `internal/datasets/defihacklabs/defihacklabs.go` (adapter
 template), `internal/ingest/ingest.go:47` (vocabulary),
