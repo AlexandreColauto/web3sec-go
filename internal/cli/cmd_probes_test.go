@@ -182,6 +182,7 @@ func t29Setup(t *testing.T, root string, withPlan bool) (string,
 	*state.Campaign, validation.Value, validation.Value) {
 	t.Helper()
 	probes.Wire() // a sibling test may have reset the planner seam
+	audit.Setup() // idempotent; makes the audit section registry order-free
 	ws := t.TempDir()
 	c, err := state.Init(ws, "Probe CLI", state.InitOpts{CampaignID: t29CID})
 	if err != nil {
@@ -1964,6 +1965,181 @@ func TestAuditDetectsAStaleSurfaceAndAHandEditedAttestation(t *testing.T) {
 	}
 	if !t29HasProblem(sec, "stale") {
 		t.Fatalf("problems = %v", t29Problems(sec))
+	}
+}
+
+// t29GhostPriority appends a plan priority citing a probe row the surface does
+// not carry (the plan-priority-orphan condition).
+func t29GhostPriority(t *testing.T, c *state.Campaign) {
+	t.Helper()
+	plan := t29PlanJSON(t, c)
+	ghost := t29DeepCopy(t29ProbePriority(t, c, ""))
+	t29Set(&ghost, "id", validation.VStr("Q-900"))
+	prov := objAt(ghost, "probe")
+	t29Set(&prov, "row_id", validation.VStr("deadbeef00"))
+	t29Set(&ghost, "probe", prov)
+	prios := t29List(plan, "priorities")
+	prios = append(prios, ghost)
+	t29Set(&plan, "priorities", validation.VArr(prios...))
+	if _, err := planner.SavePlan(c, plan); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestAuditHintNamesTheRecordedQuotasWhenTheSurfaceDrifts pins the repair
+// information: a drifted surface that records 30/70 prints the quotas a bare
+// re-run adopts, and no problem carries the <campaign> placeholder.
+func TestAuditHintNamesTheRecordedQuotasWhenTheSurfaceDrifts(t *testing.T) {
+	ws, c, idx, _ := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	stored, err := validation.ReadJson(t29SurfacePath(c))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Set(&stored, "per_axis", validation.VInt(30))
+	t29Set(&stored, "total", validation.VInt(70))
+	t29WriteSurface(t, c, stored)
+	t29BumpIndexLine(t, c, idx)
+	got := t29Problems(t29AuditSection(t, c))
+	if len(got) != 1 {
+		t.Fatalf("problems = %d, want 1: %v", len(got), got)
+	}
+	if !strings.Contains(got[0], "--per-axis 30 --total 70") {
+		t.Errorf("hint does not name the recorded quotas: %q", got[0])
+	}
+	if !strings.Contains(got[0], "rebuilds with the surface's recorded") {
+		t.Errorf("hint does not say what the numbers are for: %q", got[0])
+	}
+	if !strings.Contains(got[0], t29CID) {
+		t.Errorf("hint does not name the campaign id: %q", got[0])
+	}
+	for _, p := range got {
+		if strings.Contains(p, "<campaign>") {
+			t.Errorf("problem carries the literal placeholder: %q", p)
+		}
+	}
+}
+
+// TestAuditHintStaysPlainWithoutRecordedQuotas pins the other half: an
+// artifact recording neither knob keeps the plain hint and grows no clause.
+func TestAuditHintStaysPlainWithoutRecordedQuotas(t *testing.T) {
+	ws, c, _, _ := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	stored, err := validation.ReadJson(t29SurfacePath(c))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Del(&stored, "per_axis")
+	t29Del(&stored, "total")
+	// raw write: the probe_surface schema requires both knobs, but an artifact
+	// from an older build may record neither, which is the case under test.
+	if err := os.WriteFile(t29SurfacePath(c),
+		[]byte(validation.DumpIndented(stored)+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t29GhostPriority(t, c)
+	got := t29Problems(t29AuditSection(t, c))
+	if len(got) != 1 {
+		t.Fatalf("problems = %d, want 1: %v", len(got), got)
+	}
+	if !strings.Contains(got[0], "`webv2 probes "+t29CID+" run --emit`") {
+		t.Errorf("hint is not the plain, copy-pasteable command: %q", got[0])
+	}
+	if strings.Contains(got[0], "rebuilds with") {
+		t.Errorf("hint grew a quota clause from an artifact with none: %q",
+			got[0])
+	}
+}
+
+// TestAuditPlanOrphanHintNamesTheCampaignID pins the placeholder fix on the
+// one hint that never used the real campaign id.
+func TestAuditPlanOrphanHintNamesTheCampaignID(t *testing.T) {
+	ws, c, _, _ := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	t29GhostPriority(t, c)
+	got := t29Problems(t29AuditSection(t, c))
+	if len(got) != 1 {
+		t.Fatalf("problems = %d, want 1: %v", len(got), got)
+	}
+	if !strings.Contains(got[0], "`webv2 probes "+t29CID+" run --emit`") {
+		t.Errorf("orphan hint does not name the campaign id: %q", got[0])
+	}
+	if strings.Contains(got[0], "<campaign>") {
+		t.Errorf("orphan hint still carries the placeholder: %q", got[0])
+	}
+	if !strings.Contains(got[0], "rebuilds with the surface's recorded") {
+		t.Errorf("orphan hint does not name the recorded quotas: %q", got[0])
+	}
+}
+
+// TestAuditProblemListIsPinnedForADriftedSurface pins the whole list (count,
+// order and text) so a hint edit cannot silently move the problem set.
+func TestAuditProblemListIsPinnedForADriftedSurface(t *testing.T) {
+	ws, c, idx, _ := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	stored, err := validation.ReadJson(t29SurfacePath(c))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Set(&stored, "per_axis", validation.VInt(30))
+	t29Set(&stored, "total", validation.VInt(70))
+	t29WriteSurface(t, c, stored)
+	t29GhostPriority(t, c)
+	t29BumpIndexLine(t, c, idx)
+	current := probes.CampaignIndexSha(c)
+	if current == nil {
+		t.Fatal("no current index sha")
+	}
+	quota := "(rebuilds with the surface's recorded --per-axis 30 --total 70)"
+	want := []string{
+		fmt.Sprintf("probe surface is stale: built against index_sha %s, "+
+			"current index is %s — every row anchor describes the old tree; "+
+			"re-run `webv2 probes %s run --emit` %s",
+			objStr(stored, "index_sha"), *current, t29CID, quota),
+		fmt.Sprintf("plan priority Q-900 cites probe row 'deadbeef00', which "+
+			"the current surface does not carry — the surface was rebuilt "+
+			"without it; re-run `webv2 probes %s run --emit` %s", t29CID,
+			quota),
+	}
+	got := t29Problems(t29AuditSection(t, c))
+	if len(got) != len(want) {
+		t.Fatalf("problems = %d, want %d:\n%s", len(got), len(want),
+			strings.Join(got, "\n"))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("problem[%d]:\n got %q\nwant %q", i, got[i], want[i])
+		}
+	}
+}
+
+// TestAuditProblemListIsPinnedForAHandEditedAttestation pins a hint-free
+// fixture exactly: this task must not move a problem it does not touch.
+func TestAuditProblemListIsPinnedForAHandEditedAttestation(t *testing.T) {
+	_, c, _, _ := t29Setup(t, t29Blind, true)
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Set(&st, "probe_blanks", validation.VArr(validation.VObj(
+		validation.KV{K: "axis", V: validation.VStr("L-03")},
+		validation.KV{K: "probe_axis", V: validation.VStr("assertion-strength")},
+		validation.KV{K: "anchor_blind", V: validation.VStr("ghost-key")},
+		validation.KV{K: "reason", V: validation.VStr("a written reason")},
+		validation.KV{K: "actor", V: validation.VStr("pytest")},
+		validation.KV{K: "at", V: validation.VStr("2026-01-01T00:00:00+00:00")},
+	)))
+	t29SaveState(t, c, st)
+	want := []string{"blank attestation for 'L-03' cites 'ghost-key' with " +
+		"no probes.blank event — the attestation was hand-edited"}
+	got := t29Problems(t29AuditSection(t, c))
+	if len(got) != len(want) {
+		t.Fatalf("problems = %d, want %d: %v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("problem[%d]:\n got %q\nwant %q", i, got[i], want[i])
+		}
 	}
 }
 
