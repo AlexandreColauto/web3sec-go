@@ -944,4 +944,7 @@ described in ≥ 5 chars.
   writers fork it and `verify`/`audit` will (correctly) report a broken chain.
 - **If this runbook and the code disagree, the code wins** — file it and fix
   the runbook. A wrong operator document is a live bug.
+- External claims (tool metrics, benchmark numbers) enter assets, playbooks,
+  and prompts only per `docs/eval-methodology.md`; a baked-in number without a
+  provenance row renders as uncorroborated.
 
