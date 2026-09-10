@@ -99,6 +99,7 @@ var t14FindingLegend = []string{
 	"verification/reproduction/attempts[]/outcome: reproduced|failed|blocked|falsified",
 	"verification/reproduction/attempts[]/failure_class: environment|setup|logic|precondition-unmet|hypothesis-wrong|unknown|null",
 	"verification/critic_verdict: pending|confirmed|possible|disproved|duplicate|out_of_scope|informational",
+	"verification/triager_outlook/outcome: likely|uncertain|unlikely",
 	"verification/independent_reproduction/status: not_attempted|matches|differs|failed|contradicts",
 	"bounty/policy_checks[]/result: pass|fail|unknown|human-review",
 	"provenance/memory_checks[]/mode: negative|comparative",
