@@ -817,7 +817,7 @@ func surfaceText(cov validation.Value, surface string) (string, error) {
 }
 
 // nowIso is now_iso (mirrors state.nowIso, unexported there). WEBV2_NOW pins
-// the clock for the cross-twin golden harness; unset = real clock.
+// the clock for the golden suite; unset = real clock.
 func nowIso() string {
 	if v := os.Getenv("WEBV2_NOW"); v != "" {
 		return v

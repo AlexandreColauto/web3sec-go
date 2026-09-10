@@ -101,13 +101,12 @@ func init() {
 	// T34 seam: the DeFiHackLabs record loader (corpus_surface attribution
 	// + the WEBV2_POC_ROOT root patch).
 	cli.WireT34Seams()
-	// Golden-suite hook: Python's findings.new_finding_id mints a RAW
-	// uuid4, so the WEBV2_UUID pin never reaches it and the reference twin
-	// emits a fresh finding id per run. The cross-twin golden harness sets
-	// WEBV2_FINDING_IDS=pin plus WEBV2_FINDING_ID_SEQ (the running count of
-	// finding ids the recipe has minted, since each CLI command is a fresh
-	// process) and patches the identical minter into Python via
-	// scripts/golden/sitecustomize.py: sha256("<seed>:fid:<n>")[:12].
+	// Golden-suite hook: a finding id is a raw uuid4, so the WEBV2_UUID pin
+	// never reaches it and a replay would mint fresh ids on every run. The
+	// golden recipe sets WEBV2_FINDING_IDS=pin plus WEBV2_FINDING_ID_SEQ
+	// (the running count of finding ids the recipe has minted, since each
+	// CLI command is a fresh process) and the minter derives
+	// sha256("<seed>:fid:<n>")[:12] from it.
 	// Unset: plain uuid4, no behavior change.
 	if os.Getenv("WEBV2_FINDING_IDS") == "pin" {
 		base, _ := strconv.Atoi(os.Getenv("WEBV2_FINDING_ID_SEQ"))
@@ -134,10 +133,10 @@ func init() {
 		})
 	}
 	// Same seam for the baseline store: the reference hangs it off its own
-	// package root (read-only for this port, D24) while the Go twin uses
-	// cwd/baselines. The golden harness pins both at one scratch dir so
-	// baseline add/list/remove/forkdiff compare cross-twin without
-	// mutating either repo. Unset: cwd/baselines, no behavior change.
+	// package root (the retired reference kept its store inside the package
+	// root, D24) while Go uses cwd/baselines. The golden recipe pins it at
+	// one scratch dir so baseline add/list/remove/forkdiff replay without
+	// mutating a repo. Unset: cwd/baselines, no behavior change.
 	if dir := os.Getenv("WEBV2_BASELINES_DIR"); dir != "" {
 		forkdiff.SetBaselinesDir(dir)
 	}

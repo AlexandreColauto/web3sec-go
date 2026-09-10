@@ -100,10 +100,10 @@ func NewFindingID() string {
 	return findingIDSource()
 }
 
-// findingIDSource is the id minter. The cross-twin golden harness installs a
-// deterministic one so both twins mint the same finding ids (Python's
-// new_finding_id is a raw uuid4, so its golden generator patches the same
-// sequence in).
+// findingIDSource is the id minter. The golden suite installs a
+// deterministic one (WEBV2_FINDING_IDS=pin + WEBV2_FINDING_ID_SEQ) so a
+// replayed recipe mints the same ids across processes; production mints a
+// raw uuid4.
 var findingIDSource = newRandomFindingID
 
 // SetFindingIDSource installs a finding-id minter; nil restores uuid4.
@@ -135,11 +135,10 @@ func nowIso() string {
 		now.Format("2006-01-02T15:04:05"), now.Nanosecond()/1000)
 }
 
-// PinnedFindingID and ResetPinnedFindingIDs are the cross-twin golden harness'
-// deterministic id stream: F-<sha256("task13-finding:<n>")[:12]>. The Python
-// twin's generator patches new_finding_id with the same derivation, so both
-// sides mint identical ids and the id-dependent orderings (findings are sorted
-// by file name) coincide.
+// PinnedFindingID and ResetPinnedFindingIDs are the golden suite's
+// deterministic id stream: F-<sha256("task13-finding:<n>")[:12]>. Replaying
+// the recipe reproduces every id, so the id-dependent orderings (findings are
+// sorted by file name) coincide run to run.
 var pinnedFindingCounter int
 
 // ResetPinnedFindingIDs rewinds the pinned finding-id stream.

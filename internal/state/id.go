@@ -14,9 +14,9 @@ import (
 // +00:00 offset (never "Z"). Microsecond precision keeps same-second
 // findings in true creation order (the (created_at, finding_id) sort
 // contract would otherwise tie-break on random UUIDs).
-// Golden-suite hook: when WEBV2_NOW is set (the cross-twin golden harness
-// pins the clock so both implementations emit byte-identical artifacts),
-// it is returned verbatim. Unset: real clock, no behavior change.
+// Golden-suite hook: when WEBV2_NOW is set (the golden recipe pins the clock
+// so a replay emits byte-identical artifacts), it is returned verbatim.
+// Unset: real clock, no behavior change.
 func nowIso() string {
 	if v := os.Getenv("WEBV2_NOW"); v != "" {
 		return v
@@ -59,9 +59,9 @@ func newId(prefix string, n int) string {
 	return prefix + "-" + h[:n]
 }
 
-// ResetIDStream rewinds the pinned uuid stream to its first draw. The
-// cross-twin golden harness replays each scenario from the same stream
-// position, so it must be able to rewind; production code never calls it.
+// ResetIDStream rewinds the pinned uuid stream to its first draw. The golden
+// recipe replays each scenario from the same stream position, so it must be
+// able to rewind; production code never calls it.
 func ResetIDStream() { uuidPinCounter = 0 }
 
 // NewID is the exported alias of new_id for call sites outside this package

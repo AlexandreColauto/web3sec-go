@@ -116,7 +116,7 @@ docs/LEANNESS_REVIEW.md  the port-scaffolding removal plan (wave F)
 | unit + integration | `go test ./... -count=1` | the whole in-process suite, incl. the asset-pack manifest test |
 | golden suite | `scripts/golden.sh` | the deterministic recipe: exit codes, tree + event chain, 14-section audit surface |
 | RUNBOOK walkthrough | `scripts/runbook-walkthrough.sh` | every runbook command, documented exit code |
-| real containers | `scripts/p2-docker-e2e.sh` | docker exec (pass+fail) + anvil sequence end to end |
+| real containers | `scripts/p2-docker-e2e.sh` | docker exec (pass+fail) + anvil sequence end to end, plus the four `WEBV2_DOCKER_TESTS=1` package e2e tiers |
 | legacy compatibility | `scripts/verify-full.sh` step 9 | Go reads a reference-written campaign, all 14 sections clean |
 | release | `scripts/release.sh` | static binary, embedded assets, standalone |
 

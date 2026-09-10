@@ -36,9 +36,9 @@ import (
 // CostKinds is COST_KINDS.
 var CostKinds = []string{"model", "compute", "human-review"}
 
-// costIDSource mints the cost_id. Python uses a RAW uuid4 (uuid.uuid4().hex
-// [:12]), not state.new_id, so the WEBV2_UUID pin does not reach it; the
-// cross-twin probe installs a deterministic minter through SetCostIDSource.
+// costIDSource mints the cost_id: a RAW uuid4 hex[:12], not state.new_id,
+// so the WEBV2_UUID pin does not reach it. Tests and the golden suite
+// install a deterministic minter through SetCostIDSource.
 var costIDSource = newRandomCostID
 
 // SetCostIDSource installs a cost-id minter; nil restores uuid4.

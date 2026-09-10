@@ -394,14 +394,6 @@ func TestIncompatibleClassesNeverTier3(t *testing.T) {
 	}
 }
 
-// Port of tests/test_findings.py::test_fresh_context_guidance.
-// PORT-NOTE: reproduction.record_attempt (the module that renders the
-// fresh-context guidance) is unported; the assertion is about that module's
-// return value, not about findings. Listed in the report's unresolved field.
-func TestFreshContextGuidanceUnported(t *testing.T) {
-	t.Skip("PORT-NOTE: reproduction.record_attempt is unported (task: reproduction)")
-}
-
 // ---- transition plumbing: byte-exact event/audit strings ----
 
 func TestTransitionEventStrings(t *testing.T) {
@@ -758,15 +750,6 @@ func TestGateSnapshotMismatchFailsClosed(t *testing.T) {
 	if !found {
 		t.Fatalf("snapshot-compatible failure missing: %v", detail)
 	}
-}
-
-// Port of tests/test_answered.py — NOTHING to port. PORT-NOTE: the file
-// exercises planner.mark_answered and report's answer-quality section; no
-// assertion in it touches webv2.findings (no status, no gate, no assumption).
-// The finding-facing half of the answered flow is report-side and belongs to
-// the report/planner task. Listed in the report's unresolved field.
-func TestAnsweredSliceHasNoFindingFacingAssertions(t *testing.T) {
-	t.Skip("PORT-NOTE: tests/test_answered.py is planner/report-only (other task)")
 }
 
 // Smoke test for _anchor_rescan (a transition dependency; its own tests live

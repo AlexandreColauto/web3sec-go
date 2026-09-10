@@ -369,4 +369,18 @@ print(f"P2 DOCKER E2E GREEN: {len(caps)} commands, {nfiles} tree files, "
 PYEOF
 rc=$?
 if [ "$rc" -ne 0 ]; then exit 1; fi
+
+# --- 7. the docker-gated Go e2e tests --------------------------------------
+# Four packages carry end-to-end tests that need a real daemon and skip
+# silently without WEBV2_DOCKER_TESTS=1: cli (exec), forkpoc, immunize and
+# reproduction. Nothing ran them (verify-full is daemon-free by design), so
+# they were dormant coverage — this gate is the one place docker is a
+# precondition, which makes it the place they belong.
+log "running the docker-gated Go e2e tests (WEBV2_DOCKER_TESTS=1)"
+if ! WEBV2_DOCKER_TESTS=1 GOCACHE="$ROOT/.scratch/gocache" \
+     GOPATH="$ROOT/.scratch/gopath" GOMODCACHE="$ROOT/.scratch/gomodcache" \
+     GOFLAGS=-mod=mod go test ./internal/cli ./internal/forkpoc \
+     ./internal/immunize ./internal/reproduction -count=1; then
+  fail "docker-gated Go e2e tests failed"
+fi
 log "done"

@@ -78,7 +78,8 @@ func formatLens(template, machines string) string {
 }
 
 // nowIso is now_iso (mirrors state.nowIso, unexported there). The WEBV2_NOW
-// pin is honored verbatim so both twins emit byte-identical artifacts.
+// pin is honored verbatim so a replayed recipe emits byte-identical
+// artifacts.
 func nowIso() string {
 	if v := os.Getenv("WEBV2_NOW"); v != "" {
 		return v

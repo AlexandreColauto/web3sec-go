@@ -429,7 +429,7 @@ func floatAt(v validation.Value, key string) float64 {
 }
 
 // nowIso is state.now_iso with the WEBV2_NOW pin honored first (the golden
-// and cross-twin campaigns pin the clock).
+// recipes pin the clock).
 func nowIso() string {
 	if v := os.Getenv("WEBV2_NOW"); v != "" {
 		return v

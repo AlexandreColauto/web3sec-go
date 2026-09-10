@@ -1,4 +1,4 @@
-# RUNBOOK notes for the Go binary
+# RUNBOOK port notes (historical)
 
 **The operator runbook is `assets/runbook/RUNBOOK.md`** (embedded into the
 binary and dropped into every campaign by `init`). The Python repo it was
@@ -8,7 +8,13 @@ commits `313e07e`/`1684fd7`), so the Go runbook is the source of truth and the
 
 This file is the **port history**: the substitutions that made the reference
 runbook executable against `webv2` (the Go binary), and every place where the
-reference's literal text and the code disagreed. It was generated from
+reference's literal text and the code disagreed.
+
+**Read the tense carefully.** Every "both twins" in this file is a record of
+what was true while the reference was alive; the twin retired 2026-09-09 and
+the live contract is `assets/runbook/RUNBOOK.md` plus the walkthrough gate
+(`scripts/runbook-walkthrough.sh`, verify-full step 13). Nothing here is a
+current requirement — it is why the current text reads the way it does. It was generated from
 `scripts/runbook-walkthrough.sh` — a T37/P4-era artifact written against the
 *Python* runbook, kept for the record, **not re-run by any gate** (release.sh
 has its own mini walkthrough; `selftest` runs the small Go one).

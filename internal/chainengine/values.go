@@ -18,7 +18,7 @@ import (
 )
 
 // nowIso is now_iso (mirrors state.nowIso, unexported there): WEBV2_NOW pins
-// the clock for the cross-twin golden harness.
+// the clock for the golden suite.
 func nowIso() string {
 	if v := os.Getenv("WEBV2_NOW"); v != "" {
 		return v

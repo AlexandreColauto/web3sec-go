@@ -6,8 +6,8 @@
 // Port of src/webv2/audit.py sections 1-6, message-for-message. The
 // section registry runs in registration order = Python's code order
 // (event_log first); the Plan's "deterministic name order" is the
-// registration order the section files init in, which is pinned to the
-// Python source of truth for cross-twin byte parity.
+// registration order the section files init in, which is part of the
+// report contract (the P1 gate goldens pin it).
 package audit
 
 import (

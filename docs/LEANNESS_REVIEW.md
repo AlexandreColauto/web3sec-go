@@ -274,3 +274,48 @@ and read by nobody**. An advisory nobody can see is not an advisory. The report
 now renders it next to the gate verdict (`  - advisory: …`), emitted only when
 the list is non-empty so no existing output moves, with tests pinning both
 directions.
+
+### Second pass (2026-09-10, after D8): dormant checks and dead scaffolding
+
+Sweeping for the *inverse* of entropy — checks that cost nothing but buy
+nothing because nothing runs them — turned up four more classes:
+
+**F2b. Two inert twin-parity harnesses deleted.** `internal/audit/p1_parity_dump_test.go`
+(`TestT15GoParityDump`, gated on `T15_OUT`) and
+`internal/maximization/parity_dump_test.go` (`TestParityDump`, gated on
+`MAX_PARITY_OUT`) could only ever run when a scratch Python driver pushed a
+campaign through the *live* reference. The reference retired, the drivers are
+untracked scratch, and both tests skipped silently in every gate — coverage
+that reports green by never executing. Deleted (the golden suite and the
+legacy cross-audit cover the same ground against committed fixtures).
+
+**F2c. Two stale POSIX placeholders deleted from `findings`.**
+`TestFreshContextGuidanceUnported` still claimed `reproduction.record_attempt`
+was unported (it is ported, and `TestRecordAttemptGuidance` covers the
+fresh-context ladder), and `TestAnsweredSliceHasNoFindingFacingAssertions`
+asserted nothing at all — its only statement was a skip. Both were port-era
+bookkeeping, both invisible in a green run.
+
+**F9. A whole docker tier was invisible.** Four packages carry real
+end-to-end tests behind `WEBV2_DOCKER_TESTS=1` — cli exec, forkpoc, immunize,
+reproduction — and *no gate set the variable*: they had been skipping since
+the day they were written. All four pass (35 s with the daemon up), and they
+now run in `scripts/p2-docker-e2e.sh`, the one gate where docker is already a
+precondition. This is F8's lesson in its general form: **a skip that nothing
+un-skips is a lie told in green.**
+
+**F10. The comments still described the deleted harness.** Live files
+explained their behaviour in terms of a cross-twin golden harness that no
+longer exists (`scripts/golden.sh`'s header promised "op-sequence through both
+twins", `cmd/webv2/main.go` described patching the reference's minter,
+`findings/storage.go` justified its id stream as "so both twins mint the same
+finding ids"). The mechanisms are live and load-bearing — only the rationale
+was obsolete. Rewritten in Go-only terms across 13 files, and
+`docs/runbook-go-notes.md` is now explicitly titled *port notes (historical)*
+so its "both twins" rows read as the record they are.
+
+**Still open, and worth a slot: the probe-surface golden blind spot (F6, C2).**
+The golden recipe emits 0 rows for some probe axes, so a regression in those
+axes would not move any pinned expectation. It is a capability gap rather than
+entropy — nothing here fixes it, and it stays the top candidate for the next
+wave.

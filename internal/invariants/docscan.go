@@ -21,8 +21,8 @@ import (
 var docSuffixes = []string{".md", ".rst", ".adoc", ".txt"}
 
 // nowIso is state.now_iso: UTC with 6-digit microseconds and +00:00, with
-// the WEBV2_NOW golden-suite pin honored verbatim (the cross-twin harness
-// pins the clock so both implementations emit byte-identical artifacts).
+// the WEBV2_NOW golden-suite pin honored verbatim (the recipe pins the clock
+// so a replay emits byte-identical artifacts).
 func nowIso() string {
 	if v := os.Getenv("WEBV2_NOW"); v != "" {
 		return v

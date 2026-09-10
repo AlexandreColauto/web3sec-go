@@ -55,7 +55,8 @@
 #  S10 `WEBV2_GLOBAL_MEMORY_DIR` is pointed at the scratch root so the
 #      walkthrough never touches the operator's real shared store and works
 #      where $HOME is read-only (the runbook's §publish/globalize/shared
-#      rows). The variable is honored by both twins (KNOWN_DIVERGENCES D15).
+#      rows). The variable is honored (the retired reference read the same
+#      env var; the row is a divergence record, D15 — see docs/archive).
 #
 # ── DOCUMENTED EXPECTATIONS ──────────────────────────────────────────────
 # The runbook states exit codes for: `run` (2 = stage failed, 3 = halted at
@@ -68,11 +69,11 @@
 # documented code assert 0 (success) or the handled-error contract.
 #
 # Two rows are RECORDED DISCREPANCIES (the runbook's literal text is refused
-# by BOTH twins — see docs/runbook-go-notes.md and docs/gates/P4-gate.md):
+# by the binary — see docs/runbook-go-notes.md and docs/gates/P4-gate.md):
 #   * §6a L483-492 moves HYPOTHESIS -> CONFIRMED without the POSSIBLE step
-#     the §6 API block performs first; both twins refuse (exit 2).
+#     the §6 API block performs first; refused (exit 2).
 #   * L746 `immunize ... --mutations "M1;M2;M3"` fails its own >=5-char
-#     mutation-description validation in both twins (exit 2).
+#     mutation-description validation (exit 2).
 # Both are run VERBATIM here and asserted for the refusal, so the walkthrough
 # proves the discrepancy instead of hiding it.
 #
@@ -371,7 +372,7 @@ check ladder-complete 2 "unexplored axes" L693 -- "$WEBV2" --root . ladder "$CID
 check memory-list ok "MEM-" L749 -- "$WEBV2" --root . memory "$CID"
 MEM="$("$WEBV2" --root . memory "$CID" | grep -oE 'MEM-[0-9a-f]+' | head -1)"
 check memory-approve ok "approved" L749 -- "$WEBV2" --root . memory "$CID" --approve "$MEM" --by operator
-# L746 verbatim: both twins refuse the runbook's own 2-char mutation names.
+# L746 verbatim: the runbook's own 2-char mutation names are refused.
 check immunize-verbatim 2 "written description" L746 -- "$WEBV2" --root . immunize "$CID" "$FID" \
   --poc-exec "$EXID" --patch h1-withdraw-double-count.json --mutations "M1;M2;M3" --actor operator
 check immunize-unit-poc-refused nonzero "fork" L746 -- "$WEBV2" --root . immunize "$CID" "$FID" \

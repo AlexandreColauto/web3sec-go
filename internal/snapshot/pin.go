@@ -37,7 +37,7 @@ func resolveSnap(p string) string {
 // the exact format.)
 func snapNowIso() string {
 	// WEBV2_NOW: the golden-suite clock pin (same contract as
-	// state.nowIso — both twins honor it, unset = real clock).
+	// state.nowIso — honored verbatim, unset = real clock).
 	if v := os.Getenv("WEBV2_NOW"); v != "" {
 		return v
 	}
