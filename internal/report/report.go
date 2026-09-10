@@ -317,7 +317,8 @@ func unscoredNotice(campaign *state.Campaign) []string {
 }
 
 // precisionBlock is the A3 "which findings matter" block in Results: the
-// dual critic/evidence counts, the false-positive ratio between them, and
+// dual critic/evidence counts, the false-positive ratio (the share of
+// critic-confirmed live findings that fail the evidence floor) and
 // the top-K acceptance table — the operator's ranked answer over every LIVE
 // finding (the production live predicate, findings.LoadLiveFindings:
 // DUPLICATE / OUT_OF_SCOPE excluded; a DISPROVED finding stays visible,
@@ -359,7 +360,7 @@ func precisionBlock(campaign *state.Campaign, all []validation.Value,
 		}
 	}
 	var live []validation.Value
-	criticN, evidenceN := 0, 0
+	criticN, evidenceN, criticNoEvidenceN := 0, 0, 0
 	for _, f := range all {
 		if s := objStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" {
 			continue
@@ -367,6 +368,16 @@ func precisionBlock(campaign *state.Campaign, all []validation.Value,
 		live = append(live, f)
 		if criticVerdictOf(f) == "confirmed" {
 			criticN++
+			// The ratio's numerator, counted in the same pass and over the
+			// same set as its denominator: of the critic-confirmed
+			// findings, the ones the evidence floor does NOT clear. The
+			// old subtraction compared this count against the disjoint
+			// evidence-confirmed count, so a finding the critic confirmed
+			// but did not evidence (or vice versa) could drive the ratio
+			// negative — the campaign printed -25.0% for 4 vs 5.
+			if findings.EvidenceDeficit(f, "CONFIRMED", campaign) != nil {
+				criticNoEvidenceN++
+			}
 		}
 		if findings.EvidenceDeficit(f, "CONFIRMED", campaign) == nil {
 			evidenceN++
@@ -381,9 +392,9 @@ func precisionBlock(campaign *state.Campaign, all []validation.Value,
 		L = append(L, "")
 		return L
 	}
-	ratio := "n/a (needs critic-confirmed and evidence-confirmed both > 0)"
-	if criticN > 0 && evidenceN > 0 {
-		ratio = fmt.Sprintf("%.1f%%", float64(criticN-evidenceN)/
+	ratio := "n/a (no critic-confirmed findings)"
+	if criticN > 0 {
+		ratio = fmt.Sprintf("%.1f%%", float64(criticNoEvidenceN)/
 			float64(criticN)*100)
 	}
 	L = append(L, fmt.Sprintf(

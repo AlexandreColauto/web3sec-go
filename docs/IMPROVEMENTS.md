@@ -166,8 +166,9 @@ no cap — an operator cannot tell which 5 of 23 are worth paying attention to.
 - Report "Results" section: add **Precision** block — `critic-confirmed: N`,
   `evidence-confirmed: M` (dual counting, D1), `top-K by acceptance` table
   (K = `submission_budget.max_findings`, or top 10 when uncapped), and
-  `false-positive ratio = (critic-confirmed − evidence-confirmed) /
-  critic-confirmed` when both > 0. Submission table capped at
+  `false-positive ratio = critic-confirmed without the evidence floor /
+  critic-confirmed`, or `n/a (no critic-confirmed findings)` when the
+  denominator is 0. Submission table capped at
   `max_findings` when set, with a note line when capped. Presence-gated
   (the additive convention, §1): the block renders only when an A3 field
   is present — `risk.acceptance_score` stored on at least one finding, or

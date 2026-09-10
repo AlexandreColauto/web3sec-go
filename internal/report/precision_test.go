@@ -8,6 +8,7 @@ package report
 
 import (
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -98,7 +99,8 @@ func TestReportPrecisionBlock(t *testing.T) {
 	text := mustGenerate(t, camp)
 
 	// the dual counts + ratio: 2 critic-confirmed (f1, f2), 1
-	// evidence-confirmed (f1), ratio (2-1)/2 = 50.0%
+	// evidence-confirmed (f1); of the critic-confirmed, only f2 lacks the
+	// evidence floor, so the false-positive share is 1/2 = 50.0%
 	wantLine := "- **precision:** critic-confirmed: 2  - " +
 		"evidence-confirmed: 1  - false-positive ratio: 50.0%"
 	if !strings.Contains(text, wantLine) {
@@ -231,6 +233,152 @@ func TestReportPrecisionAbsence(t *testing.T) {
 		strings.Contains(text, "disqualified (critic disproved)") {
 		t.Fatalf("no A3 field present — the precision block must not "+
 			"render\n---\n%s", resultsSection(text))
+	}
+}
+
+// mkEvidenceOnlyFinding is mk() minus the critic's assent: the full
+// evidence-backed CONFIRMED fixture, then a critic verdict that is not
+// "confirmed". The result is LIVE and evidence-confirmed, but contributes
+// nothing to criticN — the member the campaign's 5-vs-4 shape carries.
+func mkEvidenceOnlyFinding(t *testing.T, camp *state.Campaign, hint,
+	function, title, verdict string) string {
+	t.Helper()
+	fid := objStr(mk(t, camp, hint, function, title), "finding_id")
+	if _, err := findings.SetCriticVerdict(camp, fid, verdict,
+		"the claimed mechanism does not carry the exploit"); err != nil {
+		t.Fatal(err)
+	}
+	return fid
+}
+
+// precisionLine is the rendered "- **precision:** ..." line.
+func precisionLine(t *testing.T, text string) string {
+	t.Helper()
+	const marker = "- **precision:** "
+	i := strings.Index(text, marker)
+	if i < 0 {
+		t.Fatalf("no precision line\n---\n%s", resultsSection(text))
+	}
+	line := text[i:]
+	if j := strings.IndexByte(line, '\n'); j != -1 {
+		line = line[:j]
+	}
+	return line
+}
+
+// precisionRatioField is the ratio value on the precision line (from after
+// "false-positive ratio: " to the end of the line).
+func precisionRatioField(t *testing.T, text string) string {
+	t.Helper()
+	const key = "false-positive ratio: "
+	line := precisionLine(t, text)
+	i := strings.Index(line, key)
+	if i < 0 {
+		t.Fatalf("precision line has no ratio field: %q", line)
+	}
+	return line[i+len(key):]
+}
+
+// TestReportPrecisionRatioNeverNegative pins D6: the ratio is the share of
+// critic-confirmed LIVE findings that fail the evidence floor, so it is
+// bounded to [0, 100] — it cannot go negative when evidence-confirmed
+// outnumbers critic-confirmed (the campaign printed -25.0% for exactly
+// that shape, 4 critic-confirmed against 5 evidence-confirmed).
+func TestReportPrecisionRatioNeverNegative(t *testing.T) {
+	negative := regexp.MustCompile(`-\d`)
+	cases := []struct {
+		name  string
+		seed  func(t *testing.T, camp *state.Campaign)
+		ratio string
+	}{
+		{
+			// The campaign's shape: one critic-confirmed finding against
+			// two evidence-confirmed ones. Every critic-confirmed finding
+			// cleared the floor, so the share is 0 — the old subtraction
+			// printed (1-2)/1 = -100.0%.
+			name: "evidence-confirmed exceeds critic-confirmed",
+			seed: func(t *testing.T, camp *state.Campaign) {
+				fid := objStr(mk(t, camp, "d1", "deposit",
+					"Empty-pool 1:1 mint via deposit"), "finding_id")
+				persistAcceptanceScore(t, camp, fid, 4.5)
+				mkEvidenceOnlyFinding(t, camp, "d2", "deposit",
+					"Deposit share-price set by first actor", "disproved")
+			},
+			ratio: "0.0%",
+		},
+		{
+			// The numerator is real: one of the two critic-confirmed
+			// findings never cleared the floor.
+			name: "half the critic-confirmed findings lack evidence",
+			seed: func(t *testing.T, camp *state.Campaign) {
+				fid := objStr(mk(t, camp, "d1", "deposit",
+					"Empty-pool 1:1 mint via deposit"), "finding_id")
+				persistAcceptanceScore(t, camp, fid, 4.5)
+				bare := mkBareHypothesis(t, camp,
+					"Bare hypothesis price skew")
+				if _, err := findings.SetCriticVerdict(camp, bare,
+					"confirmed", "the mechanism is real"); err != nil {
+					t.Fatal(err)
+				}
+			},
+			ratio: "50.0%",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			camp := clusterCamp(t)
+			tc.seed(t, camp)
+			got := precisionRatioField(t, mustGenerate(t, camp))
+			if got != tc.ratio {
+				t.Fatalf("false-positive ratio = %q, want %q", got, tc.ratio)
+			}
+			if negative.MatchString(got) {
+				t.Fatalf("false-positive ratio %q is negative — D6: the "+
+					"metric must never go negative", got)
+			}
+		})
+	}
+}
+
+// TestReportPrecisionRatioNoCriticConfirmed pins the empty-denominator
+// text: with no critic-confirmed live finding there is no share to
+// compute, and the line must say so exactly.
+func TestReportPrecisionRatioNoCriticConfirmed(t *testing.T) {
+	const want = "n/a (no critic-confirmed findings)"
+	cases := []struct {
+		name string
+		seed func(t *testing.T, camp *state.Campaign)
+	}{
+		{
+			name: "evidence-confirmed but critic disproved",
+			seed: func(t *testing.T, camp *state.Campaign) {
+				fid := mkEvidenceOnlyFinding(t, camp, "d1", "deposit",
+					"Empty-pool 1:1 mint via deposit", "disproved")
+				persistAcceptanceScore(t, camp, fid, 4.5)
+			},
+		},
+		{
+			name: "live hypothesis with neither evidence nor verdict",
+			seed: func(t *testing.T, camp *state.Campaign) {
+				fid := mkBareHypothesis(t, camp,
+					"Bare hypothesis price skew")
+				persistAcceptanceScore(t, camp, fid, 1.5)
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			camp := clusterCamp(t)
+			tc.seed(t, camp)
+			line := precisionLine(t, mustGenerate(t, camp))
+			if !strings.Contains(line, "false-positive ratio: "+want) {
+				t.Fatalf("precision line = %q, want ratio %q", line, want)
+			}
+			if !strings.Contains(line, "critic-confirmed: 0  - ") {
+				t.Fatalf("precision line = %q, want critic-confirmed: 0",
+					line)
+			}
+		})
 	}
 }
 
