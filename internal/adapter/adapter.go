@@ -524,6 +524,7 @@ func structuredOutputs() validation.Value {
 		validation.KV{K: "critic_verdict", V: validation.VStr("findings.set_critic_verdict(campaign, finding_id, verdict, reasoning)")},
 		validation.KV{K: "repro_attempt", V: validation.VStr("reproduction.record_attempt(campaign, finding_id, outcome, ...)")},
 		validation.KV{K: "exploitability", V: validation.VStr("webv2 exploit <campaign> <finding> --paid --arg 'who pays, and why the bug makes them pay (>= 200 chars)'   (or: --unpaid --arg 'why the finding is not payable')")},
+		validation.KV{K: "adversarial_game", V: validation.VStr("webv2 adversarial-game <campaign> <finding> --who-profit 'who profits from the freeze' --mechanism 'how the profit works' --interplay 'why the challenge path does not undo it'   (liveness findings only; each field >= 20 chars; the bounty gate check15 re-validates)")},
 	)
 }
 

@@ -919,6 +919,37 @@ func Generate(campaign *state.Campaign) (string, error) {
 		L = append(L, strings.Join(lines, "\n"))
 	}
 
+	// B2: the liveness-findings subsection — one row per liveness finding
+	// (any status), with the incentive answer (who_profits) at a glance so
+	// a freeze finding cannot sit at HYPOTHESIS without its adversarial-game
+	// clause being visible. Presence-gated: no liveness finding, no section.
+	livenessRows := []validation.Value{}
+	for _, f := range all {
+		if findings.IsLivenessFinding(f) {
+			livenessRows = append(livenessRows, f)
+		}
+	}
+	if len(livenessRows) > 0 {
+		sort.SliceStable(livenessRows, func(i, j int) bool {
+			return objStr(livenessRows[i], "finding_id") <
+				objStr(livenessRows[j], "finding_id")
+		})
+		L = append(L, "### LIVENESS FINDINGS — who profits from the freeze")
+		L = append(L, "")
+		for _, f := range livenessRows {
+			ag := asObj(objAt(f, "adversarial_game"))
+			who := "UNANSWERED (gate check15)"
+			if len(ag.O) > 0 {
+				if wp := objStr(ag, "who_profits"); wp != "" {
+					who = wp
+				}
+			}
+			L = append(L, fmt.Sprintf("- `%s` (%s): %s",
+				objStr(f, "finding_id"), objStr(f, "status"), who))
+		}
+		L = append(L, "")
+	}
+
 	sortedConfirmed := append([]validation.Value{}, confirmed...)
 	sort.SliceStable(sortedConfirmed, func(i, j int) bool {
 		return riskScore(sortedConfirmed[i]) > riskScore(sortedConfirmed[j])
@@ -1256,6 +1287,17 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 				out = append(out, line)
 			}
 		}
+	}
+	// B2: the adversarial-game clause (liveness findings) — who profits,
+	// how, and why the challenge path does not undo it. Presence-gated:
+	// findings without the clause render nothing here.
+	if ag := asObj(objAt(f, "adversarial_game")); len(ag.O) > 0 {
+		out = append(out, fmt.Sprintf("- adversarial game: who profits — %s",
+			pyStr(objAt(ag, "who_profits"))))
+		out = append(out, fmt.Sprintf("-   mechanism: %s",
+			pyStr(objAt(ag, "profit_mechanism"))))
+		out = append(out, fmt.Sprintf("-   challenge interplay: %s",
+			pyStr(objAt(ag, "challenge_interplay"))))
 	}
 	if ack := asObj(objAt(objAt(f, "dedup_meta"), "in_code_ack")); len(ack.O) > 0 {
 		line := fmt.Sprintf("- in-code ack: %s:%s — phrase %q (window %s)",

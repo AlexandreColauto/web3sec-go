@@ -506,7 +506,7 @@
      "id": "L-01",
      "lens": "liveness",
      "surface": "protocol",
-     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
      "status": "open",
      "families": [
       "protocol"
@@ -549,7 +549,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "open",
       "families": [
        "protocol"
@@ -624,7 +624,7 @@
      "id": "L-01",
      "lens": "liveness",
      "surface": "protocol",
-     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
      "status": "open",
      "families": [
       "protocol"
@@ -667,7 +667,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "open",
       "families": [
        "protocol"
@@ -913,7 +913,7 @@
      "id": "L-01",
      "lens": "liveness",
      "surface": "protocol",
-     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup, staking",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup, staking",
      "status": "open",
      "families": [
       "rollup",
@@ -958,7 +958,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup, staking",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup, staking",
       "status": "open",
       "families": [
        "rollup",
@@ -1293,7 +1293,7 @@
      "id": "L-01",
      "lens": "liveness",
      "surface": "protocol",
-     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: protocol (none declared)",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: protocol (none declared)",
      "status": "open",
      "families": [
       "protocol"
@@ -1478,7 +1478,7 @@
      "id": "L-01",
      "lens": "liveness",
      "surface": "protocol",
-     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: protocol (none declared)",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: protocol (none declared)",
      "status": "open",
      "families": [
       "protocol"
@@ -1613,7 +1613,7 @@
      "id": "L-01",
      "lens": "liveness",
      "surface": "protocol",
-     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: protocol (none declared)",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: protocol (none declared)",
      "status": "open",
      "families": [
       "protocol"
@@ -2604,7 +2604,7 @@
      "id": "L-01",
      "lens": "liveness",
      "surface": "protocol",
-     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: protocol (none declared)",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: protocol (none declared)",
      "status": "open",
      "families": [
       "protocol"
@@ -3242,7 +3242,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "open",
       "families": [
        "protocol"
@@ -3741,7 +3741,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -4474,7 +4474,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -5570,7 +5570,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -6683,7 +6683,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -7796,7 +7796,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -8933,7 +8933,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -10016,7 +10016,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -11117,7 +11117,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -12218,7 +12218,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -13314,7 +13314,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -14415,7 +14415,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -15516,7 +15516,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -16618,7 +16618,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -17725,7 +17725,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -18767,7 +18767,7 @@
        "id": "L-01",
        "lens": "liveness",
        "surface": "protocol",
-       "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+       "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
        "status": "open",
        "families": [
         "protocol"
@@ -19207,7 +19207,7 @@
        "id": "L-01",
        "lens": "liveness",
        "surface": "protocol",
-       "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+       "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
        "status": "open",
        "families": [
         "protocol"
@@ -19686,7 +19686,7 @@
        "id": "L-01",
        "lens": "liveness",
        "surface": "protocol",
-       "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+       "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
        "status": "answered",
        "families": [
         "protocol"
@@ -19950,7 +19950,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "answered",
       "families": [
        "protocol"
@@ -20093,7 +20093,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "open",
       "families": [
        "protocol"
@@ -20240,7 +20240,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "open",
       "families": [
        "protocol"
@@ -20401,7 +20401,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
       "status": "open",
       "families": [
        "protocol"
@@ -20562,7 +20562,7 @@
      "id": "L-01",
      "lens": "liveness",
      "surface": "protocol",
-     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup-lifecycle",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup-lifecycle",
      "status": "open",
      "families": [
       "protocol"
@@ -20839,7 +20839,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup",
       "status": "open",
       "families": [
        "rollup"
@@ -20987,7 +20987,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup",
       "status": "open",
       "families": [
        "rollup"
@@ -21144,7 +21144,7 @@
       "id": "L-01",
       "lens": "liveness",
       "surface": "protocol",
-      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: rollup",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: rollup",
       "status": "open",
       "families": [
        "rollup"
@@ -21212,7 +21212,7 @@
      "id": "L-01",
      "lens": "liveness",
      "surface": "protocol",
-     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: protocol (none declared)",
+     "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: protocol (none declared)",
      "status": "open",
      "families": [
       "protocol"
@@ -21270,7 +21270,7 @@
     "path": "<ROOT>/campaigns/C-09bb627b59/artifacts/superseded/campaign_plan.0001.json",
     "priorities": 4,
     "reason": "plan superseded by an explicit rebuild",
-    "sha256_of_superseded": "388dd68904d7b43f58e39c5b4ee01acb28d0fc03214af15c66ebaf546898c465",
+    "sha256_of_superseded": "d9a438616150932adbf532f9b9d498c1d11e26650430329c61d891dd39b5c432",
     "source_path": "<ROOT>/campaigns/C-09bb627b59/artifacts/campaign_plan.json",
     "version": "0001"
    }
@@ -21280,21 +21280,21 @@
     "kind": "plan.superseded",
     "path": "campaigns/C-09bb627b59/artifacts/superseded/campaign_plan.0001.json",
     "note": "superseded campaign plan 0001 (4 priorities)",
-    "sha256": "388dd68904d7b43f58e39c5b4ee01acb28d0fc03214af15c66ebaf546898c465",
+    "sha256": "d9a438616150932adbf532f9b9d498c1d11e26650430329c61d891dd39b5c432",
     "snapshot_id": null
    },
    {
     "kind": "plan.superseded",
     "path": "campaigns/C-09bb627b59/artifacts/superseded/campaign_plan.0002.json",
     "note": "superseded campaign plan 0002 (4 priorities)",
-    "sha256": "388dd68904d7b43f58e39c5b4ee01acb28d0fc03214af15c66ebaf546898c465",
+    "sha256": "d9a438616150932adbf532f9b9d498c1d11e26650430329c61d891dd39b5c432",
     "snapshot_id": null
    },
    {
     "kind": "plan.superseded",
     "path": "campaigns/C-09bb627b59/artifacts/superseded/campaign_plan.0003.json",
     "note": "superseded campaign plan 0003 (4 priorities)",
-    "sha256": "388dd68904d7b43f58e39c5b4ee01acb28d0fc03214af15c66ebaf546898c465",
+    "sha256": "d9a438616150932adbf532f9b9d498c1d11e26650430329c61d891dd39b5c432",
     "snapshot_id": null
    }
   ],
@@ -21342,7 +21342,7 @@
    "H-lifecycle": "lifecycle"
   },
   "lens_questions": {
-   "liveness": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: {M}",
+   "liveness": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? For every liveness hypothesis, file the adversarial_game clause at ingest — the gate requires it. State machines in the model: {M}",
    "incentive-inversion": "INCENTIVE-INVERSION: does the protocol ever PAY an attacker or PUNISH an honest actor (challenge, slash, claim, delegate) under any reachable state? Trace what the honest participant gets for being right. State machines in the model: {M}",
    "enforcement-timing": "ENFORCEMENT-TIMING: for each security-critical check, is it enforced at the EARLIEST lifecycle stage it could be (intake, not execution)? A check that exists only at finalize/execute time is a candidate. State machines in the model: {M}",
    "primitive-symmetry": "PRIMITIVE-SYMMETRY: group functions into sibling lifecycle families (deposit <-> withdraw <-> drop <-> refund) and compare primitives + access control across siblings. A family that burns on one path and mints/safeTransfers on another is a candidate. State machines in the model: {M}"

@@ -432,6 +432,29 @@
       "required": ["paid"],
       "description": "the paid-exploitability argument (check14, IMPROVEMENTS A4): the difference between a bug and a bounty finding. ABSENT = the question is unanswered; the gate demands an answer on a CONFIRMED/CHAIN finding carrying extractable_usd > 0."
     },
+    "adversarial_game": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "the adversarial-game clause (check15, IMPROVEMENTS B2): a liveness finding must name who profits from the freeze and why the challenge path does not undo it. ABSENT on a liveness finding = the incentive question is unanswered; the gate demands an answer. Optional at the finding level (only liveness findings owe it).",
+      "properties": {
+        "who_profits": {
+          "type": "string",
+          "minLength": 20,
+          "description": "who profits from the freeze/halt (the specific party, not 'an attacker')"
+        },
+        "profit_mechanism": {
+          "type": "string",
+          "minLength": 20,
+          "description": "HOW the profit works while the protocol is halted (the mechanism that converts the freeze into value)"
+        },
+        "challenge_interplay": {
+          "type": "string",
+          "minLength": 20,
+          "description": "WHY the challenge/governance path does not undo the freeze (the interplay that makes the halt stick)"
+        }
+      },
+      "required": ["who_profits", "profit_mechanism", "challenge_interplay"]
+    },
     "reported_severity": {
       "enum": ["low", "medium", "high", "critical"],
       "description": "what the model/operator REPORTED before calibration; kept so divergence from the computed band is visible"

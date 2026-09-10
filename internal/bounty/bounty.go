@@ -361,6 +361,7 @@ var BountyRemediation = map[string]string{
 	"immunization":         "webv2 immunize <fid> --poc-exec <FORK-EXEC-ID> --patch '<the fix>' --mutations 'm1;m2;m3'   (the patch must block the FORK PoC and all 3 boundary mutations \u2014 a unit-test patch is not a patch; if a bypass is real, fix the patch and re-verify)",
 	"accepted-risk":        "the program documented this as an accepted risk \u2014 not a payable vulnerability as written. If this particular finding IS payable despite the acceptance, record the decision: webv2 waive <campaign> accepted-risk --subject <fid> --reason 'why this one is payable' --actor <who>   (or: drop the finding \u2014 webv2 status <fid> OUT_OF_SCOPE \u2014 if it is genuinely the accepted behavior)",
 	"paid-exploitability":  "webv2 exploit <campaign> <fid> --paid --arg 'who pays, and why this bug makes them pay (>= 200 chars)'   (or: --unpaid --arg 'why the finding is not payable' \u2014 a reasoned not-payable decision is a legitimate answer; or: webv2 waive <campaign> paid-exploitability --subject <fid> --reason '...' to record a named decision)",
+	"adversarial-game":     "webv2 adversarial-game <campaign> <fid> --who-profit 'who profits from the freeze' --mechanism 'how the profit works' --interplay 'why the challenge path does not undo it'   (each field >= 20 chars; or: webv2 waive <campaign> adversarial-game --subject <fid> --reason '...' if the incentive argument lives elsewhere, e.g. the chain narrative)",
 }
 
 // GateExplain is gate_explain: human-facing explanation + remediation for one
@@ -1228,13 +1229,73 @@ func (g *gate) check14() error {
 	return nil
 }
 
-// run executes the fourteen checks (the twelve ported + accepted-risk (A1)
-// + paid-exploitability (A4)).
+// check15 is the adversarial-game clause (IMPROVEMENTS B2): a liveness
+// finding must answer "who profits from the freeze, and why doesn't the
+// challenge path undo it?" — the incentive argument that keeps a freeze
+// finding from being buried as "liveness-only, the owner can revert". The
+// trigger is findings.IsLivenessFinding (class in LivenessClasses, or
+// economic_impact.kind == "liveness", or a granted liveness terminal
+// capability). The clause is DATA on the finding (adversarial_game, three
+// fields, each >= 20 chars); the setter enforces on write and this check
+// re-validates the stored value, so a hand-edited field cannot sneak past.
+// Waivable per-finding (stage "adversarial-game", reason required) — a
+// named, recorded decision that the incentive question was answered
+// elsewhere (e.g. in the chain narrative) is legitimate.
+func (g *gate) check15() error {
+	if !findings.IsLivenessFinding(g.f) {
+		g.add("adversarial-game", "pass", "not a liveness finding", "")
+		return nil
+	}
+	findingID := objStr(g.f, "finding_id")
+	var waiver *validation.Value
+	rows, err := waiversFunc(g.campaign, "adversarial-game")
+	if err != nil {
+		return err
+	}
+	for _, w := range rows {
+		if subject := objStr(w, "subject"); subject == "*" ||
+			subject == findingID {
+			w := w
+			waiver = &w
+			break
+		}
+	}
+	deficits := findings.AdversarialGameDeficits(g.f)
+	if len(deficits) == 0 {
+		g.add("adversarial-game", "pass",
+			"incentive clause complete (who_profits / profit_mechanism / "+
+				"challenge_interplay)", "")
+		return nil
+	}
+	detail := "liveness finding is missing the adversarial_game clause"
+	if len(deficits) == 1 && deficits[0] != "missing" {
+		detail = "adversarial_game." + deficits[0] + " is missing or too " +
+			"short (>= " + strconv.Itoa(findings.AdversarialGameFieldMin) +
+			" chars required)"
+	} else if len(deficits) > 1 {
+		detail = "adversarial_game is incomplete: " +
+			strings.Join(deficits, ", ") + " missing or too short (each " +
+				"field >= " + strconv.Itoa(findings.AdversarialGameFieldMin) +
+				" chars)"
+	}
+	g.add("adversarial-game", "fail", detail, "")
+	if waiver != nil {
+		g.addWaived("adversarial-game", waiver)
+	} else {
+		g.blockers = append(g.blockers,
+			"liveness finding has no adversarial_game clause (who profits, "+
+				"how, and why the challenge path cannot undo it)")
+	}
+	return nil
+}
+
+// run executes the fifteen checks (the twelve ported + accepted-risk (A1)
+// + paid-exploitability (A4) + adversarial-game (B2)).
 func (g *gate) run() error {
 	g.check1()
 	for _, check := range []func() error{g.check2, g.check3, g.check4, g.check5,
 		g.check6, g.check7, g.check8, g.check9, g.check10, g.check11,
-		g.check12, g.check13, g.check14} {
+		g.check12, g.check13, g.check14, g.check15} {
 		if err := check(); err != nil {
 			return err
 		}

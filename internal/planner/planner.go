@@ -46,7 +46,9 @@ var lensQuestions = map[string]string{
 	"liveness": "LIVENESS: is there a reachable state from which an intended " +
 		"transition (finalize, withdraw, challenge, claim) is " +
 		"permanently impossible? At which layer, and who can reach " +
-		"that state? State machines in the model: {machines}",
+		"that state? For every liveness hypothesis, file the " +
+		"adversarial_game clause at ingest — the gate requires it. " +
+		"State machines in the model: {machines}",
 	"incentive-inversion": "INCENTIVE-INVERSION: does the protocol ever PAY " +
 		"an attacker or PUNISH an honest actor (challenge, slash, claim, " +
 		"delegate) under any reachable state? Trace what the honest " +

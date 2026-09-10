@@ -717,21 +717,45 @@ Bug-hunt sweep).
   `priceable: false` + non-USD `ceiling` — no USD figure is defensible for a
   freeze; `TerminalReport`'s note gains a liveness sentence only when a
   liveness terminal surfaced (presence-gated); the ingest legend gained
-  `economic_impact/kind: liveness` (pinned in `t14FindingLegend`). Golden
-  stays green without normalization: no golden campaign declares
-  `liveness_loss`, so every change is presence-gated behind a capability
-  or field no existing finding carries. Intentional oracle updates that
+  `economic_impact/kind: liveness` (pinned in `t14FindingLegend`). **B2**
+  adversarial-game clause (Go-only — the Python twin is retired): a liveness
+  finding (`internal/findings/adversarial.go`: liveness class, or
+  `economic_impact.kind == "liveness"`, or a granted liveness terminal
+  capability) must carry `adversarial_game` — three strings
+  (`who_profits`, `profit_mechanism`, `challenge_interplay`), each ≥ 20
+  **runes** — recorded by `SetAdversarialGame` (validates before writing,
+  logs `finding.adversarial_game_set` with per-field char counts) and
+  re-validated by the new gate check15 `adversarial-game`
+  (`internal/bounty/bounty.go`), which is waivable on stage
+  `adversarial-game` and whose remediation text is reachable through
+  `gate explain`; the schema property is finding-level **optional** (the
+  schema cannot say "required only for liveness findings", so check15
+  enforces presence); the CLI verb is `webv2 adversarial-game <campaign>
+  <finding> --who-profit X --mechanism Y --interplay Z`
+  (`internal/cli/cmd_adversarial.go`, ord 71; three required flags,
+  argparse-shaped exit 2 on a missing flag); the adapter's
+  `structuredOutputs` and the planner's liveness lens hint surface the verb
+  at ingest; and the report gains two presence-gated blocks — the three
+  clause lines in the finding section, and a "### LIVENESS FINDINGS — who
+  profits from the freeze" subsection listing every liveness finding at any
+  status (`who_profits` or `UNANSWERED (gate check15)`). Golden stays green
+  without normalization: no golden campaign declares a liveness finding or
+  the clause, so every change is presence-gated behind a capability or field
+  no existing finding carries. Intentional oracle updates that
   accompanied these: the `gates` scenario `bounty_gate_all` oracle in
   `internal/orchestrator/testdata/oracles.json` gained the 14th
-  `accepted-risk` and the 15th `paid-exploitability` check rows, and its
+  `accepted-risk`, the 15th `paid-exploitability` and the 16th
+  `adversarial-game` check rows, and its
   `calibrate_all` oracle's risk objects gained the `acceptance_score` key
   (A3 — the gate stores the score before calibrate runs; regenerated from
   the Go replay — the unit oracles pin Go behavior; the retired Python
-  twin is not re-run), and the bounty unit goldens in
-  `internal/bounty/bounty_test.go` (15-row `policy_checks`, catalog +
-  unknown-check lists). `scripts/golden.sh` stays green without
-  normalization — its recipe policy carries no `accepted_risks` and its
-  gate steps predate any CONFIRMED finding.
+  twin is not re-run), the planner lens text changed (hence the pinned plan
+  sha256s and the scenario/probe lens strings in
+  `internal/planner/testdata/*.json`), and the bounty unit goldens in
+  `internal/bounty/bounty_test.go` (16-row `policy_checks`, 21 gate
+  vectors, catalog + unknown-check lists). `scripts/golden.sh` stays green
+  without normalization — its recipe policy carries no `accepted_risks` and
+  its gate steps predate any CONFIRMED finding.
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**
