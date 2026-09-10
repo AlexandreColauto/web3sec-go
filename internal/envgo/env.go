@@ -582,6 +582,18 @@ func SolcProbe(campaign *state.Campaign, imageProbe validation.Value) (
 		validation.KV{K: "present", V: validation.VNull()},
 		validation.KV{K: "problem", V: validation.VNull()},
 	)
+	// The pin is read out of the TARGET repo's foundry.toml, so it is
+	// untrusted input: only a plain version may be handed to the container
+	// (as argv, never as a shell word) or joined into the svm cache path.
+	if !sandbox.SolcVersionPin(version) {
+		out = setKey(out, "problem", validation.VStr("the active snapshot "+
+			"pins compiler "+sandbox.SolcPinText(version)+", which is not a "+
+			"solc version — refusing to probe image "+
+			validation.PyReprStr(strAt(imageProbe, "image"))+" with it "+
+			"(foundry.toml 'solc' must name a release such as 0.8.24, not "+
+			"a path or a command)"))
+		return &out, nil
+	}
 	if !boolAt(imageProbe, "daemon") {
 		return nil, nil
 	}
@@ -594,8 +606,10 @@ func SolcProbe(campaign *state.Campaign, imageProbe validation.Value) (
 			"WEBV2_SOLC_DIR"))
 		return &out, nil
 	}
+	// $1 is the version: the pin never becomes part of the shell source.
 	r, err := runProc([]string{"docker", "run", "--rm", "--entrypoint",
-		"/bin/sh", imageName, "-c", "ls /home/foundry/.svm/" + version},
+		"/bin/sh", imageName, "-c", `ls "/home/foundry/.svm/$1"`,
+		"solc-probe", version},
 		20*time.Second)
 	if err != nil {
 		out = setKey(out, "problem", validation.VStr("solc probe failed: "+

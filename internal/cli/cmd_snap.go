@@ -26,17 +26,17 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case a == "--deployment" && i+1 < len(args):
+		case a == "--deployment" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			deployment = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--deployment="):
 			deployment = strings.TrimPrefix(a, "--deployment=")
-		case a == "--chain" && i+1 < len(args):
+		case a == "--chain" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			chain = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--chain="):
 			chain = strings.TrimPrefix(a, "--chain=")
-		case a == "--exclude" && i+1 < len(args):
+		case a == "--exclude" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			excludes = append(excludes, args[i+1])
 			i++
 		case strings.HasPrefix(a, "--exclude="):

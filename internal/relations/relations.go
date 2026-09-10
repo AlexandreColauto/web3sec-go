@@ -182,11 +182,7 @@ func mintInto(c *state.Campaign, rels *[]validation.Value, kind string,
 
 // chainsOf is _chains: CHAIN-*.json sorted by path.
 func chainsOf(c *state.Campaign) ([]validation.Value, error) {
-	paths, err := filepath.Glob(filepath.Join(c.ChainsDir, "CHAIN-*.json"))
-	if err != nil {
-		return nil, err
-	}
-	sort.Strings(paths)
+	paths := validation.ListPrefixed(c.ChainsDir, "CHAIN-", ".json")
 	out := make([]validation.Value, 0, len(paths))
 	for _, p := range paths {
 		v, err := validation.ReadJson(p)

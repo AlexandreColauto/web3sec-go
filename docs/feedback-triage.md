@@ -565,3 +565,42 @@ bug-finding power or operator-time, and it must not weaken a gate.**
 None of these recommendations removes an item from the operator's reach: C1,
 C2, C4, C5 and C7 can be built on request, and this table is the argument a
 future implementer should answer rather than re-derive.
+
+---
+
+## Review sweep (2026-09-10) — silent-failure paths
+
+A full-repo review (report kept in `.scratch/review/`, untracked) found six
+defects with one shape: **a gate or a write that reports success without
+having done the work.** All six are fixed, each with a regression test, and
+`scripts/verify-full.sh` is green (13/13) on the result.
+
+| # | defect | fix |
+|---|---|---|
+| 1 | a `policy_checks` waiver row never cleared the fail row above it, so a waivable check still blocked `submission_ready` | `bounty.effectiveChecks` (last row per check name wins) drives `submission_ready`/`eligible`; two pinned vectors flip to `true` |
+| 2 | a sandbox process that failed to start recorded exit status `0` and empty stderr | `sandbox.execute` records `-1` and puts `sandbox: <err>` on stderr |
+| 3 | the event log appended after a torn write and no write was fsynced | `appendJsonlChecked` refuses a file whose last byte is not `\n`; `WriteJson` fsyncs, uses a unique temp, preserves the mode |
+| 4 | a registered artifact with no `sha256` was skipped by the audit | hash-less rows are now a problem (`content unverified`) |
+| 5 | the `foundry.toml` compiler pin was interpolated into the container shell and used as a host path component | `sandbox.SolcVersionPin` gates `env doctor`, preflight and the env seam; the probe passes the pin as argv |
+| 6 | 36 hand-rolled flag cases consumed the next token unconditionally | `looksLikeOption` guard everywhere; `move <c> <f> DISPROVED --reason --actor` exits 2 instead of chaining the literal `"--actor"` as the reason |
+
+Second pass (same review): campaign listings read directories instead of
+`filepath.Glob` (a `--root` containing `[ ] ? *` silently read the campaign as
+EMPTY — `prioritize` printed nothing, `dedup` said `untouched=0`); `ingest`
+consumes the discovery slot **before** writing the finding, so a crash costs a
+slot rather than granting a free one; memory ids are validated before being
+joined into a path; `budget --clear --set` and
+`doctor --state-only --snapshot-only` refuse instead of silently resolving;
+`selftest --ful` errors instead of running the fast plan and printing PASS.
+
+### Still open (deliberately, with reasons)
+
+| item | why it is not in this sweep |
+|---|---|
+| `pyTruthy` consolidation (21 defs, 11 bodies, 4 divergent semantics) | A wrong unification silently flips gates. Needs its own pass that pins each call site's intended truthiness first. |
+| corpus score cap | The cap is a policy number; changing it moves published corpus scores. Belongs with the operator, not a review. |
+| structidx ↔ probes authorization vocabulary | The two tables are byte-pinned in golden vectors; unifying them is a coverage-contract change. |
+| `verify` log-repair verb for torn/trailing-garbage logs | The framing guard makes the failure loud; a repair path needs a spec for what a repaired chain claims. |
+| `sft` version-bump semantics on re-curation | Whether a no-op update should bump `version` is a dataset-contract call. |
+| `probes` `--flag=value` parity | 23 verbs accept the `=` form; `probes` does not. Cosmetic until someone scripts it. |
+| E6 queue tie-break by realised impact | The ordering is deliberate and pinned by `TestIndependentVerificationQueueOrdersMandatoryFirst`; changing the key is a contract change, not a bug fix. |

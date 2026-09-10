@@ -152,7 +152,13 @@ func RecencyScores(c *state.Campaign, target, snapshotRoot string) (
 		}
 	}
 
+	// The clock is pinned like every other one in the tool (WEBV2_NOW via
+	// state.NowIso) so the day-delta score is reproducible in the golden
+	// suite; a bare time.Now here was the one component that could not be.
 	now := time.Now().UTC()
+	if t, err := time.Parse(time.RFC3339, state.NowIso()); err == nil {
+		now = t.UTC()
+	}
 	paths := []string{}
 	seenPath := map[string]bool{}
 	for _, n := range objAt(idx, "nodes").A {

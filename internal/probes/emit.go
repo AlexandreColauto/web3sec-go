@@ -243,8 +243,6 @@ func SurfaceSummary(c *state.Campaign,
 			dispositioned++
 			continue
 		}
-		spec := probesTable[vStr(row, "probe")]
-		_ = spec
 		openRows = append(openRows, validation.VObj(
 			kv("row_id", vGet(row, "row_id")),
 			kv("priority_id", vGet(d, "priority_id")),

@@ -20,7 +20,7 @@ func findingFiles(c *state.Campaign) []string {
 	if _, err := os.Stat(c.FindingsDir); err != nil {
 		return nil
 	}
-	matches, _ := filepath.Glob(filepath.Join(c.FindingsDir, "F-*.json"))
+	matches := validation.ListPrefixed(c.FindingsDir, "F-", ".json")
 	sort.Strings(matches)
 	return matches
 }

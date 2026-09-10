@@ -707,7 +707,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	chainPaths, _ := filepath.Glob(filepath.Join(campaign.ChainsDir, "CHAIN-*.json"))
+	chainPaths := validation.ListPrefixed(campaign.ChainsDir, "CHAIN-", ".json")
 	sort.Strings(chainPaths)
 	chains := []validation.Value{}
 	for _, p := range chainPaths {

@@ -23,7 +23,7 @@ func runArtifactRegister(root string, args []string, r *Runner) int {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case a == "--kind" && i+1 < len(args):
+		case a == "--kind" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			kind = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--kind="):
@@ -31,7 +31,7 @@ func runArtifactRegister(root string, args []string, r *Runner) int {
 		case a == "--kind":
 			return r.fail(root, argErrf("artifact-register",
 				"argument --kind: expected one argument"))
-		case a == "--note" && i+1 < len(args):
+		case a == "--note" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			note = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--note="):

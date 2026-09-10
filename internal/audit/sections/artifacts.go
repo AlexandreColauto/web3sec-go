@@ -35,8 +35,17 @@ func Artifacts(c *state.Campaign) (validation.Value, error) {
 			continue
 		}
 		stored := objAt(a, "sha256")
-		if stored.Kind != validation.Str {
-			continue // registered without a hash — flagged, not fatal
+		if stored.Kind != validation.Str || stored.S == "" {
+			// A row with no hash cannot be verified at all, and until
+			// 2026-09-10 this branch skipped it silently while the section
+			// still reported ok:true — so nulling sha256 in the state file
+			// (schema-legal) and rewriting the artifact passed the integrity
+			// audit. It is a problem now: the fix is one
+			// `webv2 artifact refresh <id> --reason ...` (which re-hashes).
+			problems = append(problems, validation.VStr(fmt.Sprintf(
+				"%s: registered without a sha256 — content unverified (%s)",
+				objStr(a, "artifact_id"), path)))
+			continue
 		}
 		actual, err := validation.Sha256File(resolved)
 		if err != nil {

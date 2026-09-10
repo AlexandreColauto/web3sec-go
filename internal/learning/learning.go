@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"websec/internal/capabilities"
 	"websec/internal/findings"
@@ -204,6 +206,13 @@ func checkPropositions(props []validation.Value) error {
 	return nil
 }
 
+// memoryIDRe is the only shape a memory id may have (newId("MEM", n) emits
+// MEM-<hex>). The id arrives from the command line and is joined into a path,
+// so an id carrying a separator or ".." must not reach the filesystem; it gets
+// the same not-found error a missing row gets, so the CLI's wording does not
+// change for the garbage case.
+var memoryIDRe = regexp.MustCompile(`^MEM-[0-9a-f]+$`)
+
 // AssertApprovable is assert_approvable: the leakage-partition guard
 // (constraint 4). Rows partitioned 'held-out'/'training' are evaluation data
 // and can never be approved or promoted. Absent partition == 'dev'.
@@ -229,6 +238,9 @@ func ApproveMemory(c *state.Campaign, memoryID, approver string) (validation.Val
 			"memory promotion requires a recorded human approver")
 	}
 	path := filepath.Join(c.MemoryDir, memoryID+".json")
+	if !memoryIDRe.MatchString(memoryID) {
+		return validation.VNull(), fmt.Errorf("%s", memoryID)
+	}
 	if _, err := os.Stat(path); err != nil {
 		return validation.VNull(), fmt.Errorf("%s", memoryID)
 	}
@@ -274,6 +286,9 @@ func RejectMemory(c *state.Campaign, memoryID, reason, rejectionClass string) (v
 			"memory rejection requires a written reason")
 	}
 	path := filepath.Join(c.MemoryDir, memoryID+".json")
+	if !memoryIDRe.MatchString(memoryID) {
+		return validation.VNull(), fmt.Errorf("%s", memoryID)
+	}
 	if _, err := os.Stat(path); err != nil {
 		return validation.VNull(), fmt.Errorf("%s", memoryID)
 	}
@@ -342,7 +357,7 @@ func StripCampaignMemoryField(root, field, actor, reason string) (validation.Val
 		if fi, err := os.Stat(memdir); err != nil || !fi.IsDir() {
 			continue
 		}
-		paths, err := filepath.Glob(filepath.Join(memdir, "*.json"))
+		paths := validation.ListPrefixed(memdir, "", ".json")
 		if err != nil {
 			return validation.VNull(), err
 		}
@@ -372,15 +387,18 @@ func StripCampaignMemoryField(root, field, actor, reason string) (validation.Val
 			kv("reason", validation.VStr(reason)),
 			kv("rows_stripped", validation.VInt(int64(len(targets)))))
 		ref := name
-		if _, err := c.Log("memory.field-stripped", &ref, &data); err != nil {
-			return validation.VNull(), err
-		}
+		// The rows are written BEFORE the event: the event claims the strip
+		// happened, so it may only be logged once it did. (Logging first left
+		// a hash-chained record of work that a failed write never performed.)
 		for _, p := range targets {
 			row := rows[p]
 			row.O = removeKey(row.O, field)
 			if err := validation.WriteJson(p, row, ""); err != nil {
 				return validation.VNull(), err
 			}
+		}
+		if _, err := c.Log("memory.field-stripped", &ref, &data); err != nil {
+			return validation.VNull(), err
 		}
 		out = append(out, validation.VObj(
 			kv("campaign_id", validation.VStr(name)),
@@ -545,11 +563,7 @@ func PendingMemory(c *state.Campaign) ([]validation.Value, error) {
 
 // AllMemory is all_memory: every MEM-*.json row, filename-sorted.
 func AllMemory(c *state.Campaign) ([]validation.Value, error) {
-	paths, err := filepath.Glob(filepath.Join(c.MemoryDir, "MEM-*.json"))
-	if err != nil {
-		return nil, err
-	}
-	sort.Strings(paths)
+	paths := validation.ListPrefixed(c.MemoryDir, "MEM-", ".json")
 	out := make([]validation.Value, 0, len(paths))
 	for _, p := range paths {
 		row, err := validation.ReadJson(p)
@@ -571,7 +585,10 @@ var negativeStatuses = []string{"DISPROVED", "INTENDED_BEHAVIOR",
 func NegativeMemoryLookup(c *state.Campaign, patternText string) ([]validation.Value, error) {
 	words := map[string]struct{}{}
 	for _, w := range ReSplit(patternText) {
-		if len(w) > 3 {
+		// Runes, not bytes: sharedmem's keyword filter (the other half of this
+		// retrieval) counts runes, so a non-ASCII keyword used to be eligible
+		// in one path and not the other.
+		if utf8.RuneCountInString(w) > 3 {
 			words[w] = struct{}{}
 		}
 	}

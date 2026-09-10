@@ -32,13 +32,6 @@ func critTokens(value validation.Value) map[string]bool {
 	return out
 }
 
-func critTokensAny(v validation.Value) map[string]bool {
-	if v.Kind == validation.Str || v.Kind == validation.Null {
-		return critTokens(v)
-	}
-	return map[string]bool{}
-}
-
 func unionInto(dst map[string]bool, src map[string]bool) {
 	for k := range src {
 		dst[k] = true

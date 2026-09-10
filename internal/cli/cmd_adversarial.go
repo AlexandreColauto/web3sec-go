@@ -62,7 +62,7 @@ func adversarialCmd(root string, args []string, r *Runner) error {
 		case a == "-h" || a == "--help":
 			fmt.Fprint(r.Out, adversarialHelp)
 			return nil
-		case a == "--who-profit" && i+1 < len(args):
+		case a == "--who-profit" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			who = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--who-profit="):
@@ -70,7 +70,7 @@ func adversarialCmd(root string, args []string, r *Runner) error {
 		case a == "--who-profit":
 			return t14ArgparseErr(adversarialUsage, "adversarial-game",
 				"argument --who-profit: expected one argument")
-		case a == "--mechanism" && i+1 < len(args):
+		case a == "--mechanism" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			mech = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--mechanism="):
@@ -78,7 +78,7 @@ func adversarialCmd(root string, args []string, r *Runner) error {
 		case a == "--mechanism":
 			return t14ArgparseErr(adversarialUsage, "adversarial-game",
 				"argument --mechanism: expected one argument")
-		case a == "--interplay" && i+1 < len(args):
+		case a == "--interplay" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			inter = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--interplay="):

@@ -433,3 +433,64 @@ func intAt(v validation.Value, key string) int64 {
 	}
 	return 0
 }
+
+// sandboxStderr reads an exec's captured stderr.
+func sandboxStderr(t *testing.T, c *state.Campaign, rec validation.Value) string {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(c.ExecsDir, strAt(rec, "exec_id"),
+		"stderr.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw)
+}
+
+// TestSandboxRunStartFailureIsNotSuccess pins the 2026-09-10 fix: when the
+// process never started, execute() returned res.ReturnCode — the zero value —
+// so a missing workdir or a missing runtime was recorded as exit_status 0,
+// i.e. a successful execution of a command that never ran.
+func TestSandboxRunStartFailureIsNotSuccess(t *testing.T) {
+	c := newCampaign(t, "Acme Program")
+	sb, err := NewSandbox(c, "host-readonly")
+	if err != nil {
+		t.Fatal(err)
+	}
+	missing := filepath.Join(t.TempDir(), "gone")
+	rec, err := sb.Run("echo hello", RunOpts{Timeout: 30, Workdir: &missing})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := intAt(rec, "exit_status"); got != -1 {
+		t.Errorf("exit_status = %d, want -1 (the process never started)", got)
+	}
+	if stderr := sandboxStderr(t, c, rec); !strings.Contains(
+		stderr, "sandbox: ") {
+		t.Errorf("stderr = %q, want the start-failure reason", stderr)
+	}
+}
+
+// TestSandboxRunExecErrorIsNotSuccess is the same contract for a runner-level
+// failure with no process at all (Python's OSError out of subprocess.run).
+func TestSandboxRunExecErrorIsNotSuccess(t *testing.T) {
+	withProc(t, func(argv []string, dir string, env []string,
+		timeout time.Duration) (ProcResult, error) {
+		return ProcResult{}, errors.New("exec: \"docker\": executable file " +
+			"not found in $PATH")
+	})
+	c := newCampaign(t, "Acme Program")
+	sb, err := NewSandbox(c, "host-readonly")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec, err := sb.Run("echo hello", RunOpts{Timeout: 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := intAt(rec, "exit_status"); got != -1 {
+		t.Errorf("exit_status = %d, want -1", got)
+	}
+	if stderr := sandboxStderr(t, c, rec); !strings.Contains(stderr,
+		"executable file not found") {
+		t.Errorf("stderr = %q, want the exec error", stderr)
+	}
+}

@@ -284,6 +284,13 @@ func defaultSandboxPreflight(c *state.Campaign, workdir, profile *string) (
 	if version == nil {
 		check("solc", "na", "no compiler pinned by the active snapshot — "+
 			"nothing to check against", nil)
+	} else if !SolcVersionPin(*version) {
+		// The pin is target-repo input: it may not be joined into a host path.
+		fix := "set foundry.toml's solc to a release (for example 0.8.24) — " +
+			"webv2 only uses a version as the svm cache path component"
+		check("solc", "fail", "the active snapshot pins compiler "+
+			SolcPinText(*version)+", which is not a solc version — "+
+			"refusing to treat it as an svm cache path", &fix)
 	} else {
 		svm := SolcDir()
 		if svm == nil {

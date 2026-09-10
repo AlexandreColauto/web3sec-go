@@ -268,7 +268,7 @@ func runScope(root string, args []string, r *Runner) error {
 		case a == "-h" || a == "--help":
 			fmt.Fprint(r.Out, t14ScopeHelp)
 			return nil
-		case a == "--policy" && i+1 < len(args):
+		case a == "--policy" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			policy = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--policy="):

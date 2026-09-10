@@ -25,7 +25,7 @@ func runInvariantContradict(root string, args []string, r *Runner) int {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case a == "--evidence" && i+1 < len(args):
+		case a == "--evidence" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			evidence, haveEvidence = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--evidence="):

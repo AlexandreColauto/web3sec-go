@@ -644,3 +644,30 @@ func equalStrings(a, b []string) bool {
 	}
 	return true
 }
+
+// TestMemoryIDCannotEscapeTheMemoryDir: the memory id comes from argv and is
+// joined into a path, so an id with a separator or ".." must be refused before
+// any stat/read — with the same not-found error the missing-row path returns
+// (the CLI's wording for garbage ids is unchanged).
+func TestMemoryIDCannotEscapeTheMemoryDir(t *testing.T) {
+	c := newCampaign(t, "Acme Program")
+	outside := filepath.Join(filepath.Dir(c.MemoryDir), "MEM-escapee.json")
+	if err := validation.WriteJson(outside, validation.VObj(
+		kv("memory_id", validation.VStr("MEM-escapee")),
+		kv("promotion_status", validation.VStr("candidate")),
+	), ""); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"../MEM-escapee", "../../etc/passwd",
+		"MEM-../MEM-escapee", "/etc/passwd"} {
+		if _, err := ApproveMemory(c, id, "operator"); err == nil {
+			t.Errorf("approve accepted id %q", id)
+		} else if !strings.Contains(err.Error(), id) {
+			t.Errorf("id %q: error = %q, want the id (the not-found shape)",
+				id, err.Error())
+		}
+		if _, err := RejectMemory(c, id, "no", "false-positive"); err == nil {
+			t.Errorf("reject accepted id %q", id)
+		}
+	}
+}

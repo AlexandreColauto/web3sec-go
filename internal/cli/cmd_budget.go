@@ -83,7 +83,7 @@ func parseBudget(args []string, r *Runner) (*budgetArgs, error) {
 		switch name {
 		case "--set", "--set-discovery", "--actor":
 			if !hasVal {
-				if i+1 >= len(args) {
+				if i+1 >= len(args) || looksLikeOption(args[i+1]) {
 					return nil, t14ArgparseErr(t14BudgetUsage, "budget",
 						"argument %s: expected one argument", name)
 				}
@@ -123,6 +123,13 @@ func parseBudget(args []string, r *Runner) (*budgetArgs, error) {
 	}
 	if len(pos) > 1 {
 		return nil, t14Unrecognized(strings.Join(pos[1:], " "))
+	}
+	// argparse declares --clear and --set as mutually exclusive: silently
+	// honouring one of them (--set won, so --clear did nothing) hid the
+	// mistake instead of reporting it.
+	if a.clear && a.set != nil {
+		return nil, t14ArgparseErr(t14BudgetUsage, "budget",
+			"argument --clear: not allowed with argument --set")
 	}
 	a.campaign = pos[0]
 	return a, nil

@@ -170,6 +170,34 @@ func expandUser(p string) string {
 	return p
 }
 
+// solcVersionRe is the version grammar a foundry.toml `solc` pin is written
+// in: 0.8.24, v0.8.24, 0.8, 0.8.24-nightly.2024.1.1, 0.8.24+commit.e11b9ed9.
+var solcVersionRe = regexp.MustCompile(
+	`^v?[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.+-]*[0-9A-Za-z])?$`)
+
+// SolcVersionPin reports whether a snapshot's compiler pin may be used as the
+// svm cache path component (<dir>/<version>/solc-<version>) and passed to a
+// shell. The pin comes from the TARGET repository's foundry.toml, so it is
+// untrusted input: before 2026-09-10 the string was interpolated verbatim into
+// `docker run … /bin/sh -c "ls /home/foundry/.svm/<pin>"`, so a pin of
+// `0.8.20; curl … | sh` ran inside the probe container (which has network) and
+// its exit 0 also forged "solc present" in the environment report. A path, a
+// URL, a flag or a shell fragment is refused by the callers with a stated
+// reason instead of being executed or joined.
+func SolcVersionPin(pin string) bool {
+	return solcVersionRe.MatchString(strings.TrimSpace(pin))
+}
+
+// SolcPinText is the human-facing form of a rejected pin: one line, bounded,
+// so an absurd pin cannot flood a report.
+func SolcPinText(pin string) string {
+	p := strings.TrimSpace(pin)
+	if r := []rune(p); len(r) > 60 {
+		p = string(r[:60]) + "…"
+	}
+	return validation.PyReprStr(p)
+}
+
 // dockerDaemonOK is docker_daemon_ok's probe. A package var so tests can
 // stub the daemon (Python monkeypatches sandbox.docker_daemon_ok).
 var dockerDaemonOK = probeDockerDaemon

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"websec/internal/sandbox"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -83,10 +84,25 @@ func SandboxPreflight(c *state.Campaign, workdir, profile *string) (
 		}
 	}
 
-	version := pinnedCompiler(c)
-	if version == nil {
+	// The solc cache only exists for a CONTAINER run: host-readonly executes
+	// the binary the host has, so a missing svm cache is not its problem. The
+	// earlier "na" row for host-readonly used to be overwritten here (the
+	// block ran for every profile), which reported a container requirement to
+	// a profile that has none — and a FAIL at that.
+	if !container {
+		// host-readonly: the "na" row set above stands.
+	} else if version := pinnedCompiler(c); version == nil {
 		check("solc", "na", "no compiler pinned by the active snapshot — "+
 			"nothing to check against", nil)
+	} else if !sandbox.SolcVersionPin(*version) {
+		// Untrusted input from the target repo's foundry.toml: it must not be
+		// joined into a host path (a pin of "../../etc" would probe outside
+		// the cache) or handed to a shell.
+		fix := "set foundry.toml's solc to a release (for example 0.8.24) — " +
+			"webv2 only uses a version as the svm cache path component"
+		check("solc", "fail", "the active snapshot pins compiler "+
+			sandbox.SolcPinText(*version)+", which is not a solc version — "+
+			"refusing to treat it as an svm cache path", &fix)
 	} else {
 		svm := solcDir()
 		if svm == nil {

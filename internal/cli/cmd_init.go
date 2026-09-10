@@ -27,7 +27,7 @@ func runInit(root string, args []string, stdout io.Writer) error {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case a == "--program" && i+1 < len(args):
+		case a == "--program" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			program, haveProgram = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--program="):

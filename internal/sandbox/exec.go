@@ -292,6 +292,19 @@ func (s *Sandbox) execute(containerArgv []string, command string,
 	if err == errTimeout {
 		return -1, res.Stdout, res.Stderr
 	}
+	if err != nil {
+		// The process never ran — a missing workdir, no docker on PATH, an
+		// exec failure. res.ReturnCode is the zero value on that path, so
+		// returning it recorded a successful execution (exit_status 0) for
+		// something that never happened. Report -1 and put the reason in
+		// stderr so the exec record explains itself instead of looking like
+		// a clean run of a command that produced no output.
+		stderr := res.Stderr
+		if stderr != "" && !strings.HasSuffix(stderr, "\n") {
+			stderr += "\n"
+		}
+		return -1, res.Stdout, stderr + "sandbox: " + err.Error() + "\n"
+	}
 	return res.ReturnCode, res.Stdout, res.Stderr
 }
 
@@ -489,8 +502,8 @@ func AllExecs(c *state.Campaign) ([]validation.Value, error) {
 	if _, err := os.Stat(c.ExecsDir); err != nil {
 		return nil, nil
 	}
-	matches, _ := filepath.Glob(filepath.Join(c.ExecsDir, "EXEC-*",
-		"exec_record.json"))
+	matches := validation.ListSubPrefixed(c.ExecsDir, "EXEC-",
+		"exec_record.json")
 	sort.Strings(matches)
 	out := make([]validation.Value, 0, len(matches))
 	for _, p := range matches {

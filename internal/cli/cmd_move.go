@@ -56,30 +56,36 @@ func moveCmd(root string, args []string, r *Runner) error {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case a == "--reason" && i+1 < len(args):
-			reason, haveReason = args[i+1], true
+		case a == "--reason":
+			v, ok := flagValue(args, i)
+			if !ok {
+				return t14ArgparseErr(moveUsage, "move",
+					"argument --reason: expected one argument")
+			}
+			reason, haveReason = v, true
 			i++
 		case strings.HasPrefix(a, "--reason="):
 			reason, haveReason = strings.TrimPrefix(a, "--reason="), true
-		case a == "--reason":
-			return t14ArgparseErr(moveUsage, "move",
-				"argument --reason: expected one argument")
-		case a == "--actor" && i+1 < len(args):
-			actor = args[i+1]
+		case a == "--actor":
+			v, ok := flagValue(args, i)
+			if !ok {
+				return t14ArgparseErr(moveUsage, "move",
+					"argument --actor: expected one argument")
+			}
+			actor = v
 			i++
 		case strings.HasPrefix(a, "--actor="):
 			actor = strings.TrimPrefix(a, "--actor=")
-		case a == "--actor":
-			return t14ArgparseErr(moveUsage, "move",
-				"argument --actor: expected one argument")
-		case a == "--adjacent" && i+1 < len(args):
-			adjacent = args[i+1]
+		case a == "--adjacent":
+			v, ok := flagValue(args, i)
+			if !ok {
+				return t14ArgparseErr(moveUsage, "move",
+					"argument --adjacent: expected one argument")
+			}
+			adjacent = v
 			i++
 		case strings.HasPrefix(a, "--adjacent="):
 			adjacent = strings.TrimPrefix(a, "--adjacent=")
-		case a == "--adjacent":
-			return t14ArgparseErr(moveUsage, "move",
-				"argument --adjacent: expected one argument")
 		case a == "--adjacent-clear":
 			adjacentClear = true
 		case strings.HasPrefix(a, "--adjacent-clear="):

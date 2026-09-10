@@ -6,7 +6,6 @@ package chainengine
 
 import (
 	"os"
-	"path/filepath"
 	"sort"
 
 	"websec/internal/capabilities"
@@ -297,11 +296,7 @@ func ChainReport(c *state.Campaign) (validation.Value, error) {
 // chainDocs reads chains/CHAIN-*.json in sorted path order; onlyTerminal
 // keeps the docs carrying a truthy `terminal` (terminal_report's filter).
 func chainDocs(c *state.Campaign, onlyTerminal bool) ([]validation.Value, error) {
-	matches, err := filepath.Glob(filepath.Join(c.ChainsDir, "CHAIN-*.json"))
-	if err != nil {
-		return nil, err
-	}
-	sort.Strings(matches)
+	matches := validation.ListPrefixed(c.ChainsDir, "CHAIN-", ".json")
 	out := []validation.Value{}
 	for _, p := range matches {
 		if _, err := os.Stat(p); err != nil {

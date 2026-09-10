@@ -31,7 +31,7 @@ func runVerdict(root string, args []string, r *Runner) int {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case a == "--verdict" && i+1 < len(args):
+		case a == "--verdict" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			verdict, haveVerdict = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--verdict="):
@@ -39,7 +39,7 @@ func runVerdict(root string, args []string, r *Runner) int {
 		case a == "--verdict":
 			return r.fail(root, argErrf("verdict",
 				"argument --verdict: expected one argument"))
-		case a == "--reason" && i+1 < len(args):
+		case a == "--reason" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			reason, haveReason = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--reason="):

@@ -26,7 +26,7 @@ func runProve(root string, args []string, r *Runner) int {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case a == "--stage" && i+1 < len(args):
+		case a == "--stage" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			stage, haveStage = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--stage="):

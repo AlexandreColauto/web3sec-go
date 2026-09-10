@@ -77,10 +77,7 @@ func runStatus(root string, args []string, stdout io.Writer) error {
 // statusFindings mirrors the counts loop of Orchestrator.status: findings
 // ordered by (created_at, finding_id), counts in first-appearance order.
 func statusFindings(c *state.Campaign) (validation.Value, error) {
-	paths, err := filepath.Glob(filepath.Join(c.FindingsDir, "F-*.json"))
-	if err != nil {
-		return validation.VNull(), err
-	}
+	paths := validation.ListPrefixed(c.FindingsDir, "F-", ".json")
 	type row struct {
 		created, fid, status string
 	}

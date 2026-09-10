@@ -9,6 +9,7 @@ package cli
 // handler line is NOT main's `error: {e}` mapper — exit 2 without a prefix).
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -46,6 +47,110 @@ func moveIngest(t *testing.T, root, cid, payload string) string {
 		t.Fatalf("ingest output missing id: %q", out)
 	}
 	return m[1]
+}
+
+// TestMoveRefusesOptionLookalikeValue pins the 2026-09-10 fix. The hand-rolled
+// value loops consumed args[i+1] unconditionally, so
+//
+//	webv2 move <c> <f> DISPROVED --reason --actor
+//
+// recorded the literal string "--actor" as the reason in the hash chain and
+// exited 0 — a typo written into the audit trail, with the attribution
+// degraded to "cli". argparse refuses the token: exit 2, "expected one
+// argument", and nothing logged.
+func TestMoveRefusesOptionLookalikeValue(t *testing.T) {
+	c, root := t15Campaign(t, "move-flag-swallow")
+	fid := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	before := len(eventTypes(t, c))
+
+	code, _, errS := run(t, "--root", root, "move", c.CampaignID, fid,
+		"DISPROVED", "--reason", "--actor")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2 (argparse): %q", code, errS)
+	}
+	if !strings.Contains(errS, "argument --reason: expected one argument") {
+		t.Errorf("stderr = %q, want the argparse message", errS)
+	}
+	if after := len(eventTypes(t, c)); after != before {
+		t.Errorf("events %d -> %d: a refused command must not write",
+			before, after)
+	}
+	f, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := objStr(f, "status"); got != "HYPOTHESIS" {
+		t.Errorf("status = %q, want HYPOTHESIS (the move must not happen)", got)
+	}
+}
+
+// TestNoUnguardedValueConsumption is the standing guard for the whole family:
+// every `case a == "--flag" && i+1 < len(args):` in this package must also
+// refuse a token that looks like an option, or the next typo becomes a value
+// again. flagValue in cmd_exec.go is the seam; the check is source-level
+// because the alternative is one test per verb.
+func TestNoUnguardedValueConsumption(t *testing.T) {
+	unguarded := regexp.MustCompile(
+		`case a == "--[a-z0-9-]+" && i\+1 < len\(args\):$`)
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad := []string{}
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") ||
+			strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		raw, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, line := range strings.Split(string(raw), "\n") {
+			if unguarded.MatchString(strings.TrimSpace(line)) {
+				bad = append(bad, fmt.Sprintf("%s:%d", name, i+1))
+			}
+		}
+	}
+	if len(bad) > 0 {
+		t.Errorf("value-consuming cases must use `&& !looksLikeOption("+
+			"args[i+1])` (or flagValue): %s", strings.Join(bad, ", "))
+	}
+}
+
+// TestMoveRefusesOptionLookalikeAcrossVerbs spot-checks the same shape on the
+// other parsers the sweep touched, so a re-introduced hand-rolled loop is
+// caught outside `move` too.
+func TestMoveRefusesOptionLookalikeAcrossVerbs(t *testing.T) {
+	c, root := t15Campaign(t, "flag-swallow-verbs")
+	fid := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	cases := []struct {
+		args []string
+		want string
+	}{
+		{[]string{"verdict", c.CampaignID, fid, "--verdict", "--actor"},
+			"argument --verdict: expected one argument"},
+		{[]string{"waive", c.CampaignID, "submit", "--reason", "--actor"},
+			"argument --reason: expected one argument"},
+		{[]string{"move", c.CampaignID, fid, "DISPROVED",
+			"--actor", "--reason"},
+			"argument --actor: expected one argument"},
+	}
+	for _, tc := range cases {
+		before := len(eventTypes(t, c))
+		code, _, errS := run(t, append([]string{"--root", root},
+			tc.args...)...)
+		if code != 2 {
+			t.Errorf("%v: exit %d, want 2 (%q)", tc.args, code, errS)
+		}
+		if !strings.Contains(errS, tc.want) {
+			t.Errorf("%v: stderr = %q, want %q", tc.args, errS, tc.want)
+		}
+		if after := len(eventTypes(t, c)); after != before {
+			t.Errorf("%v: wrote %d event(s)", tc.args, after-before)
+		}
+	}
 }
 
 // Port of test_move_illegal_transition_fails: HYPOTHESIS -> CONFIRMED is

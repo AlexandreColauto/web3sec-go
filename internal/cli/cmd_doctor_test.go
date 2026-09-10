@@ -143,3 +143,19 @@ func TestCLIDoctorArgparse(t *testing.T) {
 		t.Fatalf("help = %q, want %q", out, t26DoctorHelp)
 	}
 }
+
+// TestDoctorRejectsBothModes pins the exclusion: passing both modes used to
+// resolve silently to --snapshot-only, so a requested repair never ran and
+// the exit status said everything was fine.
+func TestDoctorRejectsBothModes(t *testing.T) {
+	root := mkroot(t)
+	code, out, errS := run(t, "--root", root, "doctor", "C-1",
+		"--state-only", "--snapshot-only")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(errS, "argument --snapshot-only: not allowed with "+
+		"argument --state-only") {
+		t.Errorf("stderr = %q, want the mutual-exclusion message", errS)
+	}
+}

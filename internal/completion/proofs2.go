@@ -267,7 +267,7 @@ func proofLearning(c *state.Campaign) (validation.Value, error) {
 	}
 	mems := []validation.Value{}
 	if dirExists(c.MemoryDir) {
-		matches, err := filepath.Glob(filepath.Join(c.MemoryDir, "MEM-*.json"))
+		matches := validation.ListPrefixed(c.MemoryDir, "MEM-", ".json")
 		if err != nil {
 			return validation.VNull(), err
 		}

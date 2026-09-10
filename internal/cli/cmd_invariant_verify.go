@@ -32,12 +32,12 @@ func runInvariantVerify(root string, args []string, r *Runner) int {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case a == "--artifact" && i+1 < len(args):
+		case a == "--artifact" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			artifact = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--artifact="):
 			artifact = strings.TrimPrefix(a, "--artifact=")
-		case a == "--exec" && i+1 < len(args):
+		case a == "--exec" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			execID = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--exec="):

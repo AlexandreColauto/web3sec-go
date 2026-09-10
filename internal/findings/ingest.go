@@ -205,8 +205,8 @@ func verifyExecReference(campaign *state.Campaign, item validation.Value,
 	}
 	// No citation. Design law #4: E4+ evidence names its EXEC record.
 	var matching []validation.Value
-	paths, _ := filepath.Glob(filepath.Join(campaign.ExecsDir, "EXEC-*",
-		"exec_record.json"))
+	paths := validation.ListSubPrefixed(campaign.ExecsDir, "EXEC-",
+		"exec_record.json")
 	sort.Strings(paths)
 	for _, p := range paths {
 		rec, err := validation.ReadJson(p)
@@ -358,10 +358,14 @@ func IngestHypothesis(campaign *state.Campaign, payload validation.Value,
 			return validation.VNull(), err
 		}
 	}
-	if err := SaveFinding(campaign, &p); err != nil {
+	// The discovery slot is consumed BEFORE the finding is written: the slot
+	// is a budget, and a crash between the two writes must cost the operator
+	// a slot (recoverable, visible) rather than hand out a free one. Saving
+	// first left an uncounted discovery behind any failure in this window.
+	if err := campaign.ConsumeDiscoverySlot(); err != nil {
 		return validation.VNull(), err
 	}
-	if err := campaign.ConsumeDiscoverySlot(); err != nil {
+	if err := SaveFinding(campaign, &p); err != nil {
 		return validation.VNull(), err
 	}
 	advisory := classAdvisoryFunc(rootClass)

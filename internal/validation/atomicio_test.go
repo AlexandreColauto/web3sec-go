@@ -205,3 +205,64 @@ func TestAppendJsonlAscii(t *testing.T) {
 		t.Errorf("rejected line must not be written: %q", raw)
 	}
 }
+
+// TestAppendJsonlRefusesTornTail: a log whose last record has no newline is
+// refused, not appended to. Before the guard the append reported success while
+// concatenating two records into one unparseable line (the campaign's event
+// log then failed every subsequent read with "data after top-level value").
+func TestAppendJsonlRefusesTornTail(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "torn.jsonl")
+	if err := os.WriteFile(p, []byte(`{"a": 1}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := AppendJsonlAscii(p, `{"a": 2}`)
+	if err == nil {
+		t.Fatal("append behind a torn record must fail")
+	}
+	if !strings.Contains(err.Error(), "does not end in a newline") {
+		t.Errorf("error = %v, want the newline-framing message", err)
+	}
+	raw, _ := os.ReadFile(p)
+	if string(raw) != `{"a": 1}` {
+		t.Errorf("refused append must not touch the file: %q", raw)
+	}
+	// A properly framed log still appends, and an empty file is not "torn".
+	if err := AppendJsonlAscii(p, `ignored`); err == nil {
+		t.Error("still torn after a refused append")
+	}
+	fresh := filepath.Join(dir, "fresh.jsonl")
+	if err := os.WriteFile(fresh, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := AppendJsonlAscii(fresh, `{"a": 1}`); err != nil {
+		t.Errorf("empty file must accept the first record: %v", err)
+	}
+}
+
+// TestWriteJsonPreservesMode: a 0600 state file must not be rewritten 0644
+// (the rename replaces the inode, so the mode has to be carried over).
+func TestWriteJsonPreservesMode(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "state.json")
+	if err := os.WriteFile(p, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteJson(p, VInt(1), ""); err != nil {
+		t.Fatal(err)
+	}
+	st, err := os.Stat(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o600 {
+		t.Errorf("mode = %v, want 0600", st.Mode().Perm())
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("temp residue after write: %v", entries)
+	}
+}

@@ -31,17 +31,17 @@ func runRecall(root string, args []string, r *Runner) int {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case a == "--finding" && i+1 < len(args):
+		case a == "--finding" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			findingID, haveFinding = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--finding="):
 			findingID, haveFinding = strings.TrimPrefix(a, "--finding="), true
-		case a == "--mode" && i+1 < len(args):
+		case a == "--mode" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			mode = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--mode="):
 			mode = strings.TrimPrefix(a, "--mode=")
-		case a == "--note" && i+1 < len(args):
+		case a == "--note" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			note, haveNote = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--note="):

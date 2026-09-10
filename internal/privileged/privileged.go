@@ -10,8 +10,6 @@
 package privileged
 
 import (
-	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -133,12 +131,11 @@ func LoadProtocolModel(c *state.Campaign) *validation.Value {
 	if _, err := os.Stat(p); err != nil {
 		return nil
 	}
+	// Fail-soft: unreadable, unparseable and absent all mean "no model yet"
+	// (the empty track). The corrupt-vs-absent distinction this used to
+	// discriminate with errors.As returned nil from both arms anyway.
 	model, err := validation.ReadJson(p)
 	if err != nil {
-		var syn *json.SyntaxError
-		if errors.As(err, &syn) || errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
 		return nil
 	}
 	return &model

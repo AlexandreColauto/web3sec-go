@@ -49,27 +49,27 @@ func immunizeCmd(root string, args []string, r *Runner) error {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case a == "--poc-exec" && i+1 < len(args):
+		case a == "--poc-exec" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			pocExec, havePOC = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--poc-exec="):
 			pocExec, havePOC = strings.TrimPrefix(a, "--poc-exec="), true
-		case a == "--patch" && i+1 < len(args):
+		case a == "--patch" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			patch, havePatch = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--patch="):
 			patch, havePatch = strings.TrimPrefix(a, "--patch="), true
-		case a == "--mutations" && i+1 < len(args):
+		case a == "--mutations" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			mutations, haveMutations = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--mutations="):
 			mutations, haveMutations = strings.TrimPrefix(a, "--mutations="), true
-		case a == "--bypass" && i+1 < len(args):
+		case a == "--bypass" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			bypass, haveBypass = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--bypass="):
 			bypass, haveBypass = strings.TrimPrefix(a, "--bypass="), true
-		case a == "--actor" && i+1 < len(args):
+		case a == "--actor" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			actor = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--actor="):

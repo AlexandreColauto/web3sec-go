@@ -64,7 +64,7 @@ func Materializable(campaign *state.Campaign) ([]validation.Value, error) {
 	}
 	memberSets := [][]string{}
 	if dirExists(campaign.ChainsDir) {
-		paths, _ := filepath.Glob(filepath.Join(campaign.ChainsDir, "CHAIN-*.json"))
+		paths := validation.ListPrefixed(campaign.ChainsDir, "CHAIN-", ".json")
 		sort.Strings(paths)
 		for _, p := range paths {
 			doc, err := validation.ReadJson(p)

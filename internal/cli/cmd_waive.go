@@ -25,7 +25,7 @@ func runWaive(root string, args []string, r *Runner) int {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case a == "--subject" && i+1 < len(args):
+		case a == "--subject" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			subject = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--subject="):
@@ -33,7 +33,7 @@ func runWaive(root string, args []string, r *Runner) int {
 		case a == "--subject":
 			return r.fail(root, argErrf("waive",
 				"argument --subject: expected one argument"))
-		case a == "--reason" && i+1 < len(args):
+		case a == "--reason" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			reason, haveReason = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--reason="):
@@ -41,7 +41,7 @@ func runWaive(root string, args []string, r *Runner) int {
 		case a == "--reason":
 			return r.fail(root, argErrf("waive",
 				"argument --reason: expected one argument"))
-		case a == "--actor" && i+1 < len(args):
+		case a == "--actor" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			actor, haveActor = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--actor="):

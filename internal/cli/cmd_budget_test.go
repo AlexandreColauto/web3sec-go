@@ -199,3 +199,32 @@ func TestBudgetHelp(t *testing.T) {
 		t.Fatalf("stderr = %q", errS)
 	}
 }
+
+// TestBudgetRejectsClearWithSet pins the mutual exclusion: --clear + --set
+// used to be accepted with --clear silently dropped (the set branch won), so
+// the operator believed a ceiling had been cleared when it had been raised.
+func TestBudgetRejectsClearWithSet(t *testing.T) {
+	root := mkroot(t)
+	code, out, errS := run(t, "--root", root, "budget", "--clear",
+		"--set", "5", "C-1")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(errS, "argument --clear: not allowed with "+
+		"argument --set") {
+		t.Errorf("stderr = %q, want the mutual-exclusion message", errS)
+	}
+}
+
+// TestBudgetRefusesOptionLookalikeValue: the --set family is hand-parsed too,
+// so it carries the same guard as the case-based parsers.
+func TestBudgetRefusesOptionLookalikeValue(t *testing.T) {
+	root := mkroot(t)
+	code, _, errS := run(t, "--root", root, "budget", "C-1", "--set", "--json")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q", code, errS)
+	}
+	if !strings.Contains(errS, "argument --set: expected one argument") {
+		t.Errorf("stderr = %q, want the argparse message", errS)
+	}
+}

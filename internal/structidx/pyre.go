@@ -582,8 +582,6 @@ func anyFold(r rune, pred func(rune) bool) bool {
 
 func toLowerRune(r rune) rune { return unicode.ToLower(r) }
 
-func toUpperRune(r rune) rune { return unicode.ToUpper(r) }
-
 func classMatch(n *reNode, r rune, fold bool) bool {
 	in := func(rr rune) bool {
 		for _, rg := range n.cls {

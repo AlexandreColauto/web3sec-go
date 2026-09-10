@@ -35,17 +35,17 @@ func runResolveCandidate(root string, args []string, r *Runner) int {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case a == "--verdict" && i+1 < len(args):
+		case a == "--verdict" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			verdict, haveVerdict = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--verdict="):
 			verdict, haveVerdict = strings.TrimPrefix(a, "--verdict="), true
-		case a == "--note" && i+1 < len(args):
+		case a == "--note" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			note = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--note="):
 			note = strings.TrimPrefix(a, "--note=")
-		case a == "--actor" && i+1 < len(args):
+		case a == "--actor" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			actor = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--actor="):

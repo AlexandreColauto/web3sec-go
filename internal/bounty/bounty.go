@@ -569,10 +569,40 @@ func (g *gate) add(name, result, detail, remediation string) {
 
 // addWaived records the pass row for a check cleared by a named waiver
 // (stage + subject addressed to this finding, with actor and reason on the
-// waiver row).
+// waiver row). It appends *after* the fail row it answers, so the pair has to
+// be read through effectiveChecks — see the note there.
 func (g *gate) addWaived(check string, w *validation.Value) {
 	g.add(check, "pass", "waived by "+pyStrAny(objAt(*w, "actor"))+
 		": "+headRunes(pyStrAny(objAt(*w, "reason")), 80), "")
+}
+
+// effectiveChecks collapses the policy_checks rows to one row per check name:
+// the last row wins, keeping the position of that last row. A waiver appends
+// its pass row behind the fail row it answers, so the raw list holds two
+// verdicts for one check; reading it verbatim made a waived check permanently
+// un-submittable (submission_ready false) while blocking_reasons stayed empty
+// — the operator was told "not submittable" with no reason and no way to see
+// why. An unwaived fail, and a row with no successor, are unaffected: only a
+// later row for the same check supersedes, and it is never a pass that was
+// never emitted.
+func effectiveChecks(rows []validation.Value) []validation.Value {
+	if len(rows) == 0 {
+		return rows
+	}
+	last := make(map[string]int, len(rows))
+	for i, c := range rows {
+		last[objStr(c, "check")] = i
+	}
+	if len(last) == len(rows) {
+		return rows
+	}
+	out := make([]validation.Value, 0, len(last))
+	for i, c := range rows {
+		if last[objStr(c, "check")] == i {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // scopeTargets returns the strings the scope policy is matched against for
@@ -1393,8 +1423,9 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 	// records the accepted risk when the finding had no bounty object yet).
 	// Re-adopt the gate's copy so the record reaches the save below.
 	f = g.f
+	effective := effectiveChecks(g.checks)
 	eligible := true
-	for _, c := range g.checks {
+	for _, c := range effective {
 		if objStr(c, "result") != "fail" {
 			continue
 		}
@@ -1404,7 +1435,7 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 		}
 	}
 	submissionReady := len(g.blockers) == 0
-	for _, c := range g.checks {
+	for _, c := range effective {
 		if objStr(c, "result") != "pass" {
 			submissionReady = false
 			break

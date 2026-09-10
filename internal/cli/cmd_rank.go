@@ -187,8 +187,10 @@ func rankCritic(e risk.AcceptanceEntry) string {
 
 func rankTitle(e risk.AcceptanceEntry) string {
 	t := objStr(e.Finding, "title")
-	if len(t) > 44 {
-		t = t[:44] + "…"
+	// Runes, not bytes: a byte slice through a multi-byte character emits
+	// invalid UTF-8 to the terminal.
+	if r := []rune(t); len(r) > 44 {
+		t = string(r[:44]) + "…"
 	}
 	return t
 }

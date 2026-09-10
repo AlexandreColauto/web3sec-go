@@ -44,7 +44,7 @@ func runGate(root string, args []string, r *Runner) int {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case a == "--explain" && i+1 < len(args):
+		case a == "--explain" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			explain, haveExplain = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--explain="):

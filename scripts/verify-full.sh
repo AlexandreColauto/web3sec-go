@@ -3,7 +3,7 @@
 # verify-full.sh — the single entry point that proves the repo is clean.
 #
 # One command (a human or CI) runs to know whether every gate is green:
-# twelve ordered steps, fail-fast with the failing step's name.
+# thirteen ordered steps, fail-fast with the failing step's name.
 #
 #   1.  go vet ./... clean
 #   2.  go build ./cmd/webv2 -> /tmp/webv2

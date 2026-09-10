@@ -15,7 +15,6 @@ package orchestrator
 
 import (
 	"os"
-	"path/filepath"
 	"sort"
 
 	"websec/internal/capabilities"
@@ -309,11 +308,7 @@ func defaultChainReport(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	matches, err := filepath.Glob(filepath.Join(c.ChainsDir, "CHAIN-*.json"))
-	if err != nil {
-		return validation.VNull(), err
-	}
-	sort.Strings(matches)
+	matches := validation.ListPrefixed(c.ChainsDir, "CHAIN-", ".json")
 	materialized := []validation.Value{}
 	for _, p := range matches {
 		if _, err := os.Stat(p); err != nil {

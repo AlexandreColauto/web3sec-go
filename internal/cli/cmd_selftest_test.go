@@ -183,3 +183,19 @@ func writeFile(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
+
+// TestSelftestRejectsUnknownFlag: the Python twin ignored unknown argv
+// because it only tested membership; the port kept that, so `selftest --ful`
+// ran the fast plan and printed PASS — which reads as "the suite is green".
+func TestSelftestRejectsUnknownFlag(t *testing.T) {
+	code, out, errS := run(t, "--root", mkroot(t), "selftest", "--ful")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(errS, "unrecognized arguments: --ful") {
+		t.Errorf("stderr = %q, want the unrecognized-arguments message", errS)
+	}
+	if strings.Contains(out, "PASS") {
+		t.Errorf("stdout = %q: a refused run must not print results", out)
+	}
+}

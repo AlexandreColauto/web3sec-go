@@ -78,7 +78,7 @@ func chainCmd(root string, args []string, r *Runner) error {
 			return t14ArgparseErr(chainUsage, "chain",
 				"argument --unproven: ignored explicit argument %s",
 				validation.PyReprStr(strings.TrimPrefix(a, "--unproven=")))
-		case a == "--note" && i+1 < len(args):
+		case a == "--note" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			note = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--note="):
@@ -86,7 +86,7 @@ func chainCmd(root string, args []string, r *Runner) error {
 		case a == "--note":
 			return t14ArgparseErr(chainUsage, "chain",
 				"argument --note: expected one argument")
-		case a == "--title" && i+1 < len(args):
+		case a == "--title" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			title = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--title="):

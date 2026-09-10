@@ -60,6 +60,13 @@ func runDoctor(root string, args []string, r *Runner) int {
 		if len(pos) > 1 {
 			return t14Unrecognized(strings.Join(pos[1:], " "))
 		}
+		// Both modes at once used to resolve silently (snapshotOnly won, so
+		// the requested repair never ran). They are alternatives.
+		if stateOnly && snapshotOnly {
+			return t14ArgparseErr(t26DoctorUsage, "doctor",
+				"argument --snapshot-only: not allowed with argument "+
+					"--state-only")
+		}
 		c, err := t14Open(root, pos[0])
 		if err != nil {
 			return err

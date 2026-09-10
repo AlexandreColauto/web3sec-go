@@ -438,10 +438,12 @@ func (c *Campaign) ReconcileArtifacts(dry bool) (validation.Value, error) {
 			continue
 		}
 		stored := objAt(a, "sha256")
-		if stored.Kind != validation.Str {
+		if stored.Kind != validation.Str || stored.S == "" {
 			// Registered without a hash: nothing to compare, and refreshing it
-			// would invent a baseline. Reported as unchanged (the audit already
-			// flags hash-less rows).
+			// here would invent a baseline from whatever is on disk now.
+			// Reported as unchanged, and since 2026-09-10 the audit really does
+			// flag it (it used to skip the row and still report ok) — the
+			// operator's fix is an explicit `artifact refresh` on that id.
 			unchanged++
 			continue
 		}

@@ -218,6 +218,98 @@ func TestDoctorProbeReportsPresentCompiler(t *testing.T) {
 	}
 }
 
+// campaignWithSol is campaignWithPin with a chosen foundry.toml `sol` value.
+func campaignWithSol(t *testing.T, name, sol string) *state.Campaign {
+	t.Helper()
+	root := t.TempDir()
+	c, err := state.Init(root, name, state.InitOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(root, "src")
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(target, "C.sol"), "// c")
+	writeFile(t, filepath.Join(target, "foundry.toml"),
+		"[profile.default]\nsol = \""+sol+"\"\n")
+	if _, err := snapshot.PinSourceSnapshot(c, target, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+// TestDoctorRefusesNonVersionCompilerPin pins the 2026-09-10 fix: the compiler
+// pin comes from the TARGET repo's foundry.toml, and it used to be pasted into
+// `docker run … /bin/sh -c "ls /home/foundry/.svm/<pin>"` — a pin of
+// `0.8.24; <anything>` ran in the probe container, whose exit 0 also forged
+// "solc present". Nothing may be executed from an unvalidated pin.
+func TestDoctorRefusesNonVersionCompilerPin(t *testing.T) {
+	c := campaignWithSol(t, "solchinject", "0.8.24; touch /tmp/pwned")
+	prev := dockerProbe
+	dockerProbe = stubImage(true, true, false)
+	t.Cleanup(func() { dockerProbe = prev })
+	stubDaemon(t, true)
+	ran := false
+	prevRun := runProc
+	runProc = func([]string, time.Duration) (procResult, error) {
+		ran = true
+		return procResult{ReturnCode: 0, Stdout: "solc-0.8.24\n"}, nil
+	}
+	t.Cleanup(func() { runProc = prevRun })
+
+	report, err := Doctor(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solc := objAt(report, "solc")
+	if boolField(solc, "present") {
+		t.Error("present = true for a pin that was never probed")
+	}
+	if boolField(solc, "checked") {
+		t.Error("checked = true for a pin that was never probed")
+	}
+	problem := objStr(solc, "problem")
+	if !strings.Contains(problem, "not a solc version") {
+		t.Errorf("problem = %q, want the not-a-version refusal", problem)
+	}
+	if ran {
+		t.Error("the solc probe ran a container with an unvalidated pin")
+	}
+}
+
+// TestSolcProbePassesVersionAsArgv: with a valid pin the version travels as an
+// argv element, never as part of the shell source.
+func TestSolcProbePassesVersionAsArgv(t *testing.T) {
+	c, _ := campaignWithPin(t, "solcargv")
+	prev := dockerProbe
+	dockerProbe = stubImage(true, true, false)
+	t.Cleanup(func() { dockerProbe = prev })
+	stubDaemon(t, true)
+	var argv []string
+	prevRun := runProc
+	runProc = func(a []string, _ time.Duration) (procResult, error) {
+		argv = a
+		return procResult{ReturnCode: 0, Stdout: "solc-0.8.24\n"}, nil
+	}
+	t.Cleanup(func() { runProc = prevRun })
+
+	if _, err := Doctor(c); err != nil {
+		t.Fatal(err)
+	}
+	if len(argv) == 0 {
+		t.Fatal("the probe did not run")
+	}
+	if got := argv[len(argv)-1]; got != "0.8.24" {
+		t.Errorf("last argv = %q, want the version as its own argument", got)
+	}
+	for i, a := range argv {
+		if i > 0 && argv[i-1] == "-c" && strings.Contains(a, "0.8.24") {
+			t.Errorf("the version is interpolated into the shell source: %q", a)
+		}
+	}
+}
+
 func TestDoctorProbeSkippedWithoutDaemon(t *testing.T) {
 	c, _ := campaignWithPin(t, "solcg")
 	prev := dockerProbe

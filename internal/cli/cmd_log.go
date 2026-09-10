@@ -21,7 +21,7 @@ func runLog(root string, args []string, stdout io.Writer) error {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case a == "--tail" && i+1 < len(args):
+		case a == "--tail" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			n, err := parseTail(args[i+1])
 			if err != nil {
 				return err

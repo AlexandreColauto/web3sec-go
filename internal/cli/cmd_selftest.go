@@ -92,8 +92,20 @@ func runSelftest(_ string, args []string, r *Runner) int {
 	for _, a := range args {
 		if a == "--full" {
 			full = true
+			continue
 		}
-		// Python ignores every other argv token (it only tests membership).
+		if a == "-h" || a == "--help" {
+			continue // handled above
+		}
+		// Python ignored every other argv token because it only tested
+		// membership. That reason is gone: a typo like --ful used to run the
+		// fast plan and report PASS, which reads as "the full suite is green".
+		if strings.HasPrefix(a, "-") {
+			fmt.Fprint(r.Err, "usage: webv2 selftest [--full]\n")
+			fmt.Fprintf(r.Err,
+				"webv2 selftest: error: unrecognized arguments: %s\n", a)
+			return 2
+		}
 	}
 	mode := "fast — pass --full for the go test suite"
 	if full {

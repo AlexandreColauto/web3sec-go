@@ -54,10 +54,7 @@ func LoadFinding(campaign *state.Campaign, findingID string) (validation.Value, 
 // filenames (the dedup processing-order contract; filename glob order is
 // random per run).
 func LoadAllFindings(campaign *state.Campaign) ([]validation.Value, error) {
-	matches, err := filepath.Glob(filepath.Join(campaign.FindingsDir, "F-*.json"))
-	if err != nil {
-		return nil, err
-	}
+	matches := validation.ListPrefixed(campaign.FindingsDir, "F-", ".json")
 	out := make([]validation.Value, 0, len(matches))
 	for _, p := range matches {
 		v, err := validation.ReadJson(p)
