@@ -543,6 +543,44 @@ func TestSetTriagerOutlook(t *testing.T) {
 	}
 }
 
+// TestTriagerOutlookValidatorFollowsAccessor is the behavioral half of the
+// enum-sync guard: SetTriagerOutlook must accept EXACTLY the members of
+// findings.TriagerOutlooks(). Adding a member to the accessor without teaching
+// the validator fails the accept-half; an extra hardcoded validator member
+// fails the reject-half. The error text must also be derived from the
+// accessor, so the CLI's "choose:" legend can never drift.
+func TestTriagerOutlookValidatorFollowsAccessor(t *testing.T) {
+	const reason = "policy pays this class; on-chain PoC is ready"
+	c := ingestCamp(t)
+	f, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fid := objStr(f, "finding_id")
+	for _, o := range TriagerOutlooks() {
+		if _, err := SetTriagerOutlook(c, fid, o, reason); err != nil {
+			t.Fatalf("accessor member %q rejected by the validator: %v", o, err)
+		}
+	}
+	legend := strings.Join(TriagerOutlooks(), ", ")
+	// The outside set is derived from the accessor so it never goes stale:
+	// near-misses of every member, plus empty and a nonsense value.
+	outside := []string{"", "maybe"}
+	for _, o := range TriagerOutlooks() {
+		outside = append(outside, o+"x", strings.ToUpper(o), o+" ")
+	}
+	for _, o := range outside {
+		_, err := SetTriagerOutlook(c, fid, o, reason)
+		if err == nil {
+			t.Fatalf("value %q outside the accessor was accepted", o)
+		}
+		if !strings.Contains(err.Error(), legend) {
+			t.Fatalf("error for %q does not list the accessor enum (%q): %v",
+				o, legend, err)
+		}
+	}
+}
+
 // set_shield_adjudication records the extraction decision with its actor.
 func TestSetShieldAdjudication(t *testing.T) {
 	c := ingestCamp(t)

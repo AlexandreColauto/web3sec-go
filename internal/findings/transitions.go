@@ -574,11 +574,21 @@ func TriagerOutlooks() []string { return []string{"likely", "uncertain", "unlike
 // bounty.accepted_risk (policy). Absent field = no call = no score effect.
 func SetTriagerOutlook(campaign *state.Campaign, findingID, outcome,
 	reason string) (validation.Value, error) {
-	switch outcome {
-	case "likely", "uncertain", "unlikely":
-	default:
+	// Membership is checked against TriagerOutlooks() — the single source —
+	// so a new enum member cannot be accepted by the schema/CLI and still be
+	// rejected here (which would fail after SetCriticVerdict already wrote).
+	outcomes := TriagerOutlooks()
+	member := false
+	for _, o := range outcomes {
+		if o == outcome {
+			member = true
+			break
+		}
+	}
+	if !member {
 		return validation.VNull(), fmt.Errorf("invalid triager outlook %s "+
-			"(choose: likely, uncertain, unlikely)", validation.PyReprStr(outcome))
+			"(choose: %s)", validation.PyReprStr(outcome),
+			strings.Join(outcomes, ", "))
 	}
 	stripped := strings.TrimSpace(reason)
 	if len([]rune(stripped)) < 15 {

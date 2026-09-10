@@ -979,6 +979,53 @@ func TestResolveSameRecordsCorroboration(t *testing.T) {
 	}
 }
 
+// TestResolveSameRecordsCorroborationWhenToolSideOlder is the reversed-order
+// regression: the SAST finding is created FIRST, so mergeYounger keeps it as
+// the survivor and merges the younger model side into it. The corroboration
+// link must land on the LIVE survivor — writing it before the merge put it on
+// the model side, which becomes DUPLICATE and is dropped by LoadLiveFindings,
+// leaving the G1 +0.5 inert on every ranked finding.
+func TestResolveSameRecordsCorroborationWhenToolSideOlder(t *testing.T) {
+	wireSeams(t)
+	c := pinnedCamp(t)
+	older, younger := flaggedPair(t, c) // older is created first
+	toolF := attachTools(t, c, older, "slither:reentrancy-eth")
+	if _, err := ResolveCandidate(c, idOf(toolF), idOf(younger),
+		"same", "", "operator"); err != nil {
+		t.Fatal(err)
+	}
+	survivor := reloadID(t, c, idOf(toolF))
+	if objStr(survivor, "status") == "DUPLICATE" {
+		t.Fatalf("the older tool side must survive the merge: %s",
+			validation.CanonCompact(survivor))
+	}
+	if s := objStr(reloadID(t, c, idOf(younger)), "status"); s != "DUPLICATE" {
+		t.Fatalf("the younger model side status = %q, want DUPLICATE", s)
+	}
+	corr := getDeep(survivor, "dedup_meta", "corroborated_by")
+	if corr.Kind != validation.Str || corr.S != idOf(younger) {
+		t.Fatalf("corroborated_by not recorded on the live survivor: %s",
+			validation.CanonCompact(corr))
+	}
+	// ranking reads LoadLiveFindings: the bonus must be reachable from there.
+	live, err := findings.LoadLiveFindings(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, f := range live {
+		if idOf(f) == idOf(toolF) {
+			found = true
+			if getDeep(f, "dedup_meta", "corroborated_by").Kind != validation.Str {
+				t.Fatal("live survivor carries no corroborated_by")
+			}
+		}
+	}
+	if !found {
+		t.Fatal("the tool side is not live after the merge")
+	}
+}
+
 func TestResolveToolVsToolRecordsNothing(t *testing.T) {
 	c, a, b := setupPair(t)
 	a = attachTools(t, c, a, "slither:reentrancy-eth") // both sides SAST

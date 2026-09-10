@@ -589,55 +589,79 @@ func ResolveCandidate(campaign *state.Campaign, findingID, ofFindingID, verdict,
 		return validation.VNull(), err
 	}
 	if verdict == "same" {
-		// G1 corroboration law: exactly one side SAST-flagged => the model
-		// side is corroborated by the tool finding. Same-engine pairs never
-		// corroborate — an independent method is the point. The operator
-		// resolved the same-root-cause link; we only record what that
-		// resolution mechanically implies. Reload both sides: the loop
-		// above just saved them.
-		for _, pair := range [2][2]string{
-			{findingID, ofFindingID}, {ofFindingID, findingID}} {
-			selfID, otherID := pair[0], pair[1]
-			self, err := findings.LoadFinding(campaign, selfID)
-			if err != nil {
-				return validation.VNull(), err
-			}
-			other, err := findings.LoadFinding(campaign, otherID)
-			if err != nil {
-				return validation.VNull(), err
-			}
-			if len(valueStrings(getDeep(self, "provenance", "sast_tools"))) == 0 &&
-				len(valueStrings(getDeep(other, "provenance", "sast_tools"))) > 0 {
-				corroborated := setDeep(self, validation.VStr(otherID),
-					"dedup_meta", "corroborated_by")
-				if err := findings.SaveFinding(campaign, &corroborated); err != nil {
-					return validation.VNull(), err
-				}
-				data := validation.VObj(kv("of", validation.VStr(otherID)))
-				if _, err := campaign.Log("dedup.corroborated", &selfID, &data); err != nil {
-					return validation.VNull(), err
-				}
-			}
-		}
 		if err := mergeYounger(campaign, f, ofFindingID); err != nil {
 			return validation.VNull(), err
+		}
+		// G1 corroboration law: exactly one side SAST-flagged => the resolved
+		// same-root-cause pair is independent corroboration. Same-engine
+		// pairs never corroborate — an independent method is the point.
+		// Recorded AFTER mergeYounger, on the SURVIVOR, naming the other
+		// (merged-away) side: the merge marks one side DUPLICATE and
+		// LoadLiveFindings (what ranking reads) drops DUPLICATE records, so a
+		// pre-merge write can land on a record no consumer ever sees —
+		// exactly what happens when the SAST finding is the older side.
+		// Reload both sides: the merge just changed them.
+		one, err := findings.LoadFinding(campaign, findingID)
+		if err != nil {
+			return validation.VNull(), err
+		}
+		two, err := findings.LoadFinding(campaign, ofFindingID)
+		if err != nil {
+			return validation.VNull(), err
+		}
+		oneTooled := len(valueStrings(getDeep(one, "provenance", "sast_tools"))) > 0
+		twoTooled := len(valueStrings(getDeep(two, "provenance", "sast_tools"))) > 0
+		if oneTooled != twoTooled {
+			_, survivor := pickYoungerOlder(one, two)
+			other := one
+			if objStr(survivor, "finding_id") == objStr(one, "finding_id") {
+				other = two
+			}
+			otherID := objStr(other, "finding_id")
+			sid := objStr(survivor, "finding_id")
+			corroborated := setDeep(survivor, validation.VStr(otherID),
+				"dedup_meta", "corroborated_by")
+			if err := findings.SaveFinding(campaign, &corroborated); err != nil {
+				return validation.VNull(), err
+			}
+			data := validation.VObj(kv("of", validation.VStr(otherID)))
+			if _, err := campaign.Log("dedup.corroborated", &sid, &data); err != nil {
+				return validation.VNull(), err
+			}
 		}
 	}
 	return findings.LoadFinding(campaign, findingID)
 }
 
+// pickYoungerOlder is resolve_candidate's merge ordering: the older side by
+// created_at survives; an exact created_at tie breaks to the lower finding_id
+// (the same (created_at, finding_id) order LoadAllFindings sorts by). Returns
+// (younger, older). resolve_candidate's merge and its corroboration link both
+// consume it, so there is only one ordering rule.
+func pickYoungerOlder(a, b validation.Value) (validation.Value, validation.Value) {
+	ca, cb := objStr(a, "created_at"), objStr(b, "created_at")
+	if ca < cb {
+		return b, a
+	}
+	if ca > cb {
+		return a, b
+	}
+	if objStr(a, "finding_id") < objStr(b, "finding_id") {
+		return b, a
+	}
+	return a, b
+}
+
 // mergeYounger is resolve_candidate's `same` tail: reload the flagged
-// partner, pick the younger side by created_at (ties keep f), and merge it
-// into the older one unless it is already DUPLICATE.
+// partner, pick the younger side by created_at (ties -> higher finding_id, so
+// the lower id survives), and merge it into the older one unless it is already
+// DUPLICATE.
 func mergeYounger(campaign *state.Campaign, f validation.Value, ofFindingID string) error {
 	other, err := findings.LoadFinding(campaign, ofFindingID)
 	if err != nil {
 		return err
 	}
-	younger, older := f, other
-	if objStr(f, "created_at") < objStr(other, "created_at") {
-		younger, older = other, f
-	}
+	younger, older := pickYoungerOlder(f, other)
 	if objStr(younger, "status") == "DUPLICATE" {
 		return nil
 	}
