@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"websec/internal/structidx"
 	"websec/internal/validation"
 )
 
@@ -103,6 +104,42 @@ func TestReentrancyFiresWithoutGuard(t *testing.T) {
 	}
 	if !strings.HasSuffix(objStr(listAt(r, "hits")[0], "node_id"), ".deposit") {
 		t.Fatalf("hit node = %q, want *.deposit", objStr(listAt(r, "hits")[0], "node_id"))
+	}
+}
+
+// C0: the parser's per-function writes_storage only fires when the assignment
+// operator follows the variable name directly (`stateWriteRe`), so an indexed
+// or member lvalue (`balances[who] = v`, `s.field = v`) is recorded in the
+// statement-level `uses` but NOT in the list. A probe that answers "who writes
+// storage" from the list alone therefore misses the function entirely; with
+// structidx.WritersOf (the reconciled list) it fires.
+const indexedWriteSol = `
+contract Ledger {
+    mapping(address => uint256) balances;
+    function setBalance(address who, uint256 v) external { balances[who] = v; }
+}
+`
+
+func TestIndexedStatementWriteIsSeenByTheProbes(t *testing.T) {
+	idx := indexFor(t, indexedWriteSol)
+	// the divergence, pinned: the raw list is empty for the writer
+	fn := fnNodeOf(t, idx, "setBalance")
+	if got := listAt(fn, "writes_storage"); len(got) != 0 {
+		t.Fatalf("parser now records indexed writes (%v): the C0 note is stale",
+			got)
+	}
+	if got := structidx.WritersOf(idx, fn); len(got) != 1 || got[0] != "balances" {
+		t.Fatalf("WritersOf = %v, want [balances]", got)
+	}
+	r := probeOf(t, ProbeClasses(idx), "access-control")
+	if !objAt(r, "exposed").B {
+		t.Fatal("an unguarded entry point writing an indexed lvalue must be exposed")
+	}
+	if got := objStr(listAt(r, "hits")[0], "node_id"); !strings.HasSuffix(got, ".setBalance") {
+		t.Fatalf("hit node = %q, want *.setBalance", got)
+	}
+	if detail := objStr(listAt(r, "hits")[0], "detail"); !strings.Contains(detail, "balances") {
+		t.Fatalf("hit detail = %q, want it to name the written variable", detail)
 	}
 }
 
@@ -332,6 +369,18 @@ func probeOf(t *testing.T, out []validation.Value, cls string) validation.Value 
 		}
 	}
 	t.Fatalf("no probe row for %q", cls)
+	return validation.VNull()
+}
+
+// fnNodeOf finds a function node by name.
+func fnNodeOf(t *testing.T, index validation.Value, name string) validation.Value {
+	t.Helper()
+	for _, n := range objAt(index, "nodes").A {
+		if objStr(n, "kind") == "function" && objStr(n, "name") == name {
+			return n
+		}
+	}
+	t.Fatalf("no function node %q", name)
 	return validation.VNull()
 }
 

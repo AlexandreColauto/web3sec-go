@@ -141,7 +141,9 @@ func evalUnguardedEntryWrites(check, index validation.Value) (string, string, er
 		if !unguarded(n) {
 			continue
 		}
-		if anyMatch(pat, listAt(n, "writes_storage")) {
+		// C0: the reconciled writer list — the parser's writes_storage omits
+		// statement-level writes, so the raw list misses real writer functions.
+		if anyMatchStr(pat, structidx.WritersOf(index, n)) {
 			eps = append(eps, objStr(n, "name"))
 		}
 	}
@@ -330,6 +332,16 @@ func unguarded(n validation.Value) bool {
 		}
 	}
 	return true
+}
+
+// anyMatchStr is anyMatch over a []string.
+func anyMatchStr(pat *regexp.Regexp, values []string) bool {
+	for _, v := range values {
+		if pat.MatchString(v) {
+			return true
+		}
+	}
+	return false
 }
 
 // anyMatch is any(pat.search(v) for v in values).

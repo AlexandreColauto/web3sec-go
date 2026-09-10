@@ -191,6 +191,28 @@ func TestEachPlantedTreeMatchesOnlyItsOwnArchetype(t *testing.T) {
 	}
 }
 
+// C0: `unguarded_entry_writes` reads the writer list through
+// structidx.WritersOf, so an entry point whose only storage write is an
+// indexed lvalue (which the parser's writes_storage omits) still satisfies it.
+func TestUnguardedEntryWritesSeesIndexedStatementWrites(t *testing.T) {
+	idx, _ := makeTree(t, `
+contract Ledger {
+    mapping(address => uint256) balances;
+    function setBalance(address who, uint256 v) external { balances[who] = v; }
+}
+`)
+	check := validation.VObj(
+		validation.KV{K: "type", V: validation.VStr("unguarded_entry_writes")},
+		validation.KV{K: "var_pattern", V: validation.VStr("^balances$")})
+	result, detail, err := EvaluatePrecondition(check, idx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != "present" {
+		t.Fatalf("indexed statement write not seen: %s %s", result, detail)
+	}
+}
+
 func TestAbsentCheckReportsNearMatches(t *testing.T) {
 	// totalStaked is a near-miss for an asset-var archetype: the operator
 	// sees WHY it did not match instead of a silent false miss.

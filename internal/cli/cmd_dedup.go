@@ -290,6 +290,7 @@ func ensureSeams() {
 	histmining.SetIndexAPI(histmining.IndexAPI{
 		EnsureFreshIndex: structidx.EnsureFreshIndex,
 		SinkFunctions:    structidx.SinkFunctions,
+		WritersOf:        structidx.WritersOf,
 	})
 	// B4: the scope check (bounty) resolves a finding's contract name to its
 	// source path via the structural index, so a path-based scope entry can

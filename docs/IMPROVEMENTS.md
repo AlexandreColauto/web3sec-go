@@ -606,6 +606,77 @@ guard, trust-assumption, invariant-precision) are good *seeds*, but two of
 them produced their value by the model doing ad-hoc work the index could do
 deterministically.
 
+### C0. Storage-list fidelity: `writes_storage` under-reports (added 2026-09-10, out of the C1 pass)
+
+**Failed behavior:** the parser detects a state-variable write with
+`stateWriteRe(name)` (`internal/structidx/parser.go:109-112`), a regex that
+requires the assignment operator to follow the variable name *directly*:
+
+    (?<!\w)NAME(?!\w)\s*(?:\+=|-=|\*=|/=|\+\+|--|=[^=])
+
+So `total = v` and `total += v` are recorded in the per-function
+`writes_storage`, while an **indexed or member lvalue** — `balances[who] = v`,
+`withdrawsRequests[user] = 0`, `prevStateRoot[i+1] = root`,
+`rewardState.index = x` — is not: the `[` (or `.`) after the name breaks the
+match. The same statements ARE recorded in the statement-level `uses` (which
+carry `kind: "write"`, the exact line, and the concept keys), so the index
+contradicts itself: `uses` proves writes the list denies.
+
+**Measured (2026-09-10, the 18 fixture indexes: `internal/structidx/testdata/
+structural_index.json`, `internal/probes/testdata/golden/index_*.json`, and a
+golden campaign's `structural_index.json`):** 144 (state-variable, kind) pairs
+are statement-proven; **52 of them are missing from the lists, and every single
+one is a write.** Reads are complete. Concrete misses: `commitBatch` writes
+`prevStateRoot`, `finalizeBatch` writes `newStateRoot`, `updateTokenMapping`
+writes `tokenMapping` in all eight gateway contracts, `poke` writes
+`rewardState`, `_deposit` writes `deposits`, `claimWithdrawRequest` writes
+`lastWithdrawRequest`/`withdrawsRequests`, `commitBatch` writes `pendingRoots`.
+
+**Consumers that inherit the under-report** (all read the list directly):
+`structidx.StorageWriters` (the `storage_writers` query),
+`internal/corpus/probes.go` (`pReentrancy`, `pSharePriceInflation`,
+`pAccessControl`, `pLogicError` — four prescreen predicates),
+`internal/archetypes/evaluate.go` (`unguarded_entry_writes`), and
+`internal/histmining/recency.go` (the asset-writer-file heuristic). A
+reentrancy-shaped or access-control-shaped function whose only write is an
+indexed lvalue looks read-only to every one of them.
+
+**As landed (C0) — the read-side reconciliation, not an index change:** the
+index bytes stay exactly as the parser wrote them (its own golden tests pin
+them, and rewriting the index would churn every downstream fixture), and the
+consumers are handed the union instead.
+- `internal/structidx/writers.go`: `WritersOf(index, node)` is the parser's
+  `writes_storage` in its own order followed by the statement-proven writes the
+  list omits, resolved to variable NAMES through the index's `state-variable`
+  nodes with the same maximal-concept-key rule the enforcement table uses
+  (statements whose key belongs to no known state variable — locals,
+  parameters, library expressions — are not storage writes and are dropped).
+  `ReadsWritesOf` is that unioned with the (complete) `reads_storage`.
+  `EffectiveWriters(index, varName)` is the complete `storage_writers`;
+  `StorageWriters` keeps the reference semantics verbatim beside it, since the
+  parity goldens pin its behaviour and it has no live callers.
+- Routed: the four corpus prescreen predicates, the archetype's
+  `unguarded_entry_writes`, and recency's asset-writer-file scan. The
+  `histmining.IndexAPI` seam gained `WritersOf`; an incompletely wired seam
+  (index but no reconciliation) falls back to `rawWriters` — the pre-C0 list —
+  rather than silently reporting that nothing writes storage.
+- Tests: `internal/structidx/writers_test.go` (3 — the reconciliation against
+  the morph fixture: `prevStateRoot` appears via the statement, the list order
+  is preserved, no non-storage name leaks, a list-complete function is
+  unchanged, and the union keeps every id `StorageWriters` finds);
+  `internal/corpus/probes_test.go::TestIndexedStatementWriteIsSeenByTheProbes`
+  (an indexed-only writer fires `access-control`; it also PINS the divergence —
+  the test fails if the parser starts recording indexed writes, which is the
+  signal to delete this reconciliation); and
+  `internal/archetypes/archetypes_test.go::
+  TestUnguardedEntryWritesSeesIndexedStatementWrites`.
+- **Follow-up (not done here):** the root cause is one regex in the parser. A
+  future item can teach `stateWriteRe` an optional postfix chain
+  (`(?:\s*(?:\[[^\]]*\]|\.[A-Za-z_]\w*))*` before the operator), regenerate
+  the index fixtures, and delete `writers.go` — at the cost of an intentional
+  fixture regeneration plus a divergence row, which is why it is not bundled
+  into a fidelity fix.
+
 ### C1. Enforcement-timing capability: (write-site, read-site) stage table
 
 **Failed behavior:** the `assertion-strength` archetype (axis
@@ -1116,6 +1187,9 @@ statement-level uses at index time (or reconcile them and publish the delta),
 then measure the change on the fixtures and the golden campaign. This is
 probably the highest-value discovery of the C1 pass and it is currently
 unplanned.
+*(Landed 2026-09-10 as the `### C0` block above, read-side: `structidx.WritersOf`
+reconciles the lists with the statement proofs and the consumers use it. The
+parser-regex fix remains open and is described there as the follow-up.)*
 
 **4. Scope every pair/matrix search by relatedness up front, and count what
 you skipped.** C1's unscoped stage pairing produced 144 pairs for

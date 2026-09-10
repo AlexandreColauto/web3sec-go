@@ -59,7 +59,7 @@ func pReentrancy(index validation.Value) []validation.Value {
 		if len(calls) == 0 && len(deleg) == 0 {
 			continue
 		}
-		writes := strListAt(n, "writes_storage")
+		writes := structidx.WritersOf(index, n)
 		if len(writes) == 0 {
 			continue
 		}
@@ -82,7 +82,7 @@ func pSharePriceInflation(index validation.Value) []validation.Value {
 	}
 	hits := []validation.Value{}
 	for _, n := range fns(index) {
-		rw := append(strListAt(n, "reads_storage"), strListAt(n, "writes_storage")...)
+		rw := structidx.ReadsWritesOf(index, n)
 		if !anyMatch(reBalanceTotal, rw) {
 			continue
 		}
@@ -90,7 +90,7 @@ func pSharePriceInflation(index validation.Value) []validation.Value {
 			continue
 		}
 		var writesRate []string
-		for _, v := range strListAt(n, "writes_storage") {
+		for _, v := range structidx.WritersOf(index, n) {
 			if reRateVar.MatchString(v) {
 				writesRate = append(writesRate, v)
 			}
@@ -155,7 +155,7 @@ func pOracleManipulation(index validation.Value) []validation.Value {
 func pAccessControl(index validation.Value) []validation.Value {
 	hits := []validation.Value{}
 	for _, n := range structidx.UnguardedEntryPoints(index) {
-		writes := strListAt(n, "writes_storage")
+		writes := structidx.WritersOf(index, n)
 		if len(writes) == 0 {
 			continue
 		}
@@ -224,7 +224,7 @@ func pUncheckedExternalCall(index validation.Value) []validation.Value {
 func pLogicError(index validation.Value) []validation.Value {
 	hits := []validation.Value{}
 	for _, n := range structidx.ExternalSurface(index) {
-		writes := strListAt(n, "writes_storage")
+		writes := structidx.WritersOf(index, n)
 		if len(writes) == 0 {
 			continue
 		}

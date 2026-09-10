@@ -38,6 +38,9 @@ const RecencyWindowDays = 90
 type IndexAPI struct {
 	EnsureFreshIndex func(c *state.Campaign, snapshotRoot string) (validation.Value, error)
 	SinkFunctions    func(index validation.Value) []validation.Value
+	// WritersOf is C0's reconciled writer list (the parser's writes_storage
+	// omits statement-level writes); nil restores the absent-module default.
+	WritersOf func(index, node validation.Value) []string
 }
 
 func notWiredIndex(*state.Campaign, string) (validation.Value, error) {
@@ -46,9 +49,24 @@ func notWiredIndex(*state.Campaign, string) (validation.Value, error) {
 
 func notWiredSinks(validation.Value) []validation.Value { return nil }
 
+// rawWriters is the pre-C0 writer list (the parser's writes_storage, untouched).
+// It is the default when a caller wires the index but not the C0
+// reconciliation, so an incompletely wired IndexAPI keeps the reference
+// behaviour instead of silently reporting that nothing writes storage.
+func rawWriters(_ validation.Value, n validation.Value) []string {
+	out := []string{}
+	for _, v := range objAt(n, "writes_storage").A {
+		if v.Kind == validation.Str {
+			out = append(out, v.S)
+		}
+	}
+	return out
+}
+
 var indexAPI = IndexAPI{
 	EnsureFreshIndex: notWiredIndex,
 	SinkFunctions:    notWiredSinks,
+	WritersOf:        rawWriters,
 }
 
 // SetIndexAPI installs the structural_index implementation (the P3 structidx
@@ -60,6 +78,9 @@ func SetIndexAPI(api IndexAPI) {
 	}
 	if api.SinkFunctions == nil {
 		api.SinkFunctions = notWiredSinks
+	}
+	if api.WritersOf == nil {
+		api.WritersOf = rawWriters
 	}
 	indexAPI = api
 }
@@ -93,8 +114,9 @@ func RecencyScores(c *state.Campaign, target, snapshotRoot string) (
 	}
 	assetWriterFiles := map[string]bool{}
 	for _, n := range fns {
-		for _, v := range objAt(n, "writes_storage").A {
-			if v.Kind == validation.Str && assetVarRe.MatchString(v.S) {
+		// C0: reconciled writers (the raw writes_storage omits statement writes).
+		for _, v := range indexAPI.WritersOf(idx, n) {
+			if assetVarRe.MatchString(v) {
 				assetWriterFiles[strings.SplitN(objStr(n, "id"), "#", 2)[0]] = true
 				break
 			}

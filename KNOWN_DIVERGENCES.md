@@ -815,6 +815,33 @@ Bug-hunt sweep).
   `internal/cli/cmd_enforce.go`) has no reference counterpart, so no reference
   behavior is claimed for it; its `--help` text, like the other new verbs', is
   not captured by any scenario step.
+  **C0** (storage-list fidelity) is a divergence the Go build *adds* rather
+  than removes, and deliberately so. The parser's `writes_storage` — ported
+  from the reference's `stateWriteRe` regex verbatim — only records a write
+  when the assignment operator follows the variable name directly, so an
+  indexed or member lvalue (`balances[who] = v`, `prevStateRoot[i+1] = root`)
+  never lands in the list even though the statement-level `uses` record it.
+  Measured over the 18 fixture indexes: 52 of 144 statement-proven
+  (state-variable, kind) pairs are missing, all of them writes. The reference
+  behaves the same way, so this is a reference bug the port inherited, and the
+  fix is read-side: `internal/structidx/writers.go` reconciles the list with
+  the statement proofs (`WritersOf`, `ReadsWritesOf`, `EffectiveWriters`) and
+  the four corpus prescreen predicates, the archetype
+  `unguarded_entry_writes` check and recency's asset-writer-file scan consume
+  the reconciled list. `StorageWriters` — the `storage_writers` query, no live
+  callers — keeps the reference semantics so a future parity check of that
+  query still matches. No index bytes move, so the index fixtures and their
+  goldens are untouched, and `scripts/golden.sh` is green without
+  normalization: the prescreen/recency artifacts the enriched lists feed are
+  validated for well-formedness and declared exit codes, never byte-compared,
+  and no step's exit code moved (verified 2026-09-10). Artifact *content* in a
+  real campaign can legitimately change, because a function whose only write is
+  an indexed lvalue now counts as a writer — that is the point of the fix, and
+  the example above (an indexed-only `setBalance` firing the access-control
+  prescreen) is pinned as a Go test. The parser-level
+  fix (an optional postfix chain in `stateWriteRe`, then regenerate the index
+  fixtures) would be an intentional oracle update and is left to a future item
+  with its own row.
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**
