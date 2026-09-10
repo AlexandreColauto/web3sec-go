@@ -62,7 +62,7 @@ fail() {
   exit 1
 }
 
-TOTAL_STEPS=12
+TOTAL_STEPS=13
 
 step() {
   echo
@@ -784,10 +784,12 @@ step 13 "runbook walkthrough: every documented command matches the binary"
 # rows deep (the 2026-09-10 leanness review found it). Never let that again:
 # green means every verbatim command in assets/runbook/RUNBOOK.md exits with
 # its documented code and prints its documented marker.
-if bash "$ROOT/scripts/runbook-walkthrough.sh" > "$WORK/walkthrough.log" 2>&1; then
+mkdir -p "$ROOT/.scratch"
+WALK_LOG="$ROOT/.scratch/verify-walkthrough.log"
+if bash "$ROOT/scripts/runbook-walkthrough.sh" > "$WALK_LOG" 2>&1; then
   echo "  ok runbook-walkthrough (134+ rows green)"
 else
-  grep -E "^\[FAIL\]" "$WORK/walkthrough.log" | head -10
+  grep -E "^\[FAIL\]" "$WALK_LOG" | head -10
   fail 13 "runbook-walkthrough RED — the runbook and the binary disagree"
 fi
 echo "ok: runbook commands all match"

@@ -655,6 +655,13 @@
             }
           }
         },
+        "recommendation": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "the minimal fix in prose: the function, the specific change, before/after snippets, and related areas to review. Required by a policy whose poc_requirements.patch_clause is `prose` (IMPROVEMENTS D8); an advisory input in every other mode."
+        },
         "patch_verified": {
           "type": "object",
           "additionalProperties": false,

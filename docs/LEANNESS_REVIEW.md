@@ -214,3 +214,63 @@ discipline as the A–E waves:
 One-line summary: the bug-finding engine is lean and honest; the **port
 scaffolding around it is what's left to strike.** F1–F5 remove it, F6 is a
 decision, and nothing here weakens a single check the campaign loop runs.
+
+## Landing record (2026-09-10)
+
+What actually landed, in the order it landed, with the proof each step carried.
+Three commits: `8c2864d` (F1+F2+F3+F4+F5), `dd08da5` (F7, found while gating
+F1), and the D8 commit that follows.
+
+| step | status | proof it did not move a byte |
+|---|---|---|
+| F4 docs (README truth, E5 relabel, doctrine sweep) | landed | no code touched; `selftest` still reports 76 commands |
+| F2 dead modules (routing, datasets/{forge,scabench}, parent, config) | landed | `go build ./...` + `go test ./...` green; `go list -deps` had shown no importer |
+| F1 twin-free gates (verify-full 12 steps, manifest test, legacy fixture, archives) | landed | `verify-full` step 6 manifest equality, step 9 legacy cross-audit PASS |
+| F3 helper consolidation (SetOrAppend ×17, SetDefault ×5, WriteU4 ×3, sortStrings) | landed | full suite green; content hashes unchanged (golden: 179 commands, chain intact) |
+| F3 emitter merge (chainengine + cli dump stacks) | landed | **permanent equivalence tests**: 190,476 and 126,987 sampled values encode byte-identically to the deleted implementations |
+| F5 cruft (`.scratch-all-tests.json`, sft note) | landed | — |
+| F7 walkthrough rot | landed | walkthrough went 131/9 → 140/0 and became **verify-full step 13** |
+
+### F7. The walkthrough was red at HEAD, and nothing said so *(found 2026-09-10)*
+
+The review's premise was "find what does not buy value". The inverse showed up
+instead: a gate that bought value and had rotted because **it was not in the
+gate**. `scripts/runbook-walkthrough.sh` was red at HEAD (9 failing rows) —
+three of them caused by the twin retirement itself (the SFT fixture), six
+stale in ways unrelated to wave F:
+
+- three rows asserted behaviours Go had *deliberately corrected* (`ladder
+  explore` without a rung, `resolve-candidate --note`, and raw-JSON `prove`
+  markers) — the runbook documented the fixed behaviour, the walkthrough still
+  asserted the reference's.
+- three rows failed on a fixture bug: `snap` pins through git and walks up, so
+  the toy target pinned **this repository** (472 nodes) instead of the 15-node
+  toy; the probe surface was then emitted against one tree and re-derived from
+  another, and the final audit correctly called it stale. The fixture now inits
+  its own repo, and the runbook documents the walk-up.
+
+Neither the README nor any gate caught it, because `verify-full` simply did not
+run the walkthrough. Step 13 fixes the class, not the instance.
+
+### F8. Lesson for the next wave
+
+Leanness work needs the *anti*-gate as much as the gate: a check that is not in
+the one command people run is a check that describes the past. `verify-full` is
+now 13 steps and the runbook walkthrough — the only gate that reads the operator
+contract end to end — is one of them.
+
+### D8 landed (capability, not leanness) — and the advisory channel it exposed
+
+`poc_requirements.patch_clause` (`verification` | `prose` | `none`) now drives
+`check12`, so the gate asks for what the program actually wants: a tested patch,
+a written recommendation, or nothing. The absent key is `verification`, so the
+golden fixture, the pinned gate vectors and every existing campaign gate
+byte-identically; unknown values are refused at policy load and again in the
+gate. No new verb, no new flag.
+
+Landing it surfaced a small piece of dead data: `bounty.advisories` — the
+channel A2 introduced for in-code acknowledgements — was **written by the gate
+and read by nobody**. An advisory nobody can see is not an advisory. The report
+now renders it next to the gate verdict (`  - advisory: …`), emitted only when
+the list is non-empty so no existing output moves, with tests pinning both
+directions.

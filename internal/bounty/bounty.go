@@ -543,6 +543,9 @@ type gate struct {
 	f        validation.Value
 	checks   []validation.Value
 	blockers []string
+	// advisories are non-blocking notes a check wants surfaced on the
+	// finding's bounty.advisories (A2's shape, D8's boundary mutations).
+	advisories []string
 }
 
 // add is the Python closure: an entry always carries its detail, and a
@@ -1023,21 +1026,93 @@ func (g *gate) check11() error {
 	return nil
 }
 
-// check12 is immunization — the patch BLOCKS the fork PoC and all 3 boundary
-// mutations. A patch that only blocks a unit test is not a patch. Like its
-// siblings, an explicit waiver (stage "immunization") records the check as
-// passed-waived rather than failed (B1: with the fork PoC waived, this
-// unconditional requirement made submission_ready permanently unreachable).
+// check12 is the patch clause (IMPROVEMENTS D8): what the TARGET PROGRAM
+// asks for, not one framework-wide bar.
+//
+//	verification (the default when poc_requirements.patch_clause is absent) —
+//	  the patch BLOCKS the fork PoC and all 3 boundary mutations. A patch that
+//	  only blocks a unit test is not a patch.
+//	prose — a written recommendation on the finding
+//	  (verification.recommendation, >= minRecommendationRunes) clears it; the
+//	  boundary-mutation record becomes an advisory line, not a blocker.
+//	none — the program does not ask for a fix; nothing is required.
+//
+// Like its siblings, an explicit waiver (stage "immunization") records the
+// check as passed-waived rather than failed (B1: with the fork PoC waived,
+// this unconditional requirement made submission_ready permanently
+// unreachable). The verification branch is byte-identical to the pre-D8
+// check, so a policy without the new key gates exactly as it always did.
 func (g *gate) check12() error {
+	mode, err := patchClause(g.policy)
+	if err != nil {
+		return err
+	}
+	switch mode {
+	case "prose":
+		return g.check12Prose()
+	case "none":
+		g.add("immunization", "pass", "no fix requested by this program ("+
+			g.programLabel()+") — poc_requirements.patch_clause is `none`", "")
+		if adv := boundaryAdvisory(g.f); adv != "" {
+			g.advisories = append(g.advisories, adv)
+		}
+		return nil
+	}
 	state, detail := immunizationDetailFunc(g.f)
 	if state == "immunized" {
 		g.add("immunization", "pass", detail, "")
 		return nil
 	}
-	findingID := objStr(g.f, "finding_id")
-	rows, err := waiversFunc(g.campaign, "immunization")
+	ok, err := g.waived("immunization")
 	if err != nil {
 		return err
+	}
+	if ok {
+		return nil
+	}
+	g.add("immunization", "fail", state+": "+detail, "")
+	g.blockers = append(g.blockers, "not immunized ("+state+") — the patch "+
+		"must block the FORK PoC and its 3 boundary mutations")
+	return nil
+}
+
+// check12Prose is the `prose` mode: the program wants a recommendation, so
+// that is what the gate reads.
+func (g *gate) check12Prose() error {
+	rec := recommendation(g.f)
+	if recommendationOK(g.f) {
+		g.add("immunization", "pass", "recommendation recorded ("+
+			g.programLabel()+" asks for prose, not a tested patch): "+
+			headRunes(rec, 80), "")
+		if adv := boundaryAdvisory(g.f); adv != "" {
+			g.advisories = append(g.advisories, adv)
+		}
+		return nil
+	}
+	ok, err := g.waived("immunization")
+	if err != nil {
+		return err
+	}
+	if ok {
+		return nil
+	}
+	g.add("immunization", "fail", "no written recommendation: "+
+		g.programLabel()+" asks for the minimal fix in prose "+
+		"(verification.recommendation, >= "+itoa(minRecommendationRunes)+
+		" chars) and the finding does not carry one", "")
+	g.blockers = append(g.blockers,
+		"no written recommendation (the program's patch clause is `prose`)")
+	return nil
+}
+
+// waived records the pass row when a named waiver covers this check. A store
+// error is returned, never swallowed: the pre-D8 check aborted the gate on it
+// and this helper must not quietly turn that into a plain failure.
+func (g *gate) waived(stage string) (bool, error) {
+	findingID := objStr(g.f, "finding_id")
+	rows, err := waiversFunc(g.campaign, stage)
+	if err != nil {
+		return false, err
 	}
 	for _, w := range rows {
 		subject := objStr(w, "subject")
@@ -1046,12 +1121,19 @@ func (g *gate) check12() error {
 		}
 		g.add("immunization", "pass", "waived by "+pyStrAny(objAt(w, "actor"))+
 			": "+headRunes(pyStrAny(objAt(w, "reason")), 80), "")
-		return nil
+		return true, nil
 	}
-	g.add("immunization", "fail", state+": "+detail, "")
-	g.blockers = append(g.blockers, "not immunized ("+state+") — the patch "+
-		"must block the FORK PoC and its 3 boundary mutations")
-	return nil
+	return false, nil
+}
+
+// programLabel names the target program in a check detail, for the modes whose
+// detail text has to be self-explaining ("the framework is not asking for
+// this — your program is, or is not").
+func (g *gate) programLabel() string {
+	if name := objStr(g.policy, "program"); name != "" {
+		return name
+	}
+	return "the target program"
 }
 
 // check13 is the accepted-risk channel (IMPROVEMENTS A1). A documented,
@@ -1339,6 +1421,18 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 		validation.Obj {
 		bounty.O = validation.SetOrAppend(bounty.O, "advisories", strList(
 			[]string{"in_code_ack present: acceptance likelihood demoted"}))
+	}
+	// D8: advisories raised by the checks themselves (the boundary-mutation
+	// record under a prose/none patch clause). Advisory only, same channel.
+	if len(g.advisories) > 0 {
+		combined := []string{}
+		if cur := objAt(bounty, "advisories"); cur.Kind == validation.Arr {
+			for _, v := range cur.A {
+				combined = append(combined, pyStrAny(v))
+			}
+		}
+		combined = append(combined, g.advisories...)
+		bounty.O = validation.SetOrAppend(bounty.O, "advisories", strList(combined))
 	}
 	// A3: the deterministic acceptance score, stored on the finding at gate
 	// time (the report and `webv2 rank` recompute it live, so the stored

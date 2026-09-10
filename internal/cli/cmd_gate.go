@@ -105,6 +105,15 @@ func runGate(root string, args []string, r *Runner) int {
 		for _, b := range objAt(row, "blocking_reasons").A {
 			fmt.Fprintf(r.Out, "  blocker: %s\n", scalarStr(b))
 		}
+		// Advisories do not gate, but they are why a check said what it said
+		// (A2's in_code_ack, D8's boundary-mutation note). Printed only when
+		// present, so a clean gate row reads exactly as before.
+		adv := objAt(row, "advisories")
+		if adv.Kind == validation.Arr {
+			for _, a := range adv.A {
+				fmt.Fprintf(r.Out, "  advisory: %s\n", scalarStr(a))
+			}
+		}
 	}
 	return 0
 }

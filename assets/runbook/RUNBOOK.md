@@ -148,6 +148,12 @@ webv2 snap <C-xxx> ./target-repo --exclude NAME           # prune more names (re
   snapshot's `config` — consumed by the manifest's `toolchain_fingerprint` and
   `doctor`'s solc probe. It reads `solc` first and falls back to legacy `sol`.
   An explicit `config` argument wins over detection.
+- **The pin follows git.** When the target is a checkout, the pin is the git
+  ladder (`git-clean` / `git-dirty` + `rev-parse HEAD`) and the snapshot covers
+  the repository the target belongs to. `git` walks UP from the target, so
+  pointing `snap` at a plain subdirectory of a larger repository pins that
+  whole repository — check the code under audit out as its own repo (as a real
+  audit target is) before pinning it.
 - **The pin sets scope, and the prune is recorded.** Every pin prunes
   bulk/generated directories by default (`data/`, `datasets/`, `.scratch/`,
   `webv2-workspace/`, `build/`, `dist/`, Python tooling caches). `--exclude`
@@ -572,6 +578,23 @@ Know what this buys and what it does not: the basis is the **unpatched** PoC, so
 the framework pins the claim to a proven exploit and to a named actor, but it
 does not re-run the patched build. Running the patched fork and reading its
 failure is still your step (`exec --profile fork-runner …`).
+
+**What the gate asks for depends on the program, not on us.**
+`check12` reads `poc_requirements.patch_clause` from the bounty policy:
+
+| value | what clears the check | the boundary mutations are |
+|---|---|---|
+| `verification` (default when the key is absent) | the `immunize` record above | a blocker |
+| `prose` | a written recommendation on the finding (`verification.recommendation`, ≥ 40 chars: the function, the change, the snippet) | an advisory note |
+| `none` | nothing — the program does not ask for a fix | an advisory note |
+
+Most programs want a recommendation and never raise a payout for a tested patch,
+so `verification` on such a program spends your time for nothing — say so in the
+policy once instead of waiving it finding by finding. The boundary-mutation
+record is written in **every** mode: a mutation that still extracts under the
+patch means a misdiagnosed root cause, which is duplicate risk whatever the
+program asked for. Only its gate authority changes. A policy naming any other
+value is refused when it loads, never silently defaulted.
 
 ### When no dollar figure is defensible (unpriceable impact)
 

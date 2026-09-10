@@ -1578,6 +1578,14 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 				"blocking_reasons")), "; ")
 		}
 		out = append(out, line)
+		// Advisories never gate (A2's in-code acknowledgement, D8's
+		// boundary-mutation note under a prose/none patch clause) — but they
+		// exist to be READ, so the report carries them next to the verdict.
+		// Emitted only when present: a finding without advisories renders
+		// byte-for-byte as before.
+		if adv := strList(objAt(b, "advisories")); len(adv) > 0 {
+			out = append(out, "  - advisory: "+strings.Join(adv, "; "))
+		}
 	}
 	if ar := asObj(objAt(b, "accepted_risk")); len(ar.O) > 0 {
 		kind := objStr(ar, "kind")

@@ -103,7 +103,11 @@
         "require_fork_repro": { "type": "boolean" },
         "require_economic_quantification": { "type": "boolean" },
         "require_exploit_contract": { "type": "boolean" },
-        "min_extractable_usd": { "type": ["number", "null"], "minimum": 0 }
+        "min_extractable_usd": { "type": ["number", "null"], "minimum": 0 },
+        "patch_clause": {
+          "enum": ["verification", "prose", "none"],
+          "description": "what the program wants for a fix. `verification` (default when absent): a patch that provably blocks the fork PoC and all 3 boundary mutations (check12 as it always was). `prose`: a written recommendation on the finding (verification.recommendation, >= 40 chars) clears the clause and the boundary mutations become an advisory line, not a blocker. `none`: the program does not ask for a fix, so nothing is required of the finding. The boundary-mutation record stays in every mode — only its gate authority changes."
+        }
       }
     },
 

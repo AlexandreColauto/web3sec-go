@@ -1377,7 +1377,29 @@ registered signature.
 against an empty workspace). **Surface budget:** no new verbs, no new flags —
 documentation, a shared guard and tests.
 
-### D8. The patch clause should follow the target program, not the framework *(PROPOSED 2026-09-10)*
+### D8. The patch clause should follow the target program, not the framework *(LANDED 2026-09-10)*
+
+**Landed as.** `poc_requirements.patch_clause` (`verification` | `prose` |
+`none`, absent = `verification`) with the schema description as the operator
+contract; `check12` switches on it, the prose branch reads
+`verification.recommendation` (>= 40 runes — the finding schema carries the
+field now), and the boundary-mutation record moves to a new non-blocking
+advisory channel (`g.advisories` → `bounty.advisories`, the same list A2's
+`in_code_ack` uses) instead of vanishing. The verification branch is
+byte-identical to the pre-D8 check and the absent key is the default, so every
+existing campaign, the golden fixture and the pinned gate vectors are
+untouched. Unknown values are refused twice: the policy schema's enum at scope
+load, and a loud `UnknownPatchClauseError` from the gate itself. Tests:
+`internal/bounty/patch_clause_test.go` (7 cases over three policies x four
+finding states, plus the default guard, the unknown-value refusal and the
+waiver path); the runbook's patch-clause section documents the switch. No new
+verb, no new flag, no new artifact kind — the surface budget holds.
+
+**Divergence.** Go-only extension of a ported check: `cli.py` has no mode
+switch, so `check12` under a policy carrying the new key diverges from the
+reference. The ledger that would carry this row is archived and frozen
+(`docs/archive/KNOWN_DIVERGENCES.md`) because the twin retired; this paragraph
+is the row.
 
 **Verified state:** `check12` (`internal/bounty/bounty.go:1038`) requires
 `IsImmunized` — `verification.patch_verified` with `patch_blocks_poc=true`,
