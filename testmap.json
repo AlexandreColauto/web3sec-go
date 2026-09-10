@@ -3304,7 +3304,8 @@
    "python_file": "tests/test_invariants_structured.py",
    "python_func": "test_contradicted_invariant_blocks_confirmation_gate",
    "go_file": "internal/invariants/guard_test.go",
-   "go_func": "TestContradictedInvariantBlocksConfirmationGate"
+   "go_func": "TestContradictedInvariantSatisfiesConfirmationGate",
+   "notes": "B3 inverted the semantics (a properly-contradicted invariant now SATISFIES the invariant-unverified gate, and the Go test was renamed to match); the Python twin keeps the pre-B3 expectation — it is retired, so the divergence is one-directional"
   },
   {
    "python_file": "tests/test_invariants_structured.py",
