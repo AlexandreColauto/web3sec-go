@@ -189,7 +189,7 @@ func printIngestResult(r *Runner, f validation.Value, asJSON bool) {
 	cls := objStr(objAt(f, "root_cause"), "class")
 	advisory := taxonomy.ClassAdvisory(&cls)
 	warnings := findings.IntakeCheckpoint(f,
-		objStrDefault(f, "trajectory", "code"))
+		objStrDefault(f, "trajectory", "code"), objStr(f, "campaign_id"))
 	if asJSON {
 		t14PrintJSON(r.Out, validation.VObj(
 			validation.KV{K: "finding", V: f},

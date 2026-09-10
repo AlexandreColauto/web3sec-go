@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -38,10 +39,18 @@ func RequireParseVersion(index validation.Value, source string) error {
 	if got.Kind == validation.Str && got.S == ParseVersion {
 		return nil
 	}
+	// The stale index still carries the campaign it belongs to, so the
+	// rebuild command names it. An index with no campaign_id at all (a
+	// hand-built value, as in the direct unit test) keeps the documented
+	// metavariable rather than an empty hole.
+	rebuild := IndexRebuildCommand
+	if cid := objStr(index, "campaign_id"); cid != "" {
+		rebuild = strings.Replace(rebuild, CampaignPlaceholder, cid, 1)
+	}
 	return &StaleIndexError{Msg: fmt.Sprintf(
 		"%s has parse_version=%s, need %s — rebuild it: `%s`",
 		source, validation.PyRepr(got), validation.PyRepr(validation.VStr(ParseVersion)),
-		IndexRebuildCommand)}
+		rebuild)}
 }
 
 func nowIso() string {

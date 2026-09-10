@@ -23,9 +23,14 @@ import (
 // ParseVersion is PARSE_VERSION: v3 adds cast/chained call edges (C2).
 const ParseVersion = "3"
 
+// CampaignPlaceholder is the campaign metavariable every campaign-less
+// command template carries; the renderer substitutes the campaign in hand
+// for it.
+const CampaignPlaceholder = "<campaign>"
+
 // IndexRebuildCommand is INDEX_REBUILD_COMMAND, rendered into the stale-index
 // error so the operator gets the exact command that fixes it.
-const IndexRebuildCommand = "webv2 index <campaign> --src <target>"
+const IndexRebuildCommand = "webv2 index " + CampaignPlaceholder + " --src <target>"
 
 var (
 	visSet = map[string]bool{"public": true, "external": true,

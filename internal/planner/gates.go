@@ -18,7 +18,10 @@ type DivergenceOpts struct {
 	Blanks          map[string]validation.Value
 	// CampaignID names the campaign in operator-facing repair hints when the
 	// plan JSON itself carries no campaign_id (a hand-loaded plan). Callers
-	// that hold a campaign set it; a hint must never print a placeholder.
+	// that hold a campaign set it; the hints still print the documented
+	// metavariable for a direct call with neither id, because a command with
+	// an empty hole where the campaign belongs is worse than the obvious
+	// placeholder — no production path reaches that.
 	CampaignID string
 }
 
