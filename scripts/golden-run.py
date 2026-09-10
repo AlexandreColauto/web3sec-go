@@ -172,6 +172,26 @@ def make_target() -> Path:
     # the unguarded-transfer path `sinks` reports. Each fixture gets its
     # own subdirectory: `cursor` and `assertion_strength` both ship a
     # `Rollup.sol`, and the probe ordering is path-based.
+    # The five fixtures are chosen so that EVERY registered axis is alive in
+    # this run, and so that BOTH legitimate axis states are exercised (C2/F6:
+    # before this, two axes reported 0 sites and nothing noticed):
+    #
+    #   accumulator/blind        -> accumulator-skew    BLIND (sites>0, no row)
+    #   assertion_strength/clean -> enforcement-timing  BLIND
+    #   cursor/buggy             -> liveness            rows
+    #   custody/buggy            -> primitive-symmetry  rows
+    #   short_circuit/buggy      -> guard-short-circuit rows
+    #   (the campaign's INV-1..INV-9 feed trust-assumption -> incentive-
+    #    inversion rows)
+    #
+    # The two `blind` fixtures are as load-bearing as the three `buggy` ones:
+    # they publish the BLIND keys the `probes blank` step cites, and they prove
+    # the detectors stay silent on code without the pattern. check-golden.py
+    # asserts this axis->state table over the capture, and
+    # internal/probes/axis_coverage_test.go proves the complementary side
+    # (every axis CAN emit rows, on the buggy corpus, through the same
+    # production pipeline) while keeping the checker's table and the registry
+    # from drifting apart.
     probe_fixtures = ("accumulator/blind", "cursor/buggy",
                       "assertion_strength/clean", "custody/buggy",
                       "short_circuit/buggy")

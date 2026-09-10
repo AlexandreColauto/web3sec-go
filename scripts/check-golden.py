@@ -34,6 +34,30 @@ EXPECTED_SECTIONS: list[str] = [
     "probe_surface", "unpriceable",
 ]
 
+# Every registered probe axis, pinned to the Go registry
+# (internal/probes/registry.go probesTable), with the state this run must
+# reach on it:
+#
+#   "rows"  — the axis emits at least one row (its fixture is present, its
+#             detector fires, the surface assembly keeps it)
+#   "blind" — the axis examines sites and publishes BLIND keys, but no row
+#             (the legitimate silent state: `probes blank` citing one of those
+#             keys is what closes it)
+#
+# Either way `sites` must be >= 1: `no-sites` means the detector saw nothing
+# at all, which is exactly the C2/F6 blind spot — an axis whose regression no
+# other gate can see. The keys are cross-checked against the registry by
+# internal/probes/axis_coverage_test.go, so a new probe cannot land without
+# widening this table.
+EXPECTED_PROBE_AXES: dict[str, str] = {
+    "accumulator-skew": "blind",
+    "enforcement-timing": "blind",
+    "guard-short-circuit": "rows",
+    "incentive-inversion": "rows",
+    "liveness": "rows",
+    "primitive-symmetry": "rows",
+}
+
 GENESIS_HASH = "0" * 64
 
 fails: list[str] = []
@@ -150,6 +174,79 @@ def check_audit(spec: dict, step: int, name: str) -> None:
               f"(ok={ok}) present")
 
 
+def check_probe_axes(spec: dict, step: int, name: str) -> None:
+    """`probes list --all --json` must reach the declared state on EVERY axis.
+
+    Both directions fail: an axis missing from the surface (registration or
+    wiring drift), an axis reporting `no-sites` (its fixture or detector went
+    away), and an axis whose row/blind state moved the wrong way (a detector
+    that started or stopped firing on the fixture built to pin it).
+    """
+    f = WORK / "captures" / "go" / f"{step:02d}-{name}.out"
+    try:
+        doc = json.loads(f.read_text())
+    except ValueError as exc:
+        fails.append(f"step {step:02d} {name}: probes json unreadable: {exc}")
+        return
+    axes = doc.get("axes")
+    if not isinstance(axes, list):
+        fails.append(f"step {step:02d} {name}: no axes list in the surface")
+        return
+    by_name = {}
+    for a in axes:
+        if isinstance(a, dict) and isinstance(a.get("axis"), str):
+            by_name[a["axis"]] = a
+    bad = 0
+    missing = sorted(set(EXPECTED_PROBE_AXES) - set(by_name))
+    extra = sorted(set(by_name) - set(EXPECTED_PROBE_AXES))
+    if missing:
+        fails.append(f"step {step:02d} {name}: axis(es) missing from the "
+                     "surface: " + ", ".join(missing))
+        bad += 1
+    if extra:
+        fails.append(f"step {step:02d} {name}: unexpected axis(es): "
+                     + ", ".join(extra))
+        bad += 1
+    for axis, want in sorted(EXPECTED_PROBE_AXES.items()):
+        a = by_name.get(axis)
+        if a is None:
+            continue
+        sites = a.get("sites")
+        rows = a.get("rows")
+        status = a.get("status")
+        if not isinstance(sites, int) or sites < 1:
+            fails.append(f"step {step:02d} {name}: axis {axis} reports "
+                         f"sites={sites!r} (status={status!r}) — the detector "
+                         "saw no code at all, so nothing downstream can catch "
+                         "a regression on it")
+            bad += 1
+            continue
+        if want == "rows" and (not isinstance(rows, int) or rows < 1):
+            fails.append(f"step {step:02d} {name}: axis {axis} emitted "
+                         f"rows={rows!r} (status={status!r}), the run is "
+                         "supposed to carry rows on it")
+            bad += 1
+        if want == "blind":
+            blind = a.get("blind_total")
+            if rows != 0:
+                fails.append(f"step {step:02d} {name}: axis {axis} emitted "
+                             f"rows={rows!r}, the fixture built to stay "
+                             "silent is firing")
+                bad += 1
+            elif not isinstance(blind, int) or blind < 1:
+                fails.append(f"step {step:02d} {name}: axis {axis} is blind "
+                             f"but published blind_total={blind!r} — "
+                             "`probes blank` has no key to cite")
+                bad += 1
+    if bad == 0:
+        rows_total = sum(a.get("rows", 0) for a in by_name.values()
+                         if isinstance(a.get("rows"), int))
+        states = ", ".join(f"{ax}={EXPECTED_PROBE_AXES[ax]}"
+                           for ax in sorted(EXPECTED_PROBE_AXES))
+        print(f"step {step:02d} {name}: {len(EXPECTED_PROBE_AXES)} probe axes "
+              f"alive, states as declared ({states}; rows={rows_total})")
+
+
 def main() -> None:
     spec = load_spec()
     check_tree(spec)
@@ -157,6 +254,8 @@ def main() -> None:
     for i, name in enumerate(spec["recipe"]):
         if name.startswith("audit-json"):
             check_audit(spec, i, name)
+        elif name == "probes-list-all-json":
+            check_probe_axes(spec, i, name)
     print()
     if fails:
         print("GOLDEN RED — failures:")

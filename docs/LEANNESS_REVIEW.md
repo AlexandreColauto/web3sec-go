@@ -319,3 +319,54 @@ The golden recipe emits 0 rows for some probe axes, so a regression in those
 axes would not move any pinned expectation. It is a capability gap rather than
 entropy — nothing here fixes it, and it stays the top candidate for the next
 wave.
+
+### F6 closed (2026-09-10): the probe-surface golden blind spot
+
+The one capability gap this review left open. It was recorded as "the golden
+recipe emits 0 rows for some probe axes"; measuring it first narrowed the claim
+sharply, and the narrow version is what got fixed.
+
+**What was already covered.** All six detectors are pinned byte-for-byte:
+`internal/probes/testdata/golden/` holds `raw_<tree>_<probe>.json` for 15
+fixture trees × 6 probes (90 vectors), so a regression *inside* a probe already
+failed the default suite. What nothing pinned was the end-to-end path —
+fixture present → index → surface assembly → quota → rows — and the flagships
+of that path were empty: the recipe shipped `accumulator/blind` and
+`assertion_strength/clean` but never their `buggy` siblings, so
+`accumulator-skew` and `enforcement-timing` reported **0 sites** in the one run
+the gate validates. A dead fixture copy, a broken index step or a surface
+assembly that dropped an axis would have moved no expectation at all.
+
+**The fix is a contract, not a bigger fixture set.** Every registered axis is
+now pinned to the state it must reach, in `scripts/check-golden.py`:
+
+| axis | state | why |
+|---|---|---|
+| `accumulator-skew` | **blind** | the `blind` fixture must stay silent and publish the BLIND key `probes blank` cites |
+| `enforcement-timing` | **blind** | same, for `assertion_strength/clean` |
+| `primitive-symmetry`, `liveness`, `guard-short-circuit`, `incentive-inversion` | **rows** | their fixtures must keep firing |
+
+Either state requires `sites >= 1`; `no-sites` is refused outright, because
+that is the exact signature of the blind spot. The complementary half lives in
+`internal/probes/axis_coverage_test.go`, which drives the **production**
+pipeline (`BuildSurfaceOpts` with `ProdProbeOpts`) over the buggy corpus and
+requires ≥ 1 row on **every** registered axis — the strict floor the golden
+cannot assert, since the golden needs its blind axes for the `probes blank`
+step — plus "clean fixtures stay silent", so the floor cannot be met by a
+detector that fires on anything. A third test parses the checker's table and
+compares it to `RegisteredAxes()`, so a new probe cannot land without widening
+the gate.
+
+**Both directions were proven to bite**, not assumed:
+
+* checker branches (against the real captures): declared-blind axis that
+  stopped emitting, declared-rows axis that went silent, blind axis with no key
+  to cite, unknown axis in the table, axis dropped from the table, `sites=0`;
+* end to end: dropping `custody/buggy` from the recipe turns the golden RED
+  with `axis primitive-symmetry reports sites=0 (status='no-sites') — the
+  detector saw no code at all, so nothing downstream can catch a regression on
+  it`, then green again on restore.
+
+Green run: `6 probe axes alive, states as declared (accumulator-skew=blind,
+enforcement-timing=blind, guard-short-circuit=rows, incentive-inversion=rows,
+liveness=rows, primitive-symmetry=rows; rows=5)`.
