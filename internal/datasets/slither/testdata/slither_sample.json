@@ -1,0 +1,22 @@
+{
+  "success": true,
+  "error": null,
+  "results": [
+    {"check": "reentrancy-eth", "impact": "High", "confidence": "Medium",
+     "description": "Reentrancy in Vault.withdraw (src/Vault.sol#42-58):\n\tExternal calls:\n\t- token.transfer(msg.sender, amount) (src/Vault.sol#50)\n",
+     "vertices": [
+       {"type": "source", "filename": "src/Vault.sol", "line_no": 50},
+       {"type": "source", "filename": "src/Vault.sol", "line_no": 44},
+       {"type": "sink", "filename": "src/Vault.sol", "line_no": 51}
+     ]},
+    {"check": "unchecked-transfer", "impact": "Medium", "confidence": "Medium",
+     "description": "Unused return value of token.transfer (src/Pay.sol#11) (src/Vault.sol#33)",
+     "vertices": [{"type": "source", "filename": "src/Pay.sol", "line_no": 11}]},
+    {"check": "solc-version", "impact": "Informational", "confidence": "High",
+     "description": "Detected pragma not locked (src/Vault.sol#2)",
+     "vertices": [{"type": "source", "filename": "src/Vault.sol", "line_no": 2}]},
+    {"check": "assembly", "impact": "Informational", "confidence": "Low",
+     "description": "Usage of assembly detected in Vault.risky (src/Vault.sol)",
+     "vertices": [{"type": "source", "filename": "src/Vault.sol", "line_no": 77}]}
+  ]
+}
