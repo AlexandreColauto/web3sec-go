@@ -125,7 +125,8 @@ func TestSavePlanBadClassOracle(t *testing.T) {
 		  "trajectories":["code"],"status":"open","bug_class":"vibes-based"}`))
 	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(bad...))
 	_, err = SavePlan(camp, plan)
-	requireErr(t, "bad class", err, at(t, root, "save_plan_bad_class"))
+	requireErr(t, "bad class", err,
+		campaignNamed(t, at(t, root, "save_plan_bad_class"), camp.CampaignID))
 }
 
 // TestSavePlanWritesAndRegisters pins the ok path: the file exists, the

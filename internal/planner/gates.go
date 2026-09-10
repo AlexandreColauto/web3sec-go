@@ -16,6 +16,20 @@ type DivergenceOpts struct {
 	Surface         *validation.Value
 	CurrentIndexSha *string
 	Blanks          map[string]validation.Value
+	// CampaignID names the campaign in operator-facing repair hints when the
+	// plan JSON itself carries no campaign_id (a hand-loaded plan). Callers
+	// that hold a campaign set it; a hint must never print a placeholder.
+	CampaignID string
+}
+
+// campaignIDForPlan is the campaign id an operator-facing repair hint names:
+// the plan's own campaign_id, else the campaign the caller supplied.
+func campaignIDForPlan(plan validation.Value,
+	opts DivergenceOpts) string {
+	if cid := objStr(plan, "campaign_id"); cid != "" {
+		return cid
+	}
+	return opts.CampaignID
 }
 
 // DivergenceStatus is divergence_status: the divergence gate as DATA. A lens
@@ -259,7 +273,8 @@ func DivergenceStatusFor(campaign *state.Campaign, plan validation.Value,
 		return validation.VNull(), err
 	}
 	return DivergenceStatus(plan, DivergenceOpts{Surface: surface,
-		CurrentIndexSha: PB().CampaignIndexSha(campaign), Blanks: blanks}), nil
+		CurrentIndexSha: PB().CampaignIndexSha(campaign), Blanks: blanks,
+		CampaignID: campaign.CampaignID}), nil
 }
 
 // LensProbeClosure is lens_probe_closure: the one-line probe closure statement
@@ -288,10 +303,7 @@ func LensProbeClosure(plan validation.Value, lensID string,
 func probeMissing(plan validation.Value, opts DivergenceOpts) []validation.Value {
 	registered := registeredAxes()
 	out := []validation.Value{}
-	cid := objStr(plan, "campaign_id")
-	if cid == "" {
-		cid = "<campaign>"
-	}
+	cid := campaignIDForPlan(plan, opts)
 	for _, l := range listOf(plan, "lenses") {
 		lid := objStr(l, "id")
 		view := probeLensView(plan, lid, opts)

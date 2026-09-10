@@ -31,10 +31,7 @@ func probeLensView(plan validation.Value, lid string,
 	surface := *opts.Surface
 	axes, rowsByAxis := surfaceIndex(surface)
 	byRow := provenanceByRow(plan)
-	cid := objStr(plan, "campaign_id")
-	if cid == "" {
-		cid = "<campaign>"
-	}
+	cid := campaignIDForPlan(plan, opts)
 	refresh := "run `webv2 probes " + cid + " run --emit`"
 	mine, present, missingAxes := lensAxes(lid, axes)
 	issues := []string{}

@@ -78,7 +78,8 @@ func TestValidatePlanRejectsNonCanonicalClass(t *testing.T) {
 		kv("bug_class", validation.VStr("vibes-based")),
 	)))
 	_, err := ValidatePlan(camp, bad)
-	requireErr(t, "validate_plan bad class", err, objAt(want, "error"))
+	requireErr(t, "validate_plan bad class", err,
+		campaignNamed(t, objAt(want, "error"), camp.CampaignID))
 	if _, statErr := os.Stat(filepath.Join(camp.ArtifactsDir,
 		"campaign_plan.json")); !os.IsNotExist(statErr) {
 		t.Fatalf("validate_plan wrote a plan file (stat err=%v)", statErr)
