@@ -603,6 +603,16 @@
             "informational"
           ]
         },
+        "triager_outlook": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["outcome", "reason"],
+          "properties": {
+            "outcome": {"type": "string", "enum": ["likely", "uncertain", "unlikely"]},
+            "reason": {"type": "string", "minLength": 15}
+          },
+          "description": "G6: the critic's payment-likelihood call under the campaign's live bounty policy — separate from truth (critic_verdict) and separate from policy (bounty.accepted_risk)"
+        },
         "independent_reproduction": {
           "type": "object",
           "additionalProperties": false,

@@ -509,6 +509,40 @@ func TestSetCriticVerdictValidation(t *testing.T) {
 	}
 }
 
+// set_triager_outlook records the critic's payment-likelihood call.
+func TestSetTriagerOutlook(t *testing.T) {
+	c := ingestCamp(t)
+	f, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fid := objStr(f, "finding_id")
+	got, err := SetTriagerOutlook(c, fid, "likely",
+		"on-chain fork PoC with drain terminal; policy pays critical")
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := objAt(objAt(got, "verification"), "triager_outlook")
+	if objStr(o, "outcome") != "likely" {
+		t.Fatal("outcome not recorded")
+	}
+	if _, err := SetTriagerOutlook(c, fid, "maybe", "short"); err == nil {
+		t.Fatal("invalid enum must be rejected")
+	}
+	if _, err := SetTriagerOutlook(c, fid, "likely", "too short"); err == nil {
+		t.Fatal("reason under 15 runes must be rejected")
+	}
+	// idempotent replace, not append:
+	f2, err := SetTriagerOutlook(c, fid, "uncertain",
+		"policy excludes the token's chain; acceptance unclear")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objStr(objAt(objAt(f2, "verification"), "triager_outlook"), "outcome") != "uncertain" {
+		t.Fatal("second call must replace the first")
+	}
+}
+
 // set_shield_adjudication records the extraction decision with its actor.
 func TestSetShieldAdjudication(t *testing.T) {
 	c := ingestCamp(t)

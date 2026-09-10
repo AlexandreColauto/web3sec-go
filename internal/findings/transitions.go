@@ -562,6 +562,49 @@ func SetCriticVerdict(campaign *state.Campaign, findingID, verdict,
 	return finding, nil
 }
 
+// TriagerOutlooks is the SINGLE source of the outlook enum (schema, CLI and
+// the acceptance table must all agree with it; the sync assertions in
+// risk/acceptance_test.go enforce it — a fourth consumer is forbidden to
+// hardcode its own copy).
+func TriagerOutlooks() []string { return []string{"likely", "uncertain", "unlikely"} }
+
+// SetTriagerOutlook is the G6 companion of set_critic_verdict: record the
+// critic's acceptance-likelihood call — WILL A TRIAGER ACCEPT AND PAY THIS —
+// kept structurally separate from critic_verdict (truth) and
+// bounty.accepted_risk (policy). Absent field = no call = no score effect.
+func SetTriagerOutlook(campaign *state.Campaign, findingID, outcome,
+	reason string) (validation.Value, error) {
+	switch outcome {
+	case "likely", "uncertain", "unlikely":
+	default:
+		return validation.VNull(), fmt.Errorf("invalid triager outlook %s "+
+			"(choose: likely, uncertain, unlikely)", validation.PyReprStr(outcome))
+	}
+	stripped := strings.TrimSpace(reason)
+	if len([]rune(stripped)) < 15 {
+		return validation.VNull(), fmt.Errorf("triager outlook reasoning must " +
+			"be substantive (>= 15 chars) — 'probably fine' is not a call")
+	}
+	finding, err := LoadFinding(campaign, findingID)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	ver := asDict(objAt(finding, "verification"))
+	ver.O = validation.SetOrAppend(ver.O, "triager_outlook", validation.VObj(
+		validation.KV{K: "outcome", V: validation.VStr(outcome)},
+		validation.KV{K: "reason", V: validation.VStr(stripped)},
+	))
+	finding.O = validation.SetOrAppend(finding.O, "verification", ver)
+	if err := SaveFinding(campaign, &finding); err != nil {
+		return validation.VNull(), err
+	}
+	data := validation.VObj(validation.KV{K: "outcome", V: validation.VStr(outcome)})
+	if _, err := campaign.Log("finding.triager_outlook", &findingID, &data); err != nil {
+		return validation.VNull(), err
+	}
+	return finding, nil
+}
+
 // SetShieldAdjudication is set_shield_adjudication: record the
 // plausibility-shield adjudication — the protocol's docs call the mechanism
 // INTENTIONAL, and this finding says the economic effect is (or is not)

@@ -19,6 +19,10 @@ import (
 var criticVerdicts = []string{"pending", "confirmed", "possible", "disproved",
 	"duplicate", "out_of_scope", "informational"}
 
+// triagerOutlooks is the G6 outlook enum: TriagerOutlooks is the SINGLE
+// source — never a second hardcoded list.
+var triagerOutlooks = findings.TriagerOutlooks()
+
 func runVerdict(root string, args []string, r *Runner) int {
 	if helpRequested(r.Out, "verdict", args) {
 		return 0
@@ -26,7 +30,9 @@ func runVerdict(root string, args []string, r *Runner) int {
 
 	ensureSeams()
 	verdict, reason := "", ""
+	outlook, outlookReason := "", ""
 	haveVerdict, haveReason := false, false
+	haveOutlook := false
 	var pos []string
 	for i := 0; i < len(args); i++ {
 		a := args[i]
@@ -47,6 +53,22 @@ func runVerdict(root string, args []string, r *Runner) int {
 		case a == "--reason":
 			return r.fail(root, argErrf("verdict",
 				"argument --reason: expected one argument"))
+		case a == "--outlook" && i+1 < len(args) && !looksLikeOption(args[i+1]):
+			outlook, haveOutlook = args[i+1], true
+			i++
+		case strings.HasPrefix(a, "--outlook="):
+			outlook, haveOutlook = strings.TrimPrefix(a, "--outlook="), true
+		case a == "--outlook":
+			return r.fail(root, argErrf("verdict",
+				"argument --outlook: expected one argument"))
+		case a == "--outlook-reason" && i+1 < len(args) && !looksLikeOption(args[i+1]):
+			outlookReason = args[i+1]
+			i++
+		case strings.HasPrefix(a, "--outlook-reason="):
+			outlookReason = strings.TrimPrefix(a, "--outlook-reason=")
+		case a == "--outlook-reason":
+			return r.fail(root, argErrf("verdict",
+				"argument --outlook-reason: expected one argument"))
 		case strings.HasPrefix(a, "-"):
 			return r.fail(root, usageErrf("unrecognized arguments: %s", a))
 		default:
@@ -57,6 +79,14 @@ func runVerdict(root string, args []string, r *Runner) int {
 				"argument --verdict: invalid choice: %s (choose from %s)",
 				validation.PyReprStr(verdict), quotedList(criticVerdicts)))
 		}
+		if haveOutlook && !containsStrCLI(triagerOutlooks, outlook) {
+			return r.fail(root, argErrf("verdict",
+				"argument --outlook: invalid choice: %s (choose from %s)",
+				validation.PyReprStr(outlook), quotedList(triagerOutlooks)))
+		}
+	}
+	if (outlook == "") != (outlookReason == "") {
+		return r.fail(root, requiredErrf("verdict", "--outlook", "--outlook-reason"))
 	}
 	missing := []string{}
 	if len(pos) < 1 {
@@ -87,6 +117,12 @@ func runVerdict(root string, args []string, r *Runner) int {
 	fmt.Fprintf(r.Out, "critic verdict on %s: %s\n", pos[1], verdict)
 	fmt.Fprintf(r.Out, "  reason: %s\n", reason)
 	fmt.Fprintln(r.Out, "  (persisted in full at dedup_meta.critic_reasoning)")
+	if outlook != "" {
+		if _, err := findings.SetTriagerOutlook(c, pos[1], outlook, outlookReason); err != nil {
+			return r.withErr(root, func() error { return err })
+		}
+		fmt.Fprintf(r.Out, "  triager outlook: %s — %s\n", outlook, outlookReason)
+	}
 	// B4 finding-side twin: the same dismissal-vocabulary scan over the
 	// critic's reasoning. Advisory only — verdicts are human judgment, so
 	// this warns and never blocks or fails.
@@ -109,6 +145,6 @@ func quotedList(items []string) string {
 
 func init() {
 	register(command{ord: 45, name: "verdict",
-		line: "verdict <campaign> <finding> --verdict V --reason R",
+		line: "verdict <campaign> <finding> --verdict V --reason R [--outlook O --outlook-reason R]",
 		run:  runVerdict})
 }

@@ -118,6 +118,8 @@ var argparseUsageBlocks = map[string]string{
 		"                     --verdict {pending,confirmed,possible,disproved," +
 		"duplicate,out_of_scope,informational}\n" +
 		"                     --reason REASON\n" +
+		"                     [--outlook {likely,uncertain,unlikely} " +
+		"--outlook-reason OUTLOOK_REASON]\n" +
 		"                     campaign finding\n",
 	"recall": "usage: webv2 recall [-h] --finding FINDING " +
 		"[--mode {negative,comparative}]\n" +

@@ -834,7 +834,7 @@ webv2 brief <C> [--json] [--deep]                                  operator cock
 
 webv2 move <C> <finding> TO_STATUS --reason R [--actor A] [--adjacent SIBLING] [--adjacent-clear]   # the ONLY status-transition path
 webv2 mint <C> <finding> --exec E --description D [--tier T1|T2|T3|T4] [--type TYPE]   # record+mint evidence (idempotent per exec)
-webv2 verdict <C> <finding> --verdict V --reason R                 hostile-critic verdict
+webv2 verdict <C> <finding> --verdict V --reason R [--outlook O --outlook-reason R]   hostile-critic verdict
 webv2 recall <C> --finding F [--mode negative|comparative] [--note N]   # recorded graph-memory consult
 webv2 gate <C> [F-xxx] | webv2 gate --explain <CHECK>              bounty gate / per-finding CONFIRMED dry-run
 webv2 impact <C> <finding> --extractable USD [--max-loss USD] [--artifact ART] | --unpriceable --ceiling C --reason R --actor A
