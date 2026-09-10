@@ -314,11 +314,11 @@ was obsolete. Rewritten in Go-only terms across 13 files, and
 `docs/runbook-go-notes.md` is now explicitly titled *port notes (historical)*
 so its "both twins" rows read as the record they are.
 
-**Still open, and worth a slot: the probe-surface golden blind spot (F6, C2).**
-The golden recipe emits 0 rows for some probe axes, so a regression in those
-axes would not move any pinned expectation. It is a capability gap rather than
-entropy — nothing here fixes it, and it stays the top candidate for the next
-wave.
+**The probe-surface golden blind spot (F6, C2) — closed in the next commit.**
+This pass found it (some probe axes emitted 0 rows, so a regression there moved
+no pinned expectation) and left it open rather than half-fixing it; see the
+"F6 closed" section below for what it turned out to be and how both halves are
+now pinned.
 
 ### F6 closed (2026-09-10): the probe-surface golden blind spot
 
