@@ -371,6 +371,13 @@ func IngestHypothesis(campaign *state.Campaign, payload validation.Value,
 			warnings)); err != nil {
 		return validation.VNull(), err
 	}
+	// A2: scan the pinned source for in-code acknowledgements around the
+	// finding's anchors, so the demotion flag is present from the moment the
+	// finding is filed. Fail-open: a finding ingested against an unpinned or
+	// missing source (or with no resolvable anchor) simply has no ack record.
+	if _, err := RecordAckScan(campaign, fid); err != nil {
+		// skipped — nothing to record
+	}
 	if len(warnings) > 0 {
 		if _, err := campaign.Log("finding.intake_warnings", &fid,
 			warningsLogData(warnings)); err != nil {

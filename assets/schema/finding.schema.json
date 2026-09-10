@@ -862,6 +862,18 @@
             "type": "string"
           },
           "description": "resolve-candidate --note, keyed by the other finding id (fixed-in-Go: the reference schema rejected the reference writer's own dict — python-twin-issues P2)"
+        },
+        "in_code_ack": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["file", "line", "phrase", "window"],
+          "properties": {
+            "file":   { "type": "string", "minLength": 1, "description": "the file the acknowledgement sits in, relative to the source pin root" },
+            "line":   { "type": "integer", "minimum": 1 },
+            "phrase": { "type": "string", "minLength": 1, "description": "the matched acknowledgement phrase (not implemented / stub / todo / ...)" },
+            "window": { "type": "string", "description": "the ±N lines scanned around the anchor" }
+          },
+          "description": "A2: an in-code acknowledgement (owner comment marking the code as stub/TODO/not-implemented/...) found within the window of a finding anchor — acceptance likelihood is demoted (gate advisory, A3 score factor, report quote)"
         }
       },
       "description": "bookkeeping extras; capability_links is a JSON-encoded array for schema simplicity"

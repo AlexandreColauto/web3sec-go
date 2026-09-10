@@ -439,7 +439,7 @@ var (
 	// the CLI's ensureSeams, which is the top module free of the
 	// structidx→orchestrator→bounty import cycle. When it returns empty the
 	// scope check falls back to name-only matching (the pre-B4 behaviour).
-	contractPathFunc = func(*state.Campaign, string) string { return "" }
+	contractPathFunc     = func(*state.Campaign, string) string { return "" }
 	confirmedRemediation = findings.GATE_REMEDIATION
 )
 
@@ -706,8 +706,8 @@ func (g *gate) check4() error {
 		if ar.Kind == validation.Obj && objStr(ar, "pattern") == pattern {
 			g.add("known-issue-check", "pass", "exclusion "+
 				validation.PyReprStr(pattern)+" suppressed — an accepted risk "+
-					"with the same pattern is the narrower rule (check "+
-					"accepted-risk)", "")
+				"with the same pattern is the narrower rule (check "+
+				"accepted-risk)", "")
 			return nil
 		}
 		kind := objAt(ex, "kind")
@@ -1281,6 +1281,14 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 	bounty := objAt(f, "bounty")
 	if bounty.Kind != validation.Obj {
 		bounty = validation.VObj()
+	}
+	// A2 advisory: an in-code acknowledgement (dedup_meta.in_code_ack)
+	// demotes acceptance likelihood. Advisory only — it never blocks: the
+	// owner's own comment is context for the reviewer, not a gate condition.
+	if ack := objAt(objAt(f, "dedup_meta"), "in_code_ack"); ack.Kind ==
+		validation.Obj {
+		bounty.O = setOrAppend(bounty.O, "advisories", strList(
+			[]string{"in_code_ack present: acceptance likelihood demoted"}))
 	}
 	bounty.O = setOrAppend(bounty.O, "eligible", validation.VBool(eligible))
 	bounty.O = setOrAppend(bounty.O, "submission_ready",

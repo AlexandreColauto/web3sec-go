@@ -1030,6 +1030,17 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 			}
 		}
 	}
+	if ack := asObj(objAt(objAt(f, "dedup_meta"), "in_code_ack")); len(ack.O) > 0 {
+		line := fmt.Sprintf("- in-code ack: %s:%s — phrase %q (window %s)",
+			pyStr(objAt(ack, "file")), pyStr(objAt(ack, "line")),
+			pyStr(objAt(ack, "phrase")), pyStr(objAt(ack, "window")))
+		if q, ok := reportAckQuote(campaign, f, ack); ok {
+			line += " — " + q
+		} else {
+			line += " — source unavailable for quote"
+		}
+		out = append(out, line)
+	}
 	b := asObj(objAt(f, "bounty"))
 	if len(b.O) > 0 {
 		line := fmt.Sprintf("- bounty gate: eligible=%s, submission_ready=%s",
@@ -1313,6 +1324,43 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	}
 	out = append(out, "")
 	return out, nil
+}
+
+// reportAckQuote re-reads the acknowledged source line for the report quote:
+// the record stores the file relative to the finding's source pin root. The
+// quote is the trimmed line; any failure to resolve the pin, the file or the
+// line yields (empty, false) and the caller prints the record without a quote.
+func reportAckQuote(campaign *state.Campaign, f validation.Value,
+	ack validation.Value) (string, bool) {
+	sid := objStr(objAt(f, "snapshot_ids"), "source")
+	if sid == "" || sid == "unpinned" {
+		return "", false
+	}
+	snap, err := validation.ReadJson(filepath.Join(campaign.Dir, "snapshots",
+		sid, "snapshot.json"))
+	if err != nil {
+		return "", false
+	}
+	root := objStr(objAt(snap, "source"), "root")
+	file := objStr(ack, "file")
+	p := file
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(root, p)
+	}
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		return "", false
+	}
+	lines := strings.Split(string(raw), "\n")
+	n := int(objAt(ack, "line").I)
+	if n < 1 || n > len(lines) {
+		return "", false
+	}
+	q := strings.TrimRight(strings.TrimLeft(lines[n-1], " \t"), " \t")
+	if q == "" {
+		return "", false
+	}
+	return `"` + q + `"`, true
 }
 
 func ratioOf(rung validation.Value) float64 {
