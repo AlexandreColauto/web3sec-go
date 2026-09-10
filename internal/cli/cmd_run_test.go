@@ -15,6 +15,8 @@ import (
 	"testing"
 
 	"websec/internal/adapter"
+	"websec/internal/state"
+	"websec/internal/validation"
 )
 
 const runFixtureSource = "contract Vault { uint public total; " +
@@ -93,6 +95,50 @@ HALTED at model stage: protocol-model
 	if out != want {
 		t.Errorf("run stdout mismatch\n got: %q\nwant: %q", out, want)
 	}
+}
+
+// D2: with the report seam installed, `run` reaches the report stage instead
+// of failing the LAST deterministic stage with "report module not wired". The
+// stages report depends on are seeded done so the run has exactly one
+// deterministic stage left; it then halts at `learning` (model), as before.
+func TestRunReachesTheReportStage(t *testing.T) {
+	root, cid := runFixture(t)
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sid := range []string{"scope", "snapshot", "structural-index",
+		"protocol-model", "campaign-planning", "discovery", "dedup",
+		"hostile-review", "reproduction", "chaining", "maximal-exploitation",
+		"independent-verification", "risk-calibration", "mainnet-fork-poc",
+		"bounty-gate"} {
+		done := "code"
+		if err := c.SetStage(sid, "done", validation.VStr("seeded"), &done); err != nil {
+			t.Fatal(err)
+		}
+	}
+	code, out, errS := run(t, "--root", root, "run", cid)
+	if code != 3 {
+		t.Fatalf("run exit %d, want 3 (halts at the model stage after "+
+			"report)\nout=%q\nerr=%q", code, out, errS)
+	}
+	if strings.Contains(out, "not wired") || strings.Contains(errS, "not wired") {
+		t.Fatalf("report stage is not wired: out=%q err=%q", out, errS)
+	}
+	if !strings.Contains(out, "\"report\"") {
+		t.Errorf("report stage did not run: %q", out)
+	}
+	if !strings.Contains(out, "blocked on model stages: ['learning']") {
+		t.Errorf("halt text = %q, want the post-report model stage", out)
+	}
+	if !fileExists(filepath.Join(c.Dir, "report.md")) {
+		t.Errorf("the report artifact was not written")
+	}
+}
+
+func fileExists(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
 }
 
 func TestRunUnknownCampaignIsACleanError(t *testing.T) {

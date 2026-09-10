@@ -927,6 +927,40 @@ report". `cmd/webv2/main.go` never constructs a Pipeline with handlers;
 **Tests:** handler-map wiring test; end-to-end `webv2 run` smoke on a
 minimal campaign reaching the report stage.
 
+**As landed (D2):**
+- The root cause was confirmed exactly as written, and the fix is smaller than
+  the design: **no handler map is needed.** `cmd_run` already passes a real
+  orchestrator (`orchestrator.PipelineAdapter{O: orchestrator.New(c)}`), which
+  owns every other deterministic builtin (`dedup`, `chaining`,
+  `risk-calibration`, `bounty-gate`, `reproduction`, `scope`,
+  `structural-index`, `campaign-planning`) — the handler map is the
+  per-campaign *override* seam, and leaving it nil is correct. The one stage
+  that did NOT flow through the orchestrator is `report`: its builtin calls the
+  package-level `reportImpl` seam, which was left at `noReport{}` because
+  nothing ever called `pipeline.SetReport`. So the fix is one seam install in
+  `ensureSeams()` (`internal/cli/cmd_dedup.go`, the file that installs every
+  other cross-module seam) plus a four-line adapter:
+  `reportAdapter{}.Generate` → `report.Generate`.
+- Verified by negative control: with the seam stashed, the new test fails with
+  `run exit 2, halt "stage 'report' failed: report module not wired: cannot
+  run stage 'report'"`; with it, `run` executes the report stage (writes
+  `report.md`, logs `report.generated`) and halts at the following model stage
+  (`learning`), which is the honest behaviour `run` is supposed to have.
+- New test `internal/cli/cmd_run_test.go::TestRunReachesTheReportStage`:
+  snapshots the fixture, seeds every stage report depends on to `done`, runs
+  `webv2 run`, and asserts (a) no "not wired" text anywhere, (b) `report` is in
+  the `ran` list, (c) the halt is `blocked on model stages: ['learning']`,
+  (d) `report.md` exists in the campaign directory.
+- Golden stays green with **no** oracle update: the recipe's single `run` step
+  still exits 3, because its ready frontier halts at a model stage that comes
+  *before* report (`mainnet-fork-poc` blocks `bounty-gate`, which blocks
+  `report`). The recipe therefore never reaches the report stage, which is why
+  the pre-D2 golden was green despite the bug — the gap the unit test now
+  closes. Verified: identical tree (165 events, 75 files) and exit codes before
+  and after (2026-09-10). A future recipe that seeds the upstream stages would
+  exercise the report stage end-to-end; noted, not done, because it would grow
+  the golden surface beyond this item's scope.
+
 ### D3. Artifact supersession fix (report-DONE vs audit-PASS)
 
 **Verified root cause (reproduced on the morph campaign):** `report.md` has

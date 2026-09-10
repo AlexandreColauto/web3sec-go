@@ -29,6 +29,7 @@ import (
 	"websec/internal/invariants"
 	"websec/internal/orchestrator"
 	"websec/internal/pipeline"
+	"websec/internal/report"
 	"websec/internal/reproduction"
 	"websec/internal/sandbox"
 	"websec/internal/sequencepoc"
@@ -283,6 +284,13 @@ func ensureSeams() {
 	sandbox.SetDockerImageProbe(envgo.DockerImageProbe)
 	// costs: the pipeline's budget gate reads costs.jsonl.
 	pipeline.SetCosts(costs.API{})
+	// D2: the pipeline's report stage reads this seam. Without it `webv2 run`
+	// walks every deterministic stage and then fails the LAST one with
+	// "report module not wired: cannot run stage 'report'" — the seam was
+	// never installed (cmd_report bypasses the pipeline and calls the module
+	// directly). The other deterministic stages need no handler: they are
+	// owned by the orchestrator the runner passes to pipeline.New.
+	pipeline.SetReport(reportAdapter{})
 	// structidx: the structural index seams (Python: import-time module
 	// access). Idempotent; Wire covers orchestrator/coverage/reproduction/
 	// planner, the two calls below cover histmining's recency seam.
@@ -318,6 +326,13 @@ func ensureSeams() {
 	wireT33Seams()
 	// T34: the dataset record loader (corpus_surface attribution).
 	wireT34Seams()
+}
+
+// reportAdapter adapts report.Generate to pipeline.ReportAPI (D2).
+type reportAdapter struct{}
+
+func (reportAdapter) Generate(c *state.Campaign) (string, error) {
+	return report.Generate(c)
 }
 
 // docMapSeam adapts invariants.DocumentedInvariants to findings' seam shape.

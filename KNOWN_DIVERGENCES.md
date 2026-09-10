@@ -842,6 +842,20 @@ Bug-hunt sweep).
   fix (an optional postfix chain in `stateWriteRe`, then regenerate the index
   fixtures) would be an intentional oracle update and is left to a future item
   with its own row.
+  **D2** (the pipeline's report seam) adds no oracle updates either, and the
+  reason is a gap worth naming: `pipeline.SetReport` was never installed, so
+  `webv2 run` failed its LAST deterministic stage with "report module not
+  wired: cannot run stage 'report'" on any campaign whose model stages were
+  already complete. The seam is now installed in `ensureSeams()`
+  (`internal/cli/cmd_dedup.go`); `cmd_report` still calls `report.Generate`
+  directly, so the report BYTES are produced by the same module either way and
+  no artifact format changed. `scripts/golden.sh` cannot see the difference: the
+  recipe's single `run` step halts at a model stage (`mainnet-fork-poc`) that
+  comes before `report` in the DAG, so it never reaches the stage — identical
+  tree (165 events, 75 files) and identical exit codes before and after. The
+  new coverage lives in `cmd_run_test.go::TestRunReachesTheReportStage`, which
+  seeds the upstream stages done and asserts the stage runs; the golden recipe
+  is deliberately left as-is (seeding it would widen the golden surface).
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**
