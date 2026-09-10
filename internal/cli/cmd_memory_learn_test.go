@@ -10,9 +10,11 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
+	"websec/internal/completion"
 	"websec/internal/learning"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -272,5 +274,226 @@ func TestMemoryListingShowsRejected(t *testing.T) {
 	}
 	if !strings.Contains(out, "promotion=rejected") {
 		t.Errorf("listing does not show the rejection:\n%s", out)
+	}
+}
+
+// ---- D4: `memory --queue-finding` ------------------------------------------
+
+// memoryRows is the campaign's queued memory row ids, sorted.
+func memoryRows(t *testing.T, root, cid string) []string {
+	t.Helper()
+	matches, err := filepath.Glob(
+		filepath.Join(root, "campaigns", cid, "memory", "MEM-*.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := make([]string, 0, len(matches))
+	for _, m := range matches {
+		out = append(out, strings.TrimSuffix(filepath.Base(m), ".json"))
+	}
+	sort.Strings(out)
+	return out
+}
+
+// learningMissing is the learning proof's missing-item list.
+func learningMissing(t *testing.T, c *state.Campaign) []string {
+	t.Helper()
+	pr, err := completion.ProofStatus(c, "learning")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strListCLI(objAt(pr, "missing"))
+}
+
+// learningDemands is whether the learning proof still asks for a row for fid.
+func learningDemands(missing []string, fid string) bool {
+	for _, m := range missing {
+		if strings.HasPrefix(m, fid+": ") {
+			return true
+		}
+	}
+	return false
+}
+
+// TestMemoryQueueFindingSatisfiesLearningProof is the D4 reproduction: a
+// CONFIRMED finding that never went through a ladder rung has no memory row,
+// so the learning completion proof can never close; the new flag queues one.
+func TestMemoryQueueFindingSatisfiesLearningProof(t *testing.T) {
+	root, cid, c := noopCamp(t)
+	withPolicy(t, c, root)
+	title := "the stale oracle allows a zero-collateral borrow"
+	fid := noopHypo(t, c, title, "")
+	noopConfirm(t, c, fid)
+	if !learningDemands(learningMissing(t, c), fid) {
+		t.Fatalf("the learning proof does not demand a row for %s", fid)
+	}
+	code, out, errS := run(t, "--root", root, "memory", cid,
+		"--queue-finding", fid)
+	if code != 0 {
+		t.Fatalf("exit %d: %s%s", code, out, errS)
+	}
+	rows := memoryRows(t, root, cid)
+	if len(rows) != 1 {
+		t.Fatalf("memory dir holds %d rows, want 1: %v", len(rows), rows)
+	}
+	mem := rows[0]
+	if !strings.Contains(out, mem+" queued for "+fid+" (CONFIRMED)") {
+		t.Errorf("output does not name the queued row:\n%s", out)
+	}
+	if !strings.Contains(out, "approve with: webv2 memory "+cid+
+		" --approve "+mem+" --by NAME") {
+		t.Errorf("output does not carry the approval command:\n%s", out)
+	}
+	row, err := validation.ReadJson(memoryRowPath(root, cid, mem))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := objStr(row, "finding_id"); got != fid {
+		t.Errorf("finding_id = %q want %q", got, fid)
+	}
+	if got := objStr(row, "status"); got != "CONFIRMED" {
+		t.Errorf("status = %q want CONFIRMED", got)
+	}
+	if got := objStr(row, "pattern"); got != title {
+		t.Errorf("pattern = %q want the finding title %q", got, title)
+	}
+	if got := objStr(row, "promotion_status"); got != "pending" {
+		t.Errorf("promotion_status = %q want pending (queued, never approved)",
+			got)
+	}
+	if !hasEvent(eventTypes(t, c), "memory.queued") {
+		t.Errorf("memory.queued not logged")
+	}
+	if after := learningMissing(t, c); learningDemands(after, fid) {
+		t.Errorf("the learning proof still demands a row for %s: %v", fid, after)
+	}
+}
+
+// TestMemoryQueueFindingRejectsNonMemoryStatus: the row's status vocabulary is
+// learning.MEMORY_STATUSES; a finding outside it errors, names the allowed
+// values, and writes nothing.
+func TestMemoryQueueFindingRejectsNonMemoryStatus(t *testing.T) {
+	root, cid, c := noopCamp(t)
+	fid := noopHypo(t, c, "a hypothesis that never reached a terminal status", "")
+	before := memoryRows(t, root, cid)
+	code, out, errS := run(t, "--root", root, "memory", cid,
+		"--queue-finding", fid)
+	if code == 0 {
+		t.Fatalf("queueing a HYPOTHESIS finding succeeded: %s%s", out, errS)
+	}
+	if !strings.Contains(out+errS, fid) {
+		t.Errorf("the error does not name the finding: %q / %q", out, errS)
+	}
+	if !strings.Contains(out+errS, "CONFIRMED") ||
+		!strings.Contains(out+errS, "TEST-HARNESS-ONLY") {
+		t.Errorf("the error does not name the allowed statuses: %q / %q",
+			out, errS)
+	}
+	if after := memoryRows(t, root, cid); len(after) != len(before) {
+		t.Errorf("a refused queue changed the memory dir: %v -> %v",
+			before, after)
+	}
+}
+
+// TestMemoryQueueFindingKindDerivation: --kind is explicit when given, derived
+// for CONFIRMED/DISPROVED when not, and an error naming learning.MemoryKinds
+// for any other memory status.
+func TestMemoryQueueFindingKindDerivation(t *testing.T) {
+	root, cid, c := noopCamp(t)
+	// DISPROVED derives `disproved` with no --kind.
+	fid := noopHypo(t, c, "the oracle was assumed to be spot-priced", "DISPROVED")
+	code, out, errS := run(t, "--root", root, "memory", cid,
+		"--queue-finding", fid, "--pattern", "oracle assumed spot-priced")
+	if code != 0 {
+		t.Fatalf("exit %d: %s%s", code, out, errS)
+	}
+	rows := memoryRows(t, root, cid)
+	if len(rows) != 1 {
+		t.Fatalf("memory dir holds %d rows, want 1: %v", len(rows), rows)
+	}
+	row, err := validation.ReadJson(memoryRowPath(root, cid, rows[0]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := objStr(row, "kind"); got != "disproved" {
+		t.Errorf("kind = %q want disproved (derived from DISPROVED)", got)
+	}
+	if got := objStr(row, "status"); got != "DISPROVED" {
+		t.Errorf("status = %q want DISPROVED", got)
+	}
+	if got := objStr(row, "pattern"); got != "oracle assumed spot-priced" {
+		t.Errorf("pattern = %q want the explicit --pattern", got)
+	}
+	// An explicit --kind wins over the status default.
+	code, out, errS = run(t, "--root", root, "memory", cid,
+		"--queue-finding", fid, "--kind", "confirmed")
+	if code != 0 {
+		t.Fatalf("explicit --kind exit %d: %s%s", code, out, errS)
+	}
+	rows = memoryRows(t, root, cid)
+	if len(rows) != 2 {
+		t.Fatalf("queueing twice must queue two rows, got %v", rows)
+	}
+	second := strings.Fields(out)[0]
+	secondRow, err := validation.ReadJson(memoryRowPath(root, cid, second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := objStr(secondRow, "kind"); got != "confirmed" {
+		t.Errorf("explicit --kind ignored: kind = %q", got)
+	}
+	// DUPLICATE is a memory status but has no default kind.
+	dup := noopHypo(t, c, "a sibling already covers this", "DUPLICATE")
+	code, out, errS = run(t, "--root", root, "memory", cid,
+		"--queue-finding", dup)
+	if code == 0 {
+		t.Fatalf("queueing DUPLICATE without --kind succeeded: %s%s", out, errS)
+	}
+	if !strings.Contains(out+errS, "'confirmed'") ||
+		!strings.Contains(out+errS, "'detector'") {
+		t.Errorf("the error does not name learning.MemoryKinds: %q / %q",
+			out, errS)
+	}
+	if len(memoryRows(t, root, cid)) != 2 {
+		t.Errorf("a refused queue changed the memory dir")
+	}
+}
+
+// TestMemoryQueueFindingArgparse: the new flags belong to this verb only, and
+// the existing actions stay mutually exclusive with them.
+func TestMemoryQueueFindingArgparse(t *testing.T) {
+	root, cid, _ := noopCamp(t)
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"kind without queue-finding", []string{"--kind", "confirmed"},
+			"argument --kind: only meaningful with --queue-finding"},
+		{"pattern without queue-finding", []string{"--pattern", "p"},
+			"argument --pattern: only meaningful with --queue-finding"},
+		{"queue-finding with approve",
+			[]string{"--queue-finding", "F-1", "--approve", "MEM-1"},
+			"argument --queue-finding: not allowed with"},
+		{"queue-finding with reflect",
+			[]string{"--queue-finding", "F-1", "--reflect", "x"},
+			"argument --queue-finding: not allowed with"},
+		{"queue-finding with reject",
+			[]string{"--queue-finding", "F-1", "--reject", "MEM-1"},
+			"argument --queue-finding: not allowed with"},
+	}
+	for _, tc := range cases {
+		args := append([]string{"--root", root, "memory", cid}, tc.args...)
+		code, out, errS := run(t, args...)
+		if code != 2 {
+			t.Errorf("%s: exit %d want 2 (out=%s err=%s)", tc.name, code, out, errS)
+			continue
+		}
+		if !strings.Contains(out+errS, tc.want) {
+			t.Errorf("%s: error %q does not contain %q", tc.name, out+errS, tc.want)
+		}
+		if !strings.Contains(out+errS, "usage: webv2 memory") {
+			t.Errorf("%s: usage line missing from %q / %q", tc.name, out, errS)
+		}
 	}
 }

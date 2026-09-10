@@ -16,6 +16,12 @@ package cli
 // what was already true instead of claiming an approval. The
 // leakage-partition guard runs BEFORE the no-op short-circuit, so a row
 // forced to human-approved by a hand edit is still refused.
+//
+// D4 (2026-09-10) adds `--queue-finding FINDING` (with `--kind` and
+// `--pattern`): a terminal finding that never went through a ladder rung had
+// no way to gain the memory row the learning completion proof demands, since
+// the ladder-disprove wire was learning.QueueMemory's only production caller.
+// The row is queued, never approved — the human approval step is untouched.
 
 import (
 	"fmt"
@@ -24,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 
+	"websec/internal/findings"
 	"websec/internal/learning"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -31,10 +38,12 @@ import (
 
 const memoryUsage = "usage: webv2 memory [-h] [--approve APPROVE] [--by BY] " +
 	"[--reflect TEXT] [--round ROUND] [--reject REJECT] [--reason REASON] " +
-	"[--rejection-class CLASS] campaign\n"
+	"[--rejection-class CLASS] [--queue-finding FINDING] [--kind KIND] " +
+	"[--pattern TEXT] campaign\n"
 
-// memoryHelp is argparse's `webv2 memory --help` output plus the D5 flags.
-const memoryHelp = `usage: webv2 memory [-h] [--approve APPROVE] [--by BY] [--reflect TEXT] [--round ROUND] [--reject REJECT] [--reason REASON] [--rejection-class CLASS] campaign
+// memoryHelp is argparse's `webv2 memory --help` output plus the D5 and D4
+// flags.
+const memoryHelp = `usage: webv2 memory [-h] [--approve APPROVE] [--by BY] [--reflect TEXT] [--round ROUND] [--reject REJECT] [--reason REASON] [--rejection-class CLASS] [--queue-finding FINDING] [--kind KIND] [--pattern TEXT] campaign
 
 positional arguments:
   campaign
@@ -49,6 +58,11 @@ options:
   --reason REASON    why it was rejected (required with --reject; logged)
   --rejection-class CLASS
                      invalid-hypothesis | not-exploitable | below-threshold
+  --queue-finding FINDING
+                     queue the memory row a terminal finding needs
+  --kind KIND        the memory kind (default: confirmed for CONFIRMED,
+                     disproved for DISPROVED)
+  --pattern TEXT     the pattern the row records (default: finding title)
 `
 
 func runMemory(root string, args []string, r *Runner) int {
@@ -59,7 +73,8 @@ func runMemory(root string, args []string, r *Runner) int {
 			usage: memoryUsage,
 			vals: []*valOpt{{name: "--approve"}, {name: "--by"},
 				{name: "--reflect"}, {name: "--round"}, {name: "--reject"},
-				{name: "--reason"}, {name: "--rejection-class"}},
+				{name: "--reason"}, {name: "--rejection-class"},
+				{name: "--queue-finding"}, {name: "--kind"}, {name: "--pattern"}},
 			pos: []*posOpt{{name: "campaign"}},
 		}
 		if err := sp.parse(args); err != nil {
@@ -80,8 +95,10 @@ func runMemory(root string, args []string, r *Runner) int {
 		reflect, round, reject := sp.vals[2].val, sp.vals[3].val, sp.vals[4].val
 		reason, rejectClass := sp.vals[5].val, sp.vals[6].val
 		approve := sp.vals[0].val
-		// The three actions are mutually exclusive; each carries flags that
-		// only make sense with it.
+		queueFinding, kind, pattern := sp.vals[7].val, sp.vals[8].val, sp.vals[9].val
+		// The first three actions are mutually exclusive; each carries flags
+		// that only make sense with it. `--queue-finding` (D4) is the fourth
+		// action, excluded from --approve/--reflect/--reject just below.
 		actions := 0
 		for _, set := range []bool{approve != "", reflect != "", reject != ""} {
 			if set {
@@ -104,6 +121,20 @@ func runMemory(root string, args []string, r *Runner) int {
 			return t14ArgparseErr(memoryUsage, "memory",
 				"argument --round: only meaningful with --reflect")
 		}
+		if queueFinding != "" &&
+			(approve != "" || reflect != "" || reject != "") {
+			return t14ArgparseErr(memoryUsage, "memory",
+				"argument --queue-finding: not allowed with --approve, "+
+					"--reflect or --reject")
+		}
+		if kind != "" && queueFinding == "" {
+			return t14ArgparseErr(memoryUsage, "memory",
+				"argument --kind: only meaningful with --queue-finding")
+		}
+		if pattern != "" && queueFinding == "" {
+			return t14ArgparseErr(memoryUsage, "memory",
+				"argument --pattern: only meaningful with --queue-finding")
+		}
 		if approve != "" {
 			return memoryApprove(c, approve, by, r)
 		}
@@ -112,6 +143,9 @@ func runMemory(root string, args []string, r *Runner) int {
 		}
 		if reject != "" {
 			return memoryReject(c, reject, reason, rejectClass, r)
+		}
+		if queueFinding != "" {
+			return memoryQueueFinding(c, queueFinding, kind, pattern, r)
 		}
 		rows, err := learning.AllMemory(c)
 		if err != nil {
@@ -132,6 +166,62 @@ func runMemory(root string, args []string, r *Runner) int {
 		}
 		return nil
 	})
+}
+
+// memoryQueueFinding is the `--queue-finding` half (D4): one memory row for a
+// terminal finding that has no ladder rung to derive one from. The finding's
+// status must be in learning.MEMORY_STATUSES; the kind is --kind when given,
+// else the status's default. The row is queued — promotion_status stays
+// pending — and only an explicit human --approve moves it.
+func memoryQueueFinding(c *state.Campaign, findingID, kind, pattern string,
+	r *Runner) error {
+	f, err := findings.LoadFinding(c, findingID)
+	if err != nil {
+		return err
+	}
+	status := objStr(f, "status")
+	if !containsStr(learning.MEMORY_STATUSES, status) {
+		return fmt.Errorf("finding %s has status %s; a memory row accepts "+
+			"one of %s", validation.PyReprStr(findingID),
+			validation.PyReprStr(status), sftChoiceList(learning.MEMORY_STATUSES))
+	}
+	if kind == "" {
+		switch status {
+		case "CONFIRMED":
+			kind = "confirmed"
+		case "DISPROVED":
+			kind = "disproved"
+		default:
+			return fmt.Errorf("no default memory kind for status %s; pass "+
+				"--kind with one of %s", validation.PyReprStr(status),
+				sftChoiceList(learning.MemoryKinds))
+		}
+	}
+	if pattern == "" {
+		pattern = objStr(f, "title")
+	}
+	fid := objStr(f, "finding_id")
+	var fidPtr, bugClassPtr *string
+	if fid != "" {
+		fidPtr = &fid
+	}
+	if class := objStr(objAt(f, "root_cause"), "class"); class != "" {
+		bugClassPtr = &class
+	}
+	mem, err := learning.QueueMemory(c, learning.QueueOpts{
+		Kind:      kind,
+		Status:    status,
+		Pattern:   pattern,
+		FindingID: fidPtr,
+		BugClass:  bugClassPtr,
+	})
+	if err != nil {
+		return err
+	}
+	memID := objStr(mem, "memory_id")
+	fmt.Fprintf(r.Out, "%s queued for %s (%s) — approve with: webv2 memory "+
+		"%s --approve %s --by NAME\n", memID, fid, status, c.CampaignID, memID)
+	return nil
 }
 
 // memoryReflect is the `--reflect` half: one ReflectionOpts entry appended to
