@@ -910,6 +910,25 @@ and a rejection whose REASON lives in the `memory.rejected` event rather than th
 row — the memory schema is `additionalProperties:false` and has no reason field,
 and a rejected row is refused outright once it is `human-approved`/`promoted`.
 
+**Runbook coverage + the `-h` gap** (2026-09-10). The Go runbook now
+documents verbs the reference never had (`exploit` … `dedup-signature`, ords
+68–76) and behaviour the reference never had (D1 table, D6 notice, D3 one-row-
+per-path, D5 memory flags). That is a *documentation* divergence with no
+byte-level consequence: the reference runbook is archive material and no golden
+step reads it. It is pinned mechanically by `internal/cli/runbook_test.go`,
+which compares the embedded runbook to the command registry in both directions.
+
+The same audit found an **open, unfixed** divergence: 23 of 76 verbs do not
+answer `-h`/`--help` with usage + exit 0 the way the reference's argparse did.
+18 flat parsers reject the flag (`error: unrecognized arguments: -h`); 5
+(`exploit`, `ack`, `rank`, `move`, `immunize`) print usage but exit 2 because
+required-argument checking runs first. `webv2 help` / `webv2 help <cmd>` always
+work, so the runbook's own examples are unaffected; the affected form is
+`webv2 <cmd> -h`, which `docs/runbook-go-notes.md` §3a had promised. Recorded
+there with the fix sketch (one shared `helpRequested(args)` guard) rather than
+silently normalized, because changing it is a CLI-surface change and therefore a
+separate decision.
+
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**
   shape.

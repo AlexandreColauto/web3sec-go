@@ -246,6 +246,38 @@ with the current index's content hash. A **mismatch** names the re-emit
 (`probes C-xxx run --emit`); **no current index at all** names
 `index C-xxx --src <target>` (rebuild first, then re-emit).
 
+## 4b. The two mechanical tables (read before you attest a lens)
+
+Two `--json`-able views read the same structural index the probes read. They
+decide nothing; they are how the operator checks a lens attestation against the
+code instead of against memory.
+
+```bash
+webv2 enforce <C-xxx> "prevStateRoot" [--contract 0xabc...]   # L-03: where a variable is written, where it is read
+webv2 symmetry <C-xxx> [--family 0xdef...]                    # L-04: the per-family (direction, asset) custody matrix
+```
+
+`enforce` prints every write and read site of one storage variable or concept
+key, ordered by call-graph depth from an entry point, each with the assertions
+its function carries — plus the (write, read) stage pairs **no assertion about
+that variable covers**. Those uncovered pairs are what the `assertion-strength`
+rows are about; `--json` is the same table.
+
+`symmetry` prints, per inheritance family, the (direction, asset) cell each
+member implements and the divergences between members:
+
+```
+member-disagreement   siblings use different primitives for one cell — which
+                      one is the custody model?
+funding-mismatch      a forward path mints/burns while a recovery path moves
+                      the asset out of a balance the member never held — who
+                      funds the difference?
+```
+
+A family with no disagreement prints its cells and **no question** — the matrix
+is an obligation to look, never a claim. Use it before `answered L-04` so the
+quoted primitives come from the code rather than from the plan text.
+
 ## 5. Plan, dispatch, ingest
 
 ```bash
@@ -296,10 +328,13 @@ webv2 answered <C-xxx> L-04 answered --families a,b,c \
   --symmetry "deposit=burn;withdraw=mint;drop=safeTransfer" --reason "..." --actor NAME
 ```
 
-A blank primitive does not count (exit 2 names the missing families; the gate
-keeps the lens OPEN until every seeded family has a quoted primitive). A
-CONFIRMED high/critical finding re-opens the closed lens whose family produced
-it (shown as REOPENED in `plan`) — re-attest it.
+Quote them from `webv2 symmetry <C-xxx>` (§4b) — the matrix prints every
+member's primitive per (direction, asset) and flags the disagreements, so the
+attestation is checkable against the index. A blank primitive does not count
+(exit 2 names the missing families; the gate keeps the lens OPEN until every
+seeded family has a quoted primitive). A CONFIRMED high/critical finding
+re-opens the closed lens whose family produced it (shown as REOPENED in
+`plan`) — re-attest it.
 
 ## 5a. Floors and budget are DATA, decided by the operator
 
@@ -337,8 +372,12 @@ error naming the command that raises it.
 
 ```bash
 webv2 dedup <C-xxx>                                   # deterministic three-tier sweep (merge / cluster / flag)
+webv2 dedup-signature <C-xxx> F-xxx --root-cause "attacker-controlled exchange rate creates unbacked withdrawal value" [--cwe CWE-20]
+webv2 dedup-signature <C-xxx> F-xxx --economic "the protocol's own reserve is drained in one block"
 webv2 resolve-candidate <C-xxx> F-xxx F-yyy --verdict same     # tier-3 flag: same merges the younger
 webv2 resolve-candidate <C-xxx> F-xxx F-yyy --verdict distinct --note "different root cause"
+webv2 ack <C-xxx> [F-xxx]                             # in-code acknowledgements (stub/TODO/known-issue) around the finding
+webv2 rank <C-xxx>                                    # acceptance-ranked table — which of the findings matter
 webv2 verdict <C-xxx> F-xxx --verdict confirmed --reason "no compensating control"
 webv2 recall <C-xxx> --finding F-xxx --mode negative   # recorded graph-memory consult (gate REQUIRES negative/comparative)
 webv2 move <C-xxx> F-xxx POSSIBLE --reason "triage: the mechanism is falsifiable"
@@ -351,6 +390,32 @@ clusters, tier-3 near-duplicates are **flagged** for a human/operator verdict
 via `resolve-candidate`. Then the hostile critic reviews POSSIBLE-bound
 candidates (`verdict`) and a negative/comparative graph-memory consult is
 recorded (`recall --mode negative` — the CONFIRMED gate requires it).
+
+**Tier-2/3 signatures are never hand-written hex.** `dedup-signature` takes the
+target-agnostic sentence ("attacker-controlled exchange rate creates unbacked
+withdrawal value", not a file or function name) and hashes it; exactly one of
+`--root-cause` / `--economic` applies, and a tier-2 signature may carry `--cwe`.
+Two findings whose sentences hash the same are the same root cause reached
+through different syntax, which is the point — but a matching signature does not
+merge anything. Pairs the sweep cannot auto-merge (different code sites, same
+signature) are **flagged on both sides**, so `resolve-candidate --verdict
+same|distinct` adjudicates them; the same-spot auto-merge path is untouched.
+
+`ack` scans the pinned source for an in-code acknowledgement (stub, TODO,
+known-issue comment) in the code that would have to change for the finding to
+matter. A live acknowledgement **demotes** the acceptance likelihood by one
+point and is recorded as an advisory in the gate output — it never blocks: the
+owner's own comment is context for the reviewer, not a gate condition. The
+finding stays; `rank` prints the demotion marker.
+
+`rank` is the read-only acceptance table over **every live finding**: score,
+band, evidence, critic and the demotion markers, in the order the policy asks
+for (`submission_budget.rank_by` — the acceptance score, or severity band when
+the policy says severity), with the critic-disproved (disqualified) ids named
+below the table. It writes nothing — `gate` is what persists the score onto the
+findings — and it ranks the whole live set, not only the rows the report's
+precision block had budget for. An unscoped campaign has no acceptance key and
+says so before printing a severity order.
 
 **The status state machine** (`move` is the ONLY transition path; terminal
 statuses absorb). Status floors: HYPOTHESIS E0, NEEDS_RESEARCH E0,
@@ -448,6 +513,30 @@ webv2 artifact-register <C-xxx> impact-dump.json --kind poc
 webv2 impact <C-xxx> F-xxx --extractable 4000000 --artifact ART-xxx --description "4.0M extractable at fork depth"
 ```
 
+### Who pays, and why the bug makes them pay (check14)
+
+An impact figure alone does not say the program will pay: a bug the protocol
+cannot lose money on is a curiosity. `exploit` records the paid-exploitability
+answer the `paid-exploitability` gate check reads:
+
+```bash
+webv2 exploit <C-xxx> F-xxx --paid --arg "LP principal is at risk in the same block as the mint, ..."   # >= 200 chars
+webv2 exploit <C-xxx> F-xxx --unpaid --arg "the only victim is the attacker's own test contract, ..."
+```
+
+`--paid`/`--unpaid` is exclusive and one of them is required, and `--arg` is the
+argument the reviewer reads. The check only asks about findings that are
+CONFIRMED/CHAIN **and** carry `extractable_usd > 0`; anything else passes as
+"no extractable claim to answer".
+
+- `--paid --arg "..."` — the argument must be at least 200 characters (who
+  pays, and why this bug makes them pay). Missing or too short: the check fails,
+  and a per-finding `waive ... paid-exploitability --subject F-xxx` is the
+  recorded alternative.
+- `--unpaid --arg "..."` — a **legitimate answer**, not a failure: it records
+  why the finding is not payable ("the only victim is the attacker's own test
+  contract"). The check passes and the gate prints the not-payable argument.
+
 ### When no dollar figure is defensible (unpriceable impact)
 
 An `address[255]`-shaped target, a test constant, a capacity argument that
@@ -472,18 +561,40 @@ together with `--extractable`/`--max-loss`/`--artifact` exits 2.
 
 ```bash
 webv2 chains <C-xxx>        # capability links + chain proposals (CONFIRMED members only; a chain materializes from the weakest member's floor)
+webv2 chain <C-xxx> F-aaa F-bbb [F-ccc] [--title T] [--note N]    # materialize the chain (writes a CHAIN super-finding)
+webv2 chain <C-xxx> F-aaa F-bbb --unproven [--note N]             # ... at HYPOTHESIS level: a LEAD, never counted as confirmed
 webv2 terminals <C-xxx>     # reachable economic terminal states (EOA baseline -> asset extraction)
 webv2 privileged <C-xxx>    # per-privilege-role attacker track (baseline, exposure band, constraints + terminal paths)
+webv2 adversarial-game <C-xxx> F-xxx --who-profit NAME --mechanism M --interplay I   # required of a live liveness finding
 webv2 gate <C-xxx>          # submission-readiness gate against the pinned policy (unknown checks never count as pass)
 webv2 gate --explain <CHECK>  # what a single gate check means
 ```
+
+`chains` **proposes**; `chain` **materializes**, and it is the only command that
+creates a chain super-finding (`move … CHAIN` changes a status; it does not
+build a chain). Without `--unproven` every member must be CONFIRMED (or
+an existing CHAIN) on one shared source pin and the result is a CHAIN.
+`--unproven` is the honest form for a lead: any member status, mixed pins
+allowed, each capability link stamped with its member's evidence level, and
+**no** super-finding — so the result never inflates the confirmed count.
+
+A **liveness** finding (the freeze is the bug) additionally needs the
+adversarial game: who profits while the protocol is degraded, how the profit is
+realised, and why that interplay cannot be undone by the challenge path. All
+three flags are required and each answer must be at least 20 characters; the
+`adversarial-game` check fails on a live liveness finding without it, and is
+waivable per finding (`waive <C-xxx> adversarial-game --subject F-xxx --reason
+"..."`).
 
 ## 9. Report + learning
 
 ```bash
 webv2 report <C-xxx>                                   # regenerate the report (a view — surfaces thin coverage instead of hiding it)
+webv2 artifact-reconcile <C-xxx> [--dry]               # re-hash the artifact registry after any external rewrite
 webv2 memory <C-xxx>                                   # list the campaign's learning memory
 webv2 memory <C-xxx> --approve MEM-xxxx --by "your-name"   # record a HUMAN approval (the agent never approves its own memory)
+webv2 memory <C-xxx> --reflect "the fork needed an explicit block number" [--round N]   # append one reflection entry
+webv2 memory <C-xxx> --reject MEM-xxxx --reason "real but unreachable" [--rejection-class not-exploitable]
 webv2 publish <C-xxx> --actor NAME                     # publish confirmed knowledge to the shared store (cross-campaign)
 webv2 publish <C-xxx> --actor NAME --global            # -> user-global tier (~/.webv2/shared-memory, or WEBV2_GLOBAL_MEMORY_DIR)
 webv2 globalize --actor NAME                           # mark stored rows scope=global (recalled by EVERY campaign, whatever its program)
@@ -493,7 +604,28 @@ webv2 shared [--verify]                                # the shared store, both 
 The report is a regenerated view: Results leads with the confirmed findings
 (count + per-bug-class breakdown); the bounty submission state is a sub-metric
 because the gate measures submission packaging (patch immunization, policy),
-not finding severity. The **Answer quality** section flags every "answered"
+not finding severity. **Results also prints an "All findings" table — every
+finding, not only the confirmed ones** (id + title, status, evidence, critic
+verdict, risk score+band, stored acceptance score, submission-ready, chain
+membership), ordered by status (confirmed/chain → hypothesis → dismissed) and
+then by live acceptance score, with the critic-disproved rows last in their
+group. Read that table before concluding a campaign is thin: a `confirmed: 0`
+headline with a full table under it means the findings exist and none has
+cleared the gate yet. A campaign with **no policy loaded** prints
+`NO POLICY LOADED` and names the fix — its report is unscored (no acceptance
+ranking, no submission budget, no accepted-risks check), and `rank` says the
+same thing. That notice is present precisely so a missing scope cannot look like
+a clean campaign.
+
+**Memory is written by the agent, approved by the human, and rejected with a
+reason.** `--reflect` appends one trajectory-reflection entry to
+`learnings.jsonl` (the learning proof requires one; before this flag no command
+could write it). `--reject MEM-xxx --reason "..."` is the missing other half of
+`--approve`: the reason is required and lands in the `memory.rejected` event (the
+row carries only the status and, optionally, one of the schema's three
+rejection classes — `invalid-hypothesis`, `not-exploitable`,
+`below-threshold`). Rejecting a row that is already approved or promoted is
+refused: that is a revocation, not a rejection. The **Answer quality** section flags every "answered"
 priority with no evidence ref and every N/A/deprioritized closure with no
 reason. A publish that adds nothing prints "nothing changed — <reason>" plus
 the next command, never silence. **Approve memory only after a human reads the
@@ -625,13 +757,21 @@ webv2 sequence run <C> SPEC.json --finding F [--workdir W]         # T4 multi-tx
 webv2 sequence verify <C> F-xxx [--exec E]                         # do the attempts have verified coverage?
 
 webv2 dedup <C>                                                    deterministic three-tier dedup sweep
+webv2 dedup-signature <C> F-xxx (--root-cause SENTENCE [--cwe C] | --economic SENTENCE)   record a tier-2/3 signature (the sentence is hashed; never hand-write the hex)
 webv2 resolve-candidate <C> F-xxx F-yyy --verdict same|distinct [--note N] [--actor A]
 webv2 prioritize <C>                                               deterministic triage view
 webv2 repro-queue <C>                                              candidates ordered for repro
+webv2 ack <C> [F-xxx]                                              in-code acknowledgement scan (stub/TODO/known-issue) -> acceptance demotion
+webv2 rank <C>                                                     acceptance-ranked table (which findings matter)
 
 webv2 chains <C>                                                   capability links + chain proposals
+webv2 chain <C> <F> <F> [<F>...] [--unproven] [--title T] [--note N]   materialize a chain (--unproven = a lead, no super-finding)
 webv2 terminals <C>                                                reachable economic terminal states
 webv2 privileged <C>                                               bounded privileged-role attacker track
+webv2 adversarial-game <C> F-xxx --who-profit W --mechanism M --interplay I   adversarial-game answers (required of a live liveness finding)
+webv2 exploit <C> F-xxx (--paid | --unpaid) [--arg A]              who pays, and why the bug makes them pay (check14)
+webv2 enforce <C> NAME [--contract 0x..] [--json]                  write/read stage table for one variable or concept key (L-03)
+webv2 symmetry <C> [--family 0x..] [--json]                        family custody-primitive matrix + divergences (L-04)
 webv2 cost <C> --kind K --amount USD [--trajectory T] [--actor A]  record an operator-reported cost row
 webv2 yields <C>                                                   cost-adjusted discovery yield (advisory)
 webv2 relations <C> [--rebuild]                                    research memory graph (typed edges)
@@ -647,6 +787,7 @@ webv2 classify <C> EXEC-xxx                                        classify a FA
 webv2 exec <C> --profile P --command CMD [--workdir W] [--finding F] [--timeout T] [--env K=V] [--dry-run]   # sandboxed run -> EXEC record
 webv2 artifact-register <C> PATH [--kind poc|detector|trace|...] [--note N]
 webv2 artifact-list <C> [--kind K]                                 list registered artifacts
+webv2 artifact-reconcile <C> [--dry]                               re-hash the registry after an external rewrite
 webv2 invariant-verify <C> INV-xxx (--artifact ART | --exec E)     CHECKED_AGAINST_CODE (pass exactly one)
 webv2 invariant-contradict <C> INV-xxx --evidence FILE#L|ART-xxx   mark an invariant CONTRADICTED (falsified by code)
 webv2 hint <C> --kind priority|exclusion|detector|note --content C [--source-ref ID] [--actor A]
@@ -661,7 +802,7 @@ webv2 baseline {add NAME --path P [--source-url U] [--license L] | list | remove
 webv2 publish <C> --actor A [--global]                             publish confirmed knowledge to the shared store
 webv2 globalize --actor A [--program KEY]                          mark stored rows scope=global
 webv2 shared [--verify]                                            the shared store, both tiers: view + integrity check
-webv2 memory <C> [--approve MEM-xxx --by NAME]                     list learning memory / record a human approval
+webv2 memory <C> [--approve MEM-xxx --by NAME | --reflect TEXT [--round N] | --reject MEM-xxx --reason R [--rejection-class C]]   list memory / approve / reflect / reject
 webv2 report <C>                                                   regenerate the report (a view)
 
 webv2 ladder <C> {start,show,explore,add,repro,disprove,set-maximal,complete,waive,reopen,report} <F> [RUNG] [AXIS] [--name N] [--description D] [--axes A] [--capital C] [--ratio R] [--removes R] [--note NOTE] [--reason REASON] [--exec EXEC] [--actor ACTOR]
@@ -697,7 +838,11 @@ mutations.
 - **Never hand-edit the record** — no event log, finding JSON, or registered
   artifact. Every side effect goes through the public CLI. Sanctioned mutation
   of a registered artifact goes through the refresh path (`artifact-register`
-  re-registers).
+  re-registers). A path holds **one** registry row: re-registering it under a
+  different `--kind` migrates that row (the refresh event records
+  `kind_migrated: old→new`) and prunes any ghost rows at the same path. If
+  something outside the CLI rewrote a registered file, the audit stays red until
+  `artifact-reconcile` re-hashes the registry — run it with `--dry` first.
 - **E4+ evidence MUST trace to a real EXEC record** in the campaign's exec
   ledger that exited 0, belongs to the finding, and names its sandbox profile.
   **E7 MUST cite a registered artifact.**

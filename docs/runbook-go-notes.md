@@ -1,15 +1,22 @@
 # RUNBOOK notes for the Go binary
 
-The operator runbook lives in the **Python reference repo**
-(`web3sec-final/RUNBOOK.md`) and stays authoritative until cutover. This file
-is the patch the runbook needs to be executable against `webv2` (the Go
-binary), plus every place where the runbook's literal text and the code
-disagree. It is generated from `scripts/runbook-walkthrough.sh`, which runs
-all ~140 documented commands against the Go binary and asserts the exit code
-and output markers the runbook promises.
+**The operator runbook is `assets/runbook/RUNBOOK.md`** (embedded into the
+binary and dropped into every campaign by `init`). The Python repo it was
+ported from is deprecated; the **cutover happened** (`docs/gates/P4-gate.md`,
+commits `313e07e`/`1684fd7`), so the Go runbook is the source of truth and the
+`web3sec-final` copy is archive material.
 
-Current status: **walkthrough green, 140/140 commands**, 2026-09-09, binary
-HEAD `1254db0` + T37 working tree, reference `web3sec-final` HEAD `2e41cd2`.
+This file is the **port history**: the substitutions that made the reference
+runbook executable against `webv2` (the Go binary), and every place where the
+reference's literal text and the code disagreed. It was generated from
+`scripts/runbook-walkthrough.sh` — a T37/P4-era artifact written against the
+*Python* runbook, kept for the record, **not re-run by any gate** (release.sh
+has its own mini walkthrough; `selftest` runs the small Go one).
+
+Current status (2026-09-10, HEAD `243c0e6`): **76/76 registered verbs are
+documented in the runbook**, pinned by `TestRunbookDocumentsEveryRegisteredVerb`
+and `TestRunbookCommandsAreRegistered` (`internal/cli/runbook_test.go`) — that
+test, not this file, is what keeps the doc honest now. See §7.
 
 ## 1. One binary at a time
 
@@ -162,6 +169,23 @@ Pinned by `TestResolveCandidateNoteRecordsOnBothSides`
 `verify-full.sh` still omit `--note` so the byte-diff against the (buggy,
 deprecated) reference stays green.
 
+## 3a. The `-h` gap (open, recorded 2026-09-10)
+
+The reference's argparse answered `<cmd> -h` with the command's help and exit
+**0** for every verb. The Go twin does so for 53 of 76 verbs; **23 diverge**:
+
+| behaviour | verbs |
+|---|---|
+| usage printed, **exit 2** (required-arg check runs before help) | `exploit`, `ack`, `rank`, `move`, `immunize` |
+| `error: unrecognized arguments: -h` (the flat parsers never learned the flag) | `init`, `status`, `snap`, `log`, `audit`, `prioritize`, `repro-queue`, `waive`, `artifact-list`, `artifact-register`, `invariant-verify`, `invariant-contradict`, `dedup`, `recall`, `resolve-candidate`, `gate`, `prove`, `verdict` |
+
+`webv2 help` and `webv2 help <cmd>` always work; it is the per-verb flag that
+is inconsistent. Not fixed here because it is a CLI-surface change, not a doc
+change: the cheap fix is a shared `helpRequested(args)` guard at the top of the
+18 flat parsers plus a help-before-required check in the 5, reusing the usage
+string the verb already stores. Until that lands, the *notes* promise
+(`<cmd> --help`) is true only for the 53.
+
 ## 4. Exit codes asserted by the walkthrough
 
 The runbook's CLI contract (L7-9) is `0` success / `1` handled error /
@@ -210,3 +234,28 @@ a docker daemon:
 
 `WEBV2_SOLC_DIR` / `WEBV2_DOCKER_IMAGE` / `WEBV2_DOCKER_TESTS` behave as the
 runbook documents; the Go binary never reaches the network itself.
+
+## 7. Runbook drift is a test now (2026-09-10)
+
+The runbook fell 9 verbs behind (all of ords 68-76 — every capability the
+improvement programme added) without any gate noticing, because nothing
+compared the registry against the document. Two tests now do, in
+`internal/cli/runbook_test.go`, against the **embedded** runbook (the bytes
+`init` copies into a campaign):
+
+- `TestRunbookDocumentsEveryRegisteredVerb` — every `register(command{…})`
+  name must appear in the runbook as `webv2 <name>`. A new verb with no
+  documentation fails the suite.
+- `TestRunbookCommandsAreRegistered` — every `webv2 <name>` in the runbook must
+  resolve to a registered command (or `help`). A renamed or deleted verb with a
+  stale doc entry fails the suite.
+
+Neither test checks that the *prose* is true — that is the operator's and the
+reviewer's job. They check the two mechanical failure modes: a capability no
+operator can discover, and a documented command that no longer exists.
+
+Also refreshed with this pass: §4b (the `enforce`/`symmetry` tables), the
+triage verbs (`rank`, `ack`, `dedup-signature`), `exploit`,
+`chain`/`adversarial-game`, the memory flags (`--reflect`/`--reject`),
+`artifact-reconcile`, the all-findings table and the unscoped-campaign notice
+in §9, and the one-row-per-path artifact rule in the hard rules.

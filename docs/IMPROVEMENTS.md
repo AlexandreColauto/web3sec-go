@@ -1317,6 +1317,55 @@ schema, listing shows the new state).
 
 ---
 
+### D7. The runbook is a test: registry ↔ document drift (added 2026-09-10, out of the runbook audit)
+
+**Verified state (before):** `assets/runbook/RUNBOOK.md` documented 67 of the
+76 registered verbs. The nine missing ones were exactly ordinals 68–76 — every
+capability this programme added (`exploit`, `ack`, `rank`, `adversarial-game`,
+`chain`, `enforce`, `symmetry`, `artifact-reconcile`, `dedup-signature`), three
+of which (`adversarial-game`, `artifact-reconcile`, `dedup-signature`) appeared
+nowhere in the file at all. The `memory` cheat-sheet line predated `--reflect` /
+`--reject`; the report section predated the All-findings table (D1) and the
+unscoped notice (D6); the artifact text predated one-row-per-path (D3). No gate
+could notice: `scripts/runbook-walkthrough.sh` was written against the **Python**
+reference runbook for the T37/P4 deliverable and is re-run by nothing,
+`release.sh` has its own mini walkthrough, and `selftest`'s Go walkthrough is a
+small embedded subset. Documentation drift was not a failing condition anywhere.
+
+**What landed:**
+- The nine verbs are documented where they belong (cheat sheet + the owning
+  section), with the real signatures read off the binary: §4b is new (the
+  `enforce` / `symmetry` tables and *when* to read them — before attesting L-03 /
+  L-04), §6 gains `rank` / `ack` / `dedup-signature`, §7 gains `exploit`, §8
+  gains `chain` / `adversarial-game`, §9 gains `artifact-reconcile` and the
+  memory flags, and the hard rules state the one-row-per-path artifact rule.
+- Behaviour that had no prose at all is now stated: the All-findings table and
+  its ordering, `NO POLICY LOADED` and what an unscoped report cannot compute,
+  `--unproven` chains being leads that never inflate the confirmed count, and
+  `--reject` being the other half of `--approve` (reason required, approved rows
+  refused).
+- `docs/runbook-go-notes.md` no longer claims the Python repo is authoritative
+  "until cutover" (the cutover happened) and its status line is dated and tied
+  to a test rather than a hand-run script.
+- **The guard:** `internal/cli/runbook_test.go` reads the **embedded** runbook
+  and asserts both directions against the registry — every registered verb is
+  documented (`TestRunbookDocumentsEveryRegisteredVerb`) and every documented
+  `webv2 <verb>` is registered (`TestRunbookCommandsAreRegistered`, line-leading
+  match so prose like "the webv2 operator runbook" is not read as a command).
+  Both were verified to fail on injected drift (a renamed command line and a
+  removed verb mention) before landing.
+
+**Deliberately not fixed (recorded, not hidden):** 23 of 76 verbs do not answer
+`-h`/`--help` with exit 0 the way the reference's argparse did — 18 reject the
+flag outright (flat parsers), 5 print usage but exit 2 because required-argument
+checking runs before help. That is a CLI-surface change, not a doc change, so it
+is recorded in `docs/runbook-go-notes.md` §3a as an open item; the cheap fix is
+one shared `helpRequested(args)` guard in the 18 parsers plus a help-before-
+required check in the 5.
+
+**Pinned by:** `internal/cli/runbook_test.go` (2 tests). **Surface budget:** no
+new verbs, no new flags — documentation and a test.
+
 ## Wave E — Remaining asks  *(DEFERRED by the surface budget — principle 6)*
 
 **Status (2026-09-10):** E1–E6 are recorded, not scheduled. Each one adds a new
