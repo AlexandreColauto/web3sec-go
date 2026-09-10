@@ -164,6 +164,41 @@ Tests (red first):
 Verification: focused `go test ./internal/probes/`, plus `go build ./...` and
 `gofmt -l`.
 
+## Task 4 — the planner's disposition errors name the campaign too
+
+Added after Task 2, found while implementing it. Task numbering is the order the
+tasks were written, not the order they run: **this task runs before Task 3**, so
+Task 3's record covers both code changes.
+
+The same placeholder defect lives in a second file.
+`internal/planner/answered.go:221-222` and `:227-228` tell the operator to run
+`` `webv2 probes <campaign> run` `` / `` `--emit` `` with a literal
+`<campaign>`. These are the errors an operator sees while dispositioning a probe
+row — the same moment the audit hints serve — and both are uncopyable.
+
+Files:
+
+- `internal/planner/answered.go` — the two error strings.
+- the package's test file covering those two errors — tests.
+
+Requirements:
+
+1. Both messages use the campaign id they already have in hand, like the rest of
+   the framework's operator-facing errors. Nothing else about the messages
+   changes: same conditions, same wording otherwise, same error type and exit
+   path.
+2. No problem set, gate, or artifact changes.
+
+Tests (red first):
+
+- a priority citing a probe row on a campaign with no probe surface, and one
+  citing a row the surface does not carry → each error names the campaign id and
+  contains no `<campaign>`;
+- the surrounding wording is otherwise unchanged (pin it).
+
+Verification: focused `go test ./internal/planner/`, plus `go build ./...` and
+`gofmt -l`.
+
 ## Task 3 — record the change
 
 Files: `docs/feedback-triage.md` (the `## 2026-09-10 — external review triage
@@ -197,6 +232,8 @@ implementer.
    - `webv2 audit C-21dd6a7642` reports 8 `[probe_surface]` problems, all
      plan-priority drift (Q-253…Q-260), and no problem string contains
      `<campaign>`;
+   - the planner's two disposition errors for a missing/absent probe row name
+     the campaign id instead of `<campaign>`;
    - an explicit `--per-axis 2 --total 40` still rebuilds exactly what it says.
 3. No new flags or verbs; `assets/` untouched; the audit's problem set for a
    pinned fixture is unchanged.
