@@ -23,13 +23,20 @@ type DivergenceOpts struct {
 }
 
 // campaignIDForPlan is the campaign id an operator-facing repair hint names:
-// the plan's own campaign_id, else the campaign the caller supplied.
+// the plan's own campaign_id, else the campaign the caller supplied. A direct
+// call with neither has no id to name — no production path reaches that (the
+// CLI always goes through DivergenceStatusFor) — so the documented
+// metavariable stands in rather than an empty string, which would render a
+// command with a hole where the campaign belongs.
 func campaignIDForPlan(plan validation.Value,
 	opts DivergenceOpts) string {
 	if cid := objStr(plan, "campaign_id"); cid != "" {
 		return cid
 	}
-	return opts.CampaignID
+	if opts.CampaignID != "" {
+		return opts.CampaignID
+	}
+	return "<campaign>"
 }
 
 // DivergenceStatus is divergence_status: the divergence gate as DATA. A lens

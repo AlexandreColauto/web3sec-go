@@ -428,8 +428,15 @@ func TestGateBlocksWithoutForkPocAndImmunization(t *testing.T) {
 		if len(objStr(ex, "remediation")) < 10 {
 			t.Fatalf("%s remediation too short", cid)
 		}
-		if objStr(row, "remediation") != objStr(ex, "remediation") {
+		// gate explain is the campaign-less catalog; the gate itself names
+		// the campaign in hand, so it is the catalog with the id substituted.
+		wantRem := strings.ReplaceAll(objStr(ex, "remediation"), "<campaign>",
+			c.CampaignID)
+		if objStr(row, "remediation") != wantRem {
 			t.Fatalf("%s remediation differs from gate explain", cid)
+		}
+		if strings.Contains(objStr(row, "remediation"), "<campaign>") {
+			t.Fatalf("%s remediation still carries the metavariable", cid)
 		}
 	}
 }

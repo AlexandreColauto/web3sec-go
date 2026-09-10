@@ -22,7 +22,7 @@ func TestBudgetNoCeiling(t *testing.T) {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
 	want := "cost: $0.00 spent — NO CEILING SET (unbounded; set one with " +
-		"`webv2 budget <c> --set USD --actor <name>`)\n" +
+		"`webv2 budget " + cid + " --set USD --actor <name>`)\n" +
 		t14BudgetDiscoveryLine(cid)
 	if out != want {
 		t.Fatalf("stdout = %q, want %q", out, want)

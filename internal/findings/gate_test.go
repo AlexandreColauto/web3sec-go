@@ -29,7 +29,7 @@ func TestConfirmationGateDetailExactVector(t *testing.T) {
 				"every recorded check is stale (a referenced row changed or " +
 				"left the store) — run `webv2 recall " + c.CampaignID +
 				" --finding " + objStr(got, "finding_id") + "`",
-			"webv2 recall <campaign> --finding <fid>   (records a " +
+			"webv2 recall " + c.CampaignID + " --finding <fid>   (records a " +
 				"graph-memory consultation)"},
 		{"reproduction-reproduced",
 			"reproduction status is None, need 'reproduced'",
@@ -40,7 +40,7 @@ func TestConfirmationGateDetailExactVector(t *testing.T) {
 				"decision: webv2 floors set — an override, logged, never a " +
 				"silent edit). Economic-class E7: when no USD figure is " +
 				"defensible, record the decision instead — webv2 impact " +
-				"<campaign> <fid> --unpriceable --ceiling '<capacity basis>' " +
+				c.CampaignID + " <fid> --unpriceable --ceiling '<capacity basis>' " +
 				"--reason '<why>' --actor <you>"},
 		{"evidence-floor-unreachable",
 			"structurally unreachable in this campaign: no deployment/chain " +
@@ -58,7 +58,7 @@ func TestConfirmationGateDetailExactVector(t *testing.T) {
 			"evidence floor E5 demands a fork-level reproduction (T3+), but " +
 				"tier_reached is 'none' — record the fork-tier attempt " +
 				"(record_attempt / attempt_and_mint) before confirming",
-			"webv2 mint <campaign> <fid> --exec <fork exec> --description " +
+			"webv2 mint " + c.CampaignID + " <fid> --exec <fork exec> --description " +
 				"'...' --tier T3   (record the fork-tier attempt the evidence " +
 				"is based on)"},
 	}

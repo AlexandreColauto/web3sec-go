@@ -331,7 +331,9 @@ func inStringList(list validation.Value, needle string) bool {
 
 // BountyRemediation is BOUNTY_REMEDIATION: every failing bounty gate check
 // carries a REMEDIATION — the exact command that clears it. `webv2 gate
-// explain <check>` shows these without a run.
+// explain <check>` shows these without a run; the gate itself renders the
+// <campaign> entries with the campaign in hand (findings.NameCampaign), so a
+// printed fix line names the campaign.
 var BountyRemediation = map[string]string{
 	"security-confirmed":   "webv2 verdict <fid> confirmed ... + webv2 recall <campaign> --finding <fid> + webv2 mint <fid> --exec <EXEC>  (see `webv2 gate explain` for the full CONFIRMED checklist)",
 	"snapshot-pinned":      "webv2 snap   (re-pin, then re-run the gate)",
@@ -558,7 +560,11 @@ func (g *gate) add(name, result, detail, remediation string) {
 	)
 	if (result == "fail" || result == "unknown" || result == "human-review") &&
 		remediation == "" {
-		remediation = BountyRemediation[name]
+		cid := ""
+		if g.campaign != nil {
+			cid = g.campaign.CampaignID
+		}
+		remediation = findings.NameCampaign(BountyRemediation[name], cid)
 	}
 	if remediation != "" {
 		entry.O = append(entry.O,

@@ -204,3 +204,26 @@ func TestFakeAnchorRefOracle(t *testing.T) {
 		t.Fatalf("expected at least 20 anchor refs, checked %d", n)
 	}
 }
+
+// TestCampaignIDForPlanFallback pins the hardening: a direct call whose plan
+// carries no campaign_id and whose opts name no campaign has no id to render,
+// and an empty id would leave a hole in the command the hint prints, so the
+// documented metavariable stands in. No production path reaches this — every
+// operator-facing caller goes through DivergenceStatusFor, which supplies the
+// campaign — but a library caller must never get a broken command.
+func TestCampaignIDForPlanFallback(t *testing.T) {
+	plan := validation.VObj()
+	if got := campaignIDForPlan(plan, DivergenceOpts{}); got != "<campaign>" {
+		t.Fatalf("campaignIDForPlan = %q, want the metavariable fallback", got)
+	}
+	// the plan's own id, and the caller's, both still win over the fallback.
+	withPlanID := validation.VObj(kv("campaign_id", validation.VStr("C-plan")))
+	if got := campaignIDForPlan(withPlanID, DivergenceOpts{
+		CampaignID: "C-opts"}); got != "C-plan" {
+		t.Fatalf("plan id = %q, want C-plan", got)
+	}
+	if got := campaignIDForPlan(plan, DivergenceOpts{
+		CampaignID: "C-opts"}); got != "C-opts" {
+		t.Fatalf("caller id = %q, want C-opts", got)
+	}
+}

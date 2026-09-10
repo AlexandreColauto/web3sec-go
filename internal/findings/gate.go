@@ -21,8 +21,29 @@ import (
 	"websec/internal/validation"
 )
 
+// campaignPlaceholder is the campaign metavariable the remediation catalogs
+// carry where the command must name the campaign. It is left in the exported
+// maps because they are also the campaign-less catalog `webv2 gate --explain`
+// prints; every operator-facing site that holds a campaign renders through
+// NameCampaign, so the line it prints is copyable.
+const campaignPlaceholder = "<campaign>"
+
+// NameCampaign renders a remediation catalog entry for the campaign id in
+// hand: the id replaces every <campaign> metavariable. An empty id (a caller
+// that genuinely has no campaign) leaves the entry as the catalog wrote it —
+// never an empty command.
+func NameCampaign(entry, campaignID string) string {
+	if campaignID == "" {
+		return entry
+	}
+	return strings.ReplaceAll(entry, campaignPlaceholder, campaignID)
+}
+
 // GATE_REMEDIATION is GATE_REMEDIATION: the exact command that clears each
-// check. Values are contractual (they are printed to the operator verbatim).
+// check. Values are contractual; a value carrying <campaign> is a template
+// rendered by NameCampaign (the gate holds the campaign, so its printed
+// remediation names it; the campaign-less `webv2 gate --explain` shows the
+// template).
 var GATE_REMEDIATION = map[string]string{
 	"critic-verdict": "webv2 verdict <fid> confirmed '<reasoning>' --actor <you>",
 	"memory-check": "webv2 recall <campaign> --finding <fid>   (records a " +
@@ -492,14 +513,24 @@ type gateRun struct {
 	out      []Clause
 }
 
+// remediation renders the catalog entry for checkID with the campaign id the
+// run holds, so a printed fix line is a command the operator can copy.
+func (g *gateRun) remediation(checkID string) string {
+	cid := ""
+	if g.campaign != nil {
+		cid = g.campaign.CampaignID
+	}
+	return NameCampaign(GATE_REMEDIATION[checkID], cid)
+}
+
 func (g *gateRun) fail(checkID, message string, subject *string) {
 	g.out = append(g.out, Clause{CheckID: checkID, OK: false, Message: message,
-		Remediation: GATE_REMEDIATION[checkID], Subject: subject})
+		Remediation: g.remediation(checkID), Subject: subject})
 }
 
 func (g *gateRun) satisfied(checkID string, subject *string) {
 	g.out = append(g.out, Clause{CheckID: checkID, OK: true,
-		Remediation: GATE_REMEDIATION[checkID], Subject: subject})
+		Remediation: g.remediation(checkID), Subject: subject})
 }
 
 func (g *gateRun) criticVerdict(ver validation.Value) {

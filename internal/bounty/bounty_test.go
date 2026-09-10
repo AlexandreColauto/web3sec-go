@@ -1191,7 +1191,20 @@ func TestGateVectorsByteExact(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if gotJSON := validation.CanonSpaced(got); gotJSON != gateGolden[name] {
+			gotJSON := validation.CanonSpaced(got)
+			// The recorded capture is the Python twin's — its remediation
+			// carries the <campaign> metavariable. The port names the
+			// campaign in hand, so the metavariable must be gone and the id
+			// present; mask the id back for the byte comparison so the rest
+			// of the capture stays pinned.
+			if strings.Contains(gateGolden[name], "<campaign>") {
+				if strings.Contains(gotJSON, "<campaign>") {
+					t.Errorf("bounty dict still carries the campaign "+
+						"metavariable:\n%s", gotJSON)
+				}
+				gotJSON = strings.ReplaceAll(gotJSON, c.CampaignID, "<campaign>")
+			}
+			if gotJSON != gateGolden[name] {
 				t.Errorf("bounty dict\n got %s\nwant %s", gotJSON, gateGolden[name])
 			}
 			if checks := objAt(got, "policy_checks"); len(checks.A) < 12 {
