@@ -10,11 +10,15 @@ import (
 
 // AnsweredOpts is the optional tail of mark_answered (Python: reason=None,
 // ref=None, actor="cli", anchor=None). Nil pointers are None.
+// OverrideDismissal/OverrideReason are B4: the explicit, logged override of
+// the dismissal gate on a high-risk row.
 type AnsweredOpts struct {
-	Reason *string
-	Ref    *string
-	Actor  string
-	Anchor *string
+	Reason            *string
+	Ref               *string
+	Actor             string
+	Anchor            *string
+	OverrideDismissal bool
+	OverrideReason    *string
 }
 
 // MarkAnswered is mark_answered: close (or re-open) a plan priority.
@@ -49,6 +53,10 @@ func MarkAnswered(campaign *state.Campaign, plan validation.Value, priorityID,
 	ref := opts.Ref
 	if err := checkAnchorless(priorityID, outcome, prov, hasProv,
 		opts.Anchor); err != nil {
+		return validation.VNull(), err
+	}
+	if err := checkDismissalGate(campaign, priorityID, outcome, prov,
+		hasProv, opts); err != nil {
 		return validation.VNull(), err
 	}
 	var anchorRec validation.Value
@@ -216,13 +224,21 @@ func resolveAnchor(campaign *state.Campaign, priorityID string,
 	if err != nil {
 		return nil, validation.VNull(), err
 	}
-	if ref != nil && *ref != rendered {
-		return nil, validation.VNull(), errValue("a probe disposition's " +
-			"--ref must be the anchor it claims: got " +
-			validation.PyReprStr(*ref) + ", expected " +
-			validation.PyReprStr(rendered) + " (" + anchor + ")")
-	}
 	out := rendered
+	if ref != nil && *ref != rendered {
+		// B4: a refutation-backed ref (an existing exec record or a
+		// registered invariant) is a legitimate closure basis on its own —
+		// it backs the dismissal, while the anchor record above keeps its
+		// own citation of the field the probe covered. Anything else is
+		// still rejected: the disposition has to be falsifiable.
+		if !refutationBacked(campaign, *ref) {
+			return nil, validation.VNull(), errValue("a probe disposition's " +
+				"--ref must be the anchor it claims: got " +
+				validation.PyReprStr(*ref) + ", expected " +
+				validation.PyReprStr(rendered) + " (" + anchor + ")")
+		}
+		out = *ref
+	}
 	rec := validation.VObj(
 		kv("field", validation.VStr(anchor)),
 		kv("value", value),

@@ -66,6 +66,39 @@ func TestVerdictMissingOptionsIsArgparse(t *testing.T) {
 	}
 }
 
+// TestVerdictDismissalVocabularyAdvisory pins the B4 finding-side twin: a
+// critic reason using dismissal vocabulary gets an advisory warning (and
+// still succeeds — verdicts are human judgment, the warning never blocks).
+func TestVerdictDismissalVocabularyAdvisory(t *testing.T) {
+	c, root := t15Campaign(t, "verdict-warn")
+	f := t15Finding(t, c, "an inflation hypothesis", "logic-error")
+	fid := objStr(f, "finding_id")
+	code, out, errS := run(t, "--root", root, "verdict", c.CampaignID, fid,
+		"--verdict", "disproved", "--reason",
+		"not exploitable, no economic impact")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if !strings.Contains(out,
+		"warning: reason uses dismissal vocabulary "+
+			"(not exploitable, no economic impact)") {
+		t.Fatalf("output missing the advisory:\n%s", out)
+	}
+	if !strings.Contains(out, "advisory only (B4)") {
+		t.Fatalf("output missing the advisory framing:\n%s", out)
+	}
+	// a clean reason stays quiet
+	code, out, errS = run(t, "--root", root, "verdict", c.CampaignID, fid,
+		"--verdict", "confirmed", "--reason",
+		"checked it thoroughly by hand")
+	if code != 0 {
+		t.Fatalf("clean exit %d: %q", code, errS)
+	}
+	if strings.Contains(out, "dismissal vocabulary") {
+		t.Fatalf("clean reason must not warn:\n%s", out)
+	}
+}
+
 func TestVerdictUnknownFinding(t *testing.T) {
 	c, root := t15Campaign(t, "verdict")
 	code, _, errS := run(t, "--root", root, "verdict", c.CampaignID,

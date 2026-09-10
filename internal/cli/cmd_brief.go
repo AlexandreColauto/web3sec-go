@@ -121,6 +121,17 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 		}
 		fmt.Fprintln(r.Out, pl)
 	}
+	if dr := objAt(b, "disposition_review"); len(dr.A) > 0 {
+		fmt.Fprintf(r.Out, "  disposition review: %d flagged high-risk "+
+			"dismissal(s) (B4)\n", len(dr.A))
+		for _, f := range dr.A {
+			phrases := strings.Join(t31Strings(objAt(f, "phrases")), ", ")
+			fmt.Fprintf(r.Out, "    %s (row %s, tier %s, gap %s): %s [%s]\n",
+				objStr(f, "priority"), objStr(f, "row_id"),
+				pyReprVal(objAt(f, "tier")), pyReprVal(objAt(f, "assertion_gap")),
+				scalarStr(objAt(f, "reason")), phrases)
+		}
+	}
 	for _, ch := range objListAt(fs, "materializable_chains") {
 		fmt.Fprintf(r.Out, "  materializable chain: %s\n",
 			strings.Join(t31Strings(objAt(ch, "members")), " -> "))

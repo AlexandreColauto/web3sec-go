@@ -687,7 +687,23 @@ Bug-hunt sweep).
   byte-identical; `webv2 rank <campaign>`; policy
   `submission_budget {max_findings, rank_by}`); **A4** paid-exploitability
   answer (`finding.exploitability`, gate check14 `paid-exploitability`,
-  `webv2 exploit` verb). Intentional oracle updates that accompanied
+  `webv2 exploit` verb); **B4** disposition linter
+  (Go-only — the Python twin is retired): the dismissal vocabulary
+  (`internal/planner/disposition.go`: 9 phrases, case-insensitive), the
+  high-risk rule (tier 0 or gap ≥ 3, missing tier reads as 0), the v2 hard
+  gate in `MarkAnswered` (a dispositioned closure of a high-risk probe row
+  with dismissal vocabulary needs a refutation-backed ref — an
+  `EXEC-` ref with an on-disk exec record or an `INV-` ref in
+  `invariant_links.json` — or `--override-dismissal
+  --override-reason R`, which logs `probe.dismissal_overridden`); the
+  A4 anchor rule now accepts a refutation-backed ref on probe rows
+  (`closed_ref` = the refutation, `probe.anchor.ref` keeps the rendered
+  anchor); v1 surfaces are the presence-gated report "Disposition review"
+  section and the presence-gated brief `disposition_review` key; the
+  finding-side twin is an advisory-only warning on `webv2 verdict`.
+  `webv2 answered` gained `--override-dismissal` / `--override-reason`
+  (usage + help strings changed — no scenario step captures them, golden
+  stays byte-identical). Intentional oracle updates that accompanied
   these: the `gates` scenario `bounty_gate_all` oracle in
   `internal/orchestrator/testdata/oracles.json` gained the 14th
   `accepted-risk` and the 15th `paid-exploitability` check rows, and its

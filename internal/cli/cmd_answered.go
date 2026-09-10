@@ -19,12 +19,14 @@ import (
 
 const t14AnsweredUsage = `usage: webv2 answered [-h] [--reason REASON] [--ref REF] [--families FAMILIES]
                       [--symmetry SYMMETRY] [--anchor ANCHOR] [--actor ACTOR]
+                      [--override-dismissal] [--override-reason OVERRIDE_REASON]
                       campaign priority
                       {open,assigned,answered,not-applicable,deprioritized,blocked}
 `
 
 const t14AnsweredHelp = `usage: webv2 answered [-h] [--reason REASON] [--ref REF] [--families FAMILIES]
                       [--symmetry SYMMETRY] [--anchor ANCHOR] [--actor ACTOR]
+                      [--override-dismissal] [--override-reason OVERRIDE_REASON]
                       campaign priority
                       {open,assigned,answered,not-applicable,deprioritized,blocked}
 
@@ -50,19 +52,29 @@ options:
                         stranded_entry). Required to disposition a probe row;
                         the value recorded is the row's real anchor
   --actor ACTOR         who is closing it (default: cli)
+  --override-dismissal
+                        B4: override the dismissal gate on a high-risk row
+                        (tier 0 / gap >= 3) whose reason uses dismissal
+                        vocabulary — requires --override-reason; logged as
+                        probe.dismissal_overridden and listed in the report
+  --override-reason OVERRIDE_REASON
+                        the override justification (required with
+                        --override-dismissal)
 `
 
 // answeredArgs is the parsed command line.
 type answeredArgs struct {
-	campaign string
-	priority string
-	status   string
-	reason   *string
-	ref      *string
-	families *string
-	symmetry *string
-	anchor   *string
-	actor    string
+	campaign          string
+	priority          string
+	status            string
+	reason            *string
+	ref               *string
+	families          *string
+	symmetry          *string
+	anchor            *string
+	actor             string
+	overrideDismissal bool
+	overrideReason    *string
 }
 
 var answeredStatuses = []string{"open", "assigned", "answered",
@@ -135,6 +147,10 @@ func answeredFlag(args []string, i int, a *answeredArgs,
 		a.actor = args[i+1]
 		return 1, false, true, nil
 	}
+	if arg == "--override-dismissal" {
+		a.overrideDismissal = true
+		return 0, false, true, nil
+	}
 	if dst, name := answeredDst(a, arg); dst != nil {
 		if i+1 >= len(args) {
 			return 0, false, true, t14ArgparseErr(t14AnsweredUsage,
@@ -166,6 +182,8 @@ func answeredDst(a *answeredArgs, arg string) (**string, string) {
 		return &a.symmetry, "symmetry"
 	case "--anchor":
 		return &a.anchor, "anchor"
+	case "--override-reason":
+		return &a.overrideReason, "override-reason"
 	}
 	return nil, ""
 }
@@ -178,7 +196,7 @@ func answeredEq(a *answeredArgs, arg string) (bool, error) {
 	}{
 		{"--reason", &a.reason}, {"--ref", &a.ref},
 		{"--families", &a.families}, {"--symmetry", &a.symmetry},
-		{"--anchor", &a.anchor},
+		{"--anchor", &a.anchor}, {"--override-reason", &a.overrideReason},
 	} {
 		if strings.HasPrefix(arg, f.name+"=") {
 			v := strings.TrimPrefix(arg, f.name+"=")
@@ -373,7 +391,8 @@ func answeredPriority(c *state.Campaign, a *answeredArgs, closing bool,
 	}
 	updated, err := planner.MarkAnswered(c, plan, a.priority, a.status,
 		planner.AnsweredOpts{Reason: a.reason, Ref: a.ref, Actor: actor,
-			Anchor: a.anchor})
+			Anchor: a.anchor, OverrideDismissal: a.overrideDismissal,
+			OverrideReason: a.overrideReason})
 	if err != nil {
 		return t14ExitErr(2, "answered failed: %s\n", err)
 	}

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"websec/internal/findings"
+	"websec/internal/planner"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -82,6 +83,14 @@ func runVerdict(root string, args []string, r *Runner) int {
 	fmt.Fprintf(r.Out, "critic verdict on %s: %s\n", pos[1], verdict)
 	fmt.Fprintf(r.Out, "  reason: %s\n", reason)
 	fmt.Fprintln(r.Out, "  (persisted in full at dedup_meta.critic_reasoning)")
+	// B4 finding-side twin: the same dismissal-vocabulary scan over the
+	// critic's reasoning. Advisory only — verdicts are human judgment, so
+	// this warns and never blocks or fails.
+	if hits := planner.DismissalHits(reason); len(hits) > 0 {
+		fmt.Fprintf(r.Out, "  warning: reason uses dismissal vocabulary (%s) — "+
+			"advisory only (B4); record the counter-argument or re-check "+
+			"the row behind this verdict\n", strings.Join(hits, ", "))
+	}
 	return 0
 }
 

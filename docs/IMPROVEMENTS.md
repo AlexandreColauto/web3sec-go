@@ -354,6 +354,41 @@ that buried G-01.
 **Tests:** vocabulary table, tier-0/gap≥3 gating, override logging,
 morph-campaign fixture (the 3 flagged rows reproduce).
 
+**As-built (Go-only, the Python twin is retired):**
+- The gate lives in `internal/planner/answered.go` (`checkDismissalGate`,
+  wired into `MarkAnswered` after the anchorless check) — that is the actual
+  disposition seam; `probes/closure.go` only carries the axis-surface
+  blocker and was left alone. `internal/planner/disposition.go` holds the
+  vocabulary (`DismissalPhrases`/`DismissalHits`), the high-risk rule
+  (`HighRiskRow`: tier 0 or gap ≥ 3, missing tier reads as 0), the v1 scan
+  (`DispositionReview`), and the backing check (`refutationBacked`: an
+  `EXEC-` ref needs `execs/EXEC-*/exec_record.json` on disk; an `INV-` ref
+  needs an entry in `invariant_links.json`).
+- The v2 gate polices **all dispositioned outcomes**
+  (`ProbeRowDispositioned`: answered / not-applicable / deprioritized), not
+  just `answered` — a tier-0 row "deprioritized: liveness-only" is just as
+  dangerous. `blocked` is not a disposition and never trips it.
+- The override is `--override-dismissal --override-reason R` (the reason is
+  deliberately separate from the closure `--reason`: the dismissal text and
+  its justification are different data). Without a reason the flag is
+  refused; with one it closes the row and logs
+  `probe.dismissal_overridden` (row_id, tier, gap, actor, phrases,
+  override_reason, closed_reason).
+- A4 interaction: `resolveAnchor` now accepts a refutation-backed ref on a
+  probe row — `closed_ref` becomes the EXEC/INV id while
+  `probe.anchor.ref` keeps the rendered anchor citation. Any other
+  non-anchor ref is still rejected.
+- v1 surfaces: the report's **Disposition review** section (flagged rows +
+  OVERRIDDEN lines from the audit events; presence-gated — no bytes for a
+  clean campaign) and the brief's `disposition_review` array (the key
+  exists only when something is flagged — presence-gated so a clean
+  campaign's `brief --json` bytes are unchanged).
+- Finding-side twin: `webv2 verdict` prints an advisory warning when the
+  critic reason uses dismissal vocabulary — it never blocks or fails.
+- The morph-campaign fixture was not ported; the testdata probe surface
+  (tier-0/gap-4 row) plus the planner/CLI/report/brief suites pin the full
+  matrix instead.
+
 ---
 
 ## Wave C — Deterministic Capabilities  *(archetypes → tools)*

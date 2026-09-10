@@ -1535,6 +1535,30 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 		setKey(&brief, "probe_surface", *summary)
 	}
 
+	// B4 disposition review: high-risk rows (tier 0 / gap >= 3) dismissed
+	// with dismissal vocabulary — the closures the operator should re-check.
+	// Presence-gated (the additive convention): the key exists only when
+	// something is flagged, so a clean campaign's brief bytes are unchanged
+	// (the print layer also gates on non-empty).
+	if flags, derr := planner.DispositionReview(campaign, plan); derr == nil &&
+		len(flags) > 0 {
+		rev := validation.VArr()
+		for _, f := range flags {
+			phrases := validation.VArr()
+			for _, ph := range f.Phrases {
+				phrases.A = append(phrases.A, validation.VStr(ph))
+			}
+			rev.A = append(rev.A, validation.VObj(
+				kv("priority", validation.VStr(f.Priority)),
+				kv("row_id", validation.VStr(f.RowID)),
+				kv("tier", validation.VInt(f.Tier)),
+				kv("assertion_gap", validation.VInt(f.Gap)),
+				kv("reason", validation.VStr(f.Reason)),
+				kv("phrases", phrases)))
+		}
+		setKey(&brief, "disposition_review", rev)
+	}
+
 	// criticality coverage (task 8)
 	if crit, ok, err := criticalityBlock(campaign, all, plan, planErr); err != nil {
 		return validation.VNull(), err

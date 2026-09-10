@@ -993,6 +993,41 @@ func Generate(campaign *state.Campaign) (string, error) {
 		L = append(L, "")
 	}
 
+	// B4 disposition review: high-risk probe rows dismissed with dismissal
+	// vocabulary, plus the explicit overrides of that gate. Presence-gated
+	// (the additive convention): it renders only when something was flagged
+	// or overridden, so a campaign with clean closures gains no bytes.
+	var flags []planner.DismissalFlag
+	var dispErr error
+	if planV, perr := planner.LoadPlanReadonly(campaign); perr == nil {
+		flags, dispErr = planner.DispositionReview(campaign, planV)
+	}
+	overrides := []validation.Value{}
+	if evts, eerr := campaign.Events(); eerr == nil {
+		for _, e := range evts {
+			if objStr(e, "type") == "probe.dismissal_overridden" {
+				overrides = append(overrides, e)
+			}
+		}
+	}
+	if dispErr == nil && (len(flags) > 0 || len(overrides) > 0) {
+		L = append(L, "## Disposition review")
+		L = append(L, "")
+		for _, f := range flags {
+			L = append(L, fmt.Sprintf("- `%s` (row %s, tier %d, gap %d): %s — dismissal vocabulary: %s",
+				f.Priority, f.RowID, f.Tier, f.Gap, f.Reason,
+				strings.Join(f.Phrases, ", ")))
+		}
+		for _, e := range overrides {
+			data := objAt(e, "data")
+			L = append(L, fmt.Sprintf("- OVERRIDDEN `%s` (row %s) by %s: %s",
+				objStr(e, "ref"), objStr(data, "row_id"),
+				objStr(data, "actor"),
+				objStr(data, "override_reason")))
+		}
+		L = append(L, "")
+	}
+
 	if len(mem) > 0 {
 		L = append(L, "## Learning queue")
 		L = append(L, "")
