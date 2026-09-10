@@ -392,14 +392,16 @@ func effectiveProbeQuotas(a *probesArgs, c *state.Campaign) (int, int,
 	if a.perAxisSet && a.totalSet {
 		return perAxis, total, quotaProvenance(perAxisSrc, totalSrc), nil
 	}
+	path := filepath.Join(c.ArtifactsDir, probeQuotaArtifact)
 	surface, err := probes.CampaignSurface(c)
 	if err != nil {
-		return 0, 0, "", err
+		return 0, 0, "", t14ExitErr(2, "probes: unreadable %s (%s) — "+
+			"delete or repair it, or pass --per-axis and --total explicitly\n",
+			path, err.Error())
 	}
 	if surface == nil {
 		return perAxis, total, quotaProvenance(perAxisSrc, totalSrc), nil
 	}
-	path := filepath.Join(c.ArtifactsDir, probeQuotaArtifact)
 	if !a.perAxisSet {
 		n, src, err := recordedProbeQuota(*surface, path, "per_axis",
 			"--per-axis", perAxis)
@@ -427,7 +429,8 @@ func recordedProbeQuota(surface validation.Value, path, key, flag string,
 	def int) (int, string, error) {
 	raw := objAt(surface, key)
 	if raw.Kind != validation.Int {
-		return def, "defaults", nil
+		return def, "default (" + probeQuotaArtifact +
+			" records no integer)", nil
 	}
 	n := int(objInt(surface, key))
 	knob := &n

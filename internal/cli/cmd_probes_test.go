@@ -695,37 +695,61 @@ func t29SeedSurface(t *testing.T, perAxis, total int) (string,
 // the output names both the effective numbers and their source.
 func TestProbesRunAdoptsRecordedQuotas(t *testing.T) {
 	cases := []struct {
-		name           string
-		recordedPer    int
-		recordedTotal  int
-		args           []string
-		withPlan       bool
-		wantPer        int
-		wantTotal      int
-		wantRowsAtMost int
-		wantSource     string
+		name          string
+		recordedPer   int
+		recordedTotal int
+		noArtifact    bool
+		perAsString   bool
+		args          []string
+		withPlan      bool
+		wantPer       int
+		wantTotal     int
+		wantRows      int
+		wantSource    string
 	}{
-		{"no flags adopt the recorded pair", 30, 70, nil, false, 30, 70, 70,
-			"recorded in probe_surface.json"},
-		{"a tighter recorded pair still wins", 2, 5, nil, false, 2, 5, 5,
-			"recorded in probe_surface.json"},
-		{"an explicit per-axis wins and total falls back", 30, 70,
-			[]string{"--per-axis", "2"}, false, 2, 70, 70,
+		{"no flags adopt the recorded pair", 30, 70, false, false, nil, false,
+			30, 70, 10, "recorded in probe_surface.json"},
+		{"a tighter recorded pair still wins", 2, 5, false, false, nil, false,
+			2, 5, 2, "recorded in probe_surface.json"},
+		{"an explicit per-axis wins and total falls back", 30, 70, false,
+			false, []string{"--per-axis", "2"}, false, 2, 70, 2,
 			"--per-axis passed on the command line; --total recorded in " +
 				"probe_surface.json"},
-		{"an explicit total wins and per-axis falls back", 30, 70,
-			[]string{"--total", "5"}, false, 30, 5, 5,
+		{"an explicit total wins and per-axis falls back", 30, 70, false,
+			false, []string{"--total", "5"}, false, 30, 5, 5,
 			"--per-axis recorded in probe_surface.json; --total passed on " +
 				"the command line"},
-		{"an explicit pair wins over the record", 30, 70,
-			[]string{"--per-axis", "2", "--total", "5"}, false, 2, 5, 5,
-			"passed on the command line"},
-		{"--emit adopts the recorded pair too", 2, 5, []string{"--emit"}, true,
-			2, 5, 5, "recorded in probe_surface.json"},
+		{"an explicit pair wins over the record", 30, 70, false, false,
+			[]string{"--per-axis", "2", "--total", "5"}, false, 2, 5,
+			2, "passed on the command line"},
+		{"--emit adopts the recorded pair too", 2, 5, false, false,
+			[]string{"--emit"}, true, 2, 5, 2,
+			"recorded in probe_surface.json"},
+		{"one flag without an artifact keeps the other default", 12, 40, true,
+			false, []string{"--total", "5"}, false, 12, 5, 5,
+			"--per-axis defaults; --total passed on the command line"},
+		{"an artifact without a usable per-axis names itself", 30, 70, false,
+			true, nil, false, 12, 70, 10,
+			"--per-axis default (probe_surface.json records no integer); " +
+				"--total recorded in probe_surface.json"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			ws, c, _ := t29SeedSurface(t, tc.recordedPer, tc.recordedTotal)
+			ws, c, seed := t29SeedSurface(t, tc.recordedPer, tc.recordedTotal)
+			if tc.noArtifact {
+				if err := os.Remove(t29SurfacePath(c)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.perAsString {
+				bad := t29DeepCopy(seed)
+				t29Set(&bad, "per_axis", validation.VStr("thirty"))
+				body := validation.DumpIndented(bad) + "\n"
+				if err := os.WriteFile(t29SurfacePath(c), []byte(body),
+					0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
 			if tc.withPlan {
 				t29Plan(t, c)
 			}
@@ -746,8 +770,8 @@ func TestProbesRunAdoptsRecordedQuotas(t *testing.T) {
 				t.Errorf("total = %d, want %d", v, tc.wantTotal)
 			}
 			rows := len(t29ObjList(*got, "rows"))
-			if rows < 1 || rows > tc.wantRowsAtMost {
-				t.Errorf("rows = %d, want 1..%d", rows, tc.wantRowsAtMost)
+			if rows != tc.wantRows {
+				t.Errorf("rows = %d, want %d", rows, tc.wantRows)
 			}
 			flat := strings.Join(strings.Fields(out), " ")
 			want := fmt.Sprintf("quotas: --per-axis %d --total %d (%s)",
@@ -838,6 +862,50 @@ func TestProbesRunRejectsAnInvalidRecordedQuota(t *testing.T) {
 			}
 			if string(after) != before {
 				t.Errorf("a rejected record must write nothing: %q", after)
+			}
+		})
+	}
+}
+
+// TestProbesRunRepairsAroundACorruptSurfaceArtifact pins the remedy path: an
+// artifact the run cannot parse names the artifact and the way out (delete or
+// repair it, or pass the quotas explicitly) with the probes exit code 2, and
+// leaves the bytes as they were.
+func TestProbesRunRepairsAroundACorruptSurfaceArtifact(t *testing.T) {
+	cases := []struct{ name, body string }{
+		{"truncated json", `{"campaign_id": "` + t29CID + `"`},
+		{"empty file", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ws, c, _ := t29SeedSurface(t, 30, 70)
+			path := t29SurfacePath(c)
+			if err := os.WriteFile(path, []byte(tc.body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			code, out, errS := run(t, "--root", ws, "probes", t29CID, "run")
+			if code != 2 {
+				t.Fatalf("exit %d, want 2: out=%q err=%q", code, out, errS)
+			}
+			if !strings.Contains(errS, "probe_surface.json") {
+				t.Errorf("err does not name the artifact: %q", errS)
+			}
+			if !strings.Contains(errS, "--per-axis") ||
+				!strings.Contains(errS, "--total") {
+				t.Errorf("err does not offer the explicit-flag way out: %q",
+					errS)
+			}
+			if strings.Contains(out, "probe surface:") {
+				t.Errorf("a corrupt artifact must print no surface line: %q",
+					out)
+			}
+			after, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(after) != tc.body {
+				t.Errorf("a corrupt artifact must be left for the operator "+
+					"to delete or repair: %q", after)
 			}
 		})
 	}
