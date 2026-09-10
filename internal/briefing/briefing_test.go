@@ -1730,3 +1730,105 @@ func TestBriefStopsSuggestingWorkWhenClosed(t *testing.T) {
 		t.Errorf("the closure itself is not stated in next_actions")
 	}
 }
+
+// writeFindings is a raw one-F-*.json-per-row writer for the Ch* ledger
+// tests: the rows only need the keys under test (a stored finding, not a
+// schema-complete proposal).
+func writeFindings(t *testing.T, c *state.Campaign, fs ...validation.Value) {
+	t.Helper()
+	for _, f := range fs {
+		p := filepath.Join(c.FindingsDir, objStr(f, "finding_id")+".json")
+		if err := validation.WriteJson(p, f, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// TestChToolFlagsPresenceGated is task 7 step 1: the G1 tool-flags block is
+// absent (Null) unless some finding carries detector provenance, and its
+// census counts only the tool-flagged rows.
+func TestChToolFlagsPresenceGated(t *testing.T) {
+	c := newCamp(t, "brief tool flags")
+	mk := func(id string, tools []string, verdict string) validation.Value {
+		f := validation.VObj(kv("finding_id", validation.VStr(id)))
+		if len(tools) > 0 {
+			f.O = append(f.O, kv("provenance", validation.VObj(kv("sast_tools",
+				strArr(tools)))))
+		}
+		if verdict != "" {
+			f.O = append(f.O, kv("verification", validation.VObj(kv("critic_verdict",
+				validation.VStr(verdict)))))
+		}
+		return f
+	}
+	// no tools -> Null (renders nothing):
+	writeFindings(t, c, mk("F-a", nil, "confirmed"))
+	if v := ChToolFlags(c, &[]string{}); v.Kind != validation.Null {
+		t.Fatal("must be absent without tool findings")
+	}
+	writeFindings(t, c,
+		mk("F-b", []string{"slither:reentrancy-eth"}, "confirmed"),
+		mk("F-c", []string{"slither:unchecked-transfer"}, "disproved"),
+		mk("F-d", []string{"slither:tx-origin"}, "pending"))
+	v := ChToolFlags(c, &[]string{})
+	if objAt(v, "total").I != 3 {
+		t.Fatalf("total: %v", objAt(v, "total"))
+	}
+	bv := objAt(v, "by_verdict")
+	if objAt(bv, "confirmed").I != 1 || objAt(bv, "disproved").I != 1 ||
+		objAt(bv, "pending").I != 1 {
+		t.Fatalf("verdict census: %v", bv)
+	}
+}
+
+// TestChToolFlagsCensusAndCorroborated pins the rest of the contract the
+// presence-gated test leaves implicit: zero buckets are omitted, an absent
+// or unknown verdict lands in pending, and corroborated collects the sorted
+// distinct dedup_meta.corroborated_by ids.
+func TestChToolFlagsCensusAndCorroborated(t *testing.T) {
+	c := newCamp(t, "brief tool flags census")
+	mk := func(id string, verdict string, tools ...string) validation.Value {
+		f := validation.VObj(kv("finding_id", validation.VStr(id)))
+		if len(tools) > 0 {
+			f.O = append(f.O, kv("provenance", validation.VObj(kv("sast_tools",
+				strArr(tools)))))
+		}
+		if verdict != "" {
+			f.O = append(f.O, kv("verification", validation.VObj(kv("critic_verdict",
+				validation.VStr(verdict)))))
+		}
+		return f
+	}
+	modelSide := validation.VObj(kv("finding_id", validation.VStr("F-model")),
+		kv("dedup_meta", validation.VObj(
+			kv("corroborated_by", validation.VStr("F-z")))))
+	writeFindings(t, c,
+		mk("F-dup", "duplicate", "slither:a"),
+		mk("F-scope", "out_of_scope", "slither:b"),
+		mk("F-info", "informational", "slither:c"),
+		mk("F-pos", "possible", "slither:d"),
+		mk("F-nov", "", "slither:e"),
+		mk("F-theory", "not-a-verdict", "slither:f"),
+		modelSide)
+	v := ChToolFlags(c, &[]string{})
+	if v.Kind != validation.Obj {
+		t.Fatalf("expected a section, got %v", v)
+	}
+	if objAt(v, "total").I != 6 {
+		t.Fatalf("total: %v", objAt(v, "total"))
+	}
+	bv := objAt(v, "by_verdict")
+	if len(bv.O) != 5 {
+		t.Fatalf("zero buckets must be omitted: %v", bv)
+	}
+	if objAt(bv, "pending").I != 2 {
+		t.Fatalf("absent/unknown verdicts must land in pending: %v", bv)
+	}
+	if objAt(bv, "confirmed").Kind != validation.Null {
+		t.Fatalf("empty bucket present: %v", bv)
+	}
+	corr := objAt(v, "corroborated")
+	if len(corr.A) != 1 || corr.A[0].S != "F-z" {
+		t.Fatalf("corroborated: %v", corr)
+	}
+}

@@ -558,6 +558,68 @@ func ChAmplifiers(campaign *state.Campaign, problems *[]string) validation.Value
 		kv("boosted_classes", validation.VArr(boosted...)))
 }
 
+// toolFlagVerdicts is the fixed census order of the G1 tool-flags block. A
+// finding whose verification.critic_verdict is absent or outside this list
+// lands in "pending" (the critic has not ruled yet).
+var toolFlagVerdicts = []string{"confirmed", "disproved", "pending", "possible",
+	"duplicate", "out_of_scope", "informational"}
+
+// ChToolFlags is the G1 advisory block: a view-time census of the findings
+// that carry non-empty provenance.sast_tools (the detector hypotheses), by
+// critic verdict, plus the detector ids that corroborated a model finding
+// (dedup_meta.corroborated_by). Returns Null — so the caller attaches no
+// key and a campaign without detector findings renders byte-identical —
+// when nothing carries detector provenance. Never stored, never scored.
+func ChToolFlags(campaign *state.Campaign, problems *[]string) validation.Value {
+	all, err := findings.LoadAllFindings(campaign)
+	if err != nil {
+		note(problems, fmt.Sprintf("tool flags: findings unreadable (%s) — "+
+			"section omitted", err))
+		return validation.VNull()
+	}
+	tooled := []validation.Value{}
+	for _, f := range all {
+		if len(listAt(objAt(f, "provenance"), "sast_tools")) > 0 {
+			tooled = append(tooled, f)
+		}
+	}
+	if len(tooled) == 0 {
+		return validation.VNull()
+	}
+	bucketOf := func(verdict string) string {
+		for _, v := range toolFlagVerdicts {
+			if v == verdict {
+				return verdict
+			}
+		}
+		return "pending"
+	}
+	counts := map[string]int{}
+	for _, f := range tooled {
+		counts[bucketOf(objStr(objAt(f, "verification"), "critic_verdict"))]++
+	}
+	buckets := []validation.KV{}
+	for _, v := range toolFlagVerdicts {
+		if n := counts[v]; n > 0 {
+			buckets = append(buckets, kv(v, validation.VInt(int64(n))))
+		}
+	}
+	seen := map[string]bool{}
+	corroborated := []string{}
+	for _, f := range all {
+		by := objStr(objAt(f, "dedup_meta"), "corroborated_by")
+		if by != "" && !seen[by] {
+			seen[by] = true
+			corroborated = append(corroborated, by)
+		}
+	}
+	sort.Strings(corroborated)
+	return validation.VObj(
+		kv("total", validation.VInt(int64(len(tooled)))),
+		kv("by_verdict", validation.VObj(buckets...)),
+		kv("corroborated", strArr(corroborated)))
+}
+
 // ChInvariants is _ch_invariants.
 func ChInvariants(campaign *state.Campaign,
 	problems *[]string) validation.Value {
@@ -1377,6 +1439,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 		return validation.VNull(), err
 	}
 	amplifiers := ChAmplifiers(campaign, &huntProblems)
+	toolFlags := ChToolFlags(campaign, &huntProblems)
 	invSection := ChInvariants(campaign, &huntProblems)
 	stale, err := roles.StaleArtifacts(campaign)
 	if err != nil {
@@ -1435,6 +1498,22 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 		kv("structurally_unreachable", validation.VArr(reach...)),
 		kv("memory_recall_pending", strArr(memPending)))
 
+	// G1 tool flags: the advisory block is attached only when it has
+	// content (validation.Null means no finding carries detector
+	// provenance), so a campaign without detector findings keeps
+	// byte-identical brief output — the additive convention.
+	huntBlock := validation.VObj(
+		kv("prescreen", ptrOrNull(prescreen)),
+		kv("fork_diff", ptrOrNull(forkDiff)),
+		kv("recency_top", validation.VArr(recency...)),
+		kv("amplifiers", amplifiers),
+		kv("invariant_verification", invSection),
+		kv("stale_artifacts", validation.VArr(stale...)),
+		kv("problems", strArr(huntProblems)))
+	if toolFlags.Kind != validation.Null {
+		setKey(&huntBlock, "tool_flags", toolFlags)
+	}
+
 	brief := validation.VObj(
 		kv("generated_at", validation.VStr(generatedAt)),
 		kv("campaign", campaignBlock),
@@ -1456,14 +1535,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 			kv("note", validation.VStr("advisory only — never gates a "+
 				"status (the cost ceiling halts the pipeline, it does not "+
 				"gate findings)")))),
-		kv("critical_hunt", validation.VObj(
-			kv("prescreen", ptrOrNull(prescreen)),
-			kv("fork_diff", ptrOrNull(forkDiff)),
-			kv("recency_top", validation.VArr(recency...)),
-			kv("amplifiers", amplifiers),
-			kv("invariant_verification", invSection),
-			kv("stale_artifacts", validation.VArr(stale...)),
-			kv("problems", strArr(huntProblems)))))
+		kv("critical_hunt", huntBlock))
 
 	if deepAudit {
 		// Python's `from . import audit` registers every section at import

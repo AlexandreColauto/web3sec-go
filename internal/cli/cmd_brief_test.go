@@ -59,3 +59,42 @@ func TestBriefPrescreenEmptyMatchRendersNone(t *testing.T) {
 		t.Fatalf("brief rendered an empty tail:\n%s", out)
 	}
 }
+
+// TestBriefToolFlagsRenderGated is the G1 text surface: TOOL FLAGS (SAST
+// hypotheses) appears only when a finding carries detector provenance, and
+// then reports the census and the corroborated count.
+func TestBriefToolFlagsRenderGated(t *testing.T) {
+	root := t.TempDir()
+	cid := initOne(t, root)
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", root, "brief", cid)
+	if code != 0 {
+		t.Fatalf("brief exit = %d: out=%q err=%q", code, out, errS)
+	}
+	if strings.Contains(out, "TOOL FLAGS") {
+		t.Fatalf("clean campaign must not render tool flags:\n%s", out)
+	}
+	row := `{"finding_id":"F-tool",` +
+		`"provenance":{"sast_tools":["slither:tx-origin"]},` +
+		`"verification":{"critic_verdict":"confirmed"}}`
+	if err := os.WriteFile(filepath.Join(c.FindingsDir, "F-tool.json"),
+		[]byte(row), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS = run(t, "--root", root, "brief", cid)
+	if code != 0 {
+		t.Fatalf("brief exit = %d: out=%q err=%q", code, out, errS)
+	}
+	for _, want := range []string{
+		"TOOL FLAGS (SAST hypotheses)\n",
+		"  flags: 1, corroborated: 0\n",
+		"  by verdict: confirmed 1\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("brief missing %q:\n%s", want, out)
+		}
+	}
+}

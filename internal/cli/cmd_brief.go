@@ -232,6 +232,19 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 				strings.Join(t31Strings(objAt(bc, "amplifiers")), ", "))
 		}
 	}
+	// G1 tool flags: present only when a finding carries detector
+	// provenance (briefing.ChToolFlags returns Null otherwise).
+	if tf := objAt(ch, "tool_flags"); t14Truthy(tf) {
+		fmt.Fprintln(r.Out, "TOOL FLAGS (SAST hypotheses)")
+		fmt.Fprintf(r.Out, "  flags: %s, corroborated: %d\n",
+			pyReprVal(objAt(tf, "total")),
+			len(t31Strings(objAt(tf, "corroborated"))))
+		census := []string{}
+		for _, pair := range objAt(tf, "by_verdict").O {
+			census = append(census, pair.K+" "+pyReprVal(pair.V))
+		}
+		fmt.Fprintf(r.Out, "  by verdict: %s\n", strings.Join(census, ", "))
+	}
 	iv := asObjOrEmpty(objAt(ch, "invariant_verification"))
 	if t14Truthy(objAt(iv, "total")) {
 		unv := strings.Join(t31Strings(objAt(iv, "unverified_model")), ", ")
