@@ -370,3 +370,30 @@ the gate.
 Green run: `6 probe axes alive, states as declared (accumulator-skew=blind,
 enforcement-timing=blind, guard-short-circuit=rows, incentive-inversion=rows,
 liveness=rows, primitive-symmetry=rows; rows=5)`.
+
+## Open item found while proving D1: the walkthrough's `L###` labels are rotten
+
+Not a gap in bug-finding power — a gate that MISREPORTS. `scripts/
+runbook-walkthrough.sh` labels every `check` with the RUNBOOK line that
+documents the command, and the label is printed in every PASS/FAIL row
+(`[FAIL] L710 probes-run …`). Those numbers have not been true for a while:
+`RUNBOOK.md` was restructured around them and nothing validates a label, so
+`L710` currently points at "carry the campaign forward until you know what
+changed" while the command it labels is documented elsewhere. Adding the D1
+paragraphs shifted the labels by the block size (so their error is unchanged),
+which is the moment the rot became impossible to ignore.
+
+Two candidate remedies, both small:
+
+1. **Make the label an anchor**: replace `L710` with the runbook SECTION
+   (`§5`, `cheat`), and add one assertion that every label names a real heading.
+   Stable under every future edit, and cheap to verify — but the label becomes
+   coarser (a section covers many commands).
+2. **Keep line numbers, verify them**: a Go test resolves each citation the way
+   the walkthrough does and asserts the cited line mentions the command's verb,
+   so a restructure that moves a line fails the suite instead of silently
+   mislabelling a failure. More precise, more maintenance.
+
+Recommendation: (1) for the labels plus (2) for the cheat-sheet block only
+(where commands appear verbatim, so an exact check is possible). Left open
+because it is a documentation-contract decision, not a bug.

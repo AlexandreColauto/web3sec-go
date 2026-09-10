@@ -389,12 +389,19 @@ func answeredPriority(c *state.Campaign, a *answeredArgs, closing bool,
 	if actor == "" {
 		actor = "cli"
 	}
+	overrideLogged := false
 	updated, err := planner.MarkAnswered(c, plan, a.priority, a.status,
 		planner.AnsweredOpts{Reason: a.reason, Ref: a.ref, Actor: actor,
 			Anchor: a.anchor, OverrideDismissal: a.overrideDismissal,
-			OverrideReason: a.overrideReason})
+			OverrideReason: a.overrideReason, OverrideLogged: &overrideLogged})
 	if err != nil {
 		return t14ExitErr(2, "answered failed: %s\n", err)
+	}
+	if overrideLogged {
+		// The override is a decision, not a formality: say so where the
+		// operator can see it, and name the record it left behind.
+		fmt.Fprintf(r.Out, "  dismissal overridden: %s logged as "+
+			"probe.dismissal_overridden (actor %s)\n", a.priority, actor)
 	}
 	p, _ := t14FindByID(t14List(updated, "priorities"), a.priority)
 	ref := ""

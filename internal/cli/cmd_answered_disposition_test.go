@@ -189,9 +189,13 @@ func TestAnsweredDismissalGateOverride(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
-	if out != "Q-005: status -> answered (ref: Rollup.sol#L45) "+
-		"[anchor consumer]\n" {
-		t.Fatalf("stdout = %q", out)
+	// The override is announced before the status line: the operator must see
+	// the decision land, not infer it from a log they never read.
+	if want := "  dismissal overridden: Q-005 logged as " +
+		"probe.dismissal_overridden (actor operator)\n" +
+		"Q-005: status -> answered (ref: Rollup.sol#L45) " +
+		"[anchor consumer]\n"; out != want {
+		t.Fatalf("stdout = %q\nwant %q", out, want)
 	}
 	evts := dgEventsOfType(t, root, cid, "probe.dismissal_overridden")
 	if len(evts) != 1 {
@@ -223,8 +227,10 @@ func TestAnsweredDismissalGateOverride(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("= spelling exit %d: %q", code, errS)
 	}
-	if out != "Q-005: status -> answered (ref: Rollup.sol#L45) "+
-		"[anchor consumer]\n" {
-		t.Fatalf("= spelling stdout = %q", out)
+	if want := "  dismissal overridden: Q-005 logged as " +
+		"probe.dismissal_overridden (actor cli)\n" +
+		"Q-005: status -> answered (ref: Rollup.sol#L45) " +
+		"[anchor consumer]\n"; out != want {
+		t.Fatalf("= spelling stdout = %q\nwant %q", out, want)
 	}
 }

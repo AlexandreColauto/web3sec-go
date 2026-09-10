@@ -248,6 +248,20 @@ what survived its discriminator:
 `--anchor <field>`, machine-checked against the row's own probe enum and real
 value; the recorded `closed_ref` becomes that anchor's citation.
 
+**A dismissal close to the money has to run.** A row that is tier 0, or whose
+`assertion_gap` is 3 or more (the row asserts that far past its evidence), may
+not be discharged on a compensating-control argument — "liveness-only", "the
+owner can revert", "not exploitable", "never permanently", "no economic
+impact" and the like. `answered` refuses that closure and names what it wants
+instead: a refutation that RUNS, `--ref EXEC-xxx` (an exec record on disk) or
+`--ref INV-n` (a registered invariant). When the dismissal is right anyway,
+put the decision on the record:
+`--override-dismissal --override-reason "<why it is safe>"` closes it, logs
+`probe.dismissal_overridden` with your actor and the written reason, and the
+report's **Disposition review** section keeps the dismissal AND the override in
+front of every later reader. That is the difference the gate buys: not "do not
+dismiss", but "a dismissal this close to the money is a decision someone signs".
+
 **A stale surface keeps the lens open.** The gate compares `surface.index_sha`
 with the current index's content hash. A **mismatch** names the re-emit
 (`probes C-xxx run --emit`); **no current index at all** names

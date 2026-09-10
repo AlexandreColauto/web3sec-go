@@ -353,6 +353,11 @@ def recipe(state: dict) -> list[dict]:
     blind = (state.get("blind", []) + ["<AXIS?>", "<KEY?>"])[:2]
     mem = (state.get("mem", []) + ["<MEM?>"])[:1]
     prc = (state.get("prc", []) + ["<PRC?>"])[:1]
+    # The plan priority of the FIRST high-risk probe row (tier 0 or
+    # assertion_gap >= 3): the row the B4/D1 dismissal gate protects. Absent
+    # until `probes run --emit` minted it; a step list built before that
+    # references the placeholder and is never reached.
+    dr = state.get("dr") or "<DROW?>"
     # The active snapshot root: `index`/`sinks`/`prescreen`/`recency`/
     # `forkdiff` all take --src, and the audit's probe_surface section
     # compares the probe rows' index_sha against the index of the ACTIVE
@@ -697,6 +702,37 @@ def recipe(state: dict) -> list[dict]:
         {"name": "probes-run-emit-again", "exit": 0,
          "argv": ["probes", cid, "run", "--emit"]},
         {"name": "plan-after-emit", "exit": 0, "argv": ["plan", cid]},
+        # ---- B4/D1: the disposition gate, end to end --------------------
+        # The G-01 miss: a tier-0 row at rank 1 discharged `answered` (safe)
+        # on free prose, accepted because a row is "an obligation to look, not
+        # a claim". These four steps pin the answer to it: the same closure
+        # with dismissal vocabulary is REFUSED, the override needs its own
+        # reason, the terminal spelling works and ANNOUNCES itself, and the
+        # report keeps the decision visible (asserted below as markers, and
+        # the override event is pinned by the event chain).
+        {"name": "probes-highrisk-json", "exit": 0, "dr": 1,
+         "argv": ["probes", cid, "list", "--json"]},
+        {"name": "answered-dismissal-refused", "exit": 2,
+         "err": ["the closure reason uses dismissal vocabulary",
+                 "on a high-risk row", "refutation that runs"],
+         "argv": ["answered", cid, dr, "answered", "--reason",
+                  "liveness-only: the owner can revert, no economic impact",
+                  "--anchor", "custody", "--actor", "golden"]},
+        {"name": "answered-dismissal-override-unreasoned", "exit": 2,
+         "err": ["--override-dismissal needs --override-reason"],
+         "argv": ["answered", cid, dr, "answered", "--reason",
+                  "liveness-only: the owner can revert, no economic impact",
+                  "--anchor", "custody", "--override-dismissal",
+                  "--actor", "golden"]},
+        {"name": "answered-dismissal-overridden", "exit": 0,
+         "out": ["dismissal overridden: " + dr +
+                 " logged as probe.dismissal_overridden (actor golden)"],
+         "argv": ["answered", cid, dr, "answered", "--reason",
+                  "liveness-only: the owner can revert, no economic impact",
+                  "--anchor", "custody", "--override-dismissal",
+                  "--override-reason",
+                  "the operator accepts the risk in writing for this run",
+                  "--actor", "golden"]},
         # Research memory graph (typed edges) + the derived capability delta.
         {"name": "relations-rebuild", "exit": 0,
          "argv": ["relations", cid, "--rebuild"]},
@@ -886,6 +922,9 @@ def main() -> None:
     roots: dict[str, str] = {}
     trees: dict[str, str] = {}
     captures: dict[str, list] = {}
+    # Per-step declared output markers (see the `err`/`out` keys on the
+    # recipe steps and check-golden's check_steps).
+    declared: dict[str, list] = {}
     states: dict[str, dict] = {}
     # GO-ONLY (Python twin retired — Go is the source of truth). The single
     # Go run uses one root path; every event hash covers absolute artifact
@@ -917,10 +956,11 @@ def main() -> None:
         caps = WORK / "captures" / twin
         caps.mkdir(parents=True)
         captures[twin] = []
+        declared[twin] = []
         state = {"cid": "", "findings": [], "artifacts": [],
                  "execs": [], "rungs": [], "target": str(target),
                  "snapshot": "", "cid2": "", "blind": [], "mem": [],
-                 "prc": []}
+                 "prc": [], "dr": ""}
         states[twin] = state
         # The step LIST is state-independent, but each step's argv embeds ids
         # the pinned stream mints while the run proceeds, so it is rebuilt
@@ -956,6 +996,8 @@ def main() -> None:
             (caps / f"{i:02d}-{name}.exit").write_text(str(code))
             captures[twin].append({"name": name, "argv": argv, "exit": code,
                                    "expect_exit": st.get("exit", 0)})
+            declared[twin].append({"err": st.get("err") or [],
+                                   "out": st.get("out") or []})
             if st.get("findings"):
                 for _ in range(st["findings"]):
                     m = FID_RE.search(out)
@@ -1012,6 +1054,27 @@ def main() -> None:
                 if not state["blind"]:
                     sys.exit(f"{twin} step {i:02d}-{name}: no blind axis "
                              f"published:\n{out[:400]}")
+            if st.get("dr"):
+                # The first high-risk probe row's plan priority, in surface
+                # order: tier 0 (the probe's most serious claim) or
+                # assertion_gap >= 3 (the row asserts far beyond its
+                # evidence). Both are what checkDismissalGate protects, so a
+                # surface that stopped producing one means this block of the
+                # recipe lost its subject — fail loudly rather than silently
+                # driving the gate with a harmless row.
+                try:
+                    doc = json.loads(out)
+                except ValueError as exc:
+                    sys.exit(f"{twin} step {i:02d}-{name}: not JSON: {exc}")
+                for row in doc.get("surface_rows") or []:
+                    tier = row.get("tier") or 0
+                    gap = row.get("assertion_gap") or 0
+                    if (tier == 0 or gap >= 3) and row.get("priority_id"):
+                        state["dr"] = row["priority_id"]
+                        break
+                if not state.get("dr"):
+                    sys.exit(f"{twin} step {i:02d}-{name}: no high-risk probe "
+                             f"row in the surface:\n{out[:400]}")
             if st.get("memory"):
                 m = re.search(r"MEM-[0-9a-f]+", out)
                 if not m:
@@ -1037,7 +1100,13 @@ def main() -> None:
         trees[twin] = str(archived)
 
 
+    # Declared output markers, parallel to `recipe` (None where a step
+    # declares none). check-golden validates them: an exit code says a
+    # refusal happened, never WHY — and for the refusal steps above the why
+    # is the whole point.
     spec = {
+        "expect_err": [d["err"] for d in declared["go"]],
+        "expect_out": [d["out"] for d in declared["go"]],
         "seed": SEED,
         "now_base": NOW_BASE.isoformat(),
         "roots": roots,

@@ -274,7 +274,30 @@ check: "campaign has no CRITICAL finding" is a named, waivable gate output.
 
 ## Tier D — design changes (need a call before code)
 
-### D1 = eval §5-1 — the disposition linter (the G-01 miss)
+### D1 = eval §5-1 — the disposition linter (the G-01 miss) — **LANDED (v1+v2, as B4)**
+
+> **Status 2026-09-10: shipped, and now proven end to end.** The call this
+> section asked for was made and implemented as **B4** (see
+> `docs/IMPROVEMENTS.md` B4, "As-built"): v1 (the scan, surfaced in `brief` and
+> the report's Disposition review section) and v2 (the hard gate in
+> `MarkAnswered` with the named, logged override) are live. **v3 (the
+> structural layer: a reason must cite a symbol from the row's own surface
+> entry) is NOT built** — it remains the open end of this item, and it is the
+> one that would generalise past the vocabulary table.
+>
+> The 2026-09-10 additions closed the proof gap rather than the feature gap:
+> the golden recipe now drives the refusal end to end (steps
+> `answered-dismissal-refused` = exit 2 with the reason text asserted,
+> `answered-dismissal-override-unreasoned` = exit 2,
+> `answered-dismissal-overridden` = exit 0 and announces itself), the report
+> artifact is checked for both the flagged dismissal and the override with its
+> actor and written reason, `check-golden.py` validates declared output markers
+> (an exit code never said *why* a step refused), the override's "logged"
+> signal reaches the operator (it used to be silent), and the rule is now in
+> the two documents an operator and an agent actually read (`RUNBOOK.md`, and
+> `AGENT_BOOTSTRAP.md` — which is the one dropped into every campaign).
+
+### D1 (original ask, kept for the record)
 **The only change on this list that would have caught the campaign's actual
 failure.** G-01 (the gold) sat at rank 1 of the probe surface and was
 discharged `answered` (safe) with an anchor + free prose; the framework
@@ -298,7 +321,18 @@ the primary failure into a mandatory re-review. **Ask (layered):**
    must cite a real finding id.
 The call is which layer ships, and where the override lives.
 
-### D2 = eval §5-2 — liveness as a first-class impact
+### D2 = eval §5-2 — liveness as a first-class impact — **LANDED (as B1)**
+
+> **Status 2026-09-10: shipped.** The capability registry is
+> `internal/capabilities/` (not a taxonomy dir): `KINDS` gains `"liveness"`,
+> `TERMINAL_KINDS = {asset, liveness}`, and `livenessImpact` runs at chain
+> materialization — `economic_impact.kind = "liveness"`, blast radius FLOORED
+> at `protocol-solvency`, `priceable: false` with a capacity ceiling (the
+> freeze itself is the impact). See `docs/IMPROVEMENTS.md` B1, "As-built".
+> Nothing in the original ask below is still open; it is kept for the record
+> because the reasoning is what the eval's §5-2 asked for.
+
+### D2 (original ask, kept for the record)
 The impact model has no liveness terminal: `internal/taxonomy/` and
 `internal/chainengine/terminal.go` express economic outcomes but not
 "the chain halts / sequencing stops". G-01's real impact (sequencer liveness)

@@ -119,8 +119,16 @@ def check_tree(spec: dict) -> None:
 
 
 def check_steps(spec: dict) -> None:
-    """Every step must exit with the code the recipe declared."""
+    """Every step must exit with the code the recipe declared, and carry the
+    output markers it declared.
+
+    An exit code says a step was refused; it never says WHY. For the steps
+    that exist to pin a refusal — the dismissal gate (B4/D1), the ladder and
+    impact guards — the reason IS the contract, so the recipe declares the
+    substrings its stderr (or stdout) must contain and this checks them.
+    """
     nonzero_ok: list[str] = []
+    marked = 0
     for i, name in enumerate(spec["recipe"]):
         expected = str(spec["expected_exit"][i])
         f = WORK / "captures" / "go" / f"{i:02d}-{name}.exit"
@@ -135,8 +143,20 @@ def check_steps(spec: dict) -> None:
                          f"{expected}" + (f" — {err}" if err else ""))
         elif expected != "0":
             nonzero_ok.append(f"{name}={expected}")
+        for stream, key in ((".err", "expect_err"), (".out", "expect_out")):
+            wants = (spec.get(key) or [])[i] or []
+            if not wants:
+                continue
+            marked += 1
+            cap = f.with_suffix(stream)
+            text = cap.read_text() if cap.is_file() else ""
+            for want in wants:
+                if want not in text:
+                    fails.append(f"step {i:02d} {name}: {key[7:]} missing "
+                                 f"{want!r} — got {text.strip()[:200]!r}")
     print(f"steps: {len(spec['recipe'])} commands "
-          f"({'all exit 0' if not nonzero_ok else 'declared nonzero: ' + ', '.join(nonzero_ok)})")
+          f"({'all exit 0' if not nonzero_ok else 'declared nonzero: ' + ', '.join(nonzero_ok)})"
+          + (f", {marked} with declared output markers" if marked else ""))
 
 
 def check_audit(spec: dict, step: int, name: str) -> None:
@@ -247,10 +267,62 @@ def check_probe_axes(spec: dict, step: int, name: str) -> None:
               f"alive, states as declared ({states}; rows={rows_total})")
 
 
+def check_disposition_review(spec: dict) -> None:
+    """The report ARTIFACT must keep the B4/D1 decision visible.
+
+    The step captures prove the gate refused; the report is what a human reads
+    afterwards, and the G-01 miss was precisely a high-risk row that left no
+    visible trace of the argument that buried it. So the report must name the
+    row twice — once as a flagged dismissal (it was, and an override does not
+    make the reasoning safer) and once as a logged override with its actor and
+    the written reason. The row, actor and reason are read from the recipe's
+    own step, so nothing here is hardcoded.
+    """
+    cid = spec.get("campaign_id")
+    if not cid:
+        fails.append("spec carries no campaign_id")
+        return
+    report = WORK / "tree-go" / "campaigns" / cid / "report.md"
+    if not report.is_file():
+        fails.append(f"no report artifact at {report}")
+        return
+    argv = next((c["argv"] for c in spec["captures"]["go"]
+                 if c["name"] == "answered-dismissal-overridden"), None)
+    if not argv:
+        fails.append("the recipe has no answered-dismissal-overridden step")
+        return
+    prio = argv[2]
+    reason = argv[argv.index("--override-reason") + 1]
+    actor = argv[argv.index("--actor") + 1]
+    text = report.read_text()
+    lines = text.splitlines()
+    bad = 0
+    if "## Disposition review" not in lines:
+        fails.append("report has no Disposition review section — the override "
+                     "is not on the record a human reads")
+        bad += 1
+    flagged = [l for l in lines
+               if l.startswith("- `") and "dismissal vocabulary:" in l]
+    if not any(prio in l for l in flagged):
+        fails.append(f"report does not flag {prio} as a high-risk dismissal")
+        bad += 1
+    overridden = [l for l in lines if l.startswith("- OVERRIDDEN ")]
+    if not any(prio in l and f"by {actor}:" in l for l in overridden):
+        fails.append(f"report does not record the {prio} override by {actor}")
+        bad += 1
+    if not any(reason in l for l in overridden):
+        fails.append("report records the override without its written reason")
+        bad += 1
+    if bad == 0:
+        print(f"report artifact: {prio} is on the record as both a flagged "
+              "dismissal and a logged override")
+
+
 def main() -> None:
     spec = load_spec()
     check_tree(spec)
     check_steps(spec)
+    check_disposition_review(spec)
     for i, name in enumerate(spec["recipe"]):
         if name.startswith("audit-json"):
             check_audit(spec, i, name)

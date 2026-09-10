@@ -208,6 +208,9 @@ func checkDismissalGate(campaign *state.Campaign, priorityID, outcome string,
 			&priorityID, &data); err != nil {
 			return err
 		}
+		if opts.OverrideLogged != nil {
+			*opts.OverrideLogged = true
+		}
 		return nil
 	}
 	if opts.Ref != nil && refutationBacked(campaign, *opts.Ref) {

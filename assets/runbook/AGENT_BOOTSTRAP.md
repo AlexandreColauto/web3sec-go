@@ -158,7 +158,12 @@ only if the operator named a different workspace.
    (the anchor must come from that row's own probe enum), close a BLIND axis
    with `probes <C-id> blank --axis L-0n --anchor-blind <key> --reason "..."
    --actor NAME`. A stale surface or any undispositioned row keeps the lens
-   OPEN.
+   OPEN. A tier-0 or `assertion_gap >= 3` row may NOT be closed on dismissal
+   prose ("liveness-only", "owner can revert", "not exploitable", "no economic
+   impact"): `answered` demands a refutation that runs (`--ref EXEC-xxx` or
+   `--ref INV-n`), or an explicit, logged
+   `--override-dismissal --override-reason "<why>"` that the report re-lists
+   forever.
 6. **Discovery (stage 6).** Work the plan's priorities along the orthogonal
    trajectories (A-code, B-economic, C-state-machine, D-attacker, E-historical,
    F-integration, G-drift, H-lifecycle); each component gets ≥ 2 orthogonal

@@ -19,6 +19,14 @@ type AnsweredOpts struct {
 	Anchor            *string
 	OverrideDismissal bool
 	OverrideReason    *string
+	// OverrideLogged is an OUT parameter: the dismissal gate sets it to true
+	// when it recorded a `probe.dismissal_overridden` for this closure. The
+	// CLI prints that so the operator sees the override land instead of
+	// having to trust that it did; callers with no interest pass nil. See
+	// D1/B4 in docs/IMPROVEMENTS.md — G-01 was buried by a dismissal nobody
+	// had to justify, so an override must be loud at the moment it happens
+	// and durable afterwards (the event is the durable half).
+	OverrideLogged *bool
 }
 
 // MarkAnswered is mark_answered: close (or re-open) a plan priority.

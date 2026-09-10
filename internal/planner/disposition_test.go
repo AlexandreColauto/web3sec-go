@@ -306,6 +306,54 @@ func TestDismissalGateOverride(t *testing.T) {
 // TestDispositionReview pins the v1 scan: only high-risk CLOSED probe rows
 // with dismissal vocabulary are flagged, in plan order; low-risk rows,
 // clean reasons, open rows, and non-probe rows are never flagged.
+// TestDismissalOverrideNoticeIsSpecific: the notice must mean "an override was
+// recorded", not "the flag was passed". A dismissal that clears the gate on a
+// real refutation records no override, so it must not report one.
+func TestDismissalOverrideNoticeIsSpecific(t *testing.T) {
+	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
+	surface, index := maSurface(t)
+	withProbes(t, probeEnv{surface: surface, index: index})
+	camp := newCampaign(t, "dg-notice")
+
+	// a registered invariant, so the gate's refutation branch really fires
+	links := validation.VObj(kv("invariants", validation.VObj(kv("INV-1",
+		validation.VObj(
+			kv("test_status", validation.VStr("documented")),
+			kv("status", validation.VStr("UNVERIFIED")),
+			kv("source", validation.VStr("spec")))))))
+	if err := os.MkdirAll(camp.ArtifactsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := validation.WriteJson(filepath.Join(camp.ArtifactsDir,
+		"invariant_links.json"), links, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	reason := "no economic impact: the invariant refutes the row"
+	ref := "INV-1"
+	logged := false
+	_, err := MarkAnswered(camp, deepCopy(t, maPlan(t, "plan_probe_rows.json")),
+		"Q-005", "answered",
+		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"), Ref: &ref,
+			OverrideLogged: &logged})
+	if err != nil {
+		t.Fatalf("invariant-backed dismissal must pass: %v", err)
+	}
+	if logged {
+		t.Error("OverrideLogged set without an override — the notice claims a " +
+			"decision the operator never made")
+	}
+	evts, err := camp.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range evts {
+		if objStr(e, "type") == "probe.dismissal_overridden" {
+			t.Error("a refutation-backed dismissal logged a dismissal override")
+		}
+	}
+}
+
 func TestDispositionReview(t *testing.T) {
 	surface, _ := maSurface(t)
 	withProbes(t, probeEnv{surface: surface, index: nil})

@@ -577,6 +577,33 @@ that buried G-01.
 **Tests:** vocabulary table, tier-0/gap≥3 gating, override logging,
 morph-campaign fixture (the 3 flagged rows reproduce).
 
+**Proof added 2026-09-10 (the gate is now exercised end to end, not just
+unit-tested):**
+- The golden recipe drives the whole G-01 shape: `answered-dismissal-refused`
+  (exit 2, the refusal's *reason text* asserted), 
+  `answered-dismissal-override-unreasoned` (exit 2 — an override still needs
+  its justification), `answered-dismissal-overridden` (exit 0, and the step
+  announces the override). `check-golden.py` gained declared output markers
+  (`expect_err`/`expect_out`): an exit code never said WHY a step refused, and
+  for these steps the why is the contract. The markers caught a real mistake
+  on the first run (a probe row needs its `--anchor` before the gate is even
+  reached), which is exactly the rot they exist to catch.
+- `check_disposition_review` validates the report ARTIFACT: the row must
+  appear as a flagged dismissal *and* as an override with its actor and
+  written reason — the G-01 miss was a high-risk row that left no visible
+  trace of the argument that buried it, and the report is what a human reads
+  afterwards.
+- The override's "logged" signal reaches the operator: `AnsweredOpts`
+  carries an out-param (`OverrideLogged`) that the CLI prints as
+  `dismissal overridden: <prio> logged as probe.dismissal_overridden (actor
+  <a>)`. It used to be silent — the operator had to take the log on faith.
+  Pinned both ways: the override path must report it, and a
+  refutation-backed dismissal (which logs no override) must not.
+- The rule is documented where it is read: `assets/runbook/RUNBOOK.md`
+  ("A dismissal close to the money has to run") and
+  `assets/runbook/AGENT_BOOTSTRAP.md` — the latter is the doc dropped into
+  every campaign, and the dismissing party in the G-01 miss was an agent.
+
 **As-built (Go-only, the Python twin is retired):**
 - The gate lives in `internal/planner/answered.go` (`checkDismissalGate`,
   wired into `MarkAnswered` after the anchorless check) — that is the actual
