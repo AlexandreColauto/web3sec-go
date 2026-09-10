@@ -311,7 +311,8 @@ func blankProblems(c *state.Campaign, surface validation.Value,
 		if ax == nil {
 			problems = append(problems, sprintf("blank attestation for %s "+
 				"but the surface carries no such axis — re-run `webv2 probes "+
-				"%s run`", validation.PyReprStr(lens), c.CampaignID))
+				"%s run`%s", validation.PyReprStr(lens), c.CampaignID,
+				repairQuotaNote(surface)))
 			continue
 		}
 		if vStr(*ax, "status") != "blind" {

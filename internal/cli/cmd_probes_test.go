@@ -2143,6 +2143,103 @@ func TestAuditProblemListIsPinnedForAHandEditedAttestation(t *testing.T) {
 	}
 }
 
+// t29BlankForAnAxisTheSurfaceLacks persists a blank attestation citing a probe
+// axis (ghost-axis) and its matching probes.blank event, on a surface that
+// carries no such axis — the "surface carries no such axis" condition.
+func t29BlankForAnAxisTheSurfaceLacks(t *testing.T, c *state.Campaign) {
+	t.Helper()
+	const key = "ghost-key"
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Set(&st, "probe_blanks", validation.VArr(validation.VObj(
+		validation.KV{K: "axis", V: validation.VStr("L-03")},
+		validation.KV{K: "probe_axis", V: validation.VStr("ghost-axis")},
+		validation.KV{K: "anchor_blind", V: validation.VStr(key)},
+		validation.KV{K: "reason", V: validation.VStr("a written reason")},
+		validation.KV{K: "actor", V: validation.VStr("pytest")},
+		validation.KV{K: "at", V: validation.VStr("2026-01-01T00:00:00+00:00")},
+	)))
+	t29SaveState(t, c, st)
+	ref := "L-03"
+	data := validation.VObj(
+		validation.KV{K: "axis", V: validation.VStr("assertion-strength")},
+		validation.KV{K: "probe_axis", V: validation.VStr("ghost-axis")},
+		validation.KV{K: "anchor_blind", V: validation.VStr(key)},
+		validation.KV{K: "actor", V: validation.VStr("pytest")},
+		validation.KV{K: "reason", V: validation.VStr("a written reason")},
+		validation.KV{K: "replaced", V: validation.VBool(false)},
+	)
+	if _, err := c.Log("probes.blank", &ref, &data); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// t29NoSuchAxisProblem returns the one "surface carries no such axis" problem.
+func t29NoSuchAxisProblem(t *testing.T, c *state.Campaign) string {
+	t.Helper()
+	for _, p := range t29Problems(t29AuditSection(t, c)) {
+		if strings.Contains(p, "the surface carries no such axis") {
+			return p
+		}
+	}
+	t.Fatalf("no \"carries no such axis\" problem: %v",
+		t29Problems(t29AuditSection(t, c)))
+	return ""
+}
+
+// TestAuditNoSuchAxisHintNamesTheRecordedQuotas covers the sixth repair hint:
+// the condition co-occurs with a recorded-quota artifact, and a bare run
+// adopts those quotas, so this hint carries the same note as the --emit sites.
+func TestAuditNoSuchAxisHintNamesTheRecordedQuotas(t *testing.T) {
+	_, c, _, _ := t29Setup(t, t29Blind, true)
+	stored, err := validation.ReadJson(t29SurfacePath(c))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Set(&stored, "per_axis", validation.VInt(30))
+	t29Set(&stored, "total", validation.VInt(70))
+	t29WriteSurface(t, c, stored)
+	t29BlankForAnAxisTheSurfaceLacks(t, c)
+	got := t29NoSuchAxisProblem(t, c)
+	if !strings.Contains(got, "`webv2 probes "+t29CID+" run`") {
+		t.Errorf("hint is not the bare repair command: %q", got)
+	}
+	if !strings.Contains(got, "--per-axis 30 --total 70") {
+		t.Errorf("hint does not name the recorded quotas: %q", got)
+	}
+	if !strings.Contains(got, "rebuilds with the surface's recorded") {
+		t.Errorf("hint does not say what the numbers are for: %q", got)
+	}
+}
+
+// TestAuditNoSuchAxisHintStaysPlainWithoutRecordedQuotas is the other half: an
+// artifact recording neither knob renders the plain form, with no new clause.
+func TestAuditNoSuchAxisHintStaysPlainWithoutRecordedQuotas(t *testing.T) {
+	_, c, _, _ := t29Setup(t, t29Blind, true)
+	stored, err := validation.ReadJson(t29SurfacePath(c))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Del(&stored, "per_axis")
+	t29Del(&stored, "total")
+	// raw write: the probe_surface schema requires both knobs, but an artifact
+	// from an older build may record neither, which is the case under test.
+	if err := os.WriteFile(t29SurfacePath(c),
+		[]byte(validation.DumpIndented(stored)+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t29BlankForAnAxisTheSurfaceLacks(t, c)
+	got := t29NoSuchAxisProblem(t, c)
+	if !strings.Contains(got, "`webv2 probes "+t29CID+" run`") {
+		t.Errorf("hint is not the plain, copy-pasteable command: %q", got)
+	}
+	if strings.Contains(got, "rebuilds with") {
+		t.Errorf("hint grew a quota clause from an artifact with none: %q", got)
+	}
+}
+
 // ---- A6: the anchor help, and a lens that carries several probes -----------
 
 func TestAnchorHelpIsDerivedFromTheRegistry(t *testing.T) {
