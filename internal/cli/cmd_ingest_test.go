@@ -373,6 +373,79 @@ func TestIngestCorruptPlanIsReportedNotATraceback(t *testing.T) {
 	}
 }
 
+// storedFinding reads back the single finding written to a campaign (the G1
+// tests need the STORED record, not the ingest output line).
+func storedFinding(t *testing.T, root, cid string) validation.Value {
+	t.Helper()
+	ms, err := filepath.Glob(filepath.Join(root, "campaigns", cid, "findings", "F-*.json"))
+	if err != nil || len(ms) != 1 {
+		t.Fatalf("findings on disk: %v (%v)", ms, err)
+	}
+	raw, err := os.ReadFile(ms[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := validation.ParseOrdered(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
+func TestIngestFromSlitherCreatesHypotheses(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	raw := `{"results":[{"check":"reentrancy-eth","impact":"High","confidence":"Medium",
+	  "description":"Reentrancy in Vault.withdraw (src/Vault.sol#42-58)",
+	  "vertices":[{"filename":"src/Vault.sol","line_no":50}]}]}`
+	p := filepath.Join(t.TempDir(), "out.json")
+	if err := os.WriteFile(p, []byte(raw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errOut := run(t, "--root", root, "ingest", cid,
+		"--from", "slither", "--json-file", p)
+	if code != 0 {
+		t.Fatalf("exit %d: %s / %s", code, out, errOut)
+	}
+	if !strings.Contains(out, "F-") {
+		t.Fatalf("output must report the created finding: %s", out)
+	}
+	// provenance survived the round-trip into the stored finding:
+	f := storedFinding(t, root, cid)
+	tools := objAt(objAt(f, "provenance"), "sast_tools").A
+	if len(tools) != 1 || tools[0].S != "slither:reentrancy-eth" {
+		t.Fatalf("provenance.sast_tools lost or wrong: %v", tools)
+	}
+	if cls := objAt(objAt(f, "root_cause"), "class").S; cls != "reentrancy" {
+		t.Fatalf("mapped class lost: %s", cls)
+	}
+}
+
+func TestIngestFromRejectsUnknownSource(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	code, _, errOut := run(t, "--root", root, "ingest", cid,
+		"--from", "mytool", "--json-file", "/dev/null")
+	if code != 2 {
+		t.Fatalf("want usage error exit 2, got %d", code)
+	}
+	if !strings.Contains(errOut, "argument --from: invalid choice") {
+		t.Fatalf("argparse-shaped error expected: %s", errOut)
+	}
+}
+
+func TestIngestFromRequiresJsonFile(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	code, _, errOut := run(t, "--root", root, "ingest", cid, "--from", "slither")
+	if code != 2 {
+		t.Fatalf("want exit 2, got %d", code)
+	}
+	if !strings.Contains(errOut, "--json-file") {
+		t.Fatalf("the message must name the missing flag: %s", errOut)
+	}
+}
+
 func TestIngestUnrecognizedArgument(t *testing.T) {
 	root := mkroot(t)
 	code, _, errS := run(t, "--root", root, "ingest", "--bogus")

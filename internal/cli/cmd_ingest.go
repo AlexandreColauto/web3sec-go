@@ -6,6 +6,10 @@ package cli
 // intake-checked, with the taxonomy advisory and intake warnings logged WITH
 // the finding. cli.py cmd_ingest verbatim.
 //
+// `--from slither --json-file out.json` (G1) is the SAST lane: the tool's JSON
+// output is adapted to hypothesis payloads (internal/datasets/slither) and fed
+// through the SAME orchestrator ingest path, one finding per admitted check.
+//
 // The `--example` payload is the shipped examples/hypothesis.example.json
 // (byte-identical to internal/taxonomy/testdata/seed/hypothesis.example.json)
 // embedded verbatim; the closed-enum legend is WALKED from the embedded
@@ -20,6 +24,7 @@ import (
 	"regexp"
 	"strings"
 
+	"websec/internal/datasets/slither"
 	"websec/internal/findings"
 	"websec/internal/orchestrator"
 	"websec/internal/planner"
@@ -33,6 +38,7 @@ const t14IngestUsage = `usage: webv2 ingest [-h] [--json-file JSON_FILE] [--exam
                     [--answers-priority ANSWERS_PRIORITY]
                     [--priority-outcome {answered,not-applicable,deprioritized}]
                     [--json]
+                    [--from {slither}]
                     [campaign]
 `
 
@@ -41,6 +47,7 @@ const t14IngestHelp = `usage: webv2 ingest [-h] [--json-file JSON_FILE] [--examp
                     [--answers-priority ANSWERS_PRIORITY]
                     [--priority-outcome {answered,not-applicable,deprioritized}]
                     [--json]
+                    [--from {slither}]
                     [campaign]
 
 positional arguments:
@@ -62,6 +69,7 @@ options:
                         how --answers-priority closes the priority (default:
                         answered)
   --json
+  --from {slither}   tool-output ingest (G1); requires --json-file
 `
 
 // t14ExamplePayload is examples/hypothesis.example.json verbatim.
@@ -114,6 +122,7 @@ type ingestArgs struct {
 	campaign        string
 	jsonFile        string
 	example         bool
+	from            string
 	trajectory      string
 	stage           string
 	answersPriority string
@@ -137,13 +146,19 @@ func runIngest(root string, args []string, r *Runner) error {
 	if a.example {
 		return printIngestExample(r)
 	}
-	if a.campaign == "" || a.jsonFile == "" {
+	// The G1 lane names its own missing flag (runIngestSast) instead of the
+	// generic usage line below, so the json-file half of the guard stands
+	// aside for it.
+	if a.campaign == "" || (a.jsonFile == "" && a.from != "slither") {
 		return t14ExitErr(2, "usage: webv2 ingest <campaign> --json-file "+
 			"FILE (or -)   (or: webv2 ingest --example)\n")
 	}
 	c, err := t14Open(root, a.campaign)
 	if err != nil {
 		return err
+	}
+	if a.from == "slither" {
+		return runIngestSast(root, c, a, r)
 	}
 	payload, err := t14ReadPayload(a.jsonFile)
 	if err != nil {
@@ -166,6 +181,43 @@ func runIngest(root string, args []string, r *Runner) error {
 		return t14ExitErr(2, "")
 	}
 	printIngestResult(r, f, a.asJSON)
+	return nil
+}
+
+// runIngestSast is the G1 lane: Slither JSON -> hypothesis payloads -> the
+// SAME orchestrator ingest as a model payload. A rejected payload exits 2
+// after reporting which check died — detector output is input, not verdict.
+func runIngestSast(root string, c *state.Campaign, a *ingestArgs, r *Runner) error {
+	if a.jsonFile == "" {
+		return t14ExitErr(2, "--from requires --json-file (the tool's JSON output)\n")
+	}
+	doc, err := t14ReadPayload(a.jsonFile) // existing ordered-JSON reader
+	if err != nil {
+		return t14ExitErr(2, "slither JSON unparsable: %s\n", err)
+	}
+	payloads, err := slither.ToPayloads(doc)
+	if err != nil {
+		return t14ExitErr(2, "%s\n", err)
+	}
+	orch := orchestrator.New(c)
+	stage := a.stage
+	if stage == "" {
+		stage = "sast-slither"
+	}
+	var created []string
+	for _, p := range payloads {
+		f, err := orch.Ingest(p, orchestrator.IngestOpts{
+			Trajectory: a.trajectory, Stage: stage})
+		if err != nil {
+			printIngestFailure(r, err)
+			return t14ExitErr(2, "")
+		}
+		created = append(created, objStr(f, "finding_id"))
+	}
+	fmt.Fprintf(r.Out, "slither ingest: %d hypotheses created\n", len(created))
+	for _, id := range created {
+		fmt.Fprintf(r.Out, "  %s\n", id)
+	}
 	return nil
 }
 
@@ -244,10 +296,23 @@ func parseIngest(args []string, r *Runner) (*ingestArgs, error) {
 				val = args[i+1]
 				i++
 			}
+		case "--from":
+			// argparse refuses to consume a token that looks like another
+			// option, so `--from --json-file x` is "expected one argument".
+			if !hasVal {
+				if i+1 >= len(args) || looksLikeOption(args[i+1]) {
+					return nil, t14ArgparseErr(t14IngestUsage, "ingest",
+						"argument --from: expected one argument")
+				}
+				val = args[i+1]
+				i++
+			}
 		}
 		switch name {
 		case "--json-file":
 			a.jsonFile = val
+		case "--from":
+			a.from = val
 		case "--trajectory":
 			a.trajectory = val
 		case "--stage":
@@ -268,6 +333,11 @@ func parseIngest(args []string, r *Runner) (*ingestArgs, error) {
 			}
 			pos = append(pos, arg)
 		}
+	}
+	if a.from != "" && a.from != "slither" {
+		return nil, t14ArgparseErr(t14IngestUsage, "ingest",
+			"argument --from: invalid choice: %s (choose from %s)",
+			validation.PyReprStr(a.from), quotedList([]string{"slither"}))
 	}
 	if len(pos) > 1 {
 		return nil, t14Unrecognized(strings.Join(pos[1:], " "))
