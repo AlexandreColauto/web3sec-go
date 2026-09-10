@@ -537,6 +537,41 @@ CONFIRMED/CHAIN **and** carry `extractable_usd > 0`; anything else passes as
   why the finding is not payable ("the only victim is the attacker's own test
   contract"). The check passes and the gate prints the not-payable argument.
 
+### The patch clause: what `immunize` records (check12)
+
+The gate's `immunization` check asks whether a *fix* exists. `immunize` records
+that claim and its basis — it never applies a patch, and it runs nothing. The
+patch is your work; what the framework refuses to do is take it on trust:
+
+```bash
+webv2 immunize <C-xxx> F-xxx --poc-exec EXEC-xxx \
+  --patch "clamp the exchange rate to the last valid oracle value before minting" \
+  --mutations "zero-amount deposit;first-depositor rounding;donation to the vault" \
+  --actor you
+```
+
+Every clause in that record exists for a reason:
+
+- `--poc-exec` is the **proven unpatched** PoC: a `fork-runner` exec that exited
+  0 and was minted on the finding as E5/E6 fork evidence. A unit-test exec is
+  refused, with the command that fixes it — a patch that blocks a unit test but
+  not the fork is a coincidence of the harness, not a patch.
+- `--patch` (≥ 10 chars) says what the fix changes and why that blocks the
+  exploit.
+- **exactly three** `--mutations` (≥ 5 chars each) are the boundary variants: a
+  patch tested against the one PoC path may hold that path and leave its
+  neighbours open.
+- `--actor` attributes the claim; `at` and the artifact id go on the record.
+- `--bypass "which mutation, what it extracted"` is the honest failure path. The
+  record is still written — the record IS the artifact — but
+  `boundary_bypass_found=true` and the gate fails with `bypass` rather than
+  pretending the attempt never happened.
+
+Know what this buys and what it does not: the basis is the **unpatched** PoC, so
+the framework pins the claim to a proven exploit and to a named actor, but it
+does not re-run the patched build. Running the patched fork and reading its
+failure is still your step (`exec --profile fork-runner …`).
+
 ### When no dollar figure is defensible (unpriceable impact)
 
 An `address[255]`-shaped target, a test constant, a capacity argument that
@@ -819,8 +854,8 @@ webv2 help                                                         this usage
 positional binds to the axis; a note ≥ 10 chars). `add` takes `--name
 --description --axes --capital --ratio --removes`; `repro` takes `--exec
 EXEC-xxx`; `disprove`/`waive` take `--reason`; `complete`/`waive` take
-`--actor`. `immunize` requires ≥ 5 chars per mutation description and ≥ 3
-mutations.
+`--actor`. `immunize` takes **exactly three** boundary mutations, each
+described in ≥ 5 chars.
 
 ## Environment variables
 
