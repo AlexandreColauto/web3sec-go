@@ -36,6 +36,10 @@ func runImmunize(root string, args []string, r *Runner) int {
 }
 
 func immunizeCmd(root string, args []string, r *Runner) error {
+	if helpRequested(r.Out, "immunize", args) {
+		return nil
+	}
+
 	ensureSeams()
 	pocExec, patch, mutations, bypass, actor := "", "", "", "", ""
 	havePOC, havePatch, haveMutations, haveBypass := false, false, false, false

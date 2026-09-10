@@ -34,6 +34,10 @@ import (
 const gateUsage = "usage: webv2 gate <campaign> [FINDING] | webv2 gate --explain <CHECK>"
 
 func runGate(root string, args []string, r *Runner) int {
+	if helpRequested(r.Out, "gate", args) {
+		return 0
+	}
+
 	ensureSeams()
 	explain, haveExplain := "", false
 	var pos []string

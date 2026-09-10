@@ -15,6 +15,10 @@ import (
 )
 
 func runInvariantContradict(root string, args []string, r *Runner) int {
+	if helpRequested(r.Out, "invariant-contradict", args) {
+		return 0
+	}
+
 	ensureSeams()
 	evidence, haveEvidence := "", false
 	var pos []string

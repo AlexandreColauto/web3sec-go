@@ -16,6 +16,10 @@ import (
 )
 
 func runSnap(root string, args []string, stdout io.Writer) error {
+	if helpRequested(stdout, "snap", args) {
+		return nil
+	}
+
 	var pos []string
 	var deployment, chain string
 	var excludes []string

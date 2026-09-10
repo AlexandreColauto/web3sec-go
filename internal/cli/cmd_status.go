@@ -25,6 +25,10 @@ import (
 const statusNoteCap = 200
 
 func runStatus(root string, args []string, stdout io.Writer) error {
+	if helpRequested(stdout, "status", args) {
+		return nil
+	}
+
 	verbose := false
 	var pos []string
 	for _, a := range args {

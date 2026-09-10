@@ -169,22 +169,30 @@ Pinned by `TestResolveCandidateNoteRecordsOnBothSides`
 `verify-full.sh` still omit `--note` so the byte-diff against the (buggy,
 deprecated) reference stays green.
 
-## 3a. The `-h` gap (open, recorded 2026-09-10)
+## 3a. The `-h` gap (FIXED 2026-09-10)
 
 The reference's argparse answered `<cmd> -h` with the command's help and exit
-**0** for every verb. The Go twin does so for 53 of 76 verbs; **23 diverge**:
+**0** for every verb. The Go twin did so for 53 of 76 verbs; **23 diverged**:
 
 | behaviour | verbs |
 |---|---|
 | usage printed, **exit 2** (required-arg check runs before help) | `exploit`, `ack`, `rank`, `move`, `immunize` |
 | `error: unrecognized arguments: -h` (the flat parsers never learned the flag) | `init`, `status`, `snap`, `log`, `audit`, `prioritize`, `repro-queue`, `waive`, `artifact-list`, `artifact-register`, `invariant-verify`, `invariant-contradict`, `dedup`, `recall`, `resolve-candidate`, `gate`, `prove`, `verdict` |
 
-`webv2 help` and `webv2 help <cmd>` always work; it is the per-verb flag that
-is inconsistent. Not fixed here because it is a CLI-surface change, not a doc
-change: the cheap fix is a shared `helpRequested(args)` guard at the top of the
-18 flat parsers plus a help-before-required check in the 5, reusing the usage
-string the verb already stores. Until that lands, the *notes* promise
-(`<cmd> --help`) is true only for the 53.
+**Fixed:** all 76 verbs now answer `-h`/`--help` with their usage block and exit
+0, before any argument validation or state access. One shared entry guard
+(`helpRequested` in `internal/cli/cli.go`) is called first by the 23 — the 18
+flat parsers and the 5 that validated required arguments first — plus `selftest`,
+which used to *run the whole self-check* on `-h` because it ignored unknown
+tokens. The usage text comes from the captured argparse block when the verb has
+one, its existing usage constant otherwise, and for the four verbs with neither
+(`init`, `status`, `log`, `snap`) it is derived from the command registry, so the
+help line cannot drift from the registered signature.
+
+Pinned by `TestEveryCommandAnswersHelp` and
+`TestHelpPrecedesArgumentValidation` (`internal/cli/help_test.go`), which run
+every registered verb with both flags against an empty workspace and assert exit
+0, a `usage: webv2 <name>` line, and no error on stderr.
 
 ## 4. Exit codes asserted by the walkthrough
 

@@ -15,6 +15,10 @@ import (
 )
 
 func runAudit(root string, args []string, stdout io.Writer) error {
+	if helpRequested(stdout, "audit", args) {
+		return nil
+	}
+
 	jsonOut := false
 	var pos []string
 	for _, a := range args {

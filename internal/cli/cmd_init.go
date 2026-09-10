@@ -17,6 +17,10 @@ import (
 )
 
 func runInit(root string, args []string, stdout io.Writer) error {
+	if helpRequested(stdout, "init", args) {
+		return nil
+	}
+
 	program := ""
 	haveProgram := false
 	var rest []string

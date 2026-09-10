@@ -13,6 +13,10 @@ import (
 )
 
 func runArtifactList(root string, args []string, r *Runner) int {
+	if helpRequested(r.Out, "artifact-list", args) {
+		return 0
+	}
+
 	ensureSeams()
 	kind := ""
 	var pos []string

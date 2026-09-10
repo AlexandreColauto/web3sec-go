@@ -37,6 +37,10 @@ func runMove(root string, args []string, r *Runner) int {
 }
 
 func moveCmd(root string, args []string, r *Runner) error {
+	if helpRequested(r.Out, "move", args) {
+		return nil
+	}
+
 	ensureSeams()
 	reason, actor, adjacent := "", "", ""
 	haveReason := false

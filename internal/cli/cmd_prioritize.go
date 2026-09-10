@@ -13,6 +13,10 @@ import (
 )
 
 func runPrioritize(root string, args []string, r *Runner) int {
+	if helpRequested(r.Out, "prioritize", args) {
+		return 0
+	}
+
 	ensureSeams()
 	pos, err := plainPositionals(args, "prioritize", 1, "campaign")
 	if err != nil {

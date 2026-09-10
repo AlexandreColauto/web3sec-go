@@ -82,6 +82,10 @@ const selftestRule = "==========================================================
 // runSelftest is the command body: one PASS/FAIL line per check, exit 0
 // only when every check passes (verify.py main()).
 func runSelftest(_ string, args []string, r *Runner) int {
+	if helpRequested(r.Out, "selftest", args) {
+		return 0
+	}
+
 	ensureSeams()
 	audit.Setup() // the walkthrough's audit check needs the section registry
 	full := false

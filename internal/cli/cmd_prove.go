@@ -16,6 +16,10 @@ import (
 )
 
 func runProve(root string, args []string, r *Runner) int {
+	if helpRequested(r.Out, "prove", args) {
+		return 0
+	}
+
 	ensureSeams()
 	stage, haveStage := "", false
 	var pos []string

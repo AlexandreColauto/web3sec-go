@@ -24,6 +24,10 @@ import (
 var resolveVerdicts = []string{"same", "distinct"}
 
 func runResolveCandidate(root string, args []string, r *Runner) int {
+	if helpRequested(r.Out, "resolve-candidate", args) {
+		return 0
+	}
+
 	ensureSeams()
 	verdict, note, actor := "", "", ""
 	haveVerdict := false

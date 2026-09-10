@@ -12,6 +12,10 @@ import (
 )
 
 func runLog(root string, args []string, stdout io.Writer) error {
+	if helpRequested(stdout, "log", args) {
+		return nil
+	}
+
 	tail := 25
 	var pos []string
 	for i := 0; i < len(args); i++ {

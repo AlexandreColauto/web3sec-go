@@ -12,6 +12,10 @@ import (
 )
 
 func runReproQueue(root string, args []string, r *Runner) int {
+	if helpRequested(r.Out, "repro-queue", args) {
+		return 0
+	}
+
 	ensureSeams()
 	pos, err := plainPositionals(args, "repro-queue", 1, "campaign")
 	if err != nil {

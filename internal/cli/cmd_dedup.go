@@ -40,6 +40,10 @@ import (
 )
 
 func runDedup(root string, args []string, r *Runner) int {
+	if helpRequested(r.Out, "dedup", args) {
+		return 0
+	}
+
 	ensureSeams()
 	pos, err := plainPositionals(args, "dedup", 1, "campaign")
 	if err != nil {

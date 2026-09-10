@@ -31,6 +31,10 @@ func runRank(root string, args []string, r *Runner) int {
 }
 
 func rankCmd(root string, args []string, r *Runner) error {
+	if helpRequested(r.Out, "rank", args) {
+		return nil
+	}
+
 	ensureSeams()
 	var pos []string
 	var posIdx []int

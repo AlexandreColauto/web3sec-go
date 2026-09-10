@@ -20,6 +20,10 @@ var criticVerdicts = []string{"pending", "confirmed", "possible", "disproved",
 	"duplicate", "out_of_scope", "informational"}
 
 func runVerdict(root string, args []string, r *Runner) int {
+	if helpRequested(r.Out, "verdict", args) {
+		return 0
+	}
+
 	ensureSeams()
 	verdict, reason := "", ""
 	haveVerdict, haveReason := false, false

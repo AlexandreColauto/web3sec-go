@@ -20,6 +20,10 @@ import (
 var recallModes = []string{"negative", "comparative"}
 
 func runRecall(root string, args []string, r *Runner) int {
+	if helpRequested(r.Out, "recall", args) {
+		return 0
+	}
+
 	ensureSeams()
 	findingID, mode, note := "", "negative", ""
 	haveFinding, haveNote := false, false

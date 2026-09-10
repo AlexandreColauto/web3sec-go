@@ -22,6 +22,10 @@ import (
 )
 
 func runInvariantVerify(root string, args []string, r *Runner) int {
+	if helpRequested(r.Out, "invariant-verify", args) {
+		return 0
+	}
+
 	ensureSeams()
 	artifact, execID := "", ""
 	var pos []string

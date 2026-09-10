@@ -140,6 +140,68 @@ func (r *Runner) run(argv []string) int {
 	return 2
 }
 
+// --- help surface ----------------------------------------------------------
+//
+// argparse prints a command's usage block and exits 0 for `-h`/`--help`,
+// *before* it validates a single argument. Most verbs reproduce that in their
+// own parser; the 23 whose parsers predate the argSpec help path (recorded in
+// docs/runbook-go-notes.md 3a) did not, so `webv2 <cmd> -h` either rejected the
+// flag or exited 2 on a missing required argument. This helper is the shared
+// entry guard for those verbs; `TestEveryCommandAnswersHelp` keeps the whole
+// surface honest.
+
+// verbUsageConstants are the verbs whose usage text is a package constant
+// rather than an argparse block.
+var verbUsageConstants = map[string]string{
+	"ack":      ackUsage,
+	"exploit":  exploitUsage,
+	"immunize": t21ImmunizeUsage,
+	"move":     moveUsage,
+	"rank":     rankUsage,
+}
+
+// helpRequested writes cmd's usage block for -h/--help and reports whether the
+// caller must stop with success (exit 0). It must be the first thing a verb
+// entry does: argparse answers help before it looks at anything else.
+func helpRequested(out io.Writer, cmd string, args []string) bool {
+	for _, a := range args {
+		if a == "-h" || a == "--help" {
+			fmt.Fprint(out, helpUsageText(cmd))
+			return true
+		}
+	}
+	return false
+}
+
+// helpUsageText is the block `webv2 <cmd> -h` prints: the captured argparse
+// block when the verb has one, its usage constant otherwise, and for the few
+// verbs with neither, a usage line derived from the command registry — so the
+// text can never drift from the registered signature.
+func helpUsageText(cmd string) string {
+	if b, ok := argparseUsageBlocks[cmd]; ok {
+		return b
+	}
+	if b, ok := verbUsageConstants[cmd]; ok {
+		return b
+	}
+	c, ok := commandByName(cmd)
+	if !ok {
+		return "usage: webv2 " + cmd + " [-h]\n"
+	}
+	// The registry line is "<name> <args>   <description>", possibly wrapped;
+	// the usage line takes the first line only, minus the name and description.
+	rest := strings.Split(c.line, "\n")[0]
+	rest = strings.TrimPrefix(rest, cmd+" ")
+	if i := strings.Index(rest, "   "); i >= 0 {
+		rest = rest[:i]
+	}
+	rest = strings.TrimRight(rest, " ")
+	if rest == "" {
+		return "usage: webv2 " + cmd + " [-h]\n"
+	}
+	return "usage: webv2 " + cmd + " [-h] " + rest + "\n"
+}
+
 // splitRoot pulls --root/--root=DIR out of argv (leading or trailing;
 // the trailing form is an accepted superset of cli.py). Default ".".
 func splitRoot(argv []string) (string, []string) {

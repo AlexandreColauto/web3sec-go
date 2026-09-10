@@ -918,16 +918,17 @@ byte-level consequence: the reference runbook is archive material and no golden
 step reads it. It is pinned mechanically by `internal/cli/runbook_test.go`,
 which compares the embedded runbook to the command registry in both directions.
 
-The same audit found an **open, unfixed** divergence: 23 of 76 verbs do not
-answer `-h`/`--help` with usage + exit 0 the way the reference's argparse did.
-18 flat parsers reject the flag (`error: unrecognized arguments: -h`); 5
-(`exploit`, `ack`, `rank`, `move`, `immunize`) print usage but exit 2 because
-required-argument checking runs first. `webv2 help` / `webv2 help <cmd>` always
-work, so the runbook's own examples are unaffected; the affected form is
-`webv2 <cmd> -h`, which `docs/runbook-go-notes.md` §3a had promised. Recorded
-there with the fix sketch (one shared `helpRequested(args)` guard) rather than
-silently normalized, because changing it is a CLI-surface change and therefore a
-separate decision.
+The same audit found a second, argparse-contract divergence: 23 of 76 verbs did
+not answer `-h`/`--help` with usage + exit 0 (18 flat parsers rejected the flag,
+5 checked required arguments first, and `selftest` ran the self-check). It was
+recorded in `docs/runbook-go-notes.md` §3a as an open item rather than fixed
+with the doc pass, and is **closed the same day** as a separate change: a shared
+`helpRequested` entry guard in `internal/cli/cli.go`, called first by the 24
+affected entries, with the usage text taken from the captured argparse block,
+the verb's own usage constant, or the command registry in that order. Pinned by
+`TestEveryCommandAnswersHelp` / `TestHelpPrecedesArgumentValidation`
+(`internal/cli/help_test.go`), which run every registered verb with both flags
+against an empty workspace.
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**

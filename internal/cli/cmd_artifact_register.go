@@ -13,6 +13,10 @@ import (
 )
 
 func runArtifactRegister(root string, args []string, r *Runner) int {
+	if helpRequested(r.Out, "artifact-register", args) {
+		return 0
+	}
+
 	ensureSeams()
 	var pos []string
 	kind, note := "other", ""

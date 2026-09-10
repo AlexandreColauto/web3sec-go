@@ -1355,16 +1355,24 @@ small embedded subset. Documentation drift was not a failing condition anywhere.
   Both were verified to fail on injected drift (a renamed command line and a
   removed verb mention) before landing.
 
-**Deliberately not fixed (recorded, not hidden):** 23 of 76 verbs do not answer
-`-h`/`--help` with exit 0 the way the reference's argparse did — 18 reject the
-flag outright (flat parsers), 5 print usage but exit 2 because required-argument
-checking runs before help. That is a CLI-surface change, not a doc change, so it
-is recorded in `docs/runbook-go-notes.md` §3a as an open item; the cheap fix is
-one shared `helpRequested(args)` guard in the 18 parsers plus a help-before-
-required check in the 5.
+**The `-h` gap, fixed the same day (D7 follow-up).** The audit that produced the
+runbook pass found 23 of 76 verbs did not answer `-h`/`--help` with exit 0 the
+way the reference's argparse did: 18 flat parsers rejected the flag outright, 5
+printed usage but exited 2 because required-argument checking ran first, and
+`selftest` *ran the whole self-check* on `-h` because it deliberately ignored
+unknown tokens. All 76 now answer help first, before argument validation and
+before any state access. The fix is one shared entry guard (`helpRequested` in
+`internal/cli/cli.go`) called by the 24 affected entries; the usage text is the
+captured argparse block when the verb has one, its existing usage constant
+otherwise, and for the four with neither (`init`, `status`, `log`, `snap`) it is
+derived from the command registry — so the help line cannot drift from the
+registered signature.
 
-**Pinned by:** `internal/cli/runbook_test.go` (2 tests). **Surface budget:** no
-new verbs, no new flags — documentation and a test.
+**Pinned by:** `internal/cli/runbook_test.go` (2 tests) and
+`internal/cli/help_test.go` (`TestEveryCommandAnswersHelp`,
+`TestHelpPrecedesArgumentValidation` — every registered verb, both flags,
+against an empty workspace). **Surface budget:** no new verbs, no new flags —
+documentation, a shared guard and tests.
 
 ## Wave E — Remaining asks  *(DEFERRED by the surface budget — principle 6)*
 

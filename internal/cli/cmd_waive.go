@@ -14,6 +14,10 @@ import (
 )
 
 func runWaive(root string, args []string, r *Runner) int {
+	if helpRequested(r.Out, "waive", args) {
+		return 0
+	}
+
 	ensureSeams()
 	subject, reason, actor := "", "", ""
 	haveReason, haveActor := false, false
