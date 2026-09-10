@@ -11,6 +11,7 @@ package risk
 //	           - wAck(dedup_meta.in_code_ack present)
 //	           - wAcceptedRisk(bounty.accepted_risk recorded)
 //	           + wCorroboration(dedup_meta.corroborated_by) = +0.5 (G1)
+//	           + outlook(verification.triager_outlook) = ±0.5 (G6)
 //	           + wReversibility(risk.reversibility)
 //
 // Weights (the validated_risk wLevel table is reused for evidence, so the
@@ -64,6 +65,13 @@ const (
 	acceptanceCorroborationBonus = 0.5
 	acceptanceDefaultTopK        = 10
 )
+
+// wAcceptanceOutlook is the G6 nudge table: bounded, symmetric, and absent
+// outcomes contribute nothing (same posture as reversibility). The key SET
+// is asserted equal to findings.TriagerOutlooks() by TestOutlookEnumSync —
+// adding an outcome to the enum without a weight here (or without one
+// there) fails a test, not a campaign.
+var wAcceptanceOutlook = map[string]float64{"likely": 0.5, "uncertain": 0.0, "unlikely": -0.5}
 
 // wAcceptanceReversibility is the acceptance-likelihood half of the E5
 // classification: funds that are gone forever are worth reviewing first.
@@ -119,6 +127,15 @@ func Acceptance(finding validation.Value) AcceptanceEntry {
 		if w, ok := wAcceptanceCritic[v]; ok {
 			score += w
 			e.Disqualified = v == "disproved"
+		}
+	}
+
+	// triager outlook (G6): likelihood call under the live policy, bounded
+	// and never disqualifying — only the critic disproves.
+	if o := objAt(orObj(objAt(finding, "verification")), "triager_outlook"); o.Kind ==
+		validation.Obj {
+		if w, ok := wAcceptanceOutlook[orStr(objAt(o, "outcome"))]; ok {
+			score += w
 		}
 	}
 

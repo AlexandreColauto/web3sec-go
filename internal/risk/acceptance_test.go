@@ -6,8 +6,10 @@ package risk
 // semantics, and the ranking/cap invariants report and rank both rely on.
 
 import (
+	"strings"
 	"testing"
 
+	"websec/internal/findings"
 	"websec/internal/validation"
 )
 
@@ -291,6 +293,116 @@ func TestCorroborationBonus(t *testing.T) {
 	})
 	if s, _ := AcceptanceScore(junk); s != s0 {
 		t.Fatal("only a string corroborated_by counts")
+	}
+}
+
+func TestTriagerOutlookFactor(t *testing.T) {
+	base := accFinding(func(f *validation.Value) { setCritic(f, "confirmed") })
+	s0, _ := AcceptanceScore(base)
+	setOutlook := func(f *validation.Value, outcome string) {
+		*f = withKeyR(*f, "verification", validation.VObj(
+			kvR("critic_verdict", validation.VStr("confirmed")),
+			kvR("triager_outlook", validation.VObj(
+				kvR("outcome", validation.VStr(outcome)),
+				kvR("reason", validation.VStr("policy pays critical; fork PoC"))))))
+	}
+	likely := accFinding(func(f *validation.Value) { setOutlook(f, "likely") })
+	unlikely := accFinding(func(f *validation.Value) { setOutlook(f, "unlikely") })
+	uncertain := accFinding(func(f *validation.Value) { setOutlook(f, "uncertain") })
+	if s, _ := AcceptanceScore(likely); s-s0 != 0.5 {
+		t.Fatalf("likely: +%v", s-s0)
+	}
+	if s, _ := AcceptanceScore(unlikely); s0-s != 0.5 {
+		t.Fatalf("unlikely: %v", s-s0)
+	}
+	if s, _ := AcceptanceScore(uncertain); s != s0 {
+		t.Fatal("uncertain must be score-neutral")
+	}
+	// Outlook NEVER disqualifies:
+	if _, d := AcceptanceScore(unlikely); d {
+		t.Fatal("outlook is not a refutation")
+	}
+	// clamp at 0 still holds with unlikely on a bare hypothesis (no critic
+	// verdict: setOutlook writes a confirmed critic, which would offset the
+	// -0.5 and never reach the floor — the finding must be genuinely bare).
+	bare := accFinding(func(f *validation.Value) {
+		*f = withKeyR(*f, "verification", validation.VObj(
+			kvR("triager_outlook", validation.VObj(
+				kvR("outcome", validation.VStr("unlikely")),
+				kvR("reason", validation.VStr("policy pays critical; fork PoC"))))))
+	})
+	if s, _ := AcceptanceScore(bare); s != 0 {
+		t.Fatalf("clamped: %v", s)
+	}
+}
+
+func TestOutlookEnumSync(t *testing.T) {
+	// 1) score table keys == findings.TriagerOutlooks()
+	for _, o := range findings.TriagerOutlooks() {
+		if _, ok := wAcceptanceOutlook[o]; !ok {
+			t.Fatalf("outlook %q missing from the score table", o)
+		}
+	}
+	if len(wAcceptanceOutlook) != len(findings.TriagerOutlooks()) {
+		t.Fatal("score table carries an outcome the enum does not")
+	}
+	// 2) the finding schema's enum == findings.TriagerOutlooks()
+	raw, err := validation.ReadSchemaFile("finding")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := validation.ParseOrdered(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tout := objAt(objAt(objAt(objAt(objAt(doc, "properties"),
+		"verification"), "properties"), "triager_outlook"), "properties")
+	enums := objAt(objAt(tout, "outcome"), "enum").A
+	var got []string
+	for _, e := range enums {
+		got = append(got, e.S)
+	}
+	if strings.Join(got, ",") != strings.Join(findings.TriagerOutlooks(), ",") {
+		t.Fatalf("schema enum %v drifted from TriagerOutlooks() %v", got,
+			findings.TriagerOutlooks())
+	}
+}
+
+func TestCombinedFactors(t *testing.T) {
+	// confirmed(+1.5) + critical band(+3.0) + E4 evidence(wLevel["E4"])
+	// + corroborated(+0.5) + outlook likely(+0.5) == exact sum, no cap.
+	f := accFinding(func(f *validation.Value) {
+		setBand(f, "critical")
+		setEvidence(f, "E4")
+		*f = withKeyR(*f, "dedup_meta", validation.VObj(
+			kvR("corroborated_by", validation.VStr("F-t"))))
+		*f = withKeyR(*f, "verification", validation.VObj(
+			kvR("critic_verdict", validation.VStr("confirmed")),
+			kvR("triager_outlook", validation.VObj(
+				kvR("outcome", validation.VStr("likely")),
+				kvR("reason", validation.VStr("policy pays critical; fork PoC"))))))
+	})
+	score, dq := AcceptanceScore(f)
+	if dq {
+		t.Fatal("not disqualified")
+	}
+	want := 1.5 + 3.0 + wLevel["E4"] + 0.5 + 0.5
+	if score != want {
+		t.Fatalf("additivity broken: got %v want %v", score, want)
+	}
+	// floor clamp with BOTH demotions and outlook unlikely on a bare
+	// finding: -1 (ack) -2 (accepted-risk) -0.5 (unlikely) -> exactly 0.
+	b := accFinding(func(f *validation.Value) {
+		setAck(f)
+		*f = withKeyR(*f, "bounty", validation.VObj(
+			kvR("accepted_risk", validation.VObj())))
+		*f = withKeyR(*f, "verification", validation.VObj(
+			kvR("triager_outlook", validation.VObj(
+				kvR("outcome", validation.VStr("unlikely")),
+				kvR("reason", validation.VStr("policy excludes this scope"))))))
+	})
+	if sc, _ := AcceptanceScore(b); sc != 0 {
+		t.Fatalf("floor clamp: %v", sc)
 	}
 }
 
