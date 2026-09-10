@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"websec/internal/reproduction"
@@ -322,10 +323,14 @@ func coverageReasons(campaign *state.Campaign, finding, result,
 	declaredActors := actorSet(declared)
 	executedActors := actorSet(executed)
 	if len(executedActors) < len(declaredActors) {
-		reasons = append(reasons, fmt.Sprintf("executed steps use %d distinct "+
+		reason := fmt.Sprintf("executed steps use %d distinct "+
 			"actor(s) but the declared exploit needs %d — a single-account "+
 			"PoC cannot cover a multi-actor exploit", len(executedActors),
-			len(declaredActors)))
+			len(declaredActors))
+		if missing := missingActors(declared, executedActors); len(missing) > 0 {
+			reason += "; missing: " + strings.Join(missing, ", ")
+		}
+		reasons = append(reasons, reason)
 	}
 	rawSpecSteps := objAt(spec, "steps")
 	specSteps := listOf(rawSpecSteps)
@@ -403,6 +408,38 @@ func actorSet(steps []validation.Value) map[string]struct{} {
 		}
 	}
 	return out
+}
+
+// missingActors lists the declared actor labels absent from the executed
+// set, sorted so the refusal sentence is deterministic. Labels are the
+// finding's own actor values — never normalised or stripped of prose.
+func missingActors(declared []validation.Value,
+	executed map[string]struct{}) []string {
+	seen := map[string]struct{}{}
+	var missing []string
+	for _, s := range declared {
+		if s.Kind != validation.Obj {
+			continue
+		}
+		actor := objAt(s, "actor")
+		if !pyTruthy(actor) {
+			continue
+		}
+		if _, ok := executed[valueKey(actor)]; ok {
+			continue
+		}
+		label := validation.PyRepr(actor)
+		if actor.Kind == validation.Str {
+			label = actor.S
+		}
+		if _, dup := seen[label]; dup {
+			continue
+		}
+		seen[label] = struct{}{}
+		missing = append(missing, label)
+	}
+	sort.Strings(missing)
+	return missing
 }
 
 // BenignActorAudit is benign_actor_audit: deterministic value-echo check

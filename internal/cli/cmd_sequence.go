@@ -42,8 +42,16 @@ options:
   -h, --help    show this help message and exit
 `
 
+// t14SequenceRunHelp is the pinned run help plus the D5 coverage line: the
+// other verbs' prose is ours, this one line documents the rule the operator
+// would otherwise only learn by failing it. The rest is pinned argparse
+// text from the live cli.py at COLUMNS=80.
 const t14SequenceRunHelp = `usage: webv2 sequence run [-h] --finding FINDING [--workdir WORKDIR]
                           campaign spec
+
+coverage: the executed steps must use every actor the finding's exploit_sequence
+declares — a declared role that sends no transaction still counts until that
+sequence drops it
 
 positional arguments:
   campaign

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"websec/internal/findings"
 	"websec/internal/sequencepoc"
@@ -96,6 +97,29 @@ func TestSequenceArgparseParity(t *testing.T) {
 					code, out, errS, tc.code, tc.stdout, tc.stderr)
 			}
 		})
+	}
+}
+
+// TestSequenceRunHelpStatesTheCoverageRule pins D5's documentation half: the
+// operator learns the coverage rule from --help, not only from a failed run.
+func TestSequenceRunHelpStatesTheCoverageRule(t *testing.T) {
+	code, out, errS := run(t, "sequence", "run", "--help")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	flat := strings.Join(strings.Fields(out), " ")
+	if !strings.Contains(flat, "coverage: the executed steps must use every "+
+		"actor the finding's exploit_sequence declares") {
+		t.Fatalf("help = %q", flat)
+	}
+	if !strings.Contains(flat, "a declared role that sends no transaction "+
+		"still counts until that sequence drops it") {
+		t.Fatalf("help = %q", flat)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if utf8.RuneCountInString(line) > 80 {
+			t.Fatalf("help line exceeds 80 columns: %q", line)
+		}
 	}
 }
 

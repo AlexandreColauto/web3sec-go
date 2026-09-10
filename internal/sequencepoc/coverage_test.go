@@ -180,6 +180,80 @@ func TestActorCountGapRejected(t *testing.T) {
 	}
 }
 
+// TestActorGapReasonNamesMissingActor: a coverage refusal names the
+// declared actor the single-account PoC never used, appended to the
+// existing sentence so the prefix and counts stay byte-identical.
+func TestActorGapReasonNamesMissingActor(t *testing.T) {
+	c := testCampaign(t)
+	spec := coverageSpec(t)
+	single := setPath(t, goodResult(t, spec), []string{"steps", "1", "actor"},
+		validation.VStr("attacker"))
+	ok, reasons := verify(t, c, seqFinding(t), stage(t, c, single, spec, nil))
+	want := "executed steps use 1 distinct actor(s) but the declared " +
+		"exploit needs 2 — a single-account PoC cannot cover a " +
+		"multi-actor exploit; missing: victim"
+	if ok {
+		t.Fatalf("ok=%v reasons=%v", ok, reasons)
+	}
+	if !anyContains(reasons, want) {
+		t.Fatalf("reasons=%v", reasons)
+	}
+}
+
+// TestActorGapReasonSortsAndKeepsLabelsVerbatim: the missing labels are
+// sorted and are the finding's own actor strings, prose included.
+func TestActorGapReasonSortsAndKeepsLabelsVerbatim(t *testing.T) {
+	c := testCampaign(t)
+	finding := mustParse(t, `{"finding_id": "F-cov1",
+      "exploit_sequence": [
+        {"step": 1, "actor": "zeta", "action": "deposit"},
+        {"step": 2, "actor": "victim (or protocol)", "action": "claim"},
+        {"step": 3, "actor": "attacker", "action": "sweep"}]}`)
+	spec := coverageSpec(t)
+	single := setPath(t, goodResult(t, spec), []string{"steps", "1", "actor"},
+		validation.VStr("attacker"))
+	ok, reasons := verify(t, c, finding, stage(t, c, single, spec, nil))
+	if ok {
+		t.Fatalf("ok=%v reasons=%v", ok, reasons)
+	}
+	if !anyContains(reasons, "; missing: victim (or protocol), zeta") {
+		t.Fatalf("reasons=%v", reasons)
+	}
+}
+
+// TestActorCoverageMetYieldsNoActorReason: every declared actor executed
+// means the actor reason is not emitted at all.
+func TestActorCoverageMetYieldsNoActorReason(t *testing.T) {
+	c := testCampaign(t)
+	ok, reasons := verify(t, c, seqFinding(t), stage(t, c,
+		validation.VNull(), validation.VNull(), nil))
+	if !ok {
+		t.Fatalf("ok=%v reasons=%v", ok, reasons)
+	}
+	if anyContainsFold(reasons, "actor") {
+		t.Fatalf("reasons=%v", reasons)
+	}
+}
+
+// TestExecutedActorSupersetYieldsNoActorReason: extra executed actors are
+// not a coverage failure — only missing ones are.
+func TestExecutedActorSupersetYieldsNoActorReason(t *testing.T) {
+	c := testCampaign(t)
+	spec := coverageSpec(t)
+	res := goodResult(t, spec)
+	steps := append(listOf(objAt(res, "steps")), mustParse(t,
+		`{"step": 3, "actor": "arbiter", "tx_hash": null, "status": "revert",
+          "revert_reason": "execution reverted: no"}`))
+	res = setKey(res, "steps", validation.VArr(steps...))
+	ok, reasons := verify(t, c, seqFinding(t), stage(t, c, res, spec, nil))
+	if !ok {
+		t.Fatalf("ok=%v reasons=%v", ok, reasons)
+	}
+	if anyContainsFold(reasons, "actor") {
+		t.Fatalf("reasons=%v", reasons)
+	}
+}
+
 func TestUnexpectedSuccessOnExpectRevertStep(t *testing.T) {
 	c := testCampaign(t)
 	spec := coverageSpec(t)
