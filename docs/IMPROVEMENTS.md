@@ -2,7 +2,10 @@
 
 Date: 2026-09-10 · Status: waves A–D + C0 + E5 LANDED; E1–E4 deferred by
 principle 6; D8 awaits a decision; the port-scaffolding cleanup is wave F
-(`docs/LEANNESS_REVIEW.md`).
+(`docs/LEANNESS_REVIEW.md`). **Wave G PROPOSED 2026-09-10 (source: the
+"Beyond Smart Contracts" hybrid-defense report + our deep-research deliverable
+"Deconstructing Claims, Validating AI, and Weighting Risks"; each G item awaits
+an approve/defer review decision).**
 
 Source: the Morph L2 rollup campaign (`C-42bd211e3e`, 537 events, 52 findings,
 snapshot `22ca805e`) against the gold-standard eval with two planted bugs
@@ -1852,3 +1855,476 @@ S ≈ <2h, M ≈ 2–5h, L ≈ 5–8h of focused work.
 
 *Anchors verified 2026-09-10 against the working tree. Line numbers are
 pointers, not contracts — re-locate by symbol when editing.*
+
+---
+
+# Wave G — Hybrid tools, calibration & the beyond-contract stack
+
+Date: 2026-09-10 · Status: **PROPOSED** — every item awaits a review decision;
+nothing below is landed, and anchors are pointers to be re-located at landing
+time (same convention as above).
+
+**Sources.** (1) *Beyond Smart Contracts: A Hybrid Defense Strategy* — the
+multi-layer report (hybrid static+symbolic+fuzzing, LLM auditing trends,
+beyond-contract attack surface, crowdsourced-model consolidation). (2) Our own
+deep-research deliverable *Deconstructing Claims, Validating AI, and Weighting
+Risks* (claim-invalidation checklist, empirical LLM harvest, incident-weighted
+taxonomy). (3) This repo's audited state: A1–A4/B/C/D waves landed, the dataset
+registry, `internal/risk/acceptance.go`.
+
+**Three corrections carried from the research review — they bind every G item:**
+
+1. **Incident-loss data is THREE weights, never one priority number.** Search
+   prior (what gets drained in the wild → what we hunt), acceptance prior
+   (P(real|flagged) × P(paid|class) → how we rank), and severity-if-real
+   (target-specific impact → the gate) are different quantities feeding three
+   different existing slots. A class-average loss must never set a finding's
+   severity, and a cheap-to-flag class (reentrancy) is not the same as a
+   costly-to-lose class.
+2. **Soundness defenses KILL findings; policy defenses DEMOTE them.** A
+   recognized mitigation on the flagged path (`nonReentrant` wrapping exactly
+   the flagged function, EIP-712 domain separator in the verified payload) is a
+   critic-stage correctness question. A documented finality/trust assumption is
+   a gate-stage accepted-risk question (check13/A1). The two layers must never
+   share a code path.
+3. **The current 2-gold gold-eval supports NO recall claim** (2/2 found ⇒
+   recall 95% CI ≈ 20–100%). The source research notes are internal working
+   material, not normative — the claim is asserted here and G4 makes the suite
+   able to carry it.
+
+**Consistency with the principles:** no new verbs anywhere (flags, adapters,
+data, prompts, schemas); deterministic where judgment-free (principle 4);
+additive fields gated on presence so existing campaigns' bytes don't move
+(principle 1, re-verified per item); fail-open on advisory, fail-closed on
+money (principle 2).
+
+| item | one-liner | effort | gate-for |
+|---|---|---|---|
+| G1 | detector output as first-class evidence + corroboration factor | M | — |
+| G2 | per-class three-weight table (search / acceptance / severity-if-real) | M | G3 |
+| G3 | acceptance priors from the adjudicated outcome store + A3 backtest | L | G2 |
+| G4 | gold-eval expansion (≥15 scenarios, clean control, CIs on recall) | M | claims |
+| G5 | two-layer defense matcher: `mitigation_present` vs check13 | M | G1 |
+| G6 | critic triager-outlook rubric (prompt data, policy-injected) | S | — |
+| G7 | claim-intake checklist + `provenance[]` on baked-in external claims | S | — |
+| G8 | invariants → Halmos/forge PBT harnesses as an evidence rung | L | — |
+| G9 | beyond-contract `components[]` + two data-only playbooks | M | G3 |
+| G10 | cross-chain assumption table + separator/finality archetypes | S–M | — |
+| G11 | `verify --post-patch` regression loop | S–M | — |
+| G12 | OWASP/SCVS aliases on taxonomy classes | S | G7 |
+
+## G1. Detector evidence as first-class input
+
+**Motivation.** The report's only quantitative hybrid claim (static-analysis
+guidance + fuzzing ≈ +10% detection; CSAFuzzer) and the ByteEye diagnosis both
+reduce to: every detector has a measurable per-class FP/FN profile, and
+corroboration between independent methods is signal. Today the sandbox ALLOWS
+`slither`/`aderyn`/`forge` (`internal/sandbox/exec.go:566`) but their output
+dies as exec-log prose: never a tracked hypothesis, never dedup-linked to a
+finding, never credited by the acceptance score.
+
+**Design.**
+- `internal/datasets/slither/adapter.go`: Slither JSON-L lines → common-shape
+  records (`dataset:"slither"`, `provenance.tool = {name, version, detector_id}`),
+  class mapping table owned by the adapter; unmapped detector-ids land
+  `unmapped:true` (same convention as `defihacklabs`), severity NEVER copied as
+  a verdict — detector severity is a hint for the gate, not the ladder.
+- Registry: add `"slither"`, `"aderyn"` to the dataset vocabulary
+  (`internal/ingest/ingest.go:47`) and the `evaluation_case.schema.json` enum;
+  records flow through the existing `Ingest` path (eval case + memory rows +
+  campaign seed) — no lifecycle change.
+- Corroboration factor in `internal/risk/acceptance.go`: `+0.5` when the same
+  root cause is flagged by BOTH a tool and a model path, keyed strictly on the
+  D4 tier-2 signature (same root cause, same-or-overlapping site). Never
+  invent a link (the critic-column law): no signature match, no credit.
+- Tool-FP ledger (data, evalstore): counts of tool-flag × critic-verdict per
+  class, appended at `verify` time; surfaced in `brief`. This is the empirical
+  detector profile the report says nobody publishes — we compute our own.
+- CLI: `ingest <CID> --from slither --json-file out.json` (flag on the existing
+  verb).
+
+**Anchors:** `internal/datasets/defihacklabs/defihacklabs.go` (adapter
+template), `internal/ingest/ingest.go:47` (vocabulary),
+`internal/risk/acceptance.go` (factor table), `internal/evalstore`,
+`internal/briefing`, `internal/sandbox/exec.go` (tool allowlist already covers).
+**Tests:** adapter round-trip incl. unmapped ids; corroboration fires only on
+tier-2 match and NOT same-site-different-cause; ledger counts on a fixture
+campaign; default-off byte check (no `provenance.tool` fields → no byte move).
+
+## G2. Per-class three-weight table (search / acceptance / severity-if-real)
+
+**Motivation.** The deep-research taxonomy section supplies real loss figures
+(access-control dominance in 2024 losses; reentrancy/unchecked-call far
+smaller) but treats them as one priority dial — correction 1. The framework
+already HAS the three slots; none is data-weighted by adjudicated reality:
+`internal/corpus` blends "historical frequency and loss" (search), A3
+acceptance (rank), floors/`validated_risk` (severity-if-real).
+
+**Design.**
+- New embedded asset `assets/taxonomy/class_weights.json`: per taxonomy class
+  (incl. the `unmapped` bucket and G9's component classes) a triple
+  `{search, acceptance, severity_default, provenance[]}`; schema-validated,
+  pinned by the asset-pack manifest like every embedded asset.
+- Consumers: `internal/corpus` reads `search` (replaces its hard-coded blend —
+  golden byte check required, normalization if it moves); `acceptance` is
+  CONSUMED BY G3 (this item ships the table + validators, not the estimator);
+  `severity_default` is a report tie-breaker only and MUST be refused by
+  `internal/floors`/risk at the API boundary — decoupling severity from target
+  facts is exactly the trap floors was built to avoid.
+- Data-hygiene gate (G7's first client): every row carries
+  `{source_url, checked_date, primary: bool}`; secondary-source figures (blog
+  mirrors of the OWASP list) seed NOTHING until re-verified against the primary
+  page — the $953.2M headline stays `uncorroborated` until then.
+- Authoring rule (docs): claims baked into playbooks/prompts/assets cite this
+  table, not prose.
+
+**Anchors:** `assets/` embed + manifest test, `internal/taxonomy/taxonomy.go`
+(the table keys ON the class vocabulary), `internal/corpus/corpus.go`,
+`internal/floors/floors.go` (refusal check). **Tests:** schema validation;
+every canonical class present exactly once (drift test); `severity_default`
+rejected as an input to floors even when hand-written onto a finding; corpus
+golden byte-stable after the weights are pinned.
+
+## G3. Acceptance priors from the adjudicated outcome store + A3 backtest
+
+**Correction up front:** this is NOT "go ingest Immunefi data" — the store is
+already half-built. The ingest registry declares
+`scabench, defihacklabs, defihacklabs-explorer, forge, forge-curated, c4audit,
+sherlock, smartbugs-curated, manual` (`internal/ingest/ingest.go:47`), the
+eval-case schema carries `platform` (immunefi/cantina/sherlock), and `Outcomes`
+(L36-44) IS a triage vocabulary — confirmed-exploitable / disproved /
+out-of-scope / duplicate / economic-no-go / confirmed-not-exploitable. What is
+missing is the *consumer*: only `defihacklabs` has a loader (the rest ride in on
+externally-shaped records), and nothing computes per-class acceptance rates or
+backtests the acceptance score against adjudicated ground truth.
+
+**Design.**
+- Loaders for the datasets that carry adjudication outcomes: `c4audit` and
+  `sherlock` (judge verdicts High/Medium/QA/INVALID/duplicate → an
+  `Outcomes` mapping table inside each adapter), and `immunefi-resolved`
+  (public resolved reports: accepted/rejected/downgrade → outcomes + a `paid`
+  flag). Template: `internal/datasets/defihacklabs`.
+- `internal/risk/calibration.go` (pure, no model):
+  `AcceptancePrior(class, evalStore) -> {rate, n, ci_low, ci_high}` — Wilson CI
+  over adjudicated cases; `accepted := confirmed-exploitable` (+ `paid` when
+  the case carries it). Classes with n < threshold (default 10) fall back to
+  the global prior and SAY SO in the rendered record. `duplicate` /
+  `out-of-scope` count against acceptance (they are triage outcomes, not
+  absolution of the bug — rendered separately in the report).
+- **Backtest** — the only venue where "the score improved" may be claimed:
+  recompute A3 over stored adjudicated cases, emit top-K precision against
+  outcomes with CIs. Deterministic report; `--backtest` flag on an existing
+  verb (`verify` or `report`, chosen at landing — surface budget decides).
+- Wiring: new acceptance term `wPrior(class)` in `acceptance.go`, bounded ±0.5,
+  **policy-gated OFF by default** (`bounty_policy.acceptance_priors: false`)
+  until the backtest shows improvement on held-out cases; only then does the
+  score change earn its divergence check (principle 1).
+- Surfacing: per-class prior + n in `brief` finding rows and the report's
+  submission table; the G1 tool-FP ledger renders beside it (same store).
+
+**Anchors:** `internal/ingest/ingest.go:36-49`, `internal/datasets/`,
+`internal/evalstore/evalstore.go`, `internal/risk/acceptance.go`,
+`assets/schema/bounty_policy.schema.json`, `internal/briefing`,
+`internal/report`. **Tests:** outcome→accepted mapping incl. negative rows;
+Wilson CI against a pinned table; threshold fallback; gated-off byte check
+(golden); backtest determinism; one loader fixture per new dataset.
+
+## G4. Gold-eval expansion — make recall claims possible
+
+**Motivation.** Correction 3: two planted bugs measure nothing, and the whole
+precision-first narrative rests on a suite that cannot certify even its own
+recall. The report's checklist must burn OUR eval first: synthetic-injection
+labels (SmartBugs/SolidiFI style) are excluded by design — only real-executed
+(DeFiHackLabs lineage, G3-provenanced) or genuinely planted-then-exploited
+scenarios count as ground truth.
+
+**Design.**
+- ≥15 planted-bug campaign fixtures spanning ≥8 taxonomy classes (access
+  control, reentrancy, oracle, share-price/accounting, precision-rounding,
+  upgrade-initializer, cross-chain replay, one liveness/DoS), each with gold
+  anchors in the finding shape it must produce; at least one bug planted in a
+  **clean control protocol** that must yield zero live findings — a recall-only
+  suite teaches nothing about precision; the control makes the FP rate
+  measurable.
+- Variant axes drawn from the research: non-default solc pins; obfuscated /
+  poorly-commented sources; one in-code-ack'd decoy (exercises A2 demotion);
+  one tool-corroborable bug (exercises G1's factor); one documented-assumption
+  bug (exercises G5's layer split).
+- Metrics discipline: recall/precision rendered with Wilson CIs in a new audit
+  section (gated on presence — principle 1). A 2/2-gold campaign must render
+  `recall: 2/2 (95% CI 20–100%)` — the CI is the point.
+- Prefer DeFiHackLabs-sourced golds (already confirmed-exploitable and
+  provenanced via G3) over hand-planting where a license-clean PoC exists.
+
+**Anchors:** `scripts/golden/`, `internal/reproduction/testdata`,
+`internal/evalstore`, `internal/audit/sections`. **Tests:** every fixture
+round-trips deterministically under `selftest`; CI rendering pinned; control
+protocol yields zero findings or the suite fails.
+
+## G5. Two-layer defense matcher — `mitigation_present` (critic) vs check13 (policy)
+
+**Motivation.** Correction 2. The research collapses two different things named
+"defense": `nonReentrant` on the flagged function makes a reentrancy hypothesis
+FALSE (it deserves a dismissal the critic can attach), while a documented
+finality assumption makes a TRUE finding UNPAYABLE (accepted risk). One signal,
+two stages — if merged, the gate starts making correctness claims or the critic
+starts making payment claims. Both wrong, and the report shows how easily they
+blend.
+
+**Design.**
+- *Soundness layer* — `internal/findings/mitigscan.go`, sibling of
+  `ackscan.go`, same shape and same post-ingest hook: recognized-mitigation
+  patterns matched strictly against the finding's anchors (file/function/line,
+  `affected[]` + exploit-sequence sites): reentrancy guard wrapping exactly the
+  flagged function (reuses the C1 enforcement-timing stage table), CEI shape on
+  the flagged path, EIP-712 domain separator present in a signature-checked
+  payload, pull-pattern on a listed transfer site. Stores
+  `dedup_meta.mitigation_present {pattern, file, line, note}` — evidence for
+  the critic, NEVER an auto-dismissal (the critic records the verdict; the
+  matcher informs it — same law as `in_code_ack`).
+- Acceptance: a `mitigation_present` demotion in `acceptance.go`, beside the
+  ack demotion (same magnitude class, ~-1.0).
+- *Policy layer* — zero new logic: documented assumptions remain an
+  `accepted_risks` pattern match (check13). Additive only: `bounty.accepted_risk`
+  gains an optional `reference_url` (the doc that carries the assumption).
+- Structural separation, enforced: a test proves `mitigscan` output can never
+  write `bounty.accepted_risk`, and check13 can never write a critic verdict —
+  and the report renders the two under DIFFERENT subsections ("why the critic
+  dismissed" vs "why the program won't pay").
+
+**Anchors:** `internal/findings/ackscan.go` (template + hook),
+`internal/findings/ingest.go` (post-save hook), C1 enforce table,
+`internal/risk/acceptance.go`, `internal/bounty/bounty.go` (check13 ~L1185),
+`internal/report`. **Tests:** per-pattern hit/miss on G4's decoy fixtures;
+demotion magnitudes; the two-layer non-interference test; byte check with the
+field absent.
+
+## G6. Critic triager-outlook rubric (prompt data, policy-injected)
+
+**Motivation.** The report's persistent finding: expert triage judgment is the
+last filter and LLM precision is the weak axis (high recall / low precision is
+the consistent measured pattern). Our critic answers "is it real?" — the
+payoff question is "would a triager accept AND pay?". The empirical harvest
+gives the lever: hallucination rates collapse when outputs are grounded in
+explicit evidence sources (the 4.23%→spike ablation) — exactly our anchor
+discipline, extended to the payment question.
+
+**Design.**
+- Extend the critic system prompt (`assets/prompts/48_critic_system.md` — data,
+  no code): a second, separately-answered question with a rubric INJECTED from
+  the live bounty policy object at dispatch (exclusions, accepted_risks,
+  minimum-severity/payout tables, scope) — injected, never copy-pasted, so the
+  rubric can't drift from the gate that enforces it.
+- New finding field `verification.triager_outlook {likely | uncertain |
+  unlikely, reason}` (schema-additive; the boundary layer rejects malformed
+  responses as usual). Acceptance score: small POSITIVE/NEGATIVE nudge
+  (±0.5), bounded, and the backtest (G3) is the only way it graduates from the
+  default-off gate. Critic verdict semantics untouched — outlook never alters
+  a status.
+**Anchors:** `assets/prompts/`, `assets/schema/finding.schema.json`
+(verification), `internal/briefing/helpers.go` (policy injection at dispatch),
+`internal/risk/acceptance.go`. **Tests:** outlook field round-trip + boundary
+rejection of a malformed one; default-off byte check; golden prompts manifest
+update.
+
+## G7. Claim-intake checklist + `provenance[]` on every baked-in external claim
+
+**Motivation.** Both source reports contain numbers that fail their own audit:
+soft-tier citations (content farms, a lovable.app page) carrying headline
+figures, one arXiv id cited for two different papers' claims, a GMX attack
+mis-tagged "flash-loan" against every writeup, one incident (Polter) classified
+in two categories at once, and the inverted 2-gold sentence. The framework's
+defense is process: an external claim may become DATA only if it survives the
+checklist, and every data row remembers the trial.
+
+**Design.**
+- `docs/eval-methodology.md`: the nine checks — the five from the research
+  (temporal split INCLUDING pretraining-cutoff for LLM claims; residual-leakage
+  removal; per-class metrics; baseline-vs-per-class-best-detector, not
+  "always Slither"; significance testing) plus the four it missed: unit of
+  evaluation must be sub-contract (contract-level F1 is gamed by flagging whole
+  files), label provenance (injected pattern ≠ exploitable — never mix
+  injected-corpora scores with real-incident scores), run variance/pass@k for
+  any LLM detector claim, and cost accounting (a 4.2× token-overhead result is
+  a different result).
+- `provenance[]` (array of `{claim, source_url, checked_date, verdict,
+  tier}`) added to: `class_weights.json` rows (G2), playbook/prompt asset
+  headers where they cite external numbers, and corpus weighting config.
+  Validator in the asset-pack manifest check: any numeric external claim in an
+  asset WITHOUT provenance fails validation; `verdict: uncorroborated` is
+  legal but renders in reports (honesty, not blocking — principle 2's
+  fail-open-for-judgment).
+- The source research notes are internal working material; their numbers enter
+  the framework ONLY through this validator. Already caught during drafting:
+  OWASP loss figures conflated editions (the $953.2M/2024-incident numbers are
+  from the 2025-edition analysis; the 2026 edition is built on 122
+  deduplicated 2025 incidents, ~$905M — [scs.owasp.org/sctop10](https://scs.owasp.org/sctop10/)),
+  one incident (Polter) classified twice, GMX mis-tagged flash-loan-mediated
+  (writeups: refund-based cross-contract reentrancy — [Sherlock](https://sherlock.xyz/post/gmx-exchange-hack-explained),
+  [BlockSec](https://blocksec.com/blog/gmx-incident-cross-contract-reentrancy-bypasses-a-four-year-old-guard)).
+  G2's weight rows must cite the primary OWASP pages, not the notes.
+**Anchors:** `docs/`, `assets/` manifest validation
+(`internal/validation/schema.go`, asset-pack test). **Tests:** validator
+refuses a number without provenance; `uncorroborated` renders; checklist doc is
+linked from the runbook's hard rules (D7 keeps it honest).
+
+## G8. Invariants → symbolic/PBT harnesses as an evidence rung
+
+**Motivation.** The report's layered-strategy pillar (symbolic execution for
+path exploration, fuzzing for dynamic anomaly) is the one leg our sandbox only
+supports by hand. We already EXTRACT the raw material —
+`documented_invariants` / `intent_claims` (`internal/invariants`) — and
+nothing compiles it into a runnable test. A proven invariant is the strongest
+confirmation the ladder has ever been able to record; a counterexample is
+concrete EXEC evidence.
+
+**Design.**
+- Deterministic scaffold generator: invariant object → Halmos symbolic-test /
+  forge-invariant skeleton (file, imports, entry-point stub, assertion hook);
+  the model writes the predicate BODY only, inside the scaffold (boundary layer
+  validates; the scaffold keeps the model out of structure).
+- Exec as usual: sandbox recipes added for `halmos` and `forge fuzz` beside the
+  existing foundry/anvil paths; every run is an EXEC record with the pinned
+  toolchain; wall-clock/SMT timeouts record `inconclusive` (the report's
+  symbolic-execution-scalability warning is OUR budget mechanism's native
+  language).
+- Outcome mapping: counterexample → EXEC + evidence promotion through the
+  normal ladder; proof (bounded) → new rung label `PROVEN-BOUNDED` rendered in
+  the ladder (presence-gated field — principle 1, existing bytes move only for
+  campaigns that prove things); falsified intent claim → negative memory via
+  the existing disproved-hypothesis path.
+- No new verbs: generation is a flag on `exec`/`verify`; results are ordinary
+  records.
+**Anchors:** `internal/invariants/`, `internal/sandbox/`,
+`internal/reproduction`, `internal/findings/levels.go` (rung vocabulary —
+extend, don't renumber), `internal/learning` (negative memory).
+**Tests:** scaffold compiles against pinned solc (fixture); outcome mapping
+each way; timeout→inconclusive; byte check without proofs.
+
+## G9. Beyond-contract scoping — `components[]` + two data-only playbooks
+
+**Motivation.** The report's title thesis and the market fact that programs pay
+for it (Leather-class scopes list frontend/provider bugs): our model/scope
+vocabulary is Solidity-only, so an in-scope frontend is invisible to the
+ProtocolModel, the plan, and the acceptance machinery.
+
+**Design.**
+- `protocol_model.schema.json`: additive `components[]` —
+  `{kind: frontend | relayer | keeper-service | domain | offchain-service,
+  path?, url?, trust, in_scope, paid_for}`; actors already carry
+  `KEEPER`/`EXTERNAL-PROTOCOL`, so this extends, not redesigns. `brief`/`plan`
+  render them as tracked-but-oporous surfaces (opaque to structidx, honest in
+  the model).
+- Snapshot: hashes arbitrary trees today (verify at landing); the promise is
+  only: frontend subtrees are pinned, cited in findings by path+hash, and never
+  pretended-over by structural probes.
+- Two new playbook YAMLs (data, zero surface cost): `frontend-injection`
+  (DOM-XSS sinks, approval/permit phishing flows, pairing-URI phishing,
+  extension/plugin supply chain) and `infra-boundary` (DNSSEC/CAA gaps,
+  subdomain takeover of parked entries, deploy-path/CI compromise, upgrade
+  multisig ops). Each carries class links into the taxonomy so findings on
+  components flow through dedup/gate like contract findings.
+- NO scanners: frontend findings arrive as model findings (with anchors into
+  the pinned tree) or G1-style adapter imports. Per-component acceptance priors
+  join G3's table only where the program demonstrably pays (`paid_for`).
+**Anchors:** `assets/schema/protocol_model.schema.json`, `assets/playbooks/`,
+`internal/protocolgraph`, `internal/snapshot`, `internal/planner`.
+**Tests:** schema round-trip + legacy-model byte stability; playbook lint
+against `playbook.schema.json`; a fixture campaign filing one frontend finding
+end-to-end through gate/report.
+
+## G10. Cross-chain assumption table + separator/finality archetypes
+
+**Motivation.** Bridge losses dominate the incident record (~36% of all
+hacked value; the research's Nomad/Binance-Bridge/Harmony-Horizon mechanics are
+all *documented-assumption* failures: default-on verifier state, incomplete
+Merkle-path checks, threshold keys). We have `bridge-message` playbooks and a
+relay archetype but no place where per-hop assumptions become queryable facts.
+
+**Design.**
+- Model additive: `chains[]` entries gain `assumptions` (finality model,
+  confirmation depth, messenger kind, validator set/threshold, domain
+  separator convention) — prose-recon-in, structured-out, same law as the rest
+  of the model.
+- Deterministic projection (protocolgraph query, no model): per-hop assumption
+  table rendered in `brief` + report; every message-handling path is checked
+  against the assumptions its endpoints declare — a mismatch (payload signed
+  without chainId/domain separator while both chains are named; verifier
+  accepting roots the source chain's finality model doesn't guarantee) is
+  listed as an ASSUMPTION GAP row.
+- Two new archetype YAMLs (hypothesis pre-screen, hint-only):
+  `signed-payload-no-separator` and `pre-finality-proof-accepted`
+  (structidx predicates); gold fixtures ride G4's cross-chain replay scenario.
+**Anchors:** `assets/schema/protocol_model.schema.json`,
+`internal/protocolgraph`, `assets/archetypes/`, `internal/findings/levels.go`
+(`cross-chain-replay` exists in the class vocabulary). **Tests:** table
+determinism; the two predicates on buggy/clean fixture pairs; legacy models
+without `assumptions` render the table as "declared: none" (byte-gated).
+
+## G11. `verify --post-patch` regression loop
+
+**Motivation.** The report's audit-practice evolution — one-shot review toward
+collaborative/continuous engagement — is exactly what our `immunize`
+patch-clause record still lacks: a way to PROVE the fix, not just record the
+clause.
+
+**Design.** Flag on existing `verify`: given a post-patch snapshot, replay
+(a) the finding's reproduction PoC (must now fail to reach the terminal
+capability), (b) the gold archetype set + candidate probes over the diff
+(forkdiff between pinned snapshots gives the changed-surface scope), (c) the
+clean-control checks (the patch must not have *planted* anything). Output:
+`patch_regression` record {finding, still_reproducible | fixed |
+indeterminate, exec ids} rendered in the report beside the immunize clause. No
+new verb; the existing exec machinery runs everything.
+**Anchors:** `internal/cli/cmd_verify*`, `internal/reproduction`,
+`internal/forkdiff`, `internal/immunize`, `internal/report`.
+**Tests:** fixture pair (buggy→patched trees) yields fixed; unpatched yields
+still_reproducible; missing post-snapshot is a clean usage error.
+
+## G12. OWASP/SCVS aliases on taxonomy classes
+
+**Motivation.** Programs and triagers speak standards; our reports speak only
+our class names. Aliasing is also the forcing function for G7: an alias table
+is external data and carries `provenance[]`.
+
+**Design.** `assets/taxonomy/aliases.json`: class → `{owasp_sctop10: id,
+scvs: [ids], swc: [ids]}` rendered as one line in each finding's report header
+and the taxonomy CLI output; unmapped classes alias to nothing (never invent a
+mapping). Figures/editions re-verified against the primary OWASP pages first —
+this item lands after G7's validator exists so it is the first compliant data
+asset.
+**Anchors:** `assets/taxonomy/`, `internal/taxonomy/taxonomy.go`,
+`internal/report`. **Tests:** every alias target exists in the cited standard's
+committed id list; byte-gated report rendering.
+
+---
+
+## Wave G — explicit non-goals (principle 6, recorded so they stay dead)
+
+- Consensus/p2p fuzzing (LOKI/Fluffy class) and formal consensus specs —
+  different product, different buyer, unbounded surface.
+- Training our own detector/fine-tuned model — `sft/` remains a data-capture
+  pipeline; the model shop is someone else.
+- Homegrown frontend/DOM or DNS scanners — G9 scopes them, G1-style adapters may
+  import their results; we never build them.
+- Benchmark *standardization proposals* — G4/G7 build our internal discipline;
+  writing the field's standard is not our campaign.
+
+## Wave G — landing order & dependencies
+
+1. **G7 first** (docs + validator, one day; unblocks honest provenance for
+   everything after) → **G1 + G6** (independent, precision-focused, small).
+2. **G4** — the measurement harness; nothing after it may claim improvement
+   without a CI.
+3. **G3 (+ G2 as its data layer)** — the calibration engine; backtest is then
+   the gate for G1's corroboration weight, G6's outlook nudge, and G2's
+   acceptance column graduating from default-off.
+4. **G5** — rides the ackscan/C1 machinery; its decoys already exist as G4
+   variant fixtures.
+5. **G8 / G9 / G10 / G11 / G12** as decisions allow; G12 is gated on G7,
+   G9's priors on G3, G10's fixtures on G4.
+
+**Divergence posture:** every wiring change ships behind a presence-gate or a
+policy default-off; the expected golden byte movers are the corpus `search`
+weight swap (G2) and any accepted-off switch of A3 terms after a backtest win
+(G3/G6) — each gets its divergence-ledger row when it actually lands.
