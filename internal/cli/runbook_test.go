@@ -14,6 +14,7 @@ package cli
 
 import (
 	"io/fs"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -100,5 +101,152 @@ func TestRunbookCommandsAreRegistered(t *testing.T) {
 		t.Errorf("embedded runbook names %d command(s) that are not "+
 			"registered: %s\nEither register the command or fix the runbook.",
 			len(stale), strings.Join(stale, ", "))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The walkthrough's citations
+// ---------------------------------------------------------------------------
+
+// walkthroughCheck is one `check <name> <expect> <marker> <anchor> -- argv`
+// row of scripts/runbook-walkthrough.sh.
+type walkthroughCheck struct {
+	line   int
+	name   string
+	anchor string
+	verb   string
+}
+
+var walkthroughCheckRe = regexp.MustCompile(
+	`^\s*check (\S+) (\S+) (?:'[^']*'|"[^"]*"|\S+) (\S+) -- (.*)$`)
+
+// sectionAnchorOf maps a runbook heading to the anchor the walkthrough cites.
+// Numbered headings derive their own anchor ("## 4a. ..." is §4a); the
+// unnumbered ones are named here, and that table IS the contract: rename a
+// heading and this test fails rather than letting a label rot.
+var sectionAnchorOf = map[string]string{
+	"Evidence levels, floors, and the gate":                    "§floors",
+	"CLI cheat sheet":                                          "§cheat",
+	"Environment variables":                                    "§env",
+	"Hard rules for the operator":                              "§rules",
+	"Who pays, and why the bug makes them pay (check14)":       "§7i",
+	"The patch clause: what `immunize` records (check12)":      "§7p",
+	"When no dollar figure is defensible (unpriceable impact)": "§7u",
+	"webv2 operator runbook (Go)":                              "§top",
+}
+
+var headingRe = regexp.MustCompile(`^(#{1,3}) (.+?)\s*$`)
+var numberedHeadingRe = regexp.MustCompile(`^(\d+[a-z]?)\.`)
+
+// runbookSections splits the runbook into anchor -> body.
+func runbookSections(t *testing.T, text string) map[string]string {
+	t.Helper()
+	lines := strings.Split(text, "\n")
+	type head struct {
+		anchor string
+		start  int
+	}
+	heads := []head{}
+	for i, l := range lines {
+		m := headingRe.FindStringSubmatch(l)
+		if m == nil {
+			continue
+		}
+		title := m[2]
+		anchor := sectionAnchorOf[title]
+		if anchor == "" {
+			if n := numberedHeadingRe.FindStringSubmatch(title); n != nil {
+				anchor = "§" + n[1]
+			}
+		}
+		if anchor == "" {
+			t.Fatalf("runbook heading %q has no anchor: add it to "+
+				"sectionAnchorOf and cite it from the walkthrough", title)
+		}
+		heads = append(heads, head{anchor, i})
+	}
+	out := map[string]string{}
+	for n, h := range heads {
+		end := len(lines)
+		if n+1 < len(heads) {
+			end = heads[n+1].start
+		}
+		out[h.anchor] = strings.Join(lines[h.start:end], "\n")
+	}
+	return out
+}
+
+// walkthroughChecks parses every check row (top-level and nested) of the
+// walkthrough.
+func walkthroughChecks(t *testing.T, text string) []walkthroughCheck {
+	t.Helper()
+	out := []walkthroughCheck{}
+	for i, l := range strings.Split(text, "\n") {
+		m := walkthroughCheckRe.FindStringSubmatch(l)
+		if m == nil {
+			continue
+		}
+		argv := strings.ReplaceAll(m[4], `"$WEBV2"`, " ")
+		argv = strings.ReplaceAll(argv, "--root .", " ")
+		verb := ""
+		for _, tok := range strings.Fields(argv) {
+			if strings.HasPrefix(tok, "-") || strings.HasPrefix(tok, `"`) {
+				continue
+			}
+			verb = strings.Trim(tok, `"'`)
+			break
+		}
+		out = append(out, walkthroughCheck{i + 1, m[1], m[3], verb})
+	}
+	return out
+}
+
+// TestWalkthroughAnchorsPointAtTheRunbook is the label contract. The
+// walkthrough once cited runbook LINE NUMBERS: every edit above a citation
+// silently moved it, and the labels were wrong for months. Section anchors
+// cannot rot that way, but they can still be pointed at the wrong section, so
+// each row must cite a real section — and that section has to mention the
+// command the row exercises.
+func TestWalkthroughAnchorsPointAtTheRunbook(t *testing.T) {
+	wt, err := os.ReadFile("../../scripts/runbook-walkthrough.sh")
+	if err != nil {
+		t.Fatalf("read walkthrough: %v", err)
+	}
+	sections := runbookSections(t, runbookText(t))
+	checks := walkthroughChecks(t, string(wt))
+	if len(checks) < 100 {
+		t.Fatalf("only %d checks parsed — the walkthrough format changed "+
+			"and this test stopped seeing it", len(checks))
+	}
+	seen := map[string]int{}
+	for _, c := range checks {
+		if !strings.HasPrefix(c.anchor, "§") {
+			t.Errorf("line %d (%s): label %q is not a section anchor — line "+
+				"numbers rot; cite the section that documents the command",
+				c.line, c.name, c.anchor)
+			continue
+		}
+		body, ok := sections[c.anchor]
+		if !ok {
+			t.Errorf("line %d (%s): %s is not a runbook section", c.line,
+				c.name, c.anchor)
+			continue
+		}
+		if c.verb == "" {
+			t.Errorf("line %d (%s): no verb parsed from the argv", c.line,
+				c.name)
+			continue
+		}
+		if !strings.Contains(body, c.verb) {
+			t.Errorf("line %d (%s): %s does not mention %q — point the row "+
+				"at the section that documents it, or document the command "+
+				"there", c.line, c.name, c.anchor, c.verb)
+		}
+		seen[c.anchor]++
+	}
+	// The anchors are meant to spread across the runbook: one anchor taking
+	// most of the table means the mapping collapsed to a fallback.
+	if seen["§cheat"] == len(checks) {
+		t.Errorf("every check cites §cheat — the anchors carry no information")
 	}
 }

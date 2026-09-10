@@ -142,12 +142,14 @@ func TestDismissalGateMatrix(t *testing.T) {
 		t.Fatalf("file#L ref must not back a dismissal, err = %v", err)
 	}
 
-	// (c) an EXEC id with no record on disk: still rejected
+	// (c) an EXEC id with no record on disk: rejected as a FABRICATED
+	// citation — v3 answers this before the anchor rule, because "no such
+	// exec record" is more useful than "that is not the anchor it claims"
 	refGhost := "EXEC-0000000000"
 	_, err = MarkAnswered(camp, deepCopy(t, plan), "Q-005", "answered",
 		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"), Ref: &refGhost})
-	if err == nil || !strings.Contains(err.Error(), "dismissal vocabulary") {
-		t.Fatalf("ghost EXEC ref must not back a dismissal, err = %v", err)
+	if err == nil || !strings.Contains(err.Error(), "which does not exist") {
+		t.Fatalf("ghost EXEC ref must be rejected as fabricated, err = %v", err)
 	}
 
 	// (d) a real exec record on disk: the refutation backs the closure
@@ -194,12 +196,42 @@ func TestDismissalGateMatrix(t *testing.T) {
 		t.Fatalf("invariant-backed dismissal must pass: %v", err)
 	}
 
-	// (f) an INV id not in the registry: rejected
+	// (g) v3: clean prose that names nothing from the row is refused too. The
+	// vocabulary table (v2) catches the historical wording; this catches its
+	// substitutes — a reason that could have been written without opening the
+	// file is not a disposition, it is a hope.
+	vague := "the whole thing looked fine when I traced it"
+	_, err = MarkAnswered(camp, deepCopy(t, plan), "Q-005", "answered",
+		AnsweredOpts{Reason: &vague, Anchor: strPtr("consumer")})
+	if err == nil || !strings.Contains(err.Error(), "names nothing from the "+
+		"row's own surface entry") {
+		t.Fatalf("uncited prose on a tier-0 row must be rejected, err = %v", err)
+	}
+	for _, want := range []string{"commitBatch", "EXEC-", "--override-dismissal"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("v3 rejection %q missing %q", err, want)
+		}
+	}
+
+	// (h) the same closure with the row's own code named: accepted, because
+	// the rule is satisfiable by writing the reason properly.
+	cited := "commitBatch re-derives prev:state before consuming it"
+	planCited, err := MarkAnswered(camp, deepCopy(t, plan), "Q-005", "answered",
+		AnsweredOpts{Reason: &cited, Anchor: strPtr("consumer")})
+	if err != nil {
+		t.Fatalf("a cited reason must pass: %v", err)
+	}
+	if got := objStr(probePriority(t, planCited, "Q-005"), "closed_reason"); got != cited {
+		t.Errorf("closed_reason = %q", got)
+	}
+
+	// (f) an INV id not in the registry: rejected as fabricated by v3
 	refGhostInv := "INV-9"
 	_, err = MarkAnswered(camp, plan, "Q-007", "answered",
 		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"), Ref: &refGhostInv})
-	if err == nil || !strings.Contains(err.Error(), "dismissal vocabulary") {
-		t.Fatalf("ghost INV ref must not back a dismissal, err = %v", err)
+	if err == nil || !strings.Contains(err.Error(), "INV-9") ||
+		!strings.Contains(err.Error(), "which does not exist") {
+		t.Fatalf("ghost INV ref must be rejected as fabricated, err = %v", err)
 	}
 
 	// (g) the same dismissal on a LOW-risk row (tier 2, gap 1): passes
@@ -418,5 +450,136 @@ func TestDispositionReviewNoSurface(t *testing.T) {
 	}
 	if len(flags) != 0 {
 		t.Fatalf("flags = %+v, want none without a surface", flags)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// v3: the structural layer
+// ---------------------------------------------------------------------------
+
+// TestRowSymbolsReadTheRowsOwnEntry pins what counts as a citation: the row's
+// contract, the function it is about, the asserter, the concept keys, the
+// forward path and the siblings — in that order, deduplicated, and without the
+// tokens that name no code.
+func TestRowSymbolsReadTheRowsOwnEntry(t *testing.T) {
+	surface, _ := maSurface(t)
+	rows := listOf(*surface, "rows")
+	row := validation.VNull()
+	for _, r := range rows {
+		if objStr(r, "row_id") == "81dfad6492" {
+			row = r
+		}
+	}
+	if row.Kind == validation.Null {
+		t.Fatal("fixture row 81dfad6492 is gone")
+	}
+	got := RowSymbols(row)
+	want := []string{"Rollup", "commitBatch", "finalizeBatch", "batch:index",
+		"prev:state", "prev:state:root", "state:root", "MockRollup"}
+	if len(got) != len(want) {
+		t.Fatalf("symbols = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("symbols[%d] = %q, want %q (%v)", i, got[i], want[i], got)
+		}
+	}
+
+	// a custody verb is not a citation, and neither is a line number
+	custodyRow := validation.VObj(
+		kv("contract", validation.VStr("Vault")),
+		kv("consumer", validation.VStr("withdraw")),
+		kv("custody", validation.VStr("burns")),
+		kv("base", validation.VStr("")),
+		kv("forward", validation.VArr(validation.VStr("forwards"), validation.VStr(""))),
+	)
+	got = RowSymbols(custodyRow)
+	if len(got) != 2 || got[0] != "Vault" || got[1] != "withdraw" {
+		t.Fatalf("symbols = %v, want [Vault withdraw]", got)
+	}
+}
+
+// TestARowWithNoSymbolsStaysClosable is the false-refusal guard: the rule
+// exists to make a dismissal checkable, never to make a row unclosable. A row
+// that names nothing falls back to the policy's own wording.
+func TestARowWithNoSymbolsStaysClosable(t *testing.T) {
+	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
+	surface, index := maSurface(t)
+	stripped := deepCopy(t, *surface)
+	found := false
+	for i, r := range listOf(stripped, "rows") {
+		if objStr(r, "row_id") != "81dfad6492" {
+			continue
+		}
+		found = true
+		drop := map[string]bool{"contract": true, "consumer": true,
+			"base": true, "asserter": true, "custody": true,
+			"concept_keys": true, "forward": true, "siblings": true,
+			"why": true}
+		kept := []validation.KV{}
+		for _, pair := range r.O {
+			if !drop[pair.K] {
+				kept = append(kept, pair)
+			}
+		}
+		r.O = kept
+		if got := RowSymbols(r); len(got) != 0 {
+			t.Fatalf("stripped row still reports symbols %v", got)
+		}
+		listOf(stripped, "rows")[i] = r
+	}
+	if !found {
+		t.Fatal("fixture row 81dfad6492 is gone")
+	}
+	withProbes(t, probeEnv{surface: &stripped, index: index})
+	camp := newCampaign(t, "dg-nosym")
+	vague := "the whole thing looked fine when I traced it"
+	prov := validation.VObj(kv("row_id", validation.VStr("81dfad6492")))
+	if err := checkDismissalGate(camp, "Q-005", "answered", prov, true,
+		AnsweredOpts{Reason: &vague}); err != nil {
+		t.Fatalf("a row that names nothing must stay closable: %v", err)
+	}
+}
+
+// TestGhostCitationsAreRefused pins v3's converse duty and its blast radius: a
+// well-formed id that resolves to nothing is refused at any tier, while a
+// token that merely looks id-ish is prose, not a citation.
+func TestGhostCitationsAreRefused(t *testing.T) {
+	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
+	surface, index := maSurface(t)
+	withProbes(t, probeEnv{surface: surface, index: index})
+	camp := newCampaign(t, "dg-ghost")
+	plan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
+	// the citation duty is not a policy about high-risk rows: the ghost scan
+	// answers before the gate ever looks at the tier
+	row := listOf(*surface, "rows")[0]
+	pid := ""
+	for _, p := range listOf(plan, "priorities") {
+		if prov, ok := probeProvenance(p); ok &&
+			objStr(prov, "row_id") == objStr(row, "row_id") {
+			pid = objStr(p, "id")
+		}
+	}
+	if pid == "" {
+		t.Fatal("fixture row has no priority")
+	}
+	for _, tc := range []struct{ name, reason, want string }{
+		{"finding", "answered against F-000000000000 for completeness", "F-000000000000"},
+		{"exec", "the EXEC-0123456789 run settles it", "EXEC-0123456789"},
+		{"invariant", "INV-42 rules this out", "INV-42"},
+	} {
+		_, err := MarkAnswered(camp, deepCopy(t, plan), pid, "answered",
+			AnsweredOpts{Reason: &tc.reason, Anchor: strPtr("consumer")})
+		if err == nil || !strings.Contains(err.Error(), tc.want) ||
+			!strings.Contains(err.Error(), "which does not exist") {
+			t.Errorf("%s: err = %v, want a refusal naming %s", tc.name, err, tc.want)
+		}
+	}
+	// prose that only looks like an id is left alone (and the reason still has
+	// to cite the row, which it does)
+	ok := "the F-1 code path and INV-x never converge inside commitBatch"
+	if _, err := MarkAnswered(camp, deepCopy(t, plan), pid, "answered",
+		AnsweredOpts{Reason: &ok, Anchor: strPtr("consumer")}); err != nil {
+		t.Fatalf("id-shaped prose must not be read as a citation: %v", err)
 	}
 }

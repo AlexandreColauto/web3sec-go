@@ -18428,7 +18428,7 @@
     "pid": "Q-005",
     "outcome": "answered",
     "kw": {
-     "reason": "checked it thoroughly by hand"
+     "reason": "checked by hand: commitBatch re-derives the slots before consuming them"
     },
     "error": {
      "type": "ValueError",
@@ -18442,7 +18442,7 @@
     "pid": "Q-005",
     "outcome": "answered",
     "kw": {
-     "reason": "checked it thoroughly by hand",
+     "reason": "checked by hand: commitBatch re-derives the slots before consuming them",
      "anchor": "consumer",
      "ref": "Rollup.sol#L45"
     },
@@ -18550,7 +18550,7 @@
          "ref": "Rollup.sol#L45"
         }
        },
-       "closed_reason": "checked it thoroughly by hand",
+       "closed_reason": "checked by hand: commitBatch re-derives the slots before consuming them",
        "closed_ref": "Rollup.sol#L45",
        "closed_at": "2026-09-09T12:00:00.000000+00:00",
        "closed_by": "cli"
@@ -18827,7 +18827,7 @@
         "ref": "Rollup.sol#L45",
         "value": "commitBatch"
        },
-       "reason": "checked it thoroughly by hand",
+       "reason": "checked by hand: commitBatch re-derives the slots before consuming them",
        "ref": "Rollup.sol#L45",
        "status": "answered"
       },
@@ -18844,7 +18844,7 @@
     "pid": "Q-005",
     "outcome": "answered",
     "kw": {
-     "reason": "checked it thoroughly by hand",
+     "reason": "checked by hand: commitBatch re-derives the slots before consuming them",
      "anchor": "consumer",
      "ref": "Rollup.sol#L999"
     },
@@ -18860,7 +18860,7 @@
     "pid": "Q-005",
     "outcome": "answered",
     "kw": {
-     "reason": "checked it thoroughly by hand",
+     "reason": "checked by hand: commitBatch re-derives the slots before consuming them",
      "anchor": "no-such-anchor"
     },
     "error": {
@@ -18875,7 +18875,7 @@
     "pid": "Q-001",
     "outcome": "answered",
     "kw": {
-     "reason": "checked it thoroughly by hand",
+     "reason": "checked by hand: commitBatch re-derives the slots before consuming them",
      "anchor": "consumer"
     },
     "error": {
@@ -19800,7 +19800,7 @@
     "pid": "Q-005",
     "outcome": "answered",
     "kw": {
-     "reason": "checked it thoroughly by hand",
+     "reason": "checked by hand: commitBatch re-derives the slots before consuming them",
      "anchor": "consumer"
     },
     "error": {

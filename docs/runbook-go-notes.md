@@ -37,6 +37,15 @@ time*. The Go binary keeps the same rule and adds one hard constraint:
 
 ## 2. Command substitution table
 
+> **On the `L###` citations in this file:** they refer to the RETIRED Python
+> runbook as it stood at port time and are kept as the historical record of
+> what was compared. They do NOT resolve against today's
+> `assets/runbook/RUNBOOK.md` (which has been restructured several times
+> since, and whose prose now lives in numbered sections). For current
+> locations use the section anchors — `§0`, `§4a`, `§6a`, `§7p`, `§cheat`, …
+> — which is what `scripts/runbook-walkthrough.sh` cites and what
+> `TestWalkthroughAnchorsPointAtTheRunbook` validates.
+
 | # | runbook form | Go form | why |
 |---|--------------|---------|-----|
 | S1 | `python3 -m webv2.cli --root ROOT <cmd>` | `webv2 --root ROOT <cmd>` | one static binary, no module/venv. `--root` semantics and every flag after the interpreter are unchanged. |
@@ -210,7 +219,7 @@ code the runbook names explicitly:
 |------|-----------------------|
 | 0 | everything not listed below |
 | 1 | `prove --stage S` while the stage is not done (L691); `gate C F` while checks fail (L742); `env doctor` while the box cannot run the campaign (L689); `move DISPROVED` on a lifecycle finding without `--adjacent`/`--adjacent-clear` (L502-507) |
-| 2 | refused transitions (R1), `probes blank` on a non-blind axis (L710/L252), `ladder explore` with no axis (R3), `immunize` with short mutation descriptions (R2), `resolve-candidate --note` (R5), `answered` with a probe row and no `--anchor` (L724), a plan priority id that does not exist |
+| 2 | refused transitions (R1), `probes blank` on a non-blind axis (§4a), `ladder explore` with no axis (R3), `immunize` with short mutation descriptions (R2), `resolve-candidate --note` (R5), `answered` with a probe row and no `--anchor` (§4a), a plan priority id that does not exist |
 | 3 | `run` halting at the first model stage (L58) |
 
 `run --max-stages N` is not pinned by the runbook: its code is state-dependent

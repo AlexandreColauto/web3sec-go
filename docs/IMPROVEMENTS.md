@@ -562,10 +562,9 @@ that buried G-01.
   `webv2 answered <CID> <row-id> --override-dismissal --reason "..."`
   (logged as `probe.dismissal_overridden` with actor+reason; the override is
   listed in the report).
-- **v3 (structural, later):** reason text must reference a symbol/contract
-  from the row's own surface entry (checkable against the structural index,
-  same seam as B5's anchor validation); a dismissal citing another finding
-  must cite a real finding id.
+- **v3 (structural — SHIPPED 2026-09-11, see the as-built below):** reason
+  text must reference a symbol/contract from the row's own surface entry; a
+  dismissal citing another finding must cite a real finding id.
 - **Finding-side twin:** the same vocabulary scan runs over finding
   `verdict` reasons at `webv2 verdict` time (advisory warning only — the
   finding-side rule is softer because verdicts are human judgment).
@@ -638,6 +637,51 @@ unit-tested):**
 - The morph-campaign fixture was not ported; the testdata probe surface
   (tier-0/gap-4 row) plus the planner/CLI/report/brief suites pin the full
   matrix instead.
+
+**v3, the structural layer (shipped 2026-09-11 — D1 is now closed):**
+- v2 polices the WORDS; v3 polices the ARGUMENT. The row's own surface entry
+  is the citation source, and it is read from the ROW, not the structural
+  index: `RowSymbols` collects `contract`, `consumer`, `base`, `asserter`,
+  `concept_keys`, `forward` and `siblings[].contract` — the same identity the
+  row publishes in `why`. The index would have added a dependency and a
+  failure mode (a row the index never saw) for no extra truth.
+- A high-risk closure that quotes none of them is refused with the list it
+  would have accepted: *"the closure reason names nothing from the row's own
+  surface entry … quote the code the row is about (L1ReverseCustomGateway,
+  onDropMessage, L1ERC20Gateway, _deposit), or pass a refutation that runs …
+  or override explicitly"*. Generic tokens are filtered (`burns`/`mints`/
+  `forwards` name no code), so the list is a citation list, not a vocabulary
+  list.
+- **The false-refusal guard is part of the rule:** a row whose symbols are
+  all absent is exempt by construction (`RowSymbols` empty ⇒ skip). The rule
+  exists to make a dismissal checkable, never to make a row unclosable, and
+  `TestARowWithNoSymbolsStaysClosable` pins that.
+- **The converse duty runs at every tier** (`checkCitedRecords`): a finding/
+  exec/invariant id in the closure reason or `--ref` must exist, or the
+  closure is refused as fabricated. `ghostCitation` reads the findings store,
+  `execs/<id>/exec_record.json` and the invariant registry, and shares
+  `invariantRegistered` with `refutationBacked` so the two can never disagree
+  about what "registered" means. Id-shaped prose (`F-1`, `INV-x`) is not a
+  citation; only well-formed ids are read.
+- **Precedence is now explicit and tested:** anchorless (shape) → fabricated
+  citation (a ref/naming that resolves to nothing) → anchor mismatch (a real
+  but wrong citation) → v2 vocabulary → v3 citation. Each layer answers with
+  the message its author can act on; `MarkAnswered` therefore resolves the
+  anchor BEFORE the policy gates, which it did not before.
+- **Blast radius, honestly:** six closures in the corpus were written in the
+  style v3 refuses and were rewritten to cite the row's own code — four CLI
+  fixtures, two probe fixtures, and the committed oracle vector's `anchor_ok`
+  case, whose reason was literally *"checked it thoroughly by hand"*. The
+  vector change is the most instructive one: the frozen Python-era oracle had
+  encoded the G-01 closure style as correct.
+- **Proof:** the golden recipe drives both halves —
+  `answered-structural-refused` (exit 2, markers assert the refusal names the
+  symbols it wants) and `answered-structural-accepted` (exit 0 on the second
+  tier-0 row with a reason quoting that row's own contract, its stdout
+  asserted). A rule that only ever refuses is indistinguishable from a wall,
+  so the accept step is the load-bearing one. `internal/planner` adds
+  `TestRowSymbolsReadTheRowsOwnEntry`, `TestARowWithNoSymbolsStaysClosable`,
+  `TestGhostCitationsAreRefused` and two v3 rows in `TestDismissalGateMatrix`.
 
 ---
 

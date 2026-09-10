@@ -754,7 +754,7 @@ func TestLensProbeClosureMessageCarriesTheCounts(t *testing.T) {
 		p := t29ProbePriority(t, c, objStr(row, "row_id"))
 		code, out, errS = run(t, "--root", ws, "answered", t29CID,
 			objStr(p, "id"), "answered", "--anchor", "consumer",
-			"--reason", "the join is anchored elsewhere",
+			"--reason", "the batch:index join is anchored elsewhere",
 			"--actor", "pytest")
 		if code != 0 {
 			t.Fatalf("answered exit %d: out=%q err=%q", code, out, errS)
@@ -816,7 +816,8 @@ func TestAShrunkenQuotaCannotCloseALensOnItsTail(t *testing.T) {
 		p := t29ProbePriority(t, c, objStr(row, "row_id"))
 		code, out, errS = run(t, "--root", ws, "answered", t29CID,
 			objStr(p, "id"), "answered", "--anchor", "consumer",
-			"--reason", "anchored elsewhere", "--actor", "pytest")
+			"--reason", "the batch:index join is anchored elsewhere",
+			"--actor", "pytest")
 		if code != 0 {
 			t.Fatalf("answered exit %d: out=%q err=%q", code, out, errS)
 		}
@@ -1025,7 +1026,7 @@ func TestAnsweredRecordsTheRowsRealAnchorValue(t *testing.T) {
 	pid := objStr(t29ProbePriority(t, c, objStr(row, "row_id")), "id")
 	code, out, errS := run(t, "--root", ws, "answered", t29CID, pid,
 		"not-applicable", "--anchor", "asserter",
-		"--reason", "the asserter is not authoritative for this concept")
+		"--reason", "the asserter is not authoritative for batch:index here")
 	if code != 0 {
 		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
 	}
@@ -1073,10 +1074,12 @@ func TestAnsweredRejectsARefThatIsNotTheAnchorItClaims(t *testing.T) {
 	t29Emit(t, ws)
 	row := t29Row(t, surface, "")
 	pid := objStr(t29ProbePriority(t, c, objStr(row, "row_id")), "id")
+	// a well-formed ref that is neither this anchor's citation nor a
+	// refutation: the message must name the citation the anchor expects
 	code, _, errS := run(t, "--root", ws, "answered", t29CID, pid,
 		"answered", "--anchor", "consumer",
-		"--ref", "F-000000000000",
-		"--reason", "cites something else entirely")
+		"--ref", "Rollup.sol#L99",
+		"--reason", "cites something else entirely about commitBatch")
 	if code != 2 {
 		t.Fatalf("exit %d, want 2: %q", code, errS)
 	}
@@ -1086,6 +1089,45 @@ func TestAnsweredRejectsARefThatIsNotTheAnchorItClaims(t *testing.T) {
 	}
 	if !strings.Contains(errS, wantRef) {
 		t.Fatalf("err = %q, want it to name %q", errS, wantRef)
+	}
+}
+
+// TestAnsweredRejectsACitationThatDoesNotExist is v3's converse duty: a ref
+// naming a record that was never written is refused as fabricated, and the
+// message says which id failed to resolve (the anchor rule would answer the
+// narrower "that is not the anchor it claims").
+func TestAnsweredRejectsACitationThatDoesNotExist(t *testing.T) {
+	ws, c, idx, surface := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	row := t29Row(t, surface, "")
+	pid := objStr(t29ProbePriority(t, c, objStr(row, "row_id")), "id")
+	code, _, errS := run(t, "--root", ws, "answered", t29CID, pid,
+		"answered", "--anchor", "consumer", "--ref", "F-000000000000",
+		"--reason", "cites something else entirely about commitBatch")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q", code, errS)
+	}
+	for _, want := range []string{"F-000000000000", "which does not exist"} {
+		if !strings.Contains(errS, want) {
+			t.Fatalf("err = %q, want it to name %q", errS, want)
+		}
+	}
+	// a finding that DOES exist is still not the anchor it claims: the anchor
+	// rule keeps its own, narrower refusal
+	fid := objStr(t15Finding(t, c, "a real finding", "logic-error"), "finding_id")
+	code, _, errS = run(t, "--root", ws, "answered", t29CID, pid,
+		"answered", "--anchor", "consumer", "--ref", fid,
+		"--reason", "cites something else entirely about commitBatch")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q", code, errS)
+	}
+	wantRef, err := probes.AnchorRef(row, "consumer", &idx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(errS, "must be the anchor it claims") ||
+		!strings.Contains(errS, wantRef) {
+		t.Fatalf("err = %q, want the anchor refusal naming %q", errS, wantRef)
 	}
 }
 

@@ -160,10 +160,14 @@ only if the operator named a different workspace.
    --actor NAME`. A stale surface or any undispositioned row keeps the lens
    OPEN. A tier-0 or `assertion_gap >= 3` row may NOT be closed on dismissal
    prose ("liveness-only", "owner can revert", "not exploitable", "no economic
-   impact"): `answered` demands a refutation that runs (`--ref EXEC-xxx` or
+   impact"), and may not be closed on prose that names nothing either: the
+   reason has to cite the row's own code (its contract, the function it is
+   about, a concept key), because a reader has to be able to check it.
+   `answered` otherwise demands a refutation that runs (`--ref EXEC-xxx` or
    `--ref INV-n`), or an explicit, logged
    `--override-dismissal --override-reason "<why>"` that the report re-lists
-   forever.
+   forever. Any finding/exec/invariant id you cite must exist — a closure that
+   rests on `F-...` is checked against the findings store.
 6. **Discovery (stage 6).** Work the plan's priorities along the orthogonal
    trajectories (A-code, B-economic, C-state-machine, D-attacker, E-historical,
    F-integration, G-drift, H-lifecycle); each component gets ≥ 2 orthogonal

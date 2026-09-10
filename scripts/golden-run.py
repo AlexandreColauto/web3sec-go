@@ -358,6 +358,8 @@ def recipe(state: dict) -> list[dict]:
     # until `probes run --emit` minted it; a step list built before that
     # references the placeholder and is never reached.
     dr = state.get("dr") or "<DROW?>"
+    dr2 = state.get("dr2") or "<DROW2?>"
+    drsym = state.get("drsym") or "<DSYM?>"
     # The active snapshot root: `index`/`sinks`/`prescreen`/`recency`/
     # `forkdiff` all take --src, and the audit's probe_surface section
     # compares the probe rows' index_sha against the index of the ACTIVE
@@ -712,6 +714,24 @@ def recipe(state: dict) -> list[dict]:
         # the override event is pinned by the event chain).
         {"name": "probes-highrisk-json", "exit": 0, "dr": 1,
          "argv": ["probes", cid, "list", "--json"]},
+        # v3, the structural layer. v2 catches the WORDS a dismissal uses; a
+        # reason written to dodge that table is still not a disposition. The
+        # first step refuses prose that names nothing a reader can open (and
+        # says which symbols it would have accepted); the second closes the
+        # OTHER tier-0 row by naming its own code — the rule has to be
+        # satisfiable, or it is just a wall.
+        {"name": "answered-structural-refused", "exit": 2,
+         "err": ["names nothing from the row's own surface entry",
+                 "quote the code the row is about",
+                 "override explicitly"],
+         "argv": ["answered", cid, dr, "answered", "--reason",
+                  "the flow looked fine when I traced it by hand",
+                  "--anchor", "custody", "--actor", "golden"]},
+        {"name": "answered-structural-accepted", "exit": 0,
+         "out": [dr2 + ": status -> answered"],
+         "argv": ["answered", cid, dr2, "answered", "--reason",
+                  drsym + " pays out along the same path it asserts",
+                  "--anchor", "custody", "--actor", "golden"]},
         {"name": "answered-dismissal-refused", "exit": 2,
          "err": ["the closure reason uses dismissal vocabulary",
                  "on a high-risk row", "refutation that runs"],
@@ -960,7 +980,7 @@ def main() -> None:
         state = {"cid": "", "findings": [], "artifacts": [],
                  "execs": [], "rungs": [], "target": str(target),
                  "snapshot": "", "cid2": "", "blind": [], "mem": [],
-                 "prc": [], "dr": ""}
+                 "prc": [], "dr": "", "dr2": "", "drsym": ""}
         states[twin] = state
         # The step LIST is state-independent, but each step's argv embeds ids
         # the pinned stream mints while the run proceeds, so it is rebuilt
@@ -1069,12 +1089,31 @@ def main() -> None:
                 for row in doc.get("surface_rows") or []:
                     tier = row.get("tier") or 0
                     gap = row.get("assertion_gap") or 0
-                    if (tier == 0 or gap >= 3) and row.get("priority_id"):
+                    if not ((tier == 0 or gap >= 3) and row.get("priority_id")):
+                        continue
+                    if not state.get("dr"):
                         state["dr"] = row["priority_id"]
-                        break
+                        # the row's own code, taken from the citation the row
+                        # publishes: the v3 closure below has to name it, so a
+                        # surface that stopped exposing anchors fails here
+                        # rather than silently weakening the step.
+                        for anchor in row.get("anchors") or []:
+                            base = anchor.split("/")[-1].split("#")[0]
+                            if base.endswith(".sol"):
+                                state["drsym"] = base[:-len(".sol")]
+                                break
+                    elif not state.get("dr2"):
+                        state["dr2"] = row["priority_id"]
                 if not state.get("dr"):
                     sys.exit(f"{twin} step {i:02d}-{name}: no high-risk probe "
                              f"row in the surface:\n{out[:400]}")
+                if not state.get("dr2"):
+                    sys.exit(f"{twin} step {i:02d}-{name}: the surface carries "
+                             f"only one high-risk row, so the v3 accept step "
+                             f"has no second subject:\n{out[:400]}")
+                if not state.get("drsym"):
+                    sys.exit(f"{twin} step {i:02d}-{name}: the high-risk row "
+                             f"publishes no .sol anchor to cite:\n{out[:400]}")
             if st.get("memory"):
                 m = re.search(r"MEM-[0-9a-f]+", out)
                 if not m:

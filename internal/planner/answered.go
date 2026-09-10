@@ -63,8 +63,18 @@ func MarkAnswered(campaign *state.Campaign, plan validation.Value, priorityID,
 		opts.Anchor); err != nil {
 		return validation.VNull(), err
 	}
-	if err := checkDismissalGate(campaign, priorityID, outcome, prov,
-		hasProv, opts); err != nil {
+	// Shape before policy: whether the citation is the RIGHT one (does this
+	// --ref really name the anchor field it claims?) is a question about what
+	// the author passed, and its message — "expected Rollup.sol#L45" — is the
+	// one they can act on. Whether the ARGUMENT is good enough is the next
+	// question, asked below.
+	// A closure may rest on a finding, an exec record or a registered
+	// invariant — never on a citation that does not exist. This runs before
+	// the anchor rule so a fabricated ref is reported AS fabricated: the
+	// anchor rule would otherwise answer "that is not the citation this field
+	// claims", which is true but hides the more useful fact that the record
+	// was never written.
+	if err := checkCitedRecords(campaign, priorityID, outcome, opts); err != nil {
 		return validation.VNull(), err
 	}
 	var anchorRec validation.Value
@@ -77,6 +87,10 @@ func MarkAnswered(campaign *state.Campaign, plan validation.Value, priorityID,
 			return validation.VNull(), err
 		}
 		anchorSet = true
+	}
+	if err := checkDismissalGate(campaign, priorityID, outcome, prov,
+		hasProv, opts); err != nil {
+		return validation.VNull(), err
 	}
 	p.O = validation.SetOrAppend(p.O, "status", validation.VStr(outcome))
 	if closing {

@@ -371,7 +371,7 @@ Green run: `6 probe axes alive, states as declared (accumulator-skew=blind,
 enforcement-timing=blind, guard-short-circuit=rows, incentive-inversion=rows,
 liveness=rows, primitive-symmetry=rows; rows=5)`.
 
-## Open item found while proving D1: the walkthrough's `L###` labels are rotten
+## CLOSED 2026-09-11: the walkthrough's `L###` labels are rotten (remedy 1, plus a floor)
 
 Not a gap in bug-finding power — a gate that MISREPORTS. `scripts/
 runbook-walkthrough.sh` labels every `check` with the RUNBOOK line that
@@ -397,3 +397,26 @@ Two candidate remedies, both small:
 Recommendation: (1) for the labels plus (2) for the cheat-sheet block only
 (where commands appear verbatim, so an exact check is possible). Left open
 because it is a documentation-contract decision, not a bug.
+
+**Decided and shipped 2026-09-11 — remedy (1), with a stronger verifier than
+the one proposed.** All 142 `check` rows now cite a runbook section
+(`§0 §1 §2 §3 §4 §4a §5 §5a §6 §6a §7 §7p §7u §8 §9 §10 §cheat`), the prose
+header's line citations became section citations too, and a new Go test
+(`TestWalkthroughAnchorsPointAtTheRunbook`, `internal/cli/runbook_test.go`)
+parses the walkthrough and asserts three things:
+
+1. every label is a section anchor, never a line number (the rot cannot come
+   back by accident — a new row copying an old `L###` fails);
+2. every anchor is a real runbook heading (the heading→anchor table lives in
+   the test, so renaming a heading fails loudly instead of silently
+   mislabelling);
+3. **the anchored section mentions the command's own verb** — the check that
+   makes an anchor *true* rather than merely resolvable, and the reason remedy
+   (2)'s precision is not needed: a row pointed at the wrong section is caught
+   by the same assertion. Verified by mutation (moving one row to `§1` fails
+   with "§1 does not mention "sinks"").
+
+Remedy (2) was rejected on cost/benefit: line-number precision buys a *line*
+where a *section* already answers the operator's question ("where do I read
+about this command?"), and it re-introduces the maintenance that caused the
+rot. The cheap half of (2) survives inside (3).

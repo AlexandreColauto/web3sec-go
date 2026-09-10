@@ -608,7 +608,8 @@ func TestReemitDoesNotClobberAnsweredUnlessTheShapeChanged(t *testing.T) {
 	}
 	plan = emitReload(t, c)
 	pid := vStr(emitProbePriority(t, plan, ""), "id")
-	reason := "checked the anchor pair by hand"
+	// v3: a tier-0 closure has to quote the row's own code
+	reason := "checked the anchor pair by hand: commitBatch reads the slots it writes"
 	ref := "Rollup.sol#L45"
 	anchor := "consumer"
 	plan, err := planner.MarkAnswered(c, plan, pid, "answered",
@@ -625,8 +626,8 @@ func TestReemitDoesNotClobberAnsweredUnlessTheShapeChanged(t *testing.T) {
 	if got := vStr(p, "status"); got != "answered" {
 		t.Errorf("p.status = %q, want \"answered\"", got)
 	}
-	if got := vStr(p, "closed_reason"); got != "checked the anchor pair by hand" {
-		t.Errorf("p.closed_reason = %q, want \"checked the anchor pair by hand\"",
+	if got := vStr(p, "closed_reason"); !strings.Contains(got, "commitBatch") {
+		t.Errorf("p.closed_reason = %q, want the cited fixture reason",
 			got)
 	}
 	if got := vStr(p, "closed_ref"); got != "Rollup.sol#L45" {
@@ -1120,7 +1121,7 @@ func TestASiblingGainReopensADispositionedRow(t *testing.T) {
 	}
 
 	// losing a sibling is the same class of change: re-disposition, then shrink
-	reason := "re-checked the collapsed site by hand"
+	reason := "re-checked the collapsed site by hand: commitBatch is the consumer"
 	ref := "Rollup.sol#L45"
 	anchor := "consumer"
 	plan, err = planner.MarkAnswered(c, plan, pid, "answered",
@@ -1147,7 +1148,7 @@ func TestADeprioritizedRowDischargesItsAxisButBlockedDoesNot(t *testing.T) {
 	}
 	parked, stuck := probeIDs[0], probeIDs[1]
 
-	reason := "ranked below the target's real attack surface"
+	reason := "commitBatch ranks below the target's real attack surface"
 	ref := "Rollup.sol#L45"
 	anchor := "consumer"
 	var err error

@@ -128,7 +128,7 @@ func TestReportRendersTheMechanicalCandidateSurface(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reason := "the asserter is not authoritative for this concept"
+	reason := "the asserter is not authoritative for batch:index in commitBatch"
 	anchor := "asserter"
 	plan, err = planner.MarkAnswered(c, plan, pid, "not-applicable",
 		planner.AnsweredOpts{Reason: &reason, Anchor: &anchor, Actor: "pytest"})

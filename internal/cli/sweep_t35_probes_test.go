@@ -34,7 +34,7 @@ func TestBriefPrintsTheSurfaceLineAndCountsDispositions(t *testing.T) {
 	pid := objStr(t29ProbePriority(t, c, objStr(row, "row_id")), "id")
 	code, _, errS = run(t, "--root", ws, "answered", t29CID, pid,
 		"deprioritized", "--anchor", "concept", "--reason",
-		"the join itself is not the bug")
+		"the batch:index join itself is not the bug")
 	if code != 0 {
 		t.Fatalf("answered exit %d: err=%q", code, errS)
 	}

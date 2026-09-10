@@ -34,7 +34,7 @@ a sibling toolchain bug as its **P1** (wrong TOML key `sol` vs `solc`).
 | Confirmed live in Go, small fix (< ~30 lines) | 10 | A1–A10 (P1-3, P1-6, P2-1, P2-4, P2-5, P2-6, P2-7, P2-8, P2-9) |
 | Confirmed live in Go, medium fix | 5 | B1–B5 (P1-2, P1-4, P1-5, P1-7, P1-8) |
 | Confirmed missing, good feature asks | 7 | C1–C7 (P1-1, P2-2, P2-3, P3×2, eval §5-6, §5-7) |
-| Confirmed missing, design changes (need a call) | 2 | D1–D2 (eval §5-1, §5-2) |
+| Confirmed missing, design changes (need a call) | 0 | D1–D2 both **LANDED** 2026-09-11 (B4 v1+v2+v3, B1) |
 | Misdiagnosed mechanism, real symptom | 1 | P2-7a (counted in A10) |
 | Opinion/tuning sub-claims, not bugs | 2 | P3 "rows duplicated findings"; eval "10 FPs" |
 
@@ -42,9 +42,10 @@ a sibling toolchain bug as its **P1** (wrong TOML key `sol` vs `solc`).
 in tiers B/C above; only §5-1 and §5-2 are net-new design asks — D1 and D2.)
 
 No item is pure frustration-without-a-bug. The operator's P1 list is 100%
-confirmed in Go (8/8). The single highest-value change overall is **D1, the
-disposition linter** — it is the only change that would have caught the
-campaign's actual failure (G-01 missed at rank 1 of the probe surface).
+confirmed in Go (8/8). The single highest-value change overall was **D1, the
+disposition linter** — the only change that would have caught the campaign's
+actual failure (G-01 missed at rank 1 of the probe surface) — and it is now
+fully landed, all three layers of it. Nothing in this file is open any more.
 
 ---
 
@@ -72,8 +73,8 @@ campaign's actual failure (G-01 missed at rank 1 of the probe surface).
 | P3 mint message (different type) | part of P1-6 | same lines | A2 | **FIXED** (with A2) |
 | P3 probe batch disposition | feature ask | `probes` CLI = run/list/blank only | C4 | open — feature ask |
 | P3 ladder `other` axis | feature ask | 5 fixed axes `maximization/maximization.go` | C5 | open — feature ask |
-| eval §5-1 disposition linter | confirmed gap — **the G-01 miss** | no reason-text check in `planner/answered.go` / `probes/closure.go` | D1 | open — design change |
-| eval §5-2 liveness/chain-freeze terminal | confirmed gap | no liveness terminal in `taxonomy/` or `chainengine/terminal.go` | D2 | open — design change |
+| eval §5-1 disposition linter | confirmed gap — **the G-01 miss** | no reason-text check in `planner/answered.go` / `probes/closure.go` | D1 | **LANDED** (B4 v1+v2+v3) |
+| eval §5-2 liveness/chain-freeze terminal | confirmed gap | no liveness terminal in `taxonomy/` or `chainengine/terminal.go` | D2 | **LANDED** (B1) |
 | eval §5-3 waiver story | = P1-2 | — | B1 | **FIXED** (with B1) |
 | eval §5-4 amend/supersede | = P1-1 | — | C1 | open — feature ask |
 | eval §5-5 closure/status drift | = P1-3/4/5/6/7 | — | A1,B2,B3,A2,B4 | **FIXED** (with A1/B2/B3/A2/B4) |
@@ -274,16 +275,35 @@ check: "campaign has no CRITICAL finding" is a named, waivable gate output.
 
 ## Tier D — design changes (need a call before code)
 
-### D1 = eval §5-1 — the disposition linter (the G-01 miss) — **LANDED (v1+v2, as B4)**
+### D1 = eval §5-1 — the disposition linter (the G-01 miss) — **LANDED (v1+v2+v3, as B4)**
 
-> **Status 2026-09-10: shipped, and now proven end to end.** The call this
-> section asked for was made and implemented as **B4** (see
-> `docs/IMPROVEMENTS.md` B4, "As-built"): v1 (the scan, surfaced in `brief` and
-> the report's Disposition review section) and v2 (the hard gate in
-> `MarkAnswered` with the named, logged override) are live. **v3 (the
-> structural layer: a reason must cite a symbol from the row's own surface
-> entry) is NOT built** — it remains the open end of this item, and it is the
-> one that would generalise past the vocabulary table.
+> **Status 2026-09-11: v3 shipped — the item is closed.** All three layers are
+> live. v1 (the scan, surfaced in `brief` and the report's Disposition review
+> section) and v2 (the hard gate in `MarkAnswered` with the named, logged
+> override) shipped earlier as **B4**; **v3, the structural layer, is now
+> built too** (`RowSymbols` / `namesSymbol` / `ghostCitation` in
+> `internal/planner/disposition.go`): a high-risk row's closure reason must
+> quote something from the row's OWN surface entry — its contract, the
+> function it is about, the base it inherits, the sibling it mirrors, the
+> concept keys it asserts — or carry a refutation that runs, or take the
+> logged override. A reason that names nothing ("the flow looked fine when I
+> traced it") is refused with the list of symbols it would have accepted.
+>
+> Two properties make v3 safe to ship rather than a wall: **a row that carries
+> no symbols is exempt by construction** (`RowSymbols` returns empty ⇒ the
+> rule is skipped — an unclosable row would be worse than an unverified one),
+> and **the converse duty runs at every tier**: any finding/exec/invariant id
+> a reason or `--ref` cites must exist, so "rests on `F-1a2b3c4d5e6f`" is
+> refused as fabricated. Precedence is deliberate — shape (anchorless, then
+> fabricated citation, then anchor mismatch) is answered before policy (v2
+> vocabulary, then v3 citation), so an author gets the message they can act
+> on.
+>
+> Cost of shipping it honestly: six existing closures in the test corpus were
+> written in exactly the style v3 refuses (including the committed Python-era
+> oracle vector's `anchor_ok` case, whose reason was literally *"checked it
+> thoroughly by hand"*) — each was rewritten to cite the row's own code. That
+> is the migration path for real campaigns, and it is the point of the rule.
 >
 > The 2026-09-10 additions closed the proof gap rather than the feature gap:
 > the golden recipe now drives the refusal end to end (steps
@@ -320,6 +340,13 @@ the primary failure into a mandatory re-review. **Ask (layered):**
    structural index, same seam as B5); a dismissal citing another finding
    must cite a real finding id.
 The call is which layer ships, and where the override lives.
+
+**As built (2026-09-11):** all three, and the override lives on the v2 gate —
+one escape for both rules, because two escapes are two policies. The row's
+"structural index" turned out to be unnecessary: the surface row already
+carries its own identity (contract/consumer/base/asserter/concept_keys/
+forward/siblings), so the check reads the row, not the tree — same seam, no
+new dependency, and it works for a row the index never saw.
 
 ### D2 = eval §5-2 — liveness as a first-class impact — **LANDED (as B1)**
 
