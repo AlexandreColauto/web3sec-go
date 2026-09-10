@@ -45,6 +45,19 @@ campaign exposed. All anchors below were verified against the code on
    finding anchors — no model in the loop.
 5. **Tests:** every item ships a unit test; the morph campaign is the
    integration fixture (a copy under `testdata/` for the regression suite).
+6. **Surface budget (2026-09-10, user directive after C2/D6/D3/D4/D5).** The CLI
+   is the product's largest hand-maintained surface (76 registered verbs across
+   84 CLI files, counted 2026-09-10) and every verb is a permanent contract:
+   usage text, help text, argparse parity, docs, a test. So a new capability lands as a **flag on
+   an existing verb** unless it clears one bar: *an existing capability is
+   demonstrably unreachable from any command*. A verb that duplicates what
+   another verb already does (`memory promote` vs `memory --approve`, which
+   already prints the promotion commands), or reaches a path nothing calls, is
+   not worth the contract. A change that only makes an existing capability
+   honest — a truthful count, a proof that can go green, a state that stops
+   being permanently stale — always is, even when it changes bytes. When the bar
+   is not met, the item stays in this document as a deferred ask, which is what
+   Wave E is.
 
 ---
 
@@ -1255,9 +1268,62 @@ stage can never complete without the missing verbs.
 **Tests:** each verb round-trips through the memory schema; proof goes
 green after queue+reflect on a terminal finding.
 
+**As landed (D1, 2026-09-10):** the counting half had already landed with A3
+(the precision block prints critic-confirmed / evidence-confirmed / FP ratio),
+and the "23 findings, all invisible" half is now closed by an **All findings**
+table in Results: one row per finding (`id + title | status | evidence | critic
+| risk score+band | accept score | submit | chain`), ordered **status first**
+(confirmed/chain → hypothesis → dismissed), and only then by the LIVE acceptance
+score descending with the finding id as tie-break, critic-disproved last within
+its group — the same key and posture `risk.AcceptanceRanking` uses *inside* a
+group. Status has to lead because the score is not comparable across statuses
+and the golden campaign proved it: a HYPOTHESIS with a stamped band outranked
+three CONFIRMED findings that had no validated band yet (an absent band
+contributes zero), so a score-only order opened the inventory with an unproven
+claim above the confirmed ones. A closing line states the order and counts the
+critic-disproved rows, so it is never a mystery.
+The gate is only "there are findings": the precision block is capped by the
+submission budget, skips DUPLICATE/OUT_OF_SCOPE, and needs a policy, so a
+policy-less campaign previously hid everything — which is exactly the
+post-mortem's case. Every cell degrades to `—`, never to an error: this is the
+view an operator reads when something already looks wrong. Deferred from the
+original design: the "dismissed with strong reaching" section (C6) and the
+per-row effective floor (the FP ratio plus the floor column the ranker prints
+already answer "why is this not confirmed") — both stay here as asks.
+`internal/report/report.go` (`allFindingsTable`), tests in
+`internal/report/allfindings_test.go` (every status visible, live-score order,
+unscoped render, empty campaign prints nothing).
+
+**As landed (D5, 2026-09-10, reduced):** the design above is stale in two of its
+four verbs and over-built in the other two. Verified: `queue_memory` is already
+reachable (the ladder's disprove path calls it through the seam wired in
+`cmd_t28_wire.go`), and `promote` is already covered (`memory --approve` prints
+`PromotionCommands`). The real holes were reachability: `ReflectionEntry` had no
+caller outside its own test, so `learnings.jsonl` — the file the learning proof
+requires (`proofs2.go:302`) — could not be written by any command, and a queued
+candidate could only ever be *approved*. Both landed as **flags on the existing
+`memory` verb** (surface budget, principle 6): `--reflect TEXT [--round N]` and
+`--reject MEM --reason TEXT [--rejection-class C]`, mutually exclusive with
+`--approve` and with each other. `learning.RejectMemory` mirrors `ApproveMemory`
+but refuses a row that is already `human-approved`/`promoted` (rejecting is not
+revocation — silently overwriting an approval would erase who approved what),
+and it keeps the **reason in the event log** (`memory.rejected`), not in the row:
+the memory schema is `additionalProperties:false` with no reason field, and the
+audit trail is the log. Tests: `internal/completion/d5_learning_test.go` (the
+proof demands a reflection entry until one is recorded — the reachability claim,
+pinned at the proof itself) and `internal/cli/cmd_memory_learn_test.go` (both
+verbs, argparse vectors, the approval guard, the invalid class refused by the
+schema, listing shows the new state).
+
 ---
 
-## Wave E — Remaining asks
+## Wave E — Remaining asks  *(DEFERRED by the surface budget — principle 6)*
+
+**Status (2026-09-10):** E1–E6 are recorded, not scheduled. Each one adds a new
+capability surface for a workflow the evaluated campaigns never hit, and E5
+(reversibility in scoring) would move scores, rankings and goldens for a
+modelling gain that needs a campaign to justify it. They land when a real run
+trips them — that is what this document is for.
 
 ### E1. Finding amend/supersede (prior-round C1, P1-1)
 

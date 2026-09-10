@@ -895,6 +895,21 @@ reference's own lineage rule, and the model-facing `structured_outputs.
 dedup_signatures` string now names the callable CLI verb instead of the Python
 function names the adapter never dispatched.
 
+**D1** (the "All findings" table) and **D5** (`memory --reflect` /
+`memory --reject`) are Go-only additions with no reference counterpart, because
+the reference had neither path. D1 changes `report.md` bytes for every campaign
+that has findings — the golden's checker pins exits, tree shape and the audit
+summary, not report bytes, and no test byte-compares a whole report, so nothing
+in the reference contract moves; the table is the operator's inventory and its
+gate is "there are findings", deliberately ungated on policy. D5 extends the
+`memory` verb's usage and help text past `cli.py cmd_memory` (the Python twin was
+retired, so there is no byte-parity obligation left to break, but the divergence
+is recorded here as the docs claimed verbatim parity) and adds two behaviours the
+reference has no equivalent of: a reflection entry written to `learnings.jsonl`,
+and a rejection whose REASON lives in the `memory.rejected` event rather than the
+row — the memory schema is `additionalProperties:false` and has no reason field,
+and a rejected row is refused outright once it is `human-approved`/`promoted`.
+
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**
   shape.

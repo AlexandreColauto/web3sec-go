@@ -256,6 +256,61 @@ func ApproveMemory(c *state.Campaign, memoryID, approver string) (validation.Val
 	return mem, nil
 }
 
+// RejectMemory is the missing other half of ApproveMemory (D5, 2026-09-10): a
+// queued candidate could only ever be approved, so a wrong or unreachable row
+// stayed in the inbox forever and a reviewer had no way to record "no". The
+// REASON is required and goes into the event log (`memory.rejected`), not into
+// the row: the memory schema has additionalProperties:false and no reason
+// field, and the audit trail is the log. rejection_class carries the schema's
+// three-way classification (invalid-hypothesis / not-exploitable /
+// below-threshold) when the reviewer can give one; empty means null.
+//
+// Refuses to reject a row that is already human-approved or promoted — that is
+// a revocation, not a rejection, and silently overwriting an approval would
+// erase the record of who approved what.
+func RejectMemory(c *state.Campaign, memoryID, reason, rejectionClass string) (validation.Value, error) {
+	if strings.TrimSpace(reason) == "" {
+		return validation.VNull(), errors.New(
+			"memory rejection requires a written reason")
+	}
+	path := filepath.Join(c.MemoryDir, memoryID+".json")
+	if _, err := os.Stat(path); err != nil {
+		return validation.VNull(), fmt.Errorf("%s", memoryID)
+	}
+	mem, err := validation.ReadJson(path)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	status := objStr(mem, "promotion_status")
+	if status == "human-approved" || status == "promoted" {
+		return validation.VNull(), fmt.Errorf(
+			"%s is already %s: revoke the approval instead of rejecting it",
+			memoryID, status)
+	}
+	mem.O = setOrAppend(mem.O, "promotion_status", validation.VStr("rejected"))
+	if rejectionClass != "" {
+		mem.O = setOrAppend(mem.O, "rejection_class",
+			validation.VStr(rejectionClass))
+	}
+	if err := validation.Validate(mem, "memory", 1); err != nil {
+		return validation.VNull(), err
+	}
+	if err := validation.WriteJson(path, mem, ""); err != nil {
+		return validation.VNull(), err
+	}
+	rc := validation.VNull()
+	if rejectionClass != "" {
+		rc = validation.VStr(rejectionClass)
+	}
+	data := validation.VObj(
+		kv("reason", validation.VStr(reason)),
+		kv("rejection_class", rc))
+	if _, err := c.Log("memory.rejected", &memoryID, &data); err != nil {
+		return validation.VNull(), err
+	}
+	return mem, nil
+}
+
 // StripCampaignMemoryField is strip_campaign_memory_field: sanctioned,
 // actor-attributed removal of a retired field from campaign-local memory
 // rows (<root>/campaigns/*/memory/*.json). Returns {"campaigns":
