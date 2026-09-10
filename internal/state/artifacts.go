@@ -253,6 +253,16 @@ func (c *Campaign) PruneArtifact(artifactID, reason string) (validation.Value, e
 // Deviation: Python's default actor="operator" has no Go analogue for an
 // omitted argument; an empty actor string is treated as the default.
 func (c *Campaign) RefreshArtifact(artifactID, reason, actor string) (validation.Value, error) {
+	return c.refreshArtifact(artifactID, reason, actor, "")
+}
+
+// refreshArtifact is RefreshArtifact plus an optional kind migration: when
+// newKind is non-empty and differs from the row's kind, the row's kind is
+// rewritten and the refresh event carries kind_migrated (D3 — a path that was
+// first registered with a default kind and later re-registered as its real kind
+// is ONE artifact that changed label, not two artifacts). A caller passing ""
+// gets byte-identical behaviour to the reference.
+func (c *Campaign) refreshArtifact(artifactID, reason, actor, newKind string) (validation.Value, error) {
 	if actor == "" {
 		actor = "operator"
 	}
@@ -283,6 +293,12 @@ func (c *Campaign) RefreshArtifact(artifactID, reason, actor string) (validation
 			fmt.Errorf("refresh_artifact requires a written reason")
 	}
 	old := objAt(a, "sha256")
+	oldKind := objStr(a, "kind")
+	migrated := ""
+	if newKind != "" && oldKind != newKind {
+		migrated = oldKind + "→" + newKind
+		a.O = setOrAppend(a.O, "kind", validation.VStr(newKind))
+	}
 	sha, err := validation.Sha256File(p)
 	if err != nil {
 		return validation.VNull(), err
@@ -310,6 +326,10 @@ func (c *Campaign) RefreshArtifact(artifactID, reason, actor string) (validation
 		kv("new_sha256", validation.VStr(sha)),
 		kv("refresh_count", validation.VInt(count+1)),
 	)
+	if migrated != "" {
+		data.O = setOrAppend(data.O, "kind_migrated",
+			validation.VStr(migrated))
+	}
 	if _, err := c.Log("artifact.refreshed", &artifactID, &data); err != nil {
 		return validation.VNull(), err
 	}
@@ -318,10 +338,25 @@ func (c *Campaign) RefreshArtifact(artifactID, reason, actor string) (validation
 
 // RegisterOrRefresh is register_or_refresh: register path — or, when an
 // artifact is already registered at the same (resolved) path, REFRESH it
-// instead of minting a ghost row. A differing kind (with a non-empty kind)
-// mints a new row. "latest" is max by registered_at (first max wins ties,
-// as in Python). The caller passes the reason explicitly (Python's default
-// is "re-registered (content may have changed)").
+// instead of minting a ghost row. "latest" is max by registered_at (first max
+// wins ties, as in Python). The caller passes the reason explicitly (Python's
+// default is "re-registered (content may have changed)").
+//
+// DEVIATION (D3, 2026-09-10): a differing kind no longer mints a new row — it
+// MIGRATES the row's kind and refreshes it, and any other row at the same
+// resolved path (a ghost) is pruned with an artifact.pruned event. The
+// reference behaviour was self-defeating for regenerated files: `report.md`
+// was first registered by `artifact-register` (default kind "other") and later
+// by report.generate() as kind "report", so every regeneration minted one more
+// row, only the newest row's hash was ever refreshed, and the audit's
+// re-hash-every-row check went red permanently — a state no sequence of
+// commands could leave (pruning/refreshing instead logged events, which the
+// report-freshness proof reads as "something happened after report.generated").
+// One row per resolved path, always re-hashed on refresh, is what makes the
+// registry auditable again. Ghosts are pruned, not copied to
+// artifacts/superseded/: every ghost resolves to the SAME file as the row that
+// replaces it, so a copy would add an unverifiable duplicate with no
+// provenance value — the prune event keeps the retired row's id, kind and path.
 func (c *Campaign) RegisterOrRefresh(kind, path, note string, snapshotID *string, reason string) (string, error) {
 	if _, err := os.Stat(path); err != nil {
 		return "", fmt.Errorf("%s", path)
@@ -344,13 +379,93 @@ func (c *Campaign) RegisterOrRefresh(kind, path, note string, snapshotID *string
 				latest = a
 			}
 		}
-		if kind != "" && objStr(latest, "kind") != kind {
-			return c.RegisterArtifact(kind, path, note, snapshotID)
+		latestID := objStr(latest, "artifact_id")
+		migrate := kind
+		if kind == "" || objStr(latest, "kind") == kind {
+			migrate = ""
 		}
-		if _, err := c.RefreshArtifact(objStr(latest, "artifact_id"), reason, "operator"); err != nil {
+		// Prune the ghosts first so a failure mid-way leaves the projection
+		// with one row per path, never zero.
+		for _, a := range same {
+			id := objStr(a, "artifact_id")
+			if id == latestID {
+				continue
+			}
+			label := kind
+			if label == "" {
+				label = "the requested kind"
+			}
+			if _, err := c.PruneArtifact(id,
+				"superseded: same path re-registered as kind "+label); err != nil {
+				return "", err
+			}
+		}
+		if _, err := c.refreshArtifact(latestID, reason, "operator",
+			migrate); err != nil {
 			return "", err
 		}
-		return objStr(latest, "artifact_id"), nil
+		return latestID, nil
 	}
 	return c.RegisterArtifact(kind, path, note, snapshotID)
+}
+
+// ReconcileArtifacts re-hashes every registered row against its file: a row
+// whose file changed since registration is refreshed (reason "reconcile after
+// external rewrite"), a row whose file is gone is reported as missing, and an
+// unchanged row is left alone. dry=true reports without writing or logging
+// anything. This is the operator's escape hatch for a batch of rewrites made by
+// something other than the tool (D3).
+//
+// The result is {checked, refreshed, unchanged, missing, dry} where refreshed
+// is the list of artifact ids (refreshed, or would-be-refreshed when dry) and
+// missing is a list of {artifact_id, path}.
+func (c *Campaign) ReconcileArtifacts(dry bool) (validation.Value, error) {
+	st, err := c.State()
+	if err != nil {
+		return validation.VNull(), err
+	}
+	rows := append([]validation.Value{}, objAt(st, "artifacts").A...)
+	refreshed := []validation.Value{}
+	missing := []validation.Value{}
+	unchanged := int64(0)
+	for _, a := range rows {
+		id := objStr(a, "artifact_id")
+		p := c.resolveArtifactPath(a)
+		if _, err := os.Stat(p); err != nil {
+			missing = append(missing, validation.VObj(
+				kv("artifact_id", validation.VStr(id)),
+				kv("path", validation.VStr(p))))
+			continue
+		}
+		stored := objAt(a, "sha256")
+		if stored.Kind != validation.Str {
+			// Registered without a hash: nothing to compare, and refreshing it
+			// would invent a baseline. Reported as unchanged (the audit already
+			// flags hash-less rows).
+			unchanged++
+			continue
+		}
+		actual, err := validation.Sha256File(p)
+		if err != nil {
+			return validation.VNull(), err
+		}
+		if actual == stored.S {
+			unchanged++
+			continue
+		}
+		if !dry {
+			if _, err := c.RefreshArtifact(id,
+				"reconcile after external rewrite", "operator"); err != nil {
+				return validation.VNull(), err
+			}
+		}
+		refreshed = append(refreshed, validation.VStr(id))
+	}
+	return validation.VObj(
+		kv("checked", validation.VInt(int64(len(rows)))),
+		kv("refreshed", validation.VArr(refreshed...)),
+		kv("unchanged", validation.VInt(unchanged)),
+		kv("missing", validation.VArr(missing...)),
+		kv("dry", validation.VBool(dry)),
+	), nil
 }

@@ -161,8 +161,12 @@ func TestLivingLogRecordsOldNewHashes(t *testing.T) {
 	}
 }
 
-// test_different_kind_same_path_registers_new
-func TestLivingDifferentKindSamePathRegistersNew(t *testing.T) {
+// test_different_kind_same_path_registers_new — DEVIATION (D3, 2026-09-10): the
+// reference mints a new row when the kind differs; Go MIGRATES the row's kind
+// and refreshes it, because a second row at one path is a stale hash the audit
+// can never clear (see state.RegisterOrRefresh). The ported name is kept in the
+// comment so the parity ledger still maps.
+func TestLivingDifferentKindSamePathMigratesRow(t *testing.T) {
 	c := mustInit(t)
 	p := filepath.Join(c.ArtifactsDir, "impact.json")
 	if err := os.WriteFile(p, []byte(`{"x": 1}`), 0o644); err != nil {
@@ -172,11 +176,24 @@ func TestLivingDifferentKindSamePathRegistersNew(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(p, []byte(`{"x": 2}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	aid2, err := c.RegisterOrRefresh("report", p, "", nil, livingDefReason)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if aid1 == aid2 {
-		t.Fatalf("different kind should mint a new row: %s", aid1)
+	if aid1 != aid2 {
+		t.Fatalf("different kind should migrate the row, got a new id: %s", aid2)
+	}
+	a, err := c.Artifact(aid1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := objStr(a, "kind"); got != "report" {
+		t.Errorf("migrated kind: %q", got)
+	}
+	if got := objStr(a, "sha256"); got != validation.Sha256Hex([]byte(`{"x": 2}`)) {
+		t.Errorf("migrated sha256: %q", got)
 	}
 }

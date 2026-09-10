@@ -348,6 +348,7 @@ func tier2Sweep(campaign *state.Campaign, live []validation.Value, merged map[st
 			}
 		}
 		cluster := tier2Cluster{lineageID: lineage, members: memberIDs, autoMerged: []string{}}
+		handled := map[string]bool{}
 		if autoMerge {
 			for _, dup := range g.members[1:] {
 				if !sameSpot(dup, keep) {
@@ -357,10 +358,41 @@ func tier2Sweep(campaign *state.Campaign, live []validation.Value, merged map[st
 				if err != nil {
 					return nil, err
 				}
+				// Merged or cross-snapshot-flagged: the pair is already
+				// adjudicable either way.
+				dupID := objStr(dup, "finding_id")
+				handled[dupID] = true
 				if didMerge {
-					dupID := objStr(dup, "finding_id")
 					cluster.autoMerged = append(cluster.autoMerged, dupID)
 					merged[dupID] = true
+				}
+			}
+		}
+		// D4 (2026-09-10): a same-root-cause pair at DIFFERENT code sites is
+		// protected from auto-merge (one code site can host two causes, and one
+		// cause can surface at two sites), and NO tier flagged it — tier 1
+		// merges exact duplicates, tier 3 needs an economic signature the
+		// campaign may never have set. Such a pair was therefore invisible to
+		// `resolve-candidate` and each half burned its own proof-of-concept
+		// cycle. The lineage is a claim that these findings share a cause, so
+		// flag every pair inside it (both directions, so either side can be
+		// adjudicated) for a human or model verdict. Flag-only: nothing here
+		// merges, and a resolved verdict still comes from resolve-candidate.
+		for i, a := range g.members {
+			aID := objStr(a, "finding_id")
+			if handled[aID] {
+				continue
+			}
+			for _, b := range g.members[i+1:] {
+				bID := objStr(b, "finding_id")
+				if aID == bID || handled[bID] {
+					continue
+				}
+				if _, err := flagPossibleDuplicateFunc(campaign, aID, bID); err != nil {
+					return nil, err
+				}
+				if _, err := flagPossibleDuplicateFunc(campaign, bID, aID); err != nil {
+					return nil, err
 				}
 			}
 		}

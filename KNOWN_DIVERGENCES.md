@@ -870,6 +870,31 @@ Bug-hunt sweep).
   and `TestRankTable` was updated to pin those bytes — an unscoped ranking is a
   severity order, not a submission order, and saying so is the point.
 
+**D3** (artifact supersession) carries the largest declared deviation of this
+batch: `RegisterOrRefresh` no longer mints a row when the requested kind differs
+from the row at the same resolved path — it MIGRATES that row's kind, refreshes
+it, and prunes every other row at that path. The ported Python test
+`test_different_kind_same_path_registers_new` is therefore replaced by
+`TestLivingDifferentKindSamePathMigratesRow` (same file, renamed and re-asserted:
+one row, kind rewritten, hash current). The reason is not preference: the
+reference behaviour made `report.md` accumulate a row per regeneration
+(`artifact-register` defaults to kind `other`; `report.generate` registers kind
+`report`), only the newest row was ever re-hashed, and the audit's
+re-hash-every-row check could never be cleared — refreshing or pruning instead
+logged events, which the report-freshness proof reads as "something happened
+after report.generated". One row per path, re-hashed at refresh, is the state
+that satisfies both checks at once. Ghosts are pruned (with the retired id, kind
+and path in the `artifact.pruned` event) rather than copied to
+`artifacts/superseded/`: every ghost resolves to the same file as its
+replacement, so a copy would be an unverifiable duplicate. Two new verbs landed
+with it: `artifact-reconcile` (Go-only, the rewrite escape hatch) and
+`dedup-signature` (Go-only). **D4** adds no bytes to the dedup report — the
+tier-2 pass now flags code-protected same-root-cause pairs on both sides
+(`finding.possible_duplicate` events), which is new Go-only behaviour on the
+reference's own lineage rule, and the model-facing `structured_outputs.
+dedup_signatures` string now names the callable CLI verb instead of the Python
+function names the adapter never dispatched.
+
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**
   shape.

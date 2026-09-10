@@ -564,8 +564,9 @@ func TestRefreshArtifact(t *testing.T) {
 	}
 }
 
-// TestRegisterOrRefresh: same path + kind refreshes the latest row (no
-// ghost row); a different path or a different kind mints a new row.
+// TestRegisterOrRefresh: same path + kind refreshes the latest row (no ghost
+// row); a different path mints a new row; a different kind at the same path
+// MIGRATES and refreshes that row (D3 — see TestRegisterOrRefreshMigratesKind).
 func TestRegisterOrRefresh(t *testing.T) {
 	root := t.TempDir()
 	c, err := Init(root, "Acme", InitOpts{})
@@ -622,29 +623,36 @@ func TestRegisterOrRefresh(t *testing.T) {
 	if id3 == id1 {
 		t.Fatal("expected a new row for a different path")
 	}
-	// same path, different kind -> new row (no refresh).
+	// same path, different kind -> MIGRATE the row's kind and refresh it (D3:
+	// a ghost row here is what made every regenerated file permanently stale).
+	if err := os.WriteFile(fp, []byte("v3"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	id4, err := c.RegisterOrRefresh("report", fp, "", nil, defReason)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id4 == id1 {
-		t.Fatal("expected a new row for a different kind")
+	if id4 != id1 {
+		t.Fatalf("expected the same row to be migrated, got %s", id4)
 	}
 	st = mustState(t, c)
 	arts = objAt(st, "artifacts")
-	if len(arts.A) != 3 {
-		t.Fatalf("rows: %d", len(arts.A))
+	if len(arts.A) != 2 {
+		t.Fatalf("rows: %d want 2 (one per path)", len(arts.A))
 	}
-	last := arts.A[2]
-	if got := objStr(last, "kind"); got != "report" {
-		t.Errorf("new row kind: %q", got)
+	row := arts.A[0]
+	if got := objStr(row, "kind"); got != "report" {
+		t.Errorf("migrated kind: %q", got)
 	}
-	if got := objAt(last, "refresh_count").Kind; got != validation.Null {
-		t.Errorf("new row must not be refreshed: %+v", objAt(last, "refresh_count"))
+	if got := objStr(row, "sha256"); got != validation.Sha256Hex([]byte("v3")) {
+		t.Errorf("migrated row sha256: %q", got)
 	}
 	ev = lastEvent(t, c)
-	if got := objStr(ev, "type"); got != "artifact.registered" {
+	if got := objStr(ev, "type"); got != "artifact.refreshed" {
 		t.Errorf("event type: %q", got)
+	}
+	if got := objStr(objAt(ev, "data"), "kind_migrated"); got != "plan→report" {
+		t.Errorf("kind_migrated: %q", got)
 	}
 	// missing file: the error text is the path itself.
 	missing := filepath.Join(root, "nope.md")

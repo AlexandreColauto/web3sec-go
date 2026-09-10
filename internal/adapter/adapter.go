@@ -517,7 +517,11 @@ func UnmappedPrompts() ([]string, error) {
 func structuredOutputs() validation.Value {
 	return validation.VObj(
 		validation.KV{K: "hypotheses", V: validation.VStr("findings.ingest_hypothesis(campaign, payload, trajectory=...)")},
-		validation.KV{K: "dedup_signatures", V: validation.VStr("dedup.set_root_cause_signature / set_economic_signature")},
+		// D4: the callable surface, not the Python function name. The setters
+		// have no dispatch entry, so a model told to "call
+		// dedup.set_root_cause_signature" had nothing to call and the only way
+		// a campaign got a tier-2/3 signature was a hand-written 16-hex.
+		validation.KV{K: "dedup_signatures", V: validation.VStr("webv2 dedup-signature <campaign> <finding> --root-cause 'target-agnostic root-cause sentence'   (or: --economic 'target-agnostic economic-effect sentence'; the tool derives the 16-hex signature from the sentence)")},
 		validation.KV{K: "drifts", V: validation.VStr("learning.record_drifts(campaign, snapshot_id, drifts)")},
 		validation.KV{K: "memory", V: validation.VStr("learning.queue_memory(...)")},
 		validation.KV{K: "evidence", V: validation.VStr("findings.add_evidence(campaign, finding_id, item)")},

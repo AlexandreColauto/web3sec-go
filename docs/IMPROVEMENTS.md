@@ -1057,6 +1057,47 @@ artifacts.go` (unchanged — it was right; the registry was dirty).
 green → report regenerated → audit still green), kind-migration log,
 idempotence.
 
+**As landed (D3, 2026-09-10):**
+- `RegisterOrRefresh` reconciles instead of minting: the row at the resolved
+  path is refreshed with its kind MIGRATED (the refresh event gains
+  `kind_migrated: <old>→<new>`), and every other row at that path — the ghost —
+  is pruned with `artifact.pruned`, reason `superseded: same path
+  re-registered as kind <K>`. One row per resolved path, always re-hashed on
+  refresh, which is the state the audit's re-hash-every-row check can clear.
+- **Declared deviation from the reference:** the ported Python test
+  `test_different_kind_same_path_registers_new` becomes
+  `TestLivingDifferentKindSamePathMigratesRow`; the D3 design's
+  `4 rows → keep the newest, mint nothing` is a contract change, taken
+  deliberately because a second row at a live path is a stale hash no sequence
+  of commands could ever clear.
+- **Deviation from the design's step 1 (recorded):** ghosts are pruned, not
+  copied to `artifacts/superseded/`. Every ghost resolves to the SAME file as
+  the row that replaces it, so the copy would be an unverifiable duplicate with
+  no provenance value; the `artifact.pruned` event carries the retired id, kind
+  and path, which is the audit trail that matters.
+- `Campaign.ReconcileArtifacts(dry)` + CLI `artifact-reconcile <campaign>
+  [--dry]` (ord 75): re-hash every registered row, refresh the ones whose file
+  changed (reason `reconcile after external rewrite`), report missing files and
+  leave hash-less rows alone (`--dry` reports without writing or logging).
+  Named `artifact-reconcile` rather than the sketch's `artifacts reconcile`: the
+  CLI's verbs are flat, and the singular prefix matches `artifact-register` /
+  `artifact-list`.
+- Report-freshness ordering (design step 3) needed no code: with one row per
+  path re-hashed at generation, `report.generate()` leaves
+  `artifact.refreshed` (or nothing) before its final `report.generated`, so the
+  `proofReport` rule ("fresh iff the last event IS report.generated") holds and
+  the mutually-exclusive loop is gone.
+- Tests: state (`internal/state/reconcile_test.go` — ghost pruning with the
+  prune event, N generations stay one row, reconcile live/dry/missing/
+  idempotent), audit end-to-end (`internal/audit/d3_supersession_test.go` — the
+  two-row stale shape is RED before and GREEN after; the reconcile sweep clears
+  an external rewrite), CLI (`internal/cli/cmd_artifact_reconcile_test.go` —
+  help/argparse, dry vs live counts, missing file, idempotence, unknown
+  campaign).
+- Golden green with no oracle update: the recipe's steps keep their exit codes,
+  the event chain stays intact, and the checker pins exit codes, tree shape and
+  the audit surface rather than artifact bytes.
+
 ### D4. Dedup signatures: CLI verbs + adapter dispatch (16-hex + resolve)
 
 **Verified root cause (two compounding gaps):**
@@ -1110,6 +1151,37 @@ idempotence.
 **Tests:** verb → signature computed (golden vector: same sentence ⇒ same
 16-hex), tier-2 flag fixture (two same-root-cause different-site findings
 become resolvable), resolve-candidate on the flagged pair.
+
+**As landed (D4, 2026-09-10):**
+- CLI `dedup-signature <campaign> <finding> {--root-cause SENTENCE [--cwe CWE]
+  | --economic SENTENCE}` (ord 76): thin wrappers over
+  `dedup.SetRootCauseSignature` / `SetEconomicSignature`, which compute the
+  16-hex `TextSignature` from the sentence — the operator (or the model) never
+  writes a hash. The two kinds are mutually exclusive (`--root-cause` with
+  `--economic` is an argparse error, as is `--cwe` without `--root-cause`),
+  because recording one while believing the other is the mistake the tiers
+  exist to separate; both may still be set on one finding via two calls.
+- Tier-2 flagging in the sweep: after folding a signature group into its
+  lineage, every pair of members that auto-merge did not handle (different code
+  sites, hence code-protected) is flagged on BOTH sides
+  (`dedup.possible_duplicate_of` + `finding.possible_duplicate`), so
+  `resolve-candidate` can adjudicate it. Flag-only — nothing merges; the
+  same-spot auto-merge path is untouched and pinned by a guard test.
+- Model-facing map (`adapter.structuredOutputs.dedup_signatures`) now names the
+  callable verb instead of `dedup.set_root_cause_signature /
+  set_economic_signature`: the setters have no dispatch entry, so a model told
+  to call them had nothing to call — the deeper "advertised but not
+  executable" gap. A general model→function dispatch layer remains a separate
+  design item, deliberately not attempted here.
+- Tests: `internal/cli/cmd_dedup_signature_test.go` — help/argparse vectors
+  (missing both kinds, both kinds, `--cwe` alone, missing value, unknown flag),
+  the root-cause hash and stored sentence/CWE, determinism of
+  `TextSignature`, the economic path and its event, an unknown finding, the
+  tier-2 flag reachability end-to-end (flag on both sides → both findings still
+  live → `resolve-candidate --verdict distinct` lands), and the same-spot merge
+  guard.
+- Golden green with no oracle update: the sweep only ADDS flag records and
+  events, and the checker pins exit codes, tree shape and the audit surface.
 
 ### D6. An unscoped campaign must not look complete (post-mortem 2026-09-10)
 
