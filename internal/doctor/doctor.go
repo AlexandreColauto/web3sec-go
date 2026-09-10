@@ -128,7 +128,7 @@ func SnapshotScope(campaign *state.Campaign) (validation.Value, error) {
 		return validation.VObj(
 			validation.KV{K: "active_snapshot", V: validation.VNull()},
 			validation.KV{K: "note", V: validation.VStr("no snapshot pinned " +
-				"— run `webv2 snap <campaign> <target>`")},
+				"— run `webv2 snap " + campaign.CampaignID + " <target>`")},
 		), nil
 	}
 	snapDir := filepath.Join(campaign.Dir, "snapshots", *sid)

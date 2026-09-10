@@ -127,7 +127,7 @@ func TestAnsweredNoPlan(t *testing.T) {
 	if code != 2 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
-	if errS != "no campaign plan loaded (webv2 plan <campaign>)\n" {
+	if errS != "no campaign plan loaded (webv2 plan "+cid+")\n" {
 		t.Fatalf("stderr = %q", errS)
 	}
 }

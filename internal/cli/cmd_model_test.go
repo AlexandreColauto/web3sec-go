@@ -15,7 +15,7 @@ func TestModelNotLoaded(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
-	want := "no protocol model loaded yet (webv2 model <campaign> " +
+	want := "no protocol model loaded yet (webv2 model " + cid + " " +
 		"model.json)\n"
 	if out != want {
 		t.Fatalf("stdout = %q, want %q", out, want)

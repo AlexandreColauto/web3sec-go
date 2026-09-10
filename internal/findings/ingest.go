@@ -280,9 +280,9 @@ func IngestHypothesis(campaign *state.Campaign, payload validation.Value,
 	}
 	if objAt(budget, "discovery_findings_so_far").I >=
 		objAt(budget, "max_discovery_findings").I {
-		return validation.VNull(), fmt.Errorf(
-			"discovery budget exhausted — raise the ceiling (webv2 budget " +
-				"<campaign> --set-discovery N --actor NAME) or plan a new pass")
+		return validation.VNull(), fmt.Errorf("%s",
+			"discovery budget exhausted — raise the ceiling (webv2 budget "+
+				campaign.CampaignID+" --set-discovery N --actor NAME) or plan a new pass")
 	}
 
 	fid := NewFindingID()

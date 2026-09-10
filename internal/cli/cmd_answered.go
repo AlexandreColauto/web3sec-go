@@ -91,7 +91,7 @@ func runAnswered(root string, args []string, r *Runner) error {
 	}
 	planPath := filepath.Join(c.ArtifactsDir, "campaign_plan.json")
 	if !t14Exists(planPath) {
-		return t14ExitErr(2, "no campaign plan loaded (webv2 plan <campaign>)\n")
+		return t14ExitErr(2, "no campaign plan loaded (webv2 plan %s)\n", c.CampaignID)
 	}
 	closing := a.status == "answered" || a.status == "not-applicable" ||
 		a.status == "deprioritized" || a.status == "blocked"

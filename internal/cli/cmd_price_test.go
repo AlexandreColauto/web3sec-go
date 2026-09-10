@@ -15,7 +15,7 @@ func TestPriceSetAndTable(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("empty table exit %d: %q", code, errS)
 	}
-	want := "(price table empty — `webv2 price <campaign> set " +
+	want := "(price table empty — `webv2 price " + cid + " set " +
 		"<asset> <usd> --source ...`)\n"
 	if out != want {
 		t.Fatalf("empty table = %q, want %q", out, want)

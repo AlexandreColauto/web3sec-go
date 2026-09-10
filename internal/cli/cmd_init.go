@@ -54,7 +54,7 @@ func runInit(root string, args []string, stdout io.Writer) error {
 	fmt.Fprintf(stdout, "initialized %s at %s\n", c.CampaignID, c.Dir)
 	fmt.Fprintf(stdout, "wrote %s and %s into the campaign\n",
 		filepath.Join(c.Dir, "RUNBOOK.md"), filepath.Join(c.Dir, "AGENT_BOOTSTRAP.md"))
-	fmt.Fprintln(stdout, "next: webv2 snap <campaign> <target>   (full lifecycle: RUNBOOK.md in the campaign dir)")
+	fmt.Fprintln(stdout, "next: webv2 snap "+c.CampaignID+" <target>   (full lifecycle: RUNBOOK.md in the campaign dir)")
 	return nil
 }
 

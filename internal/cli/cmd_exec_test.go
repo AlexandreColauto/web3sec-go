@@ -231,8 +231,8 @@ func TestExecMissingWorkdirPreflight(t *testing.T) {
 		" does not exist — a missing bind source fails the whole run — fix: " +
 		"create " + missing + " or point --workdir at an existing directory\n" +
 		"environment problem, not hypothesis problem — fix the above and " +
-		"re-run (re-check: webv2 doctor <campaign> / webv2 env doctor " +
-		"<campaign>)\n"
+		"re-run (re-check: webv2 doctor " + f.c.CampaignID + " / webv2 env doctor " +
+		f.c.CampaignID + ")\n"
 	if code != 2 || errS != want {
 		t.Fatalf("exit %d err\n%q\nwant\n%q", code, errS, want)
 	}

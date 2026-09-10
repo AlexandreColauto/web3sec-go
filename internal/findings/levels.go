@@ -362,9 +362,15 @@ func EvidenceDeficit(finding validation.Value, status string, campaign *state.Ca
 			cl.MinLevel)
 		if cl.Decision == "unpriceable" {
 			// the sanctioned alternative is part of the message: the silent
-			// "no evidence" is what pushed operators into invented numbers
+			// "no evidence" is what pushed operators into invented numbers.
+			// A nil campaign (library callers) has no id to name, so the
+			// generic form stands in.
+			cid := "<campaign>"
+			if campaign != nil {
+				cid = campaign.CampaignID
+			}
 			msg += " and no unpriceable decision recorded (`webv2 impact " +
-				"<campaign> <finding> --unpriceable --ceiling '<capacity " +
+				cid + " <finding> --unpriceable --ceiling '<capacity " +
 				"basis>' --reason <why no figure is defensible> --actor <you>`)"
 		}
 		missing = append(missing, msg)
