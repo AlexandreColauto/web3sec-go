@@ -633,24 +633,28 @@ reproductions live" at the end.
 | **D5** coverage reason + help | `b4a8397` "Name the actors a sequence PoC is missing and document the coverage rule" | `sequence verify` on a two-actor `exploit_sequence` executed by one actor printed only `executed steps use 1 distinct actor(s) but the declared exploit needs 2 — a single-account PoC cannot cover a multi-actor exploit`, and `sequence run --help` never mentioned coverage | the reason now ends `; missing: <declared label>` (sorted, verbatim, nothing appended when coverage is met or exceeded), and the help states the rule; tests `TestActorGapReasonNamesMissingActor`, `TestActorGapReasonSortsAndKeepsLabelsVerbatim`, `TestActorCoverageMetYieldsNoActorReason`, `TestExecutedActorSupersetYieldsNoActorReason`, plus the `run --help` line in `internal/cli/cmd_sequence_test.go` |
 
 **D1 residual (open).** On the campaign copy the sanctioned repair now runs
-but does not reach a clean audit: `probes run --emit --per-axis 30 --total 70`
-(the quotas the surface records) rebuilds 70 rows where the original had 62,
-the `trust-assumption` axis under-fills 29 → 21 rows, and `audit` still
-reports 8 `[probe_surface]` problems — plan priorities Q-253…Q-260 cite probe
-rows the rebuilt surface no longer carries — down from 24 before the emit
-(the copy also carries 4 unrelated `[artifacts]` missing-file problems). So
-the plan's "audit then reports zero `[probe_surface]` problems" acceptance is
-**not** reproduced here; the abort is gone (the defect D1 names), and
-plan↔surface identity drift on this copy is a separate open item.
+but does not reach a clean audit, and the residual is **flag-dependent**: the
+bare `probes <campaign> run --emit` the audit's own drift message suggests
+(`re-run webv2 probes C-21dd6a7642 run --emit`) leaves `orphaned 34` and 34
+`[probe_surface]` problems — the default quotas under-fill the axes — worse
+than the 24 before any emit; the surface's own quotas (`probes run --emit
+--per-axis 30 --total 70`) rebuild 70 rows where the original had 62, leaving
+`orphaned 8` and 8 `[probe_surface]` problems — plan priorities Q-253…Q-260
+cite probe rows the rebuilt surface no longer carries — with the
+`trust-assumption` axis under-filling 29 → 21 rows (the copy also carries 4
+unrelated `[artifacts]` missing-file problems). So the plan's "audit then
+reports zero `[probe_surface]` problems" acceptance is **not** reproduced
+here; the abort is gone (the defect D1 names), and plan↔surface identity
+drift on this copy is a separate open item.
 
 ### Still open (deferred, with the reason)
 
 | item | evidence at HEAD | why deferred |
 |---|---|---|
 | **D2** capability graph has no writer | `chainengine/materialize.go:437` is the `capability gap: F-… -> F-… (grants …, needs …)` error; the graph reads `capabilities.granted`/`capabilities.required` (materialize.go:429). Grep finds no writer: there is no `link` verb and no command that sets those keys, so `chain`/`chains` is a gate feature the operator cannot populate (`capability links: 0`) | recording edges is a new mutation surface over the finding payload plus `show` rendering — a subsystem, not a P0 fix; the plan allows exactly one new flag (`--queue-finding`) |
-| **D3** severity floor has no mutation surface | `bounty/bounty.go:298` (`blast_radius`) and `:312` (`require_invariant_violation`) read those keys in the policy rules; outside tests the only other reader is `risk/risk.go` (its own scoring) and nothing writes them — no `severity` verb, no idempotent payload patch | it needs a decision about whether the policy inputs are operator-set or ingest-only, plus a mutation surface (or a documented idempotent patch) |
-| **D7** tooling failure ≡ coverage failure | `cmd_sequence.go:394-401` renders every `VerifySequenceCoverage` reason as a FAIL row; a missing `sequence_result.json` (`sequencepoc/run.go:215`) produces a reason of the same shape as a genuine actor/step gap, so `EXEC-9ff37b9a43` reads as a permanent coverage FAIL | distinguishing tooling failure from coverage needs a classification on the reason and a retryability rule — a contract change to `sequence verify`, and it pairs with D9 |
-| **D9** budget has no attempt classes | `reproduction.RecordAttempt` enforces one `max_repro_attempts_per_finding` counter (`state/campaign.go:86`, default 6) over every outcome; 3/6 attempts went to `http://host.docker.internal:8545` being unreachable and to tooling probes, and the sanctioned fix was hand-editing `campaign_state.json` (backup `campaign_state.json.bak-prebudget`) | attempt classes are a new axis on the attempt ledger plus a migration/decision for the existing counter; out of the P0 plan's scope |
+| **D3** severity floor has no mutation surface | `bounty/bounty.go:298` (`blast_radius`) and `:312` (`require_invariant_violation`) read those keys in the policy rules; outside tests the same `economic_impact.blast_radius` is also read by `risk/risk.go:237` (validated-risk scoring), `chainengine/materialize.go:316` (`chainBlastRadius`) and `privileged/privileged.go:217` (`pathBlastRadius`), and nothing writes that field — no `severity` verb, no idempotent payload patch | it needs a decision about whether the policy inputs are operator-set or ingest-only, plus a mutation surface (or a documented idempotent patch) |
+| **D7** tooling failure ≡ coverage failure | `cmd_sequence.go:394-401` renders every `VerifySequenceCoverage` reason as a FAIL row; a tooling failure (`sequencepoc/run.go:209-212`, the exec-output-dir-outside-the-campaign-tree guard; also `:214-216`, a missing `sequence_result.json`) produces a reason of the same shape as a genuine actor/step gap, so `EXEC-9ff37b9a43` (`FAIL`, `exec output dir is outside the campaign tree — refusing to honor it`) reads as a permanent coverage FAIL | distinguishing tooling failure from coverage needs a classification on the reason and a retryability rule — a contract change to `sequence verify`, and it pairs with D9 |
+| **D9** budget has no attempt classes | `reproduction.RecordAttempt` enforces one `max_repro_attempts_per_finding` counter (`state/campaign.go:86`, default 6) over every outcome; on `F-f53dc0dbbf10` (the finding that hit the 6-attempt cap) three of six attempts (3/4/6, `failure_class: logic`) failed on tooling, not on the exploit — `seq: empty address for anvil:0` twice (`EXEC-c1af63b57d`, `EXEC-9ff37b9a43`) and `Error: Function signature does not contain parentheses` once (`EXEC-05183445ce`); the only `http://host.docker.internal:8545` execs are `F-6791c9aee0b5`'s two, and the sanctioned fix was hand-editing `campaign_state.json` to raise the cap 6 → 12 (backup `campaign_state.json.bak-prebudget`) | attempt classes are a new axis on the attempt ledger plus a migration/decision for the existing counter; out of the P0 plan's scope |
 
 **Correction to the eval retro's premise.** The retro says the campaign
 reached `bounty-gate` with "every authoritative stage green"
@@ -708,8 +712,6 @@ The plan's reproductions rest on controller-side scratch, not repo fixtures:
 
 - the campaign copy is `.scratch/morph-eval/campaigns/C-21dd6a7642`
   (untracked; the binary's `--root .` is `.scratch/morph-eval`);
-- `.scratch/review/lead/webv3` is a **stale, pre-fix** build — its output
-  reproduces the original symptoms and must not be read as HEAD behavior;
 - to re-run: copy the campaign to a throwaway dir, build HEAD
   (`GOCACHE=.scratch/gocache go build -o /tmp/webv2 ./cmd/webv2` —
   `$HOME/.cache/go-build` is read-only in this environment), and pass
