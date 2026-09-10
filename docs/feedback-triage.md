@@ -45,7 +45,11 @@ No item is pure frustration-without-a-bug. The operator's P1 list is 100%
 confirmed in Go (8/8). The single highest-value change overall was **D1, the
 disposition linter** — the only change that would have caught the campaign's
 actual failure (G-01 missed at rank 1 of the probe surface) — and it is now
-fully landed, all three layers of it. Nothing in this file is open any more.
+fully landed, all three layers of it. **Every confirmed bug in this file is
+fixed and every design ask (D1, D2) is landed.** What remains open is the
+C-tier: six unscoped *feature asks* from the operator (C1, C2, C4, C5, C6,
+C7) — see "Disposition of the remaining feature asks" at the end for the
+recommendation on each. None of them is a defect.
 
 ---
 
@@ -78,7 +82,7 @@ fully landed, all three layers of it. Nothing in this file is open any more.
 | eval §5-3 waiver story | = P1-2 | — | B1 | **FIXED** (with B1) |
 | eval §5-4 amend/supersede | = P1-1 | — | C1 | open — feature ask |
 | eval §5-5 closure/status drift | = P1-3/4/5/6/7 | — | A1,B2,B3,A2,B4 | **FIXED** (with A1/B2/B3/A2/B4) |
-| eval §5-6 high-signal dismissals section | confirmed gap | no such section in `report/report.go` | C6 | open — feature ask |
+| eval §5-6 high-signal dismissals section | confirmed gap | no such section in `report/report.go` | C6 | **COVERED** by B4's Disposition review (see note) |
 | eval §5-7 campaign severity floor | confirmed gap (per-finding gate floor exists) | `bounty/bounty.go` is per-finding only | C7 | open — feature ask |
 
 **Bug-hunt sweep (this review):** beyond the campaign feedback above, a full
@@ -538,3 +542,26 @@ them would have changed this campaign's outcome.
 
 Golden suite after all fixes: **GREEN** — 179 steps × 2 twins, 68 files
 byte-match (normalized per `KNOWN_DIVERGENCES.md`).
+
+---
+
+## Disposition of the remaining feature asks (2026-09-11)
+
+The C-tier items are operator feature requests, not defects, and they are the
+only things in this file still open. They are recorded here with a
+recommendation so the list stops reading as a to-do that never moves. The
+standard applied is the project's own: **a new CLI surface must buy
+bug-finding power or operator-time, and it must not weaken a gate.**
+
+| item | ask | recommendation |
+|---|---|---|
+| C1 | finding amend/supersede path | **Do not build as "amend".** The finding store is deliberately append-only — a finding whose thesis changed is a NEW hypothesis (ingest it; `dedup`/`merge` already link the pair), and an in-place amend would let evidence and claim drift apart with no new record. If the need is real it should be spelled as `supersede <old> --by <new>`, and it needs the same care as a status move. |
+| C2 | learning stage API-only | **Low value, no action.** `hint` already exists and is the surface the pipeline uses; the remaining gap is an API-shaped convenience. Nothing in the campaign feedback depended on it. |
+| C4 | probe disposition batch input | **Recommend against.** B4/D1 pushed disposition in the *opposite* direction: one row, one reason that cites the row's own code, with a refusal when it does not. A batch verb that carries one reason across rows is a machine for producing exactly the G-01 closure at scale. Batch *reading* (`probes list --json`, already there) is the right ergonomics. |
+| C5 | ladder `other` axis | **Defer.** The five fixed axes are the coverage contract the ladder's proof-of-exploration rests on; a free-form sixth axis needs a rule for what "explored" means before it is a gain rather than a place to hide. |
+| C6 | high-signal dismissals in the report | **Covered by B4.** The report's **Disposition review** section lists the high-risk dismissals and every override with actor and reason. The part of C6 that is NOT built is its *trigger* — a reason-length/signal threshold on low-risk rows — and D1 v3 makes that redundant where it mattered: a high-risk row can no longer be dismissed on long prose at all, and on low-risk rows a length heuristic is noise. |
+| C7 | campaign severity floor | **Do not build.** `bounty` already has a per-finding severity floor, and the campaign-level version is a *reporting* knob, not a bug-finding one: it would let a campaign declare itself blocked-or-green on the strength of a number an operator set, which is the same "assert, do not check" shape the gate work has been removing. If a campaign is thin, `audit` + `report` already say so with evidence. |
+
+None of these recommendations removes an item from the operator's reach: C1,
+C2, C4, C5 and C7 can be built on request, and this table is the argument a
+future implementer should answer rather than re-derive.

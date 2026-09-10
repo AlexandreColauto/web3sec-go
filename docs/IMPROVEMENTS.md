@@ -674,6 +674,13 @@ unit-tested):**
   case, whose reason was literally *"checked it thoroughly by hand"*. The
   vector change is the most instructive one: the frozen Python-era oracle had
   encoded the G-01 closure style as correct.
+- **Why the axis-level path needed nothing:** `probes blank` (attesting a whole
+  axis blind) already demands the falsifiable citation v3 asks of a row —
+  `--anchor-blind K` must name a key that axis actually PUBLISHED, checked
+  against the surface, plus an actor and a written reason. That is v3's
+  contract in a stronger form (a real key, not prose that contains one), so
+  adding the vocabulary scan there would have been ceremony. Asked and
+  answered once, here, so it is not re-litigated.
 - **Proof:** the golden recipe drives both halves —
   `answered-structural-refused` (exit 2, markers assert the refusal names the
   symbols it wants) and `answered-structural-accepted` (exit 0 on the second
