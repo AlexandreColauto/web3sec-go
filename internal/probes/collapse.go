@@ -56,8 +56,16 @@ func idSlots(row validation.Value) [4]string {
 		return [4]string{vStr(row, "contract"), vStr(row, "consumer"),
 			vStr(row, "asserter"), conceptKeys()}
 	case "custody-primitive":
+		// A divergence row whose expected primitive is neither mint nor burn
+		// omits `custody` (the schema has no label for it), so the fourth
+		// slot falls back to the observed primitive: it never empties and two
+		// rows that were distinct before stay distinct.
+		custody := vStr(row, "custody")
+		if custody == "" {
+			custody = vStr(row, "observed")
+		}
 		return [4]string{vStr(row, "contract"), vStr(row, "consumer"), "",
-			vStr(row, "custody")}
+			custody}
 	case "trust-assumption":
 		return [4]string{vStr(row, "actor"), vStr(row, "invariant"), "",
 			vStr(row, "trust")}
@@ -320,6 +328,13 @@ func finalize(row validation.Value, probeID string, spec *probeSpec) validation.
 		kv("siblings", vGet(row, "siblings")),
 	)
 	for _, field := range spec.fields {
+		// A declared field the row does not carry is omitted, not nulled: the
+		// schema types these fields (custody is an enum), so a null would be
+		// rejected — and a divergence with no schema-legal custody label has
+		// to reach the surface without the key at all.
+		if !vHas(row, field) {
+			continue
+		}
 		vSet(&out, field, vGet(row, field))
 	}
 	return out

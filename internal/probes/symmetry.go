@@ -549,13 +549,21 @@ func symmetryRawRows(index, model validation.Value) ([]validation.Value, map[str
 			if node, ok := byCF[contract+"\x00"+function]; ok {
 				mods = nodeModifiers(node)
 			}
-			row := rawRow(contract, function, line,
-				vStr(d, "direction")+":"+vStr(d, "asset"), TierOfGate(mods, model),
-				GateLabel(mods, model), 4, function,
+			// `custody` is a schema enum (mints|burns) and the divergence's
+			// expected primitive is often neither. Emitting such a value makes
+			// `probes run --emit` abort on its own artifact, so the key is
+			// omitted when the primitive has no schema value — the row's
+			// identity falls back to `observed` (idSlots), and expected/
+			// observed still ride the extras map below.
+			extra := []validation.KV{
 				kv("base", vGet(exp, "contract")),
 				kv("base_line", vGet(exp, "line")),
 				kv("base_function", vGet(exp, "function")),
-				kv("custody", validation.VStr(symCustodyLabel(vStr(d, "expected")))),
+			}
+			if label := symCustodyLabel(vStr(d, "expected")); label != "" {
+				extra = append(extra, kv("custody", validation.VStr(label)))
+			}
+			extra = append(extra,
 				kv("forward", strArr(forward)),
 				kv("inherited", validation.VBool(false)),
 				kv("observed", vGet(d, "observed")),
@@ -565,6 +573,9 @@ func symmetryRawRows(index, model validation.Value) ([]validation.Value, map[str
 				kv("divergence", vGet(d, "kind")),
 				kv("members", strArr(members)),
 				kv("divergence_question", vGet(d, "question")))
+			row := rawRow(contract, function, line,
+				vStr(d, "direction")+":"+vStr(d, "asset"), TierOfGate(mods, model),
+				GateLabel(mods, model), 4, function, extra...)
 			out = append(out, row)
 			// finalize copies only the probe's declared fields, so the
 			// divergence extras ride a row_id -> dict map into the post-pass.
@@ -588,7 +599,9 @@ func symmetryRawRows(index, model validation.Value) ([]validation.Value, map[str
 
 // symCustodyLabel is the reference probe's `custody` vocabulary ("burns" /
 // "mints"): a credit primitive named the way the custody row names the
-// forward path.
+// forward path. Any other primitive has no schema value — probe_surface's
+// custody enum is exactly ["burns", "mints"] — so it maps to "", and the
+// caller omits the key rather than write a value the schema rejects.
 func symCustodyLabel(primitive string) string {
 	switch primitive {
 	case "mint":
@@ -596,7 +609,7 @@ func symCustodyLabel(primitive string) string {
 	case "burn":
 		return "burns"
 	}
-	return primitive
+	return ""
 }
 
 // attachSymmetry stamps the divergence extras onto the finalized rows that

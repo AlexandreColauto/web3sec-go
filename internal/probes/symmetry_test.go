@@ -187,3 +187,156 @@ func TestSymmetrySurfaceIsOptIn(t *testing.T) {
 		t.Fatalf("enriched surface fails its own schema: %v", err)
 	}
 }
+
+// noncreditSurface builds the production-option surface over the NONCREDIT
+// custody fixture: a family whose (deposit, erc20) column disagrees on
+// transfer-in vs transfer-out, so the divergence's expected/observed primitive
+// has no value in the schema's custody enum (mints|burns).
+func noncreditSurface(t *testing.T) validation.Value {
+	t.Helper()
+	idx := t29Index(t, filepath.Join(t29ProbesDir, "custody", "noncredit"))
+	surface, err := BuildSurfaceOpts(idx, validation.VNull(), 12, 40, 3,
+		"2026-01-01T00:00:00Z", ProdProbeOpts())
+	if err != nil {
+		t.Fatalf("BuildSurfaceOpts: %v", err)
+	}
+	return surface
+}
+
+// TestCustodyPrimitiveOmitsCustodyForNonCreditDivergences is D1: the schema
+// declares rows[].custody enum ["burns","mints"], so a divergence whose
+// expected primitive is neither must omit the key — and the surface the emit
+// path validates must then still pass that same validator end to end.
+func TestCustodyPrimitiveOmitsCustodyForNonCreditDivergences(t *testing.T) {
+	surface := noncreditSurface(t)
+	rows := t29Rows(surface, "custody-primitive")
+	cases := []struct {
+		consumer string
+		observed string
+	}{
+		{"_depositByTransfer", "transfer-out"},
+		{"depositViaVault", "transfer-out"},
+	}
+	if len(rows) != len(cases) {
+		t.Fatalf("divergence rows = %d, want %d (%s)", len(rows), len(cases),
+			t29JSON(surface))
+	}
+	seen := map[string]struct{}{}
+	for _, row := range rows {
+		consumer := vStr(row, "consumer")
+		seen[consumer] = struct{}{}
+		if _, present := vGetPresent(row, "custody"); present {
+			t.Errorf("%s: custody = %q, want the key omitted — the schema "+
+				"enum is mints|burns and the expected primitive is %q",
+				consumer, vStr(row, "custody"), vStr(row, "expected"))
+		}
+		if vStr(row, "expected") != "transfer-in" {
+			t.Errorf("%s: expected = %q, want transfer-in", consumer,
+				vStr(row, "expected"))
+		}
+		if !containsSub(vStr(row, "why"), "which of them is the custody model?") {
+			t.Errorf("%s: why = %q", consumer, vStr(row, "why"))
+		}
+		for _, c := range cases {
+			if c.consumer != consumer {
+				continue
+			}
+			if got := vStr(row, "observed"); got != c.observed {
+				t.Errorf("%s: observed = %q, want %q", consumer, got, c.observed)
+			}
+		}
+	}
+	for _, c := range cases {
+		if _, ok := seen[c.consumer]; !ok {
+			t.Errorf("no divergence row anchored on L1ReverseCustomGateway::%s",
+				c.consumer)
+		}
+	}
+	// The real entry point the emit path uses: `probes run --emit` writes the
+	// surface through validation.WriteJson(out, surface, "probe_surface"), and
+	// this is the validator underneath it.
+	if err := validation.Validate(surface, "probe_surface", 1); err != nil {
+		t.Fatalf("emit path surface fails its own schema: %v", err)
+	}
+}
+
+// TestCustodyPrimitiveIdentitySurvivesOmittedCustody is D1's identity half:
+// with `custody` omitted the fourth identity slot falls back to `observed`, so
+// one (direction, asset) column with two different non-credit primitives still
+// yields two different row_ids, and the observed primitive is what separates
+// them (an empty slot would not).
+func TestCustodyPrimitiveIdentitySurvivesOmittedCustody(t *testing.T) {
+	rows := t29Rows(noncreditSurface(t), "custody-primitive")
+	if len(rows) != 2 {
+		t.Fatalf("divergence rows = %d, want 2 (%s)", len(rows),
+			t29JSON(validation.VArr(rows...)))
+	}
+	ids := map[string]struct{}{}
+	for _, row := range rows {
+		rid := vStr(row, "row_id")
+		if len(rid) != 10 {
+			t.Errorf("row_id = %q, want 10 hex chars", rid)
+		}
+		if _, dup := ids[rid]; dup {
+			t.Errorf("two divergence rows share row_id %q", rid)
+		}
+		ids[rid] = struct{}{}
+		if _, present := vGetPresent(row, "custody"); present {
+			t.Errorf("row %s still carries custody = %q", rid, vStr(row, "custody"))
+		}
+		if got := RowIDFor(row); got != rid {
+			t.Errorf("RowIDFor(row) = %q, row_id = %q — the emitted id is not "+
+				"content-derived from the finalized row", got, rid)
+		}
+	}
+	// The fourth slot must be the observed primitive, not "" — otherwise
+	// renaming it would leave the id untouched.
+	first := rows[0]
+	moved := t29Clone(t, first)
+	vSet(&moved, "observed", validation.VStr("transfer-in"))
+	if RowIDFor(moved) == vStr(first, "row_id") {
+		t.Errorf("row %s ignores observed with custody omitted: the fourth "+
+			"identity slot is empty, so distinct divergences can collide",
+			vStr(first, "row_id"))
+	}
+}
+
+// TestMintAndBurnCustodyLabelsSurviveTheOmission: only primitives the schema
+// cannot name lose the key — mint/burn rows keep carrying "mints"/"burns".
+func TestMintAndBurnCustodyLabelsSurviveTheOmission(t *testing.T) {
+	for _, tc := range []struct {
+		primitive string
+		label     string
+	}{
+		{"mint", "mints"},
+		{"burn", "burns"},
+		{"transfer-in", ""},
+		{"transfer-out", ""},
+		{"send-native", ""},
+	} {
+		if got := symCustodyLabel(tc.primitive); got != tc.label {
+			t.Errorf("symCustodyLabel(%q) = %q, want %q", tc.primitive, got,
+				tc.label)
+		}
+	}
+	surface, err := BuildSurfaceOpts(t29Index(t,
+		filepath.Join(t29ProbesDir, "custody", "buggy")), validation.VNull(),
+		12, 40, 3, "2026-01-01T00:00:00Z", ProdProbeOpts())
+	if err != nil {
+		t.Fatalf("BuildSurfaceOpts: %v", err)
+	}
+	rows := t29Rows(surface, "custody-primitive")
+	if len(rows) != 2 {
+		t.Fatalf("custody rows = %d, want the 1 burn row + its divergence (%s)",
+			len(rows), t29JSON(surface))
+	}
+	for _, row := range rows {
+		if got := vStr(row, "custody"); got != "burns" {
+			t.Errorf("row %s custody = %q, want \"burns\"", vStr(row, "row_id"),
+				got)
+		}
+	}
+	if err := validation.Validate(surface, "probe_surface", 1); err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+}
