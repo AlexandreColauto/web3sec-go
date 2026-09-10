@@ -1374,6 +1374,81 @@ registered signature.
 against an empty workspace). **Surface budget:** no new verbs, no new flags —
 documentation, a shared guard and tests.
 
+### D8. The patch clause should follow the target program, not the framework *(PROPOSED 2026-09-10)*
+
+**Verified state:** `check12` (`internal/bounty/bounty.go:1038`) requires
+`IsImmunized` — `verification.patch_verified` with `patch_blocks_poc=true`,
+`boundary_mutations_tested=3`, `boundary_bypass_found=false` and a non-empty
+`artifact_id` — for **every** finding the gate evaluates, and the only escape is
+a per-finding waiver (`waive <C> immunization --subject F-xxx --reason ...`,
+added in B1 because the unconditional check made `submission_ready`
+unreachable). That bar is the framework's own, not the program's:
+`assets/schema/bounty_policy.schema.json` carries `poc_requirements`
+(`min_evidence_level`, `require_fork_repro`, `require_economic_quantification`,
+`require_exploit_contract`, `min_extractable_usd`) and
+`reporting.required_fields`, but nothing that says whether the target program
+wants a recommendation, a tested patch, or neither.
+
+**Why this is worth doing.** Practice differs per program and the gate cannot
+currently tell them apart:
+
+- The platform's report format makes **Recommendation** a mandatory section —
+  "state the minimal fix (specific function + specific change), provide
+  before/after code snippets, mention related areas to review as follow-up; if
+  multiple fix options exist, list them in order of preference". That is a
+  *prose* obligation, not a verified patch
+  ([Immunefi report guide §3](https://github.com/wakaka23333333/defi-audit-targets/blob/main/IMMUNEFI-REPORT-GUIDE.md)).
+- Payout tier is set by impact against the program's severity table; a verified
+  fix never raises it. Requiring one uniformly spends operator time for no
+  expected payout change.
+- Some programs explicitly do not want a patch, some make it optional, and a few
+  make a tested fix a condition of the top tier. One hard-coded strictness is
+  wrong for most of the programs the framework will meet, and a per-finding
+  waiver makes the operator pay that mismatch one finding at a time.
+
+**Design (policy is data — the same posture as `floors` and `budget`).** Add one
+key under `poc_requirements`:
+
+| value | the gate reads | the record |
+|---|---|---|
+| `verification` (**default when the key is absent**) | today's `check12`: `IsImmunized` required, waiver as today | unchanged |
+| `prose` | passes on a written recommendation on the finding (`verification.recommendation`, a length-floored string); the boundary mutations become an **advisory** line (like A2's `in_code_ack`), not a blocker | the same `patch_verified` object, if recorded |
+| `none` | passes with the policy's own sentence ("this program does not ask for a fix"), nothing required of the finding | optionally recorded |
+
+The boundary-mutation test stays in the record in **every** mode: it is the
+root-cause insurance (a mutation that still extracts under the patch means a
+misdiagnosed root cause → duplicate risk, or an under-claimed impact), and that
+value does not depend on what the program asks for. Only its *gate authority*
+changes. `check12`'s detail text names the mode and the target program, so the
+report never implies the framework's bar where the policy said otherwise.
+
+**Non-goals.** No new verb and no new flag (surface budget: this is a policy
+field, and `scope <C> --policy F` already loads it). No new artifact kind. No
+change to `immunize`'s record shape. The framework still never applies a patch —
+the fix remains a suggestion inside the report.
+
+**Compatibility.** The absent key means `verification`, which is exactly today's
+behaviour, so every existing campaign, the golden fixture and the pinned gate
+outputs are untouched byte-for-byte; only a campaign that opts in moves, and only
+in its gate `blocking_reasons`/advisories. A policy naming an unknown value is a
+**load error**, never a silent default — the same rule the rest of the policy
+follows.
+
+**Tests.** Three policy fixtures × four finding states (no record, prose-only,
+immunized, bypass) asserting the check state and `submission_ready`; the `none`
+mode asserting a pass that quotes the policy; an unknown value asserting a load
+error; and a guard that the default (absent) path still requires immunization.
+
+**Divergence ledger.** Go-only extension of a ported check — the reference has no
+mode switch, so `check12` under a policy carrying the new key diverges from
+`cli.py` and needs a `KNOWN_DIVERGENCES.md` row.
+
+**Open question for the operator (this is why it is PROPOSED, not scheduled).**
+Does any target program actually reward a *verified* patch — as opposed to a
+recommendation? If none of ours does, the correct default is `prose` and
+`verification` becomes the opt-in for programs that ask for a tested fix. That is
+a decision to take with a real program page in hand, not in the abstract.
+
 ## Wave E — Remaining asks  *(DEFERRED by the surface budget — principle 6)*
 
 **Status (2026-09-10):** E1–E6 are recorded, not scheduled. Each one adds a new
