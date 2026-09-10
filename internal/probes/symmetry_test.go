@@ -340,3 +340,74 @@ func TestMintAndBurnCustodyLabelsSurviveTheOmission(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 }
+
+// TestFinalizeKeepsAbsentDeclaredFieldsExceptCustody pins the narrowed rule:
+// `custody` is the only declared field a row may lose. Every other declared
+// field the row does not carry is still copied as null — and because the
+// schema types those fields non-nullably, a null keeps emit validation loud.
+// A generic "omit what the row lacks" rule would silently ship the key-less
+// row instead.
+func TestFinalizeKeepsAbsentDeclaredFieldsExceptCustody(t *testing.T) {
+	// A custody row with no custody (the D1 case) and no forward (an
+	// unexpected omission that must stay visible).
+	row := validation.VObj(
+		kv("row_id", validation.VStr("0123456789")),
+		kv("tier", validation.VInt(0)),
+		kv("rank", validation.VInt(1)),
+		kv("assertion_gap", validation.VInt(0)),
+		kv("gate", validation.VStr("gate")),
+		kv("siblings", validation.VArr(validation.VObj(
+			kv("contract", validation.VStr("C")),
+			kv("line", validation.VInt(1))))),
+		kv("contract", validation.VStr("C")),
+		kv("consumer", validation.VStr("f")),
+		kv("consumer_line", validation.VInt(1)),
+		kv("base", validation.VStr("B")),
+		kv("base_line", validation.VInt(2)),
+		kv("inherited", validation.VBool(true)),
+	)
+	spec := probesTable["custody-primitive"]
+	out := finalize(row, "custody-primitive", spec)
+
+	if _, present := vGetPresent(out, "custody"); present {
+		t.Errorf("custody absent from the row reached the surface: the D1 "+
+			"exception must omit it (%s)", t29JSON(out))
+	}
+	got, present := vGetPresent(out, "forward")
+	if !present {
+		t.Fatalf("forward absent from the row was dropped, not copied as "+
+			"null: an unexpected omission must still fail emit validation (%s)",
+			t29JSON(out))
+	}
+	if got.Kind != validation.Null {
+		t.Errorf("forward = %s, want null so the schema rejects it", t29JSON(got))
+	}
+	if !vBool(out, "inherited") {
+		t.Errorf("inherited = %s, want true", t29JSON(vGet(out, "inherited")))
+	}
+
+	// The loud signal itself: a declared field nulled on a real surface is
+	// rejected by the same validator the emit path calls.
+	surface := noncreditSurface(t)
+	rows := vObjList(surface, "rows")
+	nulled := false
+	for i := range rows {
+		if vStr(rows[i], "probe") != "custody-primitive" {
+			continue
+		}
+		if _, ok := vGetPresent(rows[i], "forward"); ok {
+			vSet(&rows[i], "forward", validation.VNull())
+			nulled = true
+			break
+		}
+	}
+	if !nulled {
+		t.Fatalf("noncredit surface has no custody row carrying forward (%s)",
+			t29JSON(surface))
+	}
+	vSet(&surface, "rows", validation.VArr(rows...))
+	if err := validation.Validate(surface, "probe_surface", 1); err == nil {
+		t.Error("a nulled declared field validated: the fail-loud path was " +
+			"weakened")
+	}
+}

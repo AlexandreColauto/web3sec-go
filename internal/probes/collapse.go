@@ -328,11 +328,15 @@ func finalize(row validation.Value, probeID string, spec *probeSpec) validation.
 		kv("siblings", vGet(row, "siblings")),
 	)
 	for _, field := range spec.fields {
-		// A declared field the row does not carry is omitted, not nulled: the
-		// schema types these fields (custody is an enum), so a null would be
-		// rejected — and a divergence with no schema-legal custody label has
-		// to reach the surface without the key at all.
-		if !vHas(row, field) {
+		// Every declared field is copied, absent or not: an absent one becomes
+		// null, which the schema's non-nullable types reject, so emit stays
+		// loud about an incomplete row. The sole exception is `custody`: the
+		// schema enum is mints|burns and a divergence whose expected primitive
+		// has no schema value has to reach the surface without the key at all.
+		// The exception is deliberately one field wide — a generic "omit what
+		// the row lacks" rule would silently swallow a nulled declared field of
+		// any probe, erasing the validation failure that surfaces it.
+		if field == "custody" && !vHas(row, field) {
 			continue
 		}
 		vSet(&out, field, vGet(row, field))
