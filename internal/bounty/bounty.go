@@ -247,6 +247,46 @@ func ExclusionHit(policy, finding validation.Value) (validation.Value, error) {
 	return validation.VNull(), nil
 }
 
+// AcceptedRiskHit is accepted_risk_hit: the first accepted_risks entry whose
+// pattern matches class/title/desc/mechanism (the same haystack and text
+// semantics as exclusions), or Null. Accepted risks are the program's
+// "we know, we accept, we do not pay" channel (IMPROVEMENTS A1).
+func AcceptedRiskHit(policy, finding validation.Value) (validation.Value, error) {
+	root := objAt(finding, "root_cause")
+	haystacks := strings.Join([]string{
+		objStr(root, "class"),
+		objStr(finding, "title"),
+		objStr(root, "description"),
+		objStr(root, "mechanism"),
+	}, " \n")
+	for _, ar := range objAt(policy, "accepted_risks").A {
+		pattern, ok := fieldAt(ar, "pattern")
+		if !ok {
+			return validation.VNull(), fmt.Errorf("%s", validation.PyReprStr("pattern"))
+		}
+		if textHit(haystacks, pattern.S, pyTruthy(objAt(ar, "case_sensitive"))) {
+			return ar, nil
+		}
+	}
+	return validation.VNull(), nil
+}
+
+// severityRank orders the band names for the accepted-risk min_severity cap
+// (0 = no severity assigned — the acceptance still applies).
+func severityRank(sev string) int {
+	switch sev {
+	case "low":
+		return 1
+	case "medium":
+		return 2
+	case "high":
+		return 3
+	case "critical":
+		return 4
+	}
+	return 0
+}
+
 // SeverityFor is severity_for: deterministic severity from policy rules — the
 // highest severity whose match block is satisfied by the finding. The
 // severity is "" for Python None.
@@ -318,6 +358,7 @@ var BountyRemediation = map[string]string{
 	"precondition-audit":   "webv2 ladder add <fid> ... --removes '<precondition>' then webv2 ladder repro <fid> <rung> --exec <EXEC>   (or: webv2 shield the precondition as code-enforced if the PoC assumption was wrong)",
 	"mainnet-fork-poc":     "webv2 exec <campaign> --profile fork-runner --command 'forge test --fork-url <pinned-rpc> --fork-block-number <pin> --match-test test_exploit' --finding <fid>   then webv2 mint <fid> --exec <EXEC-ID> --type fork-test   (unit tests prove semantics; only the fork proves mainnet)",
 	"immunization":         "webv2 immunize <fid> --poc-exec <FORK-EXEC-ID> --patch '<the fix>' --mutations 'm1;m2;m3'   (the patch must block the FORK PoC and all 3 boundary mutations \u2014 a unit-test patch is not a patch; if a bypass is real, fix the patch and re-verify)",
+	"accepted-risk":        "the program documented this as an accepted risk \u2014 not a payable vulnerability as written. If this particular finding IS payable despite the acceptance, record the decision: webv2 waive <campaign> accepted-risk --subject <fid> --reason 'why this one is payable' --actor <who>   (or: drop the finding \u2014 webv2 status <fid> OUT_OF_SCOPE \u2014 if it is genuinely the accepted behavior)",
 }
 
 // GateExplain is gate_explain: human-facing explanation + remediation for one
@@ -637,15 +678,30 @@ func (g *gate) check3() error {
 	return nil
 }
 
-// check4 is exclusions / known issues.
+// check4 is exclusions / known issues. A same-pattern accepted risk
+// suppresses the exclusion (A1: the accepted risk is the narrower, more
+// specific rule — the program already decided "we know and we accept", so the
+// exclusion tripwire must not re-block it; check13 carries the record and the
+// waiver path instead).
 func (g *gate) check4() error {
 	ex, err := ExclusionHit(g.policy, g.f)
 	if err != nil {
 		return err
 	}
 	if ex.Kind == validation.Obj {
-		kind := objAt(ex, "kind")
 		pattern := objStr(ex, "pattern")
+		ar, err := AcceptedRiskHit(g.policy, g.f)
+		if err != nil {
+			return err
+		}
+		if ar.Kind == validation.Obj && objStr(ar, "pattern") == pattern {
+			g.add("known-issue-check", "pass", "exclusion "+
+				validation.PyReprStr(pattern)+" suppressed — an accepted risk "+
+					"with the same pattern is the narrower rule (check "+
+					"accepted-risk)", "")
+			return nil
+		}
+		kind := objAt(ex, "kind")
 		g.add("known-issue-check", "fail", "matches exclusion "+
 			validation.PyReprStr(pattern)+" ("+pyStrAny(kind)+")", "")
 		g.blockers = append(g.blockers,
@@ -999,12 +1055,89 @@ func (g *gate) check12() error {
 	return nil
 }
 
-// run executes the twelve checks in Python order.
+// check13 is the accepted-risk channel (IMPROVEMENTS A1). A documented,
+// program-accepted risk is NOT an exclusion: the finding stays visible and
+// counted, but it is not submittable as a vulnerability. On a hit the match
+// is recorded on the finding (bounty.accepted_risk) and the check fails with
+// a named remediation: waive it (webv2 waive <campaign> accepted-risk
+// --subject <finding> --reason ...) once the operator has decided this
+// particular finding IS payable. An accepted_risk.min_severity caps the
+// acceptance — at that severity and above the acceptance does not apply and
+// the gate demands real handling (no record, no waiver path of its own:
+// the finding simply has to clear the gate on its merits).
+func (g *gate) check13() error {
+	ar, err := AcceptedRiskHit(g.policy, g.f)
+	if err != nil {
+		return err
+	}
+	if ar.Kind != validation.Obj {
+		g.add("accepted-risk", "pass", "no accepted-risk pattern matched", "")
+		return nil
+	}
+	pattern := objStr(ar, "pattern")
+	kind := pyStrAny(objAt(ar, "kind"))
+	if minSev := objStr(ar, "min_severity"); minSev != "" {
+		sev, _, err := SeverityFor(g.policy, g.f)
+		if err != nil {
+			return err
+		}
+		if sev != "" && severityRank(sev) >= severityRank(minSev) {
+			g.add("accepted-risk", "fail",
+				"matches accepted risk "+validation.PyReprStr(pattern)+" ("+
+					kind+") but severity "+sev+" reaches its "+minSev+
+					" floor — the acceptance does not apply", "")
+			g.blockers = append(g.blockers,
+				"accepted risk "+validation.PyReprStr(pattern)+" not "+
+					"honored at severity "+sev)
+			return nil
+		}
+	}
+	// Record the acceptance on the finding (visible, counted, not
+	// submittable) before the waiver decision: a waived finding still
+	// carries the record, so the report can show both facts.
+	rec := validation.VObj(
+		validation.KV{K: "pattern", V: validation.VStr(pattern)})
+	for _, key := range []string{"kind", "reference", "note"} {
+		if v, ok := fieldAt(ar, key); ok {
+			rec.O = append(rec.O, validation.KV{K: key, V: v})
+		}
+	}
+	bounty := objAt(g.f, "bounty")
+	if bounty.Kind != validation.Obj {
+		bounty = validation.VObj()
+	}
+	bounty.O = setOrAppend(bounty.O, "accepted_risk", rec)
+	g.f.O = setOrAppend(g.f.O, "bounty", bounty)
+
+	findingID := objStr(g.f, "finding_id")
+	rows, err := waiversFunc(g.campaign, "accepted-risk")
+	if err != nil {
+		return err
+	}
+	for _, w := range rows {
+		subject := objStr(w, "subject")
+		if subject != "*" && subject != findingID {
+			continue
+		}
+		g.add("accepted-risk", "pass", "waived by "+pyStrAny(objAt(w, "actor"))+
+			": "+headRunes(pyStrAny(objAt(w, "reason")), 80), "")
+		return nil
+	}
+	g.add("accepted-risk", "fail",
+		"matches accepted risk "+validation.PyReprStr(pattern)+" ("+kind+
+			") — recorded; not submittable", "")
+	g.blockers = append(g.blockers,
+		"accepted risk "+validation.PyReprStr(pattern)+" — not "+
+			"submittable as a vulnerability")
+	return nil
+}
+
+// run executes the thirteen checks (the twelve ported + accepted-risk, A1).
 func (g *gate) run() error {
 	g.check1()
 	for _, check := range []func() error{g.check2, g.check3, g.check4, g.check5,
 		g.check6, g.check7, g.check8, g.check9, g.check10, g.check11,
-		g.check12} {
+		g.check12, g.check13} {
 		if err := check(); err != nil {
 			return err
 		}
@@ -1027,6 +1160,11 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 	if err := g.run(); err != nil {
 		return validation.VNull(), err
 	}
+	// The checks run on a struct copy of the finding (the gate's f shares
+	// the top-level KV slice but a check may re-append to it — check13
+	// records the accepted risk when the finding had no bounty object yet).
+	// Re-adopt the gate's copy so the record reaches the save below.
+	f = g.f
 	eligible := true
 	for _, c := range g.checks {
 		if objStr(c, "result") != "fail" {

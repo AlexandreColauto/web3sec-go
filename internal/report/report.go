@@ -1025,6 +1025,22 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		}
 		out = append(out, line)
 	}
+	if ar := asObj(objAt(b, "accepted_risk")); len(ar.O) > 0 {
+		kind := objStr(ar, "kind")
+		line := fmt.Sprintf("- accepted risk: **%s**", pyStr(objAt(ar,
+			"pattern")))
+		if kind != "" {
+			line += " (" + kind + ")"
+		}
+		if ref := objStr(ar, "reference"); ref != "" {
+			line += " — " + ref
+		}
+		if note := objStr(ar, "note"); note != "" {
+			line += " — " + note
+		}
+		line += " (documented by the program; not submittable as written)"
+		out = append(out, line)
+	}
 	out = append(out, "")
 	out = append(out, "**Claim:** "+getOr(rc, "description", ""))
 	if objStr(rc, "mechanism") != "" {

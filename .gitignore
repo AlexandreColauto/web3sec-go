@@ -3,3 +3,6 @@ __pycache__/
 .scratch/
 .repomap-cache.v1/
 dist/
+
+# Go build cache (local)
+.gocache/

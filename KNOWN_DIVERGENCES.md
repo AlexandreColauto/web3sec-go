@@ -672,6 +672,21 @@ Bug-hunt sweep).
   non-regular entries; `criticality` tokenizes state ids; `surfaceAxis`
   index fix; `ListCampaigns` follows symlinks; `AllExecs` avoids glob
   metacharacters; `BlankReasonMin` counts characters not bytes.
+- **IMPROVEMENTS waves (2026-09-10+, `docs/IMPROVEMENTS.md`)** — new
+  capabilities that did not exist in the reference: **E5** `risk.reversibility`
+  (victim-perspective recoverability adds a validated_risk weight; `impact
+  --reversibility`); **A1** `accepted_risks[]` policy channel + gate check13
+  `accepted-risk` (recorded on the finding, blocks submission, same-pattern
+  exclusion suppressed, waivable per-finding, `min_severity` caps the
+  acceptance). Intentional oracle updates that accompanied these: the
+  `gates` scenario `bounty_gate_all` oracle in
+  `internal/orchestrator/testdata/oracles.json` gained the 14th
+  `accepted-risk` check row (regenerated from the Go replay — the unit
+  oracles pin Go behavior; the retired Python twin is not re-run), and the
+  bounty unit goldens in `internal/bounty/bounty_test.go` (14-row
+  `policy_checks`, catalog + unknown-check lists). `scripts/golden.sh`
+  stays green without normalization — its recipe policy carries no
+  `accepted_risks` and its gate steps predate any CONFIRMED finding.
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**

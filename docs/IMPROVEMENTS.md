@@ -70,11 +70,11 @@ first-class channel for "this is a documented known issue the program accepts".
   exclusion check4 no longer treats an `accepted_risks` hit as an exclusion
   (accepted risks are removed from the exclusion tripwire set when both match
   the same pattern — accepted-risk is the *narrower*, more specific rule).
-- Named waiver: `webv2 waive <CID> --stage bounty-gate --subject
-  <finding|*> --reason "..."` already exists (B1 plumbing); accepted-risk
-  blockers are waivable per-finding. A waiver on an accepted-risk blocker is
-  logged with `reason` and rendered in the report (new line in the finding
-  section).
+- Named waiver: `webv2 waive <CID> accepted-risk --subject
+  <finding|*> --reason "..."` (the stage name matches the check, as with
+  `mainnet-fork-poc` and `immunization`); accepted-risk blockers are waivable
+  per-finding. A waiver on an accepted-risk blocker is logged with `reason`
+  and rendered in the report (new line in the finding section).
 - Report: findings with an accepted-risk hit render under a new
   "Accepted-risk findings" subsection (D1 adds the table anyway) — visible,
   counted, but not in the submission table.

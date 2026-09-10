@@ -43,6 +43,23 @@
         }
       }
     },
+    "accepted_risks": {
+      "type": "array",
+      "description": "documented, program-accepted risks (IMPROVEMENTS A1): a matched finding is recorded (finding.bounty.accepted_risk), stays visible and counted, but is not submittable as a vulnerability; a same-pattern exclusion is suppressed (the accepted risk is the narrower, more specific rule). min_severity caps the acceptance: at that severity and above the acceptance does not apply.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pattern"],
+        "properties": {
+          "pattern":        { "type": "string", "description": "substring/keyword matched against finding class, title and description (same semantics as exclusions)" },
+          "kind":           { "enum": ["known-issue", "design-decision", "mitigated", "accepted-risk"] },
+          "reference":      { "type": "string", "description": "URL or note documenting the acceptance" },
+          "note":           { "type": "string" },
+          "min_severity":   { "enum": ["low", "medium", "high", "critical"], "description": "the acceptance stops applying at this severity and above — the gate then demands real handling" },
+          "case_sensitive": { "type": "boolean", "default": false }
+        }
+      }
+    },
 
     "severity_rules": {
       "type": "array",

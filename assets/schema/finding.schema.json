@@ -678,6 +678,25 @@
             "type": "string"
           }
         },
+        "accepted_risk": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pattern"],
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "reference": {
+              "type": "string"
+            },
+            "note": {
+              "type": "string"
+            }
+          }
+        },
         "policy_checks": {
           "type": "array",
           "items": {
