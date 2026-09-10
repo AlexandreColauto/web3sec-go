@@ -25,11 +25,11 @@ func bloat(t *testing.T, root, cid, stage string, chars int) {
 		t.Fatal(err)
 	}
 	stages := objAt(st, "stages")
-	stages.O = setOrAppendKV(stages.O, stage, validation.VObj(
+	stages.O = validation.SetOrAppend(stages.O, stage, validation.VObj(
 		validation.KV{K: "status", V: validation.VStr("done")},
 		validation.KV{K: "note", V: validation.VStr(strings.Repeat("x", chars))},
 		validation.KV{K: "executor", V: validation.VStr("pipeline")}))
-	st.O = setOrAppendKV(st.O, "stages", stages)
+	st.O = validation.SetOrAppend(st.O, "stages", stages)
 	if err := validation.WriteJson(c.StatePath, st, ""); err != nil {
 		t.Fatal(err)
 	}

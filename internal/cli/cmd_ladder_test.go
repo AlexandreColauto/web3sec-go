@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/maximization"
 	"websec/internal/sandbox"
@@ -103,8 +104,8 @@ func TestLadderStartAndShow(t *testing.T) {
 	if err != nil || lad == nil {
 		t.Fatalf("load ladder: %v", err)
 	}
-	if out != prettyASCII(*lad)+"\n" {
-		t.Fatalf("show stdout\n%q\nwant\n%q", out, prettyASCII(*lad)+"\n")
+	if out != validation.DumpIndentedASCII(*lad)+"\n" {
+		t.Fatalf("show stdout\n%q\nwant\n%q", out, validation.DumpIndentedASCII(*lad)+"\n")
 	}
 }
 
@@ -422,7 +423,7 @@ func t23LifecycleReport(t *testing.T, c *state.Campaign, root, fid string) {
 	if err != nil {
 		t.Fatalf("ladder report: %v", err)
 	}
-	if out != prettyASCII(rep)+"\n" {
-		t.Fatalf("report stdout\n%q\nwant\n%q", out, prettyASCII(rep)+"\n")
+	if out != validation.DumpIndentedASCII(rep)+"\n" {
+		t.Fatalf("report stdout\n%q\nwant\n%q", out, validation.DumpIndentedASCII(rep)+"\n")
 	}
 }

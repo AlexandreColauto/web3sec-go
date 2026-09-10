@@ -81,9 +81,9 @@ func dgRow81(t *testing.T) validation.Value {
 // keeping every anchor field so the anchor path still resolves.
 func dgLowRow(t *testing.T) validation.Value {
 	row := dgRow81(t)
-	row.O = setOrAppend(row.O, "row_id", validation.VStr("0000000001"))
-	row.O = setOrAppend(row.O, "tier", validation.VInt(2))
-	row.O = setOrAppend(row.O, "assertion_gap", validation.VInt(1))
+	row.O = validation.SetOrAppend(row.O, "row_id", validation.VStr("0000000001"))
+	row.O = validation.SetOrAppend(row.O, "tier", validation.VInt(2))
+	row.O = validation.SetOrAppend(row.O, "assertion_gap", validation.VInt(1))
 	return row
 }
 
@@ -98,9 +98,9 @@ func probePriorityVal(id, status, reason, rowID string) validation.Value {
 		kv("status", validation.VStr(status)),
 	)
 	if reason != "" {
-		v.O = setOrAppend(v.O, "closed_reason", validation.VStr(reason))
+		v.O = validation.SetOrAppend(v.O, "closed_reason", validation.VStr(reason))
 	}
-	v.O = setOrAppend(v.O, "probe", validation.VObj(
+	v.O = validation.SetOrAppend(v.O, "probe", validation.VObj(
 		kv("row_id", validation.VStr(rowID)),
 		kv("probe_id", validation.VStr("assertion-strength")),
 		kv("axis", validation.VStr("enforcement-timing")),
@@ -211,7 +211,7 @@ func TestDismissalGateMatrix(t *testing.T) {
 	withProbes(t, probeEnv{surface: &lowSurface, index: index})
 	lowCamp := newCampaign(t, "dg-low")
 	lowPlan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
-	lowPlan.O = setOrAppend(lowPlan.O, "priorities", validation.VArr(
+	lowPlan.O = validation.SetOrAppend(lowPlan.O, "priorities", validation.VArr(
 		append(listOf(lowPlan, "priorities"),
 			probePriorityVal("Q-100", "open", "", "0000000001"))...))
 	if _, err := MarkAnswered(lowCamp, lowPlan, "Q-100", "answered",
@@ -332,7 +332,7 @@ func TestDispositionReview(t *testing.T) {
 		rows.A = append(rows.A, r)
 	}
 	rows.A = append(rows.A, lowRow)
-	lowSurface.O = setOrAppend(lowSurface.O, "rows", rows)
+	lowSurface.O = validation.SetOrAppend(lowSurface.O, "rows", rows)
 	withProbes(t, probeEnv{surface: &lowSurface, index: nil})
 
 	flags, err := DispositionReview(camp, plan)

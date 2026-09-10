@@ -256,11 +256,11 @@ func TestDeepExcludeReportsSubpath(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, "target")
 	writeFiles(t, target, map[string]string{
-		"README.md":                "# monorepo\n",
-		"contracts/foundry.toml":   "[profile.default]\nsolc = \"0.8.24\"\n",
-		"contracts/src/Vault.sol":  "contract Vault {}",
-		"contracts/data/f000.dat":  "x",
-		"contracts/data/f001.dat":  "x",
+		"README.md":               "# monorepo\n",
+		"contracts/foundry.toml":  "[profile.default]\nsolc = \"0.8.24\"\n",
+		"contracts/src/Vault.sol": "contract Vault {}",
+		"contracts/data/f000.dat": "x",
+		"contracts/data/f001.dat": "x",
 	})
 	c := pinCampaign(t, root, "C-pindeepexcl001")
 	snap := mustPin(t, c, target, nil, nil)

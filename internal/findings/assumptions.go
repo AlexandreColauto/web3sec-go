@@ -48,14 +48,14 @@ func SetAssumptions(campaign *state.Campaign, findingID string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	finding.O = setOrAppend(finding.O, "assumptions",
+	finding.O = validation.SetOrAppend(finding.O, "assumptions",
 		validation.VArr(installed...))
 	if claimVersion != nil {
 		if *claimVersion < 1 {
 			return validation.VNull(), fmt.Errorf(
 				"claim_version must be an integer >= 1")
 		}
-		finding.O = setOrAppend(finding.O, "claim_version",
+		finding.O = validation.SetOrAppend(finding.O, "claim_version",
 			validation.VInt(*claimVersion))
 	}
 	if err := SaveFinding(campaign, &finding); err != nil {
@@ -304,8 +304,8 @@ func recordAssumptionEvidence(assumption validation.Value, toStatus string,
 			have[ref] = struct{}{}
 		}
 	}
-	assumption.O = setOrAppend(assumption.O, key, lst)
-	assumption.O = setOrAppend(assumption.O, "status", validation.VStr(toStatus))
+	assumption.O = validation.SetOrAppend(assumption.O, key, lst)
+	assumption.O = validation.SetOrAppend(assumption.O, "status", validation.VStr(toStatus))
 	return assumption
 }
 
@@ -320,5 +320,5 @@ func replaceAssumption(finding validation.Value, assumptionID string,
 			break
 		}
 	}
-	return setOrAppend(finding.O, "assumptions", assumptions)
+	return validation.SetOrAppend(finding.O, "assumptions", assumptions)
 }

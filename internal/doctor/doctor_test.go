@@ -1,5 +1,5 @@
 // doctor_test.go ports tests/test_doctor.py (plus test_doctor_preflight.py's
-// test_doctor_includes_preflight) 1:1. Python wins.
+// test_doctor_includes_preflight) 1:1. The Python twin was retired 2026-09-09; Go is the source of truth.
 package doctor
 
 import (

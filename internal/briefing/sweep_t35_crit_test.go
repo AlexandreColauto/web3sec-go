@@ -104,7 +104,7 @@ func TestBriefCoverageVaultNotCoveredByVaultProxy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved.O = setOrAppend(saved.O, "campaign_id", validation.VStr(c.CampaignID))
+	saved.O = validation.SetOrAppend(saved.O, "campaign_id", validation.VStr(c.CampaignID))
 	if _, err := planner.SavePlan(c, saved); err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestBriefCoverageVaultNotCoveredByVaultProxy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved2.O = setOrAppend(saved2.O, "campaign_id",
+	saved2.O = validation.SetOrAppend(saved2.O, "campaign_id",
 		validation.VStr(c2.CampaignID))
 	if _, err := planner.SavePlan(c2, saved2); err != nil {
 		t.Fatal(err)
@@ -214,7 +214,7 @@ func TestBriefNextActionNamesUnattestedFamily(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved.O = setOrAppend(saved.O, "campaign_id", validation.VStr(c.CampaignID))
+	saved.O = validation.SetOrAppend(saved.O, "campaign_id", validation.VStr(c.CampaignID))
 	if _, err := planner.SavePlan(c, saved); err != nil {
 		t.Fatal(err)
 	}

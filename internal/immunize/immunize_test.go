@@ -217,11 +217,11 @@ func confirmUnitOnly(t *testing.T, c *state.Campaign) string {
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T1")),
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr())))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(c, &vf); err != nil {
 		t.Fatal(err)
 	}

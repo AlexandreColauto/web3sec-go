@@ -249,11 +249,11 @@ func backdateArtifact(t *testing.T, c *Campaign, id, stamp string) {
 	arts := objAt(doc, "artifacts")
 	for i, a := range arts.A {
 		if objStr(a, "artifact_id") == id {
-			a.O = setOrAppend(a.O, "registered_at", validation.VStr(stamp))
+			a.O = validation.SetOrAppend(a.O, "registered_at", validation.VStr(stamp))
 			arts.A[i] = a
 		}
 	}
-	doc.O = setOrAppend(doc.O, "artifacts", arts)
+	doc.O = validation.SetOrAppend(doc.O, "artifacts", arts)
 	if err := validation.WriteJson(c.StatePath, doc, "campaign_state"); err != nil {
 		t.Fatal(err)
 	}

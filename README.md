@@ -1,15 +1,15 @@
 # web3sec-go
 
-The Go twin of `web3sec-final` — the deterministic control plane for Web3
-bug-bounty campaigns. Same state, same artifacts, same bytes: every command
-here is a 1:1 port of a Python module, verified by a cross-twin golden suite
-that runs both implementations side by side and byte-diffs the result.
+The deterministic control plane for Web3 bug-bounty campaigns: one static
+`webv2` binary, embedded assets, hash-chained campaign state, and a test
+surface that proves "same inputs → same bytes" without a model in the loop.
 
-**Python wins.** Until the cutover rule in `docs/GO_REWRITE_SPEC.md` §14 is
-satisfied (P4 golden green for two consecutive weeks of real use), the Python
-tree in `../web3sec-final` remains the reference implementation. Where this
-port and the reference disagree, the reference is right and this repo has a
-bug — except for the declared rows in `KNOWN_DIVERGENCES.md`.
+**Go is the source of truth.** The Python twin (`web3sec-final`) was retired
+at the P4 cutover on 2026-09-09 (`docs/gates/P4-gate.md` §9.1). Campaign
+directories written by the reference stay readable forever — that promise is
+kept by a committed legacy fixture (`scripts/legacy/`) that `verify-full`
+step 9 audits with the Go binary. The port-era records (divergence ledger,
+twin-issue log, test accounting map) live frozen under `docs/archive/`.
 
 ## Quick start
 
@@ -18,8 +18,8 @@ Requires Go 1.26+ and, for the sandboxed-exec paths, a running Docker daemon.
 ```bash
 git clone <this repo> && cd web3sec-go
 
-# 1. One-command self-check (the verify.py port): asset sweep + deterministic
-#    walkthrough + in-process CLI audit. ~2 s; --full adds `go test ./...`.
+# 1. One-command self-check: asset sweep + deterministic walkthrough +
+#    in-process CLI audit. ~2 s; --full adds `go test ./...`.
 go run ./cmd/webv2 selftest
 go run ./cmd/webv2 selftest --full
 
@@ -28,16 +28,19 @@ go run ./cmd/webv2 selftest --full
 #    any directory.
 scripts/release.sh                     # -> dist/webv2 + sha256 + size
 
-# 3. Walk the whole RUNBOOK against the binary: ~140 commands, each asserted
-#    against the exit code and output markers the runbook documents.
+# 3. Walk the whole RUNBOOK against the binary: every documented command,
+#    each asserted against its exit code and output markers.
 scripts/runbook-walkthrough.sh         # green = every runbook command matches
 
-# 4. Full parity gates (both twins, byte-diffed):
-scripts/golden.sh                      # cross-twin golden suite
-scripts/verify-full.sh                 # cross-audit + CLI surface smoke (P3)
+# 4. The full gate (twelve ordered steps: vet, build, tests, race,
+#    determinism x2, asset-pack manifest, golden suite, crash smoke, legacy
+#    cross-audit, P1/P2/P3 CLI smokes):
+scripts/verify-full.sh
+
+# ...or any subset:
+scripts/golden.sh                      # golden recipe + well-formedness
 scripts/p2-docker-e2e.sh               # real docker exec + real anvil sequence
-go test ./... -count=1                 # 1,963 test functions, 62 packages
-python3 scripts/cap-analysis.py        # D27 chain-cap parity evidence
+go test ./... -count=1                 # the unit + integration suite
 ```
 
 A first campaign, end to end (no model calls needed):
@@ -56,23 +59,21 @@ CID=$(ls campaigns | head -1)
 ./dist/webv2 --root . audit  $CID     # 14-section integrity audit
 ```
 
-Campaign state lands in `campaigns/<C-id>/` exactly as the Python twin writes
-it: `events.jsonl` (hash-chained log), `campaign_state.json` (projection),
-`findings/F-*.json`, `artifacts/`, `execs/`, `report.md`. The two
-implementations are byte-compatible on disk — but **never run both against the
-same campaign concurrently** (single-operator doctrine; the event log assumes
-one writer).
+Campaign state lands in `campaigns/<C-id>/`: `events.jsonl` (hash-chained
+log), `campaign_state.json` (projection), `findings/F-*.json`, `artifacts/`,
+`execs/`, `report.md`. The event log assumes **one writer** per campaign —
+never run two tools against the same campaign concurrently.
 
 ## Commands
 
-`webv2` implements the full CLI surface of the reference: the campaign
-lifecycle (`init`, `scope`, `snap`, `model`, `plan`, `ingest`, `move`, `mint`,
-`verdict`, `verify`, `impact`, `gate`, `complete`), the deterministic
-surfaces (`index`, `sinks`, `prescreen`, `forkdiff`, `recency`, `probes`,
-`relations`, `resemble`, `corpus-surface`, `dedup`, `prioritize`, `brief`,
-`report`), the knowledge stores (`memory`, `publish`, `globalize`, `shared`,
-`ladder`, `immunize`, `sft`), and the operational tooling (`doctor`, `env
-doctor`, `audit`, `execs`, `budget`, `floors`, `price`, `cost`, `yields`,
+`webv2` covers the campaign lifecycle (`init`, `scope`, `snap`, `model`,
+`plan`, `ingest`, `move`, `mint`, `verdict`, `verify`, `impact`, `gate`,
+`complete`), the deterministic hunting surfaces (`index`, `sinks`,
+`prescreen`, `forkdiff`, `recency`, `probes`, `relations`, `resemble`,
+`corpus-surface`, `dedup`, `prioritize`, `rank`, `brief`, `report`), the
+knowledge stores (`memory`, `publish`, `globalize`, `shared`, `ladder`,
+`immunize`, `sft`), and the operational tooling (`doctor`, `env doctor`,
+`audit`, `execs`, `budget`, `floors`, `price`, `cost`, `yields`, `run`,
 `selftest`).
 
 ```bash
@@ -84,21 +85,27 @@ doctor`, `audit`, `execs`, `budget`, `floors`, `price`, `cost`, `yields`,
 artifacts; `WEBV2_GLOBAL_MEMORY_DIR`, `WEBV2_EVAL_DIR`, `WEBV2_POC_ROOT`,
 `WEBV2_BASELINES_DIR`, `WEBV2_SOLC_DIR`, `WEBV2_DOCKER_IMAGE` and
 `WEBV2_DOCKER_TESTS` repoint the external stores and the sandbox. The full
-list, with the Python-side equivalents, is in `docs/runbook-go-notes.md`.
+list is in `docs/runbook-go-notes.md`.
 
 ## Repository layout
 
 ```
 cmd/webv2/          the binary: seam wiring + main
-internal/           62 packages, 79.6k non-test lines — one package per ported
-                    Python module group (state, validation, orchestrator,
-                    structidx, probes, corpus, chainengine, sharedmem, ...)
-assets/             embedded via go:embed (schema, prompts, playbooks, archetypes)
+internal/           one package per module group (state, validation,
+                    orchestrator, structidx, probes, corpus, chainengine,
+                    sharedmem, ...) — counts: see `selftest --full` output
+assets/             embedded via go:embed (schema, prompts, playbooks,
+                    archetypes, runbook), pinned by a SHA-256 manifest
+sft/                the live SFT example store — committed on purpose:
+                    VCS is its integrity layer (internal/sft)
 scripts/            release.sh, runbook-walkthrough.sh, golden.sh,
-                    verify-full.sh, cap-analysis.py, check-golden.py, ...
+                    verify-full.sh, p2-docker-e2e.sh, sync-asset-manifest.py,
+                    legacy/ (reader-compatibility fixture), archive/
 docs/gates/         per-phase gate reports (P0-P4)
-testmap.json        1,378 Python test functions -> Go test functions, 1:1
-KNOWN_DIVERGENCES.md  every place the port is intentionally not byte-identical
+docs/archive/       frozen port-era records: the divergence ledger, the
+                    twin-issue log, the Python-test accounting map
+docs/IMPROVEMENTS.md  the active campaign-improvement plan (waves A-E)
+docs/LEANNESS_REVIEW.md  the port-scaffolding removal plan (wave F)
 ```
 
 ## Verification
@@ -106,18 +113,25 @@ KNOWN_DIVERGENCES.md  every place the port is intentionally not byte-identical
 | gate | command | what it proves |
 |------|---------|----------------|
 | self-check | `webv2 selftest [--full]` | assets, walkthrough, CLI audit, full suite |
-| unit + integration | `go test ./... -count=1` | 1,963 test functions across 62 packages |
-| testmap | `python3 scripts/check-testmap.py` | every Python test maps 1:1, 0 deferred |
-| cross-twin golden | `scripts/golden.sh` | both twins, byte-diffed artifacts + tree |
+| unit + integration | `go test ./... -count=1` | the whole in-process suite, incl. the asset-pack manifest test |
+| golden suite | `scripts/golden.sh` | the deterministic recipe: exit codes, tree + event chain, 14-section audit surface |
 | RUNBOOK walkthrough | `scripts/runbook-walkthrough.sh` | every runbook command, documented exit code |
+| real containers | `scripts/p2-docker-e2e.sh` | docker exec (pass+fail) + anvil sequence end to end |
+| legacy compatibility | `scripts/verify-full.sh` step 9 | Go reads a reference-written campaign, all 14 sections clean |
 | release | `scripts/release.sh` | static binary, embedded assets, standalone |
-| cap parity | `python3 scripts/cap-analysis.py` | D27 chain-cap semantics |
+
+`scripts/verify-full.sh` runs every gate above except the release build in
+one fail-fast sequence — a clone of this repo alone is enough to run it.
 
 ## Docs
 
-- `docs/runbook-go-notes.md` — the RUNBOOK substitutions the Go binary needs,
-  and the four runbook/code discrepancies the walkthrough proved.
-- `docs/python-twin-issues.md` — issues found in the reference while porting
-  (faithfully reproduced here; fixed upstream or in the runbook).
-- `KNOWN_DIVERGENCES.md` — the permanent divergence ledger.
-- `docs/gates/P4-gate.md` — the cutover gate report.
+- `assets/runbook/RUNBOOK.md` — the operator runbook (a test: the D7
+  registry↔document check keeps it honest).
+- `docs/IMPROVEMENTS.md` — the improvement plan driven by real campaigns
+  (waves A–E) and its design principles, incl. the surface budget.
+- `docs/LEANNESS_REVIEW.md` — the wave-F leanness review (what was removed
+  from the port scaffolding, and why the rest stayed).
+- `docs/runbook-go-notes.md` — RUNBOOK substitutions the Go binary needs
+  (port-era history).
+- `docs/gates/P4-gate.md` — the cutover gate report; `docs/archive/` holds
+  the divergence ledger and other frozen port records.

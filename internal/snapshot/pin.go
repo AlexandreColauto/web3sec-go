@@ -60,18 +60,6 @@ func sget(v validation.Value, key string) validation.Value {
 	return validation.VNull()
 }
 
-// setOrAppendObj mirrors Python dict assignment: an existing key is
-// replaced in place (position kept), a new key is appended at the end.
-func setOrAppendObj(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i, kv := range o {
-		if kv.K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
-}
-
 func trunc(s string, n int) string {
 	if len(s) > n {
 		return s[:n]

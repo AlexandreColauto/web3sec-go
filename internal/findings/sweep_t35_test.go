@@ -94,12 +94,12 @@ func oracleFindingWith(t *testing.T, c *state.Campaign,
 			kv("type", validation.VStr(typ)),
 			kv("description", validation.VStr("evidence for gate clause test")))
 		if idx >= floor {
-			item.O = setOrAppend(item.O, "sandbox_profile",
+			item.O = validation.SetOrAppend(item.O, "sandbox_profile",
 				objAt(rec, "profile"))
-			item.O = setOrAppend(item.O, "artifact_id", objAt(rec, "exec_id"))
+			item.O = validation.SetOrAppend(item.O, "artifact_id", objAt(rec, "exec_id"))
 		}
 		if level == "E7" {
-			item.O = setOrAppend(item.O, "artifact_id", validation.VStr(aid))
+			item.O = validation.SetOrAppend(item.O, "artifact_id", validation.VStr(aid))
 		}
 		if _, err := AddEvidence(c, fid, item); err != nil {
 			t.Fatal(err)
@@ -224,11 +224,11 @@ func TestFullConfirmationOfEconomicClassWithThreeClauses(t *testing.T) {
 		t.Fatal(err)
 	}
 	ver := asDict(objAt(vf, "verification"))
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T3")),
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr())))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := SaveFinding(c, &vf); err != nil {
 		t.Fatal(err)
 	}

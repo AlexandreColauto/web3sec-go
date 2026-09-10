@@ -110,10 +110,10 @@ func AddCase(caseDoc validation.Value) (validation.Value, error) {
 		return validation.VNull(), errors.New("an evaluation case must be a dict")
 	}
 	c := copyObj(caseDoc)
-	c.O = setDefault(c.O, "case_id", validation.VStr(NewCaseID()))
-	c.O = setDefault(c.O, "partition", validation.VStr("dev"))
-	c.O = setDefault(c.O, "schema_version", validation.VInt(2))
-	c.O = setDefault(c.O, "created_at", validation.VStr(state.NowIso()))
+	c.O = validation.SetDefault(c.O, "case_id", validation.VStr(NewCaseID()))
+	c.O = validation.SetDefault(c.O, "partition", validation.VStr("dev"))
+	c.O = validation.SetDefault(c.O, "schema_version", validation.VInt(2))
+	c.O = validation.SetDefault(c.O, "created_at", validation.VStr(state.NowIso()))
 
 	if err := checkGoldClass(c); err != nil {
 		return validation.VNull(), err
@@ -309,16 +309,6 @@ func fileExists(p string) bool {
 func copyObj(v validation.Value) validation.Value {
 	return validation.Value{Kind: validation.Obj,
 		O: append([]validation.KV(nil), v.O...)}
-}
-
-// setDefault is dict.setdefault (key order: an absent key is appended).
-func setDefault(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for _, kv := range o {
-		if kv.K == key {
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
 }
 
 func objAt(v validation.Value, key string) validation.Value {

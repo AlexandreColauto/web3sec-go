@@ -199,8 +199,8 @@ func RecordMemoryCheck(campaign *state.Campaign, findingID string,
 			gaps = append(gaps, gap)
 		}
 	}
-	prov.O = setOrAppend(prov.O, "memory_checks", existing)
-	finding.O = setOrAppend(finding.O, "provenance", prov)
+	prov.O = validation.SetOrAppend(prov.O, "memory_checks", existing)
+	finding.O = validation.SetOrAppend(finding.O, "provenance", prov)
 	if err := SaveFinding(campaign, &finding); err != nil {
 		return validation.VNull(), err
 	}

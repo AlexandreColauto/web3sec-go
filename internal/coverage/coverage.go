@@ -86,7 +86,7 @@ func Load(c *state.Campaign) (validation.Value, error) {
 // with json.dumps(indent=2), and return the path. The caller's Value is
 // mutated in place, as Python mutates the dict it was handed.
 func Save(c *state.Campaign, cov *validation.Value) (string, error) {
-	cov.O = setOrAppend(cov.O, "updated_at", validation.VStr(nowIso()))
+	cov.O = validation.SetOrAppend(cov.O, "updated_at", validation.VStr(nowIso()))
 	if err := validation.Validate(*cov, "coverage", 1); err != nil {
 		return "", err
 	}
@@ -327,7 +327,7 @@ func RecordSweep(c *state.Campaign, contract, trajectory string,
 			return validation.VNull(), err
 		}
 		rows.A[i] = row
-		cov.O = setOrAppend(cov.O, "contracts", rows)
+		cov.O = validation.SetOrAppend(cov.O, "contracts", rows)
 		if _, err := Save(c, &cov); err != nil {
 			return validation.VNull(), err
 		}
@@ -364,35 +364,35 @@ func sweepRow(row validation.Value, trajectory string, opts SweepOpts) (validati
 		counts = validation.VObj()
 	}
 	n := numOrZero(objAt(counts, trajectory)).addInt(1)
-	counts.O = setOrAppend(counts.O, trajectory, n.value())
-	row.O = setOrAppend(row.O, "trajectory_counts", counts)
+	counts.O = validation.SetOrAppend(counts.O, trajectory, n.value())
+	row.O = validation.SetOrAppend(row.O, "trajectory_counts", counts)
 
 	epr := numOrZero(objAt(row, "entry_points_reviewed")).addInt(opts.EntryPointsReviewed)
 	eprCap := numInt(opts.EntryPointsReviewed)
 	if pyTruthy(objAt(row, "entry_points_total")) {
 		eprCap = numOf(objAt(row, "entry_points_total"))
 	}
-	row.O = setOrAppend(row.O, "entry_points_reviewed", epr.min(eprCap).value())
+	row.O = validation.SetOrAppend(row.O, "entry_points_reviewed", epr.min(eprCap).value())
 
 	fr := numOrZero(objAt(row, "functions_reviewed")).addInt(opts.FunctionsReviewed)
 	frCap := numInt(opts.FunctionsReviewed)
 	if pyTruthy(objAt(row, "functions_total")) {
 		frCap = numOf(objAt(row, "functions_total"))
 	}
-	row.O = setOrAppend(row.O, "functions_reviewed", fr.min(frCap).value())
+	row.O = validation.SetOrAppend(row.O, "functions_reviewed", fr.min(frCap).value())
 
 	if opts.Complete {
-		row.O = setOrAppend(row.O, "status", validation.VStr("swept"))
+		row.O = validation.SetOrAppend(row.O, "status", validation.VStr("swept"))
 	} else {
 		status, err := reqKey(row, "status")
 		if err != nil {
 			return validation.VNull(), err
 		}
 		if status.S == "unknown" {
-			row.O = setOrAppend(row.O, "status", validation.VStr("in-progress"))
+			row.O = validation.SetOrAppend(row.O, "status", validation.VStr("in-progress"))
 		}
 	}
-	row.O = setOrAppend(row.O, "thoroughness", thoroughness(objAt(row, "entry_points_reviewed"),
+	row.O = validation.SetOrAppend(row.O, "thoroughness", thoroughness(objAt(row, "entry_points_reviewed"),
 		objAt(row, "entry_points_total")))
 	return row, nil
 }
@@ -426,9 +426,9 @@ func RecordSurface(c *state.Campaign, surface string, reviewed int64) error {
 	if err != nil {
 		return err
 	}
-	row.O = setOrAppend(row.O, "reviewed", numInt(reviewed).min(numOf(total)).value())
-	surfaces.O = setOrAppend(surfaces.O, surface, row)
-	cov.O = setOrAppend(cov.O, "surfaces", surfaces)
+	row.O = validation.SetOrAppend(row.O, "reviewed", numInt(reviewed).min(numOf(total)).value())
+	surfaces.O = validation.SetOrAppend(surfaces.O, surface, row)
+	cov.O = validation.SetOrAppend(cov.O, "surfaces", surfaces)
 	_, err = Save(c, &cov)
 	return err
 }
@@ -547,7 +547,7 @@ func RefreshGaps(c *state.Campaign, model validation.Value) ([]validation.Value,
 		gaps = append(gaps, gapRow("open question: "+question.S, "open-question",
 			validation.VStr(joinBlocks(objAt(q, "blocks"))), 0.4))
 	}
-	cov.O = setOrAppend(cov.O, "gaps", validation.VArr(gaps...))
+	cov.O = validation.SetOrAppend(cov.O, "gaps", validation.VArr(gaps...))
 	if _, err := Save(c, &cov); err != nil {
 		return nil, err
 	}
@@ -654,7 +654,7 @@ func UpdateFunnel(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	cov.O = setOrAppend(cov.O, "funnel", funnel)
+	cov.O = validation.SetOrAppend(cov.O, "funnel", funnel)
 	if _, err := Save(c, &cov); err != nil {
 		return validation.VNull(), err
 	}
@@ -733,7 +733,7 @@ func BuildSummary(c *state.Campaign, index, model validation.Value) (validation.
 		kv("unknown_note", validation.VStr(
 			"contracts with status 'unknown' are NOT secure — they are unexamined")),
 	)
-	cov.O = setOrAppend(cov.O, "summary", summary)
+	cov.O = validation.SetOrAppend(cov.O, "summary", summary)
 	if _, err := Save(c, &cov); err != nil {
 		return validation.VNull(), err
 	}
@@ -889,18 +889,6 @@ func getOr(v validation.Value, key string, def validation.Value) validation.Valu
 		return val
 	}
 	return def
-}
-
-// setOrAppend is Python's d[k] = v: replace in place (position kept) or
-// append at the end.
-func setOrAppend(kvs []validation.KV, key string, val validation.Value) []validation.KV {
-	for i := range kvs {
-		if kvs[i].K == key {
-			kvs[i].V = val
-			return kvs
-		}
-	}
-	return append(kvs, validation.KV{K: key, V: val})
 }
 
 // pyTruthy is CPython truthiness: null/False/0/0.0/""/[]/{} are false.

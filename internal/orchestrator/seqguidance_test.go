@@ -63,26 +63,14 @@ func seqFindingIn(t *testing.T, c *state.Campaign, seq validation.Value) string 
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.O = setOrAppendKV(f.O, "status", validation.VStr("POSSIBLE"))
+	f.O = validation.SetOrAppend(f.O, "status", validation.VStr("POSSIBLE"))
 	if seq.Kind == validation.Arr {
-		f.O = setOrAppendKV(f.O, "exploit_sequence", seq)
+		f.O = validation.SetOrAppend(f.O, "exploit_sequence", seq)
 	}
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
 	}
 	return fid
-}
-
-// setOrAppendKV is the ordered-dict assignment.
-func setOrAppendKV(o []validation.KV, key string,
-	v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, kvOf(key, v))
 }
 
 // seqQueue is reproduction_queue keyed by finding_id.
@@ -168,7 +156,7 @@ func TestMalformedSequenceEntriesDoNotCrashQueue(t *testing.T) {
 		}
 	}
 	plant(func(f validation.Value) validation.Value {
-		f.O = setOrAppendKV(f.O, "exploit_sequence", validation.VArr(
+		f.O = validation.SetOrAppend(f.O, "exploit_sequence", validation.VArr(
 			validation.VStr("not-a-dict"),
 			validation.VObj(kvOf("step", validation.VInt(1)),
 				kvOf("actor", validation.VStr("alice"))),
@@ -191,7 +179,7 @@ func TestMalformedSequenceEntriesDoNotCrashQueue(t *testing.T) {
 	}
 	// attempts=None (same unvalidated family) degrades to 0, never raises
 	plant(func(f validation.Value) validation.Value {
-		f.O = setOrAppendKV(f.O, "verification", validation.VObj(
+		f.O = validation.SetOrAppend(f.O, "verification", validation.VObj(
 			kvOf("reproduction", validation.VObj(
 				kvOf("attempts", validation.VNull()),
 				kvOf("tier_reached", validation.VStr("none"))))))

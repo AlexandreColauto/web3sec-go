@@ -197,7 +197,7 @@ func SeedLenses(plan, model validation.Value) ([]validation.Value,
 			// attestation they never gave. Only open lenses get backfilled.
 			entry := byID[lid]
 			if objStr(entry, "status") == "open" && !hasKey(entry, "families") {
-				entry.O = setOrAppend(entry.O, "families",
+				entry.O = validation.SetOrAppend(entry.O, "families",
 					objAt(fams, objStr(entry, "lens")))
 				lenses.A = replaceLens(lenses.A, lid, entry)
 			}
@@ -215,7 +215,7 @@ func SeedLenses(plan, model validation.Value) ([]validation.Value,
 		added = append(added, entry)
 		lenses.A = append(lenses.A, entry)
 	}
-	plan.O = setOrAppend(plan.O, "lenses", lenses)
+	plan.O = validation.SetOrAppend(plan.O, "lenses", lenses)
 	return added, plan
 }
 
@@ -299,7 +299,7 @@ func MarkLens(campaign *state.Campaign, plan validation.Value, lensID,
 		return validation.VNull(), errKey("no lens " +
 			validation.PyReprStr(lensID) + " in the campaign plan")
 	}
-	plan.O = setOrAppend(plan.O, "lenses", lenses)
+	plan.O = validation.SetOrAppend(plan.O, "lenses", lenses)
 	if _, err := SavePlan(campaign, plan); err != nil {
 		return validation.VNull(), err
 	}
@@ -318,7 +318,7 @@ func MarkLens(campaign *state.Campaign, plan validation.Value, lensID,
 // markLensEntry applies one lens status flip (the loop body of mark_lens).
 func markLensEntry(l validation.Value, outcome string, closing bool,
 	actor string, opts LensOpts) validation.Value {
-	l.O = setOrAppend(l.O, "status", validation.VStr(outcome))
+	l.O = validation.SetOrAppend(l.O, "status", validation.VStr(outcome))
 	if !closing {
 		for _, k := range []string{"closed_reason", "closed_ref", "closed_at",
 			"closed_by", "families_checked", "symmetry"} {
@@ -327,21 +327,21 @@ func markLensEntry(l validation.Value, outcome string, closing bool,
 		return l
 	}
 	if opts.Reason != nil {
-		l.O = setOrAppend(l.O, "closed_reason", validation.VStr(*opts.Reason))
+		l.O = validation.SetOrAppend(l.O, "closed_reason", validation.VStr(*opts.Reason))
 	}
 	if opts.Ref != nil {
-		l.O = setOrAppend(l.O, "closed_ref", validation.VStr(*opts.Ref))
+		l.O = validation.SetOrAppend(l.O, "closed_ref", validation.VStr(*opts.Ref))
 	}
-	l.O = setOrAppend(l.O, "closed_at", validation.VStr(nowIso()))
-	l.O = setOrAppend(l.O, "closed_by", validation.VStr(actor))
+	l.O = validation.SetOrAppend(l.O, "closed_at", validation.VStr(nowIso()))
+	l.O = validation.SetOrAppend(l.O, "closed_by", validation.VStr(actor))
 	l.O = dropKey(l.O, "reopen_reason")
 	l.O = dropKey(l.O, "reopened_at")
 	if opts.Symmetry != nil {
-		l.O = setOrAppend(l.O, "symmetry", validation.VArr(*opts.Symmetry...))
-		l.O = setOrAppend(l.O, "families_checked",
+		l.O = validation.SetOrAppend(l.O, "symmetry", validation.VArr(*opts.Symmetry...))
+		l.O = validation.SetOrAppend(l.O, "families_checked",
 			strArr(symmetryFamilies(*opts.Symmetry)))
 	} else if opts.FamiliesChecked != nil {
-		l.O = setOrAppend(l.O, "families_checked", strArr(*opts.FamiliesChecked))
+		l.O = validation.SetOrAppend(l.O, "families_checked", strArr(*opts.FamiliesChecked))
 	}
 	return l
 }

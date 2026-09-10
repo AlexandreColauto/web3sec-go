@@ -180,7 +180,7 @@ func setFindingFields(t *testing.T, camp *state.Campaign, id string,
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.O = setOrAppend(f.O, "risk", riskObj)
+	f.O = validation.SetOrAppend(f.O, "risk", riskObj)
 	if err := findings.SaveFinding(camp, &f); err != nil {
 		t.Fatal(err)
 	}

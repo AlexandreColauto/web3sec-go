@@ -44,7 +44,7 @@ func relevanceRow(memoryID, bugClass string, overrides ...validation.KV) validat
 		kv("approved_at", validation.VStr("2026-09-06T00:00:00+00:00")),
 	)
 	for _, o := range overrides {
-		row.O = setOrAppend(row.O, o.K, o.V)
+		row.O = validation.SetOrAppend(row.O, o.K, o.V)
 	}
 	return row
 }
@@ -731,7 +731,7 @@ func TestPreExistingCheckWithoutRelevanceStillVerifiesUnchanged(t *testing.T) {
 			[]string{"MEM-old00001"},
 			map[string]validation.Value{"MEM-old00001": row}))),
 	)
-	f.O = setOrAppend(f.O, "provenance",
+	f.O = validation.SetOrAppend(f.O, "provenance",
 		validation.VObj(kv("memory_checks", validation.VArr(legacy))))
 	if err := SaveFinding(c, &f); err != nil {
 		t.Fatalf("the schema must still accept the old shape: %v", err)
@@ -780,7 +780,7 @@ func TestTwoIdenticalRecordingsProduceIdenticalEntries(t *testing.T) {
 	for _, title := range []string{"first deterministic recording",
 		"second deterministic recording"} {
 		f := mintRelevanceFinding(t, c, "bridge-message", "", nil, nil)
-		f.O = setOrAppend(f.O, "title", validation.VStr(title))
+		f.O = validation.SetOrAppend(f.O, "title", validation.VStr(title))
 		out := recordCheck(t, c, objStr(f, "finding_id"),
 			[]string{"MEM-miss001", "MEM-det00001"}, "negative", "")
 		entries = append(entries, memoryEntries(out)[0])
@@ -809,7 +809,7 @@ func TestTwoIdenticalCoarseRecordingsProduceIdenticalEntries(t *testing.T) {
 	for _, title := range []string{"first coarse recording",
 		"second coarse recording"} {
 		f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
-		f.O = setOrAppend(f.O, "title", validation.VStr(title))
+		f.O = validation.SetOrAppend(f.O, "title", validation.VStr(title))
 		out := recordCheck(t, c, objStr(f, "finding_id"),
 			[]string{"MEM-coarse01"}, "negative", "")
 		entries = append(entries, memoryEntries(out)[0])
@@ -976,7 +976,7 @@ func TestCorpusRecallGapsIgnoresAStampThatIsNotTrue(t *testing.T) {
 			)),
 		),
 	)
-	f.O = setOrAppend(f.O, "provenance",
+	f.O = validation.SetOrAppend(f.O, "provenance",
 		validation.VObj(kv("memory_checks", checks)))
 	if err := validation.WriteJson(FindingPath(c, objStr(f, "finding_id")), f,
 		""); err != nil {

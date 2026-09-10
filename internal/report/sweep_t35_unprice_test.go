@@ -104,11 +104,11 @@ func t35GateReadyEconomic(t *testing.T) (*state.Campaign, string) {
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T3")),
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr())))
-	f.O = setOrAppend(f.O, "verification", ver)
+	f.O = validation.SetOrAppend(f.O, "verification", ver)
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
 	}

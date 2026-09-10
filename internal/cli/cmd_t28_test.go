@@ -157,7 +157,7 @@ func withPolicy(t *testing.T, c *state.Campaign, root string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.O = setOrAppendKV(doc.O, "policy_path", validation.VStr(pp))
+	doc.O = validation.SetOrAppend(doc.O, "policy_path", validation.VStr(pp))
 	if err := validation.WriteJson(c.StatePath, doc, "campaign_state"); err != nil {
 		t.Fatal(err)
 	}
@@ -276,11 +276,11 @@ func noopConfirm(t *testing.T, c *state.Campaign, fid string) {
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppendKV(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("status", validation.VStr("reproduced")),
 		kv("tier_reached", validation.VStr("T3")),
 		kv("attempts", validation.VArr())))
-	vf.O = setOrAppendKV(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(c, &vf); err != nil {
 		t.Fatal(err)
 	}
@@ -447,11 +447,11 @@ func TestMemoryReapproveOfHeldOutRowStillRefuses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	row.O = setOrAppendKV(row.O, "partition", validation.VStr("held-out"))
-	row.O = setOrAppendKV(row.O, "promotion_status",
+	row.O = validation.SetOrAppend(row.O, "partition", validation.VStr("held-out"))
+	row.O = validation.SetOrAppend(row.O, "promotion_status",
 		validation.VStr("human-approved"))
-	row.O = setOrAppendKV(row.O, "approved_by", validation.VStr("legacy-edit"))
-	row.O = setOrAppendKV(row.O, "approved_at",
+	row.O = validation.SetOrAppend(row.O, "approved_by", validation.VStr("legacy-edit"))
+	row.O = validation.SetOrAppend(row.O, "approved_at",
 		validation.VStr("2026-09-08T00:00:00+00:00"))
 	if err := validation.WriteJson(rowPath, row, "memory"); err != nil {
 		t.Fatal(err)
@@ -490,10 +490,10 @@ func TestMemoryPromotedRowSaysAlreadyPromoted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	row.O = setOrAppendKV(row.O, "promotion_status",
+	row.O = validation.SetOrAppend(row.O, "promotion_status",
 		validation.VStr("promoted"))
-	row.O = setOrAppendKV(row.O, "approved_by", validation.VStr("legacy-edit"))
-	row.O = setOrAppendKV(row.O, "approved_at",
+	row.O = validation.SetOrAppend(row.O, "approved_by", validation.VStr("legacy-edit"))
+	row.O = validation.SetOrAppend(row.O, "approved_at",
 		validation.VStr("2026-09-08T00:00:00+00:00"))
 	if err := validation.WriteJson(rowPath, row, "memory"); err != nil {
 		t.Fatal(err)
@@ -633,11 +633,11 @@ func confirmLocal(t *testing.T, c *state.Campaign, fid string) {
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppendKV(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("status", validation.VStr("reproduced")),
 		kv("tier_reached", validation.VStr("T3")),
 		kv("attempts", validation.VArr())))
-	vf.O = setOrAppendKV(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(c, &vf); err != nil {
 		t.Fatal(err)
 	}

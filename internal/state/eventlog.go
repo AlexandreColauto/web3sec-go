@@ -86,7 +86,7 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 	if existing.Kind == validation.Arr {
 		have = existing.A
 	}
-	st.O = setOrAppend(st.O, "events", validation.Value{Kind: validation.Arr,
+	st.O = validation.SetOrAppend(st.O, "events", validation.Value{Kind: validation.Arr,
 		A: tailEvents(have, event)})
 	if err := c.save(st); err != nil {
 		return validation.VNull(), err

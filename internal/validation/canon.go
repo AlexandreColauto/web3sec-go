@@ -276,16 +276,16 @@ func writeEscaped(b *strings.Builder, s string) {
 		case r == '\t':
 			b.WriteString("\\t")
 		case r < 0x20 || r == 0x7f:
-			writeU4(b, r)
+			WriteU4(b, r)
 		case r <= 0x7e:
 			b.WriteRune(r)
 		default:
 			if r > 0xffff {
 				r2 := r - 0x10000
-				writeU4(b, 0xd800+rune(r2>>10&0x3ff))
-				writeU4(b, 0xdc00+rune(r2&0x3ff))
+				WriteU4(b, 0xd800+rune(r2>>10&0x3ff))
+				WriteU4(b, 0xdc00+rune(r2&0x3ff))
 			} else {
-				writeU4(b, r)
+				WriteU4(b, r)
 			}
 		}
 		i += size
@@ -295,7 +295,7 @@ func writeEscaped(b *strings.Builder, s string) {
 const hexd = "0123456789abcdef"
 
 // writeU4 writes a \uXXXX escape for a rune <= 0xffff.
-func writeU4(b *strings.Builder, r rune) {
+func WriteU4(b *strings.Builder, r rune) {
 	b.WriteString("\\u")
 	b.WriteByte(hexd[(r>>12)&0xf])
 	b.WriteByte(hexd[(r>>8)&0xf])
@@ -405,7 +405,7 @@ func writeEscapedRaw(b *strings.Builder, s string) {
 		case r == '\t':
 			b.WriteString("\\t")
 		case r < 0x20:
-			writeU4(b, r)
+			WriteU4(b, r)
 		default:
 			b.WriteRune(r)
 		}

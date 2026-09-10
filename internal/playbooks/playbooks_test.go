@@ -410,35 +410,8 @@ func TestShippedSimulationPlaybooksCarryModeAndExpectation(t *testing.T) {
 
 // ---- embed byte-identity -------------------------------------------------
 
-// TestEmbeddedPackIsByteIdenticalToPythonRepo is the acceptance check the
-// task demands: every embedded YAML must equal the live Python repo's file.
-// It skips when the reference tree is absent (the e2e-sharevault convention).
-func TestEmbeddedPackIsByteIdenticalToPythonRepo(t *testing.T) {
-	pyDir := filepath.Join("..", "..", "..", "web3sec-final", "playbooks")
-	if st, err := os.Stat(pyDir); err != nil || !st.IsDir() {
-		t.Skipf("python reference repo absent at %s", pyDir)
-	}
-	names, err := listFiles()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(names) != 8 {
-		t.Fatalf("embedded pack lists %d files, want 8", len(names))
-	}
-	for _, name := range names {
-		want, err := os.ReadFile(filepath.Join(pyDir, name))
-		if err != nil {
-			t.Fatalf("python repo lacks %s: %v", name, err)
-		}
-		got, err := readFile(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if string(got) != string(want) {
-			t.Fatalf("%s differs from the Python repo's copy", name)
-		}
-	}
-}
+// The former twin byte-identity acceptance check moved to
+// assets.TestAssetPackManifest (committed SHA-256 manifest, no external tree).
 
 func allDigits(s string) bool {
 	if s == "" {

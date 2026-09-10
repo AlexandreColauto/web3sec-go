@@ -102,7 +102,7 @@ func statusStages(st validation.Value, verbose bool) ([]validation.KV, error) {
 			if !verbose && runeLen(noteStr) > StatusNoteCap {
 				short := string([]rune(noteStr)[:StatusNoteCap]) +
 					" …[truncated; use --verbose]"
-				e.O = setOrAppend(e.O, "note", validation.VStr(short))
+				e.O = validation.SetOrAppend(e.O, "note", validation.VStr(short))
 			}
 		}
 		view = append(view, kvOf(entry.K, e))

@@ -1,5 +1,5 @@
 // Port of tests/test_campaign_complete.py's two state-level functions.
-// PYTHON WINS. (The broader TestComplete in phases_test.go covers the same
+// The Python twin was retired 2026-09-09; this package is the source of truth. (The broader TestComplete in phases_test.go covers the same
 // API; these keep the Python row mapping 1:1.)
 package state
 

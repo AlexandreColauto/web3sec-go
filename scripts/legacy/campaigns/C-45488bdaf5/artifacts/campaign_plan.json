@@ -1,0 +1,208 @@
+{
+  "campaign_id": "C-45488bdaf5",
+  "created_at": "2026-09-09T12:00:03.000000+00:00",
+  "snapshot_id": "unpinned",
+  "strategy_note": "bootstrapped deterministically from protocol model; refine via the planner stage",
+  "priorities": [
+    {
+      "id": "Q-001",
+      "question": "Economic transform donation-attack: Can anyone transfer assets directly to the accounting contract, inflating a share/price denominator they don't own?",
+      "risk": 0.75,
+      "components": [
+        "accounting"
+      ],
+      "invariant_ids": [],
+      "required_context": [
+        "structural_index",
+        "protocol_model"
+      ],
+      "trajectories": [
+        "economic"
+      ],
+      "recommended_stages": [],
+      "budget_class": "standard",
+      "status": "answered",
+      "closed_reason": "covered by F1",
+      "closed_ref": "F-df01bb454ed5",
+      "closed_at": "2026-09-09T12:00:08.000000+00:00",
+      "closed_by": "cli"
+    },
+    {
+      "id": "Q-002",
+      "question": "Economic transform first-depositor-rounding: Can the first depositor mint shares at a rounded-down rate and steal the next depositor's rounding dust — or invert it via a donation?",
+      "risk": 0.75,
+      "components": [
+        "accounting"
+      ],
+      "invariant_ids": [],
+      "required_context": [
+        "structural_index",
+        "protocol_model"
+      ],
+      "trajectories": [
+        "economic"
+      ],
+      "recommended_stages": [],
+      "budget_class": "standard",
+      "status": "open"
+    },
+    {
+      "id": "Q-003",
+      "question": "Economic transform flash-loan-amplification: With unlimited borrowed capital for one transaction, which assumption about capital cost breaks?",
+      "risk": 0.75,
+      "components": [
+        "accounting"
+      ],
+      "invariant_ids": [],
+      "required_context": [
+        "structural_index",
+        "protocol_model"
+      ],
+      "trajectories": [
+        "economic"
+      ],
+      "recommended_stages": [],
+      "budget_class": "standard",
+      "status": "open"
+    },
+    {
+      "id": "Q-004",
+      "question": "Economic transform liquidity-withdrawal-bounded: What is the realistic extractable ceiling given pool depth, not theoretical exposure?",
+      "risk": 0.75,
+      "components": [
+        "accounting"
+      ],
+      "invariant_ids": [],
+      "required_context": [
+        "structural_index",
+        "protocol_model"
+      ],
+      "trajectories": [
+        "economic"
+      ],
+      "recommended_stages": [],
+      "budget_class": "standard",
+      "status": "open"
+    },
+    {
+      "id": "Q-005",
+      "question": "Test the uncovered critical invariant: balances move atomically",
+      "risk": 0.7,
+      "components": [
+        "Vault"
+      ],
+      "invariant_ids": [
+        "INV-1"
+      ],
+      "required_context": [
+        "structural_index",
+        "protocol_model"
+      ],
+      "trajectories": [
+        "code",
+        "state-machine"
+      ],
+      "recommended_stages": [],
+      "budget_class": "standard",
+      "status": "open"
+    },
+    {
+      "id": "Q-006",
+      "question": "Test the uncovered critical invariant: total tracks deposits",
+      "risk": 0.7,
+      "components": [
+        "Vault"
+      ],
+      "invariant_ids": [
+        "INV-2"
+      ],
+      "required_context": [
+        "structural_index",
+        "protocol_model"
+      ],
+      "trajectories": [
+        "code",
+        "state-machine"
+      ],
+      "recommended_stages": [],
+      "budget_class": "standard",
+      "status": "open"
+    },
+    {
+      "id": "Q-007",
+      "question": "Which known exploit patterns apply to this protocol's design (history mining)?",
+      "risk": 0.6,
+      "components": [],
+      "invariant_ids": [],
+      "required_context": [
+        "structural_index",
+        "protocol_model"
+      ],
+      "trajectories": [
+        "historical"
+      ],
+      "recommended_stages": [],
+      "budget_class": "cheap",
+      "status": "open"
+    }
+  ],
+  "trajectory_matrix": {
+    "A-code": "implementation-centric: find bugs in the code as written",
+    "B-economic": "economic attacker: assume the protocol is economically exploitable and find the imbalance",
+    "C-state-machine": "state-machine attacker: find dangerous call/state sequences and illegal transitions",
+    "D-attacker": "privileged actor: assume the attacker holds each realistic role and abuse it",
+    "E-historical": "historical analog: find variants of known exploits, patches and disclosures",
+    "F-integration": "adversarial integrator: assume every external contract/token behaves unexpectedly",
+    "G-drift": "spec drift: spec vs implementation vs deployment vs config divergence",
+    "H-lifecycle": "consensus/lifecycle game: model the full commit→challenge→finalize (or propose→vote→execute) game and the adversary WINNING it — a valid transition proven from an invalid claimed root, a challenge that never fires, a finalization that can be blocked"
+  },
+  "coverage_targets": {
+    "min_invariants": 1,
+    "min_trajectories_per_critical_component": 2,
+    "components_must_cover": [
+      "Vault"
+    ]
+  },
+  "lenses": [
+    {
+      "id": "L-01",
+      "lens": "liveness",
+      "surface": "protocol",
+      "question": "LIVENESS: is there a reachable state from which an intended transition (finalize, withdraw, challenge, claim) is permanently impossible? At which layer, and who can reach that state? State machines in the model: protocol (none declared)",
+      "status": "open",
+      "families": [
+        "protocol"
+      ]
+    },
+    {
+      "id": "L-02",
+      "lens": "incentive-inversion",
+      "surface": "protocol",
+      "question": "INCENTIVE-INVERSION: does the protocol ever PAY an attacker or PUNISH an honest actor (challenge, slash, claim, delegate) under any reachable state? Trace what the honest participant gets for being right. State machines in the model: protocol (none declared)",
+      "status": "open",
+      "families": [
+        "user"
+      ]
+    },
+    {
+      "id": "L-03",
+      "lens": "enforcement-timing",
+      "surface": "protocol",
+      "question": "ENFORCEMENT-TIMING: for each security-critical check, is it enforced at the EARLIEST lifecycle stage it could be (intake, not execution)? A check that exists only at finalize/execute time is a candidate. State machines in the model: protocol (none declared)",
+      "status": "open",
+      "families": [
+        "protocol"
+      ]
+    },
+    {
+      "id": "L-04",
+      "lens": "primitive-symmetry",
+      "surface": "protocol",
+      "question": "PRIMITIVE-SYMMETRY: group functions into sibling lifecycle families (deposit <-> withdraw <-> drop <-> refund) and compare primitives + access control across siblings. A family that burns on one path and mints/safeTransfers on another is a candidate. State machines in the model: protocol (none declared)",
+      "status": "open",
+      "families": [
+        "protocol"
+      ]
+    }
+  ]
+}

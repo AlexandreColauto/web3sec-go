@@ -289,17 +289,17 @@ func IngestHypothesis(campaign *state.Campaign, payload validation.Value,
 	ts := nowIso()
 	p := validation.Value{Kind: validation.Obj,
 		O: append([]validation.KV(nil), payload.O...)}
-	p.O = setOrAppend(p.O, "finding_id", validation.VStr(fid))
-	p.O = setOrAppend(p.O, "campaign_id", validation.VStr(campaign.CampaignID))
-	p.O = setOrAppend(p.O, "snapshot_ids", validation.VObj(
+	p.O = validation.SetOrAppend(p.O, "finding_id", validation.VStr(fid))
+	p.O = validation.SetOrAppend(p.O, "campaign_id", validation.VStr(campaign.CampaignID))
+	p.O = validation.SetOrAppend(p.O, "snapshot_ids", validation.VObj(
 		validation.KV{K: "source", V: sourcePinOrUnpinned(campaign)},
 		validation.KV{K: "deployment", V: validation.VNull()},
 		validation.KV{K: "chain", V: validation.VNull()},
 	))
-	p.O = setOrAppend(p.O, "created_at", validation.VStr(ts))
-	p.O = setOrAppend(p.O, "updated_at", validation.VStr(ts))
-	p.O = setOrAppend(p.O, "status", validation.VStr("HYPOTHESIS"))
-	p.O = setOrAppend(p.O, "trajectory", validation.VStr(trajectory))
+	p.O = validation.SetOrAppend(p.O, "created_at", validation.VStr(ts))
+	p.O = validation.SetOrAppend(p.O, "updated_at", validation.VStr(ts))
+	p.O = validation.SetOrAppend(p.O, "status", validation.VStr("HYPOTHESIS"))
+	p.O = validation.SetOrAppend(p.O, "trajectory", validation.VStr(trajectory))
 	for _, k := range []string{"evidence", "risk", "dedup"} {
 		if _, ok := fieldAt(p, k); !ok {
 			if k == "evidence" {
@@ -311,7 +311,7 @@ func IngestHypothesis(campaign *state.Campaign, payload validation.Value,
 	}
 	reason := "ingested from " + orDefault(stage, "unknown stage")
 	actor := orDefault(stage, "ingest")
-	p.O = setOrAppend(p.O, "history", validation.VArr(validation.VObj(
+	p.O = validation.SetOrAppend(p.O, "history", validation.VArr(validation.VObj(
 		validation.KV{K: "at", V: validation.VStr(ts)},
 		validation.KV{K: "from", V: validation.VStr("NEW")},
 		validation.KV{K: "to", V: validation.VStr("HYPOTHESIS")},
@@ -335,8 +335,8 @@ func IngestHypothesis(campaign *state.Campaign, payload validation.Value,
 	sig := TechnicalSignature(classSig(rootClass), sigPath(first),
 		sigOpt(first, "function"), sigOpt(objAt(p, "invariant"), "id"))
 	dedup := objAt(p, "dedup")
-	dedup.O = setOrAppend(dedup.O, "technical_signature", validation.VStr(sig))
-	p.O = setOrAppend(p.O, "dedup", dedup)
+	dedup.O = validation.SetOrAppend(dedup.O, "technical_signature", validation.VStr(sig))
+	p.O = validation.SetOrAppend(p.O, "dedup", dedup)
 
 	if err := validation.Validate(p, "finding", 5); err != nil {
 		return validation.VNull(), err
@@ -507,7 +507,7 @@ func AddEvidence(campaign *state.Campaign, findingID string,
 		O: append([]validation.KV(nil), item.O...)}
 	if pa, ok := fieldAt(it, "produced_at"); !ok ||
 		pa.Kind == validation.Null {
-		it.O = setOrAppend(it.O, "produced_at", validation.VStr(nowIso()))
+		it.O = validation.SetOrAppend(it.O, "produced_at", validation.VStr(nowIso()))
 	}
 	if err := validateEvidenceItem(it); err != nil {
 		return validation.VNull(), err
@@ -532,7 +532,7 @@ func AddEvidence(campaign *state.Campaign, findingID string,
 	}
 	ev := objAt(finding, "evidence")
 	ev.A = append(ev.A, it)
-	finding.O = setOrAppend(finding.O, "evidence", ev)
+	finding.O = validation.SetOrAppend(finding.O, "evidence", ev)
 	if err := SaveFinding(campaign, &finding); err != nil {
 		return validation.VNull(), err
 	}

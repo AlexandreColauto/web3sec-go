@@ -2,7 +2,7 @@
 // (the three LR tests), tests/test_campaign_memory_strip.py,
 // tests/test_promotion.py, tests/test_partition_guards.py (the approve
 // half) and the two queue_memory capability-label tests from
-// tests/test_recall_relevance.py. PYTHON WINS.
+// tests/test_recall_relevance.py. The Python twin was retired 2026-09-09; this package is the source of truth.
 package learning
 
 import (
@@ -407,7 +407,7 @@ func queuePartitioned(t *testing.T, c *state.Campaign,
 		Pattern:  "a prior observation partitioned " + partition,
 		BugClass: strPtr("reentrancy")})
 	if partition != "dev" {
-		mem.O = setOrAppend(mem.O, "partition", validation.VStr(partition))
+		mem.O = validation.SetOrAppend(mem.O, "partition", validation.VStr(partition))
 		path := filepath.Join(c.MemoryDir, objStr(mem, "memory_id")+".json")
 		if err := validation.WriteJson(path, mem, "memory"); err != nil {
 			t.Fatalf("stamp partition: %v", err)

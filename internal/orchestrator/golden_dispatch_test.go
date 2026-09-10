@@ -298,7 +298,7 @@ func mutateFinding(c *state.Campaign, args validation.Value,
 		return validation.VNull(), err
 	}
 	for _, kv := range objAt(args, "fields").O {
-		f.O = setOrAppend(f.O, kv.K, kv.V)
+		f.O = validation.SetOrAppend(f.O, kv.K, kv.V)
 	}
 	if err := findings.SaveFinding(c, &f); err != nil {
 		return validation.VNull(), err

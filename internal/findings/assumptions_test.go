@@ -46,7 +46,7 @@ func assumptionPayload(over ...validation.KV) validation.Value {
 		kv("blocking", validation.VBool(true)),
 	)
 	for _, o := range over {
-		base.O = setOrAppend(base.O, o.K, o.V)
+		base.O = validation.SetOrAppend(base.O, o.K, o.V)
 	}
 	return base
 }

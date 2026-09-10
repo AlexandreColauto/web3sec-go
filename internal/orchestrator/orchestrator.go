@@ -218,17 +218,6 @@ func pyLen(v validation.Value) int {
 	return 0
 }
 
-// setOrAppend is Python's d[key] = value: an existing key keeps its position.
-func setOrAppend(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i, kv := range o {
-		if kv.K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, kvOf(key, v))
-}
-
 // copyObj is dict(entry): a shallow copy that can be mutated in place.
 func copyObj(v validation.Value) validation.Value {
 	if v.Kind != validation.Obj {

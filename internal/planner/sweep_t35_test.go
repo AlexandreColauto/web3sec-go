@@ -300,7 +300,7 @@ func TestRound5LensEntryStillValidatesWithoutSymmetry(t *testing.T) {
 		"created_at":"2026-09-08T00:00:00Z",
 		"priorities":[{"id":"Q-001","question":"xxxxxxxxxxxxxxxxxxxx",
 			"risk":0.5,"trajectories":["code"]}]}`)
-	plan.O = setOrAppend(plan.O, "lenses", validation.VArr(lens))
+	plan.O = validation.SetOrAppend(plan.O, "lenses", validation.VArr(lens))
 	if err := validation.Validate(plan, "campaign_plan", 1); err != nil {
 		t.Fatalf("round-5 lens entry without symmetry rejected: %v", err)
 	}

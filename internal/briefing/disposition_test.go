@@ -37,9 +37,9 @@ func drWritePlan(t *testing.T, camp *state.Campaign,
 	prios := objAt(plan, "priorities")
 	for i := range prios.A {
 		if objStr(prios.A[i], "id") == priorityID {
-			prios.A[i].O = setOrAppend(prios.A[i].O, "status",
+			prios.A[i].O = validation.SetOrAppend(prios.A[i].O, "status",
 				validation.VStr("answered"))
-			prios.A[i].O = setOrAppend(prios.A[i].O, "closed_reason",
+			prios.A[i].O = validation.SetOrAppend(prios.A[i].O, "closed_reason",
 				validation.VStr(reason))
 		}
 	}

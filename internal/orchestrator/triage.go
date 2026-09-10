@@ -240,7 +240,7 @@ func (o *Orchestrator) BountyGateAll() (validation.Value, error) {
 			// keeps the FIRST position and takes the gate's value.
 			row := validation.VObj(kvOf("finding_id", validation.VStr(fid)))
 			for _, kv := range gate.O {
-				row.O = setOrAppend(row.O, kv.K, kv.V)
+				row.O = validation.SetOrAppend(row.O, kv.K, kv.V)
 			}
 			out = append(out, row)
 		}

@@ -60,11 +60,11 @@ func TestBriefGateAndReportSurviveAnUnpriceableDecision(t *testing.T) {
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppendKV(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kvT("tier_reached", validation.VStr("T3")),
 		kvT("status", validation.VStr("reproduced")),
 		kvT("attempts", validation.VArr())))
-	f.O = setOrAppendKV(f.O, "verification", ver)
+	f.O = validation.SetOrAppend(f.O, "verification", ver)
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
 	}

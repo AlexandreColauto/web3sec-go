@@ -1,0 +1,103 @@
+{
+  "ladder_id": "LAD-5852855e",
+  "finding_id": "F-df01bb454ed5",
+  "campaign_id": "C-45488bdaf5",
+  "created_at": "2026-09-09T12:00:17.000000+00:00",
+  "updated_at": "2026-09-09T12:00:27.000000+00:00",
+  "axes_explored": [
+    "capital-minimization",
+    "cap-saturation",
+    "precondition-removal",
+    "role-conflation",
+    "ordering-permutation"
+  ],
+  "axis_notes": {
+    "cap-saturation": "considered, not applicable here",
+    "precondition-removal": "considered, not applicable here",
+    "role-conflation": "considered, not applicable here",
+    "ordering-permutation": "considered, not applicable here"
+  },
+  "variants": [
+    {
+      "rung_id": "R-5ab9dd",
+      "name": "base",
+      "description": "as claimed at reproduction: Atomic balance violated on deposit",
+      "axes": [],
+      "capital_usd": null,
+      "extraction_ratio": null,
+      "removed_preconditions": [],
+      "added_preconditions": [],
+      "status": "reproduced",
+      "exec_id": "EXEC-a9b19962f6",
+      "evidence_id": null,
+      "reason": "",
+      "created_at": "2026-09-09T12:00:17.000000+00:00",
+      "reproduced_at": null
+    },
+    {
+      "rung_id": "R-d4b8e2",
+      "name": "dust",
+      "description": "dust the pool with one wei",
+      "axes": [
+        "capital-minimization"
+      ],
+      "capital_usd": 1.0,
+      "extraction_ratio": 1.0,
+      "removed_preconditions": [
+        "victim stakes"
+      ],
+      "added_preconditions": [],
+      "status": "reproduced",
+      "exec_id": "EXEC-a9b19962f6",
+      "evidence_id": "EV-ecffa30c",
+      "reason": "",
+      "created_at": "2026-09-09T12:00:18.000000+00:00",
+      "reproduced_at": "2026-09-09T12:00:23.000000+00:00"
+    },
+    {
+      "rung_id": "R-bacd4d",
+      "name": "dead-end",
+      "description": "the only remaining drain path",
+      "axes": [
+        "precondition-removal"
+      ],
+      "capital_usd": 1.0,
+      "extraction_ratio": 1.0,
+      "removed_preconditions": [
+        "the timelock"
+      ],
+      "added_preconditions": [],
+      "status": "disproved",
+      "exec_id": null,
+      "evidence_id": null,
+      "reason": "the removed timelock precondition is enforced by the guard",
+      "created_at": "2026-09-09T12:00:25.000000+00:00",
+      "reproduced_at": null
+    }
+  ],
+  "maximal_rung_id": "R-d4b8e2",
+  "disposition": {
+    "state": "complete",
+    "reason": null,
+    "actor": "cli",
+    "at": "2026-09-09T12:00:27.000000+00:00"
+  },
+  "history": [
+    {
+      "at": "2026-09-09T12:00:23.000000+00:00",
+      "rung_id": "R-d4b8e2",
+      "event": "reproduced",
+      "exec_id": "EXEC-a9b19962f6"
+    },
+    {
+      "at": "2026-09-09T12:00:24.000000+00:00",
+      "rung_id": "R-d4b8e2",
+      "event": "claim_pinned"
+    },
+    {
+      "at": "2026-09-09T12:00:26.000000+00:00",
+      "rung_id": "R-bacd4d",
+      "event": "disproved"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ package cli
 import (
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/findings"
 )
@@ -119,7 +120,7 @@ func TestMintMissingExecIsGenericError(t *testing.T) {
 	repro := objAt(objAt(objAt(finding, "verification"), "reproduction"),
 		"attempts")
 	if len(repro.A) != 0 {
-		t.Fatalf("attempts not rolled back: %s", prettyASCII(repro))
+		t.Fatalf("attempts not rolled back: %s", validation.DumpIndentedASCII(repro))
 	}
 }
 

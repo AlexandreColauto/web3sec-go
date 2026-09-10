@@ -56,7 +56,7 @@ func hypoPayload(over ...validation.KV) validation.Value {
 		)),
 	)
 	for _, o := range over {
-		base.O = setOrAppend(base.O, o.K, o.V)
+		base.O = validation.SetOrAppend(base.O, o.K, o.V)
 	}
 	return base
 }
@@ -270,7 +270,7 @@ func TestExecProfileMismatchIsRejected(t *testing.T) {
 	fid := objStr(f, "finding_id")
 	rec := testExec(t, c, "docker-networkless", fid, 0, "PASS: test_exploit\n")
 	bad := execEvidenceItem(rec, "E4", "foundry-test", "misclaimed profile", "EV-m")
-	bad.O = setOrAppend(bad.O, "sandbox_profile", validation.VStr("docker-gvisor"))
+	bad.O = validation.SetOrAppend(bad.O, "sandbox_profile", validation.VStr("docker-gvisor"))
 	_, err := AddEvidence(c, fid, bad)
 	wantErr(t, err, "ran under")
 }

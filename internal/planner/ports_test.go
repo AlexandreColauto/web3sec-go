@@ -127,7 +127,7 @@ func TestPortSeedLensesHealsPreLensPlan(t *testing.T) {
 	if err != nil {
 		t.Fatalf("default plan: %v", err)
 	}
-	plan.O = setOrAppend(plan.O, "lenses", validation.VArr())
+	plan.O = validation.SetOrAppend(plan.O, "lenses", validation.VArr())
 	added, _ := SeedLenses(plan, model)
 	ids := []string{}
 	for _, l := range added {
@@ -149,15 +149,15 @@ func TestPortPriorityBugClassHardValidates(t *testing.T) {
 	bad := append(listOf(plan, "priorities"), jsonValue(t,
 		`{"id":"Q-900","question":"bogus class: vibes-based shape","risk":0.5,
 		  "trajectories":["code"],"status":"open","bug_class":"vibes-based"}`))
-	plan.O = setOrAppend(plan.O, "priorities", validation.VArr(bad...))
+	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(bad...))
 	if _, err := SavePlan(camp, plan); err == nil ||
 		!strings.Contains(err.Error(), "non-canonical bug_class") {
 		t.Fatalf("save_plan error = %v, want non-canonical bug_class", err)
 	}
 	last := bad[len(bad)-1]
-	last.O = setOrAppend(last.O, "bug_class", validation.VStr("logic-error"))
+	last.O = validation.SetOrAppend(last.O, "bug_class", validation.VStr("logic-error"))
 	bad[len(bad)-1] = last
-	plan.O = setOrAppend(plan.O, "priorities", validation.VArr(bad...))
+	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(bad...))
 	if _, err := SavePlan(camp, plan); err != nil {
 		t.Fatalf("canonical class rejected: %v", err)
 	}
@@ -240,7 +240,7 @@ func TestPortRound4LensEntryStillValidates(t *testing.T) {
 		"created_at":"2026-09-07T00:00:00Z",
 		"priorities":[{"id":"Q-001","question":"xxxxxxxxxxxxxxxxxxxx",
 			"risk":0.5,"trajectories":["code"]}]}`)
-	plan.O = setOrAppend(plan.O, "lenses", validation.VArr(lens))
+	plan.O = validation.SetOrAppend(plan.O, "lenses", validation.VArr(lens))
 	if err := validation.Validate(plan, "campaign_plan", 1); err != nil {
 		t.Fatalf("round-4 lens entry rejected: %v", err)
 	}
@@ -472,7 +472,7 @@ func constraintQuestions(plan validation.Value) []validation.Value {
 func portPlanWithPrivileges(t *testing.T, privileges string) validation.Value {
 	t.Helper()
 	camp, model := portRichCampaign(t, true)
-	model.O = setOrAppend(model.O, "privileges", jsonValue(t, privileges))
+	model.O = validation.SetOrAppend(model.O, "privileges", jsonValue(t, privileges))
 	plan, err := DefaultPlanFromModel(camp, model)
 	if err != nil {
 		t.Fatalf("default plan: %v", err)

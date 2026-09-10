@@ -1,6 +1,8 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
-Date: 2026-09-10 · Status: PROPOSAL → implementation in waves A→E.
+Date: 2026-09-10 · Status: waves A–D + C0 + E5 LANDED; E1–E4 deferred by
+principle 6; D8 awaits a decision; the port-scaffolding cleanup is wave F
+(`docs/LEANNESS_REVIEW.md`).
 
 Source: the Morph L2 rollup campaign (`C-42bd211e3e`, 537 events, 52 findings,
 snapshot `22ca805e`) against the gold-standard eval with two planted bugs
@@ -28,13 +30,14 @@ campaign exposed. All anchors below were verified against the code on
 
 ## Design principles
 
-1. **Go is the source of truth.** The Python twin is deprecated; no
-   byte-compat obligation, but `scripts/golden.sh` must stay green (179 steps ×
-   2 twins, 68 files byte-match). New features are **additive**: new CLI verbs,
+1. **Go is the source of truth.** The Python twin is retired (2026-09-09); no
+   byte-compat obligation, and `scripts/golden.sh` — Go-only since the P4
+   cutover — must stay green. New features are **additive**: new CLI verbs,
    new flags with defaults that preserve current output, new report sections
    gated behind the new fields being present. Where a new section changes an
-   existing report's bytes for an existing campaign, a
-   `KNOWN_DIVERGENCES.md` row is added.
+   existing report's bytes for an existing campaign, it is called out in the
+   commit message (the divergence ledger at `docs/archive/KNOWN_DIVERGENCES.md`
+   is frozen history; Go-only changes need no row).
 2. **Fail-open where judgment, fail-closed where money.** Accepted-risk hits
    flag + block submission (not hard-reject like exclusions); evidence floors
    stay fail-closed.
@@ -1451,11 +1454,12 @@ a decision to take with a real program page in hand, not in the abstract.
 
 ## Wave E — Remaining asks  *(DEFERRED by the surface budget — principle 6)*
 
-**Status (2026-09-10):** E1–E6 are recorded, not scheduled. Each one adds a new
-capability surface for a workflow the evaluated campaigns never hit, and E5
-(reversibility in scoring) would move scores, rankings and goldens for a
-modelling gain that needs a campaign to justify it. They land when a real run
-trips them — that is what this document is for.
+**Status (2026-09-10, updated):** **E5 has LANDED** (checkpoint `92104cf`:
+`risk.reversibility` ∈ {irreversible +3.0, trusted-party +2.0, reversible
++0.0}, absent = byte-identical scoring; G-02 regression pins 7.0 high — E6
+is closed by it). E1–E4 remain recorded, not scheduled: each adds a new
+capability surface for a workflow the evaluated campaigns never hit. They
+land when a real run trips them — that is what this document is for.
 
 ### E1. Finding amend/supersede (prior-round C1, P1-1)
 
@@ -1669,12 +1673,14 @@ S ≈ <2h, M ≈ 2–5h, L ≈ 5–8h of focused work.
 ## Verification plan
 
 1. **Unit:** every item above ships its listed tests; `go test ./...` green
-   (baseline: 1,963 test functions, 62 packages).
-2. **Golden:** `scripts/golden.sh` after each step (baseline: 179 steps × 2
-   twins, 68 files byte-match). Any new report section that would change
-   bytes for an existing golden campaign gets a `KNOWN_DIVERGENCES.md` row —
+   (baseline counts live in the CI output, not in this document).
+2. **Golden:** `scripts/golden.sh` after each step (Go-only since the P4
+   cutover). Any new report section that would change
+   bytes for an existing golden campaign gets a commit-message callout —
+   the divergence ledger (`docs/archive/KNOWN_DIVERGENCES.md`) is frozen
+   history and takes no new rows;
    all new sections are gated on new-field presence, so the expectation is
-   **zero** new divergences.
+   **zero** byte changes on existing campaigns.
 3. **Campaign replay (the real test):** on a copy of
    `morph/campaigns/C-42bd211e3e`:
    - `webv2 scope --policy policy-v2.json` (policy with `accepted_risks`,
@@ -1702,6 +1708,11 @@ S ≈ <2h, M ≈ 2–5h, L ≈ 5–8h of focused work.
 
 ## Golden-suite & divergence ledger impact
 
+> **Ledger frozen (2026-09-10):** the sections below were written while
+> `KNOWN_DIVERGENCES.md` still accepted rows. It now lives in
+> `docs/archive/` and takes none; where they say "row", read
+> "commit-message callout". Everything they concluded was verified true.
+
 - New CLI verbs (ack, rank, chain, enforce, symmetry,
   dedup-signature, artifacts reconcile, memory queue/reflect/reject/promote,
   amend, supersede, probes dispose, exploit): **no golden impact** unless the
@@ -1726,6 +1737,9 @@ S ≈ <2h, M ≈ 2–5h, L ≈ 5–8h of focused work.
   needed if a future checker starts diffing `--help`/usage output.
 
 ## Divergence ledger (to add as items land)
+
+> Retained as the landing checklist it became; the rows were never written —
+> no item shipped a byte change on an existing campaign (ledger frozen).
 
 | # | Change | Reason | Golden impact |
 |---|---|---|---|

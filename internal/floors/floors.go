@@ -158,7 +158,7 @@ func SetFloorPolicy(campaign *state.Campaign, bugClass, floor, actor,
 		}
 		remaining = append(remaining, e)
 	}
-	st.O = setOrAppend(st.O, "floor_policy",
+	st.O = validation.SetOrAppend(st.O, "floor_policy",
 		validation.VArr(append(remaining, entry)...))
 	if err := saveStateFunc(campaign, st); err != nil {
 		return validation.VNull(), err
@@ -202,7 +202,7 @@ func ClearFloorPolicy(campaign *state.Campaign, bugClass, actor, reason string) 
 			"no floor override for class %s in this campaign",
 			validation.PyReprStr(bugClass))}
 	}
-	st.O = setOrAppend(st.O, "floor_policy", validation.VArr(remaining...))
+	st.O = validation.SetOrAppend(st.O, "floor_policy", validation.VArr(remaining...))
 	if err := saveStateFunc(campaign, st); err != nil {
 		return err
 	}
@@ -441,19 +441,6 @@ func inEvidenceOrder(floor string) bool {
 		}
 	}
 	return false
-}
-
-// setOrAppend is _save's dict assignment: an existing key keeps its position
-// and takes the new value, a new key appends.
-func setOrAppend(obj []validation.KV, key string,
-	value validation.Value) []validation.KV {
-	for i := range obj {
-		if obj[i].K == key {
-			obj[i].V = value
-			return obj
-		}
-	}
-	return append(obj, validation.KV{K: key, V: value})
 }
 
 // hasKey is Python's `key in dict` (distinct from a present-but-null value).

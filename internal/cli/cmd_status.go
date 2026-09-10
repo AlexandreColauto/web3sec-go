@@ -70,7 +70,7 @@ func runStatus(root string, args []string, stdout io.Writer) error {
 		validation.KV{K: "coverage_summary", V: coverage},
 		validation.KV{K: "stages", V: statusStages(st, verbose)},
 	)
-	fmt.Fprintln(stdout, prettyASCII(status))
+	fmt.Fprintln(stdout, validation.DumpIndentedASCII(status))
 	return nil
 }
 

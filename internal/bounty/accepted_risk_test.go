@@ -18,7 +18,7 @@ import (
 // finding matches ("price skew" is in its title).
 func policyWithAcceptedRisk() validation.Value {
 	p := testPolicy()
-	p.O = setOrAppend(p.O, "accepted_risks", validation.VArr(
+	p.O = validation.SetOrAppend(p.O, "accepted_risks", validation.VArr(
 		validation.VObj(
 			kv("pattern", validation.VStr("price skew")),
 			kv("kind", validation.VStr("known-issue")),
@@ -146,11 +146,11 @@ func TestAcceptedRiskWaiverUnblocks(t *testing.T) {
 // exclusions and accepted_risks — the narrower rule must win.
 func policyWithAcceptedRiskOverExclusion() validation.Value {
 	p := testPolicy()
-	p.O = setOrAppend(p.O, "exclusions", validation.VArr(
+	p.O = validation.SetOrAppend(p.O, "exclusions", validation.VArr(
 		validation.VObj(
 			kv("pattern", validation.VStr("price skew")),
 			kv("kind", validation.VStr("known-issue")))))
-	p.O = setOrAppend(p.O, "accepted_risks", validation.VArr(
+	p.O = validation.SetOrAppend(p.O, "accepted_risks", validation.VArr(
 		validation.VObj(
 			kv("pattern", validation.VStr("price skew")),
 			kv("kind", validation.VStr("accepted-risk")))))
@@ -191,7 +191,7 @@ func TestAcceptedRiskSuppressesSamePatternExclusion(t *testing.T) {
 func TestAcceptedRiskMinSeverityCap(t *testing.T) {
 	c, fid := bountyFixture(t)
 	p := testPolicy()
-	p.O = setOrAppend(p.O, "accepted_risks", validation.VArr(
+	p.O = validation.SetOrAppend(p.O, "accepted_risks", validation.VArr(
 		validation.VObj(
 			kv("pattern", validation.VStr("price skew")),
 			kv("min_severity", validation.VStr("high")))))
@@ -223,7 +223,7 @@ func TestAcceptedRiskMinSeverityCap(t *testing.T) {
 	// A critical floor: high < critical → honored.
 	c2, fid2 := bountyFixture(t)
 	p2 := testPolicy()
-	p2.O = setOrAppend(p2.O, "accepted_risks", validation.VArr(
+	p2.O = validation.SetOrAppend(p2.O, "accepted_risks", validation.VArr(
 		validation.VObj(
 			kv("pattern", validation.VStr("price skew")),
 			kv("min_severity", validation.VStr("critical")))))

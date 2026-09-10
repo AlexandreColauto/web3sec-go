@@ -5,7 +5,7 @@ package cli
 //
 // Ports: tests/test_chain_engine.py, tests/test_privileged_baseline.py and
 // tests/test_privileged_bands.py exercised through the CLI, plus the argparse
-// and handler vectors captured from the live Python CLI. PYTHON WINS.
+// and handler vectors captured from the live Python CLI. The Python twin was retired 2026-09-09; this package is the source of truth.
 
 import (
 	"regexp"
@@ -191,8 +191,8 @@ func TestT23SeamsWired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Chaining: %v", err)
 	}
-	if prettyASCII(got) != prettyASCII(sentinel) {
-		t.Fatalf("sentinel not installed: %q", prettyASCII(got))
+	if validation.DumpIndentedASCII(got) != validation.DumpIndentedASCII(sentinel) {
+		t.Fatalf("sentinel not installed: %q", validation.DumpIndentedASCII(got))
 	}
 	t23WireSeams()
 	got, err = orchestrator.New(c).Chaining()
@@ -203,9 +203,9 @@ func TestT23SeamsWired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ChainReport: %v", err)
 	}
-	if prettyASCII(got) != prettyASCII(want) {
+	if validation.DumpIndentedASCII(got) != validation.DumpIndentedASCII(want) {
 		t.Fatalf("orchestrator seam not wired:\n%q\nwant\n%q",
-			prettyASCII(got), prettyASCII(want))
+			validation.DumpIndentedASCII(got), validation.DumpIndentedASCII(want))
 	}
 	if v, err := (t23Maximization{}).LoadLadder(c, fid); err != nil ||
 		v.Kind != validation.Null {

@@ -268,8 +268,8 @@ func portMakeSubmissionReady(t *testing.T, c *state.Campaign, findingID,
 	if ei.Kind != validation.Obj {
 		ei = validation.VObj()
 	}
-	ei.O = setOrAppend(ei.O, "price_basis", validation.VStr("PRC-acme01"))
-	f.O = setOrAppend(f.O, "economic_impact", ei)
+	ei.O = validation.SetOrAppend(ei.O, "price_basis", validation.VStr("PRC-acme01"))
+	f.O = validation.SetOrAppend(f.O, "economic_impact", ei)
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatalf("save finding: %v", err)
 	}
@@ -654,13 +654,13 @@ func portStepVerdict(t *testing.T, c *state.Campaign, fid string) {
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kvOf("tier_reached", validation.VStr("T1")),
 		kvOf("status", validation.VStr("reproduced")),
 		kvOf("attempts", validation.VArr()),
 	))
-	vf.O = setOrAppend(vf.O, "verification", ver)
-	vf.O = setOrAppend(vf.O, "economic_impact", validation.VObj(
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "economic_impact", validation.VObj(
 		kvOf("blast_radius", validation.VStr("protocol-solvency")),
 		kvOf("extractable_usd", validation.VInt(50000000)),
 	))
@@ -668,8 +668,8 @@ func portStepVerdict(t *testing.T, c *state.Campaign, fid string) {
 	if inv.Kind != validation.Obj {
 		inv = validation.VObj()
 	}
-	inv.O = setOrAppend(inv.O, "violation_demonstrated", validation.VBool(true))
-	vf.O = setOrAppend(vf.O, "invariant", inv)
+	inv.O = validation.SetOrAppend(inv.O, "violation_demonstrated", validation.VBool(true))
+	vf.O = validation.SetOrAppend(vf.O, "invariant", inv)
 	if err := findings.SaveFinding(c, &vf); err != nil {
 		t.Fatalf("save finding: %v", err)
 	}

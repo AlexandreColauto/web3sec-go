@@ -173,17 +173,6 @@ func setKey(v validation.Value, key string, val validation.Value) validation.Val
 	return v
 }
 
-// setDefault is dict.setdefault.
-func setDefault(v validation.Value, key string, val validation.Value) validation.Value {
-	if objAt(v, key).Kind != validation.Null {
-		return v
-	}
-	if hasKey(v, key) {
-		return v
-	}
-	return setKey(v, key, val)
-}
-
 func hasKey(v validation.Value, key string) bool {
 	if v.Kind != validation.Obj {
 		return false

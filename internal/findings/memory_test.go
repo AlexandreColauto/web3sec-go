@@ -306,7 +306,7 @@ func TestGateBlocksStaleStore(t *testing.T) {
 		t.Fatal(err)
 	}
 	tampered := row
-	tampered.O = setOrAppend(tampered.O, "evidence_summary",
+	tampered.O = validation.SetOrAppend(tampered.O, "evidence_summary",
 		validation.VStr("TAMPERED."))
 	installMemoryStore(t, tampered)
 	msg, err := MemoryCheckFails(c, fid)
@@ -329,7 +329,7 @@ func TestGateBlocksLegacyRagRefs(t *testing.T) {
 		kv("chunk_id", validation.VStr("CHUNK-1")),
 		kv("mode", validation.VStr("negative")),
 	))))
-	f.O = setOrAppend(f.O, "provenance", prov)
+	f.O = validation.SetOrAppend(f.O, "provenance", prov)
 	if err := validation.WriteJson(FindingPath(c, objStr(f, "finding_id")),
 		f, ""); err != nil {
 		t.Fatal(err)

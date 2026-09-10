@@ -1,5 +1,5 @@
 // Package maximization is the variant ladder (base -> amplified -> maximal):
-// a 1:1 port of webv2/maximization.py (PYTHON WINS).
+// a 1:1 port of webv2/maximization.py (port-era provenance; twin retired 2026-09-09).
 //
 // Chaining composes ACROSS confirmed findings; this module searches WITHIN
 // one, along five fixed axes. Integrity rules: a rung above base counts only
@@ -120,16 +120,6 @@ func listOf(v validation.Value, key string) validation.Value {
 	return validation.VArr()
 }
 
-func setOrAppend(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
-}
-
 func strArr(items []string) validation.Value {
 	out := make([]validation.Value, 0, len(items))
 	for _, s := range items {
@@ -206,7 +196,7 @@ func LoadLadder(c *state.Campaign, findingID string) (*validation.Value, error) 
 
 // SaveLadder is save_ladder: stamp updated_at, validate, write.
 func SaveLadder(c *state.Campaign, ladder *validation.Value) (string, error) {
-	ladder.O = setOrAppend(ladder.O, "updated_at", validation.VStr(nowIso()))
+	ladder.O = validation.SetOrAppend(ladder.O, "updated_at", validation.VStr(nowIso()))
 	if err := validation.Validate(*ladder, "variant_ladder", 1); err != nil {
 		return "", err
 	}
@@ -314,11 +304,11 @@ func StartLadder(c *state.Campaign, findingID string) (validation.Value, error) 
 		return validation.VNull(), err
 	}
 	mx := asObj(objAt(f, "maximization"))
-	mx.O = setOrAppend(mx.O, "ladder_id", objAt(lad, "ladder_id"))
+	mx.O = validation.SetOrAppend(mx.O, "ladder_id", objAt(lad, "ladder_id"))
 	if !hasKey(mx, "disposition") {
-		mx.O = setOrAppend(mx.O, "disposition", validation.VStr("open"))
+		mx.O = validation.SetOrAppend(mx.O, "disposition", validation.VStr("open"))
 	}
-	f.O = setOrAppend(f.O, "maximization", mx)
+	f.O = validation.SetOrAppend(f.O, "maximization", mx)
 	if err := findings.SaveFinding(c, &f); err != nil {
 		return validation.VNull(), err
 	}
@@ -363,7 +353,7 @@ func baseRung(f validation.Value) validation.Value {
 		}
 	}
 	if len(cited) > 0 {
-		base.O = setOrAppend(base.O, "exec_id", validation.VStr(cited[0]))
+		base.O = validation.SetOrAppend(base.O, "exec_id", validation.VStr(cited[0]))
 	}
 	return base
 }
@@ -441,14 +431,14 @@ func AddVariant(c *state.Campaign, findingID, name, description string,
 		removed, added, "", nil, nil, "")
 	variants := listOf(lad, "variants")
 	variants.A = append(variants.A, rung)
-	lad.O = setOrAppend(lad.O, "variants", variants)
+	lad.O = validation.SetOrAppend(lad.O, "variants", variants)
 	explored := listOf(lad, "axes_explored")
 	for _, a := range axes {
 		if !containsStr(listStrings(explored), a) {
 			explored.A = append(explored.A, validation.VStr(a))
 		}
 	}
-	lad.O = setOrAppend(lad.O, "axes_explored", explored)
+	lad.O = validation.SetOrAppend(lad.O, "axes_explored", explored)
 	if _, err := SaveLadder(c, &lad); err != nil {
 		return validation.VNull(), err
 	}
@@ -507,13 +497,13 @@ func ExploreAxis(c *state.Campaign, findingID, axis, note string) (validation.Va
 		return validation.VNull(), err
 	}
 	notes := asObj(objAt(lad, "axis_notes"))
-	notes.O = setOrAppend(notes.O, axis, validation.VStr(strings.TrimSpace(note)))
-	lad.O = setOrAppend(lad.O, "axis_notes", notes)
+	notes.O = validation.SetOrAppend(notes.O, axis, validation.VStr(strings.TrimSpace(note)))
+	lad.O = validation.SetOrAppend(lad.O, "axis_notes", notes)
 	explored := listOf(lad, "axes_explored")
 	if !containsStr(listStrings(explored), axis) {
 		explored.A = append(explored.A, validation.VStr(axis))
 	}
-	lad.O = setOrAppend(lad.O, "axes_explored", explored)
+	lad.O = validation.SetOrAppend(lad.O, "axes_explored", explored)
 	if _, err := SaveLadder(c, &lad); err != nil {
 		return validation.VNull(), err
 	}
@@ -575,14 +565,14 @@ func ReproduceRung(c *state.Campaign, findingID, rungID, execID string,
 			break
 		}
 	}
-	rung.O = setOrAppend(rung.O, "status", validation.VStr("reproduced"))
-	rung.O = setOrAppend(rung.O, "exec_id", validation.VStr(execID))
+	rung.O = validation.SetOrAppend(rung.O, "status", validation.VStr("reproduced"))
+	rung.O = validation.SetOrAppend(rung.O, "exec_id", validation.VStr(execID))
 	if evID == "" {
-		rung.O = setOrAppend(rung.O, "evidence_id", validation.VNull())
+		rung.O = validation.SetOrAppend(rung.O, "evidence_id", validation.VNull())
 	} else {
-		rung.O = setOrAppend(rung.O, "evidence_id", validation.VStr(evID))
+		rung.O = validation.SetOrAppend(rung.O, "evidence_id", validation.VStr(evID))
 	}
-	rung.O = setOrAppend(rung.O, "reproduced_at", validation.VStr(nowIso()))
+	rung.O = validation.SetOrAppend(rung.O, "reproduced_at", validation.VStr(nowIso()))
 	if err := replaceRung(&lad, rung); err != nil {
 		return validation.VNull(), err
 	}
@@ -592,7 +582,7 @@ func ReproduceRung(c *state.Campaign, findingID, rungID, execID string,
 		kvOf("rung_id", validation.VStr(rungID)),
 		kvOf("event", validation.VStr("reproduced")),
 		kvOf("exec_id", validation.VStr(execID))))
-	lad.O = setOrAppend(lad.O, "history", hist)
+	lad.O = validation.SetOrAppend(lad.O, "history", hist)
 	if _, err := SaveLadder(c, &lad); err != nil {
 		return validation.VNull(), err
 	}
@@ -633,7 +623,7 @@ func replaceRung(lad *validation.Value, rung validation.Value) error {
 	for i, r := range variants.A {
 		if objStr(r, "rung_id") == objStr(rung, "rung_id") {
 			variants.A[i] = rung
-			lad.O = setOrAppend(lad.O, "variants", variants)
+			lad.O = validation.SetOrAppend(lad.O, "variants", variants)
 			return nil
 		}
 	}
@@ -670,8 +660,8 @@ func DisproveRung(c *state.Campaign, findingID, rungID, reason string) (validati
 			"reproduced rung cannot be disproved — mint a fresh exec for the "+
 			"corrected claim or open a new rung", rungID)
 	}
-	rung.O = setOrAppend(rung.O, "status", validation.VStr("disproved"))
-	rung.O = setOrAppend(rung.O, "reason", validation.VStr(strings.TrimSpace(reason)))
+	rung.O = validation.SetOrAppend(rung.O, "status", validation.VStr("disproved"))
+	rung.O = validation.SetOrAppend(rung.O, "reason", validation.VStr(strings.TrimSpace(reason)))
 	if err := replaceRung(&lad, rung); err != nil {
 		return validation.VNull(), err
 	}
@@ -680,7 +670,7 @@ func DisproveRung(c *state.Campaign, findingID, rungID, reason string) (validati
 		kvOf("at", validation.VStr(nowIso())),
 		kvOf("rung_id", validation.VStr(rungID)),
 		kvOf("event", validation.VStr("disproved"))))
-	lad.O = setOrAppend(lad.O, "history", hist)
+	lad.O = validation.SetOrAppend(lad.O, "history", hist)
 	if _, err := SaveLadder(c, &lad); err != nil {
 		return validation.VNull(), err
 	}
@@ -733,29 +723,29 @@ func SetMaximal(c *state.Campaign, findingID, rungID string) (validation.Value, 
 	if err != nil {
 		return validation.VNull(), err
 	}
-	lad.O = setOrAppend(lad.O, "maximal_rung_id", validation.VStr(rungID))
+	lad.O = validation.SetOrAppend(lad.O, "maximal_rung_id", validation.VStr(rungID))
 	hist := listOf(lad, "history")
 	hist.A = append(hist.A, validation.VObj(
 		kvOf("at", validation.VStr(nowIso())),
 		kvOf("rung_id", validation.VStr(rungID)),
 		kvOf("event", validation.VStr("claim_pinned"))))
-	lad.O = setOrAppend(lad.O, "history", hist)
+	lad.O = validation.SetOrAppend(lad.O, "history", hist)
 	if _, err := SaveLadder(c, &lad); err != nil {
 		return validation.VNull(), err
 	}
 	mx := asObj(objAt(f, "maximization"))
-	mx.O = setOrAppend(mx.O, "maximal_rung_id", validation.VStr(rungID))
-	mx.O = setOrAppend(mx.O, "claim_from", validation.VStr(rungID))
-	f.O = setOrAppend(f.O, "maximization", mx)
+	mx.O = validation.SetOrAppend(mx.O, "maximal_rung_id", validation.VStr(rungID))
+	mx.O = validation.SetOrAppend(mx.O, "claim_from", validation.VStr(rungID))
+	f.O = validation.SetOrAppend(f.O, "maximization", mx)
 	if v := objAt(rung, "capital_usd"); v.Kind != validation.Null {
 		attacker := asObj(objAt(f, "attacker"))
-		attacker.O = setOrAppend(attacker.O, "required_capital_usd", v)
-		f.O = setOrAppend(f.O, "attacker", attacker)
+		attacker.O = validation.SetOrAppend(attacker.O, "required_capital_usd", v)
+		f.O = validation.SetOrAppend(f.O, "attacker", attacker)
 	}
 	if v := objAt(rung, "extraction_ratio"); v.Kind != validation.Null {
 		impact := asObj(objAt(f, "economic_impact"))
-		impact.O = setOrAppend(impact.O, "extraction_ratio", v)
-		f.O = setOrAppend(f.O, "economic_impact", impact)
+		impact.O = validation.SetOrAppend(impact.O, "extraction_ratio", v)
+		f.O = validation.SetOrAppend(f.O, "economic_impact", impact)
 	}
 	if err := findings.SaveFinding(c, &f); err != nil {
 		return validation.VNull(), err
@@ -809,7 +799,7 @@ func CompleteLadder(c *state.Campaign, findingID, actor string) (validation.Valu
 		return validation.VNull(), fmt.Errorf("maximal rung is not reproduced " +
 			"— pin the claim to a reproduced rung or disprove the open rungs")
 	}
-	lad.O = setOrAppend(lad.O, "disposition", validation.VObj(
+	lad.O = validation.SetOrAppend(lad.O, "disposition", validation.VObj(
 		kvOf("state", validation.VStr("complete")),
 		kvOf("reason", validation.VNull()),
 		kvOf("actor", validation.VStr(actor)),
@@ -822,8 +812,8 @@ func CompleteLadder(c *state.Campaign, findingID, actor string) (validation.Valu
 		return validation.VNull(), err
 	}
 	mx := asObj(objAt(f, "maximization"))
-	mx.O = setOrAppend(mx.O, "disposition", validation.VStr("complete"))
-	f.O = setOrAppend(f.O, "maximization", mx)
+	mx.O = validation.SetOrAppend(mx.O, "disposition", validation.VStr("complete"))
+	f.O = validation.SetOrAppend(f.O, "maximization", mx)
 	if err := findings.SaveFinding(c, &f); err != nil {
 		return validation.VNull(), err
 	}
@@ -847,7 +837,7 @@ func WaiveLadder(c *state.Campaign, findingID, reason, actor string) (validation
 			noneText(findingID))
 	}
 	lad := *ladPtr
-	lad.O = setOrAppend(lad.O, "disposition", validation.VObj(
+	lad.O = validation.SetOrAppend(lad.O, "disposition", validation.VObj(
 		kvOf("state", validation.VStr("waived")),
 		kvOf("reason", validation.VStr(strings.TrimSpace(reason))),
 		kvOf("actor", validation.VStr(actor)),
@@ -860,8 +850,8 @@ func WaiveLadder(c *state.Campaign, findingID, reason, actor string) (validation
 		return validation.VNull(), err
 	}
 	mx := asObj(objAt(f, "maximization"))
-	mx.O = setOrAppend(mx.O, "disposition", validation.VStr("waived"))
-	f.O = setOrAppend(f.O, "maximization", mx)
+	mx.O = validation.SetOrAppend(mx.O, "disposition", validation.VStr("waived"))
+	f.O = validation.SetOrAppend(f.O, "maximization", mx)
 	if err := findings.SaveFinding(c, &f); err != nil {
 		return validation.VNull(), err
 	}
@@ -896,7 +886,7 @@ func ReopenLadder(c *state.Campaign, findingID, reason, actor string) (validatio
 		return validation.VNull(), fmt.Errorf("reopening a closed ladder " +
 			"needs a written reason (the audit trail, not a bypass)")
 	}
-	lad.O = setOrAppend(lad.O, "disposition", validation.VObj(
+	lad.O = validation.SetOrAppend(lad.O, "disposition", validation.VObj(
 		kvOf("state", validation.VStr("open")),
 		kvOf("reason", validation.VStr(trimmed)),
 		kvOf("actor", validation.VStr(actor)),
@@ -909,8 +899,8 @@ func ReopenLadder(c *state.Campaign, findingID, reason, actor string) (validatio
 		return validation.VNull(), err
 	}
 	mx := asObj(objAt(f, "maximization"))
-	mx.O = setOrAppend(mx.O, "disposition", validation.VStr("open"))
-	f.O = setOrAppend(f.O, "maximization", mx)
+	mx.O = validation.SetOrAppend(mx.O, "disposition", validation.VStr("open"))
+	f.O = validation.SetOrAppend(f.O, "maximization", mx)
 	if err := findings.SaveFinding(c, &f); err != nil {
 		return validation.VNull(), err
 	}
@@ -947,13 +937,13 @@ func LadderReport(c *state.Campaign, findingID string) (validation.Value, error)
 			O: append([]validation.KV(nil), r.O...)}
 		if b, ok := numAt(base, "capital_usd"); ok {
 			if v, ok := numAt(r, "capital_usd"); ok {
-				row.O = setOrAppend(row.O, "capital_delta_usd",
+				row.O = validation.SetOrAppend(row.O, "capital_delta_usd",
 					validation.VFloat(v-b))
 			}
 		}
 		if b, ok := numAt(base, "extraction_ratio"); ok {
 			if v, ok := numAt(r, "extraction_ratio"); ok {
-				row.O = setOrAppend(row.O, "extraction_delta",
+				row.O = validation.SetOrAppend(row.O, "extraction_delta",
 					validation.VFloat(v-b))
 			}
 		}

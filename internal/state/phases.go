@@ -26,18 +26,6 @@ func phaseKnown(phase string) bool {
 	return false
 }
 
-// setOrAppend mirrors Python dict assignment: existing key replaced in
-// place (position kept), new key appended at the end.
-func setOrAppend(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i, kv := range o {
-		if kv.K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, kv(key, v))
-}
-
 // SetPhase is set_phase: same phase is a no-op; a transition appends a
 // history entry, saves, and logs phase.transition.
 func (c *Campaign) SetPhase(phase, reason string) error {
@@ -52,7 +40,7 @@ func (c *Campaign) SetPhase(phase, reason string) error {
 	if prev == phase {
 		return nil
 	}
-	st.O = setOrAppend(st.O, "phase", validation.VStr(phase))
+	st.O = validation.SetOrAppend(st.O, "phase", validation.VStr(phase))
 	hist := objAt(st, "phase_history")
 	hist.A = append(hist.A, validation.VObj(
 		kv("at", validation.VStr(nowIso())),
@@ -60,7 +48,7 @@ func (c *Campaign) SetPhase(phase, reason string) error {
 		kv("to", validation.VStr(phase)),
 		kv("reason", validation.VStr(reason)),
 	))
-	st.O = setOrAppend(st.O, "phase_history", hist)
+	st.O = validation.SetOrAppend(st.O, "phase_history", hist)
 	if err := c.save(st); err != nil {
 		return err
 	}
@@ -78,7 +66,7 @@ func (c *Campaign) Halt(reason string) error {
 	if err != nil {
 		return err
 	}
-	st.O = setOrAppend(st.O, "halt_reason", validation.VStr(reason))
+	st.O = validation.SetOrAppend(st.O, "halt_reason", validation.VStr(reason))
 	if err := c.save(st); err != nil {
 		return err
 	}
@@ -112,8 +100,8 @@ func (c *Campaign) Complete(actor, reason string) (validation.Value, error) {
 	}
 	// setOrAppend (not append): a re-Complete must replace, not duplicate,
 	// the keys — duplicate keys corrupt the projection.
-	st.O = setOrAppend(st.O, "completed_by", validation.VStr(actor))
-	st.O = setOrAppend(st.O, "completed_reason", validation.VStr(reason))
+	st.O = validation.SetOrAppend(st.O, "completed_by", validation.VStr(actor))
+	st.O = validation.SetOrAppend(st.O, "completed_reason", validation.VStr(reason))
 	if err := c.save(st); err != nil {
 		return validation.VNull(), err
 	}
@@ -147,8 +135,8 @@ func (c *Campaign) ConsumeDiscoverySlot() error {
 	}
 	b := objAt(st, "budget")
 	v := objAt(b, "discovery_findings_so_far")
-	b.O = setOrAppend(b.O, "discovery_findings_so_far", validation.VInt(v.I+1))
-	st.O = setOrAppend(st.O, "budget", b)
+	b.O = validation.SetOrAppend(b.O, "discovery_findings_so_far", validation.VInt(v.I+1))
+	st.O = validation.SetOrAppend(st.O, "budget", b)
 	return c.save(st)
 }
 
@@ -167,8 +155,8 @@ func (c *Campaign) SetCostCeiling(ceil *validation.Value, actor string) (validat
 	if ceil != nil {
 		newV = *ceil
 	}
-	b.O = setOrAppend(b.O, "max_total_cost_usd", newV)
-	st.O = setOrAppend(st.O, "budget", b)
+	b.O = validation.SetOrAppend(b.O, "max_total_cost_usd", newV)
+	st.O = validation.SetOrAppend(st.O, "budget", b)
 	if err := c.save(st); err != nil {
 		return validation.VNull(), err
 	}
@@ -199,8 +187,8 @@ func (c *Campaign) SetDiscoveryBudget(maxFindings int64, actor string) (validati
 	}
 	b := objAt(st, "budget")
 	old := objAt(b, "max_discovery_findings")
-	b.O = setOrAppend(b.O, "max_discovery_findings", validation.VInt(maxFindings))
-	st.O = setOrAppend(st.O, "budget", b)
+	b.O = validation.SetOrAppend(b.O, "max_discovery_findings", validation.VInt(maxFindings))
+	st.O = validation.SetOrAppend(st.O, "budget", b)
 	if err := c.save(st); err != nil {
 		return validation.VNull(), err
 	}

@@ -192,9 +192,9 @@ func Immunize(campaign *state.Campaign, findingID string,
 	if o.Bypass != nil {
 		pairs = append(pairs, kv("bypass", validation.VStr(strip(*o.Bypass))))
 	}
-	verification.O = setOrAppend(verification.O, "patch_verified",
+	verification.O = validation.SetOrAppend(verification.O, "patch_verified",
 		validation.VObj(pairs...))
-	f.O = setOrAppend(f.O, "verification", verification)
+	f.O = validation.SetOrAppend(f.O, "verification", verification)
 	if err := findings.SaveFinding(campaign, &f); err != nil {
 		return validation.VNull(), err
 	}
@@ -273,17 +273,6 @@ func mutationsValue(mutations []string) validation.Value {
 		out = append(out, validation.VStr(strip(m)))
 	}
 	return validation.VArr(out...)
-}
-
-// setOrAppend is the ordered-dict assignment Python's d[k] = v performs.
-func setOrAppend(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, kv(key, v))
 }
 
 // objAt is the dict lookup: the value, or Null.

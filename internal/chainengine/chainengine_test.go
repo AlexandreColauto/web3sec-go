@@ -1,6 +1,6 @@
 // Port of tests/test_chain_engine.py (the seven chain-engine tests) plus the
 // terminal-search and materialization gates the Python file exercises
-// indirectly through privileged tests. PYTHON WINS.
+// indirectly through privileged tests. The Python twin was retired 2026-09-09; this package is the source of truth.
 //
 // DEVIATION (declared): Python's `confirm` fixture uses the same validated
 // APIs; this harness uses sandbox.RegisterExec (the honest stand-in for
@@ -32,7 +32,7 @@ func listAt(v validation.Value, key string) validation.Value {
 
 func setOrAppendLocal(o []validation.KV, key string,
 	v validation.Value) []validation.KV {
-	return setOrAppend(o, key, v)
+	return validation.SetOrAppend(o, key, v)
 }
 
 func newCampaign(t *testing.T, name string) *state.Campaign {
@@ -172,11 +172,11 @@ func confirm(t *testing.T, c *state.Campaign, fid string, level, tier string) {
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr(tier)),
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr())))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(c, &vf); err != nil {
 		t.Fatalf("save finding: %v", err)
 	}
@@ -213,8 +213,8 @@ func mintEconomicEvidence(t *testing.T, c *state.Campaign, fid string,
 	if ei.Kind != validation.Obj {
 		ei = validation.VObj()
 	}
-	ei.O = setOrAppend(ei.O, "extractable_usd", validation.VFloat(1000000))
-	f2.O = setOrAppend(f2.O, "economic_impact", ei)
+	ei.O = validation.SetOrAppend(ei.O, "extractable_usd", validation.VFloat(1000000))
+	f2.O = validation.SetOrAppend(f2.O, "economic_impact", ei)
 	if err := findings.SaveFinding(c, &f2); err != nil {
 		t.Fatalf("save finding: %v", err)
 	}
@@ -586,7 +586,7 @@ func TestMaterializeChainRequiresOneSourcePin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.O = setOrAppend(f.O, "snapshot_ids", validation.VObj(
+	f.O = validation.SetOrAppend(f.O, "snapshot_ids", validation.VObj(
 		kv("source", validation.VStr("SNAP-0001"))))
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
@@ -595,7 +595,7 @@ func TestMaterializeChainRequiresOneSourcePin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f2v.O = setOrAppend(f2v.O, "snapshot_ids", validation.VObj(
+	f2v.O = validation.SetOrAppend(f2v.O, "snapshot_ids", validation.VObj(
 		kv("source", validation.VStr("SNAP-0002"))))
 	if err := findings.SaveFinding(c, &f2v); err != nil {
 		t.Fatal(err)

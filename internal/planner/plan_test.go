@@ -123,7 +123,7 @@ func TestSavePlanBadClassOracle(t *testing.T) {
 	bad := append(listOf(plan, "priorities"), jsonValue(t,
 		`{"id":"Q-900","question":"bogus class: vibes-based shape","risk":0.5,
 		  "trajectories":["code"],"status":"open","bug_class":"vibes-based"}`))
-	plan.O = setOrAppend(plan.O, "priorities", validation.VArr(bad...))
+	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(bad...))
 	_, err = SavePlan(camp, plan)
 	requireErr(t, "bad class", err, at(t, root, "save_plan_bad_class"))
 }
@@ -143,7 +143,7 @@ func TestSavePlanWritesAndRegisters(t *testing.T) {
 	bad := append(listOf(plan, "priorities"), jsonValue(t,
 		`{"id":"Q-900","question":"bogus class: vibes-based shape","risk":0.5,
 		  "trajectories":["code"],"status":"open","bug_class":"logic-error"}`))
-	plan.O = setOrAppend(plan.O, "priorities", validation.VArr(bad...))
+	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(bad...))
 	if _, err := SavePlan(camp, plan); err != nil {
 		t.Fatalf("save plan: %v", err)
 	}

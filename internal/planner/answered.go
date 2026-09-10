@@ -70,14 +70,14 @@ func MarkAnswered(campaign *state.Campaign, plan validation.Value, priorityID,
 		}
 		anchorSet = true
 	}
-	p.O = setOrAppend(p.O, "status", validation.VStr(outcome))
+	p.O = validation.SetOrAppend(p.O, "status", validation.VStr(outcome))
 	if closing {
 		p = closePriority(p, opts, ref, anchorSet, anchorRec)
 	} else {
 		p = reopenPriority(p)
 	}
 	priorities[idx] = p
-	plan.O = setOrAppend(plan.O, "priorities", validation.VArr(priorities...))
+	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(priorities...))
 	if _, err := SavePlan(campaign, plan); err != nil {
 		return validation.VNull(), err
 	}
@@ -94,17 +94,17 @@ func MarkAnswered(campaign *state.Campaign, plan validation.Value, priorityID,
 func closePriority(p validation.Value, opts AnsweredOpts, ref *string,
 	anchorSet bool, anchorRec validation.Value) validation.Value {
 	if opts.Reason != nil {
-		p.O = setOrAppend(p.O, "closed_reason", validation.VStr(*opts.Reason))
+		p.O = validation.SetOrAppend(p.O, "closed_reason", validation.VStr(*opts.Reason))
 	}
 	if ref != nil {
-		p.O = setOrAppend(p.O, "closed_ref", validation.VStr(*ref))
+		p.O = validation.SetOrAppend(p.O, "closed_ref", validation.VStr(*ref))
 	}
-	p.O = setOrAppend(p.O, "closed_at", validation.VStr(nowIso()))
-	p.O = setOrAppend(p.O, "closed_by", validation.VStr(actorOr(opts.Actor)))
+	p.O = validation.SetOrAppend(p.O, "closed_at", validation.VStr(nowIso()))
+	p.O = validation.SetOrAppend(p.O, "closed_by", validation.VStr(actorOr(opts.Actor)))
 	if anchorSet {
 		prov, _ := probeProvenance(p)
-		prov.O = setOrAppend(prov.O, "anchor", anchorRec)
-		p.O = setOrAppend(p.O, "probe", prov)
+		prov.O = validation.SetOrAppend(prov.O, "anchor", anchorRec)
+		p.O = validation.SetOrAppend(p.O, "probe", prov)
 	}
 	return p
 }
@@ -117,7 +117,7 @@ func reopenPriority(p validation.Value) validation.Value {
 	}
 	if prov, ok := probeProvenance(p); ok {
 		prov.O = dropKey(prov.O, "anchor")
-		p.O = setOrAppend(p.O, "probe", prov)
+		p.O = validation.SetOrAppend(p.O, "probe", prov)
 	}
 	return p
 }
@@ -132,7 +132,7 @@ func statusData(outcome string, opts AnsweredOpts, ref *string, anchorSet bool,
 		kv("actor", validation.VStr(actorOr(opts.Actor))),
 	)
 	if anchorSet {
-		data.O = setOrAppend(data.O, "anchor", anchorRec)
+		data.O = validation.SetOrAppend(data.O, "anchor", anchorRec)
 	}
 	return data
 }
@@ -336,7 +336,7 @@ func SiblingRescan(campaign *state.Campaign, finding validation.Value,
 		kv("bug_class", validation.VStr(cls)),
 		kv("sibling_of", validation.VStr(fid)),
 	))
-	plan.O = setOrAppend(plan.O, "priorities", validation.VArr(prios...))
+	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(prios...))
 	if _, err := SavePlan(campaign, plan); err != nil {
 		return "", err
 	}

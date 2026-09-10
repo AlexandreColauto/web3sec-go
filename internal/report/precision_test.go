@@ -58,8 +58,8 @@ func persistAcceptanceScore(t *testing.T, camp *state.Campaign,
 	if r.Kind != validation.Obj {
 		r = validation.VObj()
 	}
-	r.O = setOrAppend(r.O, "acceptance_score", validation.VFloat(score))
-	f.O = setOrAppend(f.O, "risk", r)
+	r.O = validation.SetOrAppend(r.O, "acceptance_score", validation.VFloat(score))
+	f.O = validation.SetOrAppend(f.O, "risk", r)
 	if err := findings.SaveFinding(camp, &f); err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +167,7 @@ func TestReportPrecisionBudget(t *testing.T) {
 		t.Helper()
 		policy := privilegedPolicy("Cluster Program")
 		if budget.Kind != validation.Null {
-			policy.O = setOrAppend(policy.O, "submission_budget", budget)
+			policy.O = validation.SetOrAppend(policy.O, "submission_budget", budget)
 		}
 		path := filepath.Join(t.TempDir(), "policy.json")
 		if err := validation.WriteJson(path, policy, ""); err != nil {
@@ -177,7 +177,7 @@ func TestReportPrecisionBudget(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		doc.O = setOrAppend(doc.O, "policy_path", validation.VStr(path))
+		doc.O = validation.SetOrAppend(doc.O, "policy_path", validation.VStr(path))
 		if err := validation.WriteJson(camp.StatePath, doc,
 			"campaign_state"); err != nil {
 			t.Fatal(err)
@@ -229,7 +229,7 @@ func TestReportPrecisionAbsence(t *testing.T) {
 	if strings.Contains(text, "**precision:**") ||
 		strings.Contains(text, "by acceptance") ||
 		strings.Contains(text, "disqualified (critic disproved)") {
-		t.Fatalf("no A3 field present — the precision block must not " +
+		t.Fatalf("no A3 field present — the precision block must not "+
 			"render\n---\n%s", resultsSection(text))
 	}
 }

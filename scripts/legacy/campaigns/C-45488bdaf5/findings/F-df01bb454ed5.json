@@ -1,0 +1,114 @@
+{
+  "title": "Atomic balance violated on deposit",
+  "root_cause": {
+    "class": "logic-error",
+    "description": "mechanism described in detail here"
+  },
+  "affected": [
+    {
+      "path": "src/Vault.sol",
+      "function": "deposit"
+    }
+  ],
+  "attacker": {
+    "profile": "arbitrary EOA",
+    "capabilities": [],
+    "required_capital_usd": 100.0
+  },
+  "invariant": {
+    "id": "INV-1",
+    "statement": "balances move atomically"
+  },
+  "dedup": {
+    "economic_signature": "0123456789abcdef",
+    "technical_signature": "763be7e029e4c7f1",
+    "possible_duplicate_of": [
+      "F-ee0311c3397a"
+    ]
+  },
+  "finding_id": "F-df01bb454ed5",
+  "campaign_id": "C-45488bdaf5",
+  "snapshot_ids": {
+    "source": "unpinned",
+    "deployment": null,
+    "chain": null
+  },
+  "created_at": "2026-09-09T12:00:04.000000+00:00",
+  "updated_at": "2026-09-09T12:00:32.000000+00:00",
+  "status": "HYPOTHESIS",
+  "trajectory": "code",
+  "evidence": [
+    {
+      "evidence_id": "EV-ecffa30c",
+      "level": "E4",
+      "type": "foundry-test",
+      "artifact_id": "EXEC-a9b19962f6",
+      "description": "sandboxed PoC drains the vault in one withdraw",
+      "command": "forge test --match-test test_p2_cross",
+      "produced_at": "2026-09-09T12:00:16.000000+00:00",
+      "sandbox_profile": "docker-networkless",
+      "snapshot_id": "unpinned"
+    }
+  ],
+  "risk": {
+    "validated": {
+      "score": 6.2,
+      "band": "medium",
+      "rationale": "blast_radius(subset-of-users)=3.0; evidence(E4)=+2.0; unprivileged-attacker +1.0; extractable($1,000) +0.2"
+    },
+    "economic": {
+      "extractable_usd": 1000.0,
+      "capital_required_usd": 100.0,
+      "leverage_ratio": 10.0,
+      "notes": "max_loss_usd recorded on economic_impact; extractable is bounded by on-chain liquidity, not by the theoretical exposure"
+    },
+    "impact_vector": {
+      "asset_exposure": "lt_100k",
+      "privilege_class": "unprivileged",
+      "recoverability": "unknown",
+      "insolvency_risk": "low",
+      "score": 5.5
+    }
+  },
+  "history": [
+    {
+      "at": "2026-09-09T12:00:04.000000+00:00",
+      "from": "NEW",
+      "to": "HYPOTHESIS",
+      "reason": "ingested from verify-p1",
+      "actor": "verify-p1"
+    }
+  ],
+  "verification": {
+    "critic_verdict": "confirmed",
+    "reproduction": {
+      "attempts": [
+        {
+          "attempt_id": "ATT-b7a5f0",
+          "fresh_context": false,
+          "outcome": "reproduced",
+          "failure_class": null,
+          "command": null,
+          "artifact_id": "EXEC-a9b19962f6",
+          "notes": ""
+        }
+      ],
+      "tier_reached": "T2",
+      "status": "reproduced"
+    }
+  },
+  "dedup_meta": {
+    "critic_reasoning": "mechanism verified by hand"
+  },
+  "maximization": {
+    "ladder_id": "LAD-5852855e",
+    "disposition": "complete",
+    "maximal_rung_id": "R-d4b8e2",
+    "claim_from": "R-d4b8e2"
+  },
+  "economic_impact": {
+    "extraction_ratio": 1.0,
+    "extractable_usd": 1000.0,
+    "max_loss_usd": 5000.0
+  }
+}

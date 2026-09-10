@@ -191,7 +191,7 @@ func checkSteps(data, actors validation.Value,
 		if s.Kind != validation.Obj {
 			continue
 		}
-		setDefault(s, "expect_revert", validation.VBool(false))
+		s.O = validation.SetDefault(s.O, "expect_revert", validation.VBool(false))
 		actor := objAt(*s, "actor")
 		if _, ok := actorKey(actors, actor); !ok {
 			return fail(fmt.Sprintf("steps[%d].actor", i), fmt.Sprintf(
@@ -313,16 +313,6 @@ func objKeys(v validation.Value) []string {
 		out = append(out, kv.K)
 	}
 	return out
-}
-
-// setDefault is dict.setdefault: insert key=val when absent (append order).
-func setDefault(o *validation.Value, key string, val validation.Value) {
-	for _, kv := range o.O {
-		if kv.K == key {
-			return
-		}
-	}
-	o.O = append(o.O, validation.KV{K: key, V: val})
 }
 
 // actorKey is Python's `x in actors` for the shapes a JSON key can take: a

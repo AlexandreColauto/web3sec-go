@@ -1,5 +1,5 @@
 // values.go: the ordered-JSON helpers chain_engine.py relies on. The
-// module is a 1:1 port of webv2/chain_engine.py (PYTHON WINS); every helper
+// module is a 1:1 port of webv2/chain_engine.py (port-era provenance; twin retired 2026-09-09); every helper
 // here mirrors the exact Python expression it replaces, including
 // json.dumps' default separators for the dedup_meta fields.
 package chainengine
@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -177,105 +176,6 @@ func pyListRepr(items []string) string {
 	return "[" + strings.Join(parts, ", ") + "]"
 }
 
-// pyJSONDump is json.dumps(v) with the default separators (", " / ": "),
-// insertion order and ensure_ascii=True — the encoding of dedup_meta's
-// members/capability_links/terminal fields.
-func pyJSONDump(v validation.Value) string {
-	var b strings.Builder
-	writeDump(&b, v)
-	return b.String()
-}
-
-func writeDump(b *strings.Builder, v validation.Value) {
-	switch v.Kind {
-	case validation.Null:
-		b.WriteString("null")
-	case validation.Bool:
-		if v.B {
-			b.WriteString("true")
-		} else {
-			b.WriteString("false")
-		}
-	case validation.Int:
-		b.WriteString(validation.IntText(v))
-	case validation.Flt:
-		b.WriteString(validation.PythonFloat(v.F))
-	case validation.Str:
-		writeDumpStr(b, v.S)
-	case validation.Arr:
-		b.WriteByte('[')
-		for i, e := range v.A {
-			if i > 0 {
-				b.WriteString(", ")
-			}
-			writeDump(b, e)
-		}
-		b.WriteByte(']')
-	case validation.Obj:
-		b.WriteByte('{')
-		for i, kv := range v.O {
-			if i > 0 {
-				b.WriteString(", ")
-			}
-			writeDumpStr(b, kv.K)
-			b.WriteString(": ")
-			writeDump(b, kv.V)
-		}
-		b.WriteByte('}')
-	}
-}
-
-// writeDumpStr is json.dumps' ensure_ascii=True string escaping.
-func writeDumpStr(b *strings.Builder, s string) {
-	const hexd = "0123456789abcdef"
-	b.WriteByte('"')
-	for i := 0; i < len(s); {
-		r, size := utf8.DecodeRuneInString(s[i:])
-		switch {
-		case r == '"':
-			b.WriteString("\\\"")
-		case r == '\\':
-			b.WriteString("\\\\")
-		case r == '\n':
-			b.WriteString("\\n")
-		case r == '\r':
-			b.WriteString("\\r")
-		case r == '\t':
-			b.WriteString("\\t")
-		case r == '\b':
-			b.WriteString("\\b")
-		case r == '\f':
-			b.WriteString("\\f")
-		case r < 0x20 || r == 0x7f:
-			b.WriteString("\\u00")
-			b.WriteByte(hexd[(r>>4)&0xf])
-			b.WriteByte(hexd[r&0xf])
-		case r <= 0x7e:
-			b.WriteRune(r)
-		default:
-			if r > 0xffff {
-				r2 := r - 0x10000
-				writeU4(b, 0xd800+rune(r2>>10&0x3ff))
-				writeU4(b, 0xdc00+rune(r2&0x3ff))
-			} else {
-				writeU4(b, r)
-			}
-		}
-		i += size
-	}
-	b.WriteByte('"')
-}
-
-func writeU4(b *strings.Builder, r rune) {
-	const hexd = "0123456789abcdef"
-	b.WriteString("\\u")
-	b.WriteByte(hexd[(r>>12)&0xf])
-	b.WriteByte(hexd[(r>>8)&0xf])
-	b.WriteByte(hexd[(r>>4)&0xf])
-	b.WriteByte(hexd[r&0xf])
-}
-
-// sortedStrings is Python's sorted(set-or-list of strings).
 func sortedStrings(items []string) []string {
 	out := append([]string{}, items...)
 	sort.Strings(out)
@@ -340,15 +240,4 @@ func valueArr(items []validation.Value) validation.Value {
 // kvOf is one object entry.
 func kvOf(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
-}
-
-// setOrAppend is `o[key] = v` (replace in place, else append).
-func setOrAppend(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
 }

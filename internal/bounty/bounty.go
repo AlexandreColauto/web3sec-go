@@ -82,18 +82,6 @@ func getDefault(v validation.Value, key string, def validation.Value) validation
 	return def
 }
 
-// setOrAppend mirrors Python dict assignment: an existing key is replaced in
-// place (position kept), a new key is appended at the end.
-func setOrAppend(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
-}
-
 // pyTruthy is Python truthiness for a JSON value.
 func pyTruthy(v validation.Value) bool {
 	switch v.Kind {
@@ -1117,8 +1105,8 @@ func (g *gate) check13() error {
 	if bounty.Kind != validation.Obj {
 		bounty = validation.VObj()
 	}
-	bounty.O = setOrAppend(bounty.O, "accepted_risk", rec)
-	g.f.O = setOrAppend(g.f.O, "bounty", bounty)
+	bounty.O = validation.SetOrAppend(bounty.O, "accepted_risk", rec)
+	g.f.O = validation.SetOrAppend(g.f.O, "bounty", bounty)
 
 	findingID := objStr(g.f, "finding_id")
 	rows, err := waiversFunc(g.campaign, "accepted-risk")
@@ -1275,8 +1263,8 @@ func (g *gate) check15() error {
 	} else if len(deficits) > 1 {
 		detail = "adversarial_game is incomplete: " +
 			strings.Join(deficits, ", ") + " missing or too short (each " +
-				"field >= " + strconv.Itoa(findings.AdversarialGameFieldMin) +
-				" chars)"
+			"field >= " + strconv.Itoa(findings.AdversarialGameFieldMin) +
+			" chars)"
 	}
 	g.add("adversarial-game", "fail", detail, "")
 	if waiver != nil {
@@ -1349,7 +1337,7 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 	// owner's own comment is context for the reviewer, not a gate condition.
 	if ack := objAt(objAt(f, "dedup_meta"), "in_code_ack"); ack.Kind ==
 		validation.Obj {
-		bounty.O = setOrAppend(bounty.O, "advisories", strList(
+		bounty.O = validation.SetOrAppend(bounty.O, "advisories", strList(
 			[]string{"in_code_ack present: acceptance likelihood demoted"}))
 	}
 	// A3: the deterministic acceptance score, stored on the finding at gate
@@ -1360,16 +1348,16 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 	if riskObj.Kind != validation.Obj {
 		riskObj = validation.VObj()
 	}
-	riskObj.O = setOrAppend(riskObj.O, "acceptance_score",
+	riskObj.O = validation.SetOrAppend(riskObj.O, "acceptance_score",
 		validation.VFloat(validation.PythonRound(score, 2)))
-	f.O = setOrAppend(f.O, "risk", riskObj)
-	bounty.O = setOrAppend(bounty.O, "eligible", validation.VBool(eligible))
-	bounty.O = setOrAppend(bounty.O, "submission_ready",
+	f.O = validation.SetOrAppend(f.O, "risk", riskObj)
+	bounty.O = validation.SetOrAppend(bounty.O, "eligible", validation.VBool(eligible))
+	bounty.O = validation.SetOrAppend(bounty.O, "submission_ready",
 		validation.VBool(submissionReady))
-	bounty.O = setOrAppend(bounty.O, "blocking_reasons", strList(g.blockers))
-	bounty.O = setOrAppend(bounty.O, "policy_checks",
+	bounty.O = validation.SetOrAppend(bounty.O, "blocking_reasons", strList(g.blockers))
+	bounty.O = validation.SetOrAppend(bounty.O, "policy_checks",
 		validation.Value{Kind: validation.Arr, A: g.checks})
-	f.O = setOrAppend(f.O, "bounty", bounty)
+	f.O = validation.SetOrAppend(f.O, "bounty", bounty)
 	if save {
 		if err := findings.SaveFinding(campaign, &f); err != nil {
 			return validation.VNull(), err

@@ -65,7 +65,7 @@ func t35SetID(t *testing.T, c *state.Campaign, fid, newID string) validation.Val
 	if err := os.Remove(findings.FindingPath(c, fid)); err != nil {
 		t.Fatal(err)
 	}
-	f.O = setOrAppend(f.O, "finding_id", validation.VStr(newID))
+	f.O = validation.SetOrAppend(f.O, "finding_id", validation.VStr(newID))
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
 	}
@@ -152,11 +152,11 @@ func t35ReproducedPossible(t *testing.T, c *state.Campaign,
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("status", validation.VStr("reproduced")),
 		kv("tier_reached", validation.VStr("T3")),
 		kv("attempts", validation.VArr())))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(c, &vf); err != nil {
 		t.Fatal(err)
 	}
@@ -257,7 +257,7 @@ func TestConfirmedQueueAndBountyListAreWorkOrdered(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.O = setOrAppend(doc.O, "policy_path", validation.VStr(policyPath))
+	doc.O = validation.SetOrAppend(doc.O, "policy_path", validation.VStr(policyPath))
 	if err := validation.WriteJson(c.StatePath, doc, "campaign_state"); err != nil {
 		t.Fatal(err)
 	}

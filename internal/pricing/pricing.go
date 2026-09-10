@@ -62,9 +62,9 @@ func LoadTable(campaign *state.Campaign) (validation.Value, error) {
 // SaveTable is save_table: stamp campaign_id + updated_at, validate, write.
 // The caller's table is mutated in place, as Python's dict is.
 func SaveTable(campaign *state.Campaign, table *validation.Value) (string, error) {
-	table.O = setOrAppend(table.O, "campaign_id",
+	table.O = validation.SetOrAppend(table.O, "campaign_id",
 		validation.VStr(campaign.CampaignID))
-	table.O = setOrAppend(table.O, "updated_at", validation.VStr(nowIso()))
+	table.O = validation.SetOrAppend(table.O, "updated_at", validation.VStr(nowIso()))
 	if err := validation.Validate(*table, "price_table", 1); err != nil {
 		return "", err
 	}
@@ -109,7 +109,7 @@ func SetPrice(campaign *state.Campaign, asset string, usd float64, source,
 	)
 	prices := objAt(table, "prices")
 	prices.A = append(prices.A, row)
-	table.O = setOrAppend(table.O, "prices", prices)
+	table.O = validation.SetOrAppend(table.O, "prices", prices)
 	if _, err := SaveTable(campaign, &table); err != nil {
 		return validation.VNull(), err
 	}
@@ -178,19 +178,6 @@ func objStr(v validation.Value, key string) string {
 		}
 	}
 	return ""
-}
-
-// setOrAppend mirrors Python dict assignment: an existing key is replaced in
-// place (position kept), a new key is appended at the end.
-func setOrAppend(o []validation.KV, key string,
-	v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
 }
 
 // pyStrip is Python's str.strip() with no argument.

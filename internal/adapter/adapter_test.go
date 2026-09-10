@@ -220,38 +220,8 @@ func TestBuildContextCarriesBoundaryMatrixForBoundaryStages(t *testing.T) {
 	}
 }
 
-func TestEmbeddedPromptsByteIdenticalToPythonRepo(t *testing.T) {
-	pyRoot := filepath.Join("..", "..", "..", "web3sec-final")
-	for _, dir := range []string{"prompts", "prompts_legacy"} {
-		pyDir := filepath.Join(pyRoot, dir)
-		entries, err := os.ReadDir(pyDir)
-		if err != nil {
-			t.Skipf("reference prompt dir absent: %v", err)
-		}
-		n := 0
-		for _, e := range entries {
-			if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
-				continue
-			}
-			want, err := os.ReadFile(filepath.Join(pyDir, e.Name()))
-			if err != nil {
-				t.Fatal(err)
-			}
-			got, err := PromptText(dir + "/" + e.Name())
-			if err != nil {
-				t.Fatalf("%s/%s: %v", dir, e.Name(), err)
-			}
-			if got != string(want) {
-				t.Errorf("%s/%s is not byte-identical to the Python repo",
-					dir, e.Name())
-			}
-			n++
-		}
-		if n == 0 {
-			t.Fatalf("no prompt files found under %s", pyDir)
-		}
-	}
-}
+// The former twin byte-identity acceptance check moved to
+// assets.TestAssetPackManifest (committed SHA-256 manifest, no external tree).
 
 func blockTitles(blocks validation.Value) []string {
 	out := []string{}

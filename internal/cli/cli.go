@@ -2,7 +2,7 @@
 // snap, log, audit, verify, plus help. Port of webv2/cli.py's P0
 // commands, message-for-message.
 //
-// PYTHON WINS — divergences from the plan's §Task-14 interface block
+// PORT PROVENANCE (the Python twin was retired 2026-09-09; Go is the source of truth) — divergences from the plan's §Task-14 interface block
 // (all forced by cli.py, the source of truth):
 //   - init is `init --program PROG` (no positional program, no
 //     [campaignId], no --budget). Prints `initialized {id} at {dir}` plus
@@ -40,7 +40,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 
 	"websec/internal/validation"
 )
@@ -336,117 +335,5 @@ func scalarStr(v validation.Value) string {
 		return validation.PythonFloat(v.F)
 	default:
 		return validation.CanonCompact(v)
-	}
-}
-
-// --- prettyASCII: json.dumps(v, indent=2) byte-exact ----------------------
-// Insertion order, 2-space indent, ensure_ascii=True escaping (CPython
-// indent mode uses item separator ',' + newline and key separator ': ').
-
-func prettyASCII(v validation.Value) string {
-	var b strings.Builder
-	writePretty(&b, v, 0)
-	return b.String()
-}
-
-func writePretty(b *strings.Builder, v validation.Value, depth int) {
-	pad := strings.Repeat("  ", depth)
-	inner := pad + "  "
-	switch v.Kind {
-	case validation.Null:
-		b.WriteString("null")
-	case validation.Bool:
-		if v.B {
-			b.WriteString("true")
-		} else {
-			b.WriteString("false")
-		}
-	case validation.Int:
-		b.WriteString(validation.IntText(v))
-	case validation.Flt:
-		b.WriteString(validation.PythonFloat(v.F))
-	case validation.Str:
-		b.WriteByte('"')
-		writeASCIIEscape(b, v.S)
-		b.WriteByte('"')
-	case validation.Arr:
-		if len(v.A) == 0 {
-			b.WriteString("[]")
-			return
-		}
-		b.WriteString("[\n")
-		for i, e := range v.A {
-			if i > 0 {
-				b.WriteString(",\n")
-			}
-			b.WriteString(inner)
-			writePretty(b, e, depth+1)
-		}
-		b.WriteString("\n" + pad + "]")
-	case validation.Obj:
-		if len(v.O) == 0 {
-			b.WriteString("{}")
-			return
-		}
-		b.WriteString("{\n")
-		for i, kv := range v.O {
-			if i > 0 {
-				b.WriteString(",\n")
-			}
-			b.WriteString(inner)
-			b.WriteByte('"')
-			writeASCIIEscape(b, kv.K)
-			b.WriteString("\": ")
-			writePretty(b, kv.V, depth+1)
-		}
-		b.WriteString("\n" + pad + "}")
-	}
-}
-
-const hexd = "0123456789abcdef"
-
-func writeU4(b *strings.Builder, r rune) {
-	b.WriteString("\\u")
-	b.WriteByte(hexd[(r>>12)&0xf])
-	b.WriteByte(hexd[(r>>8)&0xf])
-	b.WriteByte(hexd[(r>>4)&0xf])
-	b.WriteByte(hexd[r&0xf])
-}
-
-// writeASCIIEscape is CPython ensure_ascii=True string escaping (matches
-// validation's canonical escaper; DEL 0x7f is escaped, unlike the raw
-// indented dump).
-func writeASCIIEscape(b *strings.Builder, s string) {
-	for i := 0; i < len(s); {
-		r, size := utf8.DecodeRuneInString(s[i:])
-		switch {
-		case r == '"':
-			b.WriteString("\\\"")
-		case r == '\\':
-			b.WriteString("\\\\")
-		case r == '\b':
-			b.WriteString("\\b")
-		case r == '\f':
-			b.WriteString("\\f")
-		case r == '\n':
-			b.WriteString("\\n")
-		case r == '\r':
-			b.WriteString("\\r")
-		case r == '\t':
-			b.WriteString("\\t")
-		case r < 0x20 || r == 0x7f:
-			writeU4(b, r)
-		case r <= 0x7e:
-			b.WriteRune(r)
-		default:
-			if r > 0xffff {
-				r2 := r - 0x10000
-				writeU4(b, 0xd800+rune(r2>>10&0x3ff))
-				writeU4(b, 0xdc00+rune(r2&0x3ff))
-			} else {
-				writeU4(b, r)
-			}
-		}
-		i += size
 	}
 }

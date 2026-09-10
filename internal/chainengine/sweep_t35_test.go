@@ -46,7 +46,7 @@ func eoa(capital float64, profile ...validation.KV) validation.Value {
 		kv("capabilities", validation.VArr()),
 		kv("required_capital_usd", validation.VFloat(capital)))
 	for _, p := range profile {
-		att.O = setOrAppend(att.O, p.K, p.V)
+		att.O = validation.SetOrAppend(att.O, p.K, p.V)
 	}
 	return att
 }
@@ -128,7 +128,7 @@ func TestCapitalIsSummedAlongThePath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f1v.O = setOrAppend(f1v.O, "attacker", eoa(2000))
+	f1v.O = validation.SetOrAppend(f1v.O, "attacker", eoa(2000))
 	if err := findings.SaveFinding(c, &f1v); err != nil {
 		t.Fatal(err)
 	}

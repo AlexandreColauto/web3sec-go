@@ -73,7 +73,7 @@ func TestReportScopedCampaignHasNoNotice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.O = setOrAppend(doc.O, "policy_path", validation.VStr(policyPath))
+	doc.O = validation.SetOrAppend(doc.O, "policy_path", validation.VStr(policyPath))
 	if err := validation.WriteJson(camp.StatePath, doc, "campaign_state"); err != nil {
 		t.Fatal(err)
 	}

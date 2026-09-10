@@ -1,0 +1,41 @@
+{
+  "invariants": {
+    "INV-1": {
+      "statement": "balances move atomically",
+      "kind": "economic",
+      "severity_if_broken": "critical",
+      "applies_to": [
+        "Vault"
+      ],
+      "test_status": "untested",
+      "status": "CHECKED_AGAINST_CODE",
+      "model_belief": null,
+      "depends_on": [],
+      "modified_by": "2026-09-09T12:00:11.000000+00:00",
+      "source": "model",
+      "findings": [],
+      "tests": [],
+      "detectors": [],
+      "updated_at": "2026-09-09T12:00:11.000000+00:00",
+      "verified_by": "REP-adc3248d"
+    },
+    "INV-2": {
+      "statement": "total tracks deposits",
+      "kind": "economic",
+      "severity_if_broken": "high",
+      "applies_to": [
+        "Vault"
+      ],
+      "test_status": "untested",
+      "status": "UNVERIFIED",
+      "model_belief": null,
+      "depends_on": [],
+      "modified_by": null,
+      "source": "model",
+      "findings": [],
+      "tests": [],
+      "detectors": [],
+      "updated_at": "2026-09-09T12:00:02.000000+00:00"
+    }
+  }
+}

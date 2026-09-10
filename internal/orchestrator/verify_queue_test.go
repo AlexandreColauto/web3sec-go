@@ -38,8 +38,8 @@ func TestIndependentVerificationQueueOrdersMandatoryFirst(t *testing.T) {
 		kvOf("type", validation.VStr("foundry-test")),
 		kvOf("description", validation.VStr("unit repro")),
 	))
-	f.O = setOrAppendKV(f.O, "evidence", validation.VArr(ev...))
-	f.O = setOrAppendKV(f.O, "status", validation.VStr("CONFIRMED"))
+	f.O = validation.SetOrAppend(f.O, "evidence", validation.VArr(ev...))
+	f.O = validation.SetOrAppend(f.O, "status", validation.VStr("CONFIRMED"))
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestIndependentVerificationQueueOrdersMandatoryFirst(t *testing.T) {
 		kvOf("type", validation.VStr("fork-test")),
 		kvOf("description", validation.VStr("independent rerun")),
 	))
-	f.O = setOrAppendKV(f.O, "evidence", validation.VArr(ev...))
+	f.O = validation.SetOrAppend(f.O, "evidence", validation.VArr(ev...))
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
 	}

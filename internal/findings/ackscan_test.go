@@ -174,7 +174,7 @@ func saveAckFinding(t *testing.T, c *state.Campaign, f validation.Value) string 
 }
 
 func withField(f validation.Value, key string, v validation.Value) validation.Value {
-	f.O = setOrAppend(f.O, key, v)
+	f.O = validation.SetOrAppend(f.O, key, v)
 	return f
 }
 
@@ -455,7 +455,7 @@ func TestRecordAckScanClearsOnClean(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stored.O = setOrAppend(stored.O, "affected", validation.VArr(
+	stored.O = validation.SetOrAppend(stored.O, "affected", validation.VArr(
 		validation.VObj(
 			kv("path", validation.VStr("src/Clean.sol")),
 			kv("lines", validation.VArr(validation.VInt(2))))))

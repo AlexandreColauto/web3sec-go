@@ -603,14 +603,14 @@ func chainFindingDoc(c *state.Campaign, memberIDs []string, members []validation
 	}
 	dedupMeta := []validation.KV{
 		kvOf("chain_id", validation.VStr(chainID)),
-		kvOf("members", validation.VStr(pyJSONDump(strArr(memberIDs)))),
-		kvOf("capability_links", validation.VStr(pyJSONDump(valueArr(computed)))),
+		kvOf("members", validation.VStr(validation.CanonSpaced(strArr(memberIDs)))),
+		kvOf("capability_links", validation.VStr(validation.CanonSpaced(valueArr(computed)))),
 		kvOf("evidence_floor", validation.VStr(floor)),
 		kvOf("chain_signature", validation.VStr(csig)),
 	}
 	if terminalDoc != nil {
 		dedupMeta = append(dedupMeta,
-			kvOf("terminal", validation.VStr(pyJSONDump(*terminalDoc))))
+			kvOf("terminal", validation.VStr(validation.CanonSpaced(*terminalDoc))))
 	}
 	reason := fmt.Sprintf("chain %s materialized from %s", chainID,
 		pyListRepr(memberIDs))

@@ -1,6 +1,7 @@
 package planner
 
 import (
+	"sort"
 	"strings"
 
 	"websec/internal/state"
@@ -88,9 +89,9 @@ func lensGateEntry(plan, l validation.Value, opts DivergenceOpts) gateEntry {
 	if opts.Surface != nil {
 		counts := lensProbeClosure(plan, lid, opts)
 		if counts == nil {
-			row.O = setOrAppend(row.O, "probe", validation.VNull())
+			row.O = validation.SetOrAppend(row.O, "probe", validation.VNull())
 		} else {
-			row.O = setOrAppend(row.O, "probe", *counts)
+			row.O = validation.SetOrAppend(row.O, "probe", *counts)
 		}
 	}
 	if closed {
@@ -146,7 +147,7 @@ func lensFamiliesOK(symBranch bool, seeded []string,
 			uncovered = append(uncovered, f)
 		}
 	}
-	sortStrings(uncovered)
+	sort.Strings(uncovered)
 	return len(uncovered) == 0, uncovered
 }
 

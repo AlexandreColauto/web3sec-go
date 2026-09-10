@@ -227,7 +227,7 @@ func transition(campaign *state.Campaign, findingID, toStatus, reason string,
 // the durable half of transition.
 func applyStatus(campaign *state.Campaign, finding *validation.Value,
 	fromStatus, toStatus, reason, actor string) error {
-	finding.O = setOrAppend(finding.O, "status", validation.VStr(toStatus))
+	finding.O = validation.SetOrAppend(finding.O, "status", validation.VStr(toStatus))
 	hist := objAt(*finding, "history")
 	if hist.Kind != validation.Arr {
 		hist = validation.VArr()
@@ -239,7 +239,7 @@ func applyStatus(campaign *state.Campaign, finding *validation.Value,
 		validation.KV{K: "reason", V: validation.VStr(reason)},
 		validation.KV{K: "actor", V: validation.VStr(actor)},
 	))
-	finding.O = setOrAppend(finding.O, "history", hist)
+	finding.O = validation.SetOrAppend(finding.O, "history", hist)
 	if err := SaveFinding(campaign, finding); err != nil {
 		return err
 	}
@@ -292,7 +292,7 @@ func anchorRescan(campaign *state.Campaign, finding validation.Value) error {
 		return fmt.Errorf("%s", validation.PyReprStr("priorities"))
 	}
 	priorities.A = append(priorities.A, priority)
-	plan.O = setOrAppend(plan.O, "priorities", priorities)
+	plan.O = validation.SetOrAppend(plan.O, "priorities", priorities)
 	if err := plannerSavePlanFunc(campaign, plan); err != nil {
 		return err
 	}
@@ -341,7 +341,7 @@ func reopenExhaustedLenses(campaign *state.Campaign, finding validation.Value) e
 	if !changed {
 		return nil
 	}
-	plan.O = setOrAppend(plan.O, "lenses", lenses)
+	plan.O = validation.SetOrAppend(plan.O, "lenses", lenses)
 	return plannerSavePlanFunc(campaign, plan)
 }
 
@@ -349,11 +349,11 @@ func reopenExhaustedLenses(campaign *state.Campaign, finding validation.Value) e
 func reopenLens(campaign *state.Campaign, finding, lens validation.Value,
 	hit []string) validation.Value {
 	fid := objStr(finding, "finding_id")
-	lens.O = setOrAppend(lens.O, "status", validation.VStr("open"))
-	lens.O = setOrAppend(lens.O, "reopen_reason", validation.VStr(
+	lens.O = validation.SetOrAppend(lens.O, "status", validation.VStr("open"))
+	lens.O = validation.SetOrAppend(lens.O, "reopen_reason", validation.VStr(
 		fmt.Sprintf("CONFIRMED %s in family %s after %s was closed — re-scan "+
 			"the family", fid, strings.Join(hit, ", "), objStr(lens, "lens"))))
-	lens.O = setOrAppend(lens.O, "reopened_at", validation.VStr(nowIso()))
+	lens.O = validation.SetOrAppend(lens.O, "reopened_at", validation.VStr(nowIso()))
 	for _, k := range []string{"closed_reason", "closed_ref", "closed_at",
 		"closed_by", "families_checked", "symmetry"} {
 		lens.O = dropKey(lens.O, k)
@@ -412,7 +412,7 @@ func anchorPriority(finding, plan validation.Value) (validation.Value, error) {
 	// copying a non-canonical class would raise AFTER the CONFIRMED status
 	// is already durable.
 	if cls != "" && inSet(taxonomyKnownClassesFunc(), cls) {
-		priority.O = setOrAppend(priority.O, "bug_class",
+		priority.O = validation.SetOrAppend(priority.O, "bug_class",
 			validation.VStr(cls))
 	}
 	return priority, nil
@@ -547,11 +547,11 @@ func SetCriticVerdict(campaign *state.Campaign, findingID, verdict,
 		return validation.VNull(), err
 	}
 	ver := asDict(objAt(finding, "verification"))
-	ver.O = setOrAppend(ver.O, "critic_verdict", validation.VStr(verdict))
-	finding.O = setOrAppend(finding.O, "verification", ver)
+	ver.O = validation.SetOrAppend(ver.O, "critic_verdict", validation.VStr(verdict))
+	finding.O = validation.SetOrAppend(finding.O, "verification", ver)
 	meta := asDict(objAt(finding, "dedup_meta"))
-	meta.O = setOrAppend(meta.O, "critic_reasoning", validation.VStr(reasoning))
-	finding.O = setOrAppend(finding.O, "dedup_meta", meta)
+	meta.O = validation.SetOrAppend(meta.O, "critic_reasoning", validation.VStr(reasoning))
+	finding.O = validation.SetOrAppend(finding.O, "dedup_meta", meta)
 	if err := SaveFinding(campaign, &finding); err != nil {
 		return validation.VNull(), err
 	}
@@ -581,13 +581,13 @@ func SetShieldAdjudication(campaign *state.Campaign, findingID string,
 			"must be substantive (>= 15 chars) — 'it extracts' is not an " +
 			"adjudication")
 	}
-	ver.O = setOrAppend(ver.O, "shield_adjudication", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "shield_adjudication", validation.VObj(
 		validation.KV{K: "extraction_despite_intent", V: validation.VBool(extracts)},
 		validation.KV{K: "reasoning", V: validation.VStr(reasoning)},
 		validation.KV{K: "at", V: validation.VStr(nowIso())},
 		validation.KV{K: "actor", V: validation.VStr(actor)},
 	))
-	finding.O = setOrAppend(finding.O, "verification", ver)
+	finding.O = validation.SetOrAppend(finding.O, "verification", ver)
 	if err := SaveFinding(campaign, &finding); err != nil {
 		return validation.VNull(), err
 	}
@@ -643,10 +643,10 @@ func MarkPrecondition(campaign *state.Campaign, findingID, description string,
 
 func auditPrecondition(campaign *state.Campaign, finding *validation.Value,
 	i int, p validation.Value, loggedDesc, value string) (validation.Value, error) {
-	p.O = setOrAppend(p.O, "enforced_by_poc", validation.VStr(value))
+	p.O = validation.SetOrAppend(p.O, "enforced_by_poc", validation.VStr(value))
 	pre := objAt(*finding, "preconditions")
 	pre.A[i] = p
-	finding.O = setOrAppend(finding.O, "preconditions", pre)
+	finding.O = validation.SetOrAppend(finding.O, "preconditions", pre)
 	if err := SaveFinding(campaign, finding); err != nil {
 		return validation.VNull(), err
 	}
@@ -670,8 +670,8 @@ func FoldIntoLineage(campaign *state.Campaign, findingID,
 		return validation.VNull(), err
 	}
 	dedup := asDict(objAt(finding, "dedup"))
-	dedup.O = setOrAppend(dedup.O, "lineage_id", validation.VStr(lineageID))
-	finding.O = setOrAppend(finding.O, "dedup", dedup)
+	dedup.O = validation.SetOrAppend(dedup.O, "lineage_id", validation.VStr(lineageID))
+	finding.O = validation.SetOrAppend(finding.O, "dedup", dedup)
 	if err := SaveFinding(campaign, &finding); err != nil {
 		return validation.VNull(), err
 	}
@@ -689,9 +689,9 @@ func MarkDuplicate(campaign *state.Campaign, findingID,
 		return validation.VNull(), err
 	}
 	dedup := asDict(objAt(finding, "dedup"))
-	dedup.O = setOrAppend(dedup.O, "duplicate_of",
+	dedup.O = validation.SetOrAppend(dedup.O, "duplicate_of",
 		validation.VStr(ofFindingID))
-	finding.O = setOrAppend(finding.O, "dedup", dedup)
+	finding.O = validation.SetOrAppend(finding.O, "dedup", dedup)
 	if err := SaveFinding(campaign, &finding); err != nil {
 		return validation.VNull(), err
 	}
@@ -714,8 +714,8 @@ func FlagPossibleDuplicate(campaign *state.Campaign, findingID,
 	if !containsStr(valueStrings(lst), ofFindingID) {
 		lst.A = append(lst.A, validation.VStr(ofFindingID))
 	}
-	dedup.O = setOrAppend(dedup.O, "possible_duplicate_of", lst)
-	finding.O = setOrAppend(finding.O, "dedup", dedup)
+	dedup.O = validation.SetOrAppend(dedup.O, "possible_duplicate_of", lst)
+	finding.O = validation.SetOrAppend(finding.O, "dedup", dedup)
 	if err := SaveFinding(campaign, &finding); err != nil {
 		return validation.VNull(), err
 	}

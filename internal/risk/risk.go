@@ -545,7 +545,7 @@ func RecordEconomicImpact(campaign *state.Campaign, findingID string,
 		reversedUnpriceable = true
 	}
 	if reversedUnpriceable {
-		*impact = setOrAppend(*impact, "priceable", validation.VBool(true))
+		*impact = validation.SetOrAppend(*impact, "priceable", validation.VBool(true))
 		*impact = popKey(*impact, "ceiling")
 	}
 	if err := setFloatField(impact, "extractable_usd", extractableUSD); err != nil {
@@ -643,8 +643,8 @@ func RecordUnpriceable(campaign *state.Campaign, findingID, ceiling, reason,
 		return validation.VNull(), err
 	}
 	impact := &f.O[ii].V.O
-	*impact = setOrAppend(*impact, "priceable", validation.VBool(false))
-	*impact = setOrAppend(*impact, "ceiling", validation.VStr(ceiling))
+	*impact = validation.SetOrAppend(*impact, "priceable", validation.VBool(false))
+	*impact = validation.SetOrAppend(*impact, "ceiling", validation.VStr(ceiling))
 	*impact = popKey(*impact, "extractable_usd")
 	*impact = popKey(*impact, "max_loss_usd")
 	if err := findings.SaveFinding(campaign, &f); err != nil {
@@ -683,19 +683,19 @@ func Calibrate(campaign *state.Campaign, findingID string) (validation.Value, er
 	if err != nil {
 		return validation.VNull(), err
 	}
-	riskV.O = setOrAppend(riskV.O, "validated", validated)
+	riskV.O = validation.SetOrAppend(riskV.O, "validated", validated)
 	econ, err := economicRisk(objAt(impact, "max_loss_usd"),
 		objAt(impact, "extractable_usd"),
 		objAt(orObj(objAt(f, "attacker")), "required_capital_usd"))
 	if err != nil {
 		return validation.VNull(), err
 	}
-	riskV.O = setOrAppend(riskV.O, "economic", econ)
+	riskV.O = validation.SetOrAppend(riskV.O, "economic", econ)
 	iv, err := ImpactVector(f)
 	if err != nil {
 		return validation.VNull(), err
 	}
-	riskV.O = setOrAppend(riskV.O, "impact_vector", iv)
+	riskV.O = validation.SetOrAppend(riskV.O, "impact_vector", iv)
 	f.O[ri].V = riskV
 	if err := findings.SaveFinding(campaign, &f); err != nil {
 		return validation.VNull(), err
@@ -841,20 +841,8 @@ func setFloatField(o *[]validation.KV, key string, v validation.Value) error {
 	if err != nil {
 		return err
 	}
-	*o = setOrAppend(*o, key, validation.VFloat(f))
+	*o = validation.SetOrAppend(*o, key, validation.VFloat(f))
 	return nil
-}
-
-// setOrAppend mirrors Python dict assignment: an existing key is replaced in
-// place (position kept), a new key is appended at the end.
-func setOrAppend(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
 }
 
 // popKey is dict.pop(key, None): drop the key, keeping the order of the rest.

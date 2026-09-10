@@ -1,0 +1,160 @@
+{
+  "generated_at": "2026-09-09T12:00:38.000000+00:00",
+  "snapshot_id": "src-1684fd7b-b868c7cd06e0",
+  "results": [
+    {
+      "id": "cross-chain-relay-no-authz",
+      "name": "Cross-chain relay without authz evidence",
+      "criticality": "high",
+      "match": false,
+      "forced": false,
+      "checks": [
+        {
+          "type": "function_exists",
+          "result": "absent",
+          "detail": "no matching function"
+        },
+        {
+          "type": "external_call_pattern",
+          "result": "absent",
+          "detail": "no external call matches the pattern"
+        }
+      ],
+      "near_matches": [],
+      "playbook_hint": "bridge-message"
+    },
+    {
+      "id": "delegatecall-to-user-input",
+      "name": "Delegatecall to a settable target",
+      "criticality": "high",
+      "match": false,
+      "forced": false,
+      "checks": [
+        {
+          "type": "delegatecall_present",
+          "result": "absent",
+          "detail": "no delegatecall edge"
+        },
+        {
+          "type": "state_var_exists",
+          "result": "absent",
+          "detail": "no matching state variable"
+        }
+      ],
+      "near_matches": [],
+      "playbook_hint": "access-control"
+    },
+    {
+      "id": "flash-loan-oracle-manipulation",
+      "name": "Flash-loan + oracle price read",
+      "criticality": "critical",
+      "match": false,
+      "forced": false,
+      "checks": [
+        {
+          "type": "external_call_pattern",
+          "result": "absent",
+          "detail": "no external call matches the pattern"
+        },
+        {
+          "type": "external_call_pattern",
+          "result": "absent",
+          "detail": "no external call matches the pattern"
+        }
+      ],
+      "near_matches": [],
+      "playbook_hint": "oracle-manipulation"
+    },
+    {
+      "id": "unguarded-asset-transfer",
+      "name": "Unguarded asset transfer",
+      "criticality": "critical",
+      "match": false,
+      "forced": false,
+      "checks": [
+        {
+          "type": "state_var_exists",
+          "result": "absent",
+          "detail": "no matching state variable"
+        },
+        {
+          "type": "unguarded_entry_writes",
+          "result": "absent",
+          "detail": "no unguarded entry point writes a matching var"
+        }
+      ],
+      "near_matches": [],
+      "playbook_hint": "access-control"
+    },
+    {
+      "id": "unguarded-initialize",
+      "name": "Unguarded initialize",
+      "criticality": "critical",
+      "match": false,
+      "forced": false,
+      "checks": [
+        {
+          "type": "unguarded_function_exists",
+          "result": "absent",
+          "detail": "no unguarded function among ['__init', 'initialize', 'setup']"
+        }
+      ],
+      "near_matches": [],
+      "playbook_hint": "upgrade-initializer"
+    },
+    {
+      "id": "uninitialized-proxy",
+      "name": "Uninitialized proxy / implementation slot",
+      "criticality": "critical",
+      "match": false,
+      "forced": false,
+      "checks": [
+        {
+          "type": "delegatecall_present",
+          "result": "absent",
+          "detail": "no delegatecall edge"
+        },
+        {
+          "type": "state_var_exists",
+          "result": "absent",
+          "detail": "no matching state variable"
+        }
+      ],
+      "near_matches": [],
+      "playbook_hint": "upgrade-initializer"
+    },
+    {
+      "id": "vault-share-pricing-surface",
+      "name": "Vault / share-pricing surface",
+      "criticality": "critical",
+      "match": false,
+      "forced": false,
+      "checks": [
+        {
+          "type": "state_var_exists",
+          "result": "absent",
+          "detail": "no matching state variable"
+        },
+        {
+          "type": "function_exists",
+          "result": "absent",
+          "detail": "no matching function"
+        },
+        {
+          "type": "function_exists",
+          "result": "absent",
+          "detail": "no matching function"
+        }
+      ],
+      "near_matches": [],
+      "playbook_hint": "share-price-inflation"
+    }
+  ],
+  "matched_ids": [],
+  "stats": {
+    "archetypes": 7,
+    "matched": 0,
+    "forced": 0
+  },
+  "problems": []
+}

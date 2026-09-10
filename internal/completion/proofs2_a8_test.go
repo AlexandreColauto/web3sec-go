@@ -15,7 +15,6 @@ import (
 	"websec/internal/validation"
 )
 
-
 // doneIs reports whether the proof's "done" field equals want.
 func doneIs(p validation.Value, want bool) bool {
 	v := objAt(p, "done")

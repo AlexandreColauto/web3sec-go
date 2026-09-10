@@ -33,7 +33,7 @@ func (o *Orchestrator) Scope(policyPath string) (validation.Value, error) {
 		if err != nil {
 			return validation.VNull(), err
 		}
-		doc.O = setOrAppend(doc.O, "policy_path", validation.VStr(saved))
+		doc.O = validation.SetOrAppend(doc.O, "policy_path", validation.VStr(saved))
 		if err := validation.WriteJson(o.C.StatePath, doc, "campaign_state"); err != nil {
 			return validation.VNull(), err
 		}

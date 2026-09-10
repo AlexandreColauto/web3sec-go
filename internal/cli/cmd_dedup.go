@@ -57,7 +57,7 @@ func runDedup(root string, args []string, r *Runner) int {
 	if err != nil {
 		return r.withErr(root, func() error { return err })
 	}
-	fmt.Fprintln(r.Out, prettyASCII(report))
+	fmt.Fprintln(r.Out, validation.DumpIndentedASCII(report))
 	return 0
 }
 

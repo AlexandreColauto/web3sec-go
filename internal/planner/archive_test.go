@@ -69,7 +69,7 @@ func TestValidatePlanRejectsNonCanonicalClass(t *testing.T) {
 	want := at(t, root, "validate_plan")
 	camp := vaCampaign(t)
 	bad := seedlessPlan(camp)
-	bad.O = setOrAppend(bad.O, "priorities", validation.VArr(validation.VObj(
+	bad.O = validation.SetOrAppend(bad.O, "priorities", validation.VArr(validation.VObj(
 		kv("id", validation.VStr("Q-001")),
 		kv("question", validation.VStr("Can an unprivileged caller drain "+
 			"the vault?")),

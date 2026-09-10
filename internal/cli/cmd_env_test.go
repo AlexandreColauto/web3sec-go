@@ -69,7 +69,7 @@ func TestPrintEnvDoctorText(t *testing.T) {
 		"  local digest: sha256:ab\n" +
 		"fork RPC:      (unset) — UNREACHABLE (not set)\n" +
 		"profiles:      host-readonly=ok docker-networkless=E4-only " +
-			"(campaign floor E6) vm-snapshot=NO\n" +
+		"(campaign floor E6) vm-snapshot=NO\n" +
 		"campaign:      max CONFIRMED floor E6, chain pin NO\n" +
 		"solc:          0.8.24 — ABSENT from image\n" +
 		"\nISSUES:\n" +
@@ -82,8 +82,8 @@ func TestPrintEnvDoctorText(t *testing.T) {
 
 func TestPrintEnvDoctorNoIssues(t *testing.T) {
 	report := t26EnvReport()
-	report.O = setOrAppendKV(report.O, "issues", validation.VArr())
-	report.O = setOrAppendKV(report.O, "ok", validation.VBool(true))
+	report.O = validation.SetOrAppend(report.O, "issues", validation.VArr())
+	report.O = validation.SetOrAppend(report.O, "ok", validation.VBool(true))
 	var out strings.Builder
 	printEnvDoctor(&Runner{Out: &out}, report)
 	if !strings.HasSuffix(out.String(), "\nno issues — the environment "+

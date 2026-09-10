@@ -61,8 +61,8 @@ func TestExecsJSONAndID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out != prettyASCII(rec)+"\n" {
-		t.Fatalf("--id out\n%q\nwant\n%q", out, prettyASCII(rec)+"\n")
+	if out != validation.DumpIndentedASCII(rec)+"\n" {
+		t.Fatalf("--id out\n%q\nwant\n%q", out, validation.DumpIndentedASCII(rec)+"\n")
 	}
 	if !strings.HasPrefix(out, "{\n  \"exec_id\": \""+f.pass+"\",\n") {
 		t.Fatalf("--id head %q", out[:min(60, len(out))])
@@ -75,7 +75,7 @@ func TestExecsJSONAndID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out != prettyASCII(validation.VArr(execs...))+"\n" {
+	if out != validation.DumpIndentedASCII(validation.VArr(execs...))+"\n" {
 		t.Fatalf("--json out\n%q", out)
 	}
 }

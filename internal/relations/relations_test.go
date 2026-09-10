@@ -1,4 +1,4 @@
-// Port of tests/test_relations.py (all 18 test functions). PYTHON WINS.
+// Port of tests/test_relations.py (all 18 test functions). The Python twin was retired 2026-09-09; this package is the source of truth.
 //
 // DEVIATION (declared): the Python `camp` fixture seeds the global memory
 // row by writing the shared store's data file directly; the Go harness
@@ -153,11 +153,11 @@ func confirmSimple(t *testing.T, c *state.Campaign, fid string) validation.Value
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("status", validation.VStr("reproduced")),
 		kv("tier_reached", validation.VStr("T3")),
 		kv("attempts", validation.VArr())))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(c, &vf); err != nil {
 		t.Fatalf("save finding: %v", err)
 	}
@@ -178,16 +178,6 @@ func tail(id string) string {
 		return id
 	}
 	return id[len(id)-6:]
-}
-
-func setOrAppend(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
 }
 
 // ---- the edge store itself -------------------------------------------------

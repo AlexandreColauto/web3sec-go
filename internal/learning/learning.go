@@ -239,10 +239,10 @@ func ApproveMemory(c *state.Campaign, memoryID, approver string) (validation.Val
 	if err := AssertApprovable(memoryID, mem); err != nil {
 		return validation.VNull(), err
 	}
-	mem.O = setOrAppend(mem.O, "promotion_status",
+	mem.O = validation.SetOrAppend(mem.O, "promotion_status",
 		validation.VStr("human-approved"))
-	mem.O = setOrAppend(mem.O, "approved_by", validation.VStr(approver))
-	mem.O = setOrAppend(mem.O, "approved_at", validation.VStr(state.NowIso()))
+	mem.O = validation.SetOrAppend(mem.O, "approved_by", validation.VStr(approver))
+	mem.O = validation.SetOrAppend(mem.O, "approved_at", validation.VStr(state.NowIso()))
 	if err := validation.Validate(mem, "memory", 1); err != nil {
 		return validation.VNull(), err
 	}
@@ -287,9 +287,9 @@ func RejectMemory(c *state.Campaign, memoryID, reason, rejectionClass string) (v
 			"%s is already %s: revoke the approval instead of rejecting it",
 			memoryID, status)
 	}
-	mem.O = setOrAppend(mem.O, "promotion_status", validation.VStr("rejected"))
+	mem.O = validation.SetOrAppend(mem.O, "promotion_status", validation.VStr("rejected"))
 	if rejectionClass != "" {
-		mem.O = setOrAppend(mem.O, "rejection_class",
+		mem.O = validation.SetOrAppend(mem.O, "rejection_class",
 			validation.VStr(rejectionClass))
 	}
 	if err := validation.Validate(mem, "memory", 1); err != nil {
@@ -685,18 +685,6 @@ func strList(v validation.Value) []string {
 		}
 	}
 	return out
-}
-
-// setOrAppend is Python's `d[k] = v` (replace in place, else append).
-func setOrAppend(o []validation.KV, key string,
-	v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, kv(key, v))
 }
 
 // removeKey is `del d[k]` (no-op when absent).

@@ -69,8 +69,8 @@ func runPriceBasis(root string, args []string, r *Runner) int {
 		if !ok {
 			ei = validation.VObj()
 		}
-		ei.O = setOrAppendKV(ei.O, "price_basis", validation.VStr(pos[2]))
-		f.O = setOrAppendKV(f.O, "economic_impact", ei)
+		ei.O = validation.SetOrAppend(ei.O, "price_basis", validation.VStr(pos[2]))
+		f.O = validation.SetOrAppend(f.O, "economic_impact", ei)
 		if err := findings.SaveFinding(c, &f); err != nil {
 			return err
 		}
@@ -84,19 +84,6 @@ func runPriceBasis(root string, args []string, r *Runner) int {
 			t14Money(objFlt(*row, "usd")))
 		return nil
 	})
-}
-
-// setOrAppendKV replaces a key in place, or appends it (Python's dict
-// assignment keeps an existing key's position).
-func setOrAppendKV(o []validation.KV, key string,
-	v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
 }
 
 // lookupKey distinguishes an absent key from a present null (Python's

@@ -32,9 +32,9 @@ var AdversarialGameFields = []string{"who_profits", "profit_mechanism",
 // chains — and on findings that grant the liveness_loss terminal
 // capability, so "any class whose terminal is LIVENESS_LOSS" is covered.)
 var LivenessClasses = map[string]struct{}{
-	"chain-freeze":     {},
-	"sequencer-halt":   {},
-	"liveness":         {},
+	"chain-freeze":   {},
+	"sequencer-halt": {},
+	"liveness":       {},
 }
 
 // IsLivenessFinding answers the check15 trigger: does this finding owe the
@@ -132,7 +132,7 @@ func SetAdversarialGame(campaign *state.Campaign, findingID string,
 		ag.O = append(ag.O, validation.KV{K: key,
 			V: validation.VStr(fields[key])})
 	}
-	finding.O = setOrAppend(finding.O, "adversarial_game", ag)
+	finding.O = validation.SetOrAppend(finding.O, "adversarial_game", ag)
 	if err := SaveFinding(campaign, &finding); err != nil {
 		return validation.VNull(), err
 	}

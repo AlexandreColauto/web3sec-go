@@ -95,25 +95,6 @@ func hasKey(v validation.Value, key string) bool {
 	return false
 }
 
-// setOrAppend mirrors Python dict assignment: replace in place, else append.
-func setOrAppend(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, pair(key, v))
-}
-
-// setDefault is dict.setdefault: insert only when the key is absent.
-func setDefault(o []validation.KV, key string, v validation.Value) []validation.KV {
-	if hasKey(validation.VObj(o...), key) {
-		return o
-	}
-	return append(o, pair(key, v))
-}
-
 // popKey is dict.pop(key, None).
 func popKey(o []validation.KV, key string) []validation.KV {
 	out := o[:0:0]
@@ -259,19 +240,19 @@ func migrateLegacyEntries(c *state.Campaign, links *validation.Value) (bool, err
 		if hasOld && old.Kind == validation.Str && inList(Statuses, old.S) {
 			ts = validation.VStr(old.S)
 		}
-		e.O = setOrAppend(e.O, "test_status", ts)
-		e.O = setOrAppend(e.O, "status", validation.VStr("UNVERIFIED"))
+		e.O = validation.SetOrAppend(e.O, "test_status", ts)
+		e.O = validation.SetOrAppend(e.O, "status", validation.VStr("UNVERIFIED"))
 		if !hasKey(e, "source") {
 			src, detail := deriveSource(iid, doc)
-			e.O = setOrAppend(e.O, "source", validation.VStr(src))
+			e.O = validation.SetOrAppend(e.O, "source", validation.VStr(src))
 			if detail != nil {
-				e.O = setOrAppend(e.O, "source_detail", validation.VStr(*detail))
+				e.O = validation.SetOrAppend(e.O, "source_detail", validation.VStr(*detail))
 			}
 		}
-		e.O = setDefault(e.O, "findings", validation.VArr())
-		e.O = setDefault(e.O, "tests", validation.VArr())
-		e.O = setDefault(e.O, "detectors", validation.VArr())
-		e.O = setOrAppend(e.O, "updated_at", validation.VStr(nowIso()))
+		e.O = validation.SetDefault(e.O, "findings", validation.VArr())
+		e.O = validation.SetDefault(e.O, "tests", validation.VArr())
+		e.O = validation.SetDefault(e.O, "detectors", validation.VArr())
+		e.O = validation.SetOrAppend(e.O, "updated_at", validation.VStr(nowIso()))
 		reg.O[i].V = e
 		oldV := validation.VNull()
 		if hasOld {
@@ -302,7 +283,7 @@ func migrateLegacyEntries(c *state.Campaign, links *validation.Value) (bool, err
 
 // setObjKey is links["invariants"] = reg (position preserved when present).
 func setObjKey(links validation.Value, key string, v validation.Value) validation.Value {
-	links.O = setOrAppend(links.O, key, v)
+	links.O = validation.SetOrAppend(links.O, key, v)
 	return links
 }
 
@@ -418,14 +399,14 @@ func refreshSource(reg validation.Value, iid string, doc validation.Value) valid
 	if src != "documented" || objStr(e, "source") == "documented" {
 		return reg
 	}
-	e.O = setOrAppend(e.O, "source", validation.VStr("documented"))
+	e.O = validation.SetOrAppend(e.O, "source", validation.VStr("documented"))
 	if detail != nil {
-		e.O = setOrAppend(e.O, "source_detail", validation.VStr(*detail))
+		e.O = validation.SetOrAppend(e.O, "source_detail", validation.VStr(*detail))
 	}
-	e.O = setOrAppend(e.O, "modified_by",
+	e.O = validation.SetOrAppend(e.O, "modified_by",
 		validation.VStr("source-refresh model->documented "+nowIso()))
-	e.O = setOrAppend(e.O, "updated_at", validation.VStr(nowIso()))
-	reg.O = setOrAppend(reg.O, iid, e)
+	e.O = validation.SetOrAppend(e.O, "updated_at", validation.VStr(nowIso()))
+	reg.O = validation.SetOrAppend(reg.O, iid, e)
 	return reg
 }
 
@@ -473,7 +454,7 @@ func seedLiveness(c *state.Campaign, model validation.Value, reg *validation.Val
 		pair("updated_at", validation.VStr(nowIso())),
 		pair("synthesized", validation.VStr("liveness-template")),
 	)
-	reg.O = setOrAppend(reg.O, key, validation.VObj(kvs...))
+	reg.O = validation.SetOrAppend(reg.O, key, validation.VObj(kvs...))
 	data := validation.VObj(
 		pair("id", validation.VStr(key)),
 		pair("machines", strArr(machines)),
@@ -517,13 +498,13 @@ func LinkFinding(c *state.Campaign, invariantID, findingID string,
 	if !containsValue(findings, validation.VStr(findingID)) {
 		findings.A = append(findings.A, validation.VStr(findingID))
 	}
-	entry.O = setOrAppend(entry.O, "findings", findings)
+	entry.O = validation.SetOrAppend(entry.O, "findings", findings)
 	if violated {
-		entry.O = setOrAppend(entry.O, "test_status", validation.VStr("violated"))
-		entry.O = setOrAppend(entry.O, "violated_by", validation.VStr(findingID))
+		entry.O = validation.SetOrAppend(entry.O, "test_status", validation.VStr("violated"))
+		entry.O = validation.SetOrAppend(entry.O, "violated_by", validation.VStr(findingID))
 	}
-	entry.O = setOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
-	reg.O = setOrAppend(reg.O, invariantID, entry)
+	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
+	reg.O = validation.SetOrAppend(reg.O, invariantID, entry)
 	links = setObjKey(links, "invariants", reg)
 	if _, err := SaveLinks(c, links); err != nil {
 		return validation.VNull(), err
@@ -556,13 +537,13 @@ func LinkTest(c *state.Campaign, invariantID, artifactID string) (validation.Val
 	if !containsValue(tests, validation.VStr(artifactID)) {
 		tests.A = append(tests.A, validation.VStr(artifactID))
 	}
-	entry.O = setOrAppend(entry.O, "tests", tests)
+	entry.O = validation.SetOrAppend(entry.O, "tests", tests)
 	ts := getOr(entry, "test_status", validation.VStr("untested"))
 	if ts.Kind == validation.Str && (ts.S == "untested" || ts.S == "untestable") {
-		entry.O = setOrAppend(entry.O, "test_status", validation.VStr("held"))
+		entry.O = validation.SetOrAppend(entry.O, "test_status", validation.VStr("held"))
 	}
-	entry.O = setOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
-	reg.O = setOrAppend(reg.O, invariantID, entry)
+	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
+	reg.O = validation.SetOrAppend(reg.O, invariantID, entry)
 	links = setObjKey(links, "invariants", reg)
 	if _, err := SaveLinks(c, links); err != nil {
 		return validation.VNull(), err
@@ -724,13 +705,13 @@ func VerifyInvariantStatement(c *state.Campaign, invariantID,
 		return validation.VNull(), unknownInvariant(invariantID)
 	}
 	entry := objAt(reg, invariantID)
-	entry.O = setOrAppend(entry.O, "status",
+	entry.O = validation.SetOrAppend(entry.O, "status",
 		validation.VStr("CHECKED_AGAINST_CODE"))
-	entry.O = setOrAppend(entry.O, "verified_by", validation.VStr(artifactID))
+	entry.O = validation.SetOrAppend(entry.O, "verified_by", validation.VStr(artifactID))
 	entry.O = popKey(entry.O, "contradiction")
-	entry.O = setOrAppend(entry.O, "modified_by", validation.VStr(nowIso()))
-	entry.O = setOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
-	reg.O = setOrAppend(reg.O, invariantID, entry)
+	entry.O = validation.SetOrAppend(entry.O, "modified_by", validation.VStr(nowIso()))
+	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
+	reg.O = validation.SetOrAppend(reg.O, invariantID, entry)
 	links = setObjKey(links, "invariants", reg)
 	if _, err := SaveLinks(c, links); err != nil {
 		return validation.VNull(), err
@@ -757,12 +738,12 @@ func ContradictInvariantStatement(c *state.Campaign, invariantID,
 		return validation.VNull(), unknownInvariant(invariantID)
 	}
 	entry := objAt(reg, invariantID)
-	entry.O = setOrAppend(entry.O, "status", validation.VStr("CONTRADICTED"))
-	entry.O = setOrAppend(entry.O, "contradiction", validation.VStr(evidenceRef))
+	entry.O = validation.SetOrAppend(entry.O, "status", validation.VStr("CONTRADICTED"))
+	entry.O = validation.SetOrAppend(entry.O, "contradiction", validation.VStr(evidenceRef))
 	entry.O = popKey(entry.O, "verified_by")
-	entry.O = setOrAppend(entry.O, "modified_by", validation.VStr(nowIso()))
-	entry.O = setOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
-	reg.O = setOrAppend(reg.O, invariantID, entry)
+	entry.O = validation.SetOrAppend(entry.O, "modified_by", validation.VStr(nowIso()))
+	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
+	reg.O = validation.SetOrAppend(reg.O, invariantID, entry)
 	links = setObjKey(links, "invariants", reg)
 	if _, err := SaveLinks(c, links); err != nil {
 		return validation.VNull(), err

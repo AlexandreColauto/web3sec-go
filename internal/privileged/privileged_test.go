@@ -1,5 +1,5 @@
 // Port of tests/test_privileged_baseline.py (5) and
-// tests/test_privileged_bands.py (5). PYTHON WINS.
+// tests/test_privileged_bands.py (5). The Python twin was retired 2026-09-09; this package is the source of truth.
 //
 // DEVIATION (declared): the Python fixtures confirm findings through the
 // validated APIs with a queued/approved memory row; this harness uses
@@ -227,18 +227,18 @@ func pinReproduction(t *testing.T, c *state.Campaign, fid, tier, blast string) {
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr(tier)),
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr())))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if blast != "" {
 		ei := objAt(vf, "economic_impact")
 		if ei.Kind != validation.Obj {
 			ei = validation.VObj()
 		}
-		ei.O = setOrAppend(ei.O, "blast_radius", validation.VStr(blast))
-		vf.O = setOrAppend(vf.O, "economic_impact", ei)
+		ei.O = validation.SetOrAppend(ei.O, "blast_radius", validation.VStr(blast))
+		vf.O = validation.SetOrAppend(vf.O, "economic_impact", ei)
 	}
 	if err := findings.SaveFinding(c, &vf); err != nil {
 		t.Fatalf("save finding: %v", err)
@@ -246,18 +246,6 @@ func pinReproduction(t *testing.T, c *state.Campaign, fid, tier, blast string) {
 }
 
 func floatPtr(f float64) *float64 { return &f }
-
-// setOrAppend is Python's `o[key] = v` (replace in place, else append).
-func setOrAppend(o []validation.KV, key string,
-	v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
-}
 
 // pyStr is Python's str() for the scalar shapes these fixtures carry.
 func pyStr(v validation.Value) string {

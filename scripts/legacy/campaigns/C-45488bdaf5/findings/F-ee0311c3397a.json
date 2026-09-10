@@ -1,0 +1,46 @@
+{
+  "title": "Atomic balance violated on withdraw",
+  "root_cause": {
+    "class": "logic-error",
+    "description": "mechanism described in detail here"
+  },
+  "affected": [
+    {
+      "path": "src/Vault.sol",
+      "function": "deposit"
+    }
+  ],
+  "attacker": {
+    "profile": "arbitrary EOA",
+    "capabilities": []
+  },
+  "dedup": {
+    "economic_signature": "0123456789abcdef",
+    "technical_signature": "7e260b9e0b256761",
+    "possible_duplicate_of": [
+      "F-df01bb454ed5"
+    ]
+  },
+  "finding_id": "F-ee0311c3397a",
+  "campaign_id": "C-45488bdaf5",
+  "snapshot_ids": {
+    "source": "unpinned",
+    "deployment": null,
+    "chain": null
+  },
+  "created_at": "2026-09-09T12:00:06.000000+00:00",
+  "updated_at": "2026-09-09T12:00:07.000000+00:00",
+  "status": "HYPOTHESIS",
+  "trajectory": "code",
+  "evidence": [],
+  "risk": {},
+  "history": [
+    {
+      "at": "2026-09-09T12:00:06.000000+00:00",
+      "from": "NEW",
+      "to": "HYPOTHESIS",
+      "reason": "ingested from verify-p1",
+      "actor": "verify-p1"
+    }
+  ]
+}

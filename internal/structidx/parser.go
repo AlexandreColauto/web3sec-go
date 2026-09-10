@@ -1,5 +1,5 @@
 // parser.go: the campaign-free parse core of webv2.structural_index — a
-// regex Solidity graph over a pinned source tree, ported 1:1 (PYTHON WINS).
+// regex Solidity graph over a pinned source tree, ported 1:1 (port-era provenance; twin retired 2026-09-09).
 //
 // The backend is honestly named "regex" (K2): no compiler, no type
 // resolution. The artifact is byte-identical to the Python twin's

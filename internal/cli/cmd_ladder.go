@@ -124,7 +124,7 @@ func ladderShow(c *state.Campaign, a *ladderArgs, r *Runner) error {
 		return t14ExitErr(1, "%s: no ladder yet — `webv2 ladder %s start "+
 			"%s`\n", a.finding, a.campaign, a.finding)
 	}
-	fmt.Fprintln(r.Out, prettyASCII(*lad))
+	fmt.Fprintln(r.Out, validation.DumpIndentedASCII(*lad))
 	return nil
 }
 
@@ -244,7 +244,7 @@ func ladderReport(c *state.Campaign, a *ladderArgs, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(r.Out, prettyASCII(rep))
+	fmt.Fprintln(r.Out, validation.DumpIndentedASCII(rep))
 	return nil
 }
 

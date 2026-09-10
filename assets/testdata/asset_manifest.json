@@ -1,0 +1,397 @@
+{
+ "packs": {
+  "archetypes": {
+   "cross-chain-relay-no-authz.yaml": {
+    "sha256": "dd46c861401fe7702809d4a536bf15b4315a27144047b5b4995500a77b456224",
+    "size": 521
+   },
+   "delegatecall-to-user-input.yaml": {
+    "sha256": "5d975a7aa648472c7711b0be8904f68d16d6a922490fca5d84c8419920b6768a",
+    "size": 471
+   },
+   "flash-loan-oracle-manipulation.yaml": {
+    "sha256": "d0b3d5fe8be436f4fdb80c650739d1e52c6c195f48a1c8b95b3b25c108201d9f",
+    "size": 496
+   },
+   "unguarded-asset-transfer.yaml": {
+    "sha256": "cee30f455e7ad23d10b49d8db1fcd60da31973dde37bd1fe04e2d70fedea6593",
+    "size": 519
+   },
+   "unguarded-initialize.yaml": {
+    "sha256": "8e9bd3378dd417e908b2d18dd44895684a146b6ddeb7dce03eafe8e2741b7433",
+    "size": 382
+   },
+   "uninitialized-proxy.yaml": {
+    "sha256": "f9c22561174811ba646287fa7c0b83b003a4f26c4dd7b6eba0d81d861bdb9761",
+    "size": 459
+   },
+   "vault-share-pricing-surface.yaml": {
+    "sha256": "0604e7e75cd327a4ae41e587c76b84a8a3fd556d8060fff819d94125797054a4",
+    "size": 914
+   }
+  },
+  "playbooks": {
+   "access-control.yaml": {
+    "sha256": "ec5021f9c86615ddcc1a7ab708697ee84874ab2694e8b3f7cc07480da3e6e0ff",
+    "size": 8114
+   },
+   "bridge-message.yaml": {
+    "sha256": "be06df52a29d6ba09e696030b3fea1d6c24de3cadbec8725407041c5c18d310f",
+    "size": 8728
+   },
+   "economic-invariant.yaml": {
+    "sha256": "40d15296318654b55454d76a8a4075c45af0f27cfe9d1bb3774749cd3499a6cd",
+    "size": 7943
+   },
+   "oracle-manipulation.yaml": {
+    "sha256": "21ada356f65abc3acfc28dce3f55de55f463532e4ced98b63dd06370089bdc92",
+    "size": 9098
+   },
+   "precision-rounding.yaml": {
+    "sha256": "2221c54fbcf11abc1f15ceb2e36ca3c62892f584d590938c63a24acc4ff58ef2",
+    "size": 8539
+   },
+   "reentrancy.yaml": {
+    "sha256": "de95657341b4b8d49ea23629a9b076b42ea096474562beb7d5bc0a69b74999db",
+    "size": 8217
+   },
+   "share-price-inflation.yaml": {
+    "sha256": "8116ce5f12c79573a4775699f4258f21a88f40492e262ca515c4990663d7105a",
+    "size": 8891
+   },
+   "upgrade-initializer.yaml": {
+    "sha256": "d85cc8aae68b41004c1c00f71cb4ab8ce31afdc20ddb94f2bacad208b7f6bce7",
+    "size": 8764
+   }
+  },
+  "prompts": {
+   "31_history_and_audit_mining.md": {
+    "sha256": "a9efb9aaa1a7940fc3fe041ff4ebe70eea06f0c408adc2f170a029ba23b819eb",
+    "size": 1762
+   },
+   "32_findings_state_discipline.md": {
+    "sha256": "ad667a89f999aee3659d58f6d18ef3b2acda38f3de588592de9e1ed6ad7e94a4",
+    "size": 3564
+   },
+   "33_tiered_dedup.md": {
+    "sha256": "371e7c334cd8e5d20598245dc606d1ba7f26461293f20966861b431fc31f941d",
+    "size": 1840
+   },
+   "34_risk_calibration.md": {
+    "sha256": "b50111a77c6c66b479be8ef296f841bbdfb4f47cbc7777b9e3e80d09c760e35d",
+    "size": 1802
+   },
+   "35_exploit_chaining.md": {
+    "sha256": "5e7d011b92a3c564fb5db38e43a35169ab1c428c683be61df3be7ae40963b867",
+    "size": 2020
+   },
+   "36_sandbox_isolation.md": {
+    "sha256": "b8bb9b0ac890429ca9680426c914fae5a0ce609f98b74e32c25b14e8964a1a3e",
+    "size": 2316
+   },
+   "37_protocol_knowledge_graph.md": {
+    "sha256": "b5e2dd5f6a5449e55cf829a461756292c38c9bbffb51518d5767dd2b1ecb0fc5",
+    "size": 2818
+   },
+   "38_campaign_planning.md": {
+    "sha256": "5423b55bed57a79aae470201d0232200c61bbb07500448b195b0999f6214a48b",
+    "size": 3470
+   },
+   "39_trajectory_dispatch.md": {
+    "sha256": "2e8cd243a7e4a502e990adbcd57a855d5388f1e1be65c899a03ea7ba5dc3287b",
+    "size": 6449
+   },
+   "40_deployment_vs_source.md": {
+    "sha256": "44afecc8ed7befd1a3a3a9db449115fcec51bd7073e32785441794080f059614",
+    "size": 2157
+   },
+   "41_tiered_reproduction.md": {
+    "sha256": "fb6d764e90153b6b86bad93734c6a2a9a0ca10492ea9d3cc8f12825f7d1e6b45",
+    "size": 3304
+   },
+   "42_learning_memory_reflection.md": {
+    "sha256": "6b7c75b4902a5d737220367d688a14774a2e05bca3e94556dacc524ed09f81e5",
+    "size": 2431
+   },
+   "43_report_and_submission.md": {
+    "sha256": "f9e694581e67bb459730f887366bc91aa037e618128a7cc4b6eb5842ffcad89b",
+    "size": 2232
+   },
+   "44_maximal_exploitation.md": {
+    "sha256": "65122d3082ff65ee9974930e0eaf1fad02aaae61b9b4ba71720c83f230cb68c5",
+    "size": 3365
+   },
+   "45_independent_verification.md": {
+    "sha256": "ef930b5fa79cc6ac069e9aceed38ca68d5e03fe8d8eabcd131b6574628f8c0b5",
+    "size": 2641
+   },
+   "46_mainnet_fork_poc.md": {
+    "sha256": "065970b8e8bf35c4edaad4e565db9584326f21fbd8c2b712ac5270330dae2562",
+    "size": 3044
+   },
+   "47_proposer_system.md": {
+    "sha256": "425065a1fcbd5c8a1737ea90f698e4dcb2b8849dfd3f7ba8cc4e0ee505b0edb3",
+    "size": 10396
+   },
+   "48_critic_system.md": {
+    "sha256": "e5d5b861fabf56de13674d98b3d952d5aa4b5f128761f6c9989ec5b61e8e56e9",
+    "size": 8824
+   },
+   "49_reproducer_system.md": {
+    "sha256": "da561607daef8d18d26ba7d8600eae9cc6afe625e69548ba2c66704908688536",
+    "size": 7621
+   },
+   "50_adversarial_simulation.md": {
+    "sha256": "1560e04a714759e5b667b633352592248db47e6fd94e6663bc7fccd110a4556b",
+    "size": 4439
+   },
+   "README.md": {
+    "sha256": "b3132b79b836fb24f29f0f3c77fee351b68b1e49f6018d038d755c093cf14fc6",
+    "size": 3252
+   }
+  },
+  "prompts_legacy": {
+   "01_protocol_reconstruction.md": {
+    "sha256": "c7158c74b5f74a3cd35eacd5fb027d0357e66d75703418b30762649bfb2fd20f",
+    "size": 2008
+   },
+   "02_protocol_model.md": {
+    "sha256": "0ca1e93170af3c8164566ca1abe1ccf0b1828d85a7d86459eb8eb359fd47639b",
+    "size": 1720
+   },
+   "04_invariant_generation.md": {
+    "sha256": "fff58ae17f50419233b375e081ea119ca13b7eeec35a0373b7795e0625bad096",
+    "size": 1561
+   },
+   "05_accounting_economic_audit.md": {
+    "sha256": "a60c2d742fc2a13696c5fea6cea4fe816c4ebb77748afecc0dd53531096427cd",
+    "size": 1807
+   },
+   "06_access_control_audit.md": {
+    "sha256": "af2cd3a6d0b8f2f1a4798cc6d180cdefd3fb5cf25d14aca1120c214784497e9d",
+    "size": 1166
+   },
+   "07_oracle_pricing_audit.md": {
+    "sha256": "14609f613dff06f34617cfada95b5856e71d51d3b6c3dc947287967b3b3a5c44",
+    "size": 1290
+   },
+   "08_upgradeability_initialization_audit.md": {
+    "sha256": "b3ac0ea240c77e57cf6f6c82e92b16c1b423a14bb77b39e225b2319c55ca1877",
+    "size": 1155
+   },
+   "09_cross_contract_audit.md": {
+    "sha256": "375b6453f0551aa57cad93ac43a9f7f20fe19201f9c34c69f0b5b3113ef854ac",
+    "size": 1069
+   },
+   "10_token_behavior_audit.md": {
+    "sha256": "d304bd049280133d50a46711f8e43954c1877052702c13ba73e1d5cbb09e4c71",
+    "size": 1030
+   },
+   "11_share_asset_decimal_math_audit.md": {
+    "sha256": "41f06644d8ce8a92fcb66dea1ce854cf334bf0e8888f3ea1a6e8d087cb567b9d",
+    "size": 931
+   },
+   "12_reentrancy_callbacks_audit.md": {
+    "sha256": "e0e4f6acb3c859c7aa41bc10fda5bca38e932b308d844607d029ae12962b3135",
+    "size": 902
+   },
+   "13_signature_replay_authorization_audit.md": {
+    "sha256": "2af9641b70f9e8d443e2c7332db653221f70412d7c925cfd553a9cddf182f4a5",
+    "size": 879
+   },
+   "14_liquidation_state_machine_audit.md": {
+    "sha256": "fd7d66f6ccc868797ccaae6d479996340be14105a8537890bfc02f896fc3b177",
+    "size": 912
+   },
+   "15_flash_loan_manipulation_audit.md": {
+    "sha256": "cd74fbf7c31af9ae765c00b3ac87b5aa99785eb168e8be83b09da52d7df589f4",
+    "size": 985
+   },
+   "16_dos_griefing_audit.md": {
+    "sha256": "0d1793c23c63e2ff046d6ca14a19849892698547f996d424069e74132b5fbdaf",
+    "size": 865
+   },
+   "17_hypothesis_triage.md": {
+    "sha256": "7c92f342de96395743c96d95bdf64d57de6a8bf0c881c477eb66228347859635",
+    "size": 1427
+   },
+   "18_foundry_poc_generation.md": {
+    "sha256": "f3a1168fb2b4052068340eadc6a7fe36a975555a076c5ba89d3dbb48aec6fd6f",
+    "size": 1284
+   },
+   "19_targeted_fuzzing.md": {
+    "sha256": "78418ff69130ee16d5bf98c54c26eab2595e1f784889b8e4ac842e20dff23558",
+    "size": 1104
+   },
+   "20_sequence_fuzzing.md": {
+    "sha256": "056faed00d761e6a0799080043ec87c628b99084038d8538d11810fdebed3e33",
+    "size": 973
+   },
+   "21_symbolic_validation.md": {
+    "sha256": "b8319eb91e67b3fd3a00e7154e15d9a5032b2d3e2eb35d20b8aa5a6b7c3603da",
+    "size": 1051
+   },
+   "22_adversarial_critic.md": {
+    "sha256": "d54b1e14d8a998a3525bd0c1105a3b5737e840deb897a877c6775fe11a19cb71",
+    "size": 1461
+   },
+   "23_independent_reproduction.md": {
+    "sha256": "d41ea6d873c9e444e3094c193b83fdcab8456cbe5cf5a0c0fb548e87bc77a389",
+    "size": 1036
+   },
+   "24_final_finding_gate.md": {
+    "sha256": "d0af8bcf2e42b57c6a93ea2f2075c21778cd92bb0a90fe7ca17abe2635cdeb46",
+    "size": 1080
+   },
+   "26_regression_test.md": {
+    "sha256": "b83f6c9a75524478c1d93e5105ab5282f8ad2a124eb6c8f52237c769864885ff",
+    "size": 970
+   },
+   "27_memory_promotion.md": {
+    "sha256": "3c5f899b002449c3c1ee4865f69b9c50971ad7de4b919019324aa99ef82a3c15",
+    "size": 1280
+   },
+   "28_detector_extraction.md": {
+    "sha256": "37e9bdb5ffdc630192cafb806dab778223e1cbd92f9947b2afbd582891a146f4",
+    "size": 1340
+   },
+   "29_benchmark.md": {
+    "sha256": "7b9ef964573dc07bc0141e36d4d8edfdc81bc9ad5152fdb1d2247893d6e9165d",
+    "size": 1772
+   },
+   "30_audit_cycle_and_memory.md": {
+    "sha256": "462cb1d280e71ab8cea43447edda1c0f7475037617e1b8350a8f2d94d7bb8c8c",
+    "size": 2373
+   },
+   "README.md": {
+    "sha256": "8699b2ef7981ff66fd531e13d518bebd110e73c9ecc7db0c9d43f2da7989b488",
+    "size": 1404
+   }
+  },
+  "runbook": {
+   "AGENT_BOOTSTRAP.md": {
+    "sha256": "2977a0325008dd0ea85af6a1c01032b78a1d690826d3935cfe2ba879927c8e33",
+    "size": 20432
+   },
+   "RUNBOOK.md": {
+    "sha256": "de3629143a28d454fbd45b00115eedbc2df99cf7ce98c0c3f2f24e3e74118fc6",
+    "size": 54457
+   }
+  },
+  "schema": {
+   "archetype.schema.json": {
+    "sha256": "e2d3636a767faf75d1308afdd841a917329c4f0be1a9c89638855f12bb149fc6",
+    "size": 3234
+   },
+   "assumption.schema.json": {
+    "sha256": "1824958e45d59224750046c1634c66226e0e7004275aefdba08fc7f658e64fd4",
+    "size": 2929
+   },
+   "bounty_policy.schema.json": {
+    "sha256": "337cc1a3a27323475b68e9c9ac7afe973545e634eb29d73de004574a2cd2a227",
+    "size": 6039
+   },
+   "campaign_plan.schema.json": {
+    "sha256": "cc31e6eace6391bab2f5edf8387fb95aaee6eafe72abff84cd519d413ec3c19e",
+    "size": 8925
+   },
+   "campaign_state.schema.json": {
+    "sha256": "1752295324200997ba67dbb31fe79da3c981f36528931e36caa61ce7b33ec7ff",
+    "size": 8720
+   },
+   "chain.schema.json": {
+    "sha256": "44542248330cb6ab54788aab820785e135f4f9462ee8b046af5fb02ca0fd1530",
+    "size": 7291
+   },
+   "coverage.schema.json": {
+    "sha256": "7f79c076258277f315f95b0684c436408ca76c66c0e188fcea643b46e832e254",
+    "size": 4385
+   },
+   "drift_report.schema.json": {
+    "sha256": "115fa94b09a84a94b83f0bd532a0ea2df415d2488cce29c1511ebd03eaeb913a",
+    "size": 1826
+   },
+   "evaluation_case.schema.json": {
+    "sha256": "fc3e902cb0718f3a74fac0e764d95fce0242050774ffb5f1bb2e779383a0110f",
+    "size": 6461
+   },
+   "finding.schema.json": {
+    "sha256": "ef2b7adc38d8cb6dec328e80b16a602f731fdc1e24da0230dac225243bfc1cea",
+    "size": 43972
+   },
+   "memory.schema.json": {
+    "sha256": "7ac50f7aea59519bd158cd1ad422167b00a870e9e89f6cb7b8c93b010960bb10",
+    "size": 6807
+   },
+   "model_request.schema.json": {
+    "sha256": "339832eee8b7087eb79b3cd28d340d5db0312e184d8585010e7412e29d04063b",
+    "size": 2044
+   },
+   "model_response.schema.json": {
+    "sha256": "b867aa47b08761ddfa940db997f674fba0375afe361d4205eb5c8817eee84892",
+    "size": 10873
+   },
+   "playbook.schema.json": {
+    "sha256": "fc8c78856012f0ec121f8503f80942c654b1d7135796be82996c4ff18bab0c02",
+    "size": 8882
+   },
+   "price_table.schema.json": {
+    "sha256": "daf782984bc11678f4c8102324fe75f302b5e429edfa7fe3548e2a477c269b0a",
+    "size": 1604
+   },
+   "probe_surface.schema.json": {
+    "sha256": "734ff261550f3d328043c4d69315448b79e257f622d7164302410e5f230ce532",
+    "size": 14042
+   },
+   "protocol_model.schema.json": {
+    "sha256": "abec01dd11d3ab66c20298494596bc5e0d52e4f6bf14d88f9c3158e1313b24f0",
+    "size": 11371
+   },
+   "relation.schema.json": {
+    "sha256": "8f0d93d05c73be0ee3abc35a5732869bdffb3bc3db84eea0d0e1a129ce3af5fa",
+    "size": 2048
+   },
+   "sandbox_execution.schema.json": {
+    "sha256": "75a920059c96121770469d83afd906ba0ed24b98fbd24394431cb81dcc7fc067",
+    "size": 3896
+   },
+   "sequence_poc.schema.json": {
+    "sha256": "5560a3787408e1a3f1b47f0d7aa4ed675ba91a36581af50ae9889fd59019c4ec",
+    "size": 1942
+   },
+   "sequence_result.schema.json": {
+    "sha256": "15ba04571978639ac4cf4e28c38f3bbd64b5ef573a5202ab39d1c64082b6d3bf",
+    "size": 1325
+   },
+   "sft_example.schema.json": {
+    "sha256": "313666acd6d4e801e4149d861e0c1b906800746ecc02db911ab81ea658bfe464",
+    "size": 4433
+   },
+   "shared_memory_row.schema.json": {
+    "sha256": "f18ecf41c5c6887659005c0704a7877420191d380eab8ac5781b8b996d0c9520",
+    "size": 1154
+   },
+   "shared_signature.schema.json": {
+    "sha256": "7ccbc67dc329585c2db7987404eded75ed12ab7a84beaeb69faab3ccabc8eadf",
+    "size": 3321
+   },
+   "snapshot.schema.json": {
+    "sha256": "cc68372af0327fff0729230646f4038996a9663ccf9790f74eaaa52252c3847e",
+    "size": 7538
+   },
+   "structural_index.schema.json": {
+    "sha256": "55fc8349c8182efbf09b80666f8eecc3dee6ba1d3bead1721f575e3cf9512fef",
+    "size": 6515
+   },
+   "trajectory.schema.json": {
+    "sha256": "e653a5350c5278dc43fb574f4a947591ba1819dd75f2d9b7384a87446deb5caf",
+    "size": 11742
+   },
+   "variant_ladder.schema.json": {
+    "sha256": "2e7f6c8e002ff5885f682c6b7c6ff68ead29aeab170b183d73d8bdb5a468783f",
+    "size": 3903
+   }
+  }
+ },
+ "version": 1
+}

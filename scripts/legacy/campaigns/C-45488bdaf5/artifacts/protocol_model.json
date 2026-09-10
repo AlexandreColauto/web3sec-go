@@ -1,0 +1,70 @@
+{
+  "protocol_id": "v1xfi",
+  "name": "Verify P1 Fixture",
+  "snapshot_id": "unpinned",
+  "chains": [
+    "ethereum"
+  ],
+  "subsystems": [
+    "defi-vault"
+  ],
+  "contracts": [
+    {
+      "name": "Vault",
+      "path": "src/Vault.sol",
+      "role": "core",
+      "in_scope": true,
+      "entry_points": [
+        "deposit"
+      ],
+      "state_variables": [
+        {
+          "name": "total",
+          "kind": "balance",
+          "accounting": true
+        }
+      ]
+    }
+  ],
+  "actors": [
+    {
+      "id": "user",
+      "kind": "EOA",
+      "trust": "externally-owned"
+    }
+  ],
+  "assets": [
+    {
+      "id": "share",
+      "kind": "share",
+      "decimals": 18
+    }
+  ],
+  "liabilities": [],
+  "privileges": [],
+  "trust_boundaries": [],
+  "relations": [],
+  "state_machines": [],
+  "economic_relations": [],
+  "invariants": [
+    {
+      "id": "INV-1",
+      "statement": "balances move atomically",
+      "applies_to": [
+        "Vault"
+      ],
+      "kind": "economic",
+      "severity_if_broken": "critical"
+    },
+    {
+      "id": "INV-2",
+      "statement": "total tracks deposits",
+      "applies_to": [
+        "Vault"
+      ],
+      "kind": "economic",
+      "severity_if_broken": "high"
+    }
+  ],
+  "oracles": []
+}

@@ -26,7 +26,7 @@ func FindingPath(campaign *state.Campaign, findingID string) string {
 // against the finding schema, and write it. The caller's Value is mutated in
 // place (Python mutates the dict it was handed).
 func SaveFinding(campaign *state.Campaign, finding *validation.Value) error {
-	finding.O = setOrAppend(finding.O, "updated_at", validation.VStr(nowIso()))
+	finding.O = validation.SetOrAppend(finding.O, "updated_at", validation.VStr(nowIso()))
 	if err := validation.Validate(*finding, "finding", 1); err != nil {
 		return err
 	}
@@ -133,18 +133,6 @@ func nowIso() string {
 	now := time.Now().UTC()
 	return fmt.Sprintf("%s.%06d+00:00",
 		now.Format("2006-01-02T15:04:05"), now.Nanosecond()/1000)
-}
-
-// setOrAppend mirrors Python dict assignment: an existing key is replaced in
-// place (position kept), a new key is appended at the end.
-func setOrAppend(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
 }
 
 // PinnedFindingID and ResetPinnedFindingIDs are the cross-twin golden harness'

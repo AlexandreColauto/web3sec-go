@@ -42,8 +42,8 @@ func setSourcePin(t *testing.T, c *state.Campaign, fid, pin string) {
 		t.Fatal(err)
 	}
 	sp := asObj(objAt(f, "snapshot_ids"))
-	sp.O = setOrAppend(sp.O, "source", validation.VStr(pin))
-	f.O = setOrAppend(f.O, "snapshot_ids", sp)
+	sp.O = validation.SetOrAppend(sp.O, "source", validation.VStr(pin))
+	f.O = validation.SetOrAppend(f.O, "snapshot_ids", sp)
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
 	}

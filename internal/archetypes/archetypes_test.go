@@ -398,32 +398,8 @@ func TestS5CorruptOverridesDegradeGracefully(t *testing.T) {
 
 // ---- embed byte-identity -------------------------------------------------
 
-func TestEmbeddedPackIsByteIdenticalToPythonRepo(t *testing.T) {
-	pyDir := filepath.Join("..", "..", "..", "web3sec-final", "archetypes")
-	if st, err := os.Stat(pyDir); err != nil || !st.IsDir() {
-		t.Skipf("python reference repo absent at %s", pyDir)
-	}
-	files, err := listFiles()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(files) != 7 {
-		t.Fatalf("embedded pack lists %d files, want 7", len(files))
-	}
-	for _, name := range files {
-		want, err := os.ReadFile(filepath.Join(pyDir, name))
-		if err != nil {
-			t.Fatalf("python repo lacks %s: %v", name, err)
-		}
-		got, err := readPackFile(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if string(got) != string(want) {
-			t.Fatalf("%s differs from the Python repo's copy", name)
-		}
-	}
-}
+// The former twin byte-identity acceptance check moved to
+// assets.TestAssetPackManifest (committed SHA-256 manifest, no external tree).
 
 // ---- test helpers --------------------------------------------------------
 

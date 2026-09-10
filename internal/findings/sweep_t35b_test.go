@@ -88,12 +88,12 @@ func TestConfirmationGateHasNoTierClauseAtE4Floor(t *testing.T) {
 		t.Fatal(err)
 	}
 	ver := asDict(objAt(vf, "verification"))
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T2")),
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr()),
 	))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := SaveFinding(c, &vf); err != nil {
 		t.Fatal(err)
 	}

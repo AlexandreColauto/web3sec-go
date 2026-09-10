@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# verify-full.sh — Task 18: the single entry point the P0+P1+P2 gate runs.
+# verify-full.sh — the single entry point that proves the repo is clean.
 #
-# One command (a human or CI) runs to know whether P0, P1, P2 and P3 are
-# clean: fifteen ordered steps, fail-fast with the failing step's name.
+# One command (a human or CI) runs to know whether every gate is green:
+# twelve ordered steps, fail-fast with the failing step's name.
 #
 #   1.  go vet ./... clean
 #   2.  go build ./cmd/webv2 -> /tmp/webv2
@@ -11,40 +11,41 @@
 #   4.  go test -race ./... PASS (hard gate from day one — design 7.1)
 #   5.  go test -count=1 ./... twice; normalized output identical
 #       (Go==Go determinism run — design 7.1)
-#   6.  scripts/sync-assets.sh then diff -r <py>/schema assets/schema
-#   7.  python -m pytest <py>/tests -q (reference baseline — OPT-IN via
-#       WEBV2_REF_PYTEST=1; heavy, orchestrator-only, skip by default)
-#   8.  testmap reconciles with the live Python tree (sync-testmap --check,
-#       then check-testmap.py against count-python-tests.py)
-#   9.  scripts/golden.sh green (Task 17)
-#  10.  crash smoke: audit/verify on a truncated events.jsonl must
+#   6.  asset-pack integrity: the embedded schema/archetype/playbook/prompt
+#       packs match their committed SHA-256 manifest (assets package test)
+#   7.  scripts/golden.sh green (Go-only since the P4 cutover)
+#   8.  crash smoke: audit/verify on a truncated events.jsonl must
 #       produce a verdict, not a panic (Task 7 + hardening 7.2)
-#  11.  cross-audit Python -> Go: a CLI-built Python campaign (pinned clock
-#       + id stream) must audit clean in Go — ok: true (spec 1.5 item 3)
-#  12.  cross-audit Go -> Python: the same campaign built by the Go binary
-#       must pass the LIVE Python audit/verify (spec 1.5 item 3)
-#  13.  P1 CLI smoke: the 21 P1 commands each invoked once in a valid shape
+#   9.  legacy cross-audit: a campaign written by the retired Python
+#       reference (committed fixture, scripts/legacy/) audits + verifies
+#       clean in Go, with all 14 sections and the P2/P3 state readable
+#  10.  P1 CLI smoke: the 21 P1 commands each invoked once in a valid shape
 #       against a scratch Go campaign, asserting documented exit codes
-#       (fast form of spec 1.5 item 4; the full RUNBOOK walkthrough is P4)
-#  14.  P2 CLI smoke: the P2 commands each invoked once in a valid shape
+#  11.  P2 CLI smoke: the P2 commands each invoked once in a valid shape
 #       against a scratch Go campaign (exec ledger, mint, the full ladder
 #       lifecycle, chains/terminals/privileged, impact, sequence verify),
 #       asserting documented exit codes
+#  12.  P3 CLI smoke: the P3 commands each invoked once in a valid shape
+#       against a scratch Go campaign (structural surface, probes, memory/
+#       publish, briefing/report, baselines/forkdiff, costs, run), then
+#       the full audit + verify of the finished smoke campaign
 #
-# Steps 11/12 build their campaign with P2 state too (exec/mint/ladder/
-# chains/impact) AND P3 state (snap/index/sinks/prescreen/probes+emit/
-# relations, a disproved rung's queued memory row, report.md), so the
-# cross-audit covers the P2 and P3 audit sections — both directions must
-# report all 14 sections incl. sequence_coverage and probe_surface, and
-# the other twin must read the ladder, the memory row, the probe axes
-# and the report.
+# History: steps 6-8 of the pre-retirement form of this script byte-diffed
+# schemas against the Python twin, ran the reference pytest suite, and
+# cross-audited live between the twins. The twin was retired 2026-09-09
+# (docs/archive/KNOWN_DIVERGENCES.md banner; docs/gates/P4-gate.md §9.1);
+# step 9's committed fixture carries the reader-compatibility half of that
+# coverage with zero external dependencies. Steps 10-12 build their
+# campaigns with P2 state (exec/mint/ladder/chains/impact) AND P3 state
+# (snap/index/sinks/prescreen/probes+emit/relations, a disproved rung's
+# queued memory row, report.md), so the audit covers all 14 sections incl.
+# sequence_coverage and probe_surface.
 #
 # Exits non-zero at the first failing step, naming it.
 
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-PYROOT="$(cd "$ROOT/.." && pwd)/web3sec-final"
 cd "$ROOT"
 
 # The Go caches live under .scratch so the script works in sandboxed
@@ -54,7 +55,6 @@ cd "$ROOT"
 export GOCACHE="$ROOT/.scratch/gocache"
 export GOPATH="$ROOT/.scratch/gomod"
 export GOMODCACHE="$ROOT/.scratch/gomod/pkg/mod"
-export GOMODCACHE="${GOMODCACHE:-$GOPATH/pkg/mod}"
 
 fail() {
   echo
@@ -62,7 +62,7 @@ fail() {
   exit 1
 }
 
-TOTAL_STEPS=15
+TOTAL_STEPS=12
 
 step() {
   echo
@@ -104,50 +104,23 @@ if ! diff -u .scratch/gotest-run1.txt .scratch/gotest-run2.txt; then
 fi
 echo "ok: two fresh runs byte-identical (durations stripped)"
 
-# 6. schema assets ------------------------------------------------------
-step 6 "sync-assets + diff"
-scripts/sync-assets.sh || fail 6 "sync-assets.sh"
-diff -r "$PYROOT/schema" assets/schema || fail 6 "schema diff"
-echo "ok: $(ls assets/schema | wc -l) schemas byte-identical"
+# 6. asset-pack integrity ----------------------------------------------
+step 6 "asset-pack manifest"
+go test ./assets -run TestAssetPackManifest -count=1 || fail 6 "asset manifest"
+echo "ok: every embedded asset byte-matches the committed manifest"
 
-# 7. Python reference baseline ------------------------------------------
-# The reference suite (~1450 tests, ~217s, heavy on memory) is opt-in:
-# WEBV2_REF_PYTEST=1 runs it; by default it is skipped with a note. It is
-# for the orchestrator, when genuinely necessary (a phase-gate baseline
-# after the Python twin moved) — never part of a subagent's work.
-step 7 "python reference suite"
-if [ -n "${WEBV2_REF_PYTEST:-}" ]; then
-  (
-    cd "$PYROOT" && PYTHONPATH=src python3 -m pytest tests -q
-  ) > .scratch/pytest.log 2>&1
-  PYEXIT=$?
-  tail -2 .scratch/pytest.log
-  [ "$PYEXIT" -eq 0 ] || fail 7 "python reference suite"
-  echo "ok: reference suite green"
-else
-  echo "skip: reference suite (WEBV2_REF_PYTEST=1 to run; last proven green at the P1 gate, 1446 passed)"
-fi
+# 7. golden suite ---------------------------------------------------------
+step 7 "golden.sh"
+scripts/golden.sh || fail 7 "golden.sh"
 
-# 8. testmap ------------------------------------------------------------
-step 8 "check-testmap"
-# 8a. the live reference must have no unabsorbed Python tests (web3sec-final
-#     is developed in parallel; run scripts/sync-testmap.py to absorb them).
-python3 scripts/sync-testmap.py --check \
-  || fail 8 "sync-testmap --check (new python tests not in testmap.json)"
-python3 scripts/check-testmap.py || fail 8 "check-testmap"
-
-# 9. golden suite ---------------------------------------------------------
-step 9 "golden.sh (cross-twin)"
-scripts/golden.sh || fail 9 "golden.sh"
-
-# 10. crash smoke ----------------------------------------------------------
-step 10 "crash smoke: truncated events.jsonl"
+# 8. crash smoke ----------------------------------------------------------
+step 8 "crash smoke: truncated events.jsonl"
 SMOKE="$(mktemp -d)"
 CID="$(/tmp/webv2 --root "$SMOKE" init --program Smoke 2>/dev/null \
   | grep -o 'C-[0-9a-f]*' | head -1)"
-[ -n "$CID" ] || fail 10 "smoke init"
-/tmp/webv2 --root "$SMOKE" snap "$CID" "$PYROOT/schema" >/dev/null 2>&1 \
-  || fail 10 "smoke snap"
+[ -n "$CID" ] || fail 8 "smoke init"
+/tmp/webv2 --root "$SMOKE" snap "$CID" "$ROOT/assets/schema" >/dev/null 2>&1 \
+  || fail 8 "smoke snap"
 cp -r "$SMOKE" "$SMOKE-trunc"
 ELOG="$SMOKE-trunc/campaigns/$CID/events.jsonl"
 head -c $(( $(stat -c%s "$ELOG") / 2 )) "$ELOG" > "$ELOG.tmp"
@@ -162,26 +135,29 @@ if [ "$AEXIT" -ge 2 ] || grep -q "panic:" <<<"$AOUT" \
    || [ "$VEXIT" -ge 2 ] || grep -q "panic:" <<<"$VOUT"; then
   echo "audit exit=$AEXIT: $AOUT"
   echo "verify exit=$VEXIT: $VOUT"
-  fail 10 "crash smoke (panic or bad exit)"
+  fail 8 "crash smoke (panic or bad exit)"
 fi
 echo "$VOUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "ok" in d' \
-  || fail 10 "verify verdict not JSON"
+  || fail 8 "verify verdict not JSON"
 echo "ok: audit/verify handle a corrupted log without panicking"
 rm -rf "$SMOKE" "$SMOKE-trunc"
 
-# --- P1 cross-audit + CLI smoke (spec 1.5 items 3-4) --------------------
-#
-# Shared machinery for steps 11-14: the pinned clock (WEBV2_NOW, +1s per
-# step, reset per campaign) and the pinned id stream (WEBV2_UUID, one seed
-# PER STEP — golden v3's rule) that both twins honour, exactly as
-# scripts/golden-run.py does — the campaign a twin builds is the same
-# campaign logically, so the other twin's auditor must accept it. Scratch
-# lives under .scratch/verify-p1/.
+# --- shared machinery for steps 9-12 ------------------------------------
+# The pinned clock (WEBV2_NOW, +1s per step, reset per campaign) and the
+# pinned id stream (WEBV2_UUID, one seed PER STEP — golden v3's rule). The
+# legacy fixture (step 9) was built by the Python twin under exactly this
+# discipline before the retirement; the smoke campaigns (steps 10-12) use
+# it for Go==Go reproducibility. Scratch lives under .scratch/verify-p1/.
 P1F="$ROOT/.scratch/verify-p1"
 P1BIN="$P1F/webv2"
-# The reference probes package's own blind fixture: one contract whose
-# accumulator axis rejects every site it sees, so `probes blank` has a
-# disposition to record. Snapshotted by both cross-audit twins.
+mkdir -p "$P1F"
+# The pinned-clock harness drives the SAME binary the gate builds in step 2,
+# rebuilt to a stable path (steps 9-12 run it many times; /tmp/webv2 stays
+# for the crash smoke).
+go build -o "$P1BIN" ./cmd/webv2 || { echo "FAIL: build $P1BIN"; exit 1; }
+# The probe fixture's own blind contract: one contract whose accumulator
+# axis rejects every site it sees, so `probes blank` has a disposition to
+# record. Used by the P3 smoke's structural leg.
 P3_FIXTURE="$ROOT/internal/probes/testdata/probes/accumulator/blind"
 P1_SEED="verify-p1-cross"
 # The step counter lives in a FILE: every run_p1 call sits inside $(...) — a
@@ -190,10 +166,10 @@ P1_COUNTER="$P1F/step-counter"
 p1_step_reset() { P1_STEP=0; printf '0\n' > "$P1_COUNTER"; }
 p1_step_reset
 
-# run_p1 TWIN ROOT ARGV... — one pinned-clock CLI invocation.
+# run_p1 ROOT ARGV... — one pinned-clock CLI invocation against the Go binary.
 run_p1() {
-  local twin="$1" root="$2"
-  shift 2
+  local root="$1"
+  shift 1
   P1_STEP=$(( $(cat "$P1_COUNTER" 2>/dev/null || echo 0) + 1 ))
   printf '%s\n' "$P1_STEP" > "$P1_COUNTER"
   local now
@@ -203,26 +179,16 @@ run_p1() {
   # whose new_id counter restarts at 0, so a single seed would make the first
   # id of EVERY command identical (two `exec` calls would mint the same EXEC-).
   local seed="$P1_SEED:$P1_STEP"
-  # WEBV2_BASELINES_DIR keeps the Go baseline store out of the repo (D24);
-  # the reference ignores it (its store hangs off its package root, and no
-  # verify-full step registers a baseline in the Python twin).
-  if [ "$twin" = py ]; then
-    ( cd "$PYROOT" && PYTHONPATH=src WEBV2_NOW="$now" WEBV2_UUID="$seed" \
-        WEBV2_BASELINES_DIR="$P1F/baselines" \
-        python3 -m webv2.cli --root "$root" "$@" )
-  else
-    WEBV2_NOW="$now" WEBV2_UUID="$seed" WEBV2_BASELINES_DIR="$P1F/baselines" \
-      "$P1BIN" --root "$root" "$@"
-  fi
+  # WEBV2_BASELINES_DIR keeps the baseline store out of the repo (D24).
+  WEBV2_NOW="$now" WEBV2_UUID="$seed" WEBV2_BASELINES_DIR="$P1F/baselines" \
+    "$P1BIN" --root "$root" "$@"
 }
-
-p1_build_fail() { echo "cross-audit($1): $2" >&2; return 1; }
 
 # seed_p2_exec ROOT CID FID EXEC_ID — write an externally-reported
 # docker-networkless E4 exec record (the same shape scripts/golden-run.py
-# seeds). It is HARNESS INPUT: byte-identical for both twins, and it lets
-# the docker-free cross-audit exercise `mint` (which refuses host-readonly:
-# "E4+ evidence requires a container/VM profile").
+# seeds). It is HARNESS INPUT and lets the docker-free smoke steps exercise
+# `mint` (which refuses host-readonly: "E4+ evidence requires a
+# container/VM profile").
 seed_p2_exec() {
   local root="$1" cid="$2" fid="$3" exid="$4"
   local d="$root/campaigns/$cid/execs/$exid"
@@ -268,157 +234,6 @@ rec = {
 PY
 }
 
-# build_campaign TWIN ROOT LABEL — the RUNBOOK-shaped P1 campaign through
-# one twin: init, model, plan, ingest 2 findings (F1 confirmed via the
-# CLI's critic-verdict path, F2 open), dedup, answered, gate dry-run (must
-# exit 1 while clauses fail), artifact-register, invariant-verify. Echoes
-# the campaign id; the pinned stream is rewound first so both twins build
-# the same logical campaign (identical timestamps + campaign id).
-build_campaign() {
-  local twin="$1" root="$2" label="$3" out cid f1 f2 rep rc
-  p1_step_reset
-  mkdir -p "$root" || { p1_build_fail "$label" "mkdir"; return 1; }
-  out="$(run_p1 "$twin" "$root" init --program VerifyP1Cross 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "init"; return 1; }
-  cid="$(grep -oE 'C-[0-9a-f]+' <<<"$out" | head -1)"
-  [ -n "$cid" ] || { echo "$out" >&2; p1_build_fail "$label" "init id"; return 1; }
-  out="$(run_p1 "$twin" "$root" model "$cid" "$P1F/fixtures/model.json" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "model"; return 1; }
-  out="$(run_p1 "$twin" "$root" plan "$cid" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "plan"; return 1; }
-  out="$(run_p1 "$twin" "$root" ingest "$cid" --json-file "$P1F/fixtures/f1.json" \
-    --trajectory code --stage verify-p1 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "ingest f1"; return 1; }
-  f1="$(grep -oE 'F-[0-9a-f]+' <<<"$out" | head -1)"
-  [ -n "$f1" ] || { echo "$out" >&2; p1_build_fail "$label" "ingest f1 id"; return 1; }
-  out="$(run_p1 "$twin" "$root" verdict "$cid" "$f1" --verdict confirmed \
-    --reason "mechanism verified by hand" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "verdict"; return 1; }
-  out="$(run_p1 "$twin" "$root" ingest "$cid" --json-file "$P1F/fixtures/f2.json" \
-    --trajectory code --stage verify-p1 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "ingest f2"; return 1; }
-  f2="$(grep -oE 'F-[0-9a-f]+' <<<"$out" | head -1)"
-  out="$(run_p1 "$twin" "$root" dedup "$cid" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "dedup"; return 1; }
-  out="$(run_p1 "$twin" "$root" answered "$cid" Q-001 answered \
-    --reason "covered by F1" --ref "$f1" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "answered"; return 1; }
-  # Gate dry-run is read-only and exits 1 while a clause fails (documented).
-  run_p1 "$twin" "$root" gate "$cid" "$f1" >/dev/null 2>&1
-  rc=$?
-  [ "$rc" -eq 1 ] \
-    || { p1_build_fail "$label" "gate dry-run exit $rc, want 1"; return 1; }
-  out="$(run_p1 "$twin" "$root" artifact-register "$cid" "$P1F/fixtures/note.md" \
-    --kind report 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "artifact-register"; return 1; }
-  rep="$(grep -oE '^[A-Z]{2,4}-[0-9a-f]+' <<<"$out" | head -1)"
-  [ -n "$rep" ] || { echo "$out" >&2; p1_build_fail "$label" "artifact id"; return 1; }
-  out="$(run_p1 "$twin" "$root" invariant-verify "$cid" INV-1 --artifact "$rep" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "invariant-verify"; return 1; }
-
-  # --- P2 state (docker-free) -------------------------------------------
-  # The same P2 op-sequence through one twin, so the OTHER twin's audit has
-  # P2 material to read: a real exec ledger (one pass, one failure), an
-  # out-of-band E4 record minted into evidence, the full ladder lifecycle
-  # (start/add/explore x5/repro/set-maximal/complete/report), the
-  # capability/terminal/privileged reports, a priced impact, and the
-  # sequence-coverage read. `sequence run` needs docker+anvil and is NOT
-  # here (scripts/p2-docker-e2e.sh runs it for real).
-  local ex exfail lad rung seedex
-  out="$(run_p1 "$twin" "$root" exec "$cid" --command "echo p2-cross" \
-    --finding "$f1" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "exec pass"; return 1; }
-  out="$(run_p1 "$twin" "$root" exec "$cid" --command "exit 7" \
-    --finding "$f1" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "exec fail"; return 1; }
-  exfail="$(grep -oE 'EXEC-[0-9a-f]+' <<<"$out" | head -1)"
-  [ -n "$exfail" ] || { echo "$out" >&2; p1_build_fail "$label" "exec fail id"; return 1; }
-  out="$(run_p1 "$twin" "$root" classify "$cid" "$exfail" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "classify"; return 1; }
-  out="$(run_p1 "$twin" "$root" execs "$cid" --json 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "execs --json"; return 1; }
-  seedex="EXEC-$(python3 -c 'import hashlib;print(hashlib.sha256(b"verify-p2-seed-exec").hexdigest()[:10])')"
-  seed_p2_exec "$root" "$cid" "$f1" "$seedex" \
-    || { p1_build_fail "$label" "seed exec"; return 1; }
-  out="$(run_p1 "$twin" "$root" mint "$cid" "$f1" --exec "$seedex" \
-    --description "sandboxed PoC drains the vault in one withdraw" \
-    --tier T2 --type foundry-test 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "mint"; return 1; }
-  out="$(run_p1 "$twin" "$root" ladder "$cid" start "$f1" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "ladder start"; return 1; }
-  out="$(run_p1 "$twin" "$root" ladder "$cid" add "$f1" --name dust \
-    --description "dust the pool with one wei" --axes capital-minimization \
-    --capital 1 --ratio 1 --removes "victim stakes" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "ladder add"; return 1; }
-  rung="$(grep -oE 'R-[0-9a-f]+' <<<"$out" | head -1)"
-  [ -n "$rung" ] || { echo "$out" >&2; p1_build_fail "$label" "ladder add rung"; return 1; }
-  for axis in cap-saturation precondition-removal role-conflation \
-              ordering-permutation; do
-    out="$(run_p1 "$twin" "$root" ladder "$cid" explore "$f1" - "$axis" \
-      --note "considered, not applicable here" 2>&1)" \
-      || { echo "$out" >&2; p1_build_fail "$label" "ladder explore $axis"; return 1; }
-  done
-  out="$(run_p1 "$twin" "$root" ladder "$cid" repro "$f1" "$rung" \
-    --exec "$seedex" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "ladder repro"; return 1; }
-  out="$(run_p1 "$twin" "$root" ladder "$cid" set-maximal "$f1" "$rung" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "ladder set-maximal"; return 1; }
-  # D18 happy path: a disproved rung queues the negative memory row the
-  # OTHER twin must be able to read (p2_cross_read checks `memory`).
-  out="$(run_p1 "$twin" "$root" ladder "$cid" add "$f1" --name dead-end \
-    --description "the only remaining drain path" --axes precondition-removal \
-    --capital 1 --ratio 1 --removes "the timelock" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "ladder add dead-end"; return 1; }
-  rung2="$(grep -oE 'R-[0-9a-f]+' <<<"$out" | head -1)"
-  [ -n "$rung2" ] || { echo "$out" >&2; p1_build_fail "$label" "ladder dead-end rung"; return 1; }
-  out="$(run_p1 "$twin" "$root" ladder "$cid" disprove "$f1" "$rung2" \
-    --reason "the removed timelock precondition is enforced by the guard" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "ladder disprove"; return 1; }
-  out="$(run_p1 "$twin" "$root" ladder "$cid" complete "$f1" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "ladder complete"; return 1; }
-  out="$(run_p1 "$twin" "$root" ladder "$cid" report "$f1" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "ladder report"; return 1; }
-  for verb in chains terminals privileged; do
-    out="$(run_p1 "$twin" "$root" "$verb" "$cid" 2>&1)" \
-      || { echo "$out" >&2; p1_build_fail "$label" "$verb"; return 1; }
-  done
-  out="$(run_p1 "$twin" "$root" impact "$cid" "$f1" --extractable 1000 \
-    --max-loss 5000 --required-capital 100 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "impact"; return 1; }
-  out="$(run_p1 "$twin" "$root" sequence verify "$cid" "$f1" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "sequence verify"; return 1; }
-  # The report artifact (the P3 report surface) must be readable by the
-  # other twin's audit/report readers.
-  out="$(run_p1 "$twin" "$root" report "$cid" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "report"; return 1; }
-
-  # --- P3 state (docker-free) -------------------------------------------
-  # The ported structural/probe surface, so the OTHER twin's audit has a
-  # real probe_surface section to validate: snap the reference probes
-  # fixture, index it, read sinks/prescreen, run the probe surface and
-  # EMIT its plan obligations (the audit's probe_surface section fails a
-  # surface that has rows but no emitted priority). The eval store and the
-  # DeFiHackLabs corpus are deliberately NOT read (both unported, D26).
-  local snap
-  out="$(run_p1 "$twin" "$root" snap "$cid" "$P3_FIXTURE" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "p3 snap"; return 1; }
-  snap="$(ls -d "$root/campaigns/$cid"/snapshots/*/ 2>/dev/null | head -1)"
-  [ -n "$snap" ] || { p1_build_fail "$label" "p3 snapshot dir"; return 1; }
-  out="$(run_p1 "$twin" "$root" index "$cid" --src "$snap" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "p3 index"; return 1; }
-  out="$(run_p1 "$twin" "$root" sinks "$cid" --src "$snap" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "p3 sinks"; return 1; }
-  out="$(run_p1 "$twin" "$root" prescreen "$cid" --src "$snap" 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "p3 prescreen"; return 1; }
-  out="$(run_p1 "$twin" "$root" probes "$cid" run 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "p3 probes run"; return 1; }
-  out="$(run_p1 "$twin" "$root" probes "$cid" run --emit 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "p3 probes run --emit"; return 1; }
-  out="$(run_p1 "$twin" "$root" relations "$cid" --rebuild 2>&1)" \
-    || { echo "$out" >&2; p1_build_fail "$label" "p3 relations"; return 1; }
-  echo "$cid"
-}
-
 # p2_sections_ok LABEL JSON — the audit --json report must carry all 14
 # sections in the reference's order, sequence_coverage included (D2 closed).
 p2_sections_ok() {
@@ -438,12 +253,12 @@ print(f"  ok {label}: 14 audit sections incl sequence_coverage")
 ' "$1" <<<"$2"
 }
 
-# p2_cross_read TWIN ROOT CID LABEL — the OTHER twin must be able to read
-# the P2 state the first twin wrote: the exec ledger, the ladder report,
-# and the audit's P2 sections.
-p2_cross_read() {
-  local twin="$1" root="$2" cid="$3" label="$4" out ladf fid
-  out="$(run_p1 "$twin" "$root" execs "$cid" --json 2>&1)" \
+# p2_full_read ROOT CID LABEL — every P2/P3-state reader must work against
+# the campaign at ROOT (step 9 feeds this the LEGACY fixture: Go readers on
+# Python-written state; the smoke steps feed it their own campaigns).
+p2_full_read() {
+  local root="$1" cid="$2" label="$3" out ladf fid
+  out="$(run_p1 "$root" execs "$cid" --json 2>&1)" \
     || { echo "$out" >&2; echo "$label: execs --json failed" >&2; return 1; }
   python3 -c '
 import json, sys
@@ -454,26 +269,26 @@ print(f"  ok {sys.argv[1]}: {len(d)} exec records readable")
   ladf="$(ls "$root/campaigns/$cid"/ladders/*.json 2>/dev/null | head -1)"
   [ -n "$ladf" ] || { echo "$label: no ladder file" >&2; return 1; }
   fid="$(basename "${ladf%.json}")"
-  out="$(run_p1 "$twin" "$root" ladder "$cid" report "$fid" 2>&1)" \
+  out="$(run_p1 "$root" ladder "$cid" report "$fid" 2>&1)" \
     || { echo "$out" >&2; echo "$label: ladder report failed" >&2; return 1; }
   grep -q '"disposition"' <<<"$out" \
     || { echo "$out" >&2; echo "$label: ladder report has no disposition" >&2; return 1; }
   grep -q '"state": "complete"' <<<"$out" \
     || { echo "$out" >&2; echo "$label: ladder is not complete" >&2; return 1; }
-  echo "  ok $label: ladder report reads the other twin's completed ladder"
-  out="$(run_p1 "$twin" "$root" memory "$cid" 2>&1)" \
+  echo "  ok $label: ladder report reads the completed ladder"
+  out="$(run_p1 "$root" memory "$cid" 2>&1)" \
     || { echo "$out" >&2; echo "$label: memory failed" >&2; return 1; }
   grep -qE 'MEM-[0-9a-f]+' <<<"$out" \
     || { echo "$out" >&2; echo "$label: no queued memory row" >&2; return 1; }
-  echo "  ok $label: memory view reads the other twin's queued negative row"
-  out="$(run_p1 "$twin" "$root" probes "$cid" list --all --json 2>&1)" \
+  echo "  ok $label: memory view reads the queued negative row"
+  out="$(run_p1 "$root" probes "$cid" list --all --json 2>&1)" \
     || { echo "$out" >&2; echo "$label: probes list --json failed" >&2; return 1; }
   python3 -c '
 import json, sys
 d = json.load(sys.stdin)
 # `rows` counts EMITTED candidates: the blind fixture emits none, so the
-# cross-read asserts the published AXES (with their blind keys) and the
-# index pin instead.
+# reader asserts the published AXES (with their blind keys) and the index
+# pin instead.
 axes = d.get("axes") or []
 assert axes, f"no probe axes: {d}"
 assert d.get("index_sha"), "no index_sha"
@@ -482,11 +297,42 @@ print(f"  ok {sys.argv[1]}: {len(axes)} probe axes ({blind} blind) readable")
 ' "$label" <<<"$out" || return 1
 }
 
-# 11. cross-audit (Python -> Go) ------------------------------------------
-step 11 "cross-audit: a Python-written campaign audits clean in Go"
-rm -rf "$P1F/fixtures" "$P1F/pyroot" "$P1F/goroot" "$P1F/smoke"
+# 9. legacy cross-audit ---------------------------------------------------
+# scripts/legacy/campaigns/C-45488bdaf5 was built END TO END BY THE PYTHON
+# REFERENCE (its final cross-audit run, 2026-09-09 — the full P1+P2+P3 op
+# sequence, pinned clock + id stream) and committed as a reader-
+# compatibility fixture: everything the Go auditors and readers must accept
+# from Python-era state. See scripts/legacy/README.md.
+step 9 "legacy cross-audit: a reference-written campaign audits clean in Go"
+LEGACY_ID=C-45488bdaf5
+LEGACY_ROOT="$P1F/legacy"
+rm -rf "$P1F/legacy"
+mkdir -p "$LEGACY_ROOT/campaigns"
+cp -r "$ROOT/scripts/legacy/campaigns/$LEGACY_ID" "$LEGACY_ROOT/campaigns/"
+
+p1_step_reset
+AOUT="$(run_p1 "$LEGACY_ROOT" audit "$LEGACY_ID" 2>&1)"; AEXIT=$?
+[ "$AEXIT" -eq 0 ] || { echo "$AOUT"; fail 9 "Go audit of legacy campaign (exit $AEXIT)"; }
+grep -q '^audit PASS:' <<<"$AOUT" \
+  || { echo "$AOUT"; fail 9 "Go audit of legacy campaign: not PASS"; }
+AJSON="$(run_p1 "$LEGACY_ROOT" audit "$LEGACY_ID" --json 2>&1)"; JEXIT=$?
+[ "$JEXIT" -eq 0 ] || { echo "$AJSON"; fail 9 "Go audit --json (exit $JEXIT)"; }
+python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True, d' \
+  <<<"$AJSON" || fail 9 "Go audit --json: ok is not true"
+VOUT="$(run_p1 "$LEGACY_ROOT" verify "$LEGACY_ID" 2>&1)"; VEXIT=$?
+[ "$VEXIT" -eq 0 ] || { echo "$VOUT"; fail 9 "Go verify of legacy campaign (exit $VEXIT)"; }
+python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True, d' \
+  <<<"$VOUT" || fail 9 "Go verify of legacy campaign: ok is not true"
+echo "ok: Go audit/verify accept the reference-written campaign (ok: true)"
+p2_sections_ok "Go audit of legacy campaign" "$AJSON" \
+  || fail 9 "P2 audit sections (Go reading the legacy campaign)"
+p2_full_read "$LEGACY_ROOT" "$LEGACY_ID" "Go readers on legacy P2/P3 state" \
+  || fail 9 "legacy full read (Go readers on reference-written state)"
+
+# --- CLI smoke campaigns (steps 10-12) -----------------------------------
+rm -rf "$P1F/fixtures" "$P1F/smoke" "$P1F/smoke2" "$P1F/smoke3" \
+     "$P1F/legacy"
 mkdir -p "$P1F/fixtures"
-go build -o "$P1BIN" ./cmd/webv2 || fail 11 "build .scratch/verify-p1/webv2"
 
 # Fixtures: one tiny protocol model (two invariants), two findings of the
 # same class carrying the model-normalization economic signature (so the
@@ -544,59 +390,9 @@ cat > "$P1F/fixtures/policy.json" <<'JSON'
 JSON
 printf 'verify-p1 cross-audit artifact\n' > "$P1F/fixtures/note.md"
 
-CID_PY="$(build_campaign py "$P1F/pyroot" python)" \
-  || fail 11 "cross-audit build (Python-written campaign)"
-echo "ok: Python built $CID_PY (init/model/plan/ingest x2/verdict/dedup/answered/gate/artifact/invariant)"
-
-p1_step_reset
-AOUT="$(run_p1 go "$P1F/pyroot" audit "$CID_PY" 2>&1)"; AEXIT=$?
-[ "$AEXIT" -eq 0 ] || { echo "$AOUT"; fail 11 "Go audit of Python campaign (exit $AEXIT)"; }
-grep -q '^audit PASS:' <<<"$AOUT" \
-  || { echo "$AOUT"; fail 11 "Go audit of Python campaign: not PASS"; }
-AJSON="$(run_p1 go "$P1F/pyroot" audit "$CID_PY" --json 2>&1)"; JEXIT=$?
-[ "$JEXIT" -eq 0 ] || { echo "$AJSON"; fail 11 "Go audit --json (exit $JEXIT)"; }
-python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True, d' \
-  <<<"$AJSON" || fail 11 "Go audit --json: ok is not true"
-VOUT="$(run_p1 go "$P1F/pyroot" verify "$CID_PY" 2>&1)"; VEXIT=$?
-[ "$VEXIT" -eq 0 ] || { echo "$VOUT"; fail 11 "Go verify of Python campaign (exit $VEXIT)"; }
-python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True, d' \
-  <<<"$VOUT" || fail 11 "Go verify of Python campaign: ok is not true"
-echo "ok: Go audit/verify accept the Python-written campaign (ok: true)"
-p2_sections_ok "Go audit of Python campaign" "$AJSON" \
-  || fail 11 "P2 audit sections (Go reading a Python campaign)"
-p2_cross_read go "$P1F/pyroot" "$CID_PY" "Go reading Python P2 state" \
-  || fail 11 "P2 cross-read (Go reading a Python campaign)"
-
-# 12. cross-audit (Go -> Python) ------------------------------------------
-step 12 "cross-audit: a Go-written campaign passes the LIVE Python audit"
-CID_GO="$(build_campaign go "$P1F/goroot" go)" \
-  || fail 12 "cross-audit build (Go-written campaign)"
-[ "$CID_GO" = "$CID_PY" ] \
-  || fail 12 "pinned id stream: python=$CID_PY go=$CID_GO"
-echo "ok: Go built the same campaign id ($CID_GO) under the pinned stream"
-
-p1_step_reset
-PAOUT="$(run_p1 py "$P1F/goroot" audit "$CID_GO" 2>&1)"; PAEXIT=$?
-[ "$PAEXIT" -eq 0 ] || { echo "$PAOUT"; fail 12 "Python audit of Go campaign (exit $PAEXIT)"; }
-grep -q '^audit PASS:' <<<"$PAOUT" \
-  || { echo "$PAOUT"; fail 12 "Python audit of Go campaign: not PASS"; }
-PAJSON="$(run_p1 py "$P1F/goroot" audit "$CID_GO" --json 2>&1)"; PJEXIT=$?
-[ "$PJEXIT" -eq 0 ] || { echo "$PAJSON"; fail 12 "Python audit --json (exit $PJEXIT)"; }
-python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True, d' \
-  <<<"$PAJSON" || fail 12 "Python audit --json: ok is not true"
-PVOUT="$(run_p1 py "$P1F/goroot" verify "$CID_GO" 2>&1)"; PVEXIT=$?
-[ "$PVEXIT" -eq 0 ] || { echo "$PVOUT"; fail 12 "Python verify of Go campaign (exit $PVEXIT)"; }
-python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True, d' \
-  <<<"$PVOUT" || fail 12 "Python verify of Go campaign: ok is not true"
-echo "ok: Python audit/verify accept the Go-written campaign (ok: true)"
-p2_sections_ok "Python audit of Go campaign" "$PAJSON" \
-  || fail 12 "P2 audit sections (Python reading a Go campaign)"
-p2_cross_read py "$P1F/goroot" "$CID_GO" "Python reading Go P2 state" \
-  || fail 12 "P2 cross-read (Python reading a Go campaign)"
-
-# 13. P1 CLI smoke ---------------------------------------------------------
+# 10. P1 CLI smoke ---------------------------------------------------------
 # The 21 P1 commands, each once in a valid shape against a scratch Go
-# campaign, with the exit code the reference CLI documents:
+# campaign, with the exit code the CLI documents:
 #   init(setup)         0   campaign created
 #   model               0   model loaded from the fixture file
 #   plan                0   plan derived from the model (7 priorities)
@@ -604,19 +400,14 @@ p2_cross_read py "$P1F/goroot" "$CID_GO" "Python reading Go P2 state" \
 #   verdict confirmed   0   critic verdict recorded (the CLI confirm path)
 #   ingest f2           0   second finding (open; tier-3 twin of f1)
 #   dedup               0   sweep flags the tier-3 candidate pair
-#   resolve-candidate   0   pair adjudicated 'distinct'. No --note: the
-#                           reference writes a dict into dedup_meta.
-#                           candidate_notes, which its own finding schema
-#                           rejects ("is not of type 'string'") — a
-#                           reference bug BOTH twins reproduce identically,
-#                           so the no-note shape is the parity-clean one.
+#   resolve-candidate   0   pair adjudicated 'distinct'
 #   prioritize          0   deterministic triage view
 #   repro-queue         0   candidates ordered for repro
 #   answered            0   Q-001 closed with reason + ref
 #   scope               0   bounty policy loaded
 #   floors              0   effective floor table
 #   budget              0   cost ceiling recorded
-#   hint                0   planner hint recorded
+#   hint              0   planner hint recorded
 #   recall              0   graph-memory consultation recorded
 #   artifact-register   0   artifact registered (REP-*)
 #   artifact-list       0   artifact ledger
@@ -625,7 +416,7 @@ p2_cross_read py "$P1F/goroot" "$CID_GO" "Python reading Go P2 state" \
 #   gate <cid> <f1>     1   CONFIRMED dry-run: clauses fail (documented 1)
 #   prove               0   completion-proof view
 #   waive               0   stage proof waived with actor + reason
-step 13 "P1 CLI smoke: 21 commands, documented exit codes"
+step 10 "P1 CLI smoke: 21 commands, documented exit codes"
 P1_SEED="verify-p1-smoke"
 p1_step_reset
 SMOKE_ROOT="$P1F/smoke"
@@ -635,29 +426,28 @@ mkdir -p "$SMOKE_ROOT"
 p1_ok() {
   local label="$1" want="$2"
   shift 2
-  P1_OUT="$(run_p1 go "$SMOKE_ROOT" "$@" 2>&1)"; P1_RC=$?
+  P1_OUT="$(run_p1 "$SMOKE_ROOT" "$@" 2>&1)"; P1_RC=$?
   if [ "$P1_RC" -ne "$want" ]; then
     echo "$P1_OUT"
-    fail 13 "$label: exit $P1_RC, want $want (webv2 $*)"
+    fail 10 "$label: exit $P1_RC, want $want (webv2 $*)"
   fi
   printf '  ok %-20s exit=%s  webv2 %s\n' "$label" "$P1_RC" "$*"
 }
 
 p1_ok init 0 init --program VerifyP1Smoke
 CID="$(grep -oE 'C-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$CID" ] || fail 13 "smoke init: no campaign id in output"
+[ -n "$CID" ] || fail 10 "smoke init: no campaign id in output"
 p1_ok model 0 model "$CID" "$P1F/fixtures/model.json"
 p1_ok plan 0 plan "$CID"
 p1_ok "ingest f1" 0 ingest "$CID" --json-file "$P1F/fixtures/f1.json" \
   --trajectory code --stage smoke
 F1="$(grep -oE 'F-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$F1" ] || fail 13 "smoke ingest f1: no finding id in output"
+[ -n "$F1" ] || fail 10 "smoke ingest f1: no finding id in output"
 p1_ok "verdict confirmed" 0 verdict "$CID" "$F1" --verdict confirmed \
   --reason "verified by hand"
 p1_ok "ingest f2" 0 ingest "$CID" --json-file "$P1F/fixtures/f2.json" \
   --trajectory code --stage smoke
 F2="$(grep -oE 'F-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$F2" ] || fail 13 "smoke ingest f2: no finding id in output"
 p1_ok dedup 0 dedup "$CID"
 p1_ok "resolve-candidate" 0 resolve-candidate "$CID" "$F2" "$F1" --verdict distinct
 p1_ok prioritize 0 prioritize "$CID"
@@ -670,7 +460,7 @@ p1_ok hint 0 hint "$CID" --kind note --content "look at the accounting path"
 p1_ok recall 0 recall "$CID" --finding "$F1"
 p1_ok artifact-register 0 artifact-register "$CID" "$P1F/fixtures/note.md" --kind report
 REP="$(grep -oE '^[A-Z]{2,4}-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$REP" ] || fail 13 "smoke artifact-register: no artifact id in output"
+[ -n "$REP" ] || fail 10 "smoke artifact-register: no artifact id in output"
 p1_ok artifact-list 0 artifact-list "$CID"
 p1_ok invariant-verify 0 invariant-verify "$CID" INV-1 --artifact "$REP"
 p1_ok invariant-contradict 0 invariant-contradict "$CID" INV-2 --evidence "$REP"
@@ -679,9 +469,9 @@ p1_ok prove 0 prove "$CID"
 p1_ok waive 0 waive "$CID" code --reason "no code artifact" --actor operator
 echo "ok: 21 P1 commands exercised, exit codes as documented"
 
-# 14. P2 CLI smoke ---------------------------------------------------------
+# 11. P2 CLI smoke ---------------------------------------------------------
 # The ported P2 commands, each once in a valid shape against a scratch Go
-# campaign, with the exit code the reference CLI documents:
+# campaign, with the exit code the CLI documents:
 #   exec (pass/fail)     0   the sandbox runs and the ledger records both
 #   execs / --json / --id 0  the three ledger projections
 #   classify             0   the failure classifier over the exit-7 record
@@ -702,7 +492,7 @@ echo "ok: 21 P1 commands exercised, exit codes as documented"
 #   impact (incomplete)  2   documented refusal
 #   audit --json         0   all 14 sections, sequence_coverage included
 #   verify               0   event-log integrity
-step 14 "P2 CLI smoke: exec ledger, mint, ladder, chains, impact, sequence"
+step 11 "P2 CLI smoke: exec ledger, mint, ladder, chains, impact, sequence"
 P1_SEED="verify-p2-smoke"
 p1_step_reset
 SMOKE2="$P1F/smoke2"
@@ -712,26 +502,26 @@ mkdir -p "$SMOKE2"
 p2_ok() {
   local label="$1" want="$2"
   shift 2
-  P1_OUT="$(run_p1 go "$SMOKE2" "$@" 2>&1)"; P1_RC=$?
+  P1_OUT="$(run_p1 "$SMOKE2" "$@" 2>&1)"; P1_RC=$?
   if [ "$P1_RC" -ne "$want" ]; then
     echo "$P1_OUT"
-    fail 14 "$label: exit $P1_RC, want $want (webv2 $*)"
+    fail 11 "$label: exit $P1_RC, want $want (webv2 $*)"
   fi
   printf '  ok %-24s exit=%s  webv2 %s\n' "$label" "$P1_RC" "$*"
 }
 
 p2_ok init 0 init --program VerifyP2Smoke
 CID2="$(grep -oE 'C-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$CID2" ] || fail 14 "smoke init: no campaign id in output"
+[ -n "$CID2" ] || fail 11 "smoke init: no campaign id in output"
 p2_ok model 0 model "$CID2" "$P1F/fixtures/model.json"
 p2_ok "ingest f1" 0 ingest "$CID2" --json-file "$P1F/fixtures/f1.json" \
   --trajectory code --stage smoke2
 F1="$(grep -oE 'F-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$F1" ] || fail 14 "smoke ingest f1: no finding id in output"
+[ -n "$F1" ] || fail 11 "smoke ingest f1: no finding id in output"
 p2_ok "ingest f2" 0 ingest "$CID2" --json-file "$P1F/fixtures/f2.json" \
   --trajectory code --stage smoke2
 F2="$(grep -oE 'F-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$F2" ] || fail 14 "smoke ingest f2: no finding id in output"
+[ -n "$F2" ] || fail 11 "smoke ingest f2: no finding id in output"
 p2_ok "verdict confirmed" 0 verdict "$CID2" "$F1" --verdict confirmed \
   --reason "verified by hand"
 p2_ok "move possible" 0 move "$CID2" "$F1" POSSIBLE --reason "triage passed"
@@ -741,18 +531,18 @@ p2_ok "move possible" 0 move "$CID2" "$F1" POSSIBLE --reason "triage passed"
 p2_ok "artifact-register" 0 artifact-register "$CID2" "$P1F/fixtures/note.md" \
   --kind report
 REP2="$(grep -oE 'REP-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$REP2" ] || fail 14 "smoke artifact-register: no artifact id in output"
+[ -n "$REP2" ] || fail 11 "smoke artifact-register: no artifact id in output"
 p2_ok "invariant-verify" 0 invariant-verify "$CID2" INV-1 --artifact "$REP2"
 p2_ok "exec pass" 0 exec "$CID2" --command "echo p2-smoke" --finding "$F1"
 p2_ok "exec fail" 0 exec "$CID2" --command "exit 7" --finding "$F1"
 EXFAIL="$(grep -oE 'EXEC-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$EXFAIL" ] || fail 14 "smoke exec fail: no exec id in output"
+[ -n "$EXFAIL" ] || fail 11 "smoke exec fail: no exec id in output"
 p2_ok execs 0 execs "$CID2"
 p2_ok "execs --json" 0 execs "$CID2" --json
 p2_ok "execs --id" 0 execs "$CID2" --id "$EXFAIL"
 p2_ok classify 0 classify "$CID2" "$EXFAIL"
 SEEDEX="EXEC-$(python3 -c 'import hashlib;print(hashlib.sha256(b"verify-p2-seed-exec").hexdigest()[:10])')"
-seed_p2_exec "$SMOKE2" "$CID2" "$F1" "$SEEDEX" || fail 14 "smoke seed exec"
+seed_p2_exec "$SMOKE2" "$CID2" "$F1" "$SEEDEX" || fail 11 "smoke seed exec"
 p2_ok mint 0 mint "$CID2" "$F1" --exec "$SEEDEX" \
   --description "sandboxed PoC drains the vault in one withdraw" \
   --tier T2 --type foundry-test
@@ -762,7 +552,7 @@ p2_ok "ladder add" 0 ladder "$CID2" add "$F1" --name dust \
   --description "dust the pool with one wei" --axes capital-minimization \
   --capital 1 --ratio 1 --removes "victim stakes"
 RUNG="$(grep -oE 'R-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$RUNG" ] || fail 14 "smoke ladder add: no rung id in output"
+[ -n "$RUNG" ] || fail 11 "smoke ladder add: no rung id in output"
 for axis in cap-saturation precondition-removal role-conflation \
             ordering-permutation; do
   p2_ok "ladder explore $axis" 0 ladder "$CID2" explore "$F1" - "$axis" \
@@ -789,14 +579,14 @@ p2_ok "impact unpriceable" 0 impact "$CID2" "$F2" --unpriceable \
 p2_ok "impact incomplete" 2 impact "$CID2" "$F2" --unpriceable \
   --ceiling "no defensible USD figure"
 p2_ok "audit --json" 0 audit "$CID2" --json
-p2_sections_ok "P2 smoke audit" "$P1_OUT" || fail 14 "smoke audit --json sections"
+p2_sections_ok "P2 smoke audit" "$P1_OUT" || fail 11 "smoke audit --json sections"
 p2_ok verify 0 verify "$CID2"
 echo "ok: P2 commands exercised, exit codes as documented"
 
 
-# 15. P3 CLI smoke ---------------------------------------------------------
+# 12. P3 CLI smoke ---------------------------------------------------------
 # The ported P3 commands, each once in a valid shape against a scratch Go
-# campaign, with the exit code the reference CLI documents:
+# campaign, with the exit code the CLI documents:
 #   snap/index/sinks/prescreen 0  structural surface over the blind fixture
 #   probes run/list/--all      0  the candidate surface
 #   probes blank               0  the named attestation closing a BLIND axis
@@ -822,7 +612,7 @@ echo "ok: P2 commands exercised, exit codes as documented"
 #   complete guard             2  documented refusal (short reason)
 #   complete                   0  completion
 #   audit / --json / verify    0  all 14 sections + event-log integrity
-step 15 "P3 CLI smoke: index/probes/memory/publish/baselines/costs/run"
+step 12 "P3 CLI smoke: index/probes/memory/publish/baselines/costs/run"
 P1_SEED="verify-p3-smoke"
 p1_step_reset
 SMOKE3="$P1F/smoke3"
@@ -832,34 +622,34 @@ mkdir -p "$SMOKE3"
 p3_ok() {
   local label="$1" want="$2"
   shift 2
-  P1_OUT="$(run_p1 go "$SMOKE3" "$@" 2>&1)"; P1_RC=$?
+  P1_OUT="$(run_p1 "$SMOKE3" "$@" 2>&1)"; P1_RC=$?
   if [ "$P1_RC" -ne "$want" ]; then
     echo "$P1_OUT"
-    fail 15 "$label: exit $P1_RC, want $want (webv2 $*)"
+    fail 12 "$label: exit $P1_RC, want $want (webv2 $*)"
   fi
   printf '  ok %-24s exit=%s  webv2 %s\n' "$label" "$P1_RC" "$*"
 }
 
 p3_ok init 0 init --program VerifyP3Smoke
 CID3="$(grep -oE 'C-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$CID3" ] || fail 15 "smoke init: no campaign id in output"
+[ -n "$CID3" ] || fail 12 "smoke init: no campaign id in output"
 p3_ok model 0 model "$CID3" "$P1F/fixtures/model.json"
 p3_ok plan 0 plan "$CID3"
 p3_ok "ingest f1" 0 ingest "$CID3" --json-file "$P1F/fixtures/f1.json" \
   --trajectory code --stage smoke3
 F1="$(grep -oE 'F-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$F1" ] || fail 15 "smoke ingest f1: no finding id in output"
+[ -n "$F1" ] || fail 12 "smoke ingest f1: no finding id in output"
 p3_ok "verdict confirmed" 0 verdict "$CID3" "$F1" --verdict confirmed \
   --reason "verified by hand"
 p3_ok "move possible" 0 move "$CID3" "$F1" POSSIBLE --reason "triage passed"
 p3_ok "artifact-register" 0 artifact-register "$CID3" "$P1F/fixtures/note.md" \
   --kind report
 REP3="$(grep -oE 'REP-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$REP3" ] || fail 15 "smoke artifact-register: no artifact id in output"
+[ -n "$REP3" ] || fail 12 "smoke artifact-register: no artifact id in output"
 p3_ok "invariant-verify" 0 invariant-verify "$CID3" INV-1 --artifact "$REP3"
 p3_ok "exec pass" 0 exec "$CID3" --command "echo p3-smoke" --finding "$F1"
 SEEDEX="EXEC-$(python3 -c 'import hashlib;print(hashlib.sha256(b"verify-p3-seed-exec").hexdigest()[:10])')"
-seed_p2_exec "$SMOKE3" "$CID3" "$F1" "$SEEDEX" || fail 15 "smoke seed exec"
+seed_p2_exec "$SMOKE3" "$CID3" "$F1" "$SEEDEX" || fail 12 "smoke seed exec"
 p3_ok mint 0 mint "$CID3" "$F1" --exec "$SEEDEX" \
   --description "sandboxed PoC drains the vault in one withdraw" \
   --tier T2 --type foundry-test
@@ -868,7 +658,7 @@ p3_ok mint 0 mint "$CID3" "$F1" --exec "$SEEDEX" \
 p3_ok "ingest f1-pre" 0 ingest "$CID3" --json-file "$P1F/fixtures/f1-pre.json" \
   --trajectory code --stage smoke3
 F2="$(grep -oE 'F-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$F2" ] || fail 15 "smoke ingest f1-pre: no finding id in output"
+[ -n "$F2" ] || fail 12 "smoke ingest f1-pre: no finding id in output"
 p3_ok shield 0 shield "$CID3" "$F1" --reason "the effect is the intended transfer" \
   --actor smoke
 p3_ok "shield --extraction" 0 shield "$CID3" "$F1" --extraction \
@@ -881,7 +671,7 @@ p3_ok scope 0 scope "$CID3" --policy "$P1F/fixtures/policy.json"
 
 p3_ok snap 0 snap "$CID3" "$P3_FIXTURE"
 SNAP3="$(ls -d "$SMOKE3/campaigns/$CID3"/snapshots/*/ 2>/dev/null | head -1)"
-[ -n "$SNAP3" ] || fail 15 "smoke snap: no snapshot dir"
+[ -n "$SNAP3" ] || fail 12 "smoke snap: no snapshot dir"
 p3_ok index 0 index "$CID3" --src "$SNAP3"
 p3_ok "index --json" 0 index "$CID3" --src "$SNAP3" --json
 p3_ok sinks 0 sinks "$CID3" --src "$SNAP3"
@@ -906,7 +696,7 @@ for a in d.get("axes") or []:
     if a.get("status") == "blind" and a.get("blind"):
         print(a["blind"][0]["key"]); break
 ' <<<"$P1_OUT")"
-[ -n "$AXIS" ] && [ -n "$KEY" ] || fail 15 "smoke probes: no blind axis/key published"
+[ -n "$AXIS" ] && [ -n "$KEY" ] || fail 12 "smoke probes: no blind axis/key published"
 p3_ok "probes list --axis" 0 probes "$CID3" list --axis "$AXIS"
 p3_ok "probes blank" 0 probes "$CID3" blank --axis "$AXIS" \
   --anchor-blind "$KEY" --reason "the cited key is the only write on this axis" \
@@ -925,12 +715,12 @@ p3_ok "ladder add" 0 ladder "$CID3" add "$F1" --name p3-dead-end \
   --description "drain the vault in one transaction" \
   --axes precondition-removal --capital 1 --ratio 1 --removes "the timelock"
 RUNG3="$(grep -oE 'R-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$RUNG3" ] || fail 15 "smoke ladder add: no rung id in output"
+[ -n "$RUNG3" ] || fail 12 "smoke ladder add: no rung id in output"
 p3_ok "ladder disprove (happy)" 0 ladder "$CID3" disprove "$F1" "$RUNG3" \
   --reason "the removed timelock precondition is enforced by the guard"
 p3_ok memory 0 memory "$CID3"
 MEM3="$(grep -oE 'MEM-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$MEM3" ] || fail 15 "smoke memory: no MEM- id in output"
+[ -n "$MEM3" ] || fail 12 "smoke memory: no MEM- id in output"
 p3_ok "memory --approve" 0 memory "$CID3" --approve "$MEM3" --by smoke
 p3_ok "memory (after approve)" 0 memory "$CID3"
 p3_ok publish 0 publish "$CID3" --actor smoke
@@ -963,15 +753,15 @@ p3_ok yields 0 yields "$CID3"
 p3_ok "price set" 0 price "$CID3" set ETH 3000 --source coingecko \
   --as-of 2026-09-09T00:00:00+00:00 --actor smoke
 PRC3="$(grep -oE 'PRC-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
-[ -n "$PRC3" ] || fail 15 "smoke price set: no PRC- id in output"
+[ -n "$PRC3" ] || fail 12 "smoke price set: no PRC- id in output"
 p3_ok "price table" 0 price "$CID3" table
 p3_ok "price-basis" 0 price-basis "$CID3" "$F1" "$PRC3"
 
 # env doctor's exit is environment-dependent (0 = no issues found, 1 = at
 # least one missing tool/daemon); both are documented, so accept either.
-P1_OUT="$(run_p1 go "$SMOKE3" env doctor 2>&1)"; P1_RC=$?
+P1_OUT="$(run_p1 "$SMOKE3" env doctor 2>&1)"; P1_RC=$?
 [ "$P1_RC" -eq 0 ] || [ "$P1_RC" -eq 1 ] \
-  || { echo "$P1_OUT"; fail 15 "env doctor: exit $P1_RC, want 0 or 1"; }
+  || { echo "$P1_OUT"; fail 12 "env doctor: exit $P1_RC, want 0 or 1"; }
 printf '  ok %-24s exit=%s  webv2 env doctor\n' "env doctor" "$P1_RC"
 p3_ok "env doctor --json" 0 env doctor --json
 p3_ok doctor 0 doctor "$CID3"
@@ -983,9 +773,9 @@ p3_ok complete 0 complete "$CID3" --actor smoke \
   --reason "all smoke checks closed with evidence"
 p3_ok audit 0 audit "$CID3"
 p3_ok "audit --json" 0 audit "$CID3" --json
-p2_sections_ok "P3 smoke audit" "$P1_OUT" || fail 15 "smoke audit --json sections"
+p2_sections_ok "P3 smoke audit" "$P1_OUT" || fail 12 "smoke audit --json sections"
 p3_ok verify 0 verify "$CID3"
 echo "ok: P3 commands exercised, exit codes as documented"
 
 echo
-echo "VERIFY-FULL GREEN: all 15 steps pass"
+echo "VERIFY-FULL GREEN: all 12 steps pass"

@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	cliAgWho   = "the sequencer operator — every frozen hour pays their " +
+	cliAgWho = "the sequencer operator — every frozen hour pays their " +
 		"uptime fees while rival bridges lose the deposits in transit"
 	cliAgMech = "freezing withdrawals lets the operator's own staked " +
 		"position absorb the fee flow while the halted bridge bleeds " +

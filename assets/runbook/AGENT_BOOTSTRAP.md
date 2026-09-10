@@ -306,9 +306,10 @@ to keep the record honest and the suite green.
 3. Make the smallest change that satisfies the intent; add a focused
    regression test in the matching `_test.go`.
 4. Run `go test ./...`; run `webv2 selftest`; update the docs that describe
-   the changed surface (RUNBOOK.md / AGENT_BOOTSTRAP.md). If the change is an
-   intentional divergence from the deprecated Python reference, note it in
-   `KNOWN_DIVERGENCES.md`.
+   the changed surface (RUNBOOK.md / AGENT_BOOTSTRAP.md). The Python twin is
+   retired: changes are Go-only by definition — no divergence row is needed
+   (the frozen ledger lives in `docs/archive/`), but a change to committed
+   asset packs must be followed by `python3 scripts/sync-asset-manifest.py`.
 5. Prove claims with executed commands, not reading code alone.
 ```
 

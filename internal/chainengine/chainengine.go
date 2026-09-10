@@ -1,5 +1,5 @@
 // Package chainengine is the Exploit Capability Graph: a 1:1 port of
-// webv2/chain_engine.py (PYTHON WINS). A finding is "capability X exists";
+// webv2/chain_engine.py (port-era provenance; twin retired 2026-09-09). A finding is "capability X exists";
 // chains are discovered by graph search over granted→required edges and
 // materialized only when every constituent is independently CONFIRMED.
 package chainengine

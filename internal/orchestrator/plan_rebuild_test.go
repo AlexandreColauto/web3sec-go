@@ -103,8 +103,8 @@ func setPriorityField(plan validation.Value, key string,
 	if len(priorities) == 0 {
 		return plan
 	}
-	first := setOrAppend(priorities[0].O, key, v)
+	first := validation.SetOrAppend(priorities[0].O, key, v)
 	priorities[0] = validation.VObj(first...)
-	return validation.VObj(setOrAppend(plan.O, "priorities",
+	return validation.VObj(validation.SetOrAppend(plan.O, "priorities",
 		validation.VArr(priorities...))...)
 }

@@ -1,4 +1,4 @@
-// Port of tests/test_briefing.py (all 9 test functions). PYTHON WINS.
+// Port of tests/test_briefing.py (all 9 test functions). The Python twin was retired 2026-09-09; this package is the source of truth.
 //
 // DEVIATION (declared, same as the relations/chainengine harnesses): the
 // Python `camp` fixture seeds the global memory row by writing the shared
@@ -175,11 +175,11 @@ func confirmSimple(t *testing.T, c *state.Campaign, fid string) validation.Value
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("status", validation.VStr("reproduced")),
 		kv("tier_reached", validation.VStr("T3")),
 		kv("attempts", validation.VArr())))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(c, &vf); err != nil {
 		t.Fatalf("save finding: %v", err)
 	}
@@ -199,16 +199,6 @@ func tail(id string) string {
 		return id
 	}
 	return id[len(id)-6:]
-}
-
-func setOrAppend(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
 }
 
 func build(t *testing.T, c *state.Campaign, deep bool) validation.Value {
@@ -466,7 +456,7 @@ func TestBriefBountyGateIsAView(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.O = setOrAppend(doc.O, "policy_path", validation.VStr(policyPath))
+	doc.O = validation.SetOrAppend(doc.O, "policy_path", validation.VStr(policyPath))
 	if err := validation.WriteJson(camp.StatePath, doc, "campaign_state"); err != nil {
 		t.Fatal(err)
 	}
@@ -665,11 +655,11 @@ func oneGateFromConfirmed(t *testing.T, camp *state.Campaign) validation.Value {
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("status", validation.VStr("reproduced")),
 		kv("tier_reached", validation.VStr("T3")),
 		kv("attempts", validation.VArr())))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(camp, &vf); err != nil {
 		t.Fatal(err)
 	}
@@ -1016,7 +1006,7 @@ func inv(t *testing.T, camp *state.Campaign, iid, kind, severity, status,
 	if reg.Kind != validation.Obj {
 		reg = validation.VObj()
 	}
-	reg.O = setOrAppend(reg.O, iid, validation.VObj(
+	reg.O = validation.SetOrAppend(reg.O, iid, validation.VObj(
 		kv("statement", validation.VStr(iid+" statement")),
 		kv("kind", validation.VStr(kind)),
 		kv("severity_if_broken", validation.VStr(severity)),
@@ -1031,7 +1021,7 @@ func inv(t *testing.T, camp *state.Campaign, iid, kind, severity, status,
 		kv("tests", validation.VArr()),
 		kv("detectors", validation.VArr()),
 		kv("updated_at", validation.VStr(updatedAt))))
-	links.O = setOrAppend(links.O, "invariants", reg)
+	links.O = validation.SetOrAppend(links.O, "invariants", reg)
 	if _, err := invariants.SaveLinks(camp, links); err != nil {
 		t.Fatal(err)
 	}
@@ -1233,8 +1223,8 @@ func TestInvariantTotalCountsOnlyDictEntries(t *testing.T) {
 		t.Fatal(err)
 	}
 	reg := objAt(links, "invariants")
-	reg.O = setOrAppend(reg.O, "INV-BROKEN", validation.VStr("not an entry"))
-	links.O = setOrAppend(links.O, "invariants", reg)
+	reg.O = validation.SetOrAppend(reg.O, "INV-BROKEN", validation.VStr("not an entry"))
+	links.O = validation.SetOrAppend(links.O, "invariants", reg)
 	if _, err := invariants.SaveLinks(camp, links); err != nil {
 		t.Fatal(err)
 	}

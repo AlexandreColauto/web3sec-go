@@ -230,7 +230,7 @@ func t14Truncate(s string, n int) string {
 
 // t14PrintJSON is `print(json.dumps(v, indent=2, default=str))`.
 func t14PrintJSON(w io.Writer, v validation.Value) {
-	fmt.Fprintln(w, prettyASCII(v))
+	fmt.Fprintln(w, validation.DumpIndentedASCII(v))
 }
 
 // ---- pinned argparse text -------------------------------------------------

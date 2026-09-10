@@ -9,9 +9,10 @@ pinning a different workspace. Every command shown is the real signature —
 **if this document and the code disagree, the code wins and this file is a bug**
 (report it, don't work around it).
 
-The Python twin (`web3sec-final`) is **deprecated and not maintained**. This
-runbook is the source of truth for the Go binary. Where the two twins still
-differ, `KNOWN_DIVERGENCES.md` in the repo is the ledger.
+The Python twin (`web3sec-final`) was **retired 2026-09-09** and is not
+maintained. This runbook is the source of truth for the Go binary. The
+historical divergence ledger is frozen at `docs/archive/KNOWN_DIVERGENCES.md`
+— new Go-only changes need no row there; they need only a test.
 
 ## 0. Setup
 

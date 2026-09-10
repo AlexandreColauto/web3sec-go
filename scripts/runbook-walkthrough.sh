@@ -4,11 +4,11 @@
 # "RUNBOOK.md commands run verbatim against the Go binary with the
 # documented exit codes."
 #
-# The reference runbook lives in the PYTHON repo
-# (web3sec-final/RUNBOOK.md) and is read-only for this port. This script
-# executes its command sequence against the Go binary in a fresh scratch
-# root and asserts the documented exit code (and the documented output
-# markers the runbook calls out) for every command.
+# The runbook is this repo's embedded copy (assets/runbook/RUNBOOK.md; the
+# D7 registry<->document test keeps it honest). This script executes its
+# command sequence against the Go binary in a fresh scratch root and asserts
+# the documented exit code (and the documented output markers the runbook
+# calls out) for every command.
 #
 # ── SUBSTITUTIONS (every one, and why) ───────────────────────────────────
 #
@@ -39,8 +39,8 @@
 #      to cwd" (L3-6).
 #  S8  fixtures: `policy.json`/`model.json`/`deployment.json`/`chain.json`/
 #      finding payloads are copied from scripts/golden/ (the golden v4
-#      fixtures) into the scratch root; the SFT example is extracted from
-#      the reference repo's sft/examples.json (stand-in, documented below).
+#      fixtures) into the scratch root; the SFT example is the committed
+#      extract scripts/golden/sft-example.json (sft store, first example).
 #  S9  docker-dependent commands: RUNBOOK L21-26 documents docker as
 #      expected-but-degrading. This script detects a running daemon:
 #        * daemon present -> `exec` runs for real (asserting the runbook's
@@ -82,7 +82,6 @@
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-PY_ROOT="$(cd "$GO_ROOT/.." && pwd)/web3sec-final"
 cd "$GO_ROOT"
 
 export GOCACHE="${GOCACHE:-$GO_ROOT/.scratch/gocache}"
@@ -104,12 +103,7 @@ WEBV2="$(cd "$(dirname "$WEBV2")" && pwd)/$(basename "$WEBV2")"
 cp "$GO_ROOT"/scripts/golden/{model.json,policy.json,deployment.json,chain.json} "$RB/"
 cp "$GO_ROOT"/scripts/golden/h1-withdraw-double-count.json "$RB/"
 cp "$GO_ROOT"/scripts/golden/h2-deposit-double-mint.json "$RB/"
-python3 - "$PY_ROOT/sft/examples.json" "$RB/sft-example.json" <<'PY'
-import json, sys
-src, dst = sys.argv[1], sys.argv[2]
-doc = json.load(open(src, encoding="utf-8"))
-json.dump(doc["examples"][0], open(dst, "w", encoding="utf-8"), indent=2)
-PY
+cp "$GO_ROOT"/scripts/golden/sft-example.json "$RB/" 
 cat > "$RB/target/src/MiniVault.sol" <<'SOL'
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
@@ -453,7 +447,7 @@ echo
 echo "=== RUNBOOK walkthrough: per-command results ($((PASS+FAIL)) commands) ==="
 cat "$TABLE"
 echo
-echo "walkthrough: $PASS passed, $FAIL failed (runbook web3sec-final/RUNBOOK.md, binary $WEBV2)"
+echo "walkthrough: $PASS passed, $FAIL failed (runbook assets/runbook/RUNBOOK.md, binary $WEBV2)"
 if [ "$FAIL" -eq 0 ]; then
   echo "WALKTHROUGH GREEN: every RUNBOOK command matched its documented behavior"
   exit 0

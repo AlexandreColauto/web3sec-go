@@ -154,12 +154,12 @@ func TestGateReproductionTierVector(t *testing.T) {
 		t.Fatal(err)
 	}
 	ver := asDict(objAt(vf, "verification"))
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T2")),
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr()),
 	))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := SaveFinding(c, &vf); err != nil {
 		t.Fatal(err)
 	}
@@ -227,12 +227,12 @@ func TestGateSequenceCoverageFailsClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	ver := asDict(objAt(vf, "verification"))
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr(validation.VObj(
 			kv("artifact_id", objAt(rec, "exec_id"))))),
 	))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	verifySequenceCoverageFunc = func(*state.Campaign, validation.Value,
 		validation.Value) (bool, []string) {
 		return true, nil

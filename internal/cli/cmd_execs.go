@@ -81,11 +81,11 @@ func runExecs(root string, args []string, r *Runner) int {
 				validation.PyReprStr(id))
 			return 2
 		}
-		fmt.Fprintln(r.Out, prettyASCII(*rec))
+		fmt.Fprintln(r.Out, validation.DumpIndentedASCII(*rec))
 		return 0
 	}
 	if asJSON {
-		fmt.Fprintln(r.Out, prettyASCII(validation.VArr(execs...)))
+		fmt.Fprintln(r.Out, validation.DumpIndentedASCII(validation.VArr(execs...)))
 		return 0
 	}
 	if len(execs) == 0 {

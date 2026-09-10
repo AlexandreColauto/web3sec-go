@@ -119,11 +119,11 @@ func confirmedFinding(t *testing.T, c *state.Campaign, title string) validation.
 		t.Fatal(err)
 	}
 	ver := asObj(objAt(vf, "verification"))
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T2")),
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr())))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(c, &vf); err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +316,7 @@ func TestAddVariantRefusedOnCompleteLadder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lad.O = setOrAppend(lad.O, "disposition", validation.VObj(
+	lad.O = validation.SetOrAppend(lad.O, "disposition", validation.VObj(
 		kv("state", validation.VStr("complete")),
 		kv("reason", validation.VNull()),
 		kv("actor", validation.VStr("op")),
@@ -332,7 +332,7 @@ func TestAddVariantRefusedOnCompleteLadder(t *testing.T) {
 		t.Fatalf("err = %v, want %q", err, want)
 	}
 	// a waived ladder is re-openable
-	lad.O = setOrAppend(lad.O, "disposition", validation.VObj(
+	lad.O = validation.SetOrAppend(lad.O, "disposition", validation.VObj(
 		kv("state", validation.VStr("waived")),
 		kv("reason", validation.VStr("budget exhausted, accepted risk")),
 		kv("actor", validation.VStr("op")),
@@ -692,8 +692,8 @@ func TestLadderReportDeltasAndUnexplored(t *testing.T) {
 		t.Fatal(err)
 	}
 	base := listOf(lad, "variants").A[0]
-	base.O = setOrAppend(base.O, "capital_usd", validation.VFloat(100000))
-	base.O = setOrAppend(base.O, "extraction_ratio", validation.VFloat(0.5))
+	base.O = validation.SetOrAppend(base.O, "capital_usd", validation.VFloat(100000))
+	base.O = validation.SetOrAppend(base.O, "extraction_ratio", validation.VFloat(0.5))
 	if err := replaceRung(&lad, base); err != nil {
 		t.Fatal(err)
 	}

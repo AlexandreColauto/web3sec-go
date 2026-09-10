@@ -277,9 +277,9 @@ func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
 			kv("pinned", pinned),
 			kv("registered_at", validation.VStr(nowIso())),
 		))
-		st.O = setOrAppend(st.O, "snapshots", rows)
+		st.O = validation.SetOrAppend(st.O, "snapshots", rows)
 	}
-	st.O = setOrAppend(st.O, "active_snapshot_id", validation.VStr(sid))
+	st.O = validation.SetOrAppend(st.O, "active_snapshot_id", validation.VStr(sid))
 	if err := c.save(st); err != nil {
 		return "", err
 	}

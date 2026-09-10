@@ -1,0 +1,243 @@
+{
+  "campaign_id": "C-45488bdaf5",
+  "snapshot_id": "src-1684fd7b-b868c7cd06e0",
+  "backend": "regex",
+  "parse_version": "3",
+  "created_at": "2026-09-09T12:00:36.000000+00:00",
+  "entry_count": 8,
+  "nodes": [
+    {
+      "id": "RewardManager.sol#PMath",
+      "kind": "library",
+      "name": "PMath",
+      "path": "RewardManager.sol",
+      "line": 4,
+      "contract_closure": [
+        {
+          "name": "divDown",
+          "defining_contract": "PMath",
+          "path": "RewardManager.sol",
+          "line": 5,
+          "guards": [],
+          "uses": []
+        }
+      ]
+    },
+    {
+      "id": "RewardManager.sol#RewardManager",
+      "kind": "contract",
+      "name": "RewardManager",
+      "path": "RewardManager.sol",
+      "line": 14,
+      "contract_closure": [
+        {
+          "name": "poke",
+          "defining_contract": "RewardManager",
+          "path": "RewardManager.sol",
+          "line": 24,
+          "guards": [],
+          "uses": [
+            {
+              "line": 25,
+              "concept_keys": [
+                "shares",
+                "total",
+                "total:shares"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 26,
+              "concept_keys": [
+                "accrued"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 26,
+              "concept_keys": [
+                "shares",
+                "total",
+                "total:shares"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 26,
+              "concept_keys": [
+                "token"
+              ],
+              "kind": "param"
+            },
+            {
+              "line": 26,
+              "concept_keys": [
+                "accrued",
+                "accrued:div",
+                "accrued:div:down",
+                "div",
+                "div:down",
+                "down",
+                "index",
+                "reward",
+                "reward:state",
+                "state",
+                "token"
+              ],
+              "kind": "read"
+            },
+            {
+              "line": 26,
+              "concept_keys": [
+                "index",
+                "reward",
+                "reward:state",
+                "state",
+                "token"
+              ],
+              "kind": "write"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "RewardManager.sol#RewardManager.rewardState",
+      "kind": "state-variable",
+      "name": "rewardState",
+      "path": "RewardManager.sol",
+      "line": null
+    },
+    {
+      "id": "RewardManager.sol#PMath.divDown",
+      "kind": "function",
+      "name": "divDown",
+      "path": "RewardManager.sol",
+      "line": 5,
+      "visibility": "internal",
+      "is_entry_point": false,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": null,
+      "reads_storage": [],
+      "writes_storage": [],
+      "calls_internal": [],
+      "calls_external": [],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": []
+    },
+    {
+      "id": "RewardManager.sol#RewardManager.poke",
+      "kind": "function",
+      "name": "poke",
+      "path": "RewardManager.sol",
+      "line": 24,
+      "visibility": "external",
+      "is_entry_point": true,
+      "modifiers": [],
+      "guarded_by": [],
+      "selector": "poke(address,uint256,uint256)",
+      "reads_storage": [
+        "rewardState"
+      ],
+      "writes_storage": [],
+      "calls_internal": [
+        "divDown"
+      ],
+      "calls_external": [
+        "accrued.divDown"
+      ],
+      "delegatecalls": [],
+      "guards": [],
+      "uses": [
+        {
+          "line": 25,
+          "concept_keys": [
+            "shares",
+            "total",
+            "total:shares"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 26,
+          "concept_keys": [
+            "accrued"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 26,
+          "concept_keys": [
+            "shares",
+            "total",
+            "total:shares"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 26,
+          "concept_keys": [
+            "token"
+          ],
+          "kind": "param"
+        },
+        {
+          "line": 26,
+          "concept_keys": [
+            "accrued",
+            "accrued:div",
+            "accrued:div:down",
+            "div",
+            "div:down",
+            "down",
+            "index",
+            "reward",
+            "reward:state",
+            "state",
+            "token"
+          ],
+          "kind": "read"
+        },
+        {
+          "line": 26,
+          "concept_keys": [
+            "index",
+            "reward",
+            "reward:state",
+            "state",
+            "token"
+          ],
+          "kind": "write"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "RewardManager.sol#RewardManager.poke",
+      "rel": "calls",
+      "to": "RewardManager.sol#RewardManager.divDown"
+    },
+    {
+      "from": "RewardManager.sol#RewardManager.poke",
+      "rel": "calls",
+      "to": "*#accrued.divDown"
+    },
+    {
+      "from": "RewardManager.sol#RewardManager",
+      "rel": "extends-interface",
+      "to": "RewardManager.sol#RewardManager.poke"
+    }
+  ],
+  "stats": {
+    "solidity_files": 1,
+    "other_files_listed": 1,
+    "contracts": 2,
+    "functions": 2,
+    "state_variables": 1,
+    "entry_points": 1,
+    "external_call_edges": 1
+  }
+}

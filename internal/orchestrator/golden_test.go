@@ -119,17 +119,17 @@ func installGoldenSeams(t *testing.T, doc, sc validation.Value,
 				kvOf("campaign", validation.VStr(c.CampaignID)),
 				kvOf("backend", validation.VStr("regex")))
 			idx := copyObj(cannedIndex)
-			idx.O = setOrAppend(idx.O, "campaign_id", validation.VStr(c.CampaignID))
+			idx.O = validation.SetOrAppend(idx.O, "campaign_id", validation.VStr(c.CampaignID))
 			snapID, err := c.ActiveSnapshotIDOrNone()
 			if err != nil {
 				return validation.VNull(), err
 			}
 			if snapID == nil {
-				idx.O = setOrAppend(idx.O, "snapshot_id", validation.VNull())
+				idx.O = validation.SetOrAppend(idx.O, "snapshot_id", validation.VNull())
 			} else {
-				idx.O = setOrAppend(idx.O, "snapshot_id", validation.VStr(*snapID))
+				idx.O = validation.SetOrAppend(idx.O, "snapshot_id", validation.VStr(*snapID))
 			}
-			idx.O = setOrAppend(idx.O, "created_at", validation.VStr(strAt(doc, "now")))
+			idx.O = validation.SetOrAppend(idx.O, "created_at", validation.VStr(strAt(doc, "now")))
 			return idx, nil
 		},
 		SaveIndex: func(c *state.Campaign, index validation.Value) (string, error) {

@@ -383,11 +383,11 @@ func TestHandEditedContradictedWithoutEventBlocks(t *testing.T) {
 	}
 	reg := objAt(links, "invariants")
 	entry := objAt(reg, "INV-2")
-	entry.O = setOrAppend(entry.O, "status", validation.VStr("CONTRADICTED"))
-	entry.O = setOrAppend(entry.O, "contradiction",
+	entry.O = validation.SetOrAppend(entry.O, "status", validation.VStr("CONTRADICTED"))
+	entry.O = validation.SetOrAppend(entry.O, "contradiction",
 		validation.VStr("src/V.sol#L40"))
-	reg.O = setOrAppend(reg.O, "INV-2", entry)
-	links.O = setOrAppend(links.O, "invariants", reg)
+	reg.O = validation.SetOrAppend(reg.O, "INV-2", entry)
+	links.O = validation.SetOrAppend(links.O, "invariants", reg)
 	if _, err := SaveLinks(c, links); err != nil {
 		t.Fatal(err)
 	}
@@ -485,11 +485,11 @@ func TestHandEditedCheckedWithRegisteredArtifactBlocked(t *testing.T) {
 	}
 	reg := objAt(links, "invariants")
 	entry := objAt(reg, "INV-2")
-	entry.O = setOrAppend(entry.O, "status",
+	entry.O = validation.SetOrAppend(entry.O, "status",
 		validation.VStr("CHECKED_AGAINST_CODE"))
-	entry.O = setOrAppend(entry.O, "verified_by", validation.VStr(artID))
-	reg.O = setOrAppend(reg.O, "INV-2", entry)
-	links.O = setOrAppend(links.O, "invariants", reg)
+	entry.O = validation.SetOrAppend(entry.O, "verified_by", validation.VStr(artID))
+	reg.O = validation.SetOrAppend(reg.O, "INV-2", entry)
+	links.O = validation.SetOrAppend(links.O, "invariants", reg)
 	if _, err := SaveLinks(c, links); err != nil {
 		t.Fatal(err)
 	}
@@ -714,8 +714,8 @@ func guardCamp(t *testing.T) *state.Campaign {
 	if err != nil {
 		t.Fatal(err)
 	}
-	st.O = setOrAppend(st.O, "active_snapshot_id", validation.VStr("SNAPX"))
-	st.O = setOrAppend(st.O, "artifacts", validation.VArr(
+	st.O = validation.SetOrAppend(st.O, "active_snapshot_id", validation.VStr("SNAPX"))
+	st.O = validation.SetOrAppend(st.O, "artifacts", validation.VArr(
 		fixedArtifact("OTH-fixed001", filepath.Join(c.ArtifactsDir, "inv-check.md"))))
 	if err := validation.WriteJson(c.StatePath, st, "campaign_state"); err != nil {
 		t.Fatal(err)

@@ -254,7 +254,7 @@ func TestSiblingRescanSkipsExistingPriorityID(t *testing.T) {
 		"question":"already there, keep this row","recommended_stages":[],
 		"required_context":[],"risk":0.5,"status":"open",
 		"trajectories":["code"]}`)
-	plan.O = setOrAppend(plan.O, "priorities", validation.VArr(one))
+	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(one))
 	if _, err := SavePlan(camp, plan); err != nil {
 		t.Fatalf("save plan: %v", err)
 	}

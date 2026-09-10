@@ -1,0 +1,948 @@
+{
+  "campaign_id": "C-45488bdaf5",
+  "program": "VerifyP1Cross",
+  "created_at": "2026-09-09T12:00:01.000000+00:00",
+  "updated_at": "2026-09-09T12:00:41.000000+00:00",
+  "phase": "DISCOVERY",
+  "phase_history": [
+    {
+      "at": "2026-09-09T12:00:03.000000+00:00",
+      "from": "SCOPE",
+      "to": "DISCOVERY",
+      "reason": "plan ready"
+    }
+  ],
+  "halt_reason": null,
+  "budget": {
+    "max_discovery_findings": 400,
+    "max_repro_attempts_per_finding": 6,
+    "max_fresh_context_retries": 3,
+    "max_passes": 8,
+    "pass": 1,
+    "discovery_findings_so_far": 2
+  },
+  "snapshots": [
+    {
+      "snapshot_id": "src-1684fd7b-b868c7cd06e0",
+      "pass": 1,
+      "pinned": true,
+      "registered_at": "2026-09-09T12:00:35.000000+00:00"
+    }
+  ],
+  "active_snapshot_id": "src-1684fd7b-b868c7cd06e0",
+  "artifacts": [
+    {
+      "artifact_id": "PRO-8a7fd208",
+      "kind": "protocol-model",
+      "path": "campaigns/C-45488bdaf5/artifacts/protocol_model.json",
+      "registered_at": "2026-09-09T12:00:02.000000+00:00",
+      "sha256": "fc2f548bb15b7bbf8ac4c2a01115921d63e32978f7ff3baa8693e44f1d653d12",
+      "snapshot_id": null,
+      "note": "protocol model for Verify P1 Fixture",
+      "refreshed_at": "2026-09-09T12:00:02.000000+00:00",
+      "refresh_reason": "protocol model (re)loaded",
+      "refresh_count": 1
+    },
+    {
+      "artifact_id": "PLA-f43186bb",
+      "kind": "plan",
+      "path": "campaigns/C-45488bdaf5/artifacts/campaign_plan.json",
+      "registered_at": "2026-09-09T12:00:03.000000+00:00",
+      "sha256": "4102b8f12c6f5d7ef50090f6ac460db17a461b5204f3cf6b01a0e4f5fdd8d97e",
+      "snapshot_id": null,
+      "note": "campaign plan, 7 priorities",
+      "refreshed_at": "2026-09-09T12:00:40.000000+00:00",
+      "refresh_reason": "plan saved (7 priorities)",
+      "refresh_count": 2
+    },
+    {
+      "artifact_id": "REP-adc3248d",
+      "kind": "report",
+      "path": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/verify-p1/fixtures/note.md",
+      "registered_at": "2026-09-09T12:00:10.000000+00:00",
+      "sha256": "771036afe171e7fefee4f5539663d88c4cfc01c12c185b863634da70c667e6d7",
+      "snapshot_id": null,
+      "note": ""
+    },
+    {
+      "artifact_id": "REP-37b22d0d",
+      "kind": "report",
+      "path": "campaigns/C-45488bdaf5/report.md",
+      "registered_at": "2026-09-09T12:00:34.000000+00:00",
+      "sha256": "6c93533b07c657e6907d9210fb19ec94013cc275ae33735154c2c3c75f1c4eb9",
+      "snapshot_id": null,
+      "note": ""
+    },
+    {
+      "artifact_id": "VAL-2571d3b4",
+      "kind": "value-flow",
+      "path": "campaigns/C-45488bdaf5/artifacts/value_flow.json",
+      "registered_at": "2026-09-09T12:00:37.000000+00:00",
+      "sha256": "758e9a65f59b5a7df45dc9f9e41be5d94d596d4966abec0c1fb1d2bd7d0ddf3f",
+      "snapshot_id": null,
+      "note": ""
+    },
+    {
+      "artifact_id": "ARC-7984d47d",
+      "kind": "archetype-prescreen",
+      "path": "campaigns/C-45488bdaf5/artifacts/archetype_prescreen.json",
+      "registered_at": "2026-09-09T12:00:38.000000+00:00",
+      "sha256": "a33e7844444da541b60f6107f3e11b1284020dda28e09a90b9581c46dcf1f727",
+      "snapshot_id": null,
+      "note": ""
+    },
+    {
+      "artifact_id": "PRO-0553f4cc",
+      "kind": "probe-surface",
+      "path": "campaigns/C-45488bdaf5/artifacts/probe_surface.json",
+      "registered_at": "2026-09-09T12:00:39.000000+00:00",
+      "sha256": "3bb38ddd3324e86c46077febd4c3530f1170b514de79b745f385cbc6b850195c",
+      "snapshot_id": null,
+      "note": "",
+      "refreshed_at": "2026-09-09T12:00:40.000000+00:00",
+      "refresh_reason": "0 rows across 6 axes",
+      "refresh_count": 1
+    }
+  ],
+  "stages": {
+    "protocol-model": {
+      "status": "needs-model",
+      "attempts": 1,
+      "last_run_at": "2026-09-09T12:00:02.000000+00:00",
+      "note": "model loaded; 2 invariant(s) seeded",
+      "executor": null
+    },
+    "campaign-planning": {
+      "status": "needs-model",
+      "attempts": 1,
+      "last_run_at": "2026-09-09T12:00:03.000000+00:00",
+      "note": "7 queued priorities",
+      "executor": null
+    },
+    "discovery-specialist": {
+      "status": "needs-model",
+      "attempts": 2,
+      "last_run_at": "2026-09-09T12:00:06.000000+00:00",
+      "note": "ingested F-ee0311c3397a",
+      "executor": null
+    }
+  },
+  "events": [
+    {
+      "seq": 0,
+      "at": "2026-09-09T12:00:01.000000+00:00",
+      "type": "campaign.created",
+      "ref": "C-45488bdaf5",
+      "data": {
+        "program": "VerifyP1Cross"
+      },
+      "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "event_hash": "4dfd857249f398300cda1915e8152d1b65b1714b129a17df341b59a5fdc60f18"
+    },
+    {
+      "seq": 1,
+      "at": "2026-09-09T12:00:02.000000+00:00",
+      "type": "artifact.registered",
+      "ref": "PRO-8a7fd208",
+      "data": {
+        "kind": "protocol-model",
+        "path": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/verify-p1/pyroot/campaigns/C-45488bdaf5/artifacts/protocol_model.json"
+      },
+      "prev_hash": "4dfd857249f398300cda1915e8152d1b65b1714b129a17df341b59a5fdc60f18",
+      "event_hash": "ba10b86a29995a0bed8d61b3a0f04473460d8054c1875639c1beffea86b92123"
+    },
+    {
+      "seq": 2,
+      "at": "2026-09-09T12:00:02.000000+00:00",
+      "type": "artifact.refreshed",
+      "ref": "PRO-8a7fd208",
+      "data": {
+        "kind": "protocol-model",
+        "actor": "operator",
+        "reason": "protocol model (re)loaded",
+        "old_sha256": "fc2f548bb15b7bbf8ac4c2a01115921d63e32978f7ff3baa8693e44f1d653d12",
+        "new_sha256": "fc2f548bb15b7bbf8ac4c2a01115921d63e32978f7ff3baa8693e44f1d653d12",
+        "refresh_count": 1
+      },
+      "prev_hash": "ba10b86a29995a0bed8d61b3a0f04473460d8054c1875639c1beffea86b92123",
+      "event_hash": "7ea05f09f953ef14ab1415bc5b4db6dade9fec71fc2e9ffe090fdf7859930c0c"
+    },
+    {
+      "seq": 3,
+      "at": "2026-09-09T12:00:02.000000+00:00",
+      "type": "protocol_model.loaded",
+      "ref": "v1xfi",
+      "data": {
+        "contracts": 1,
+        "invariants": 2
+      },
+      "prev_hash": "7ea05f09f953ef14ab1415bc5b4db6dade9fec71fc2e9ffe090fdf7859930c0c",
+      "event_hash": "af6eb868a01ca42429f2e8095ecb43ca698d5611b88534e7671b793651ed73fa"
+    },
+    {
+      "seq": 4,
+      "at": "2026-09-09T12:00:02.000000+00:00",
+      "type": "invariants.seeded",
+      "ref": null,
+      "data": {
+        "count": 2
+      },
+      "prev_hash": "af6eb868a01ca42429f2e8095ecb43ca698d5611b88534e7671b793651ed73fa",
+      "event_hash": "2b04fd4023de84b957514d0c25cd7708fa56eb2e21b1315c65843f7d6eefd43c"
+    },
+    {
+      "seq": 5,
+      "at": "2026-09-09T12:00:02.000000+00:00",
+      "type": "invariants.reconciled",
+      "ref": null,
+      "data": {
+        "documented": [],
+        "missing_from_model": [],
+        "extra_in_model": [
+          "INV-1",
+          "INV-2"
+        ]
+      },
+      "prev_hash": "2b04fd4023de84b957514d0c25cd7708fa56eb2e21b1315c65843f7d6eefd43c",
+      "event_hash": "ffd9ae500ef0891bdaa2349ff293409452c3d40462a36b7d48833fc6b0e48dcb"
+    },
+    {
+      "seq": 6,
+      "at": "2026-09-09T12:00:03.000000+00:00",
+      "type": "artifact.registered",
+      "ref": "PLA-f43186bb",
+      "data": {
+        "kind": "plan",
+        "path": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/verify-p1/pyroot/campaigns/C-45488bdaf5/artifacts/campaign_plan.json"
+      },
+      "prev_hash": "ffd9ae500ef0891bdaa2349ff293409452c3d40462a36b7d48833fc6b0e48dcb",
+      "event_hash": "720f9adeae0dedd239016e984cf618dfe64d348618fbbc5aeef93c9c3f9f5790"
+    },
+    {
+      "seq": 7,
+      "at": "2026-09-09T12:00:03.000000+00:00",
+      "type": "plan.reachability",
+      "ref": null,
+      "data": {
+        "e5": [
+          "no deployment/chain pin on the active snapshot — fork evidence (E5+) has no fork target, for single-call PoCs and multi-tx sequence PoCs (`webv2 sequence run`) alike; pin one (`webv2 snap`) or record a floor override (`webv2 floors set`)",
+          "FORK_RPC_URL is not set — the fork-runner profile cannot reach a chain"
+        ],
+        "e6": [
+          "no deployment/chain pin on the active snapshot — fork evidence (E5+) has no fork target, for single-call PoCs and multi-tx sequence PoCs (`webv2 sequence run`) alike; pin one (`webv2 snap`) or record a floor override (`webv2 floors set`)",
+          "no chain pin on the active snapshot — cross-chain witnesses (E6) need one",
+          "FORK_RPC_URL is not set — the fork-runner profile cannot reach a chain"
+        ],
+        "classes_at_e5_plus": {
+          "oracle-manipulation": "E5",
+          "flash-loan": "E5",
+          "share-price-inflation": "E6",
+          "economic-invariant": "E6",
+          "liquidation-logic": "E5",
+          "bridge-message": "E6",
+          "cross-chain-replay": "E6"
+        }
+      },
+      "prev_hash": "720f9adeae0dedd239016e984cf618dfe64d348618fbbc5aeef93c9c3f9f5790",
+      "event_hash": "a88517643edcdd61d6e14783405f8fa8dcb4eead34644a29549a50dd8c8df088"
+    },
+    {
+      "seq": 8,
+      "at": "2026-09-09T12:00:03.000000+00:00",
+      "type": "phase.transition",
+      "ref": "DISCOVERY",
+      "data": {
+        "from": "SCOPE",
+        "reason": "plan ready"
+      },
+      "prev_hash": "a88517643edcdd61d6e14783405f8fa8dcb4eead34644a29549a50dd8c8df088",
+      "event_hash": "35d8c10054442a22d693f1628896d0f838119982512561f7105696ef301350a0"
+    },
+    {
+      "seq": 9,
+      "at": "2026-09-09T12:00:04.000000+00:00",
+      "type": "finding.ingested",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "trajectory": "code",
+        "stage": "verify-p1",
+        "model": null,
+        "bug_class": "logic-error",
+        "class_advisory": null,
+        "intake_warnings": []
+      },
+      "prev_hash": "35d8c10054442a22d693f1628896d0f838119982512561f7105696ef301350a0",
+      "event_hash": "1c52724e59244e62c0c38aac91e02aade711cba93f40a8272899915cafa5e0ce"
+    },
+    {
+      "seq": 10,
+      "at": "2026-09-09T12:00:05.000000+00:00",
+      "type": "finding.critic",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "verdict": "confirmed"
+      },
+      "prev_hash": "1c52724e59244e62c0c38aac91e02aade711cba93f40a8272899915cafa5e0ce",
+      "event_hash": "9bcaa5aeb4fd052e9e0eb2c74758714bde36b00d5cd32889b19d50ad25b3be22"
+    },
+    {
+      "seq": 11,
+      "at": "2026-09-09T12:00:06.000000+00:00",
+      "type": "finding.ingested",
+      "ref": "F-ee0311c3397a",
+      "data": {
+        "trajectory": "code",
+        "stage": "verify-p1",
+        "model": null,
+        "bug_class": "logic-error",
+        "class_advisory": null,
+        "intake_warnings": []
+      },
+      "prev_hash": "9bcaa5aeb4fd052e9e0eb2c74758714bde36b00d5cd32889b19d50ad25b3be22",
+      "event_hash": "9017472d498de929cf027cc3af442837b7c6d115028018e58a19746b87d3368e"
+    },
+    {
+      "seq": 12,
+      "at": "2026-09-09T12:00:07.000000+00:00",
+      "type": "finding.possible_duplicate",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "of": "F-ee0311c3397a"
+      },
+      "prev_hash": "9017472d498de929cf027cc3af442837b7c6d115028018e58a19746b87d3368e",
+      "event_hash": "bbace94f0bfd81a4050b58460e34375a40496a114acca0d606efd56a159c5e1e"
+    },
+    {
+      "seq": 13,
+      "at": "2026-09-09T12:00:07.000000+00:00",
+      "type": "finding.possible_duplicate",
+      "ref": "F-ee0311c3397a",
+      "data": {
+        "of": "F-df01bb454ed5"
+      },
+      "prev_hash": "bbace94f0bfd81a4050b58460e34375a40496a114acca0d606efd56a159c5e1e",
+      "event_hash": "be0f2cacf9a1014d2300be2fc3180c7fa8cf426ea80b65350cc9e5a32d5faac4"
+    },
+    {
+      "seq": 14,
+      "at": "2026-09-09T12:00:07.000000+00:00",
+      "type": "dedup.run",
+      "ref": null,
+      "data": {
+        "tier1": 0,
+        "tier2_clusters": 0,
+        "tier3_flags": 1
+      },
+      "prev_hash": "be0f2cacf9a1014d2300be2fc3180c7fa8cf426ea80b65350cc9e5a32d5faac4",
+      "event_hash": "a8bc9b4653e4db10387617990aab794e49cbbf8298ee927bc45dde61f2a5ab9c"
+    },
+    {
+      "seq": 15,
+      "at": "2026-09-09T12:00:08.000000+00:00",
+      "type": "artifact.refreshed",
+      "ref": "PLA-f43186bb",
+      "data": {
+        "kind": "plan",
+        "actor": "operator",
+        "reason": "plan saved (7 priorities)",
+        "old_sha256": "6cc1dbff6eeed6ab0a5cb05a61c53db349a57b83e6183b2b5d83375a1fc6d7e1",
+        "new_sha256": "4102b8f12c6f5d7ef50090f6ac460db17a461b5204f3cf6b01a0e4f5fdd8d97e",
+        "refresh_count": 1
+      },
+      "prev_hash": "a8bc9b4653e4db10387617990aab794e49cbbf8298ee927bc45dde61f2a5ab9c",
+      "event_hash": "59fceeaf69b9d237acdfc07c0f3ead8d39bde4ea626a87270f71fbd4ea004b85"
+    },
+    {
+      "seq": 16,
+      "at": "2026-09-09T12:00:08.000000+00:00",
+      "type": "plan.priority_status",
+      "ref": "Q-001",
+      "data": {
+        "status": "answered",
+        "reason": "covered by F1",
+        "ref": "F-df01bb454ed5",
+        "actor": "cli"
+      },
+      "prev_hash": "59fceeaf69b9d237acdfc07c0f3ead8d39bde4ea626a87270f71fbd4ea004b85",
+      "event_hash": "b39899ce1f2c01bd6ed96da77e12fcb9b17dce1107d057a5cae2b2feed57ccea"
+    },
+    {
+      "seq": 17,
+      "at": "2026-09-09T12:00:10.000000+00:00",
+      "type": "artifact.registered",
+      "ref": "REP-adc3248d",
+      "data": {
+        "kind": "report",
+        "path": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/verify-p1/fixtures/note.md"
+      },
+      "prev_hash": "b39899ce1f2c01bd6ed96da77e12fcb9b17dce1107d057a5cae2b2feed57ccea",
+      "event_hash": "b671f5aaadde75f2cb18149c9af1329b2b834d98261d561f9441965e93ffb51d"
+    },
+    {
+      "seq": 18,
+      "at": "2026-09-09T12:00:11.000000+00:00",
+      "type": "invariant.verified",
+      "ref": "INV-1",
+      "data": {
+        "artifact": "REP-adc3248d"
+      },
+      "prev_hash": "b671f5aaadde75f2cb18149c9af1329b2b834d98261d561f9441965e93ffb51d",
+      "event_hash": "2b1491b4d123d7f3040e7aa3617d01ac8e17c3851eeedb9c43af7cdcb510b6d7"
+    },
+    {
+      "seq": 19,
+      "at": "2026-09-09T12:00:12.000000+00:00",
+      "type": "sandbox.exec",
+      "ref": "EXEC-12ef05d085",
+      "data": {
+        "profile": "host-readonly",
+        "exit": 0,
+        "finding": "F-df01bb454ed5"
+      },
+      "prev_hash": "2b1491b4d123d7f3040e7aa3617d01ac8e17c3851eeedb9c43af7cdcb510b6d7",
+      "event_hash": "e2c3709086be9481ee02098b04c3d742b242130a9bab7c9e782e8c7481eafed4"
+    },
+    {
+      "seq": 20,
+      "at": "2026-09-09T12:00:13.000000+00:00",
+      "type": "sandbox.exec",
+      "ref": "EXEC-ba82668a3c",
+      "data": {
+        "profile": "host-readonly",
+        "exit": 7,
+        "finding": "F-df01bb454ed5"
+      },
+      "prev_hash": "e2c3709086be9481ee02098b04c3d742b242130a9bab7c9e782e8c7481eafed4",
+      "event_hash": "86dcbb5300f8fa0e102075d51532824997455cdfe96673abfab52cc7c36b7282"
+    },
+    {
+      "seq": 21,
+      "at": "2026-09-09T12:00:16.000000+00:00",
+      "type": "repro.attempt",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "outcome": "reproduced",
+        "failure_class": null,
+        "attempt": 1
+      },
+      "prev_hash": "86dcbb5300f8fa0e102075d51532824997455cdfe96673abfab52cc7c36b7282",
+      "event_hash": "e6af04234334f35a87a711317fb76651adf2532e537e2b87538adfb30d45f628"
+    },
+    {
+      "seq": 22,
+      "at": "2026-09-09T12:00:16.000000+00:00",
+      "type": "finding.evidence_added",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "evidence_id": "EV-ecffa30c",
+        "level": "E4",
+        "type": "foundry-test"
+      },
+      "prev_hash": "e6af04234334f35a87a711317fb76651adf2532e537e2b87538adfb30d45f628",
+      "event_hash": "c504683218ca0b7a2ad337e0d501bf3970055d0be60f011150de1cd0675a6611"
+    },
+    {
+      "seq": 23,
+      "at": "2026-09-09T12:00:17.000000+00:00",
+      "type": "ladder.started",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "ladder_id": "LAD-5852855e",
+        "base_rung": "R-5ab9dd"
+      },
+      "prev_hash": "c504683218ca0b7a2ad337e0d501bf3970055d0be60f011150de1cd0675a6611",
+      "event_hash": "a95e0bc7e374131033b59caade40ccc4e588828d9fa332ddfa27c1f2687633fc"
+    },
+    {
+      "seq": 24,
+      "at": "2026-09-09T12:00:18.000000+00:00",
+      "type": "ladder.variant_added",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "rung_id": "R-d4b8e2",
+        "axes": [
+          "capital-minimization"
+        ],
+        "name": "dust"
+      },
+      "prev_hash": "a95e0bc7e374131033b59caade40ccc4e588828d9fa332ddfa27c1f2687633fc",
+      "event_hash": "515175f5299b0e30bf461ecccb460e0cebd830808787d79b39304e0df821b4dd"
+    },
+    {
+      "seq": 25,
+      "at": "2026-09-09T12:00:19.000000+00:00",
+      "type": "ladder.axis_explored",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "axis": "cap-saturation",
+        "note": "considered, not applicable here"
+      },
+      "prev_hash": "515175f5299b0e30bf461ecccb460e0cebd830808787d79b39304e0df821b4dd",
+      "event_hash": "be3a389429ca7571d1ddce10fcba5afb1a85ee5b88cc3f20a6d80af48a634d3e"
+    },
+    {
+      "seq": 26,
+      "at": "2026-09-09T12:00:20.000000+00:00",
+      "type": "ladder.axis_explored",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "axis": "precondition-removal",
+        "note": "considered, not applicable here"
+      },
+      "prev_hash": "be3a389429ca7571d1ddce10fcba5afb1a85ee5b88cc3f20a6d80af48a634d3e",
+      "event_hash": "7901a305138d83b3a46c1ab68add8a0b76ca1fbf7f4f59092f510946d5ba54b6"
+    },
+    {
+      "seq": 27,
+      "at": "2026-09-09T12:00:21.000000+00:00",
+      "type": "ladder.axis_explored",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "axis": "role-conflation",
+        "note": "considered, not applicable here"
+      },
+      "prev_hash": "7901a305138d83b3a46c1ab68add8a0b76ca1fbf7f4f59092f510946d5ba54b6",
+      "event_hash": "4f7171d313713fadac469eb83098830a11cfaf85613780e199e0cb01145a5b4e"
+    },
+    {
+      "seq": 28,
+      "at": "2026-09-09T12:00:22.000000+00:00",
+      "type": "ladder.axis_explored",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "axis": "ordering-permutation",
+        "note": "considered, not applicable here"
+      },
+      "prev_hash": "4f7171d313713fadac469eb83098830a11cfaf85613780e199e0cb01145a5b4e",
+      "event_hash": "74bcb99d730ac0417bc20ba37759ac4f87ee2204637f54b42f3060e70216042c"
+    },
+    {
+      "seq": 29,
+      "at": "2026-09-09T12:00:23.000000+00:00",
+      "type": "ladder.rung_reproduced",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "rung_id": "R-d4b8e2",
+        "exec_id": "EXEC-a9b19962f6"
+      },
+      "prev_hash": "74bcb99d730ac0417bc20ba37759ac4f87ee2204637f54b42f3060e70216042c",
+      "event_hash": "bc8acf5ceb1a11bd3ed7f669ddb233056b8963d5a1c1f78cff87318d7e4dfb6a"
+    },
+    {
+      "seq": 30,
+      "at": "2026-09-09T12:00:24.000000+00:00",
+      "type": "ladder.claim_pinned",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "rung_id": "R-d4b8e2",
+        "capital_usd": 1.0,
+        "extraction_ratio": 1.0
+      },
+      "prev_hash": "bc8acf5ceb1a11bd3ed7f669ddb233056b8963d5a1c1f78cff87318d7e4dfb6a",
+      "event_hash": "c0877e0f81a3177ce20b9b3c5d19a103a9ed27cf39b6a50cb0b9672dc092a4bf"
+    },
+    {
+      "seq": 31,
+      "at": "2026-09-09T12:00:25.000000+00:00",
+      "type": "ladder.variant_added",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "rung_id": "R-bacd4d",
+        "axes": [
+          "precondition-removal"
+        ],
+        "name": "dead-end"
+      },
+      "prev_hash": "c0877e0f81a3177ce20b9b3c5d19a103a9ed27cf39b6a50cb0b9672dc092a4bf",
+      "event_hash": "090533edea490681bd6b15b8f15b561ea232933122708c39b7cbdc207a909cd5"
+    },
+    {
+      "seq": 32,
+      "at": "2026-09-09T12:00:26.000000+00:00",
+      "type": "memory.queued",
+      "ref": "MEM-3f00249e",
+      "data": {
+        "kind": "disproved",
+        "status": "DISPROVED",
+        "rejection_class": "invalid-hypothesis",
+        "deciding_propositions": 0
+      },
+      "prev_hash": "090533edea490681bd6b15b8f15b561ea232933122708c39b7cbdc207a909cd5",
+      "event_hash": "d8def7898feca16fe2b64ff607d091d75e278eacd7825f0d20fa1d9f9527e137"
+    },
+    {
+      "seq": 33,
+      "at": "2026-09-09T12:00:26.000000+00:00",
+      "type": "ladder.rung_disproved",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "rung_id": "R-bacd4d"
+      },
+      "prev_hash": "d8def7898feca16fe2b64ff607d091d75e278eacd7825f0d20fa1d9f9527e137",
+      "event_hash": "ac8ef9f2aafe9138a9606d934784f81f4c126782bbb62bce68cc8ea504dcc4cf"
+    },
+    {
+      "seq": 34,
+      "at": "2026-09-09T12:00:27.000000+00:00",
+      "type": "ladder.complete",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "actor": "cli"
+      },
+      "prev_hash": "ac8ef9f2aafe9138a9606d934784f81f4c126782bbb62bce68cc8ea504dcc4cf",
+      "event_hash": "6c8f691f47bb2a784fa1df1360e63adfd9682ab8a3aed3e1bf6558dbc25c2243"
+    },
+    {
+      "seq": 35,
+      "at": "2026-09-09T12:00:32.000000+00:00",
+      "type": "finding.calibrated",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "band": "medium"
+      },
+      "prev_hash": "6c8f691f47bb2a784fa1df1360e63adfd9682ab8a3aed3e1bf6558dbc25c2243",
+      "event_hash": "65c90ebf249b777231909e954b02bc865e9b0cbf3cc3628c1f18a0a22dfe011d"
+    },
+    {
+      "seq": 36,
+      "at": "2026-09-09T12:00:32.000000+00:00",
+      "type": "finding.impact_recorded",
+      "ref": "F-df01bb454ed5",
+      "data": {
+        "extractable_usd": 1000.0,
+        "max_loss_usd": 5000.0
+      },
+      "prev_hash": "65c90ebf249b777231909e954b02bc865e9b0cbf3cc3628c1f18a0a22dfe011d",
+      "event_hash": "1c153bad0ba5baaf556431264d0c43c94b5bde09a52843355aceb41e2112b56c"
+    },
+    {
+      "seq": 37,
+      "at": "2026-09-09T12:00:34.000000+00:00",
+      "type": "artifact.registered",
+      "ref": "REP-37b22d0d",
+      "data": {
+        "kind": "report",
+        "path": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/verify-p1/pyroot/campaigns/C-45488bdaf5/report.md"
+      },
+      "prev_hash": "1c153bad0ba5baaf556431264d0c43c94b5bde09a52843355aceb41e2112b56c",
+      "event_hash": "52ac8424bdd307b03f1738fd1a6b90cdcaebc86ff3b979f316ed3925756bd5fa"
+    },
+    {
+      "seq": 38,
+      "at": "2026-09-09T12:00:34.000000+00:00",
+      "type": "report.generated",
+      "ref": null,
+      "data": {
+        "path": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/verify-p1/pyroot/campaigns/C-45488bdaf5/report.md"
+      },
+      "prev_hash": "52ac8424bdd307b03f1738fd1a6b90cdcaebc86ff3b979f316ed3925756bd5fa",
+      "event_hash": "a3bcf57b27feeff8cbb80b4ce3e44b6346d820b5f82047b607f8cdab81eed7b1"
+    },
+    {
+      "seq": 39,
+      "at": "2026-09-09T12:00:35.000000+00:00",
+      "type": "snapshot.pinned",
+      "ref": "src-1684fd7b-b868c7cd06e0",
+      "data": {
+        "ladder": "git-dirty"
+      },
+      "prev_hash": "a3bcf57b27feeff8cbb80b4ce3e44b6346d820b5f82047b607f8cdab81eed7b1",
+      "event_hash": "e8c41f1ff69643d466d7ad28a34e09c8216c0cd9338e09c37570701eea62368b"
+    },
+    {
+      "seq": 40,
+      "at": "2026-09-09T12:00:37.000000+00:00",
+      "type": "artifact.registered",
+      "ref": "VAL-2571d3b4",
+      "data": {
+        "kind": "value-flow",
+        "path": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/verify-p1/pyroot/campaigns/C-45488bdaf5/artifacts/value_flow.json"
+      },
+      "prev_hash": "e8c41f1ff69643d466d7ad28a34e09c8216c0cd9338e09c37570701eea62368b",
+      "event_hash": "b2b60c356e56e639d8005e03f88d180001bba72c244575ea78c0322c17649891"
+    },
+    {
+      "seq": 41,
+      "at": "2026-09-09T12:00:37.000000+00:00",
+      "type": "valueflow.computed",
+      "ref": null,
+      "data": {
+        "sinks": 0,
+        "unguarded_paths": 0
+      },
+      "prev_hash": "b2b60c356e56e639d8005e03f88d180001bba72c244575ea78c0322c17649891",
+      "event_hash": "cb8c7b373a95943b5f75ba301fbfca0cbf1914374cd1aa800e13ce72d3c6f3c5"
+    },
+    {
+      "seq": 42,
+      "at": "2026-09-09T12:00:38.000000+00:00",
+      "type": "artifact.registered",
+      "ref": "ARC-7984d47d",
+      "data": {
+        "kind": "archetype-prescreen",
+        "path": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/verify-p1/pyroot/campaigns/C-45488bdaf5/artifacts/archetype_prescreen.json"
+      },
+      "prev_hash": "cb8c7b373a95943b5f75ba301fbfca0cbf1914374cd1aa800e13ce72d3c6f3c5",
+      "event_hash": "51abb95788144d8d750decc50c214b3d62f52b393516174d902aa394d1223c66"
+    },
+    {
+      "seq": 43,
+      "at": "2026-09-09T12:00:38.000000+00:00",
+      "type": "prescreen.completed",
+      "ref": null,
+      "data": {
+        "matched": [],
+        "forced": []
+      },
+      "prev_hash": "51abb95788144d8d750decc50c214b3d62f52b393516174d902aa394d1223c66",
+      "event_hash": "a1b7720b0a294263ea415f172ff137c4bfc3fd029f6219af0435ff6ca0c8aff7"
+    },
+    {
+      "seq": 44,
+      "at": "2026-09-09T12:00:39.000000+00:00",
+      "type": "artifact.registered",
+      "ref": "PRO-0553f4cc",
+      "data": {
+        "kind": "probe-surface",
+        "path": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/verify-p1/pyroot/campaigns/C-45488bdaf5/artifacts/probe_surface.json"
+      },
+      "prev_hash": "a1b7720b0a294263ea415f172ff137c4bfc3fd029f6219af0435ff6ca0c8aff7",
+      "event_hash": "1bce4bfe08e5b97135d9e05a412974bc38601f1737bea9a362f360ebd8015ba0"
+    },
+    {
+      "seq": 45,
+      "at": "2026-09-09T12:00:39.000000+00:00",
+      "type": "probes.run",
+      "ref": null,
+      "data": {
+        "emitted": 0,
+        "rows": 0,
+        "sites": 1,
+        "tail": 0,
+        "blind": 1,
+        "missing": 0,
+        "per_axis": 12,
+        "total": 40,
+        "floor": 3,
+        "index_sha": "6ccd433454c1c3d8e85ad72943d0085b1787bd8b921197798bfe38acbefe85e4",
+        "axes": {
+          "accumulator-basis-skew": {
+            "sites": 1,
+            "rows": 0,
+            "emitted": 0,
+            "tail": 0,
+            "status": "blind"
+          },
+          "assertion-strength": {
+            "sites": 0,
+            "rows": 0,
+            "emitted": 0,
+            "tail": 0,
+            "status": "no-sites"
+          },
+          "custody-primitive": {
+            "sites": 0,
+            "rows": 0,
+            "emitted": 0,
+            "tail": 0,
+            "status": "no-sites"
+          },
+          "sequential-cursor": {
+            "sites": 0,
+            "rows": 0,
+            "emitted": 0,
+            "tail": 0,
+            "status": "no-sites"
+          },
+          "short-circuitable-guard": {
+            "sites": 0,
+            "rows": 0,
+            "emitted": 0,
+            "tail": 0,
+            "status": "no-sites"
+          },
+          "trust-assumption": {
+            "sites": 0,
+            "rows": 0,
+            "emitted": 0,
+            "tail": 0,
+            "status": "no-sites"
+          }
+        }
+      },
+      "prev_hash": "1bce4bfe08e5b97135d9e05a412974bc38601f1737bea9a362f360ebd8015ba0",
+      "event_hash": "7f2ff24d76856603ce483d8f218622ff837d237538683dadd783191c4304463b"
+    },
+    {
+      "seq": 46,
+      "at": "2026-09-09T12:00:40.000000+00:00",
+      "type": "artifact.refreshed",
+      "ref": "PRO-0553f4cc",
+      "data": {
+        "kind": "probe-surface",
+        "actor": "operator",
+        "reason": "0 rows across 6 axes",
+        "old_sha256": "2788dc3294944c5712d5999dc3c3ce84dd486ab7e666900ab8273fd519966258",
+        "new_sha256": "3bb38ddd3324e86c46077febd4c3530f1170b514de79b745f385cbc6b850195c",
+        "refresh_count": 1
+      },
+      "prev_hash": "7f2ff24d76856603ce483d8f218622ff837d237538683dadd783191c4304463b",
+      "event_hash": "215a054162fa83f4099aed2c9fe7446648970b6ddba78f40a25080a0c0010ef8"
+    },
+    {
+      "seq": 47,
+      "at": "2026-09-09T12:00:40.000000+00:00",
+      "type": "probes.run",
+      "ref": null,
+      "data": {
+        "emitted": 0,
+        "rows": 0,
+        "sites": 1,
+        "tail": 0,
+        "blind": 1,
+        "missing": 0,
+        "per_axis": 12,
+        "total": 40,
+        "floor": 3,
+        "index_sha": "6ccd433454c1c3d8e85ad72943d0085b1787bd8b921197798bfe38acbefe85e4",
+        "axes": {
+          "accumulator-basis-skew": {
+            "sites": 1,
+            "rows": 0,
+            "emitted": 0,
+            "tail": 0,
+            "status": "blind"
+          },
+          "assertion-strength": {
+            "sites": 0,
+            "rows": 0,
+            "emitted": 0,
+            "tail": 0,
+            "status": "no-sites"
+          },
+          "custody-primitive": {
+            "sites": 0,
+            "rows": 0,
+            "emitted": 0,
+            "tail": 0,
+            "status": "no-sites"
+          },
+          "sequential-cursor": {
+            "sites": 0,
+            "rows": 0,
+            "emitted": 0,
+            "tail": 0,
+            "status": "no-sites"
+          },
+          "short-circuitable-guard": {
+            "sites": 0,
+            "rows": 0,
+            "emitted": 0,
+            "tail": 0,
+            "status": "no-sites"
+          },
+          "trust-assumption": {
+            "sites": 0,
+            "rows": 0,
+            "emitted": 0,
+            "tail": 0,
+            "status": "no-sites"
+          }
+        }
+      },
+      "prev_hash": "215a054162fa83f4099aed2c9fe7446648970b6ddba78f40a25080a0c0010ef8",
+      "event_hash": "11effd2f44a44501669f15d18b1c573812a733e72c1ff6938d8750d3680a3b71"
+    },
+    {
+      "seq": 48,
+      "at": "2026-09-09T12:00:40.000000+00:00",
+      "type": "artifact.refreshed",
+      "ref": "PLA-f43186bb",
+      "data": {
+        "kind": "plan",
+        "actor": "operator",
+        "reason": "plan saved (7 priorities)",
+        "old_sha256": "4102b8f12c6f5d7ef50090f6ac460db17a461b5204f3cf6b01a0e4f5fdd8d97e",
+        "new_sha256": "4102b8f12c6f5d7ef50090f6ac460db17a461b5204f3cf6b01a0e4f5fdd8d97e",
+        "refresh_count": 2
+      },
+      "prev_hash": "11effd2f44a44501669f15d18b1c573812a733e72c1ff6938d8750d3680a3b71",
+      "event_hash": "cdf6925573acaa4453b085f0f1968264ed17843d5249931b4741394d3c99787c"
+    },
+    {
+      "seq": 49,
+      "at": "2026-09-09T12:00:40.000000+00:00",
+      "type": "probes.emit",
+      "ref": null,
+      "data": {
+        "surface_sha": "6ccd433454c1c3d8e85ad72943d0085b1787bd8b921197798bfe38acbefe85e4",
+        "created": [],
+        "updated": [],
+        "reopened": [],
+        "kept": [],
+        "orphaned": []
+      },
+      "prev_hash": "cdf6925573acaa4453b085f0f1968264ed17843d5249931b4741394d3c99787c",
+      "event_hash": "c034c0572d186cfebd9b23988f3619d30f8eba1c4c4bb746d381468271a0969c"
+    },
+    {
+      "seq": 50,
+      "at": "2026-09-09T12:00:41.000000+00:00",
+      "type": "relation.minted",
+      "ref": "REL-76ba2684",
+      "data": {
+        "kind": "validated_by",
+        "src": "F-df01bb454ed5",
+        "dst": "EXEC-a9b19962f6",
+        "policy": "deterministic"
+      },
+      "prev_hash": "c034c0572d186cfebd9b23988f3619d30f8eba1c4c4bb746d381468271a0969c",
+      "event_hash": "0927cb09b8b191e82801552c6fd03ca351d5bf251257527383b3f1749e00fa37"
+    },
+    {
+      "seq": 51,
+      "at": "2026-09-09T12:00:41.000000+00:00",
+      "type": "relation.minted",
+      "ref": "REL-f2e7264b",
+      "data": {
+        "kind": "observed_in",
+        "src": "F-df01bb454ed5",
+        "dst": "unpinned",
+        "policy": "deterministic"
+      },
+      "prev_hash": "0927cb09b8b191e82801552c6fd03ca351d5bf251257527383b3f1749e00fa37",
+      "event_hash": "a42e4063420a4a27e755b924a73a48e5d904fb582aa3c1cda7a4354cc0768cbb"
+    },
+    {
+      "seq": 52,
+      "at": "2026-09-09T12:00:41.000000+00:00",
+      "type": "relation.minted",
+      "ref": "REL-e0090dc7",
+      "data": {
+        "kind": "disproved_by",
+        "src": "F-df01bb454ed5",
+        "dst": "MEM-3f00249e",
+        "policy": "deterministic"
+      },
+      "prev_hash": "a42e4063420a4a27e755b924a73a48e5d904fb582aa3c1cda7a4354cc0768cbb",
+      "event_hash": "c9aae118aafd272fc69f5443963380ce55650ae4df4f25b49df5376a21da8ecb"
+    },
+    {
+      "seq": 53,
+      "at": "2026-09-09T12:00:41.000000+00:00",
+      "type": "relation.minted",
+      "ref": "REL-d5596ac2",
+      "data": {
+        "kind": "observed_in",
+        "src": "F-ee0311c3397a",
+        "dst": "unpinned",
+        "policy": "deterministic"
+      },
+      "prev_hash": "c9aae118aafd272fc69f5443963380ce55650ae4df4f25b49df5376a21da8ecb",
+      "event_hash": "f6dd0b69360d39251f4238b0dc8d0563f6d34a4d46bc6f1db25f74f7dc07c49a"
+    }
+  ],
+  "policy_path": null,
+  "floor_policy": [],
+  "probe_blanks": []
+}

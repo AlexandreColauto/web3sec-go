@@ -101,9 +101,9 @@ func TestLivenessChainKeepsBridgeCanonical(t *testing.T) {
 	if ei.Kind != validation.Obj {
 		ei = validation.VObj()
 	}
-	ei.O = setOrAppend(ei.O, "blast_radius",
+	ei.O = validation.SetOrAppend(ei.O, "blast_radius",
 		validation.VStr("bridge-canonical"))
-	f2r.O = setOrAppend(f2r.O, "economic_impact", ei)
+	f2r.O = validation.SetOrAppend(f2r.O, "economic_impact", ei)
 	if err := findings.SaveFinding(c, &f2r); err != nil {
 		t.Fatal(err)
 	}

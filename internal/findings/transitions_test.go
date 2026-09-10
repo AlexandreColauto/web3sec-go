@@ -151,12 +151,12 @@ func TestConfirmedRequiresFullGateBundle(t *testing.T) {
 		t.Fatal(err)
 	}
 	ver := asDict(objAt(vf, "verification"))
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T3")),
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr()),
 	))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := SaveFinding(c, &vf); err != nil {
 		t.Fatal(err)
 	}
@@ -564,7 +564,7 @@ func TestMarkPrecondition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	vf.O = setOrAppend(vf.O, "preconditions", validation.VArr(validation.VObj(
+	vf.O = validation.SetOrAppend(vf.O, "preconditions", validation.VArr(validation.VObj(
 		kv("description", validation.VStr("the victim must stake before withdraw")),
 		kv("kind", validation.VStr("state")),
 	)))
@@ -657,12 +657,12 @@ func TestConfirmedFlowStateEffectsWithShield(t *testing.T) {
 		t.Fatal(err)
 	}
 	ver := asDict(objAt(vf, "verification"))
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T2")),
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr()),
 	))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := SaveFinding(c, &vf); err != nil {
 		t.Fatal(err)
 	}
@@ -781,7 +781,7 @@ func TestAnchorRescanSmoke(t *testing.T) {
 		kv("root_cause", validation.VObj(
 			kv("class", validation.VStr("logic-error")),
 			kv("description", validation.VStr("vault accounting drift")))))
-	payload.O = setOrAppend(payload.O, "affected", validation.VArr(
+	payload.O = validation.SetOrAppend(payload.O, "affected", validation.VArr(
 		validation.VObj(kv("path", validation.VStr("src/V.sol")),
 			kv("contract", validation.VStr("Rollup")))))
 	f, err := IngestHypothesis(c, payload, "code", "", "")

@@ -663,20 +663,8 @@ func setDeep(root validation.Value, v validation.Value, keys ...string) validati
 		}
 	}
 	child = setDeep(child, v, keys[1:]...)
-	root.O = setOrAppendKV(root.O, keys[0], child)
+	root.O = validation.SetOrAppend(root.O, keys[0], child)
 	return root
-}
-
-// setOrAppendKV mirrors Python dict assignment: an existing key is replaced
-// in place (position kept), a new key is appended at the end.
-func setOrAppendKV(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
 }
 
 // sigAt is (f.get("dedup") or {}).get(key) when truthy: the signature string,

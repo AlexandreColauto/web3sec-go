@@ -99,7 +99,7 @@ func (c *Campaign) SetStage(stage, status string, note validation.Value, executo
 			kv("executor", validation.VNull()),
 		)
 	}
-	entry.O = setOrAppend(entry.O, "status", validation.VStr(status))
+	entry.O = validation.SetOrAppend(entry.O, "status", validation.VStr(status))
 	attempts := int64(0)
 	if a := objAt(entry, "attempts"); a.Kind == validation.Int {
 		if n, err := strconv.ParseInt(validation.IntText(a), 10, 64); err == nil {
@@ -109,16 +109,16 @@ func (c *Campaign) SetStage(stage, status string, note validation.Value, executo
 	if status == "needs-model" || status == "done" || status == "failed" {
 		attempts++
 	}
-	entry.O = setOrAppend(entry.O, "attempts", validation.VInt(attempts))
-	entry.O = setOrAppend(entry.O, "last_run_at", validation.VStr(nowIso()))
+	entry.O = validation.SetOrAppend(entry.O, "attempts", validation.VInt(attempts))
+	entry.O = validation.SetOrAppend(entry.O, "last_run_at", validation.VStr(nowIso()))
 	if pyTruthy(note) {
-		entry.O = setOrAppend(entry.O, "note", validation.VStr(capNote(note)))
+		entry.O = validation.SetOrAppend(entry.O, "note", validation.VStr(capNote(note)))
 	}
 	if executor != nil && *executor != "" {
-		entry.O = setOrAppend(entry.O, "executor", validation.VStr(*executor))
+		entry.O = validation.SetOrAppend(entry.O, "executor", validation.VStr(*executor))
 	}
-	stages.O = setOrAppend(stages.O, stage, entry)
-	st.O = setOrAppend(st.O, "stages", stages)
+	stages.O = validation.SetOrAppend(stages.O, stage, entry)
+	st.O = validation.SetOrAppend(st.O, "stages", stages)
 	return c.save(st)
 }
 
@@ -168,7 +168,7 @@ func (c *Campaign) RegisterArtifact(kind, path, note string, snapshotID *string)
 	}
 	arts := objAt(st, "artifacts")
 	arts.A = append(arts.A, rec)
-	st.O = setOrAppend(st.O, "artifacts", arts)
+	st.O = validation.SetOrAppend(st.O, "artifacts", arts)
 	if err := c.save(st); err != nil {
 		return "", err
 	}
@@ -231,7 +231,7 @@ func (c *Campaign) PruneArtifact(artifactID, reason string) (validation.Value, e
 	}
 	rec := arts.A[idx]
 	arts.A = append(arts.A[:idx], arts.A[idx+1:]...)
-	st.O = setOrAppend(st.O, "artifacts", arts)
+	st.O = validation.SetOrAppend(st.O, "artifacts", arts)
 	if err := c.save(st); err != nil {
 		return validation.VNull(), err
 	}
@@ -297,7 +297,7 @@ func (c *Campaign) refreshArtifact(artifactID, reason, actor, newKind string) (v
 	migrated := ""
 	if newKind != "" && oldKind != newKind {
 		migrated = oldKind + "→" + newKind
-		a.O = setOrAppend(a.O, "kind", validation.VStr(newKind))
+		a.O = validation.SetOrAppend(a.O, "kind", validation.VStr(newKind))
 	}
 	sha, err := validation.Sha256File(p)
 	if err != nil {
@@ -309,12 +309,12 @@ func (c *Campaign) refreshArtifact(artifactID, reason, actor, newKind string) (v
 			count = n
 		}
 	}
-	a.O = setOrAppend(a.O, "sha256", validation.VStr(sha))
-	a.O = setOrAppend(a.O, "refreshed_at", validation.VStr(nowIso()))
-	a.O = setOrAppend(a.O, "refresh_reason", validation.VStr(reason))
-	a.O = setOrAppend(a.O, "refresh_count", validation.VInt(count+1))
+	a.O = validation.SetOrAppend(a.O, "sha256", validation.VStr(sha))
+	a.O = validation.SetOrAppend(a.O, "refreshed_at", validation.VStr(nowIso()))
+	a.O = validation.SetOrAppend(a.O, "refresh_reason", validation.VStr(reason))
+	a.O = validation.SetOrAppend(a.O, "refresh_count", validation.VInt(count+1))
 	arts.A[idx] = a
-	st.O = setOrAppend(st.O, "artifacts", arts)
+	st.O = validation.SetOrAppend(st.O, "artifacts", arts)
 	if err := c.save(st); err != nil {
 		return validation.VNull(), err
 	}
@@ -327,7 +327,7 @@ func (c *Campaign) refreshArtifact(artifactID, reason, actor, newKind string) (v
 		kv("refresh_count", validation.VInt(count+1)),
 	)
 	if migrated != "" {
-		data.O = setOrAppend(data.O, "kind_migrated",
+		data.O = validation.SetOrAppend(data.O, "kind_migrated",
 			validation.VStr(migrated))
 	}
 	if _, err := c.Log("artifact.refreshed", &artifactID, &data); err != nil {

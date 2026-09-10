@@ -136,18 +136,6 @@ func hasKey(v validation.Value, key string) bool {
 	return ok
 }
 
-// setOrAppend is Python's `o[key] = value` on an ordered dict.
-func setOrAppend(o []validation.KV, key string,
-	v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, kv(key, v))
-}
-
 // dropKey is `o.pop(key, None)`.
 func dropKey(o []validation.KV, key string) []validation.KV {
 	for i := range o {
@@ -237,7 +225,7 @@ func sortedKeys(s map[string]struct{}) []string {
 	for k := range s {
 		out = append(out, k)
 	}
-	sortStrings(out)
+	sort.Strings(out)
 	return out
 }
 
@@ -247,13 +235,12 @@ func sortedMapKeys[T any](m map[string]T) []string {
 	for k := range m {
 		out = append(out, k)
 	}
-	sortStrings(out)
+	sort.Strings(out)
 	return out
 }
 
 // sortStrings is Python's sorted() over str (Go's byte-wise order on UTF-8
 // equals code-point order).
-func sortStrings(s []string) { sort.Strings(s) }
 
 // itoa is str(n) for a non-negative int.
 func itoa(n int) string { return strconv.Itoa(n) }

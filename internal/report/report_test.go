@@ -1,5 +1,5 @@
 // Port of tests/test_report_clusters.py (8 functions) and
-// tests/test_report_privileged.py (12 functions). PYTHON WINS.
+// tests/test_report_privileged.py (12 functions). The Python twin was retired 2026-09-09; this package is the source of truth.
 //
 // DEVIATION (declared): Python's `det` fixture monkeypatches `now_iso` and
 // `uuid` module-wide; the Go harness uses the production golden hooks
@@ -205,11 +205,11 @@ func mk(t *testing.T, camp *state.Campaign, hint, function,
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("status", validation.VStr("reproduced")),
 		kv("tier_reached", validation.VStr("T3")),
 		kv("attempts", validation.VArr())))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(camp, &vf); err != nil {
 		t.Fatal(err)
 	}
@@ -222,16 +222,6 @@ func mk(t *testing.T, camp *state.Campaign, hint, function,
 		t.Fatal(err)
 	}
 	return out
-}
-
-func setOrAppend(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
 }
 
 // fourSurfaces is that module's _four_surfaces.
@@ -344,8 +334,8 @@ func TestSingleMemberClassesAreNotClusters(t *testing.T) {
 	mk(t, camp, "a", "deposit", "A finding alone")
 	f2 := mk(t, camp, "b", "withdraw", "B finding alone")
 	rc := objAt(f2, "root_cause")
-	rc.O = setOrAppend(rc.O, "class", validation.VStr("reentrancy"))
-	f2.O = setOrAppend(f2.O, "root_cause", rc)
+	rc.O = validation.SetOrAppend(rc.O, "class", validation.VStr("reentrancy"))
+	f2.O = validation.SetOrAppend(f2.O, "root_cause", rc)
 	if err := findings.SaveFinding(camp, &f2); err != nil {
 		t.Fatal(err)
 	}
@@ -436,8 +426,8 @@ func TestReportWithoutClusteringHasNoSection(t *testing.T) {
 	mk(t, camp, "a", "deposit", "A finding alone")
 	f2 := mk(t, camp, "b", "withdraw", "B finding alone")
 	rc := objAt(f2, "root_cause")
-	rc.O = setOrAppend(rc.O, "class", validation.VStr("reentrancy"))
-	f2.O = setOrAppend(f2.O, "root_cause", rc)
+	rc.O = validation.SetOrAppend(rc.O, "class", validation.VStr("reentrancy"))
+	f2.O = validation.SetOrAppend(f2.O, "root_cause", rc)
 	if err := findings.SaveFinding(camp, &f2); err != nil {
 		t.Fatal(err)
 	}
@@ -498,9 +488,9 @@ func TestCreditScopeOnImmunizedSibling(t *testing.T) {
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppend(ver.O, "patch_verified",
+	ver.O = validation.SetOrAppend(ver.O, "patch_verified",
 		patchVerified(objStr(fs[2], "finding_id")))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(camp, &vf); err != nil {
 		t.Fatal(err)
 	}
@@ -525,8 +515,8 @@ func TestNoCreditScopeNoteWithoutSiblings(t *testing.T) {
 	reclass := func(f validation.Value, class string) {
 		t.Helper()
 		rc := objAt(f, "root_cause")
-		rc.O = setOrAppend(rc.O, "class", validation.VStr(class))
-		f.O = setOrAppend(f.O, "root_cause", rc)
+		rc.O = validation.SetOrAppend(rc.O, "class", validation.VStr(class))
+		f.O = validation.SetOrAppend(f.O, "root_cause", rc)
 		if err := findings.SaveFinding(camp, &f); err != nil {
 			t.Fatal(err)
 		}
@@ -542,9 +532,9 @@ func TestNoCreditScopeNoteWithoutSiblings(t *testing.T) {
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppend(ver.O, "patch_verified",
+	ver.O = validation.SetOrAppend(ver.O, "patch_verified",
 		patchVerified(objStr(fs[2], "finding_id")))
-	vf.O = setOrAppend(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(camp, &vf); err != nil {
 		t.Fatal(err)
 	}
@@ -649,7 +639,7 @@ func privDet(t *testing.T) func(privileges []validation.Value,
 		if err != nil {
 			t.Fatal(err)
 		}
-		doc.O = setOrAppend(doc.O, "policy_path", validation.VStr(policyPath))
+		doc.O = validation.SetOrAppend(doc.O, "policy_path", validation.VStr(policyPath))
 		if err := validation.WriteJson(camp.StatePath, doc, "campaign_state"); err != nil {
 			t.Fatal(err)
 		}
@@ -784,8 +774,8 @@ func privConfirmed(t *testing.T, camp *state.Campaign, spec privSpec) string {
 	if ei.Kind != validation.Obj {
 		ei = validation.VObj()
 	}
-	ei.O = setOrAppend(ei.O, "blast_radius", validation.VStr(blast))
-	vf.O = setOrAppend(vf.O, "economic_impact", ei)
+	ei.O = validation.SetOrAppend(ei.O, "blast_radius", validation.VStr(blast))
+	vf.O = validation.SetOrAppend(vf.O, "economic_impact", ei)
 	if err := findings.SaveFinding(camp, &vf); err != nil {
 		t.Fatal(err)
 	}

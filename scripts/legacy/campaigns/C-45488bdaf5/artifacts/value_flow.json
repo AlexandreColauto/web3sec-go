@@ -1,0 +1,10 @@
+{
+  "generated_at": "2026-09-09T12:00:37.000000+00:00",
+  "snapshot_id": "src-1684fd7b-b868c7cd06e0",
+  "sinks": [],
+  "unguarded_sink_paths": [],
+  "stats": {
+    "sinks": 0,
+    "unguarded_paths": 0
+  }
+}

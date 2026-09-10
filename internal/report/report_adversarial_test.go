@@ -34,7 +34,7 @@ func classifyLiveness(t *testing.T, camp *state.Campaign, fid string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	vf.O = setOrAppend(vf.O, "economic_impact", validation.VObj(
+	vf.O = validation.SetOrAppend(vf.O, "economic_impact", validation.VObj(
 		kv("kind", validation.VStr("liveness"))))
 	if err := findings.SaveFinding(camp, &vf); err != nil {
 		t.Fatal(err)

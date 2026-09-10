@@ -160,8 +160,8 @@ func TestToolchainNestedSkipsJunkDirs(t *testing.T) {
 	dir := t.TempDir()
 	writeFiles(t, dir, map[string]string{
 		// unusable at the root -> the walk continues
-		"foundry.toml": "[other]\nsolc = \"0.8.10\"\n",
-		"out/foundry.toml":     "[profile.default]\nsolc = \"0.8.11\"\n",
+		"foundry.toml":                "[other]\nsolc = \"0.8.10\"\n",
+		"out/foundry.toml":            "[profile.default]\nsolc = \"0.8.11\"\n",
 		"node_modules/x/foundry.toml": "[profile.default]\nsolc = \"0.8.12\"\n",
 		"contracts/foundry.toml":      "[profile.default]\nsolc = \"0.8.24\"\n",
 	})

@@ -53,7 +53,7 @@ func hypoPayload(over ...validation.KV) validation.Value {
 		)),
 	)
 	for _, o := range over {
-		base.O = setOrAppend(base.O, o.K, o.V)
+		base.O = validation.SetOrAppend(base.O, o.K, o.V)
 	}
 	return base
 }
@@ -264,7 +264,7 @@ func TestValidatedRiskBands(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.O = setOrAppend(f.O, "economic_impact", validation.VObj(
+	f.O = validation.SetOrAppend(f.O, "economic_impact", validation.VObj(
 		kv("blast_radius", validation.VStr("protocol-solvency")),
 		kv("extractable_usd", validation.VInt(5_000_000))))
 	hi, err := ValidatedRisk(f)
@@ -278,10 +278,10 @@ func TestValidatedRiskBands(t *testing.T) {
 		t.Errorf("score = %v; want >= 6.5", score)
 	}
 	lo := validation.Value{Kind: validation.Obj, O: append([]validation.KV(nil), f.O...)}
-	lo.O = setOrAppend(lo.O, "economic_impact", validation.VObj(
+	lo.O = validation.SetOrAppend(lo.O, "economic_impact", validation.VObj(
 		kv("blast_radius", validation.VStr("single-user")),
 		kv("extractable_usd", validation.VInt(100))))
-	lo.O = setOrAppend(lo.O, "attacker", validation.VObj(
+	lo.O = validation.SetOrAppend(lo.O, "attacker", validation.VObj(
 		kv("profile", validation.VStr("EOA")),
 		kv("capabilities", validation.VArr()),
 		kv("required_privileges", validation.VArr(validation.VStr("governor")))))
@@ -1028,11 +1028,11 @@ func TestNullFieldsStillFailAtValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	rc := objAt(stored, "root_cause")
-	rc.O = setOrAppend(rc.O, "description", validation.VNull())
-	stored.O = setOrAppend(stored.O, "root_cause", rc)
+	rc.O = validation.SetOrAppend(rc.O, "description", validation.VNull())
+	stored.O = validation.SetOrAppend(stored.O, "root_cause", rc)
 	att := objAt(stored, "attacker")
-	att.O = setOrAppend(att.O, "required_privileges", validation.VNull())
-	stored.O = setOrAppend(stored.O, "attacker", att)
+	att.O = validation.SetOrAppend(att.O, "required_privileges", validation.VNull())
+	stored.O = validation.SetOrAppend(stored.O, "attacker", att)
 	if err := validation.WriteJson(findings.FindingPath(c, fid), stored, ""); err != nil {
 		t.Fatal(err)
 	}

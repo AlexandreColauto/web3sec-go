@@ -112,21 +112,21 @@ func RefreshManifest(snap validation.Value, snapDir string) (validation.Value, e
 	)
 
 	if locks, err := LockfileLeaves(snapDir); err == nil && len(locks) > 0 {
-		manifest.O = setOrAppendObj(manifest.O, "dependency_lock_hash",
+		manifest.O = validation.SetOrAppend(manifest.O, "dependency_lock_hash",
 			validation.VStr(MerkleRoot(locks)))
 	}
 	if cfg := sget(snap, "config"); cfg.Kind == validation.Obj && len(cfg.O) > 0 {
-		manifest.O = setOrAppendObj(manifest.O, "toolchain_fingerprint",
+		manifest.O = validation.SetOrAppend(manifest.O, "toolchain_fingerprint",
 			validation.VStr(validation.Sha256Hex([]byte(Canonical(cfg)))))
 	}
 	if dep := sget(snap, "deployment"); dep.Kind == validation.Obj && len(dep.O) > 0 {
 		if leaves := deploymentLeaves(dep); len(leaves) > 0 {
-			manifest.O = setOrAppendObj(manifest.O, "deployment_merkle_root",
+			manifest.O = validation.SetOrAppend(manifest.O, "deployment_merkle_root",
 				validation.VStr(MerkleRoot(leaves)))
 		}
 	}
 	if ch := sget(snap, "chain"); ch.Kind == validation.Obj && len(ch.O) > 0 {
-		manifest.O = setOrAppendObj(manifest.O, "chain_fingerprint",
+		manifest.O = validation.SetOrAppend(manifest.O, "chain_fingerprint",
 			validation.VStr(validation.Sha256Hex([]byte(Canonical(validation.VObj(
 				validation.KV{K: "network", V: sget(ch, "network")},
 				validation.KV{K: "chain_id", V: sget(ch, "chain_id")},
@@ -137,6 +137,6 @@ func RefreshManifest(snap validation.Value, snapDir string) (validation.Value, e
 
 	manifest.O = append(manifest.O,
 		validation.KV{K: "manifest_hash", V: validation.VStr(ManifestHash(manifest))})
-	snap.O = setOrAppendObj(snap.O, "manifest", manifest)
+	snap.O = validation.SetOrAppend(snap.O, "manifest", manifest)
 	return snap, nil
 }

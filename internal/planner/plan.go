@@ -2,6 +2,7 @@ package planner
 
 import (
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"websec/internal/invariants"
@@ -324,7 +325,7 @@ func bootstrapRoles(b *planBuilder, model validation.Value) {
 		for _, e := range entries {
 			caps = append(caps, objStr(e, "capability"))
 		}
-		sortStrings(caps)
+		sort.Strings(caps)
 		tl := "no"
 		for _, e := range entries {
 			if v := objAt(e, "timelocked"); v.Kind == validation.Bool && v.B {

@@ -115,12 +115,12 @@ func RecordAckScan(c *state.Campaign, findingID string) (bool, error) {
 			if dm.Kind != validation.Obj {
 				dm = validation.VObj()
 			}
-			dm.O = setOrAppend(dm.O, "in_code_ack", ack)
-			f.O = setOrAppend(f.O, "dedup_meta", dm)
+			dm.O = validation.SetOrAppend(dm.O, "in_code_ack", ack)
+			f.O = validation.SetOrAppend(f.O, "dedup_meta", dm)
 		} else {
 			dm := objAt(f, "dedup_meta")
-			dm.O = setOrAppend(dm.O, "in_code_ack", ack)
-			f.O = setOrAppend(f.O, "dedup_meta", dm)
+			dm.O = validation.SetOrAppend(dm.O, "in_code_ack", ack)
+			f.O = validation.SetOrAppend(f.O, "dedup_meta", dm)
 		}
 	} else if cur, ok := fieldAt(objAt(f, "dedup_meta"), "in_code_ack"); ok &&
 		cur.Kind != validation.Null {
@@ -132,7 +132,7 @@ func RecordAckScan(c *state.Campaign, findingID string) (bool, error) {
 			}
 		}
 		dm.O = kept
-		f.O = setOrAppend(f.O, "dedup_meta", dm)
+		f.O = validation.SetOrAppend(f.O, "dedup_meta", dm)
 	}
 	if err := SaveFinding(c, &f); err != nil {
 		return false, err

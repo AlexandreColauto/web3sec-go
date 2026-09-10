@@ -105,7 +105,7 @@ func restoreMaxStagesHalt(summary validation.Value, clamped *int64,
 // HALTED block, then maps the outcome to the verb's exit code: 3 when a model
 // stage blocks the run, 2 when the scheduler halted, 0 otherwise.
 func emitRunSummary(r *Runner, summary validation.Value) error {
-	fmt.Fprintln(r.Out, prettyASCII(withoutKey(summary, "needs_model")))
+	fmt.Fprintln(r.Out, validation.DumpIndentedASCII(withoutKey(summary, "needs_model")))
 	if nm := objAt(summary, "needs_model"); nm.Kind == validation.Obj {
 		fmt.Fprintf(r.Out, "\nHALTED at model stage: %s\n", objStr(nm, "stage"))
 		fmt.Fprintf(r.Out, "  prompt:  %s\n", scalarStr(objAt(nm, "prompt_path")))

@@ -48,7 +48,7 @@ func RecordReversibility(campaign *state.Campaign, findingID, mode string) (vali
 		}
 		riskV.O = popKey(riskV.O, "reversibility")
 	} else {
-		riskV.O = setOrAppend(riskV.O, "reversibility", validation.VStr(mode))
+		riskV.O = validation.SetOrAppend(riskV.O, "reversibility", validation.VStr(mode))
 	}
 	f.O[ri].V = riskV
 	if err := findings.SaveFinding(campaign, &f); err != nil {

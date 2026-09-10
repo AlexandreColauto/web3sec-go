@@ -259,7 +259,7 @@ func TestAuditCatchesHandEditedPolicy(t *testing.T) {
 		kv("reason", validation.VStr("forged entry of sufficient length")),
 		kv("at", validation.VStr("2026-01-01T00:00:00Z")),
 	)
-	st.O = setOrAppend(st.O, "floor_policy", validation.VArr(forged))
+	st.O = validation.SetOrAppend(st.O, "floor_policy", validation.VArr(forged))
 	if err := saveStateFunc(c, st); err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +288,7 @@ func TestAuditCatchesProjectionDrift(t *testing.T) {
 	}
 	policy := objAt(st, "floor_policy")
 	policy.A[0].O[1].V = validation.VStr("E4")
-	st.O = setOrAppend(st.O, "floor_policy", policy)
+	st.O = validation.SetOrAppend(st.O, "floor_policy", policy)
 	if err := saveStateFunc(c, st); err != nil {
 		t.Fatal(err)
 	}
@@ -435,7 +435,7 @@ func TestTrailingNewlineClassSchemaDivergence(t *testing.T) {
 		kv("reason", validation.VStr("a good reason of length")),
 		kv("at", validation.VStr("2026-01-01T00:00:00.000000+00:00")),
 	)
-	st.O = setOrAppend(st.O, "floor_policy", validation.VArr(entry))
+	st.O = validation.SetOrAppend(st.O, "floor_policy", validation.VArr(entry))
 	if err := validation.Validate(st, "campaign_state", 1); err == nil {
 		t.Error("the Go schema unexpectedly accepts a trailing-newline class; " +
 			"drop the divergence note")

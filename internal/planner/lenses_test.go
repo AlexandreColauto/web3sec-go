@@ -1,6 +1,7 @@
 package planner
 
 import (
+	"sort"
 	"testing"
 
 	"websec/internal/state"
@@ -94,7 +95,7 @@ func TestFamiliesForFindingOracle(t *testing.T) {
 		for _, s := range listOf(c, "toks") {
 			want = append(want, pyStr(s))
 		}
-		sortStrings(want)
+		sort.Strings(want)
 		got := sortedKeys(FamiliesForFinding(objAt(c, "model"),
 			objAt(c, "finding")))
 		requireJSON(t, "families_for_finding/"+itoa(i), strArr(got),

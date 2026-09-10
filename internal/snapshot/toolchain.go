@@ -18,9 +18,9 @@ import (
 )
 
 // DetectToolchain is _detect_toolchain: foundry.toml [profile.default].solc
-// is the solc the build will ask for. Real Foundry projects write ``solc``;
-// the legacy ``sol`` key is a fallback only (python-twin-issues P1: the
-// original read only ``sol`` and returned None for every real foundry.toml).
+// is the solc the build will ask for. Real Foundry projects write “solc“;
+// the legacy “sol“ key is a fallback only (python-twin-issues P1: the
+// original read only “sol“ and returned None for every real foundry.toml).
 // A bare string becomes the compiler; a list of non-empty strings is
 // comma-joined. ANY parse error, a missing file, or no usable
 // profile.default.solc/sol -> Null (Python: except
@@ -32,8 +32,7 @@ import (
 // as contracts/) and the first USABLE foundry.toml is used. Build/junk
 // directories are skipped.
 func DetectToolchain(staging string) validation.Value {
-	if v := detectToolchainFile(filepath.Join(staging, "foundry.toml"));
-		v.Kind != validation.Null {
+	if v := detectToolchainFile(filepath.Join(staging, "foundry.toml")); v.Kind != validation.Null {
 		return v
 	}
 	for _, p := range nestedFoundryTOMLs(staging) {

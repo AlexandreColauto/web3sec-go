@@ -1,5 +1,5 @@
 // Port of tests/test_shared_memory.py (all 27 test functions) and
-// tests/test_shared_memory_migration.py (all 3). PYTHON WINS.
+// tests/test_shared_memory_migration.py (all 3). The Python twin was retired 2026-09-09; this package is the source of truth.
 //
 // conftest's autouse isolate_global_memory_store fixture is reproduced by
 // newRoot: every test points $WEBV2_GLOBAL_MEMORY_DIR at a per-test
@@ -94,7 +94,7 @@ func makeCampaign(t *testing.T, root, program string) *state.Campaign {
 	if err != nil {
 		t.Fatalf("read state: %v", err)
 	}
-	doc.O = setOrAppend(doc.O, "policy_path", validation.VStr(pp))
+	doc.O = validation.SetOrAppend(doc.O, "policy_path", validation.VStr(pp))
 	if err := validation.WriteJson(c.StatePath, doc, "campaign_state"); err != nil {
 		t.Fatalf("write state: %v", err)
 	}
@@ -199,11 +199,11 @@ func confirm(t *testing.T, c *state.Campaign, fid string) validation.Value {
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("status", validation.VStr("reproduced")),
 		kv("tier_reached", validation.VStr("T3")),
 		kv("attempts", validation.VArr())))
-	f.O = setOrAppend(f.O, "verification", ver)
+	f.O = validation.SetOrAppend(f.O, "verification", ver)
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatalf("save finding: %v", err)
 	}
@@ -223,16 +223,6 @@ func tail(id string) string {
 		return id
 	}
 	return id[len(id)-6:]
-}
-
-func setOrAppend(o []validation.KV, key string, v validation.Value) []validation.KV {
-	for i := range o {
-		if o[i].K == key {
-			o[i].V = v
-			return o
-		}
-	}
-	return append(o, validation.KV{K: key, V: v})
 }
 
 // ---- publish discipline ----------------------------------------------------
@@ -772,7 +762,7 @@ func TestVerifyFlagsAHandEdit(t *testing.T) {
 	}
 	granted := objAt(sigs.A[0], "granted")
 	granted.A = append(granted.A, validation.VStr("sneaked_in_capability"))
-	sigs.A[0].O = setOrAppend(sigs.A[0].O, "granted", granted)
+	sigs.A[0].O = validation.SetOrAppend(sigs.A[0].O, "granted", granted)
 	writeRaw(t, sp, validation.DumpIndented(sigs)+"\n")
 	rep, err := VerifySharedStore(root)
 	if err != nil {
@@ -1031,7 +1021,7 @@ func TestSetScopeIsManifestLoggedAndKeepsVerifyGreen(t *testing.T) {
 	}
 	granted := objAt(sigs.A[0], "granted")
 	granted.A = append(granted.A, validation.VStr("sneaked_in_capability"))
-	sigs.A[0].O = setOrAppend(sigs.A[0].O, "granted", granted)
+	sigs.A[0].O = validation.SetOrAppend(sigs.A[0].O, "granted", granted)
 	writeRaw(t, sp, validation.DumpIndented(sigs)+"\n")
 	ver, err = VerifySharedStore(root)
 	if err != nil {
@@ -1223,7 +1213,7 @@ func TestManifestChainCatchesADeletedPublish(t *testing.T) {
 func TestManifestChainCatchesAnEditedRecord(t *testing.T) {
 	root := newRoot(t)
 	mpath, m := twoPublishManifest(t, root)
-	m[0].O = setOrAppend(m[0].O, "actor", validation.VStr("someone-else"))
+	m[0].O = validation.SetOrAppend(m[0].O, "actor", validation.VStr("someone-else"))
 	writeRaw(t, mpath, validation.DumpIndented(validation.VArr(m...))+"\n")
 	rep, err := VerifySharedStore(root)
 	if err != nil {
@@ -1468,7 +1458,7 @@ func queuePartitioned(t *testing.T, c *state.Campaign,
 	if err != nil {
 		t.Fatalf("read row: %v", err)
 	}
-	row.O = setOrAppend(row.O, "partition", validation.VStr(partition))
+	row.O = validation.SetOrAppend(row.O, "partition", validation.VStr(partition))
 	if err := validation.WriteJson(path, row, "memory"); err != nil {
 		t.Fatalf("write row: %v", err)
 	}
@@ -1482,11 +1472,11 @@ func handApprove(t *testing.T, path, partition string) {
 	if err != nil {
 		t.Fatalf("read row: %v", err)
 	}
-	mem.O = setOrAppend(mem.O, "partition", validation.VStr(partition))
-	mem.O = setOrAppend(mem.O, "promotion_status",
+	mem.O = validation.SetOrAppend(mem.O, "partition", validation.VStr(partition))
+	mem.O = validation.SetOrAppend(mem.O, "promotion_status",
 		validation.VStr("human-approved"))
-	mem.O = setOrAppend(mem.O, "approved_by", validation.VStr("hand-edit"))
-	mem.O = setOrAppend(mem.O, "approved_at",
+	mem.O = validation.SetOrAppend(mem.O, "approved_by", validation.VStr("hand-edit"))
+	mem.O = validation.SetOrAppend(mem.O, "approved_at",
 		validation.VStr("2026-09-04T00:00:00+00:00"))
 	if err := validation.WriteJson(path, mem, "memory"); err != nil {
 		t.Fatalf("write row: %v", err)

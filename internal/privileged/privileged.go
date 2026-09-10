@@ -1,5 +1,5 @@
 // Package privileged is the bounded privileged-role attacker track (3.1):
-// a 1:1 port of webv2/privileged.py (PYTHON WINS).
+// a 1:1 port of webv2/privileged.py (port-era provenance; twin retired 2026-09-09).
 //
 // A bounded role is an explicit baseline — {"call_any_entry_point"} plus the
 // role_<role> capability label. Nothing else: capital is a cost, never a

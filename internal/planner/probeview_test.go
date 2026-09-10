@@ -87,12 +87,12 @@ func TestProbeLensViewStaleDisposition(t *testing.T) {
 			continue
 		}
 		prov := objAt(p, "probe")
-		prov.O = setOrAppend(prov.O, "shape_sha", validation.VStr("deadbeef"))
-		p.O = setOrAppend(p.O, "probe", prov)
-		p.O = setOrAppend(p.O, "status", validation.VStr("answered"))
+		prov.O = validation.SetOrAppend(prov.O, "shape_sha", validation.VStr("deadbeef"))
+		p.O = validation.SetOrAppend(p.O, "probe", prov)
+		p.O = validation.SetOrAppend(p.O, "status", validation.VStr("answered"))
 		prios := listOf(plan, "priorities")
 		prios[i] = p
-		plan.O = setOrAppend(plan.O, "priorities", validation.VArr(prios...))
+		plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(prios...))
 	}
 	view := probeLensView(plan, "L-03", DivergenceOpts{Surface: &surface})
 	c := *view.counts
@@ -135,7 +135,7 @@ func TestProbeIndexIssuesStaleIndex(t *testing.T) {
 	surface, index, _ := pvFixtures(t)
 	withProbes(t, probeEnv{surface: &surface, index: &index})
 	surface = deepCopy(t, surface)
-	surface.O = setOrAppend(surface.O, "index_sha", validation.VStr("nope"))
+	surface.O = validation.SetOrAppend(surface.O, "index_sha", validation.VStr("nope"))
 	staleSha := "0000000000000000"
 	opts := DivergenceOpts{Surface: &surface, CurrentIndexSha: &staleSha}
 	issues := probeIndexIssues(surface, opts, "C-259d60d374",

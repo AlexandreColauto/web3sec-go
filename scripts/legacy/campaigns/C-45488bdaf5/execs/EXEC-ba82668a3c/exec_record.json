@@ -1,0 +1,47 @@
+{
+  "exec_id": "EXEC-ba82668a3c",
+  "campaign_id": "C-45488bdaf5",
+  "profile": "host-readonly",
+  "finding_id": "F-df01bb454ed5",
+  "artifact_id": null,
+  "command": "exit 7",
+  "workdir": null,
+  "policy_verdict": {
+    "allowed": true,
+    "violations": [],
+    "checked_rules": [
+      "network-egress-tool",
+      "privilege-escalation",
+      "destructive-path",
+      "secret-access",
+      "external-publish",
+      "system-write"
+    ]
+  },
+  "environment": {
+    "tool_versions": {
+      "forge": "forge Version: 1.8.1",
+      "cast": "cast Version: 1.8.1",
+      "slither": "0.11.6",
+      "aderyn": "aderyn 0.6.8",
+      "python3": "Python 3.14.7",
+      "docker": "Docker version 29.7.2, build a7dcaa6fdb"
+    },
+    "env_keys": [],
+    "network_access": "none",
+    "filesystem": "readonly"
+  },
+  "container": null,
+  "origin": "locally-executed",
+  "reported_by": null,
+  "input_hashes": {},
+  "started_at": "2026-09-09T12:00:13.000000+00:00",
+  "finished_at": "2026-09-09T12:00:13.000000+00:00",
+  "exit_status": 7,
+  "stdout_path": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/verify-p1/pyroot/campaigns/C-45488bdaf5/execs/EXEC-ba82668a3c/stdout.log",
+  "stderr_path": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/verify-p1/pyroot/campaigns/C-45488bdaf5/execs/EXEC-ba82668a3c/stderr.log",
+  "artifact_hashes": {
+    "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

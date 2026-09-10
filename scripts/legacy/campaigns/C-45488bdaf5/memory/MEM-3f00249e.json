@@ -1,0 +1,21 @@
+{
+  "memory_id": "MEM-3f00249e",
+  "campaign_id": "C-45488bdaf5",
+  "finding_id": "F-df01bb454ed5",
+  "snapshot_id": null,
+  "created_at": "2026-09-09T12:00:26.000000+00:00",
+  "kind": "disproved",
+  "status": "DISPROVED",
+  "pattern": "maximal-exploitation dead end: dead-end — the only remaining drain path",
+  "bug_class": null,
+  "cwe": null,
+  "evidence_summary": "the removed timelock precondition is enforced by the guard",
+  "schema_version": 2,
+  "rejection_class": "invalid-hypothesis",
+  "promotion_status": "pending",
+  "approved_by": null,
+  "approved_at": null,
+  "negative_mode": {
+    "why_safe": "the removed timelock precondition is enforced by the guard"
+  }
+}

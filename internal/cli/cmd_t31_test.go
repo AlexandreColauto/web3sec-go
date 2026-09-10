@@ -76,11 +76,11 @@ func t31OneGateFromConfirmed(t *testing.T, c *state.Campaign) string {
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppendKV(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("status", validation.VStr("reproduced")),
 		kv("tier_reached", validation.VStr("T3")),
 		kv("attempts", validation.VArr())))
-	vf.O = setOrAppendKV(vf.O, "verification", ver)
+	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(c, &vf); err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +259,7 @@ func TestCLIBriefPrintsTheDebtBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	reg := objAt(links, "invariants")
-	reg.O = setOrAppendKV(reg.O, "INV-008", validation.VObj(
+	reg.O = validation.SetOrAppend(reg.O, "INV-008", validation.VObj(
 		kv("statement", validation.VStr("INV-008 statement")),
 		kv("kind", validation.VStr("liveness")),
 		kv("severity_if_broken", validation.VStr("critical")),
@@ -274,7 +274,7 @@ func TestCLIBriefPrintsTheDebtBlock(t *testing.T) {
 		kv("tests", validation.VArr()),
 		kv("detectors", validation.VArr()),
 		kv("updated_at", validation.VStr("2026-09-08T08:48:00+00:00"))))
-	links.O = setOrAppendKV(links.O, "invariants", reg)
+	links.O = validation.SetOrAppend(links.O, "invariants", reg)
 	if _, err := invariants.SaveLinks(c, links); err != nil {
 		t.Fatal(err)
 	}

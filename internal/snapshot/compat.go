@@ -41,7 +41,7 @@ func AttachDeploymentPin(c *state.Campaign, snapshotID string, deployment valida
 	if err != nil {
 		return validation.VNull(), err
 	}
-	snap.O = setOrAppendObj(snap.O, "deployment", deployment)
+	snap.O = validation.SetOrAppend(snap.O, "deployment", deployment)
 	snapDir := filepath.Dir(path)
 	if snap, err = RefreshManifest(snap, snapDir); err != nil {
 		return validation.VNull(), err
@@ -75,7 +75,7 @@ func AttachChainPin(c *state.Campaign, snapshotID string, chain validation.Value
 	if err != nil {
 		return validation.VNull(), err
 	}
-	snap.O = setOrAppendObj(snap.O, "chain", chain)
+	snap.O = validation.SetOrAppend(snap.O, "chain", chain)
 	snapDir := filepath.Dir(path)
 	if snap, err = RefreshManifest(snap, snapDir); err != nil {
 		return validation.VNull(), err

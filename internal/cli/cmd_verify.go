@@ -212,7 +212,7 @@ func verifyLog(c *state.Campaign, stdout io.Writer) error {
 		validation.KV{K: "malformed_lines", V: validation.VInt(
 			int64(v.MalformedLines))},
 	)
-	fmt.Fprintln(stdout, prettyASCII(res))
+	fmt.Fprintln(stdout, validation.DumpIndentedASCII(res))
 	if !v.OK {
 		return failSilent{}
 	}

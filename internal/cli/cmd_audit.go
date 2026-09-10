@@ -44,7 +44,7 @@ func runAudit(root string, args []string, stdout io.Writer) error {
 		return err
 	}
 	if jsonOut {
-		fmt.Fprintln(stdout, prettyASCII(report))
+		fmt.Fprintln(stdout, validation.DumpIndentedASCII(report))
 	} else {
 		fmt.Fprintln(stdout, audit.AuditSummaryLine(report))
 		for _, kv := range objAt(report, "sections").O {

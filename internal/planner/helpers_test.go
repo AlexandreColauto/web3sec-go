@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -251,7 +252,7 @@ func rowShapeSha(row validation.Value) string {
 	for _, e := range listOf(row, "stranded_entry") {
 		stranded = append(stranded, pyStr(e))
 	}
-	sortStrings(stranded)
+	sort.Strings(stranded)
 	slots = append(slots, strArr(stranded))
 	sum := sha256.Sum256([]byte(validation.CanonCompact(
 		validation.VArr(slots...))))

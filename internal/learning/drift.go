@@ -1,6 +1,6 @@
 // Package learning is a 1:1 port of webv2/learning.py: spec-drift
 // detection and the reflection/learning subsystem (memory queue + human
-// gate, reflection inbox, planner hints, benchmark cases). PYTHON WINS.
+// gate, reflection inbox, planner hints, benchmark cases). The Python twin was retired 2026-09-09; this package is the source of truth.
 //
 // Nothing enters long-term memory automatically: every memory candidate
 // waits for recorded human approval (K5). Disproved hypotheses are
@@ -27,7 +27,7 @@ func RecordDrifts(c *state.Campaign, snapshotID string,
 		if row.Kind != validation.Obj {
 			row = validation.VObj()
 		}
-		row = setDefault(row, "id",
+		row.O = validation.SetDefault(row.O, "id",
 			validation.VStr(fmt.Sprintf("DRIFT-%03d", i+1)))
 		numbered = append(numbered, row)
 	}
@@ -111,16 +111,6 @@ func fieldAt(v validation.Value, key string) (validation.Value, bool) {
 		}
 	}
 	return validation.VNull(), false
-}
-
-// setDefault is dict.setdefault.
-func setDefault(v validation.Value, key string,
-	def validation.Value) validation.Value {
-	if _, ok := fieldAt(v, key); ok {
-		return v
-	}
-	v.O = append(v.O, kv(key, def))
-	return v
 }
 
 // objAt is `d.get(key)`.

@@ -216,7 +216,7 @@ func scnRewrite(t *testing.T, camp *state.Campaign, fid, key, raw string) {
 	if err != nil {
 		t.Fatalf("load finding: %v", err)
 	}
-	f.O = setOrAppend(f.O, key, jsonValue(t, raw))
+	f.O = validation.SetOrAppend(f.O, key, jsonValue(t, raw))
 	if err := findings.SaveFinding(camp, &f); err != nil {
 		t.Fatalf("save finding: %v", err)
 	}
@@ -319,11 +319,11 @@ func scnConfirmedFinding(t *testing.T, camp *state.Campaign,
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T1")),
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr())))
-	got.O = setOrAppend(got.O, "verification", ver)
+	got.O = validation.SetOrAppend(got.O, "verification", ver)
 	if err := findings.SaveFinding(camp, &got); err != nil {
 		t.Fatalf("save finding: %v", err)
 	}
@@ -509,8 +509,8 @@ func TestDivergenceCountsAReasonlessAnswerAsOpen(t *testing.T) {
 	}
 	// plan["lenses"][0]["status"] = "answered" — closed without reason/actor
 	lenses := listOf(plan, "lenses")
-	lenses[0].O = setOrAppend(lenses[0].O, "status", validation.VStr("answered"))
-	plan.O = setOrAppend(plan.O, "lenses", validation.VArr(lenses...))
+	lenses[0].O = validation.SetOrAppend(lenses[0].O, "status", validation.VStr("answered"))
+	plan.O = validation.SetOrAppend(plan.O, "lenses", validation.VArr(lenses...))
 	div := DivergenceStatus(plan, DivergenceOpts{})
 	requireJSON(t, "div", div, objAt(want, "div"))
 	requireJSON(t, "closed", objAt(div, "closed"), validation.VBool(false))
@@ -553,7 +553,7 @@ func TestDivergenceStatusClosedPlan(t *testing.T) {
 			kv("trajectories", strArr([]string{"code"})),
 			kv("status", validation.VStr("open")),
 			kv("bug_class", validation.VStr(cls))))
-		plan.O = setOrAppend(plan.O, "priorities", validation.VArr(prios...))
+		plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(prios...))
 	}
 	div := DivergenceStatus(plan, DivergenceOpts{})
 	requireJSON(t, "div", div, objAt(want, "div"))

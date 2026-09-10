@@ -1,0 +1,216 @@
+# Leanness review — polish wave F
+
+Date: 2026-09-10 · Status: PROPOSAL (review only; no code changed).
+Method: full-tree audit (git ls-files, `go list -deps`, helper hashing, script
+tracing) against the doctrine in `docs/IMPROVEMENTS.md` principle 6 (surface
+budget) and the 2026-09-09 twin-retirement banner in `KNOWN_DIVERGENCES.md`.
+
+**Question asked:** what costs us maintenance and reader entropy but no longer
+buys bug-finding power?
+
+## Verdict
+
+The hunting loop is in good shape: 76/76 CLI verbs are exercised and asserted
+by `assets/runbook/RUNBOOK.md` (D7's registry↔runbook test holds), `go vet`
+is clean across all 62 packages, the hash-chained state core is wired end to
+end, and waves A–D closed the campaign-exposed defects. The entropy is **not**
+in the bug-finding machinery — it is in three things left over from the port
+itself:
+
+1. a **parity tax** on a retired Python twin (~350 KB committed + a hard gate
+   that needs the sibling checkout to pass at all),
+2. **ported-but-never-wired modules** (~4.4k LOC of dead Go, kept alive by
+   the 1:1 accounting),
+3. **docs that describe a different repo** (README doctrine, stale counts,
+   a dangling spec reference, a settled item still listed as deferred).
+
+Each is removable without touching a single byte the campaign state depends
+on. Total identified saving: ~4.4k dead LOC + ~1.5k duplicated-helper LOC +
+~400 KB committed artifacts + 6 scripts whose only caller chain ends in the
+retired twin + one hard gate dependency on `../web3sec-final`.
+
+---
+
+## F1. Retire the parity tax (the twin is dead — stop feeding it)
+
+Verified dependencies on the sibling checkout (`../web3sec-final`, present on
+this machine, absent for anyone who clones the repo per README §Quick start):
+
+| item | evidence | today's behavior without the twin |
+|---|---|---|
+| `verify-full.sh` step 6 | `sync-assets.sh:23` diffs `assets/schema` byte-identical vs `<pyroot>/schema` | FAILS (`sync-assets.sh:33`) |
+| `verify-full.sh` step 8 | `sync-testmap.py --check` + `check-testmap.py` vs `count-python-tests.py` | FAILS |
+| `runbook-walkthrough.sh:107` | seeds a fixture from `$PY_ROOT/sft/examples.json` | FAILS |
+| byte-identity tests | `archetypes_test.go:401`, `playbooks_test.go:417`, `adapter_test.go:224` | silently SKIP (false comfort) |
+| `cmd/oq3check` + `scripts/oq3-check.py` | differential vs Python `jsonschema`; only referenced by `docs/gates/P0-gate.md` | dead one-off tool |
+| `scripts/cap-analysis.py` | "D27 chain-cap **parity evidence**" — a completed investigation | dead one-off |
+| `scripts/canon-oracle.py`, `invariants-vectors.py` | regenerate vectors by running the twin | unrunnable one-offs |
+
+**Actions:**
+
+- **F1a — make `verify-full.sh` stand alone.** Drop steps 6 and 8's twin
+  legs. Replace sync-assets' byte-diff with a committed SHA-256 manifest of
+  `assets/schema/` (the invariants it actually still protects: nobody edits
+  a schema by hand unnoticed). Move `testmap.json` to
+  `docs/archive/testmap-2026-09.json` (or delete; git remembers) and retire
+  `check-testmap.py`, `count-python-tests.py`, `sync-testmap.py`.
+  *This is the difference between "verified repo" and "verified repo on one
+  laptop."*
+- **F1b — replace the three skip-when-absent byte-identity tests** with
+  a checksum manifest test over the embedded asset packs (they keep guarding
+  "the binary contains what git says it contains" with zero external deps).
+- **F1c — archive the one-off parity probes** (`oq3check`, `oq3-check.py`,
+  `cap-analysis.py`, `canon-oracle.py`, `invariants-vectors.py`,
+  `sync-assets.sh`, `sync-testmap.py`, `count-python-tests.py`,
+  `check-testmap.py`) under `scripts/archive/` with a one-line README.
+  `scripts/golden/` and `golden-run.py` stay (Go-only and load-bearing).
+- **F1d — keep the formatters, kill the framing.** `PythonFloat`,
+  `pythonRound`, `PyRepr`, `Canon`, ordered-parsing are now **Go-native
+  stability contracts** — they pin artifact hashes and the event-chain
+  content hashes, so "byte-exact with itself" is what pays. Do NOT touch the
+  code or committed vector goldens; only retitle comments/docs from
+  "matches CPython" to "canonical format v1" and stop regenerating vectors
+  from the twin (F1c covers the generators). The committed vectors become
+  plain regression goldens — same value, no fiction.
+- **F1e — `KNOWN_DIVERGENCES.md` → `docs/archive/`.** The banner itself says
+  the rows are historical and the normalization hooks are dormant; nothing
+  reads it at runtime (only comments in `golden-run.py`). 60 KB at repo root
+  with IDs (`D1`…`D36`) that **collide with the improvement waves' D1–D8** is
+  actively confusing; `docs/python-twin-issues.md` joins it in archive.
+
+## F2. Delete the never-wired modules (git is the archive)
+
+`go list -deps ./cmd/...` proves these are unreachable from any shipped
+binary — zero non-test importers anywhere:
+
+| package | prod LOC | test LOC | note |
+|---|---|---|---|
+| `internal/routing` | 918 | 792 | ports Python's assumption router; only its own tests + `config/assumption_routing.example.json` reference it |
+| `internal/datasets/forge` | 850 | 535 | enum strings `"forge"` in `ingest.go` are data, not code deps |
+| `internal/datasets/scabench` | 427 | 390 | same |
+| `internal/datasets` (parent) | 62 | 162 | registry used only by the two dead children |
+
+≈ 2.6k prod + 1.9k test LOC. `datasets/defihacklabs` **stays** — it is wired
+via `cmd_t34_wire.go` into corpus POC attribution (D26), which is in the
+loop. Deleting these is exactly what the surface-budget principle says when
+"an existing capability is demonstrably unreachable from any command" —
+inverted: unreachable from any caller. If `routing` ever earns its keep it
+comes back as a *designed* feature, not a faithful port. Remove the example
+config alongside; note the retirement in the (post-F1a) Go-native test
+inventory.
+
+## F3. Consolidate the helper clones
+
+`grep '^func setOrAppend'` finds **17 copies** in 17 packages (state,
+snapshot, cli, findings, invariants, risk, pricing, dedup, floors, bounty,
+planner, coverage, orchestrator, immunize, chainengine, maximization,
+learning); hashing shows 5 byte-identical variants and the rest identical in
+behavior modulo local aliases (`kv(...)`, `pair(...)`, inline literal).
+Same story: `setDefault` ×5 (with **two different signatures** — `*Value` vs
+value-replacing), `scalarStr` ×2 (cli/adapter, subtly different fallbacks),
+`writeU4` ×3, `sortStrings` ×3, `pyReprTuple` ×2 (learning re-implements
+`validation.pyReprTuple`), plus three parallel JSON writer stacks
+(`validation.writeIndented` / `chainengine.writeDump` / `cli.writePretty`).
+
+**Action:** export `validation.SetOrAppend` / `validation.SetDefault` (KV
+form) + a `Value.SetDefault` method (the pointer form), one `SortStrings`,
+one `ScalarStr` (keep the caller's fallback as a param), and collapse
+`chainengine.writeDump` onto `validation` — **only after proving byte
+equivalence** on a fixture diff (these feed artifact content hashes; the
+emitters *look* similar but the divergence may be load-bearing; the F3
+emitter merge is the one medium-risk item — do the KV helpers first, measure
+the emitters separately, merge only what hashes equal). ~250 LOC saved
+directly, 60+ symbol clones removed from search results forever.
+
+## F4. Fix docs that describe a different repo
+
+Verified stale against the tree:
+
+- `README.md:5-11` — "Python wins … the Python tree remains the reference
+  implementation": contradicts the 2026-09-09 retirement; also points at
+  **`docs/GO_REWRITE_SPEC.md`, which does not exist** (never committed; the
+  real doc is `docs/superpowers/specs/2026-09-07-go-rewrite-design.md`).
+- `README.md:39,93,100,109` — counts already rotted: "1,963 test functions"
+  (actual `^func (Test|Benchmark|Fuzz)`: **2,182**), "79.6k non-test lines"
+  (actual: **86.4k**). "62 packages" ✓, "1,378 testmap rows" ✓ (until F1a).
+- `README.md:87,110` + verification table — still advertises `python3
+  scripts/check-testmap.py` and "cross-twin golden, both twins byte-diffed"
+  as core gates after golden went Go-only.
+- `docs/IMPROVEMENTS.md:32,1673` — "179 steps × 2 twins, 68 files
+  byte-match" parity framing in principle 1; the "Wave E — Remaining asks
+  (DEFERRED)" heading still lists **E5**, which landed 2026-09-10
+  (commit `92104cf`, `risk.go:52` reversibility weights, G-02 regression
+  pinning 7.0 high). E6 says "E5 is the fix" — both should be marked
+  **LANDED**.
+- `docs/runbook-go-notes.md` header and README's twin table rows keep the
+  "with the Python-side equivalents" framing — fine as history, wrong as
+  current contract; retitle as "historical port notes".
+
+**Action + prevention (F4b):** delete hard numbers from README — they are
+self-rotting contracts. D7 already proved "the runbook is a test"; the same
+trick applies: `webv2 selftest` prints the live counts and the README says
+"see selftest". One line of code kills a whole class of doc drift.
+
+## F5. Committed cruft & history hygiene
+
+- `.scratch-all-tests.json` (54 KB test-run dump, repo root, committed) —
+  delete, and `sft/` at root is NOT cruft (it is the live SFT store by
+  design, `internal/sft/sft.go:6` "VCS is the integrity layer") — leave it,
+  but the root listing then needs README to say so, since it reads as a
+  stray output dir.
+- `.git` = 170 MB for an 86k-LOC Go repo; the top blob-sum paths are
+  `testmap.json` (5 MB cumulative — dies with F1a), planner/orchestrator
+  `oracles.json` (~2 MB each × 3–6 historical rewrites, ~700 KB on disk),
+  `docs/IMPROVEMENTS.md` (1.2 MB cumulative). Nothing to rewrite history
+  for; the **policy** is the fix: oracle/vector files get *appended* rows,
+  not regenerated blobs — and any new 500 KB+ generated file must be
+  regenerable or compressed.
+
+## F6. Open decisions (not entropy — just decide)
+
+- **D8 (patch clause follows the target program)** is PROPOSED and well
+  specified; recommend landing it: it is the same "policy is data" posture
+  as A1/B4 and removes a per-finding waiver tax on every submission to a
+  program that doesn't want patches.
+- **Wave E (E1–E4)** stays correctly deferred under principle 6 — nothing
+  to do except the E5 relabel in F4.
+- **C2/D-wave probe-surface golden blind spot** (plan-review item 8: the
+  golden recipe emits 0 rows for some probe axes) — the one *capability*
+  gap worth a slot, since every future probe field inherits the blind spot.
+
+## Recommended landing order
+
+Each step lands green (`go build ./... && go test ./... &&
+scripts/golden.sh` + `scripts/runbook-walkthrough.sh` where touched), same
+discipline as the A–E waves:
+
+| # | step | est | risk | why this order |
+|---|---|---|---|---|
+| 1 | F4 docs fixes (README rewrite, E5 relabel, selftest prints counts) | S | none | zero code, kills the loudest confusion |
+| 2 | F2 delete `routing` + `datasets/{forge,scabench}` + example config | S | low | nothing links them; `go build` is the proof |
+| 3 | F1a verify-full twins-free + F1c scripts archive + F1e ledger move | M | low | one PR, one theme: "the gate passes on a fresh clone" — validate in a `git worktree` copy with no sibling dir |
+| 4 | F1b checksum-manifest tests replace skip-when-absent | S | low | net stays, twin dep goes |
+| 5 | F3 KV-helper consolidation (SetOrAppend/SetDefault/SortStrings/ScalarStr) | M | low | mechanical; green = hashes unchanged (living-artifacts tests already pin chains) |
+| 6 | F3 emitter merge (chainengine/validation) | M | med | fixture byte-diff gate; keep separate if any hash moves |
+| 7 | F5 root cruft delete + README note on the live `sft/` store | S | none | |
+| 8 | D8 landing (separate decision, tracked in IMPROVEMENTS) | M | med | it is a capability change, not leanness |
+
+## What this review deliberately does NOT propose
+
+- **No output-format changes.** Canon ordering, `PythonFloat`, `pythonRound`,
+  `PyRepr` stay byte-frozen forever — they are now self-stability anchors for
+  content hashes and the event chain, not Python worship. The goldens that
+  pin them stay (as Go-native regression vectors, per F1d).
+- **No verb removals.** All 76 verbs are runbook-covered; the surface budget
+  did its job. Merging, say, `chains`→`chain --list` or
+  `artifact-list/register/reconcile`→`artifacts <sub>` is cosmetic churn with
+  real contract-breaking cost — wrong trade at this stage.
+- **No test-count trimming for its own sake.** 2,182 test functions are the
+  regression net for a tool whose whole product *is* determinism; only the
+  twin-dependent skip cases (F1b) and dead-module tests (F2) go.
+- **No wave-E revival** — principle 6 already triaged those; this review
+  agrees with the deferrals.
+
+One-line summary: the bug-finding engine is lean and honest; the **port
+scaffolding around it is what's left to strike.** F1–F5 remove it, F6 is a
+decision, and nothing here weakens a single check the campaign loop runs.

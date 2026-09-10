@@ -43,11 +43,11 @@ func AddExample(example validation.Value, status string) (validation.Value, erro
 		ex = setKey(ex, "id", validation.VStr(NextExampleID(store)))
 	}
 	ex = setKey(ex, "status", validation.VStr(status))
-	ex = setDefault(ex, "version", validation.VInt(1))
-	ex = setDefault(ex, "rejection_reasons", validation.VArr())
-	ex = setDefault(ex, "partition", validation.VNull())
-	ex = setDefault(ex, "created_at", validation.VStr(state.NowIso()))
-	ex = setDefault(ex, "curated_by", validation.VNull())
+	ex.O = validation.SetDefault(ex.O, "version", validation.VInt(1))
+	ex.O = validation.SetDefault(ex.O, "rejection_reasons", validation.VArr())
+	ex.O = validation.SetDefault(ex.O, "partition", validation.VNull())
+	ex.O = validation.SetDefault(ex.O, "created_at", validation.VStr(state.NowIso()))
+	ex.O = validation.SetDefault(ex.O, "curated_by", validation.VNull())
 	if status == "rejected" && len(objAt(ex, "rejection_reasons").A) == 0 {
 		return validation.VNull(), fmt.Errorf("status=rejected requires " +
 			"non-empty rejection_reasons")

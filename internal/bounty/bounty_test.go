@@ -67,7 +67,7 @@ func testPolicy() validation.Value {
 // (require_economic_quantification + min_extractable_usd).
 func policyWithEconomicFloor(floor int64) validation.Value {
 	p := testPolicy()
-	p.O = setOrAppend(p.O, "poc_requirements", validation.VObj(
+	p.O = validation.SetOrAppend(p.O, "poc_requirements", validation.VObj(
 		kv("min_evidence_level", validation.VStr("E5")),
 		kv("require_fork_repro", validation.VBool(true)),
 		kv("require_economic_quantification", validation.VBool(true)),
@@ -127,7 +127,7 @@ func baseFinding() validation.Value {
 // withField replaces one top-level key of a finding copy.
 func withField(f validation.Value, key string, v validation.Value) validation.Value {
 	out := validation.Value{Kind: validation.Obj, O: append([]validation.KV(nil), f.O...)}
-	out.O = setOrAppend(out.O, key, v)
+	out.O = validation.SetOrAppend(out.O, key, v)
 	return out
 }
 
@@ -169,7 +169,7 @@ func withNested(f validation.Value, outer, inner string, v validation.Value) val
 	if o.Kind != validation.Obj {
 		o = validation.VObj()
 	}
-	o.O = setOrAppend(o.O, inner, v)
+	o.O = validation.SetOrAppend(o.O, inner, v)
 	return withField(f, outer, o)
 }
 
@@ -425,7 +425,7 @@ func fixtureConfirmed(t *testing.T, c *state.Campaign) string {
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr())))
 	ei := objAt(f, "economic_impact")
-	ei.O = setOrAppend(ei.O, "price_basis", validation.VStr("PRC-abc123"))
+	ei.O = validation.SetOrAppend(ei.O, "price_basis", validation.VStr("PRC-abc123"))
 	f = withField(f, "economic_impact", ei)
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
@@ -567,7 +567,7 @@ func TestOutOfScopeTargetBlocks(t *testing.T) {
 		t.Fatal(err)
 	}
 	aff := objAt(f, "affected")
-	aff.A[0].O = setOrAppend(aff.A[0].O, "contract", validation.VStr("RandomToken"))
+	aff.A[0].O = validation.SetOrAppend(aff.A[0].O, "contract", validation.VStr("RandomToken"))
 	f = withField(f, "affected", aff)
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
@@ -597,7 +597,7 @@ func TestScopeResolvesContractNameToPath(t *testing.T) {
 		validation.VObj(kv("contract", validation.VStr("Vault")))))
 	// A path-based scope entry: only the resolved path can match it.
 	policy := testPolicy()
-	policy.O = setOrAppend(policy.O, "scope", validation.VArr(
+	policy.O = validation.SetOrAppend(policy.O, "scope", validation.VArr(
 		validation.VObj(kv("target", validation.VStr("src/Vault.sol")),
 			kv("kind", validation.VStr("path")))))
 
@@ -633,7 +633,7 @@ func TestKnownIssueBlocks(t *testing.T) {
 		t.Fatal(err)
 	}
 	rc := objAt(f, "root_cause")
-	rc.O = setOrAppend(rc.O, "description", validation.VStr(
+	rc.O = validation.SetOrAppend(rc.O, "description", validation.VStr(
 		objStr(rc, "description")+" — effectively rounding dust accounting"))
 	f = withField(f, "root_cause", rc)
 	if err := findings.SaveFinding(c, &f); err != nil {
@@ -690,8 +690,8 @@ func TestMissingForkReproBlocks(t *testing.T) {
 	}
 	ver := objAt(f, "verification")
 	repro := objAt(ver, "reproduction")
-	repro.O = setOrAppend(repro.O, "tier_reached", validation.VStr("T1"))
-	ver.O = setOrAppend(ver.O, "reproduction", repro)
+	repro.O = validation.SetOrAppend(repro.O, "tier_reached", validation.VStr("T1"))
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", repro)
 	f = withField(f, "verification", ver)
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
@@ -796,7 +796,7 @@ func vectorCamp(t *testing.T, active string) *state.Campaign {
 	if err != nil {
 		t.Fatal(err)
 	}
-	st.O = setOrAppend(st.O, "active_snapshot_id", validation.VStr(active))
+	st.O = validation.SetOrAppend(st.O, "active_snapshot_id", validation.VStr(active))
 	if err := validation.WriteJson(c.StatePath, st, "campaign_state"); err != nil {
 		t.Fatal(err)
 	}
@@ -907,7 +907,7 @@ func vectorExploitabilityCases(cases map[string]vectorCase) {
 // triggers are covered by TestIsLivenessFinding in internal/findings.
 func livenessFinding() validation.Value {
 	ei := objAt(baseFinding(), "economic_impact")
-	ei.O = setOrAppend(ei.O, "kind", validation.VStr("liveness"))
+	ei.O = validation.SetOrAppend(ei.O, "kind", validation.VStr("liveness"))
 	return withField(baseFinding(), "economic_impact", ei)
 }
 
@@ -1140,7 +1140,7 @@ func vectorFlagCases(cases map[string]vectorCase) {
 	// out_of_scope: the affected component is not in the program scope.
 	oos := baseFinding()
 	aff := objAt(oos, "affected")
-	aff.A[0].O = setOrAppend(aff.A[0].O, "contract", validation.VStr("RandomToken"))
+	aff.A[0].O = validation.SetOrAppend(aff.A[0].O, "contract", validation.VStr("RandomToken"))
 	cases["out_of_scope"] = vectorCase{
 		policy: testPolicy(), finding: withField(oos, "affected", aff),
 		active: "SNAP-11111111", seams: submissionReadySeams(),
@@ -1148,7 +1148,7 @@ func vectorFlagCases(cases map[string]vectorCase) {
 	// known_issue: the description trips the "rounding dust" exclusion.
 	ki := baseFinding()
 	rc := objAt(ki, "root_cause")
-	rc.O = setOrAppend(rc.O, "description", validation.VStr(
+	rc.O = validation.SetOrAppend(rc.O, "description", validation.VStr(
 		objStr(rc, "description")+" — effectively rounding dust accounting"))
 	cases["known_issue"] = vectorCase{
 		policy: testPolicy(), finding: withField(ki, "root_cause", rc),
@@ -1735,7 +1735,7 @@ func TestDefaultPriceSeamReadsPriceTable(t *testing.T) {
 		t.Fatal(err)
 	}
 	ei := objAt(f, "economic_impact")
-	ei.O = setOrAppend(ei.O, "price_basis", validation.VStr(priceID))
+	ei.O = validation.SetOrAppend(ei.O, "price_basis", validation.VStr(priceID))
 	f = withField(f, "economic_impact", ei)
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)

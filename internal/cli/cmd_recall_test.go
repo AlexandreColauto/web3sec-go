@@ -39,7 +39,7 @@ func TestRecallPrintsRowsAndRecordsCheck(t *testing.T) {
 	}
 	checks := objAt(objAt(reloaded, "provenance"), "memory_checks")
 	if len(checks.A) != 1 {
-		t.Fatalf("memory_checks = %v", prettyASCII(checks))
+		t.Fatalf("memory_checks = %v", validation.DumpIndentedASCII(checks))
 	}
 	if got := strListCLI(objAt(checks.A[0], "memory_ids")); len(got) != 1 ||
 		got[0] != "MEM-shared01" {
@@ -156,7 +156,7 @@ func TestRecallCLILegacyEntryIsNotRestamped(t *testing.T) {
 	checks := objAt(objAt(stored, "provenance"), "memory_checks")
 	if len(checks.A) != 1 {
 		t.Fatalf("the legacy entry must dedupe the recording: %v",
-			prettyASCII(checks))
+			validation.DumpIndentedASCII(checks))
 	}
 }
 
@@ -178,7 +178,7 @@ func TestRecallRecordsDedupe(t *testing.T) {
 	}
 	checks := objAt(objAt(stored, "provenance"), "memory_checks")
 	if len(checks.A) != 1 {
-		t.Fatalf("the identical check must dedupe: %v", prettyASCII(checks))
+		t.Fatalf("the identical check must dedupe: %v", validation.DumpIndentedASCII(checks))
 	}
 }
 

@@ -140,7 +140,7 @@ func findingWithInvariant(t *testing.T, c *state.Campaign, invID string) validat
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.O = setOrAppend(f.O, "security_invariants", validation.VArr(
+	f.O = validation.SetOrAppend(f.O, "security_invariants", validation.VArr(
 		validation.VObj(
 			kv("id", validation.VStr(invID)),
 			kv("statement", validation.VStr(
@@ -586,8 +586,8 @@ func scenarioCamp(t *testing.T) *state.Campaign {
 	if err != nil {
 		t.Fatal(err)
 	}
-	st.O = setOrAppend(st.O, "active_snapshot_id", validation.VStr("SNAPX"))
-	st.O = setOrAppend(st.O, "artifacts", validation.VArr(
+	st.O = validation.SetOrAppend(st.O, "active_snapshot_id", validation.VStr("SNAPX"))
+	st.O = validation.SetOrAppend(st.O, "artifacts", validation.VArr(
 		fixedArtifact("OTH-fixed001", filepath.Join(c.ArtifactsDir, "inv-check.md")),
 		fixedArtifact("OTH-fixed002", filepath.Join(c.ArtifactsDir, "fuzz.md")),
 	))
@@ -732,7 +732,7 @@ func replayScenario(t *testing.T, c *state.Campaign,
 	if err != nil {
 		t.Fatal(err)
 	}
-	links.O = setOrAppend(links.O, "invariants", setObjKey(
+	links.O = validation.SetOrAppend(links.O, "invariants", setObjKey(
 		objAt(links, "invariants"), "INV-4", validation.VObj(
 			kv("statement", validation.VStr("legacy claim")),
 			kv("status", validation.VStr("held")),

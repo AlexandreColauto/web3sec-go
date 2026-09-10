@@ -126,12 +126,12 @@ func gateReadyEconomic(t *testing.T, c *state.Campaign) validation.Value {
 		t.Fatal(err)
 	}
 	ver := asDict(objAt(f, "verification"))
-	ver.O = setOrAppend(ver.O, "reproduction", validation.VObj(
+	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T3")),
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr()),
 	))
-	f.O = setOrAppend(f.O, "verification", ver)
+	f.O = validation.SetOrAppend(f.O, "verification", ver)
 	if err := SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +230,7 @@ func TestNamedDecisionLineNeedsAnEconomicClause(t *testing.T) {
 		kv("priceable", validation.VBool(false)),
 		kv("ceiling", validation.VStr(ceilingBasis)),
 	)
-	f.O = setOrAppend(f.O, "economic_impact", imp)
+	f.O = validation.SetOrAppend(f.O, "economic_impact", imp)
 	if err := SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
 	}

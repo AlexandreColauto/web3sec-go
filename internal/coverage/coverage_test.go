@@ -137,9 +137,9 @@ func setActiveSnapshot(t *testing.T, c *state.Campaign, sid validation.Value) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	st.O = setOrAppend(st.O, "active_snapshot_id", sid)
+	st.O = validation.SetOrAppend(st.O, "active_snapshot_id", sid)
 	if pyTruthy(sid) {
-		st.O = setOrAppend(st.O, "snapshots", validation.VArr(validation.VObj(
+		st.O = validation.SetOrAppend(st.O, "snapshots", validation.VArr(validation.VObj(
 			kv("snapshot_id", sid),
 			kv("pinned_at", validation.VStr(nowIso())),
 			kv("status", validation.VStr("pinned")),
@@ -587,11 +587,11 @@ func TestPyNum(t *testing.T) {
 // TestSetOrAppendAndTruthy pins the two dict primitives.
 func TestSetOrAppendAndTruthy(t *testing.T) {
 	kvs := []validation.KV{kv("a", validation.VInt(1)), kv("b", validation.VInt(2))}
-	kvs = setOrAppend(kvs, "a", validation.VInt(9))
+	kvs = validation.SetOrAppend(kvs, "a", validation.VInt(9))
 	if kvs[0].K != "a" || kvs[0].V.I != 9 || len(kvs) != 2 {
 		t.Errorf("replace = %+v; want a=9 in place", kvs)
 	}
-	kvs = setOrAppend(kvs, "c", validation.VInt(3))
+	kvs = validation.SetOrAppend(kvs, "c", validation.VInt(3))
 	if len(kvs) != 3 || kvs[2].K != "c" {
 		t.Errorf("append = %+v; want c last", kvs)
 	}
