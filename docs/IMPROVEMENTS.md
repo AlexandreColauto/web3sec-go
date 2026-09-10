@@ -855,6 +855,55 @@ from `internal/probes/probe_custody.go`; `internal/probes/registry.go`
 **Tests:** matrix determinism, G-02 divergence reproduces on the morph
 fixture, row_id stability.
 
+**As landed (C2):**
+- `internal/probes/symmetry.go` (~590 lines): `PrimitiveMatrix(index)` is the
+  capability — families (union-find over the index's `inherits` edges) × cells
+  (direction ∈ deposit|withdrawal|drop|recover|other × asset ∈ native|erc20|
+  share × primitive ∈ mint|burn|transfer-in|transfer-out|send-native) with the
+  defining contract on every cell, so an inherited function counts once, not
+  once per inheritor.
+- Two divergence kinds, both carrying BOTH ends and a rendered question:
+  `member-disagreement` (siblings use different primitives for one
+  (direction, asset)) and `funding-mismatch`.
+- **The funding-mismatch rule is the reference probe's own discriminator,
+  lifted to the family**: a forward path that MINTS or BURNS while a recovery
+  path pays the asset out with transfer-out / send-native. The first draft used
+  "forward credits (transfer-in) vs recovery pays out", which fired on the
+  *clean* custody fixture — a forward path that HOLDS custody and pays it back
+  is self-consistent. The clean fixture is now the guard test for that
+  false positive (`TestPrimitiveMatrixIsDeterministicAndCleanStaysSilent`).
+  This is the G-02 shape: `L1ReverseCustomGateway::_deposit` burns while the
+  inherited `L1ERC20Gateway::onDropMessage` transfers out — one row naming both
+  ends and asking who funds the difference.
+- Surface integration rides the **existing** custody-primitive axis and probe
+  id (dispositions, anchors, schema and the sibling anchor all keep working),
+  behind `ProbeOpts.Symmetry` — the C1 pattern: divergence raws are appended
+  before `collapse`, so they get a real `RowIDFor` id, `rank`, `shape_sha` and
+  the sibling list, and the family extras are stamped **after** `finalize`
+  (finalize copies only the probe's declared fields, so an extras map keyed by
+  row_id is what survives; a folded row keeps its extras). `ProdProbeOpts()`
+  turns it on; the zero value still reproduces the reference surface
+  byte-for-byte, which the parity test pins.
+- New row fields (schema `probe_surface.schema.json`, all optional): `family`,
+  `direction`, `asset`, `divergence`, `expected`, `expected_asset`, `observed`,
+  `base_function`, `members`. Note `custody` is the reference enum
+  ("burns"/"mints"), so a divergence row pluralizes its credit primitive to fit.
+- CLI `webv2 symmetry <campaign> [--family F] [--json]` (ord 74): the headline
+  counts, the matrix per family grouped by direction, and each divergence as
+  `! kind: question`. `--family X` narrows to one family (exit 2 when the index
+  has no such family); the JSON keeps the full matrix shape.
+- Tests: 6 new (`internal/probes/symmetry_test.go`) covering the family
+  members, the cells, both ends + question of the divergence, determinism,
+  clean silence, the row shape on the axis (row_id/rank/gap/why/siblings), and
+  the opt-in parity claim with schema validation; 5 new CLI tests
+  (`internal/cli/cmd_symmetry_test.go`) covering help, argparse vectors, no
+  index, the text matrix and the JSON + `--family` scope. New fixture
+  `internal/structidx/testdata/symmetry/` (the G-02 bridge shape; the probe
+  fixtures are not reachable from `internal/cli` tests).
+- Golden green, no oracle update: the golden fixture carries no family with a
+  mint/burn-vs-transfer-out divergence, and the new rows appear only under
+  `ProdProbeOpts` on a family that has one.
+
 ---
 
 ## Wave D — Report Honesty & Plumbing
@@ -1061,6 +1110,50 @@ idempotence.
 **Tests:** verb → signature computed (golden vector: same sentence ⇒ same
 16-hex), tier-2 flag fixture (two same-root-cause different-site findings
 become resolvable), resolve-candidate on the flagged pair.
+
+### D6. An unscoped campaign must not look complete (post-mortem 2026-09-10)
+
+**Failed behavior:** the post-mortem's first and largest complaint was "no
+scope/known-issues policy was ever loaded (verified: `webv2 scope` → "no policy
+provided"), and nothing separated 'the program will pay' from 'real but
+accepted'" — 23 critic-confirmed findings, 2 gold, and no signal anywhere on the
+finished report that no program policy had ever been applied. Every policy-
+dependent capability landed in Wave A (`accepted_risks`, `submission_ready`,
+`acceptance_score`, the `submission_budget` cap, the paid-exploitability gate);
+what was missing was the *refusal to proceed quietly*.
+
+**Design (as landed):**
+- **The gate was already loud** — `Orchestrator.BountyGateAll` raises
+  `bounty gate requires a policy; run scope(policy_path=...) first` for a
+  campaign with no (or a vanished) `policy_path`
+  (`internal/orchestrator/triage.go:210-222`, pinned by
+  `TestPortBountyGateRequiresPolicy`). The hole was downstream of it: `webv2
+  report` calls `report.Generate` directly, and `Generate` simply SKIPPED the
+  gate re-run, the precision block and the submission line when `policy_path`
+  was empty — emitting a complete-looking report with no trace of the missing
+  policy.
+- **Report**: `precisionBlock` now returns an explicit **unscored notice** —
+  "NO POLICY LOADED — this report is unscored: no acceptance ranking, no
+  submission budget, no accepted-risks check and no paid-exploitability gate
+  ran. Every finding below is a technical claim, not a submission
+  recommendation." — plus the exact command that fixes it. Presence-gated: a
+  scoped campaign never prints it (the A3 block's bytes for scoped campaigns are
+  unchanged, so the golden recipe — which runs `scope --policy` before the gate
+  — does not move). The submission line is now keyed on the policy *value*, not
+  on the raw path, so a stale path cannot print a gate result that did not run.
+- **Ranking**: `webv2 rank` prints the same warning above its table when the
+  campaign has no `policy_path`: a severity order is not a submission order.
+  (This is an intentional change to an unscoped campaign's rank output;
+  `TestRankTable` pins the new bytes.)
+- **Tests**: `internal/report/unscoped_test.go` — the notice is present without
+  a policy and absent with one (the scoped case writes a schema-valid policy and
+  patches `policy_path`); the gate refusal stays pinned in
+  `internal/orchestrator/port_test.go`.
+- Deliberately NOT done: a new audit section. The audit's section list is
+  pinned in two tests plus a parity dump (14 → 15 sections) and a failing
+  section would flip the golden's `ok=True`; the report + rank + gate trio
+  already answers "was this campaign scoped?" at the three places an operator
+  reads.
 
 ### D5. Learning CLI verbs (queue + reflect)
 

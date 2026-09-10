@@ -305,6 +305,17 @@ func intAt(v validation.Value, key string) int64 {
 	return 0
 }
 
+// unscoredNotice is the one line a policy-less campaign must print: without a
+// policy the report is a technical inventory, not a submission recommendation.
+func unscoredNotice(campaign *state.Campaign) []string {
+	return []string{"- **scope:** NO POLICY LOADED — this report is unscored: " +
+		"no acceptance ranking, no submission budget, no accepted-risks check " +
+		"and no paid-exploitability gate ran. Every finding below is a " +
+		"technical claim, not a submission recommendation. Load a policy " +
+		"(`webv2 scope " + campaign.CampaignID + " --policy FILE`) and re-run " +
+		"`webv2 run` before submitting anything."}
+}
+
 // precisionBlock is the A3 "which findings matter" block in Results: the
 // dual critic/evidence counts, the false-positive ratio between them, and
 // the top-K acceptance table — the operator's ranked answer over every LIVE
@@ -327,7 +338,14 @@ func intAt(v validation.Value, key string) int64 {
 // neither renders no block at all.
 func precisionBlock(campaign *state.Campaign, all []validation.Value,
 	policy validation.Value) []string {
-	if objAt(policy, "submission_budget").Kind != validation.Obj {
+	// A campaign with no policy is UNSCORED: the acceptance scores, the
+	// submission budget and the accepted-risks check all come from the policy,
+	// so without one nothing separates "the program will pay" from "real but
+	// accepted". Saying nothing here is what let a 23-finding campaign look
+	// complete next to a 2-finding gold. Presence-gated: a scoped campaign
+	// never prints the notice.
+	unscored := policy.Kind != validation.Obj || len(policy.O) == 0
+	if unscored && objAt(policy, "submission_budget").Kind != validation.Obj {
 		stored := false
 		for _, f := range all {
 			v := objAt(objAt(f, "risk"), "acceptance_score")
@@ -337,7 +355,7 @@ func precisionBlock(campaign *state.Campaign, all []validation.Value,
 			}
 		}
 		if !stored {
-			return nil
+			return append(unscoredNotice(campaign), "")
 		}
 	}
 	var live []validation.Value
@@ -355,6 +373,9 @@ func precisionBlock(campaign *state.Campaign, all []validation.Value,
 		}
 	}
 	L := []string{}
+	if unscored {
+		L = append(L, unscoredNotice(campaign)...)
+	}
 	if len(live) == 0 {
 		L = append(L, "- **precision:** no live findings to rank")
 		L = append(L, "")
@@ -743,7 +764,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 		"- out-of-scope: %d", disproved, duplicates, outOfScope))
 	L = append(L, "")
 	L = append(L, precisionBlock(campaign, all, policy)...)
-	if policyPath != "" {
+	if policy.Kind == validation.Obj && len(policy.O) > 0 {
 		L = append(L, fmt.Sprintf("- submission (bounty gate): **%d** of %d "+
 			"confirmed are submission-ready — the gate measures submission "+
 			"packaging (patch immunization, program policy), not finding severity",

@@ -110,6 +110,11 @@ func rankCmd(root string, args []string, r *Runner) error {
 	}
 	fmt.Fprintf(r.Out, "acceptance ranking — %d live finding(s) "+
 		"(key: %s%s)\n", len(entries), keyName, budgetNote)
+	// A campaign with no policy is UNSCORED: the ranking is a severity order,
+	// not a submission order. Say so rather than let it read as advice.
+	if p := objStr(st, "policy_path"); p == "" {
+		fmt.Fprint(r.Out, rankUnscopedNote)
+	}
 	fmt.Fprintln(r.Out, "  #  id  score  band  evidence  critic  title")
 	i := 0
 	var dq []string
@@ -129,6 +134,12 @@ func rankCmd(root string, args []string, r *Runner) error {
 	}
 	return nil
 }
+
+// rankUnscopedNote is the loud line an unscoped campaign prints above its
+// ranking: a severity order is not a submission order.
+const rankUnscopedNote = "  scope: NO POLICY LOADED — ranked without acceptance " +
+	"scores, submission budget or accepted-risks checks; run `webv2 scope` with " +
+	"--policy before treating this as a submission order\n"
 
 func rankID(e risk.AcceptanceEntry) string {
 	return objStr(e.Finding, "finding_id")

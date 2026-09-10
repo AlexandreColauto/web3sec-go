@@ -79,7 +79,9 @@ func TestRankTable(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d, want 0: %q\n%s", code, errS, out)
 	}
+	// An unscoped campaign says so: the ranking must not read as advice.
 	want := "acceptance ranking — 3 live finding(s) (key: acceptance)\n" +
+		rankUnscopedNote +
 		"  #  id  score  band  evidence  critic  title\n" +
 		"  1  " + f1 + "  3.50  high  E0  confirmed  High-band confirmed flow\n" +
 		"  2  " + f2 + "  0.00  —  E0  —  Bare hypothesis\n" +
@@ -144,7 +146,7 @@ func TestRankBudgetHeader(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d, want 0: %q\n%s", code, errS, out)
 	}
-	want := "acceptance ranking — 1 live finding(s) (key: severity, "+
+	want := "acceptance ranking — 1 live finding(s) (key: severity, " +
 		"submission budget 5)\n"
 	if !strings.HasPrefix(out, want) {
 		t.Fatalf("header =\n%q\nwant prefix\n%q", out, want)

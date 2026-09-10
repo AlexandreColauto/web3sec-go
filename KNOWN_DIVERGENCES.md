@@ -856,6 +856,19 @@ Bug-hunt sweep).
   new coverage lives in `cmd_run_test.go::TestRunReachesTheReportStage`, which
   seeds the upstream stages done and asserts the stage runs; the golden recipe
   is deliberately left as-is (seeding it would widen the golden surface).
+  **C2** (the family primitive matrix) and **D6** (the unscoped-campaign
+  notice) are likewise golden-invisible, for two different reasons. C2's
+  divergence rows ride the custody-primitive axis but only when
+  `ProbeOpts.Symmetry` is set, and the golden fixture has no family that mixes a
+  mint/burn forward path with a transfer-out recovery path, so no new row is
+  produced there; the opt-in path is pinned by parity + schema tests instead.
+  D6 changes the report BYTES for a policy-less campaign, which the golden never
+  is: its recipe runs `scope --policy` before the bounty gate, so the unscored
+  notice is suppressed (presence-gated) and the archived tree is unchanged
+  (165 events, 75 files, same exit codes). One intentional oracle update did
+  land with D6: `webv2 rank` now prints the unscoped warning above its table,
+  and `TestRankTable` was updated to pin those bytes — an unscoped ranking is a
+  severity order, not a submission order, and saying so is the point.
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**

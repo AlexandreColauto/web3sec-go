@@ -180,6 +180,44 @@
             "type": "integer",
             "minimum": 1,
             "description": "the true number of uncovered stage pairs for this row, before the stages_unguarded cap"
+          },
+
+          "family": {
+            "type": "string",
+            "description": "IMPROVEMENTS C2: the inheritance family (union-find over the index's inherits edges) whose members disagree about this custody primitive. Present only on the family-divergence rows added when the surface is built with ProbeOpts.Symmetry."
+          },
+          "direction": {
+            "enum": ["deposit", "withdrawal", "drop", "recover", "other"],
+            "description": "IMPROVEMENTS C2: the custody direction the divergent site serves, read off the function name (drop wins over withdrawal, which wins over recover, which wins over deposit)."
+          },
+          "asset": {
+            "enum": ["native", "erc20", "share"],
+            "description": "IMPROVEMENTS C2: the asset class the divergent site moves — native for a value send, share for the contract's own mint/burn, erc20 for a token call on another contract."
+          },
+          "divergence": {
+            "enum": ["member-disagreement", "funding-mismatch"],
+            "description": "IMPROVEMENTS C2: member-disagreement (two members of one family use different primitives for the same direction and asset) or funding-mismatch (a forward path mints/burns while a recovery path moves the asset out of a balance it never held)."
+          },
+          "expected": {
+            "type": "string",
+            "description": "IMPROVEMENTS C2: the primitive the sibling (expected) side performs."
+          },
+          "expected_asset": {
+            "type": "string",
+            "description": "IMPROVEMENTS C2: the asset class the expected side moves (it may differ from the moved asset, e.g. a burn of the member's own share against an erc20 payout)."
+          },
+          "observed": {
+            "type": "string",
+            "description": "IMPROVEMENTS C2: the primitive the divergent (observed) side performs."
+          },
+          "base_function": {
+            "type": "string",
+            "description": "IMPROVEMENTS C2: the function of the expected side, paired with base/base_line."
+          },
+          "members": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "IMPROVEMENTS C2: the family's member contract names, so the row can be read as a family statement."
           }
         }
       }

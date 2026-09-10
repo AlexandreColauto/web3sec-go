@@ -44,11 +44,15 @@ type ProbeOpts struct {
 	// StageTables attaches the uncovered (write, read) enforcement stage pairs
 	// of each assertion-strength row's concept keys.
 	StageTables bool
+	// Symmetry adds the family-level primitive-matrix divergences (C2) as
+	// custody-primitive rows: members of one inheritance family disagreeing
+	// about the custody primitive for a (direction, asset).
+	Symmetry bool
 }
 
 // ProdProbeOpts is what the shipped surface is built with: the reference
 // surface plus the Go-only enrichments.
-func ProdProbeOpts() ProbeOpts { return ProbeOpts{StageTables: true} }
+func ProdProbeOpts() ProbeOpts { return ProbeOpts{StageTables: true, Symmetry: true} }
 
 // buildAxes runs every registered probe, collapses + ranks its rows and
 // returns the internal axis table (with `_rows`).
@@ -62,13 +66,23 @@ func buildAxes(index, model validation.Value, paths map[string]string,
 		if err != nil {
 			return nil, err
 		}
-		rows := rankRows(collapse(out.rows, probeID, spec, paths), spec)
+		raw := out.rows
+		var symExtras map[string]validation.Value
+		if opts.Symmetry && probeID == "custody-primitive" {
+			var symRows []validation.Value
+			symRows, symExtras = symmetryRawRows(index, model)
+			raw = append(append([]validation.Value(nil), raw...), symRows...)
+		}
+		rows := rankRows(collapse(raw, probeID, spec, paths), spec)
 		final := make([]validation.Value, len(rows))
 		for i, r := range rows {
 			final[i] = finalize(r, probeID, spec)
 		}
 		if opts.StageTables && probeID == "assertion-strength" {
 			final = attachStageTables(index, final, stageMemo)
+		}
+		if opts.Symmetry && probeID == "custody-primitive" {
+			final = attachSymmetry(final, symExtras)
 		}
 		axes = append(axes, validation.VObj(
 			kv("probe", validation.VStr(probeID)),
