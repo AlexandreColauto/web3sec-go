@@ -589,11 +589,41 @@ func ResolveCandidate(campaign *state.Campaign, findingID, ofFindingID, verdict,
 		return validation.VNull(), err
 	}
 	if verdict == "same" {
+		// G1 corroboration law: exactly one side SAST-flagged => the model
+		// side is corroborated by the tool finding. Same-engine pairs never
+		// corroborate — an independent method is the point. The operator
+		// resolved the same-root-cause link; we only record what that
+		// resolution mechanically implies. Reload both sides: the loop
+		// above just saved them.
+		for _, pair := range [2][2]string{
+			{findingID, ofFindingID}, {ofFindingID, findingID}} {
+			selfID, otherID := pair[0], pair[1]
+			self, err := findings.LoadFinding(campaign, selfID)
+			if err != nil {
+				return validation.VNull(), err
+			}
+			other, err := findings.LoadFinding(campaign, otherID)
+			if err != nil {
+				return validation.VNull(), err
+			}
+			if len(valueStrings(getDeep(self, "provenance", "sast_tools"))) == 0 &&
+				len(valueStrings(getDeep(other, "provenance", "sast_tools"))) > 0 {
+				corroborated := setDeep(self, validation.VStr(otherID),
+					"dedup_meta", "corroborated_by")
+				if err := findings.SaveFinding(campaign, &corroborated); err != nil {
+					return validation.VNull(), err
+				}
+				data := validation.VObj(kv("of", validation.VStr(otherID)))
+				if _, err := campaign.Log("dedup.corroborated", &selfID, &data); err != nil {
+					return validation.VNull(), err
+				}
+			}
+		}
 		if err := mergeYounger(campaign, f, ofFindingID); err != nil {
 			return validation.VNull(), err
 		}
 	}
-	return f, nil
+	return findings.LoadFinding(campaign, findingID)
 }
 
 // mergeYounger is resolve_candidate's `same` tail: reload the flagged

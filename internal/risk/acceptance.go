@@ -10,6 +10,7 @@ package risk
 //	acceptance = wSeverity(band) + wEvidence(level) + wCritic(verdict)
 //	           - wAck(dedup_meta.in_code_ack present)
 //	           - wAcceptedRisk(bounty.accepted_risk recorded)
+//	           + wCorroboration(dedup_meta.corroborated_by) = +0.5 (G1)
 //	           + wReversibility(risk.reversibility)
 //
 // Weights (the validated_risk wLevel table is reused for evidence, so the
@@ -58,9 +59,10 @@ var wAcceptanceCritic = map[string]float64{
 
 // Acceptance demotions (A2 in-code acknowledgement, A1 accepted risk).
 const (
-	acceptanceAckDemotion  = 1.0
-	acceptanceRiskDemotion = 2.0
-	acceptanceDefaultTopK  = 10
+	acceptanceAckDemotion        = 1.0
+	acceptanceRiskDemotion       = 2.0
+	acceptanceCorroborationBonus = 0.5
+	acceptanceDefaultTopK        = 10
 )
 
 // wAcceptanceReversibility is the acceptance-likelihood half of the E5
@@ -81,6 +83,7 @@ type AcceptanceEntry struct {
 	Disqualified bool
 	AckDemoted   bool
 	RiskDemoted  bool
+	Corroborated bool
 }
 
 // Acceptance computes the full entry. Every component is optional: an
@@ -129,6 +132,15 @@ func Acceptance(finding validation.Value) AcceptanceEntry {
 		validation.Obj {
 		score -= acceptanceRiskDemotion
 		e.RiskDemoted = true
+	}
+
+	// corroboration (G1): operator-resolved same-root-cause pair where the
+	// partner is SAST-flagged; recorded by dedup.ResolveCandidate, consumed
+	// here. Absent => 0, so existing bytes never move.
+	if cb := objAt(orObj(objAt(finding, "dedup_meta")), "corroborated_by"); cb.Kind ==
+		validation.Str && cb.S != "" {
+		score += acceptanceCorroborationBonus
+		e.Corroborated = true
 	}
 
 	// reversibility (E5 classification)

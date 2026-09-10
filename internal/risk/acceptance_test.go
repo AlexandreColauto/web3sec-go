@@ -268,6 +268,32 @@ func TestAcceptanceTopKCap(t *testing.T) {
 	}
 }
 
+func TestCorroborationBonus(t *testing.T) {
+	base := accFinding(func(f *validation.Value) {
+		setCritic(f, "confirmed")
+	})
+	s0, _ := AcceptanceScore(base)
+	withCorr := accFinding(func(f *validation.Value) {
+		setCritic(f, "confirmed")
+		*f = withKeyR(*f, "dedup_meta", validation.VObj(
+			kvR("corroborated_by", validation.VStr("F-9"))))
+	})
+	s1, _ := AcceptanceScore(withCorr)
+	if s1-s0 != 0.5 {
+		t.Fatalf("corroboration must add exactly 0.5: %v -> %v", s0, s1)
+	}
+	// non-string garbage never fires (schema prevents it; the score is still
+	// the last line of defense):
+	junk := accFinding(func(f *validation.Value) {
+		setCritic(f, "confirmed")
+		*f = withKeyR(*f, "dedup_meta", validation.VObj(
+			kvR("corroborated_by", validation.VBool(true))))
+	})
+	if s, _ := AcceptanceScore(junk); s != s0 {
+		t.Fatal("only a string corroborated_by counts")
+	}
+}
+
 func idsR(got []AcceptanceEntry) []string {
 	out := []string{}
 	for _, e := range got {

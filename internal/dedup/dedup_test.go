@@ -911,6 +911,111 @@ func TestResolveCandidateNoteRecordsOnBothSides(t *testing.T) {
 	}
 }
 
+// ---- G1 corroboration -------------------------------------------------------
+
+// idOf returns the finding_id string of a finding value.
+func idOf(v validation.Value) string { return objStr(v, "finding_id") }
+
+// reloadID loads a finding from disk, failing the test on error.
+func reloadID(t *testing.T, c *state.Campaign, id string) validation.Value {
+	t.Helper()
+	f, err := findings.LoadFinding(c, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
+}
+
+// attachTools records provenance.sast_tools = [tool] on a finding (load,
+// SetOrAppend via setDeep, save) and returns the saved value.
+func attachTools(t *testing.T, c *state.Campaign, f validation.Value,
+	tool string) validation.Value {
+	t.Helper()
+	loaded, err := findings.LoadFinding(c, fid(f))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tooled := setDeep(loaded, strArray([]string{tool}), "provenance", "sast_tools")
+	if err := findings.SaveFinding(c, &tooled); err != nil {
+		t.Fatal(err)
+	}
+	return tooled
+}
+
+// setupPair builds the tier-3 flagged pair with exactly one SAST side: f is
+// model-flagged (no provenance at all), toolF carries
+// provenance.sast_tools = ["slither:reentrancy-eth"].
+func setupPair(t *testing.T) (*state.Campaign, validation.Value, validation.Value) {
+	t.Helper()
+	wireSeams(t)
+	c := pinnedCamp(t)
+	f, g := flaggedPair(t, c)
+	toolF := attachTools(t, c, g, "slither:reentrancy-eth")
+	return c, f, toolF
+}
+
+// setupPairUntooled builds the same flagged pair with neither side carrying
+// provenance.sast_tools.
+func setupPairUntooled(t *testing.T) (*state.Campaign, validation.Value, validation.Value) {
+	t.Helper()
+	wireSeams(t)
+	c := pinnedCamp(t)
+	f, g := flaggedPair(t, c)
+	return c, f, g
+}
+
+func TestResolveSameRecordsCorroboration(t *testing.T) {
+	c, f, toolF := setupPair(t) // f model-flagged (no sast_tools), toolF has provenance.sast_tools
+	if _, err := ResolveCandidate(c, objStr(f, "finding_id"), objStr(toolF, "finding_id"),
+		"same", "", "operator"); err != nil {
+		t.Fatal(err)
+	}
+	// `same` merges the younger side: reload BOTH ids; the corroboration
+	// record must exist on whichever survives (the non-tool side).
+	reloaded := reloadID(t, c, idOf(f))
+	corr := getDeep(reloaded, "dedup_meta", "corroborated_by")
+	if corr.Kind != validation.Str || corr.S != objStr(toolF, "finding_id") {
+		t.Fatalf("corroborated_by not recorded on the model side: %s", validation.CanonCompact(corr))
+	}
+}
+
+func TestResolveToolVsToolRecordsNothing(t *testing.T) {
+	c, a, b := setupPair(t)
+	a = attachTools(t, c, a, "slither:reentrancy-eth") // both sides SAST
+	b = attachTools(t, c, b, "slither:unchecked-transfer")
+	if _, err := ResolveCandidate(c, idOf(a), idOf(b), "same", "", "operator"); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []validation.Value{reloadID(t, c, idOf(a)), reloadID(t, c, idOf(b))} {
+		if getDeep(f, "dedup_meta", "corroborated_by").Kind == validation.Str {
+			t.Fatal("tool-vs-tool is not independent corroboration")
+		}
+	}
+}
+
+func TestResolveDistinctRecordsNothing(t *testing.T) {
+	c, f, toolF := setupPair(t)
+	if _, err := ResolveCandidate(c, idOf(f), idOf(toolF),
+		"distinct", "", "operator"); err != nil {
+		t.Fatal(err)
+	}
+	if getDeep(reloadID(t, c, idOf(f)), "dedup_meta", "corroborated_by").Kind ==
+		validation.Str {
+		t.Fatal("a distinct verdict records no corroboration")
+	}
+}
+
+func TestResolveSameWithoutAnyToolsRecordsNothing(t *testing.T) {
+	c, f, other := setupPairUntooled(t) // neither side has provenance.sast_tools
+	if _, err := ResolveCandidate(c, idOf(f), idOf(other), "same", "", "operator"); err != nil {
+		t.Fatal(err)
+	}
+	if getDeep(reloadID(t, c, idOf(f)), "dedup_meta", "corroborated_by").Kind ==
+		validation.Str {
+		t.Fatal("no tool side -> no corroboration")
+	}
+}
+
 // ---- run_dedup modes --------------------------------------------------------
 
 func TestRunDedupNoAutoMerge(t *testing.T) {
