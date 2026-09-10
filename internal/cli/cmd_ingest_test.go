@@ -437,12 +437,23 @@ func TestIngestFromRejectsUnknownSource(t *testing.T) {
 func TestIngestFromRequiresJsonFile(t *testing.T) {
 	root := mkroot(t)
 	cid := initOne(t, root)
-	code, _, errOut := run(t, "--root", root, "ingest", cid, "--from", "slither")
+	want := "argument --from: --json-file is required with --from\n"
+	code, out, errOut := run(t, "--root", root, "ingest", cid, "--from", "slither")
 	if code != 2 {
 		t.Fatalf("want exit 2, got %d", code)
 	}
-	if !strings.Contains(errOut, "--json-file") {
-		t.Fatalf("the message must name the missing flag: %s", errOut)
+	if out != "" {
+		t.Fatalf("stdout = %q", out)
+	}
+	if errOut != want {
+		t.Fatalf("stderr = %q, want %q", errOut, want)
+	}
+	// Parse-time dependency: an unopenable campaign must not shadow it.
+	code, _, errOut = run(t, "--root", root, "ingest", "C-nope",
+		"--from", "slither")
+	if code != 2 || errOut != want {
+		t.Fatalf("precedence: exit %d stderr %q, want exit 2 %q",
+			code, errOut, want)
 	}
 }
 

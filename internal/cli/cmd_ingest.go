@@ -146,10 +146,7 @@ func runIngest(root string, args []string, r *Runner) error {
 	if a.example {
 		return printIngestExample(r)
 	}
-	// The G1 lane names its own missing flag (runIngestSast) instead of the
-	// generic usage line below, so the json-file half of the guard stands
-	// aside for it.
-	if a.campaign == "" || (a.jsonFile == "" && a.from != "slither") {
+	if a.campaign == "" || a.jsonFile == "" {
 		return t14ExitErr(2, "usage: webv2 ingest <campaign> --json-file "+
 			"FILE (or -)   (or: webv2 ingest --example)\n")
 	}
@@ -187,10 +184,8 @@ func runIngest(root string, args []string, r *Runner) error {
 // runIngestSast is the G1 lane: Slither JSON -> hypothesis payloads -> the
 // SAME orchestrator ingest as a model payload. A rejected payload exits 2
 // after reporting which check died — detector output is input, not verdict.
+// parseIngest has already enforced the --from/--json-file dependency.
 func runIngestSast(root string, c *state.Campaign, a *ingestArgs, r *Runner) error {
-	if a.jsonFile == "" {
-		return t14ExitErr(2, "--from requires --json-file (the tool's JSON output)\n")
-	}
 	doc, err := t14ReadPayload(a.jsonFile) // existing ordered-JSON reader
 	if err != nil {
 		return t14ExitErr(2, "slither JSON unparsable: %s\n", err)
@@ -338,6 +333,13 @@ func parseIngest(args []string, r *Runner) (*ingestArgs, error) {
 		return nil, t14ArgparseErr(t14IngestUsage, "ingest",
 			"argument --from: invalid choice: %s (choose from %s)",
 			validation.PyReprStr(a.from), quotedList([]string{"slither"}))
+	}
+	// The G1 lane's dependency is a parse-time argparse failure: it must fire
+	// before any command body, so a campaign that cannot be opened never
+	// shadows the missing flag.
+	if a.from == "slither" && a.jsonFile == "" {
+		return nil, t14ExitErr(2,
+			"argument --from: --json-file is required with --from\n")
 	}
 	if len(pos) > 1 {
 		return nil, t14Unrecognized(strings.Join(pos[1:], " "))
