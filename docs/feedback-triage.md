@@ -678,6 +678,53 @@ have surfaced G-01's Q-199 (risk 0.9); and **(c)** `brief` renders the probe
 surface as a bare count — `probe surface: 62 rows (0 dispositioned, 62 open)`
 next to `questions worked 0/261`, with no ranked-coverage line.
 
+**Row-id collision is unreachable in practice.** *Status: open.* The
+`idSlots` fallback hashes `observed` into the fourth identity slot — the one
+holding the `custody` label derived from `expected` — when `custody` is
+absent (`internal/probes/collapse.go:63-68`), so two `custody-primitive`
+divergences sharing (contract, consumer, observed) and differing only in
+`expected` now hash to the same row id, and the
+`extras[RowIDFor(withProbe)]` write (`internal/probes/symmetry.go:584-594`)
+silently overwrites one row's expected/direction/asset/why. The final review
+found the collision unreachable on `C-21dd6a7642` (all 12 fresh custody rows
+have distinct consumers) and in the fixtures — the guarding test builds two
+rows with different consumers (`internal/probes/symmetry_test.go:268-302`,
+the `noncreditSurface` rows at `:217-218`), so it cannot bite — and it noted
+a mirror collision existed before the fix. **Recommendation:** when the
+fallback is taken and `expected` differs from `observed`, fold `expected`
+into that slot; add a fixture with two same-consumer divergences to pin it.
+
+**The audit's repair hint can make the surface worse.** *Status: open.*
+`rederiveProblems` tells the operator to re-run the bare `probes run --emit`
+(`re-run webv2 probes <campaign> run --emit`, `internal/probes/audit.go:171`,
+used at `:176` and `:183`). On `C-21dd6a7642` that bare command rebuilds 40
+rows against the original 62 and leaves 34 `[probe_surface]` problems, where
+the surface's own recorded quotas (`--per-axis 30 --total 70`) leave 8; the
+pre-emit count was 24 (see the D1 residual above). **Recommendation:** have
+the hint quote the surface's recorded quotas, or default `run --emit` to
+them. It is the first thing an operator hits when following the tool's own
+instruction.
+
+**`--anchor custody` hard-errors on a non-credit divergence row.** *Status:
+open.* `custody` is a declared anchor for `custody-primitive`
+(`internal/probes/registry.go:60`, field map `:129-130`), but after D1 a row
+whose expected primitive is neither mint nor burn omits the key, so
+`RowAnchorValue` reaches `!vHas(row, field)` and returns `row of
+'custody-primitive' has no field 'custody'`
+(`internal/probes/shape.go:177-179`). The row is still closable — `base` and
+`consumer` remain declared anchors and emitted fields
+(`internal/probes/registry.go:60-62`). **Recommendation:** name the usable
+anchors in the error, or treat a declared-but-absent anchor as a
+parenthesised miss like the other assertion gaps.
+
+**The plan still states the unmet acceptance criterion unqualified.**
+*Status: open.*
+`docs/superpowers/plans/2026-09-10-p0-review-consumption.md:59-61` asserts
+that after D1 `audit C-21dd6a7642` then reports zero `[probe_surface]`
+problems; the D1 residual above shows it does not on this campaign.
+**Recommendation:** point that acceptance line at this section, so the plan
+and the record agree.
+
 ### The P1 consumption batch (the eval retro's asks)
 
 One line each on why it matters and what it costs; this is the P0 plan's
