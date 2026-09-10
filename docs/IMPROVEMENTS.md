@@ -440,8 +440,9 @@ only CONFIRMED/CHAIN — the other 30+ findings are invisible.
   status counts. Plus the A3 Precision block.
 - **Findings table:** new section "All findings" — one row per finding
   (id, title, class, status, evidence level, critic verdict, risk score+band,
-  acceptance score (A3), submission_ready, chain membership), sorted by
-  acceptance score desc. This is the operator's single view of all 52.
+  acceptance score (A3), submission_ready, chain membership, exploitability
+  (A4: first line of the argument, or `payable`/`not payable`/`—`)), sorted
+  by acceptance score desc. This is the operator's single view of all 52.
 - **C6 section (prior-round ask):** "Dismissed with strong reaching" —
   findings that were DISPROVED/OUT_OF_SCOPE but whose probe rows or evidence
   had tier-0/gap≥3 surface (i.e., we reached them hard and then dismissed

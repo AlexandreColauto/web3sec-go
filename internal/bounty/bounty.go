@@ -359,6 +359,7 @@ var BountyRemediation = map[string]string{
 	"mainnet-fork-poc":     "webv2 exec <campaign> --profile fork-runner --command 'forge test --fork-url <pinned-rpc> --fork-block-number <pin> --match-test test_exploit' --finding <fid>   then webv2 mint <fid> --exec <EXEC-ID> --type fork-test   (unit tests prove semantics; only the fork proves mainnet)",
 	"immunization":         "webv2 immunize <fid> --poc-exec <FORK-EXEC-ID> --patch '<the fix>' --mutations 'm1;m2;m3'   (the patch must block the FORK PoC and all 3 boundary mutations \u2014 a unit-test patch is not a patch; if a bypass is real, fix the patch and re-verify)",
 	"accepted-risk":        "the program documented this as an accepted risk \u2014 not a payable vulnerability as written. If this particular finding IS payable despite the acceptance, record the decision: webv2 waive <campaign> accepted-risk --subject <fid> --reason 'why this one is payable' --actor <who>   (or: drop the finding \u2014 webv2 status <fid> OUT_OF_SCOPE \u2014 if it is genuinely the accepted behavior)",
+	"paid-exploitability":  "webv2 exploit <campaign> <fid> --paid --arg 'who pays, and why this bug makes them pay (>= 200 chars)'   (or: --unpaid --arg 'why the finding is not payable' \u2014 a reasoned not-payable decision is a legitimate answer; or: webv2 waive <campaign> paid-exploitability --subject <fid> --reason '...' to record a named decision)",
 }
 
 // GateExplain is gate_explain: human-facing explanation + remediation for one
@@ -571,6 +572,14 @@ func (g *gate) add(name, result, detail, remediation string) {
 			validation.KV{K: "remediation", V: validation.VStr(remediation)})
 	}
 	g.checks = append(g.checks, entry)
+}
+
+// addWaived records the pass row for a check cleared by a named waiver
+// (stage + subject addressed to this finding, with actor and reason on the
+// waiver row).
+func (g *gate) addWaived(check string, w *validation.Value) {
+	g.add(check, "pass", "waived by "+pyStrAny(objAt(*w, "actor"))+
+		": "+headRunes(pyStrAny(objAt(*w, "reason")), 80), "")
 }
 
 // scopeTargets returns the strings the scope policy is matched against for
@@ -1132,12 +1141,99 @@ func (g *gate) check13() error {
 	return nil
 }
 
-// run executes the thirteen checks (the twelve ported + accepted-risk, A1).
+// check14 is paid exploitability (IMPROVEMENTS A4): "who pays, and why does
+// the bug make them pay?" — the difference between a bug and a bounty
+// finding. A CONFIRMED/CHAIN finding claiming extractable_usd > 0 MUST have
+// answered the question (exploitability present); a recorded paid=true claim
+// MUST carry an argument of at least the minimum length (the setter enforces
+// it on write, the gate re-validates the stored value, so a hand-edited field
+// cannot sneak past). paid=false with an argument is a legitimate answer —
+// it records why the finding is NOT payable. Waivable per-finding (stage
+// "paid-exploitability", reason required).
+func (g *gate) check14() error {
+	status := objStr(g.f, "status")
+	ext := objAt(objAt(g.f, "economic_impact"), "extractable_usd")
+	extractable := (ext.Kind == validation.Int && (ext.I > 0 || ext.Big != "")) ||
+		(ext.Kind == validation.Flt && ext.F > 0)
+	findingID := objStr(g.f, "finding_id")
+	var waiver *validation.Value
+	rows, err := waiversFunc(g.campaign, "paid-exploitability")
+	if err != nil {
+		return err
+	}
+	for _, w := range rows {
+		if subject := objStr(w, "subject"); subject == "*" ||
+			subject == findingID {
+			w := w
+			waiver = &w
+			break
+		}
+	}
+	exp := objAt(g.f, "exploitability")
+	if exp.Kind != validation.Obj {
+		if (status == "CONFIRMED" || status == "CHAIN") && extractable {
+			g.add("paid-exploitability", "fail",
+				"CONFIRMED/CHAIN finding with extractable_usd > 0 has no "+
+					"exploitability argument — answer: who pays, and why "+
+					"does this bug make them pay?", "")
+			if waiver != nil {
+				g.addWaived("paid-exploitability", waiver)
+			} else {
+				g.blockers = append(g.blockers,
+					"no paid-exploitability argument on an extractable "+
+						"finding")
+			}
+			return nil
+		}
+		g.add("paid-exploitability", "pass",
+			"no extractable claim to answer", "")
+		return nil
+	}
+	paid, paidOk := fieldAt(exp, "paid")
+	if !paidOk || paid.Kind != validation.Bool {
+		g.add("paid-exploitability", "fail",
+			"exploitability present but malformed (paid must be a boolean)",
+			"")
+		return nil
+	}
+	n := len([]rune(objStr(exp, "argument")))
+	if paid.B {
+		if n < findings.ExploitabilityArgumentMin {
+			g.add("paid-exploitability", "fail",
+				"paid=true but the argument is missing or too short ("+
+					strconv.Itoa(n)+" < "+
+					strconv.Itoa(findings.ExploitabilityArgumentMin)+
+					" chars) — say who pays, and why the bug makes them "+
+					"pay", "")
+			if waiver != nil {
+				g.addWaived("paid-exploitability", waiver)
+			} else {
+				g.blockers = append(g.blockers,
+					"paid exploitability argument missing or too short")
+			}
+			return nil
+		}
+		g.add("paid-exploitability", "pass",
+			"paid — argument recorded ("+strconv.Itoa(n)+" chars)", "")
+		return nil
+	}
+	if n > 0 {
+		g.add("paid-exploitability", "pass",
+			"not payable — argument records why ("+strconv.Itoa(n)+
+				" chars)", "")
+		return nil
+	}
+	g.add("paid-exploitability", "pass", "not payable", "")
+	return nil
+}
+
+// run executes the fourteen checks (the twelve ported + accepted-risk (A1)
+// + paid-exploitability (A4)).
 func (g *gate) run() error {
 	g.check1()
 	for _, check := range []func() error{g.check2, g.check3, g.check4, g.check5,
 		g.check6, g.check7, g.check8, g.check9, g.check10, g.check11,
-		g.check12, g.check13} {
+		g.check12, g.check13, g.check14} {
 		if err := check(); err != nil {
 			return err
 		}

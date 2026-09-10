@@ -523,6 +523,7 @@ func structuredOutputs() validation.Value {
 		validation.KV{K: "evidence", V: validation.VStr("findings.add_evidence(campaign, finding_id, item)")},
 		validation.KV{K: "critic_verdict", V: validation.VStr("findings.set_critic_verdict(campaign, finding_id, verdict, reasoning)")},
 		validation.KV{K: "repro_attempt", V: validation.VStr("reproduction.record_attempt(campaign, finding_id, outcome, ...)")},
+		validation.KV{K: "exploitability", V: validation.VStr("webv2 exploit <campaign> <finding> --paid --arg 'who pays, and why the bug makes them pay (>= 200 chars)'   (or: --unpaid --arg 'why the finding is not payable')")},
 	)
 }
 

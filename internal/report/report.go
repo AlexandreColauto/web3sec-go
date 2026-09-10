@@ -1015,6 +1015,21 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		out = append(out, fmt.Sprintf("- economically extractable: $%s",
 			pyCommaAuto(ex)))
 	}
+	if exp := asObj(objAt(f, "exploitability")); len(exp.O) > 0 {
+		if paid := objAt(exp, "paid"); paid.Kind == validation.Bool {
+			if paid.B {
+				out = append(out, fmt.Sprintf(
+					"- paid exploitability: **yes** — who pays, and why: "+
+						"%s", pyStr(objAt(exp, "argument"))))
+			} else {
+				line := "- paid exploitability: **no**"
+				if a := objStr(exp, "argument"); a != "" {
+					line += " — " + a
+				}
+				out = append(out, line)
+			}
+		}
+	}
 	b := asObj(objAt(f, "bounty"))
 	if len(b.O) > 0 {
 		line := fmt.Sprintf("- bounty gate: eligible=%s, submission_ready=%s",

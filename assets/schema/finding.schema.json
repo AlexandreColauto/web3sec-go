@@ -411,6 +411,22 @@
         }
       }
     },
+    "exploitability": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "paid": {
+          "type": "boolean",
+          "description": "does this bug make someone pay? (the paid-exploitability question, check14)"
+        },
+        "argument": {
+          "type": "string",
+          "description": "WHO pays, and WHY does this bug make them pay (paid=true: >= 200 chars — check14 enforces the floor); with paid=false it records why the finding is NOT payable"
+        }
+      },
+      "required": ["paid"],
+      "description": "the paid-exploitability argument (check14, IMPROVEMENTS A4): the difference between a bug and a bounty finding. ABSENT = the question is unanswered; the gate demands an answer on a CONFIRMED/CHAIN finding carrying extractable_usd > 0."
+    },
     "reported_severity": {
       "enum": ["low", "medium", "high", "critical"],
       "description": "what the model/operator REPORTED before calibration; kept so divergence from the computed band is visible"

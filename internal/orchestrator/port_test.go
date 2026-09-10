@@ -273,6 +273,19 @@ func portMakeSubmissionReady(t *testing.T, c *state.Campaign, findingID,
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatalf("save finding: %v", err)
 	}
+	// A4: the submission chain answers "who pays, and why" — the gate's
+	// paid-exploitability check (check14) demands it on every CONFIRMED
+	// extractable finding.
+	if _, err := findings.SetExploitability(c, findingID, true,
+		"Who pays: the protocol itself — the vault treasury is the "+
+			"counterparty funding every unbacked withdrawal, and the stale "+
+			"spot read mints value the pool never held. The E5 fork repro "+
+			"measured $1,500,000 extractable against the pinned ACME price "+
+			"(PRC-acme01), above the program's high-band floor for "+
+			"protocol-solvency impact, so the bug makes the protocol pay by "+
+			"turning each price update into an unbacked withdrawal right"); err != nil {
+		t.Fatalf("set exploitability: %v", err)
+	}
 	return forkRec
 }
 
