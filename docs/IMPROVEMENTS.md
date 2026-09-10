@@ -1861,9 +1861,10 @@ pointers, not contracts — re-locate by symbol when editing.*
 
 # Wave G — Hybrid tools, calibration & the beyond-contract stack
 
-Date: 2026-09-10 · Status: **PROPOSED** — every item awaits a review decision;
-nothing below is landed, and anchors are pointers to be re-located at landing
-time (same convention as above).
+Date: 2026-09-10 · Status: **tranche 1 LANDED (G1, G6, G7) 2026-09-10**;
+tranches 2–4 (G2/G3, G4, G5, G8–G12) remain **PROPOSED** and await a review
+decision. Anchors are pointers to be re-located at landing time (same
+convention as above).
 
 **Sources.** (1) *Beyond Smart Contracts: A Hybrid Defense Strategy* — the
 multi-layer report (hybrid static+symbolic+fuzzing, LLM auditing trends,

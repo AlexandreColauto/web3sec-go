@@ -175,7 +175,8 @@ that shares your mechanism is evidence to engage with, not noise.
 
 After you record your verdict, you MAY also record whether a bounty triager
 would accept and PAY this finding under THIS campaign's policy. Read the live
-policy first (`webv2 scope <campaign> --show` and the brief) — the rubric is
+policy first (`webv2 scope <campaign> --policy <p.json>` loads the policy file;
+`webv2 brief <campaign>` shows the gate's bounty view) — the rubric is
 the program's own words, never your imagination:
 
 - `likely` — matches policy scope AND a critical/high minimum payout clearly
