@@ -156,7 +156,8 @@ git commit -m "docs(G7): claim-intake methodology checklist + runbook hard rule 
      "description": "Reentrancy in Vault.withdraw (src/Vault.sol#42-58):\n\tExternal calls:\n\t- token.transfer(msg.sender, amount) (src/Vault.sol#50)\n",
      "vertices": [
        {"type": "source", "filename": "src/Vault.sol", "line_no": 50},
-       {"type": "source", "filename": "src/Vault.sol", "line_no": 44}
+       {"type": "source", "filename": "src/Vault.sol", "line_no": 44},
+       {"type": "sink", "filename": "src/Vault.sol", "line_no": 51}
      ]},
     {"check": "unchecked-transfer", "impact": "Medium", "confidence": "Medium",
      "description": "Unused return value of token.transfer (src/Pay.sol#11) (src/Vault.sol#33)",
@@ -228,6 +229,12 @@ func TestToPayloadsMappingAndOrder(t *testing.T) {
 	}
 	if lines := valsOf(objAt(aff[0], "lines")); lines[0].I != 44 {
 		t.Fatal("affected must be sorted by line")
+	}
+	// the type:"sink" vertex at line 51 is NOT an affected entry
+	for _, a := range aff {
+		if ln := valsOf(objAt(a, "lines")); ln[0].I == 51 {
+			t.Fatal("non-source vertices must be filtered out")
+		}
 	}
 }
 
@@ -309,9 +316,10 @@ const Dataset = "slither"
 // minImpact admits Medium/High/Critical findings only.
 var admittedImpacts = map[string]bool{"High": true, "Critical": true, "Medium": true}
 
-// checkClasses maps Slither check ids to canonical taxonomy classes.
-// Anything absent maps to logic-error (the taxonomy advisory on ingest is
-// then the honest signal, not a silent invention).
+// checkClasses maps Slither check ids to canonical taxonomy classes. It
+// lists ONLY non-default mappings: anything absent maps to logic-error
+// (the taxonomy advisory on ingest is then the honest signal, not a silent
+// invention).
 var checkClasses = map[string]string{
 	"reentrancy-eth":            "reentrancy",
 	"reentrancy-no-eth":         "reentrancy",
@@ -326,8 +334,6 @@ var checkClasses = map[string]string{
 	"weak-prng":                 "signature-replay",
 	"uninitialized-state":       "upgrade-initializer",
 	"uninitialized-public":      "upgrade-initializer",
-	"incorrect-equality":        "logic-error",
-	"shadowing-local":           "logic-error",
 }
 
 const defaultClass = "logic-error"
@@ -360,6 +366,12 @@ func ToPayloads(doc validation.Value) ([]validation.Value, error) {
 		}
 		var sites []site
 		for _, v := range valsOf(objAt(r, "vertices")) {
+			// Real Slither output mixes vertex kinds (source, sink,
+			// expression); only `source` (or untyped, older shapes)
+			// are locations we can anchor. Everything else is noise.
+			if vt := objStr(v, "type"); vt != "" && vt != "source" {
+				continue
+			}
 			fn := objStr(v, "filename")
 			ln := objAt(v, "line_no")
 			if fn == "" || ln.Kind != validation.Int {
@@ -499,11 +511,32 @@ git commit -m "feat(G1): Slither JSON adapter — detector flags become hypothes
 - [ ] **Step 1: Write the failing CLI test** (append to `cmd_ingest_test.go`, mirroring how the existing tests build a campaign + payload there — reuse their helpers; if the file's helpers differ, adapt names, NOT semantics):
 
 ```go
+// Verified: cmd_ingest_test.go has a package-local `run(t *testing.T,
+// args ...string) (int, string, string)` (line 26, stdout then stderr);
+// mkroot/initOne exist in cli_test.go. No other CLI helpers are invented —
+// read stored findings back with this one glob helper:
+func storedFinding(t *testing.T, root, cid string) validation.Value {
+	t.Helper()
+	ms, err := filepath.Glob(filepath.Join(root, "campaigns", cid, "findings", "F-*.json"))
+	if err != nil || len(ms) != 1 {
+		t.Fatalf("findings on disk: %v (%v)", ms, err)
+	}
+	raw, err := os.ReadFile(ms[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := validation.ParseOrdered(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
 func TestIngestFromSlitherCreatesHypotheses(t *testing.T) {
-	root := mkroot(t) // existing test helper
+	root := mkroot(t)
 	cid := initOne(t, root)
-	// existing helpers: write target + snapshot so intake passes; if the
-	// file's ingest tests skip snapshotting, follow their pattern exactly.
+	// follow the file's existing ingest tests for whatever else intake
+	// needs (target files, snapshot pin) — copy their setup verbatim.
 	raw := `{"results":[{"check":"reentrancy-eth","impact":"High","confidence":"Medium",
 	  "description":"Reentrancy in Vault.withdraw (src/Vault.sol#42-58)",
 	  "vertices":[{"filename":"src/Vault.sol","line_no":50}]}]}`
@@ -511,46 +544,49 @@ func TestIngestFromSlitherCreatesHypotheses(t *testing.T) {
 	if err := os.WriteFile(p, []byte(raw), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	code, out := runCLI(t, root, "ingest", cid, "--from", "slither", "--json-file", p)
+	code, out, errOut := run(t, root, "ingest", cid, "--from", "slither", "--json-file", p)
 	if code != 0 {
-		t.Fatalf("exit %d: %s", code, out)
+		t.Fatalf("exit %d: %s / %s", code, out, errOut)
 	}
-	if !strings.Contains(out, "slither:reentrancy-eth") && !strings.Contains(out, "F-") {
+	if !strings.Contains(out, "F-") {
 		t.Fatalf("output must report the created finding: %s", out)
 	}
 	// provenance survived the round-trip into the stored finding:
-	f := loadFirstFindingJSON(t, root, cid) // parse campaigns/<cid>/findings/*.json
-	sast := pathString(f, "provenance", "sast_tools", "0")
-	if sast != "slither:reentrancy-eth" {
-		t.Fatalf("provenance.sast_tools lost in ingest: %q", sast)
+	f := storedFinding(t, root, cid)
+	tools := objAt(objAt(f, "provenance"), "sast_tools").A
+	if len(tools) != 1 || tools[0].S != "slither:reentrancy-eth" {
+		t.Fatalf("provenance.sast_tools lost or wrong: %v", tools)
+	}
+	if cls := objAt(objAt(f, "root_cause"), "class").S; cls != "reentrancy" {
+		t.Fatalf("mapped class lost: %s", cls)
 	}
 }
 
 func TestIngestFromRejectsUnknownSource(t *testing.T) {
 	root := mkroot(t)
 	cid := initOne(t, root)
-	code, out := runCLI(t, root, "ingest", cid, "--from", "mytool", "--json-file", "/dev/null")
+	code, _, errOut := run(t, root, "ingest", cid, "--from", "mytool", "--json-file", "/dev/null")
 	if code != 2 {
-		t.Fatalf("want usage error exit 2, got %d (%s)", code, out)
+		t.Fatalf("want usage error exit 2, got %d", code)
 	}
-	if !strings.Contains(out, "argument --from: invalid choice") {
-		t.Fatalf("argparse-shaped error expected: %s", out)
+	if !strings.Contains(errOut, "argument --from: invalid choice") {
+		t.Fatalf("argparse-shaped error expected: %s", errOut)
 	}
 }
 
 func TestIngestFromRequiresJsonFile(t *testing.T) {
 	root := mkroot(t)
 	cid := initOne(t, root)
-	code, out := runCLI(t, root, "ingest", cid, "--from", "slither")
+	code, _, errOut := run(t, root, "ingest", cid, "--from", "slither")
 	if code != 2 {
-		t.Fatalf("want exit 2, got %d (%s)", code, out)
+		t.Fatalf("want exit 2, got %d", code)
 	}
-	if !strings.Contains(out, "--json-file") {
-		t.Fatalf("the message must name the missing flag: %s", out)
+	if !strings.Contains(errOut, "--json-file") {
+		t.Fatalf("the message must name the missing flag: %s", errOut)
 	}
 }
 ```
-(`runCLI`, `loadFirstFindingJSON`, `pathString` are the file's existing CLI-exec and JSON-path test helpers if present; if absent, write them once here as small helpers using the package's established pattern of invoking `cli.Run(root, argv, out)` and reading the finding file with `os.ReadFile` + `validation.ParseOrdered`.)
+(`objAt`/`objStr` already exist in this package (cmd_ingest.go uses them); reuse. `run`'s return order is `(code, stdout, stderr)` — match it. The fixture file `p` is written with `os.WriteFile` into `t.TempDir()` as shown in the first test.)
 
 - [ ] **Step 2: Run to verify failure** — `go test ./internal/cli/ -run TestIngestFrom -count=1` → FAIL: `unrecognized arguments: --from`.
 
@@ -591,11 +627,7 @@ func runIngestSast(root string, c *state.Campaign, a ingestArgs, r *Runner) erro
 	if a.jsonFile == "" {
 		return t14ExitErr(2, "--from requires --json-file (the tool's JSON output)\n")
 	}
-	raw, err := readArgFile(a.jsonFile)
-	if err != nil {
-		return t14ExitErr(2, "%s\n", err)
-	}
-	doc, err := validation.ParseOrdered(raw)
+	doc, err := t14ReadPayload(a.jsonFile) // existing ordered-JSON reader
 	if err != nil {
 		return t14ExitErr(2, "slither JSON unparsable: %s\n", err)
 	}
@@ -604,10 +636,14 @@ func runIngestSast(root string, c *state.Campaign, a ingestArgs, r *Runner) erro
 		return t14ExitErr(2, "%s\n", err)
 	}
 	orch := orchestrator.New(c)
+	stage := a.stage
+	if stage == "" {
+		stage = "sast-slither"
+	}
 	var created []string
 	for _, p := range payloads {
 		f, err := orch.Ingest(p, orchestrator.IngestOpts{
-			Trajectory: a.trajectory, Stage: orDefault(a.stage, "sast-slither")})
+			Trajectory: a.trajectory, Stage: stage})
 		if err != nil {
 			printIngestFailure(r, err)
 			return t14ExitErr(2, "")
@@ -621,7 +657,7 @@ func runIngestSast(root string, c *state.Campaign, a ingestArgs, r *Runner) erro
 	return nil
 }
 ```
-(`readArgFile` = the existing `t14ReadPayload` reader minus its payload validation — reuse it reading the file and returning bytes; if it returns a parsed Value directly, add a tiny `os.ReadFile` local instead. `orDefault` exists in evalstore, not cli — write `if a.stage == "" { stage = "sast-slither" }` explicitly. Match reality at edit time; semantics fixed: stage defaults to `sast-slither`.)
+(Verified against the code: `t14ReadPayload(path)` returns a `validation.Value` parsed via `ParseOrdered` — it IS the reader; the orchestrator entry is exactly `orchestrator.New(c).Ingest(payload, orchestrator.IngestOpts{Trajectory, Stage, ...})` as the single-payload branch already calls it. `state` import needed for the `*state.Campaign` parameter.)
 
   d. Usage/help: add to BOTH `t14IngestUsage` and `t14IngestHelp` the line `--from {slither}   tool-output ingest (G1); requires --json-file`, keeping argparse's exact layout (options block order = declaration order).
 
@@ -717,31 +753,36 @@ func TestResolveSameWithoutAnyToolsRecordsNothing(t *testing.T) {
 
 - [ ] **Step 2: Verify failure** — `go test ./internal/dedup/ -run Corroboration -count=1` → FAIL (no `corroborated_by`).
 
-- [ ] **Step 3: Implement in `ResolveCandidate`, inside the `if verdict == "same"` block, BEFORE `mergeYounger`** (so the merge moves the record with the survivor):
+- [ ] **Step 3: Implement in `ResolveCandidate`.** Verified facts about the target (dedup.go): the package ALREADY defines `kv`, `objAt`, `objStr`, `getDeep`, `setDeep`, `valueStrings` — consume them, ADD NOTHING (no new local helpers). The function ends `return f, nil` and `f` is stale after the verdict saves — replace that return with a reload. Insert inside the `if verdict == "same"` block, BEFORE `mergeYounger`:
 
 ```go
 	if verdict == "same" {
 		// G1 corroboration law: exactly one side SAST-flagged => the model
 		// side is corroborated by the tool finding. Same-engine pairs never
-		// corroborate; the operator resolved the SAME-ROOT-CAUSE link, we
-		// only record what that resolution mechanically implies.
-		sides := []struct{ self, other validation.Value }{
-			{f, other}, {other, f},
-		}
-		for _, s := range sides {
-			selfTools := valsOf(getDeep(s.self, "provenance", "sast_tools"))
-			otherTools := valsOf(getDeep(s.other, "provenance", "sast_tools"))
-			if len(selfTools) == 0 && len(otherTools) > 0 {
-				corroborated := setDeep(s.self,
-					validation.VStr(objStr(s.other, "finding_id")),
+		// corroborate — an independent method is the point. The operator
+		// resolved the same-root-cause link; we only record what that
+		// resolution mechanically implies. Reload both sides: the loop
+		// above just saved them.
+		for _, pair := range [2][2]string{
+			{findingID, ofFindingID}, {ofFindingID, findingID}} {
+			selfID, otherID := pair[0], pair[1]
+			self, err := findings.LoadFinding(campaign, selfID)
+			if err != nil {
+				return validation.VNull(), err
+			}
+			other, err := findings.LoadFinding(campaign, otherID)
+			if err != nil {
+				return validation.VNull(), err
+			}
+			if len(valueStrings(getDeep(self, "provenance", "sast_tools"))) == 0 &&
+				len(valueStrings(getDeep(other, "provenance", "sast_tools"))) > 0 {
+				corroborated := setDeep(self, validation.VStr(otherID),
 					"dedup_meta", "corroborated_by")
 				if err := findings.SaveFinding(campaign, &corroborated); err != nil {
 					return validation.VNull(), err
 				}
-				data := validation.VObj(
-					kv("of", validation.VStr(objStr(s.other, "finding_id"))))
-				fid := objStr(s.self, "finding_id")
-				if _, err := campaign.Log("dedup.corroborated", &fid, &data); err != nil {
+				data := validation.VObj(kv("of", validation.VStr(otherID)))
+				if _, err := campaign.Log("dedup.corroborated", &selfID, &data); err != nil {
 					return validation.VNull(), err
 				}
 			}
@@ -750,8 +791,10 @@ func TestResolveSameWithoutAnyToolsRecordsNothing(t *testing.T) {
 			return validation.VNull(), err
 		}
 	}
+	return findings.LoadFinding(campaign, findingID)
+}
 ```
-`valsOf` may not exist in dedup.go — add the same 5-line local helper (pattern already duplicated across packages; this repo accepts the duplication). Note the return value: `f` was captured before re-save — return the latest side that holds the record: re-`LoadFinding` `findingID` just before `return f, nil`.
+(`mergeYounger(campaign, f, ...)` keeps taking the pre-save `f`: it reads only `created_at`/`status`/`finding_id`, untouched by the verdict saves — same as today. The final line REPLACES the existing `return f, nil` so the caller sees the reloaded record; `cmd_resolve_candidate.go`'s printed line must stay byte-identical — its prints read only id/verdict, verify at landing.)
 
 - [ ] **Step 4: Failing acceptance test** in `acceptance_test.go`:
 
@@ -875,6 +918,12 @@ func TestSetTriagerOutlook(t *testing.T) {
 - [ ] **Step 4: Transition.** In `transitions.go`, after `SetCriticVerdict`:
 
 ```go
+// TriagerOutlooks is the SINGLE source of the outlook enum (schema, CLI and
+// the acceptance table must all agree with it; the sync assertions in
+// risk/acceptance_test.go enforce it — a fourth consumer is forbidden to
+// hardcode its own copy).
+func TriagerOutlooks() []string { return []string{"likely", "uncertain", "unlikely"} }
+
 // SetTriagerOutlook is the G6 companion of set_critic_verdict: record the
 // critic's acceptance-likelihood call — WILL A TRIAGER ACCEPT AND PAY THIS —
 // kept structurally separate from critic_verdict (truth) and
@@ -914,7 +963,7 @@ func SetTriagerOutlook(campaign *state.Campaign, findingID, outcome,
 ```
 (`strings` import if the file lacks it.)
 
-- [ ] **Step 5: CLI.** In `cmd_verdict.go`: `var triagerOutlooks = []string{"likely", "uncertain", "unlikely"}`; parse `--outlook`/`--outlook-reason` (both forms, same case style as `--verdict`/`--reason`); XOR error:
+- [ ] **Step 5: CLI.** In `cmd_verdict.go`: `var triagerOutlooks = findings.TriagerOutlooks()` (the enum lives in exactly one place, step 4 above); parse `--outlook`/`--outlook-reason` (both forms, same case style as `--verdict`/`--reason`); XOR error:
 
 ```go
 	if (outlook == "") != (outlookReason == "") {
@@ -1012,16 +1061,99 @@ func TestTriagerOutlookFactor(t *testing.T) {
 plus:
 ```go
 // wAcceptanceOutlook is the G6 nudge table: bounded, symmetric, and absent
-// outcomes contribute nothing (same posture as reversibility).
+// outcomes contribute nothing (same posture as reversibility). The key SET
+// is asserted equal to findings.TriagerOutlooks() by TestOutlookEnumSync —
+// adding an outcome to the enum without a weight here (or without one
+// there) fails a test, not a campaign.
 var wAcceptanceOutlook = map[string]float64{"likely": 0.5, "uncertain": 0.0, "unlikely": -0.5}
 ```
+
+And the sync-guard test, same file — score keys AND schema enum set-equal to the single source:
+
+```go
+func TestOutlookEnumSync(t *testing.T) {
+	// 1) score table keys == findings.TriagerOutlooks()
+	for _, o := range findings.TriagerOutlooks() {
+		if _, ok := wAcceptanceOutlook[o]; !ok {
+			t.Fatalf("outlook %q missing from the score table", o)
+		}
+	}
+	if len(wAcceptanceOutlook) != len(findings.TriagerOutlooks()) {
+		t.Fatal("score table carries an outcome the enum does not")
+	}
+	// 2) the finding schema's enum == findings.TriagerOutlooks()
+	raw, err := validation.ReadSchemaFile("finding")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := validation.ParseOrdered(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tout := objAt(objAt(objAt(objAt(objAt(doc, "properties"),
+		"verification"), "properties"), "triager_outlook"), "properties")
+	enums := objAt(objAt(tout, "outcome"), "enum").A
+	var got []string
+	for _, e := range enums {
+		got = append(got, e.S)
+	}
+	if strings.Join(got, ",") != strings.Join(findings.TriagerOutlooks(), ",") {
+		t.Fatalf("schema enum %v drifted from TriagerOutlooks() %v", got,
+			findings.TriagerOutlooks())
+	}
+}
+```
+(Add `websec/internal/findings` and `strings` imports to the test if absent; `ReadSchemaFile` is exported by `internal/validation`. If executing strictly per-task, Task 5's transitions test carries the 1)+2) checks for the CLI mirror only, and the full sync test lands with Task 6.)
 and extend the file-header formula comment: `+ outlook(verification.triager_outlook) = ±0.5 (G6)` next to the G1 line from Task 4.
 
-- [ ] **Step 3: Green + golden + commit**
+- [ ] **Step 3: Combined-factors test** (review feedback item 2 — the score is ADDITIVE; its only clamp is the floor at 0; there is deliberately NO ceiling on the number, the budget cap is `AcceptanceRanking`'s top-K selection; this test pins that contract):
+
+```go
+func TestCombinedFactors(t *testing.T) {
+	// confirmed(+1.5) + critical band(+3.0) + E4 evidence(wLevel["E4"])
+	// + corroborated(+0.5) + outlook likely(+0.5) == exact sum, no cap.
+	f := accFinding(func(f *validation.Value) {
+		setBand(f, "critical")
+		setEvidence(f, "E4")
+		*f = withKeyR(*f, "dedup_meta", validation.VObj(
+			kvR("corroborated_by", validation.VStr("F-t"))))
+		*f = withKeyR(*f, "verification", validation.VObj(
+			kvR("critic_verdict", validation.VStr("confirmed")),
+			kvR("triager_outlook", validation.VObj(
+				kvR("outcome", validation.VStr("likely")),
+				kvR("reason", validation.VStr("policy pays critical; fork PoC"))))))
+	})
+	score, dq := AcceptanceScore(f)
+	if dq {
+		t.Fatal("not disqualified")
+	}
+	want := 1.5 + 3.0 + wLevel["E4"] + 0.5 + 0.5
+	if score != want {
+		t.Fatalf("additivity broken: got %v want %v", score, want)
+	}
+	// floor clamp with BOTH demotions and outlook unlikely on a bare
+	// finding: -1 (ack) -2 (accepted-risk) -0.5 (unlikely) -> exactly 0.
+	b := accFinding(func(f *validation.Value) {
+		setAck(f)
+		*f = withKeyR(*f, "bounty", validation.VObj(
+			kvR("accepted_risk", validation.VObj())))
+		*f = withKeyR(*f, "verification", validation.VObj(
+			kvR("triager_outlook", validation.VObj(
+				kvR("outcome", validation.VStr("unlikely")),
+				kvR("reason", validation.VStr("policy excludes this scope"))))))
+	})
+	if sc, _ := AcceptanceScore(b); sc != 0 {
+		t.Fatalf("floor clamp: %v", sc)
+	}
+}
+```
+(`want` is computed from the package's own `wLevel` table — no shadow formula; if `wLevel["E4"]` is not what you expect, the literal in `acceptance.go` is the contract and this test is the drift detector. `setCritic` is NOT used in the first finding because the verification object is written wholesale — both critic_verdict and triager_outlook live in that one object.)
+
+- [ ] **Step 4: Green + golden + commit**
 
 ```bash
 go test ./internal/risk/ -count=1 && scripts/golden.sh
-git add -A && git commit -m "feat(G6): acceptance score consumes the triager outlook (±0.5, presence-gated)"
+git add -A && git commit -m "feat(G6): acceptance score consumes the triager outlook (±0.5, presence-gated); combined-factor arithmetic pinned"
 ```
 
 ---
@@ -1165,4 +1297,6 @@ git commit -m "feat(G6): critic payment-rubric prompt section; Wave G tranche 1 
 - **Spec coverage:** G7 (Task 1 doc — the asset-side validator lands with G2's `class_weights.json`, by design in tranche 2); G1 (adapter T2, campaign path T3, corroboration T4, ledger-as-view T7; the dataset-registry vocabulary + `--backtest` explicitly DEFERRED — tool flags have no ground-truth `outcome`, so the eval-case lane stays empty until G3 exists); G6 (T5 schema/CLI, T6 score, T8 prompt).
 - **Deferred by plan, not accident:** the policy-flag graduation from the Wave G design survives to G3's backtest — presence-gated writes are this tranche's whole default story.
 - **Pins to keep an eye on:** `internal/cli/testdata/p3_args_golden.json` (usage-block pins for `ingest` and `verdict` — Tasks 3 and 5 both touch it); `assets/testdata/asset_manifest.json` (Tasks 1, 5, 8 each regenerate it — never hand-edit).
-- **Type consistency:** `corroborated_by` is a string (matches `dedup_meta` `additionalProperties: string`); `triager_outlook.reason` minLength 15 matches the transition's rune check; the outlook enum is defined once in the schema and twice mirrored verbatim in Go (`triagerOutlooks` CLI list, `wAcceptanceOutlook` keys — add a test-asserted `triagerOutlookChoices()` accessor in transitions.go so all three read from one source if a fourth consumer appears).
+- **Type consistency:** `corroborated_by` is a string (matches `dedup_meta` `additionalProperties: string`); `triager_outlook.reason` minLength 15 matches the transition's rune check; the outlook enum has ONE Go source (`findings.TriagerOutlooks()`), consumed by the CLI and mirrored in the score table, with `TestOutlookEnumSync` asserting score keys and the schema enum set-equal to it — no fourth hardcode allowed (review feedback item 1).
+- **Score cap (review feedback item 2):** `Acceptance` has a floor clamp at 0 and NO ceiling by design — it is a ranking scale; the budget cap is the top-K selection inside `AcceptanceRanking`. `TestCombinedFactors` proves the arithmetic both ways.
+- **Helper reuse (review feedback items 3/4):** `internal/dedup` already ships `kv/objAt/objStr/getDeep/setDeep/valueStrings` — Task 4 consumes them, adds NOTHING. The CLI tests use the package-local `run(t, args...) (int, string, string)` (cmd_ingest_test.go:26); Task 3 reads payloads via the existing `t14ReadPayload`; no invented helper names.
