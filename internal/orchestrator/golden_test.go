@@ -8,6 +8,12 @@
 // very same campaign tree, replays the very same calls through the Go twin and
 // compares byte-for-byte with validation.DumpIndented.
 //
+// One snapshot is not a pure recorder artifact: the `gates` scenario's
+// bounty_gate_all step (oracle, state and events) was re-recorded from the Go
+// twin when D8 made check11's blocker carry fork_poc_status's reason instead
+// of the constant. The Python twin still emits the constant, so re-running
+// gen-vectors.py over `gates` would revert that one snapshot.
+//
 // The three seams a replay must supply (structural index, adapter context,
 // independent-evidence minting) are installed with fakes whose recorded
 // call-site arguments are compared against the Python recorder's — so the
