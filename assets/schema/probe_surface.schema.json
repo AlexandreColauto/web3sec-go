@@ -8,6 +8,19 @@
   "required": ["campaign_id", "snapshot_id", "parse_version", "index_sha",
                "generated_at", "per_axis", "total", "floor", "axes", "rows",
                "missing", "stats"],
+  "definitions": {
+    "stage_site": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["function", "line", "kind"],
+      "properties": {
+        "function": { "type": "string" },
+        "line": { "type": "integer" },
+        "kind": { "enum": ["write", "read"] }
+      }
+    }
+  },
+
   "properties": {
     "campaign_id": { "type": "string" },
     "snapshot_id": { "type": ["string", "null"] },
@@ -136,7 +149,38 @@
           "rounded_line": { "type": "integer", "minimum": 0 },
           "plain_line": { "type": "integer", "minimum": 0 },
           "accumulator": { "type": "string" },
-          "companion": { "type": "string" }
+          "companion": { "type": "string" },
+
+          "stages_unguarded": {
+            "type": "array",
+            "description": "IMPROVEMENTS C1: the (write, read) enforcement stage pairs of this row's concept keys that no assertion about the key covers, scoped to this row's contract and derived deterministically from the structural index. Present only when at least one such pair exists; capped, with stages_unguarded_total carrying the true count.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["write", "read", "write_guarded", "read_guarded",
+                           "contract", "concept"],
+              "properties": {
+                "write": { "$ref": "#/definitions/stage_site" },
+                "read": { "$ref": "#/definitions/stage_site" },
+                "write_guarded": {
+                  "type": "boolean",
+                  "description": "the write site's function carries an assertion about the concept key"
+                },
+                "read_guarded": {
+                  "type": "boolean",
+                  "description": "the read site's function carries an assertion about the concept key"
+                },
+                "contract": { "type": "string" },
+                "concept": { "type": "string" }
+              }
+            }
+          },
+
+          "stages_unguarded_total": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "the true number of uncovered stage pairs for this row, before the stages_unguarded cap"
+          }
         }
       }
     },

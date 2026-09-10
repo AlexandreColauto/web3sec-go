@@ -133,7 +133,8 @@ func rederiveSurface(c *state.Campaign, surface validation.Value,
 	perAxis := knob(surface, "per_axis", 12)
 	total := knob(surface, "total", 40)
 	floor := knob(surface, "floor", 3)
-	built, err := BuildSurface(*idx, model, perAxis, total, floor, "")
+	built, err := BuildSurfaceOpts(*idx, model, perAxis, total, floor, "",
+		ProdProbeOpts())
 	if err != nil {
 		return nil, []string{sprintf("could not re-derive the probe surface "+
 			"from the current index + model (%s) — the row anchors cannot be "+

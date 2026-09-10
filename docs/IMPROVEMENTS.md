@@ -645,6 +645,109 @@ new `internal/cli/cmd_enforce.go`.
 **Tests:** table ordering determinism, guard attribution, morph fixture
 (prevStateRoot table reproduces the gold's shape).
 
+**As landed (C1):**
+- `internal/structidx/enforcement.go` is the query.
+  `EnforcementTable(index, name)` /
+  `EnforcementTableOpts(index, name, EnforcementOpts{Contract})` emit
+  `{name, match, concept_key, concept_keys, contract?, ordering, note?, sites[],
+  stages[], signals[], stats{}}`; `LoadIndex(c)` reads the stored index with no
+  source tree and no freshness check, so the verb works on a campaign whose
+  index is already built. `match` is `storage` (the index knows the name as a
+  state variable or a reads/writes_storage entry), `concept` (only keyed
+  statements matched) or `none`.
+- **Which sites win.** The design assumed the per-function
+  `reads_storage`/`writes_storage` lists are authority and the statement-level
+  `uses` merely sharpen lines; the fixture shows the opposite can hold —
+  `commitBatch`'s `writes_storage` records only `storedHash` while its
+  statement-level uses carry the write of `prevStateRoot` at line 15. So the
+  query collects statement-level sites first (kind write|read, exact line,
+  `granularity: "statement"`) and falls back to the function-level lists only
+  for a (function, kind) with no statement site (`granularity: "function"`, at
+  the declaration line). An index without statement uses still answers,
+  coarsely, and every row says which granularity it is.
+- **Matching is by the maximal concept key**, not "any shared token".
+  `conceptKeyOf` normalizes the typed name (separators folded onto `_`, then
+  `splitIdent`'s camelCase/`_` split plus the synonym fold, joined by `:`), so
+  `prev-state root` finds exactly `prevStateRoot`'s sites. It matters:
+  `storedHash` folds to `stored:root`, and a shared-token rule would sweep in
+  every `stateRoots`/`prevStateRoot` expression in the index. Both
+  `concept_keys` (the full list) and `concept_key` (the one used) are
+  published so a surprising hit is explainable.
+- **Guard attribution.** Each site carries its containing function's guards,
+  each marked `about_variable` when the guard's concept keys contain that
+  maximal key, and `guarded` when any does. `class` is the index's own
+  `guardStrength` (0..4).
+- **Ordering.** BFS depth over `calls` edges from entry points (depth 0), then
+  (contract, function, line, kind). `ordering` is `call-graph`, `partial`
+  (unreachable sites sort last, counted, with a note) or `declaration` (the
+  index has no entry point, with a note).
+- **Stage pairs are scoped to related sites** — same contract, same
+  inheritance family (union-find over `inherits` edges), or one function
+  reaching the other over `calls` edges within 4 hops. Unscoped is noise, not
+  thoroughness: the sibling gateway contracts each declare their own
+  `tokenMapping`, and pairing them yields 144 pairs where 8 survive; every
+  skipped pair is counted in `stage_pairs_skipped`.
+- **Pair coverage is per side.** Each pair carries `write_guarded` /
+  `read_guarded`, and `gap` means the *write* side has no assertion about the
+  variable (the value was committed unverified) while `stats.stage_open_gaps`
+  counts pairs where neither side does. A guarded write reaching an unguarded
+  read is neither: the write was checked, that consumer just trusts it.
+  `signals[]` are `no-writer`, `no-reader`, `unguarded-read` (per site) and
+  `unguarded-stage` (per gap, naming both ends and whether the read side is
+  guarded).
+- CLI `webv2 enforce <campaign> <name> [--contract C] [--json]`
+  (`internal/cli/cmd_enforce.go`, ord 73 — a new Go-only verb with argparse
+  semantics from `cmd_p3_args`): the text table (headline, one line per site
+  with kind/contract.function@line/depth/entry/guard text, signals, stage
+  counts), `--json` for the whole table, and `--contract` — not in the design,
+  added because a variable name is rarely unique across contracts. A
+  `--contract` that matches no site exits 2.
+- **Probe surface integration is opt-in.** `ProbeOpts{StageTables}` +
+  `BuildSurfaceOpts` (`internal/probes/surface.go`), with
+  `ProdProbeOpts()` used by `RunProbes` and by `audit.go`'s re-derivation;
+  `BuildSurface` keeps its reference signature and passes the zero value. The
+  zero value IS the reference surface byte-for-byte (the parity goldens keep
+  pinning the port), while the shipped surface attaches
+  `stages_unguarded[]` + `stages_unguarded_total` to assertion-strength rows
+  that have a gap, capped at 8 carried pairs (`internal/probes/stages.go`).
+  Pairs are scoped to the row's own contract and carry both sites plus
+  `write_guarded`/`read_guarded`. `assets/schema/probe_surface.schema.json`
+  gains the two optional row properties and a shared `definitions.stage_site`.
+- Tests: `internal/structidx/enforcement_test.go` (8 — never-written variable,
+  the writes_storage/uses precedence, guard attribution, stage pairs and
+  scoping, concept matching, contract scope, unknown name, determinism, and
+  the two partial orderings), `internal/cli/cmd_enforce_test.go` (7 — help,
+  six argparse vectors with exact stderr, missing index, text table, JSON,
+  contract scope, unknown name), `internal/probes/stages_test.go` (3 —
+  enrichment + schema validation, the opt-in/parity guarantee, enrichment
+  surviving the quota slice).
+- Golden stays green with no normalization: the enrichment is opt-in, its keys
+  are absent from non-opted-in surfaces, and the golden campaign's surface has
+  **0** assertion-strength rows (the other four probes supply its 4 rows), so
+  nothing it prints changed. `RowShapeSha` hashes only anchors/classes/
+  siblings/stranded, so the new row fields are shape-neutral by construction
+  and the audit's re-derivation check is unaffected.
+
+**Review corrections (facts the design block above got wrong):**
+- The design says "for a named storage variable (or concept key)" as if a
+  concept→variable map existed. There is none: concept keys are token n-grams
+  of the *expressions the parser saw*, and the only bridge is that a
+  statement's lvalue produces the variable's own key. The query matches on
+  that key (see above) instead of consulting a mapping.
+- The design's row shape includes `invariant: [invariants asserting the
+  variable]`. `internal/structidx` has **no** invariants — the trust probe
+  reads them from the protocol model (`protocol_model.json`), not the index. C1
+  therefore attributes *guards* (which the index does record, with classes),
+  and any item that wants invariants must read the model, not the index.
+- "Additive; existing rows unchanged shape" is true of the shape hash (see
+  above) but not of the parity goldens, which byte-compare whole surfaces: any
+  new row field changes them. Hence the `ProbeOpts` seam rather than a bare
+  field.
+- The design's `{site, kind, guarded_by, invariant}` row is missing the
+  ordering's own honesty (`depth`, `granularity`, `is_entry_point`) and the
+  stage pair's per-side guard state; both are in the landed rows because the
+  "who checks what, at which stage" question is unanswerable without them.
+
 ### C2. Primitive-symmetry matrix (family × custody-primitive)
 
 **Failed behavior:** the `custody-primitive` archetype (axis
@@ -978,6 +1081,90 @@ and assert the band is `high`.
 
 ---
 
+## Plan review (2026-09-10, after landing A1–A4, B1–B4, C1)
+
+Written from the far side of four waves: every point below is grounded in
+something that actually bit during implementation, not in reading the plan.
+
+**1. The parity goldens are a translation contract, not a product spec — label
+each item accordingly.** The plan says "additive, so no oracle updates" for
+several items. That is true of the *shape hash* (`RowShapeSha` covers anchors,
+classes, siblings and the stranded set, so new row fields are invisible to it —
+C1's `stages_unguarded` proved the point) and false of the *parity goldens*,
+which byte-compare whole surfaces and raw probe output. Any plan item that
+touches probe output needs a seam like C1's `ProbeOpts` (zero value =
+reference bytes, production opts in) and should say so in its design block.
+Recommended edit: mark each item `parity-pinned` (byte-identical required) or
+`Go-only` (new tests, presence-gated) — the distinction is currently implicit
+and C1's design block got it wrong before implementation.
+
+**2. New capability has no oracle. Say what its regression net is.** For
+Go-only work the only net is hand-written tests plus the golden suite's
+well-formedness checks. Each item should name its net explicitly (unit tests,
+a schema, a fixture). C1's net is: 8 structidx tests, 7 CLI tests, 3 probes
+tests, the schema, and the parity tests that pin the untouched path.
+
+**3. `writes_storage`/`reads_storage` under-report, and several existing
+probes inherit it — this should be an item, not a footnote.** C1 found that
+`commitBatch` writes `prevStateRoot` at line 15 statement-level while
+`writes_storage` records only `storedHash`. `StorageWriters`, the
+custody-primitive probe and the accumulator-skew probe all read those
+per-function lists, so the same gap is a candidate false-negative source
+*outside* C1. Recommended new item, ahead of C2 (which reads the same lists):
+**C0 — storage-list fidelity**: derive the per-function storage lists from the
+statement-level uses at index time (or reconcile them and publish the delta),
+then measure the change on the fixtures and the golden campaign. This is
+probably the highest-value discovery of the C1 pass and it is currently
+unplanned.
+
+**4. Scope every pair/matrix search by relatedness up front, and count what
+you skipped.** C1's unscoped stage pairing produced 144 pairs for
+`tokenMapping` where 8 were real. C2's family × custody matrix and D4's dedup
+signatures have the same shape of search space. Make it a stated principle
+(the way "additive" already is) and reuse the C1 helpers
+(`enforcementFamilies`, the `calls` adjacency) rather than re-deriving
+families per item; C2's design already asks for the shared helper — name it as
+`structidx`'s family index and move it out of `enforcement.go` when C2 lands.
+
+**5. Land large items as two commits: core+CLI first, surface second.** C1 was
+split into a deterministic query + CLI verb (zero golden risk, fully testable)
+and the probe-surface enrichment (needs the opt-in seam). That split is worth
+making explicit in "Implementation order" for every L item, because it gives a
+large item a safe landing point instead of one big unverified diff.
+
+**6. Consider hoisting the cheap report-honesty items (D1/D2) before C2.**
+Wave D affects every campaign the tool produces; C2's matrix only pays off once
+an agent (or a report section) reads it, and C1's table likewise only pays off
+through the probe surface. D2 in particular is sized S and fixes a
+"module not wired" class of bug that invalidates otherwise-good work. Ordering
+suggestion: C0 (fidelity) → D2 → D1 → C1′/C2, with C1 already landed.
+
+**7. Make the CLI conventions explicit.** The plan does not say which verbs get
+`--json` or a scope flag. C1 added `--contract` (a named variable is rarely
+unique across contracts) and `--json` without either being in the design. Add
+to the design principles: every new read-only verb takes `--json`, and every
+verb over a *set* takes a scope flag that narrows it — with a scoped miss
+exiting non-zero rather than printing an empty table.
+
+**8. The golden suite never exercises the probe surface's new fields.** The
+golden campaign's surface has 4 rows, 0 of them assertion-strength, so C1's
+enrichment is invisible to the one end-to-end check the project trusts. Any
+future probe field has the same blind spot. Recommended D-wave item: extend the
+golden recipe (or add a second recipe/scenario fixture) so at least one row per
+probe axis is emitted and the surface is validated against its schema in-process
+— the schema already runs on write, so a richer recipe would then cover the
+field.
+
+**9. Two smaller papercuts worth folding into the next wave.** (a) The plan's
+C1 design assumed invariants were available from the index; they live in the
+protocol model. Any plan text that says "the invariant for X" should name its
+source (`protocol_model.json`) — the C1 corrections block records this once, but
+it will recur. (b) `docs/IMPROVEMENTS.md`'s "Divergence ledger (to add as items
+land)" tail and the `KNOWN_DIVERGENCES.md` ledger are two lists of the same
+thing; keep the plan's tail as the checklist and require the actual row in
+`KNOWN_DIVERGENCES.md` at landing time (B3 and C1 both did this — it should be
+stated).
+
 ## Implementation order
 
 Each step lands green (`go build ./... && go test ./... && scripts/golden.sh`)
@@ -1061,12 +1248,17 @@ S ≈ <2h, M ≈ 2–5h, L ≈ 5–8h of focused work.
   same-root-cause different-site findings → check whether any golden
   campaign exercises tier-2; if yes, KNOWN_DIVERGENCES row (expected: no,
   the golden fixtures predate lineage work — verify).
+- **Resolved in practice (B3 `chain`, C1 `enforce`):** both new verbs are
+  listed in the global usage block (`internal/cli/cmd_scope.go`, `ord 72` /
+  `ord 73`) and `scripts/golden.sh` stays green with no normalization, so the
+  block is not byte-diffed by the golden suite. D31 below is therefore only
+  needed if a future checker starts diffing `--help`/usage output.
 
 ## Divergence ledger (to add as items land)
 
 | # | Change | Reason | Golden impact |
 |---|---|---|---|
-| D31 | global usage lists new verbs | P1b pattern | usage block |
+| D31 | global usage lists new verbs | P1b pattern | none — verified green for `chain` (B3) and `enforce` (C1) |
 | D32 | (if needed) tier-2 sweep flags code-protected pairs | D4 | dedup output |
 | D33 | (if needed) report Precision/All-findings sections | D1/A3 | report bytes |
 

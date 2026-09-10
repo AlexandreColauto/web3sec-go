@@ -794,6 +794,27 @@ Bug-hunt sweep).
   additions (`provenance`, `link_evidence`) are optional additive properties,
   and the new `chain` verb's `--help` text — like B2's `adversarial-game`
   help, added in the same wave — is not captured by any scenario step.
+  **C1** (the enforcement-timing stage table) adds no oracle updates either,
+  and for a sharper reason: its probe-surface half is opt-in. `ProbeOpts`
+  (`internal/probes/surface.go`) defaults to the reference behaviour, so
+  `BuildSurface` — the entry point every parity test and golden call site uses
+  — still reproduces the retired module's surface byte-for-byte, while
+  `RunProbes` and `audit.go`'s surface re-derivation pass `ProdProbeOpts()`
+  and attach `stages_unguarded`/`stages_unguarded_total` to
+  assertion-strength rows that have an uncovered write. The new keys are
+  optional properties in `assets/schema/probe_surface.schema.json` (plus a
+  shared `definitions.stage_site`), so a reference-shaped surface still
+  validates. `scripts/golden.sh` stays green unnormalized: the golden
+  campaign's probe surface carries **0** assertion-strength rows (its 4 rows
+  come from `custody-primitive`, `sequential-cursor`,
+  `short-circuitable-guard` and `trust-assumption`), and the stage keys are
+  absent from any row they do not apply to. The row shape hash also cannot
+  see them — `RowShapeSha` covers anchors, classes, siblings and the stranded
+  set only — so `audit`'s re-derivation comparison is unaffected by a surface
+  that carries the enrichment. The Go-only verb `webv2 enforce` (ord 73,
+  `internal/cli/cmd_enforce.go`) has no reference counterpart, so no reference
+  behavior is claimed for it; its `--help` text, like the other new verbs', is
+  not captured by any scenario step.
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**

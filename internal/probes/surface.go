@@ -37,10 +37,25 @@ func IndexSha(index validation.Value) string { return structidx.IndexSha(index) 
 // TreeFacts is tree_facts: the rebuild-stable projection of an index.
 func TreeFacts(index validation.Value) validation.Value { return structidx.TreeFacts(index) }
 
+// ProbeOpts are the Go-only surface enrichments (IMPROVEMENTS C1). The zero
+// value reproduces the reference (Python) surface byte-for-byte, which is what
+// the parity goldens pin.
+type ProbeOpts struct {
+	// StageTables attaches the uncovered (write, read) enforcement stage pairs
+	// of each assertion-strength row's concept keys.
+	StageTables bool
+}
+
+// ProdProbeOpts is what the shipped surface is built with: the reference
+// surface plus the Go-only enrichments.
+func ProdProbeOpts() ProbeOpts { return ProbeOpts{StageTables: true} }
+
 // buildAxes runs every registered probe, collapses + ranks its rows and
 // returns the internal axis table (with `_rows`).
-func buildAxes(index, model validation.Value, paths map[string]string) ([]validation.Value, error) {
+func buildAxes(index, model validation.Value, paths map[string]string,
+	opts ProbeOpts) ([]validation.Value, error) {
 	axes := []validation.Value{}
+	stageMemo := map[string][]validation.Value{}
 	for _, probeID := range ProbeIDs() {
 		spec := probesTable[probeID]
 		out, err := spec.fn(index, model)
@@ -51,6 +66,9 @@ func buildAxes(index, model validation.Value, paths map[string]string) ([]valida
 		final := make([]validation.Value, len(rows))
 		for i, r := range rows {
 			final[i] = finalize(r, probeID, spec)
+		}
+		if opts.StageTables && probeID == "assertion-strength" {
+			final = attachStageTables(index, final, stageMemo)
 		}
 		axes = append(axes, validation.VObj(
 			kv("probe", validation.VStr(probeID)),
@@ -159,6 +177,14 @@ func quotaWarnings(axes []validation.Value, total, floor int) []validation.Value
 // JSON.
 func BuildSurface(index, model validation.Value, perAxis, total, floor int,
 	generatedAt string) (validation.Value, error) {
+	return BuildSurfaceOpts(index, model, perAxis, total, floor, generatedAt,
+		ProbeOpts{})
+}
+
+// BuildSurfaceOpts is BuildSurface with the Go-only enrichments selected by
+// opts. The zero ProbeOpts is byte-identical to the reference surface.
+func BuildSurfaceOpts(index, model validation.Value, perAxis, total, floor int,
+	generatedAt string, opts ProbeOpts) (validation.Value, error) {
 	if err := ValidateKnobs(&perAxis, &total, &floor); err != nil {
 		return validation.VNull(), err
 	}
@@ -166,7 +192,7 @@ func BuildSurface(index, model validation.Value, perAxis, total, floor int,
 		return validation.VNull(), err
 	}
 	paths := contractPaths(index)
-	axes, err := buildAxes(index, model, paths)
+	axes, err := buildAxes(index, model, paths, opts)
 	if err != nil {
 		return validation.VNull(), err
 	}
@@ -253,7 +279,8 @@ func surfaceStats(axes, missing []validation.Value) validation.Value {
 // through the living-artifact path and log one `probes.run` event.
 func RunProbes(c *state.Campaign, index, model validation.Value, perAxis,
 	total, floor int) (validation.Value, error) {
-	surface, err := BuildSurface(index, model, perAxis, total, floor, "")
+	surface, err := BuildSurfaceOpts(index, model, perAxis, total, floor, "",
+		ProdProbeOpts())
 	if err != nil {
 		return validation.VNull(), err
 	}
