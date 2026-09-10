@@ -20,10 +20,12 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"websec/internal/audit"
 	"websec/internal/orchestrator"
@@ -661,6 +663,240 @@ func TestProbesRunRejectsAQuotaThatObligesNothing(t *testing.T) {
 	}
 }
 
+// t29SeedSurface campaign + saved index + a surface artifact built with the
+// given quotas, the starting point of every repair test.
+func t29SeedSurface(t *testing.T, perAxis, total int) (string,
+	*state.Campaign, validation.Value) {
+	t.Helper()
+	probes.Wire()
+	ws := t.TempDir()
+	c, err := state.Init(ws, "Probe CLI", state.InitOpts{CampaignID: t29CID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := structidx.IndexSnapshot(c, t29Ranking, structidx.DefaultBackend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := structidx.SaveIndex(c, idx); err != nil {
+		t.Fatal(err)
+	}
+	surface, err := probes.BuildSurface(idx, validation.VNull(), perAxis,
+		total, 3, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29WriteSurface(t, c, surface)
+	return ws, c, surface
+}
+
+// TestProbesRunAdoptsRecordedQuotas pins the repair rule per flag: an explicit
+// flag wins, an unset one adopts the quota the existing surface records, and
+// the output names both the effective numbers and their source.
+func TestProbesRunAdoptsRecordedQuotas(t *testing.T) {
+	cases := []struct {
+		name           string
+		recordedPer    int
+		recordedTotal  int
+		args           []string
+		withPlan       bool
+		wantPer        int
+		wantTotal      int
+		wantRowsAtMost int
+		wantSource     string
+	}{
+		{"no flags adopt the recorded pair", 30, 70, nil, false, 30, 70, 70,
+			"recorded in probe_surface.json"},
+		{"a tighter recorded pair still wins", 2, 5, nil, false, 2, 5, 5,
+			"recorded in probe_surface.json"},
+		{"an explicit per-axis wins and total falls back", 30, 70,
+			[]string{"--per-axis", "2"}, false, 2, 70, 70,
+			"--per-axis passed on the command line; --total recorded in " +
+				"probe_surface.json"},
+		{"an explicit total wins and per-axis falls back", 30, 70,
+			[]string{"--total", "5"}, false, 30, 5, 5,
+			"--per-axis recorded in probe_surface.json; --total passed on " +
+				"the command line"},
+		{"an explicit pair wins over the record", 30, 70,
+			[]string{"--per-axis", "2", "--total", "5"}, false, 2, 5, 5,
+			"passed on the command line"},
+		{"--emit adopts the recorded pair too", 2, 5, []string{"--emit"}, true,
+			2, 5, 5, "recorded in probe_surface.json"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ws, c, _ := t29SeedSurface(t, tc.recordedPer, tc.recordedTotal)
+			if tc.withPlan {
+				t29Plan(t, c)
+			}
+			args := append([]string{"--root", ws, "probes", t29CID, "run"},
+				tc.args...)
+			code, out, errS := run(t, args...)
+			if code != 0 {
+				t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+			}
+			got, err := probes.CampaignSurface(c)
+			if err != nil || got == nil {
+				t.Fatalf("surface = %v, %v", got, err)
+			}
+			if v := objInt(*got, "per_axis"); v != int64(tc.wantPer) {
+				t.Errorf("per_axis = %d, want %d", v, tc.wantPer)
+			}
+			if v := objInt(*got, "total"); v != int64(tc.wantTotal) {
+				t.Errorf("total = %d, want %d", v, tc.wantTotal)
+			}
+			rows := len(t29ObjList(*got, "rows"))
+			if rows < 1 || rows > tc.wantRowsAtMost {
+				t.Errorf("rows = %d, want 1..%d", rows, tc.wantRowsAtMost)
+			}
+			flat := strings.Join(strings.Fields(out), " ")
+			want := fmt.Sprintf("quotas: --per-axis %d --total %d (%s)",
+				tc.wantPer, tc.wantTotal, tc.wantSource)
+			if !strings.Contains(flat, want) {
+				t.Errorf("output missing %q: %q", want, flat)
+			}
+			if tc.withPlan && !strings.Contains(flat, "emit: created") {
+				t.Errorf("--emit did not run off the repaired surface: %q",
+					flat)
+			}
+		})
+	}
+}
+
+// TestProbesRunWithoutASurfaceUsesTheDefaults pins the fallback: with no
+// artifact to repair, the compiled-in 12/40 still build the surface and the
+// provenance line says so.
+func TestProbesRunWithoutASurfaceUsesTheDefaults(t *testing.T) {
+	probes.Wire()
+	ws := t.TempDir()
+	c, err := state.Init(ws, "Probe CLI", state.InitOpts{CampaignID: t29CID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := structidx.IndexSnapshot(c, t29Ranking, structidx.DefaultBackend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := structidx.SaveIndex(c, idx); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "run")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	got, err := probes.CampaignSurface(c)
+	if err != nil || got == nil {
+		t.Fatalf("surface = %v, %v", got, err)
+	}
+	if v := objInt(*got, "per_axis"); v != 12 {
+		t.Errorf("per_axis = %d, want 12", v)
+	}
+	if v := objInt(*got, "total"); v != 40 {
+		t.Errorf("total = %d, want 40", v)
+	}
+	flat := strings.Join(strings.Fields(out), " ")
+	if !strings.Contains(flat, "quotas: --per-axis 12 --total 40 (defaults)") {
+		t.Errorf("output does not name the default provenance: %q", flat)
+	}
+}
+
+// TestProbesRunRejectsAnInvalidRecordedQuota pins the loud path: a knob the
+// artifact records as an integer that ValidateKnobs refuses must fail naming
+// the artifact and the value, and must write nothing.
+func TestProbesRunRejectsAnInvalidRecordedQuota(t *testing.T) {
+	cases := []struct{ key, flag string }{
+		{"per_axis", "--per-axis"},
+		{"total", "--total"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.key, func(t *testing.T) {
+			ws, c, seed := t29SeedSurface(t, 12, 40)
+			bad := t29DeepCopy(seed)
+			t29Set(&bad, tc.key, validation.VInt(0))
+			path := t29SurfacePath(c)
+			before := validation.DumpIndented(bad) + "\n"
+			if err := os.WriteFile(path, []byte(before), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			code, out, errS := run(t, "--root", ws, "probes", t29CID, "run")
+			if code != 2 {
+				t.Fatalf("exit %d, want 2: out=%q err=%q", code, out, errS)
+			}
+			if !strings.Contains(errS, "probe_surface.json") {
+				t.Errorf("err does not name the artifact: %q", errS)
+			}
+			if !strings.Contains(errS, tc.flag+" 0") {
+				t.Errorf("err does not name the recorded value: %q", errS)
+			}
+			if strings.Contains(out, "probe surface:") {
+				t.Errorf("a rejected record must print no surface line: %q",
+					out)
+			}
+			after, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(after) != before {
+				t.Errorf("a rejected record must write nothing: %q", after)
+			}
+		})
+	}
+}
+
+// TestProbesRunPerAxisZeroOnTheCommandLineStillFails is the regression pin for
+// the gate: an explicit --per-axis 0 keeps its existing message even when the
+// artifact records a valid quota, and the artifact is left untouched.
+func TestProbesRunPerAxisZeroOnTheCommandLineStillFails(t *testing.T) {
+	ws, c, _ := t29SeedSurface(t, 30, 70)
+	path := t29SurfacePath(c)
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "run",
+		"--per-axis", "0")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(errS, "--per-axis must be >= 1, got 0") {
+		t.Errorf("err = %q", errS)
+	}
+	if strings.Contains(out, "probe surface:") {
+		t.Errorf("a rejected knob must print no surface line: %q", out)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Error("a rejected knob must leave the artifact untouched")
+	}
+}
+
+// TestProbesRunHelpStatesTheRepairRule pins the documentation half: --help
+// states the adoption rule, wrapped in the file's 80-column voice.
+func TestProbesRunHelpStatesTheRepairRule(t *testing.T) {
+	code, out, errS := run(t, "probes", t29CID, "run", "--help")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	flat := strings.Join(strings.Fields(out), " ")
+	if !strings.Contains(flat, "quotas: a quota flag the run was not given "+
+		"adopts the value already recorded in probe_surface.json (else the "+
+		"default)") {
+		t.Fatalf("help does not state the adoption rule: %q", flat)
+	}
+	if !strings.Contains(flat, "so a bare run repairs the surface the "+
+		"campaign has instead of shrinking it") {
+		t.Fatalf("help does not say what the rule is for: %q", flat)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if utf8.RuneCountInString(line) > 80 {
+			t.Errorf("help line exceeds 80 columns: %q", line)
+		}
+	}
+}
+
 func TestProbesRunAndListSurfaceTheFloorOverrunWarning(t *testing.T) {
 	probes.Wire()
 	ws := t.TempDir()
@@ -704,7 +940,10 @@ func TestProbesRunAndListSurfaceTheFloorOverrunWarning(t *testing.T) {
 	if !strings.Contains(out, "warning: floor reserve 3") {
 		t.Fatalf("list output missing the warning: %q", out)
 	}
-	code, out, errS = run(t, "--root", ws, "probes", t29CID, "run")
+	// A bare re-run repairs the surface it has and would adopt the recorded
+	// --total 2 (and its warning) back, so the winning ceiling is explicit.
+	code, out, errS = run(t, "--root", ws, "probes", t29CID, "run",
+		"--total", "40")
 	if code != 0 {
 		t.Fatalf("re-run exit %d: out=%q err=%q", code, out, errS)
 	}
