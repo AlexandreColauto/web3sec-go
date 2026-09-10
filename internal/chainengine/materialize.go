@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 
+	"websec/internal/capabilities"
 	"websec/internal/findings"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -53,11 +54,14 @@ func MaterializeChain(c *state.Campaign, memberIDs []string, title, narrative st
 	if err := chainDuplicate(c, csig); err != nil {
 		return validation.VNull(), err
 	}
-	economicImpact := chainBlastRadius(members)
-
 	terminalDoc, err := terminalAnnotation(c, memberIDs, members, terminal)
 	if err != nil {
 		return validation.VNull(), err
+	}
+	economicImpact := chainBlastRadius(members)
+	if terminalDoc != nil &&
+		capabilities.IsLivenessTerminal(objStr(*terminalDoc, "capability")) {
+		economicImpact = livenessImpact(economicImpact)
 	}
 
 	chainFinding, err := chainFindingDoc(c, memberIDs, members, title, narrative,
@@ -191,6 +195,44 @@ func chainBlastRadius(members []validation.Value) validation.Value {
 		return validation.VObj()
 	}
 	return validation.VObj(kvOf("blast_radius", validation.VStr(blast)))
+}
+
+// livenessImpact is the B1 pricing of a chain that ends at a liveness
+// terminal: economic_impact.kind = "liveness", the blast-radius FLOOR
+// protocol-solvency (a frozen chain freezes every user's funds — the
+// validated_risk weight table prices it 7.0; a member already claiming
+// bridge-canonical keeps its 8.0), and the named non-USD decision
+// (priceable: false + ceiling) — no USD figure for a freeze is defensible,
+// and the E7 clause accepts false+ceiling in place of an artifact.
+func livenessImpact(impact validation.Value) validation.Value {
+	pairs := make([]validation.KV, 0, len(impact.O)+3)
+	blast := ""
+	for _, p := range impact.O {
+		if p.K == "blast_radius" {
+			blast = p.V.S
+		}
+		pairs = append(pairs, p)
+	}
+	if blastRank(blast) < blastRank("protocol-solvency") {
+		if blast == "" {
+			pairs = append(pairs, kvOf("blast_radius",
+				validation.VStr("protocol-solvency")))
+		} else {
+			for i, p := range pairs {
+				if p.K == "blast_radius" {
+					pairs[i] = kvOf("blast_radius",
+						validation.VStr("protocol-solvency"))
+				}
+			}
+		}
+	}
+	pairs = append(pairs,
+		kvOf("kind", validation.VStr("liveness")),
+		kvOf("priceable", validation.VBool(false)),
+		kvOf("ceiling", validation.VStr("liveness terminal: no USD figure is "+
+			"defensible — a frozen chain freezes every user's funds; the "+
+			"blast radius is the price")))
+	return validation.VObj(pairs...)
 }
 
 // checkPins is the snapshot guard: exactly one distinct, non-null source pin.

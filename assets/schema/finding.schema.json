@@ -352,6 +352,11 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["liveness"],
+          "description": "present when the impact is a NON-ECONOMIC terminal (IMPROVEMENTS B1): the loss is protocol liveness, not extractable value — no USD figure is defensible, so blast_radius (floored at protocol-solvency) carries the price and priceable is false. Absent = ordinary economic impact; every pre-existing finding keeps its behaviour."
+        },
         "asset": {
           "type": "string"
         },

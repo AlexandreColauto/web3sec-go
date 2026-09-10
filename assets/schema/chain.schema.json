@@ -110,12 +110,12 @@
       "required": [
         "capability"
       ],
-      "description": "present when the chain reaches a REACHABLE ECONOMIC TERMINAL STATE: the last finding grants an asset-kind capability (value extractable). The capability claim is verified against the via_finding at materialization time.",
+      "description": "present when the chain reaches a REACHABLE TERMINAL STATE: the last finding grants an asset-kind capability (value extractable) or a liveness terminal (IMPROVEMENTS B1, liveness_loss — non-economic: the protocol stops serving). The capability claim is verified against the via_finding at materialization time.",
       "properties": {
         "capability": {
           "type": "string",
           "minLength": 3,
-          "description": "the terminal (asset-kind) capability, e.g. drain_treasury"
+          "description": "the terminal capability, e.g. drain_treasury (economic) or liveness_loss (non-economic, B1)"
         },
         "via_finding": {
           "$ref": "#/definitions/finding_id"

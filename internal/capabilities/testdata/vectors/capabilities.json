@@ -230,5 +230,37 @@
   "is_role": true,
   "role": "_double",
   "terminal": false
+ },
+ {
+  "value": "LIVENESS_LOSS",
+  "normalized": "liveness_loss",
+  "kind": "liveness",
+  "is_role": false,
+  "role": null,
+  "terminal": true
+ },
+ {
+  "value": "liveness loss",
+  "normalized": "liveness_loss",
+  "kind": "liveness",
+  "is_role": false,
+  "role": null,
+  "terminal": true
+ },
+ {
+  "value": "drain_treasury",
+  "normalized": "drain_treasury",
+  "kind": "asset",
+  "is_role": false,
+  "role": null,
+  "terminal": true
+ },
+ {
+  "value": "control_protocol_pause",
+  "normalized": "control_protocol_pause",
+  "kind": "state",
+  "is_role": false,
+  "role": null,
+  "terminal": false
  }
 ]

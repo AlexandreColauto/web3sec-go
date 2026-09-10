@@ -20,8 +20,10 @@ import (
 // deliberately small — the point is cross-finding comparability, not nuance.
 // The order is contractual: kind_of returns the first kind whose starter
 // vocabulary carries the label, and COMMON is declared in this order.
+// "liveness" (IMPROVEMENTS B1) is the non-economic terminal kind: the loss
+// is the protocol's ability to keep serving, not extractable value.
 var KINDS = []string{"authority", "state", "market", "asset", "information",
-	"execution", "timing"}
+	"execution", "timing", "liveness"}
 
 // COMMON is COMMON: a starter vocabulary for the recurring Web3 capabilities.
 // Free text is allowed (models discover things this list did not anticipate),
@@ -39,13 +41,17 @@ var COMMON = map[string][]string{
 	"information": {"read_private_state", "front_run_internal_call"},
 	"execution": {"trigger_callback", "delegatecall_attacker_code",
 		"reenter_victim"},
-	"timing": {"act_within_cooldown", "win_auction", "cross_epoch_boundary"},
+	"timing":   {"act_within_cooldown", "win_auction", "cross_epoch_boundary"},
+	"liveness": {"liveness_loss"},
 }
 
-// TERMINAL_KINDS is TERMINAL_KINDS: economic terminals — capabilities whose
-// possession means value is already extractable (or has already moved) to
-// the attacker. The terminal-chain search ends at one of these.
-var TERMINAL_KINDS = map[string]struct{}{"asset": {}}
+// TERMINAL_KINDS is TERMINAL_KINDS: terminal capabilities — the
+// terminal-chain search ends when a path grants one of these. Two flavors:
+// the economic terminal (asset) means value is already extractable (or has
+// already moved) to the attacker; the non-economic terminal (liveness,
+// IMPROVEMENTS B1) means the protocol can no longer serve — a frozen chain
+// freezes every user's funds, and no USD figure is defensible.
+var TERMINAL_KINDS = map[string]struct{}{"asset": {}, "liveness": {}}
 
 // NormalizeLabel is normalize_label: the canonical form of a capability
 // label — lowercase, word runs collapsed to single underscores.
@@ -135,8 +141,9 @@ func KindOf(label string) (string, bool) {
 	return "", false
 }
 
-// IsTerminal is is_terminal: true when holding *label* is itself economic
-// extraction.
+// IsTerminal is is_terminal: true when a path granting *label* has reached a
+// terminal state — economic extraction (asset) or the loss of protocol
+// liveness (IMPROVEMENTS B1).
 func IsTerminal(label string) bool {
 	kind, ok := KindOf(label)
 	if !ok {
@@ -144,6 +151,22 @@ func IsTerminal(label string) bool {
 	}
 	_, ok = TERMINAL_KINDS[kind]
 	return ok
+}
+
+// IsLivenessTerminal is the B1 non-economic test: true when *label* is a
+// liveness terminal — the protocol stops serving. No USD figure is
+// defensible for it; pricing takes the blast-radius floor instead
+// (internal/chainengine).
+func IsLivenessTerminal(label string) bool {
+	kind, ok := KindOf(label)
+	return ok && kind == "liveness"
+}
+
+// IsEconomicTerminal is the B1 economic test: true when *label* is an
+// economic (asset-kind) terminal — value extractable.
+func IsEconomicTerminal(label string) bool {
+	kind, ok := KindOf(label)
+	return ok && kind == "asset"
 }
 
 // CapabilityDelta is capability_delta: the before/after view of one finding —

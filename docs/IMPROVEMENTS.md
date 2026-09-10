@@ -242,6 +242,51 @@ HYPOTHESIS with E0 evidence.
 **Tests:** liveness chain materializes; pricing floor; golden-safe (new
 terminal id only appears when a finding declares the capability).
 
+**As-built (Go-only, the Python twin is retired):**
+- The capability registry is `internal/capabilities/` (not a taxonomy dir):
+  `KINDS` gains `"liveness"`, `COMMON["liveness"] = {liveness_loss}`, and
+  `TERMINAL_KINDS` becomes `{asset, liveness}` — so `IsTerminal` (and every
+  consumer: the chain search, `relations` drift diagnostics, `sharedmem`
+  signatures) now treats `liveness_loss` as a terminal. `IsLivenessTerminal`
+  / `IsEconomicTerminal` split the two flavors. Vector rows pinned in
+  `testdata/vectors/capabilities.json` (LIVENESS_LOSS, liveness loss,
+  drain_treasury, control_protocol_pause).
+- `internal/chainengine/terminal.go`: `terminalNodesMode(c,
+  includeHypothesis)` is the new seam — default mode (CONFIRMED/CHAIN) is
+  byte-identical to before; the mode also admits every non-TERMINAL status
+  (HYPOTHESIS..POSSIBLE) for B3. Exported as `FindTerminalChainsMode`
+  (B3's `chain --unproven` will call it); `FindTerminalChains` delegates.
+  `terminalPathDoc` needed no change: `IsTerminal` covers the liveness
+  label and the capital fields default to 0/empty — the "no capital field
+  required" clause of the spec.
+- Pricing lives at materialization, not in an impact verb:
+  `MaterializeChain` runs `livenessImpact` when the (verified) terminal
+  annotation names a liveness capability — `economic_impact.kind =
+  "liveness"`, blast_radius FLOORED at `protocol-solvency` (a member claiming
+  `bridge-canonical` keeps its 8.0; the floor never downgrades), and the
+  named non-USD decision `priceable: false` + `ceiling` (the freeze itself
+  is the impact). `risk.validated_risk` then picks the blast weight up
+  automatically (wBlast 7.0/8.0) — no new factor, per the spec.
+- The `TerminalReport` note gains a liveness sentence **only when a
+  liveness terminal actually surfaced** (presence-gated — the golden note
+  bytes are unchanged for every existing campaign).
+- Schemas: `finding.schema.json` `economic_impact.kind` is a new additive
+  property (enum `["liveness"]`; absent = ordinary economic impact, so the
+  closed-object schema and every pre-existing finding keep their behaviour —
+  the ingest legend picks up the one new line `economic_impact/kind:
+  liveness`, pinned in `t14FindingLegend`). `chain.schema.json`
+  `terminal.capability` is a free string (not an enum — the spec's enum
+  assumption did not match the actual schema), so the terminal description
+  was updated instead; the liveness terminal is named there.
+- `webv2 terminals`, the privileged track, and the brief all render liveness
+  rows through the existing generic paths — no CLI changes.
+- Tests (`internal/chainengine/liveness_test.go`): materialization with the
+  terminal annotation (kind/blast floor/priceable/ceiling, no USD figures),
+  bridge-canonical preservation, un-annotated pair stays unpriced
+  (golden-safety), liveness terminal found by the default search,
+  `FindTerminalChainsMode` surfacing a HYPOTHESIS terminal (default mode
+  must not), the presence-gated note both ways, and the registry vectors.
+
 ### B2. Mandatory adversarial-game clause for liveness findings
 
 **Failed behavior:** a "freeze" finding can be dismissed as "liveness-only,

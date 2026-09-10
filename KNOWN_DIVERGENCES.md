@@ -703,8 +703,25 @@ Bug-hunt sweep).
   finding-side twin is an advisory-only warning on `webv2 verdict`.
   `webv2 answered` gained `--override-dismissal` / `--override-reason`
   (usage + help strings changed — no scenario step captures them, golden
-  stays byte-identical). Intentional oracle updates that accompanied
-  these: the `gates` scenario `bounty_gate_all` oracle in
+  stays byte-identical). **B1** liveness terminal (Go-only — the Python
+  twin is retired): `liveness_loss` is a new capability (kind `liveness`,
+  starter vocab in `internal/capabilities/capabilities.go`) and a member of
+  `TERMINAL_KINDS`, so every `IsTerminal` consumer (terminal-chain search,
+  relations drift diagnostics, sharedmem signatures) now treats it as a
+  terminal; `FindTerminalChainsMode` adds the `includeHypothesis` node mode
+  (B3's `chain --unproven` seam — default `FindTerminalChains` is
+  unchanged); `MaterializeChain` prices a chain whose verified terminal
+  annotation names a liveness capability: `economic_impact.kind =
+  "liveness"` (new additive schema property, enum `["liveness"]`),
+  blast_radius floored at `protocol-solvency` (bridge-canonical preserved),
+  `priceable: false` + non-USD `ceiling` — no USD figure is defensible for a
+  freeze; `TerminalReport`'s note gains a liveness sentence only when a
+  liveness terminal surfaced (presence-gated); the ingest legend gained
+  `economic_impact/kind: liveness` (pinned in `t14FindingLegend`). Golden
+  stays green without normalization: no golden campaign declares
+  `liveness_loss`, so every change is presence-gated behind a capability
+  or field no existing finding carries. Intentional oracle updates that
+  accompanied these: the `gates` scenario `bounty_gate_all` oracle in
   `internal/orchestrator/testdata/oracles.json` gained the 14th
   `accepted-risk` and the 15th `paid-exploitability` check rows, and its
   `calibrate_all` oracle's risk objects gained the `acceptance_score` key

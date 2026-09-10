@@ -116,14 +116,25 @@ func baseOf(baseline *[]string) map[string]struct{} {
 
 // terminalNodes is the CONFIRMED/CHAIN finding table, in load order.
 func terminalNodes(c *state.Campaign) ([]findingNode, error) {
+	return terminalNodesMode(c, false)
+}
+
+// terminalNodesMode is the node table for the terminal search. Default mode
+// is the CONFIRMED/CHAIN table; includeHypothesis (the B1/B3 mode) also
+// admits every non-terminal status — HYPOTHESIS through POSSIBLE — so an
+// unproven liveness finding can still end a search path (the callers that
+// expose that mode say so explicitly).
+func terminalNodesMode(c *state.Campaign, includeHypothesis bool) ([]findingNode, error) {
 	all, err := findings.LoadAllFindings(c)
 	if err != nil {
 		return nil, err
 	}
 	out := []findingNode{}
 	for _, f := range all {
-		switch objStr(f, "status") {
-		case "CONFIRMED", "CHAIN":
+		st := objStr(f, "status")
+		_, absorbed := findings.TERMINAL[st]
+		if st == "CONFIRMED" || st == "CHAIN" ||
+			(includeHypothesis && !absorbed) {
 			out = append(out, newFindingNode(f))
 		}
 	}
@@ -149,13 +160,24 @@ type terminalFrame struct {
 }
 
 // FindTerminalChains is find_terminal_chains(): search for REACHABLE
-// ECONOMIC TERMINAL STATES over CONFIRMED (or CHAIN) findings. A nil
-// baseline means ATTACKER_BASELINE; a non-nil pointer (even to an empty
-// slice) is the explicit baseline.
+// TERMINAL STATES (economic, or liveness since IMPROVEMENTS B1) over
+// CONFIRMED (or CHAIN) findings. A nil baseline means ATTACKER_BASELINE; a
+// non-nil pointer (even to an empty slice) is the explicit baseline.
 func FindTerminalChains(c *state.Campaign, baseline *[]string, maxDepth,
 	minLength int) ([]validation.Value, error) {
+	return FindTerminalChainsMode(c, baseline, maxDepth, minLength, false)
+}
+
+// FindTerminalChainsMode is the B1/B3 search mode: with includeHypothesis
+// true, unconfirmed findings (HYPOTHESIS .. POSSIBLE) are admitted as nodes,
+// so a chain can reach a liveness terminal that has not been proven yet.
+// Every row is still a REACHABLE path in the capability graph; the rows do
+// not claim confirmation — materialization remains CONFIRMED-only
+// (MaterializeChain's hard gate).
+func FindTerminalChainsMode(c *state.Campaign, baseline *[]string, maxDepth,
+	minLength int, includeHypothesis bool) ([]validation.Value, error) {
 	base := baseOf(baseline)
-	nodes, err := terminalNodes(c)
+	nodes, err := terminalNodesMode(c, includeHypothesis)
 	if err != nil {
 		return nil, err
 	}
@@ -292,10 +314,21 @@ func TerminalReport(c *state.Campaign, baseline *[]string) (validation.Value, er
 	if err != nil {
 		return validation.VNull(), err
 	}
+	// Presence-gated (the additive convention): the liveness sentence appears
+	// only when a liveness terminal actually surfaced, so a campaign without
+	// one keeps its exact note bytes.
+	note := "terminal paths search CONFIRMED findings only; terminal = " +
+		"asset-kind capability granted by the last finding"
+	for _, p := range paths {
+		if capabilities.IsLivenessTerminal(objStr(p, "terminal_capability")) {
+			note += "; liveness terminal (B1) = liveness_loss granted by the " +
+				"last finding — non-economic: the freeze itself is the impact"
+			break
+		}
+	}
 	return validation.VObj(
 		kvOf("baseline", strArr(base)),
-		kvOf("note", validation.VStr("terminal paths search CONFIRMED findings "+
-			"only; terminal = asset-kind capability granted by the last finding")),
+		kvOf("note", validation.VStr(note)),
 		kvOf("direct", valueArr(direct)),
 		kvOf("terminal_chains", valueArr(chains)),
 		kvOf("shortest_by_terminal", valueArr(shortest)),
