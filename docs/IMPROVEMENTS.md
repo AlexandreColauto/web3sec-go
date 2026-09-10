@@ -135,17 +135,28 @@ no cap — an operator cannot tell which 5 of 23 are worth paying attention to.
   - wDemotion(in_code_ack ? 1.0 : 0) - wAcceptedRisk(hit ? 2.0 : 0) +
   wReversibility(irreversible +1.0 / trusted-party +0.5 / reversible 0)`.
   Weights: severity critical 3.0 / high 2.0 / medium 1.0 / low 0.5; evidence
-  E0 0.0 … E7 3.0 (reuse `wLevel` from `risk.go:53-57`); critic confirmed
-  +1.5, contested 0, rejected -2.0 (disqualified).
+  E0 0.0 … E7 3.0 (reuse `wLevel` from `risk.go:53-57`); critic keyed on
+  the REAL `critic_verdict` enum — `confirmed` +1.5, `disproved` −2.0
+  (the only verdict that DISQUALIFIES the finding: it drops out of the
+  top-K table, named below it), every other recorded verdict 0 (the
+  non-committal `pending`/`possible`/`informational` and the scope
+  verdicts `duplicate`/`out_of_scope` — the live-set filter already
+  removes the scope ones). Score clamped at 0 (a number this low means
+  "do not spend reviewer time here"; negative likelihood is not a thing).
 - Finding field `risk.acceptance_score` (float, additive) computed by
   `webv2 gate` (and `webv2 run` at bounty-gate stage) and stored on the
-  finding; report renders it.
+  finding; the report recomputes it live (the stored value is the gate's
+  audit trail, never the source of truth).
 - Report "Results" section: add **Precision** block — `critic-confirmed: N`,
   `evidence-confirmed: M` (dual counting, D1), `top-K by acceptance` table
   (K = `submission_budget.max_findings`, or top 10 when uncapped), and
   `false-positive ratio = (critic-confirmed − evidence-confirmed) /
   critic-confirmed` when both > 0. Submission table capped at
-  `max_findings` when set, with a note line when capped.
+  `max_findings` when set, with a note line when capped. Presence-gated
+  (the additive convention, §1): the block renders only when an A3 field
+  is present — `risk.acceptance_score` stored on at least one finding, or
+  `submission_budget` in the policy — so a pre-A3 campaign's report bytes
+  are unchanged.
 - CLI: `webv2 gate <CID>` (existing) re-runs scoring; `webv2 rank <CID>`
   new verb — prints the acceptance-ranked table (the operator-facing answer
   to "which findings matter").
@@ -154,7 +165,16 @@ no cap — an operator cannot tell which 5 of 23 are worth paying attention to.
 `internal/risk/acceptance.go`; `internal/bounty/bounty.go` (score at gate
 time); `internal/report/report.go` Results section (L488-547) + submission
 line (L544); new `internal/cli/cmd_rank.go`.
-**Tests:** score monotonicity, budget cap, ratio edge cases (0/0 → n/a).
+**Tests:** `internal/risk/acceptance_test.go` (exact weights, demotions,
+clamp-at-0, the real critic vocabulary, monotonicity, ranking order,
+top-K cap); `internal/bounty/bounty_test.go` (gate stores the score —
+rounded to 2dp, schema-valid finding, not leaked into the gate result);
+`internal/report/precision_test.go` (dual counts + ratio, table order,
+disqualified line, budget cap + note, uncapped, and the presence gate —
+no A3 field, no bytes); `internal/cli/cmd_rank_test.go` (byte-exact
+table, no-findings, budget header, argparse taxonomy). Golden: the
+`gates` scenario `calibrate_all` oracle gained the `acceptance_score`
+key (see KNOWN_DIVERGENCES, IMPROVEMENTS waves row).
 
 ### A4. Paid-exploitability argument (mandatory before submission)
 

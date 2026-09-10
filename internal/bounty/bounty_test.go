@@ -9,6 +9,7 @@ import (
 
 	"websec/internal/findings"
 	"websec/internal/pricing"
+	"websec/internal/risk"
 	"websec/internal/snapshot"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -486,7 +487,7 @@ func TestFullSubmissionReady(t *testing.T) {
 		t.Errorf("blocking_reasons = %s, want []", validation.CanonCompact(br))
 	}
 	if checks := objAt(result, "policy_checks"); len(checks.A) != 15 {
-		t.Errorf("policy_checks = %d rows, want 14", len(checks.A))
+		t.Errorf("policy_checks = %d rows, want 15", len(checks.A))
 	}
 }
 
@@ -1115,6 +1116,102 @@ func TestGateVectorsByteExact(t *testing.T) {
 				t.Errorf("policy_checks = %d rows, want >= 12", len(checks.A))
 			}
 		})
+	}
+}
+
+// TestGateStoresAcceptanceScore is the A3 wiring: the gate computes the
+// deterministic acceptance score and stores it on the finding's risk object
+// (the report and `webv2 rank` recompute it live, so the stored number is
+// the gate's audit trail). The gate's BOUNTY result — the byte-exact
+// surface above — must not move.
+func TestGateStoresAcceptanceScore(t *testing.T) {
+	c := vectorCamp(t, "SNAP-11111111")
+	// A minimal, fully schema-valid CONFIRMED finding carrying every
+	// acceptance component: high band (2.0) + E5 (2.5) + confirmed (1.5)
+	// + irreversible (1.0) − ack (1.0) = 6.0. (baseFinding is a raw vector
+	// row that never round-trips the schema validator, so it cannot use
+	// the gate's save path.)
+	ts := "2026-09-10T00:00:00+00:00"
+	f := validation.VObj(
+		kv("finding_id", validation.VStr("F-0a0b0c0d0e01")),
+		kv("campaign_id", validation.VStr(c.CampaignID)),
+		kv("snapshot_ids", validation.VObj(
+			kv("source", validation.VStr("SNAP-11111111")),
+			kv("deployment", validation.VNull()),
+			kv("chain", validation.VNull()))),
+		kv("title", validation.VStr("unbacked withdrawal via price skew")),
+		kv("status", validation.VStr("CONFIRMED")),
+		kv("trajectory", validation.VStr("code")),
+		kv("root_cause", validation.VObj(
+			kv("class", validation.VStr("oracle-manipulation")),
+			kv("description", validation.VStr(
+				"spot price read lets the attacker trade against their own price")))),
+		kv("affected", validation.VArr(validation.VObj(
+			kv("path", validation.VStr("src/Vault.sol")),
+			kv("contract", validation.VStr("Vault")),
+			kv("function", validation.VStr("borrow"))))),
+		kv("attacker", validation.VObj(
+			kv("profile", validation.VStr("arbitrary EOA")),
+			kv("capabilities", validation.VArr()))),
+		kv("evidence", validation.VArr(validation.VObj(
+			kv("evidence_id", validation.VStr("EV-1")),
+			kv("level", validation.VStr("E5")),
+			kv("type", validation.VStr("fork-test")),
+			kv("description", validation.VStr("fork repro extracts the funds")),
+			kv("sandbox_profile", validation.VStr("fork-runner"))))),
+		kv("risk", validation.VObj(
+			kv("validated", validation.VObj(
+				kv("score", validation.VFloat(7.5)),
+				kv("band", validation.VStr("high")),
+				kv("rationale", validation.VStr("fixture")))),
+			kv("reversibility", validation.VStr("irreversible")))),
+		kv("verification", validation.VObj(
+			kv("critic_verdict", validation.VStr("confirmed")))),
+		kv("dedup", validation.VObj()),
+		kv("dedup_meta", validation.VObj(
+			kv("in_code_ack", validation.VObj(
+				kv("file", validation.VStr("src/Vault.sol")),
+				kv("line", validation.VInt(42)),
+				kv("phrase", validation.VStr("todo")),
+				kv("window", validation.VStr("12")))))),
+		kv("history", validation.VArr(validation.VObj(
+			kv("at", validation.VStr(ts)),
+			kv("from", validation.VStr("NEW")),
+			kv("to", validation.VStr("CONFIRMED")),
+			kv("reason", validation.VStr("a3 fixture")),
+			kv("actor", validation.VStr("test"))))),
+		kv("created_at", validation.VStr(ts)),
+		kv("updated_at", validation.VStr(ts)),
+	)
+	writeFinding(t, c, f)
+	installSeams(t, submissionReadySeams())
+	want, _ := risk.AcceptanceScore(f)
+	if want != 6.0 {
+		t.Fatalf("fixture precondition: score = %v, want 6.0", want)
+	}
+	got, err := EvaluateBountyGate(c, objStr(f, "finding_id"), testPolicy(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// the gate result is the bounty object — acceptance_score must not leak in
+	if objAt(got, "acceptance_score").Kind != validation.Null {
+		t.Error("acceptance_score must not leak into the bounty result")
+	}
+	// read the file directly: the vector fixture is a raw row (the vector
+	// tests never round-trip it through the schema-validating loader)
+	storedPath := filepath.Join(c.FindingsDir, objStr(f, "finding_id")+".json")
+	stored, err := validation.ReadJson(storedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotScore := objAt(objAt(stored, "risk"), "acceptance_score")
+	if gotScore.Kind != validation.Flt && gotScore.Kind != validation.Int {
+		t.Fatalf("stored score kind = %v: %v", gotScore.Kind,
+			validation.CanonSpaced(gotScore))
+	}
+	if gotScore.F != validation.PythonRound(want, 2) {
+		t.Fatalf("stored score = %v, want %v", gotScore.F,
+			validation.PythonRound(want, 2))
 	}
 }
 

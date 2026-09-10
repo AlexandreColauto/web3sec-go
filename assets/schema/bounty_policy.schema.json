@@ -61,6 +61,16 @@
       }
     },
 
+    "submission_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "operator precision budget (IMPROVEMENTS A3): caps the report's top-K acceptance table and lets the ranking key be flipped from acceptance likelihood to severity band. Absent = uncapped, ranked by acceptance.",
+      "properties": {
+        "max_findings": { "type": "integer", "minimum": 0, "description": "0 (default) = uncapped (top 10 rendered); >0 = cap the top-K table at this many findings, with a note line when the cap is reached" },
+        "rank_by":      { "enum": ["acceptance", "severity"], "description": "default acceptance: acceptance score descending (disqualified last); severity: band order (critical > high > medium > low > informational), then validated score descending" }
+      }
+    },
+
     "severity_rules": {
       "type": "array",
       "minItems": 1,

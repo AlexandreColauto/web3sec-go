@@ -678,15 +678,27 @@ Bug-hunt sweep).
   --reversibility`); **A1** `accepted_risks[]` policy channel + gate check13
   `accepted-risk` (recorded on the finding, blocks submission, same-pattern
   exclusion suppressed, waivable per-finding, `min_severity` caps the
-  acceptance). Intentional oracle updates that accompanied these: the
-  `gates` scenario `bounty_gate_all` oracle in
+  acceptance); **A2** `ackscan` in-code acknowledgement matcher
+  (`finding.dedup_meta.in_code_ack`, demotes acceptance likelihood, gate
+  advisory `bounty.advisories`); **A3** deterministic acceptance score
+  (`risk.acceptance_score`, stored on the finding at gate time, clamped at
+  0; the report's Results precision block — dual critic/evidence counts,
+  false-positive ratio, top-K table, presence-gated so pre-A3 reports are
+  byte-identical; `webv2 rank <campaign>`; policy
+  `submission_budget {max_findings, rank_by}`); **A4** paid-exploitability
+  answer (`finding.exploitability`, gate check14 `paid-exploitability`,
+  `webv2 exploit` verb). Intentional oracle updates that accompanied
+  these: the `gates` scenario `bounty_gate_all` oracle in
   `internal/orchestrator/testdata/oracles.json` gained the 14th
-  `accepted-risk` check row (regenerated from the Go replay — the unit
-  oracles pin Go behavior; the retired Python twin is not re-run), and the
-  bounty unit goldens in `internal/bounty/bounty_test.go` (14-row
-  `policy_checks`, catalog + unknown-check lists). `scripts/golden.sh`
-  stays green without normalization — its recipe policy carries no
-  `accepted_risks` and its gate steps predate any CONFIRMED finding.
+  `accepted-risk` and the 15th `paid-exploitability` check rows, and its
+  `calibrate_all` oracle's risk objects gained the `acceptance_score` key
+  (A3 — the gate stores the score before calibrate runs; regenerated from
+  the Go replay — the unit oracles pin Go behavior; the retired Python
+  twin is not re-run), and the bounty unit goldens in
+  `internal/bounty/bounty_test.go` (15-row `policy_checks`, catalog +
+  unknown-check lists). `scripts/golden.sh` stays green without
+  normalization — its recipe policy carries no `accepted_risks` and its
+  gate steps predate any CONFIRMED finding.
 
 ## Conventions for future rows
 - One row per divergence; keep the **What / Why / Golden / Unblocks**

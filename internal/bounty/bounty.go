@@ -26,6 +26,7 @@ import (
 
 	"websec/internal/findings"
 	"websec/internal/pricing"
+	"websec/internal/risk"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -1290,6 +1291,17 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 		bounty.O = setOrAppend(bounty.O, "advisories", strList(
 			[]string{"in_code_ack present: acceptance likelihood demoted"}))
 	}
+	// A3: the deterministic acceptance score, stored on the finding at gate
+	// time (the report and `webv2 rank` recompute it live, so the stored
+	// number is the gate's audit trail, not the source of truth).
+	score, _ := risk.AcceptanceScore(f)
+	riskObj := objAt(f, "risk")
+	if riskObj.Kind != validation.Obj {
+		riskObj = validation.VObj()
+	}
+	riskObj.O = setOrAppend(riskObj.O, "acceptance_score",
+		validation.VFloat(validation.PythonRound(score, 2)))
+	f.O = setOrAppend(f.O, "risk", riskObj)
 	bounty.O = setOrAppend(bounty.O, "eligible", validation.VBool(eligible))
 	bounty.O = setOrAppend(bounty.O, "submission_ready",
 		validation.VBool(submissionReady))

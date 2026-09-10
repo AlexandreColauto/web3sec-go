@@ -29,6 +29,7 @@ import (
 	"websec/internal/privileged"
 	"websec/internal/probes"
 	"websec/internal/relations"
+	"websec/internal/risk"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -303,6 +304,191 @@ func intAt(v validation.Value, key string) int64 {
 	return 0
 }
 
+// precisionBlock is the A3 "which findings matter" block in Results: the
+// dual critic/evidence counts, the false-positive ratio between them, and
+// the top-K acceptance table — the operator's ranked answer over every LIVE
+// finding (the production live predicate, findings.LoadLiveFindings:
+// DUPLICATE / OUT_OF_SCOPE excluded; a DISPROVED finding stays visible,
+// disqualified at the bottom, so a critic/pipeline disagreement is
+// legible). The score is recomputed live (risk.AcceptanceScore), never read
+// from the stored field, so the table is current even before the next gate
+// run.
+//
+// Budget: submission_budget.max_findings caps K (0/absent = top 10);
+// rank_by flips the key from acceptance score to severity band. A reached
+// cap prints a note; disqualified (critic-disproved) findings drop out of
+// the table and are named below it.
+//
+// Presence gate (the additive convention — a new section must not change
+// an existing campaign's bytes): the block renders only when an A3 field
+// is present — the gate stored risk.acceptance_score on at least one
+// finding, or the policy opted in with submission_budget. A campaign with
+// neither renders no block at all.
+func precisionBlock(campaign *state.Campaign, all []validation.Value,
+	policy validation.Value) []string {
+	if objAt(policy, "submission_budget").Kind != validation.Obj {
+		stored := false
+		for _, f := range all {
+			v := objAt(objAt(f, "risk"), "acceptance_score")
+			if v.Kind == validation.Flt || v.Kind == validation.Int {
+				stored = true
+				break
+			}
+		}
+		if !stored {
+			return nil
+		}
+	}
+	var live []validation.Value
+	criticN, evidenceN := 0, 0
+	for _, f := range all {
+		if s := objStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" {
+			continue
+		}
+		live = append(live, f)
+		if criticVerdictOf(f) == "confirmed" {
+			criticN++
+		}
+		if findings.EvidenceDeficit(f, "CONFIRMED", campaign) == nil {
+			evidenceN++
+		}
+	}
+	L := []string{}
+	if len(live) == 0 {
+		L = append(L, "- **precision:** no live findings to rank")
+		L = append(L, "")
+		return L
+	}
+	ratio := "n/a (needs critic-confirmed and evidence-confirmed both > 0)"
+	if criticN > 0 && evidenceN > 0 {
+		ratio = fmt.Sprintf("%.1f%%", float64(criticN-evidenceN)/
+			float64(criticN)*100)
+	}
+	L = append(L, fmt.Sprintf(
+		"- **precision:** critic-confirmed: %d  - evidence-confirmed: %d  "+
+			"- false-positive ratio: %s", criticN, evidenceN, ratio))
+
+	k, rankBy := 0, "acceptance"
+	if sb := objAt(policy, "submission_budget"); sb.Kind == validation.Obj {
+		if mf := intAt(sb, "max_findings"); mf > 0 {
+			k = int(mf)
+		}
+		if rb := objStr(sb, "rank_by"); rb == "severity" {
+			rankBy = "severity"
+		}
+	}
+	keyName := "acceptance"
+	if rankBy == "severity" {
+		keyName = "severity"
+	}
+	entries := risk.AcceptanceRanking(live, rankBy)
+	top, capped := risk.AcceptanceTopK(entries, k)
+	if k > 0 {
+		L = append(L, fmt.Sprintf(
+			"- **top %d by %s:** (submission budget)", k, keyName))
+	} else {
+		L = append(L, fmt.Sprintf("- **top %d by %s:**", len(top), keyName))
+	}
+	L = append(L, "  | # | finding | band | evidence | critic | score |")
+	L = append(L, "  |---|---------|------|----------|--------|-------|")
+	for i, e := range top {
+		L = append(L, fmt.Sprintf("  | %d | %s | %s | %s | %s | %s |",
+			i+1, rankCell(e), bandCell(e), evidenceCell(e),
+			criticCell(e), scoreCell(e)))
+	}
+	if capped {
+		L = append(L, fmt.Sprintf(
+			"  - capped at %d by the submission budget: %d more qualified "+
+				"finding(s) not shown",
+			k, countQualified(entries)-len(top)))
+	}
+	var dq []string
+	for _, e := range entries {
+		if e.Disqualified {
+			dq = append(dq, findingIDOf(e.Finding))
+		}
+	}
+	if len(dq) > 0 {
+		L = append(L, fmt.Sprintf(
+			"- disqualified (critic disproved): %s — excluded from the table",
+			strings.Join(dq, ", ")))
+	}
+	L = append(L, "")
+	return L
+}
+
+func countQualified(entries []risk.AcceptanceEntry) int {
+	n := 0
+	for _, e := range entries {
+		if !e.Disqualified {
+			n++
+		}
+	}
+	return n
+}
+
+// rankCell is the finding cell: id + truncated title (the table is the
+// operator's "which 5 of 23" answer, so the title must be readable there).
+func rankCell(e risk.AcceptanceEntry) string {
+	id := findingIDOf(e.Finding)
+	title := objStr(e.Finding, "title")
+	if len(title) > 40 {
+		title = title[:40] + "…"
+	}
+	if title != "" {
+		return id + " " + title
+	}
+	return id
+}
+
+func bandCell(e risk.AcceptanceEntry) string {
+	riskObj := asObj(objAt(e.Finding, "risk"))
+	b := objStr(asObj(objAt(riskObj, "validated")), "band")
+	if b == "" {
+		return "—"
+	}
+	return b
+}
+
+// evidenceCell is the finding's highest evidence level (FindingLevel is
+// E0 when the finding holds none — shown as E0, not hidden).
+func evidenceCell(e risk.AcceptanceEntry) string {
+	l, err := findings.FindingLevel(e.Finding)
+	if err != nil {
+		return "—"
+	}
+	return l
+}
+
+func criticCell(e risk.AcceptanceEntry) string {
+	v := criticVerdictOf(e.Finding)
+	if v == "" {
+		return "—"
+	}
+	return v
+}
+
+// scoreCell is the two-decimal score with its demotion markers (A2 ack, A1
+// accepted risk) — the markers are what make a demoted number legible.
+func scoreCell(e risk.AcceptanceEntry) string {
+	s := risk.ScoreText(e.Score)
+	if e.AckDemoted {
+		s += " -ack"
+	}
+	if e.RiskDemoted {
+		s += " -risk"
+	}
+	return s
+}
+
+func findingIDOf(f validation.Value) string {
+	return objStr(f, "finding_id")
+}
+
+func criticVerdictOf(f validation.Value) string {
+	return objStr(objAt(f, "verification"), "critic_verdict")
+}
+
 // Generate is generate(): write report.md, register/refresh the artifact and
 // log report.generated. Returns the report path.
 func Generate(campaign *state.Campaign) (string, error) {
@@ -311,11 +497,16 @@ func Generate(campaign *state.Campaign) (string, error) {
 		return "", err
 	}
 	policyPath := objStr(st, "policy_path")
+	// policy is hoisted out of the if-block: the Results section's precision
+	// block (A3) reads its submission_budget even when the gate re-run above
+	// had nothing to do.
+	var policy validation.Value
 	if policyPath != "" && fileExists(policyPath) {
-		policy, err := bounty.LoadPolicy(policyPath)
+		p, err := bounty.LoadPolicy(policyPath)
 		if err != nil {
 			return "", err
 		}
+		policy = p
 		all, err := findings.LoadAllFindings(campaign)
 		if err != nil {
 			return "", err
@@ -540,6 +731,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 	L = append(L, fmt.Sprintf("- disproved: %d  - duplicates: %d  "+
 		"- out-of-scope: %d", disproved, duplicates, outOfScope))
 	L = append(L, "")
+	L = append(L, precisionBlock(campaign, all, policy)...)
 	if policyPath != "" {
 		L = append(L, fmt.Sprintf("- submission (bounty gate): **%d** of %d "+
 			"confirmed are submission-ready — the gate measures submission "+

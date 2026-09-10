@@ -688,6 +688,13 @@
         "submission_ready": {
           "type": "boolean"
         },
+        "advisories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "non-blocking gate advisories (IMPROVEMENTS A2): e.g. an in-code acknowledgement demotes acceptance likelihood — context for the reviewer, never a gate condition"
+        },
         "blocking_reasons": {
           "type": "array",
           "items": {
@@ -1133,6 +1140,11 @@
           "minimum": 0,
           "maximum": 10,
           "description": "advisory prioritization score only \u2014 never a substitute for the evidence gate"
+        },
+        "acceptance_score": {
+          "type": "number",
+          "minimum": 0,
+          "description": "deterministic acceptance-likelihood score (IMPROVEMENTS A3): severity band (critical 3.0 / high 2.0 / medium 1.0 / low 0.5) + evidence level (E0 0.0 .. E7 3.0, the validated_risk wLevel table) + critic verdict (the real critic_verdict enum: confirmed +1.5, disproved -2.0 AND disqualified, every other recorded verdict 0) \u2212 in-code ack demotion (1.0 when dedup_meta.in_code_ack is present) \u2212 accepted-risk demotion (2.0 when bounty.accepted_risk is recorded) + reversibility (irreversible +1.0 / trusted-party +0.5 / reversible 0). Computed by webv2 gate and stored here; the report and webv2 rank recompute it live so it never goes stale. Clamped at 0."
         }
       }
     },
