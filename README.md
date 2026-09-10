@@ -32,9 +32,9 @@ scripts/release.sh                     # -> dist/webv2 + sha256 + size
 #    each asserted against its exit code and output markers.
 scripts/runbook-walkthrough.sh         # green = every runbook command matches
 
-# 4. The full gate (twelve ordered steps: vet, build, tests, race,
+# 4. The full gate (thirteen ordered steps: vet, build, tests, race,
 #    determinism x2, asset-pack manifest, golden suite, crash smoke, legacy
-#    cross-audit, P1/P2/P3 CLI smokes):
+#    cross-audit, P1/P2/P3 CLI smokes, runbook walkthrough):
 scripts/verify-full.sh
 
 # ...or any subset:

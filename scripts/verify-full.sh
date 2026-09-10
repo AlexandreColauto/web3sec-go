@@ -777,5 +777,20 @@ p2_sections_ok "P3 smoke audit" "$P1_OUT" || fail 12 "smoke audit --json section
 p3_ok verify 0 verify "$CID3"
 echo "ok: P3 commands exercised, exit codes as documented"
 
+# ─────────────────────────────────────────────────────────────────────────
+step 13 "runbook walkthrough: every documented command matches the binary"
+# The runbook is the operator contract; this is the only gate that reads it
+# end to end. It was left unenforced once already and silently rotted six
+# rows deep (the 2026-09-10 leanness review found it). Never let that again:
+# green means every verbatim command in assets/runbook/RUNBOOK.md exits with
+# its documented code and prints its documented marker.
+if bash "$ROOT/scripts/runbook-walkthrough.sh" > "$WORK/walkthrough.log" 2>&1; then
+  echo "  ok runbook-walkthrough (134+ rows green)"
+else
+  grep -E "^\[FAIL\]" "$WORK/walkthrough.log" | head -10
+  fail 13 "runbook-walkthrough RED — the runbook and the binary disagree"
+fi
+echo "ok: runbook commands all match"
+
 echo
-echo "VERIFY-FULL GREEN: all 12 steps pass"
+echo "VERIFY-FULL GREEN: all 13 steps pass"

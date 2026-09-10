@@ -140,6 +140,13 @@ SOL
 # documented toolchain line is exercised, and a later row proves the quirk.
 printf '[profile.default]\nsol = "0.8.24"\n' > "$RB/target/foundry.toml"
 echo "generated fixture, not in scope" > "$RB/target/bulk/generated.txt"
+# snap() pins through git: it walks UP to the enclosing repo, and the
+# scratch root lives inside THIS repository — without its own git repo the
+# toy target would pin the whole web3sec-go tree (472 nodes) and `run`'s
+# snapshot re-index would stale the probe surface the final audit re-checks.
+# A real audit target is a checkout; the fixture must be one too.
+( cd "$RB/target" && git init -q && git add -A && \
+  git -c user.email=walkthrough@web3sec -c user.name=walkthrough commit -qm "toy vault fixture" )
 
 cd "$RB"
 
@@ -347,10 +354,12 @@ check ladder-add ok "rung" L693 -- "$WEBV2" --root . ladder "$CID" add "$FID" \
 RUNG="$("$WEBV2" --root . ladder "$CID" show "$FID" \
   | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["variants"][-1]["rung_id"])')"
 check ladder-show ok "rung_id" L693 -- "$WEBV2" --root . ladder "$CID" show "$FID"
-# Cheat sheet L693 writes `explore F-xxx [RUNG|AXIS]`; positionally the 4th
-# arg is RUNG, so the literal form leaves axis=None (both twins refuse it —
-# see docs/python-twin-issues.md). The working form needs a rung placeholder.
-check ladder-explore-verbatim 2 "unknown axis None" L693 -- "$WEBV2" --root . ladder \
+# Cheat sheet L693 writes `explore F-xxx [RUNG|AXIS]`. The reference parsed
+# the 4th positional as RUNG and refused the literal form (twin-issues P3);
+# Go follows the runbook — explore takes no rung, so the verbatim command
+# works and reports the axis explored. The next row keeps the legacy
+# rung-placeholder form green for anyone holding old scripts.
+check ladder-explore-verbatim ok "axis capital-minimization" L693 -- "$WEBV2" --root . ladder \
   "$CID" explore "$FID" capital-minimization --note "already the cheapest variant"
 check ladder-explore ok "axis capital-minimization" L693 -- "$WEBV2" --root . ladder \
   "$CID" explore "$FID" R-any capital-minimization --note "already the cheapest variant"
@@ -423,14 +432,18 @@ check sft-export ok "" L750 -- "$WEBV2" --root . sft export --partition training
 check sft-backfill ok "backfill" L750 -- "$WEBV2" --root . sft backfill "$CID" "$FID"
 
 # --- completion + the final audit (RUNBOOK L594-600, L748) --------------
-check prove-incomplete 1 '"done": false' L724 -- "$WEBV2" --root . prove "$CID" --stage hostile-review
-check prove-done ok '"done": true' L724 -- "$WEBV2" --root . prove "$CID" --stage discovery
+# prove renders one human line per stage: "<stage> DONE|open [authoritative]"
+# (exit 1 while open — the runbook's documented code).
+check prove-incomplete 1 "open|hostile-review" L724 -- "$WEBV2" --root . prove "$CID" --stage hostile-review
+check prove-done ok "DONE|discovery" L724 -- "$WEBV2" --root . prove "$CID" --stage discovery
 check doctor-state-only ok "state:" L688 -- "$WEBV2" --root . doctor "$CID" --state-only
 check doctor-snapshot-only ok "snapshot" L688 -- "$WEBV2" --root . doctor "$CID" --snapshot-only
 check env-doctor-campaign 0or1 "docker:" L689 -- "$WEBV2" --root . env doctor "$CID"
 check answered-lens ok "not-applicable" L724 -- "$WEBV2" --root . answered "$CID" L-01 \
   not-applicable --reason "the lens is not seeded in this model" --families protocol
-check resolve-candidate 2 "not of type 'string'" L695 -- "$WEBV2" --root . resolve-candidate \
+# The reference crashed on --note (dedup_meta typed; twin-issues P2 / D14);
+# Go records the verdict and stamps the note on BOTH findings.
+check resolve-candidate ok "candidate pair" L695 -- "$WEBV2" --root . resolve-candidate \
   "$CID" "$FID" "$F2" --verdict distinct --note "different root cause" --actor operator
 check run-halt 3 "HALTED at model stage" L686 -- "$WEBV2" --root . run "$CID"
 check complete ok "COMPLETE" L690 -- "$WEBV2" --root . complete "$CID" \
