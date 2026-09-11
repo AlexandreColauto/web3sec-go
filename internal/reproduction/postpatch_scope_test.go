@@ -112,6 +112,89 @@ func TestScopeDiffGarbageDirErrors(t *testing.T) {
 	}
 }
 
+// TestScopeSolFilesFileCap (H2): the snapshot walk is bounded — a tree with
+// more .sol files than the cap yields the capped prefix and the truncated
+// flag, never an unbounded path set.
+func TestScopeSolFilesFileCap(t *testing.T) {
+	files := map[string]string{}
+	for i := 0; i < 5; i++ {
+		files[fmt.Sprintf("f%d.sol", i)] = "contract F {}\n"
+	}
+	dir := scopeTree(t, files)
+	got, truncated, err := scopeSolFiles(dir, 3)
+	if err != nil {
+		t.Fatalf("scopeSolFiles: %v", err)
+	}
+	if !truncated {
+		t.Fatalf("truncated = false, want true (5 .sol files, cap 3)")
+	}
+	if len(got) != 3 {
+		t.Fatalf("files = %q, want 3 (the capped prefix)", got)
+	}
+	if !sort.StringsAreSorted(got) {
+		t.Fatalf("files not sorted: %q", got)
+	}
+	// Under the cap: everything, no truncation.
+	all, truncated, err := scopeSolFiles(dir, 10)
+	if err != nil {
+		t.Fatalf("scopeSolFiles: %v", err)
+	}
+	if truncated || len(all) != 5 {
+		t.Fatalf("under cap: %d files truncated=%v, want 5 files, false",
+			len(all), truncated)
+	}
+}
+
+// TestScopeDiffFileCapOmitsDiff (H2): once either walk truncates, the diff
+// is not trustworthy (a prefix drops tail files, which would misreport
+// removals) — the rows say so instead of emitting a wrong diff.
+func TestScopeDiffFileCapOmitsDiff(t *testing.T) {
+	files := map[string]string{
+		"A.sol": "contract A {}\n",
+		"B.sol": "contract B {}\n",
+		"C.sol": "contract C {}\n",
+	}
+	rows, err := scopeDiffCapped(scopeTree(t, files), scopeTree(t, files),
+		2, 1<<20)
+	if err != nil {
+		t.Fatalf("scopeDiffCapped: %v", err)
+	}
+	want := []string{"! scope walk truncated at 2 .sol files — diff omitted " +
+		"(snapshot too large to compare reliably)"}
+	if fmt.Sprintf("%q", rows) != fmt.Sprintf("%q", want) {
+		t.Fatalf("rows = %q, want %q", rows, want)
+	}
+}
+
+// TestScopeDiffByteBudgetOverReports (H2): a spent byte budget never claims
+// "unchanged" for bytes it did not read — remaining common files read as
+// modified (the conservative direction for a changed-surface advisory).
+func TestScopeDiffByteBudgetOverReports(t *testing.T) {
+	files := map[string]string{
+		"A.sol": "contract A { uint256 public x; }\n",
+		"B.sol": "contract B { uint256 public y; }\n",
+	}
+	rows, err := scopeDiffCapped(scopeTree(t, files), scopeTree(t, files),
+		100, 1)
+	if err != nil {
+		t.Fatalf("scopeDiffCapped: %v", err)
+	}
+	want := []string{"~ A.sol", "~ B.sol"}
+	if fmt.Sprintf("%q", rows) != fmt.Sprintf("%q", want) {
+		t.Fatalf("rows = %q, want %q (identical trees, no byte budget left)",
+			rows, want)
+	}
+	// A budget large enough for both files: identical trees diff empty.
+	rows, err = scopeDiffCapped(scopeTree(t, files), scopeTree(t, files),
+		100, 1<<20)
+	if err != nil {
+		t.Fatalf("scopeDiffCapped: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("rows = %q, want empty", rows)
+	}
+}
+
 // scopeNode is one hand-built index node for the PlantCheck stub seam.
 func scopeNode(kind, id, name, path string, line int64) validation.Value {
 	return validation.VObj(
