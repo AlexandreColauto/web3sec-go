@@ -18,6 +18,7 @@ import (
 	"websec/internal/bounty"
 	"websec/internal/capabilities"
 	"websec/internal/completion"
+	"websec/internal/costs"
 	"websec/internal/coverage"
 	"websec/internal/economics"
 	"websec/internal/findings"
@@ -458,6 +459,66 @@ func precisionBlock(campaign *state.Campaign, all []validation.Value,
 	}
 	L = append(L, "")
 	return L
+}
+
+// lensYieldBlock is the G13 cost-attribution table in Results: spend per
+// lens against the confirmations that lens produced, plus the framework's
+// own unit economics (cost per critic-confirmed / per evidence-confirmed
+// finding). Advisory only — it ranks spend, it gates nothing, and the
+// caller presence-gates it: no lens data, no bytes. Deterministic: rows
+// arrive L-id ascending with "unattributed" last (costs.LensYield), money
+// renders to 2 decimals, null quotients render n/a (never inf).
+func lensYieldBlock(campaign *state.Campaign,
+	ly []validation.Value) []string {
+	perCritic, perEvidence := "n/a", "n/a"
+	if rep, err := costs.YieldReport(campaign); err == nil {
+		totals := objAt(rep, "totals")
+		if v := objAt(totals,
+			"cost_per_critic_confirmed_usd"); v.Kind != validation.Null {
+			perCritic = "$" + lensMoney(v)
+		}
+		if v := objAt(totals,
+			"cost_per_evidence_confirmed_usd"); v.Kind != validation.Null {
+			perEvidence = "$" + lensMoney(v)
+		}
+	}
+	L := []string{"- **lens yield (advisory — never gates):** cost per " +
+		"critic-confirmed " + perCritic + " / per evidence-confirmed " +
+		perEvidence}
+	L = append(L, "  | lens | planned | confirmed | cost_usd |")
+	L = append(L, "  |---|---|---|---|")
+	for _, r := range ly {
+		L = append(L, fmt.Sprintf("  | %s | %d | %d | $%s |",
+			objStr(r, "lens"), lensInt(r, "n_planned"),
+			lensInt(r, "n_confirmed"), lensMoney(objAt(r, "cost_usd"))))
+	}
+	L = append(L, "")
+	return L
+}
+
+// lensMoney is Python's f"${x:.2f}" for the number shapes the rollup
+// holds (int 0 included — the unattributed bucket starts at zero).
+func lensMoney(v validation.Value) string {
+	switch v.Kind {
+	case validation.Flt:
+		return strconv.FormatFloat(v.F, 'f', 2, 64)
+	case validation.Int:
+		if v.Big != "" {
+			if f, err := strconv.ParseFloat(v.Big, 64); err == nil {
+				return strconv.FormatFloat(f, 'f', 2, 64)
+			}
+		}
+		return strconv.FormatFloat(float64(v.I), 'f', 2, 64)
+	}
+	return "0.00"
+}
+
+// lensInt is int(r.get(key, 0)) for the rollup's count shapes.
+func lensInt(r validation.Value, key string) int64 {
+	if v := objAt(r, key); v.Kind == validation.Int {
+		return v.I
+	}
+	return 0
 }
 
 // allFindingsTable is the D1 "All findings" table: one row per finding. Order
@@ -959,6 +1020,13 @@ func Generate(campaign *state.Campaign) (string, error) {
 			"packaging (patch immunization, program policy), not finding severity",
 			len(ready), len(confirmed)))
 		L = append(L, "")
+	}
+
+	// G13 cost attribution, presence-gated (the additive convention): a
+	// campaign with zero lens-carrying cost rows and no plan lens data
+	// renders no bytes here at all — no header, no table.
+	if ly, err := costs.LensYield(campaign); err == nil && len(ly) > 0 {
+		L = append(L, lensYieldBlock(campaign, ly)...)
 	}
 
 	// D1 (2026-09-10): the operator's single view of EVERY finding. The

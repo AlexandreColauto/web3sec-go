@@ -84,6 +84,12 @@ type RecordOpts struct {
 	Actor      string
 	Note       *string
 	FindingID  *string
+	// Lens is the G13 cost-attribution lens (L-01, L-02, ...): the check
+	// family the spend served. Operator-reported like every other cost
+	// field — the writer passes it only where genuinely known (a `cost
+	// --lens` invocation); "" means the row carries no lens and the key
+	// is absent from the row (omitempty-style), never null.
+	Lens string
 }
 
 // RecordCost is record_cost: append one operator-reported cost row. Costs
@@ -115,6 +121,13 @@ func RecordCost(c *state.Campaign, opts RecordOpts) (validation.Value, error) {
 		validation.KV{K: "note", V: optStr(opts.Note)},
 		validation.KV{K: "finding_id", V: optStr(opts.FindingID)},
 	)
+	// The lens rides the row only where the call site genuinely knows it:
+	// "" keeps the key absent (never null) so unattributed spend stays
+	// distinguishable from mis-attributed spend downstream.
+	if opts.Lens != "" {
+		entry.O = append(entry.O,
+			validation.KV{K: "lens", V: validation.VStr(opts.Lens)})
+	}
 	// The JSONL split policy: costs.jsonl is written with bare json.dumps
 	// (ensure_ascii=True), unlike every other JSONL in the tree.
 	if err := validation.AppendJsonlAscii(costsPath(c),
@@ -196,6 +209,30 @@ func YieldReport(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
+	// G13 cost attribution (advisory-only): the per-confirmed denominators
+	// reuse the report precision block's vocabulary verbatim —
+	// critic-confirmed is verification.critic_verdict == "confirmed" and
+	// evidence-confirmed is a cleared CONFIRMED evidence floor
+	// (findings.EvidenceDeficit == nil), both counted over the same live
+	// set the precision block ranks (DUPLICATE / OUT_OF_SCOPE /
+	// SUPERSEDED excluded). ADVISORY LAW: these quotients render and roll
+	// up only — grep the tree and you will find no gate, completion
+	// check, or policy consuming cost_per_* or lens_yield anywhere.
+	criticConfirmed := int64(0)
+	evidenceConfirmed := int64(0)
+	for _, f := range all {
+		if s := objStr(f, "status"); s == "DUPLICATE" ||
+			s == "OUT_OF_SCOPE" || s == "SUPERSEDED" {
+			continue
+		}
+		if objStr(objAt(f, "verification"), "critic_verdict") ==
+			"confirmed" {
+			criticConfirmed++
+		}
+		if findings.EvidenceDeficit(f, "CONFIRMED", c) == nil {
+			evidenceConfirmed++
+		}
+	}
 	for _, f := range all {
 		if objStr(f, "status") != "CONFIRMED" {
 			continue
@@ -246,6 +283,18 @@ func YieldReport(c *state.Campaign) (validation.Value, error) {
 	if len(rows) > 0 {
 		totalCostV = validation.VFloat(totalCost)
 	}
+	// Cost per confirmation is null when the denominator is 0 — zero-cost
+	// confirmed value is a reporting gap, never infinity (same rule as
+	// yield_usd_per_usd above). Stored full float like cost_usd itself;
+	// renderers round to 2 decimals.
+	var perCritic, perEvidence validation.Value = validation.VNull(),
+		validation.VNull()
+	if criticConfirmed > 0 {
+		perCritic = validation.VFloat(totalCost / float64(criticConfirmed))
+	}
+	if evidenceConfirmed > 0 {
+		perEvidence = validation.VFloat(totalCost / float64(evidenceConfirmed))
+	}
 	return validation.VObj(
 		validation.KV{K: "trajectories", V: validation.VArr(rows...)},
 		validation.KV{K: "totals", V: validation.VObj(
@@ -254,11 +303,217 @@ func YieldReport(c *state.Campaign) (validation.Value, error) {
 				V: validation.VInt(confirmedCount)},
 			validation.KV{K: "confirmed_value_usd",
 				V: validation.VFloat(confirmedValue)},
-			validation.KV{K: "yield_usd_per_usd", V: totalYield})},
+			validation.KV{K: "yield_usd_per_usd", V: totalYield},
+			validation.KV{K: "cost_per_critic_confirmed_usd",
+				V: perCritic},
+			validation.KV{K: "cost_per_evidence_confirmed_usd",
+				V: perEvidence})},
 		validation.KV{K: "note", V: validation.VStr("value = confirmed " +
 			"extractable_usd (never the 1-10 risk band); costs are " +
 			"operator-reported; yield is advisory and gates nothing")},
 	), nil
+}
+
+// LensYield is the G13 per-lens attribution table: one row per lens in
+// the campaign plan, {lens, n_planned, n_confirmed, cost_usd}, plus a
+// final "unattributed" bucket for cost rows that carry no lens.
+//
+// Attribution paths (the repo's only real ones — priorities carry no
+// top-level lens field, so this joins what exists):
+//   - n_planned: plan priorities whose probe provenance (probe.row_id)
+//     resolves to a probe_surface.json row carrying that lens id.
+//     Priorities with no resolvable lens count toward "unattributed".
+//   - n_confirmed: the subset of those priorities closed as answered
+//     whose closed_ref names a finding that clears the full confirmation
+//     bar — critic verdict confirmed AND no CONFIRMED evidence deficit
+//     (the precision block's floor intersection: a critic-only
+//     confirmation is a false-positive suspect, not a billed result).
+//   - cost_usd: the sum of cost rows whose row.lens == id. A cost row
+//     whose lens the plan does not know bills to "unattributed" rather
+//     than inventing a row.
+//
+// Presence gate: nil (no rows) when zero lens-carrying cost rows exist
+// AND the plan carries no lens data — renderers then emit nothing at
+// all. Any lens data on either side renders the full table with zeros
+// where nothing was observed. Deterministic: plan L-ids ascending,
+// "unattributed" last. The per-lens cost rows plus the unattributed
+// bucket always sum to the campaign total.
+//
+// ADVISORY LAW (see YieldReport): this renders and rolls up only — no
+// gate, completion check, or policy may consume it.
+func LensYield(c *state.Campaign) ([]validation.Value, error) {
+	costRows, err := LoadCosts(c)
+	if err != nil {
+		return nil, err
+	}
+	lensCost := map[string]float64{}
+	unattributedCost := 0.0
+	unattributedRows := 0
+	hasLensCosts := false
+	for _, e := range costRows {
+		lens := objStr(e, "lens")
+		if lens == "" {
+			unattributedCost += floatField(e, "amount_usd")
+			unattributedRows++
+			continue
+		}
+		hasLensCosts = true
+		lensCost[lens] += floatField(e, "amount_usd")
+	}
+	plan, planOK := loadPlanLenient(c)
+	planLens := []string{}
+	if planOK {
+		seen := map[string]bool{}
+		for _, l := range listOf(plan, "lenses") {
+			id := objStr(l, "id")
+			if id == "" || seen[id] {
+				continue
+			}
+			seen[id] = true
+			planLens = append(planLens, id)
+		}
+		sort.Strings(planLens)
+	}
+	if !hasLensCosts && len(planLens) == 0 {
+		return nil, nil
+	}
+	ids := append([]string{}, planLens...)
+	if !planOK {
+		for lens := range lensCost {
+			ids = append(ids, lens)
+		}
+		sort.Strings(ids)
+	}
+	// The probe-surface join: surface row_id -> lens (L-id). Best effort
+	// — a missing or stale surface leaves priorities unattributed rather
+	// than failing the rollup.
+	rowLens := map[string]string{}
+	if raw, err := os.ReadFile(
+		filepath.Join(c.ArtifactsDir, "probe_surface.json")); err == nil {
+		if surface, err := validation.ParseOrdered(raw); err == nil {
+			for _, r := range listOf(surface, "rows") {
+				if rid, lens := objStr(r, "row_id"), objStr(r, "lens"); rid != "" &&
+					lens != "" {
+					rowLens[rid] = lens
+				}
+			}
+		}
+	}
+	known := map[string]bool{}
+	for _, id := range ids {
+		known[id] = true
+	}
+	planned := map[string]int64{}
+	confirmed := map[string]int64{}
+	attrOf := func(lens string) string {
+		if known[lens] {
+			return lens
+		}
+		return "unattributed"
+	}
+	byFinding := map[string]validation.Value{}
+	if planOK {
+		all, err := findings.LoadAllFindings(c)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range all {
+			byFinding[objStr(f, "finding_id")] = f
+		}
+		for _, p := range listOf(plan, "priorities") {
+			lens := ""
+			if prov := objAt(p, "probe"); prov.Kind == validation.Obj {
+				lens = rowLens[objStr(prov, "row_id")]
+			}
+			bucket := attrOf(lens)
+			planned[bucket]++
+			if objStr(p, "status") != "answered" {
+				continue
+			}
+			ref := strings.TrimSpace(objStr(p, "closed_ref"))
+			if !strings.HasPrefix(ref, "F-") {
+				continue
+			}
+			f, ok := byFinding[strings.Fields(ref)[0]]
+			if !ok {
+				continue
+			}
+			if objStr(objAt(f, "verification"), "critic_verdict") !=
+				"confirmed" {
+				continue
+			}
+			if findings.EvidenceDeficit(f, "CONFIRMED", c) != nil {
+				continue
+			}
+			confirmed[bucket]++
+		}
+	}
+	out := []validation.Value{}
+	for _, id := range ids {
+		out = append(out, validation.VObj(
+			validation.KV{K: "lens", V: validation.VStr(id)},
+			validation.KV{K: "n_planned", V: validation.VInt(planned[id])},
+			validation.KV{K: "n_confirmed",
+				V: validation.VInt(confirmed[id])},
+			validation.KV{K: "cost_usd",
+				V: validation.VFloat(lensCost[id])},
+		))
+	}
+	// The unattributed bucket exists for cost rows lacking lens. When the
+	// plan is absent there is no other row to bill them to, so any
+	// unattributed spend still lands here.
+	if unattributedRows > 0 || !planOK {
+		out = append(out, validation.VObj(
+			validation.KV{K: "lens", V: validation.VStr("unattributed")},
+			validation.KV{K: "n_planned",
+				V: validation.VInt(planned["unattributed"])},
+			validation.KV{K: "n_confirmed",
+				V: validation.VInt(confirmed["unattributed"])},
+			validation.KV{K: "cost_usd",
+				V: validation.VFloat(unattributedCost +
+					unbilledLens(lensCost, known))},
+		))
+	}
+	return out, nil
+}
+
+// unbilledLens is the spend on lens ids the plan does not know: operator
+// error (a typo'd --lens), billed to "unattributed" rather than dropped.
+func unbilledLens(lensCost map[string]float64,
+	known map[string]bool) float64 {
+	out := 0.0
+	for lens, amt := range lensCost {
+		if !known[lens] {
+			out += amt
+		}
+	}
+	return out
+}
+
+// loadPlanLenient reads artifacts/campaign_plan.json without schema
+// enforcement: attribution must degrade (unattributed), never fail, on a
+// half-written plan. ok=false means absent or unparseable.
+func loadPlanLenient(c *state.Campaign) (validation.Value, bool) {
+	raw, err := os.ReadFile(
+		filepath.Join(c.ArtifactsDir, "campaign_plan.json"))
+	if err != nil {
+		return validation.VNull(), false
+	}
+	plan, err := validation.ParseOrdered(raw)
+	if err != nil || plan.Kind != validation.Obj {
+		return validation.VNull(), false
+	}
+	return plan, true
+}
+
+// listOf is plan.get(key, []) for the array shapes the plan and the probe
+// surface hold.
+func listOf(v validation.Value, key string) []validation.Value {
+	l := objAt(v, key)
+	if l.Kind == validation.Arr {
+		return l.A
+	}
+	return nil
 }
 
 // BudgetStatus is budget_status: cost position against the operator-set

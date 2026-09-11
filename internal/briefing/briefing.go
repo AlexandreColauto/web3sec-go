@@ -1538,6 +1538,17 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 				"gate findings)")))),
 		kv("critical_hunt", huntBlock))
 
+	// G13 cost attribution, presence-gated (the additive convention): a
+	// campaign with zero lens-carrying cost rows and no plan lens data
+	// keeps byte-identical brief output — no lens_yield key at all.
+	if lensYield, err := costs.LensYield(campaign); err != nil {
+		return validation.VNull(), err
+	} else if len(lensYield) > 0 {
+		econ := objAt(brief, "economics")
+		setKey(&econ, "lens_yield", validation.VArr(lensYield...))
+		setKey(&brief, "economics", econ)
+	}
+
 	if deepAudit {
 		// Python's `from . import audit` registers every section at import
 		// time; the port registers them through audit.Setup().

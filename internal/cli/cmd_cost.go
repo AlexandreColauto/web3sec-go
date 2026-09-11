@@ -14,7 +14,7 @@ import (
 
 const t26CostUsage = `usage: webv2 cost [-h] --kind {model,compute,human-review} --amount AMOUNT
                   [--trajectory TRAJECTORY] [--stage STAGE] [--actor ACTOR]
-                  [--note NOTE] [--finding FINDING]
+                  [--note NOTE] [--finding FINDING] [--lens LENS]
                   campaign
 `
 
@@ -31,6 +31,9 @@ options:
   --actor ACTOR
   --note NOTE
   --finding FINDING
+  --lens LENS           G13 attribution: the check family the spend served
+                        (L-01 .. L-99); omit when unknown — the row then
+                        carries no lens and bills to "unattributed"
 `
 
 // costArgs is the parsed command line (argparse: --actor defaults to
@@ -44,6 +47,7 @@ type costArgs struct {
 	actor      string
 	note       *string
 	finding    *string
+	lens       string
 }
 
 func runCost(root string, args []string, r *Runner) error {
@@ -58,7 +62,8 @@ func runCost(root string, args []string, r *Runner) error {
 	}
 	e, err := costs.RecordCost(c, costs.RecordOpts{
 		Kind: a.kind, AmountUSD: a.amount, Trajectory: a.trajectory,
-		Stage: a.stage, Actor: a.actor, Note: a.note, FindingID: a.finding})
+		Stage: a.stage, Actor: a.actor, Note: a.note, FindingID: a.finding,
+		Lens: a.lens})
 	if err != nil {
 		return err
 	}
@@ -66,6 +71,9 @@ func runCost(root string, args []string, r *Runner) error {
 		" $" + pyFixed2(objFlt(e, "amount_usd"))
 	if traj := objStr(e, "trajectory"); traj != "" {
 		line += " trajectory=" + traj
+	}
+	if lens := objStr(e, "lens"); lens != "" {
+		line += " lens=" + lens
 	}
 	fmt.Fprintln(r.Out, line)
 	return nil
@@ -85,7 +93,7 @@ func parseCost(args []string, r *Runner) (*costArgs, error) {
 		name, val, hasVal := splitFlag(arg)
 		switch name {
 		case "--kind", "--amount", "--trajectory", "--stage", "--actor",
-			"--note", "--finding":
+			"--note", "--finding", "--lens":
 			if !hasVal {
 				if i+1 >= len(args) {
 					return nil, t14ArgparseErr(t26CostUsage, "cost",
@@ -128,6 +136,14 @@ func parseCost(args []string, r *Runner) (*costArgs, error) {
 			a.note = &val
 		case "--finding":
 			a.finding = &val
+		case "--lens":
+			if !costLensShape(val) {
+				return nil, t14ArgparseErr(t26CostUsage, "cost",
+					"argument --lens: invalid lens id: %s "+
+						"(want L-01 .. L-99)",
+					validation.PyReprStr(val))
+			}
+			a.lens = val
 		}
 	}
 	var missing []string
@@ -159,6 +175,17 @@ func costKindChoice(k string) bool {
 		}
 	}
 	return false
+}
+
+// costLensShape is the --lens typo guard: L-NN. The library stays
+// permissive (operator-reported, verbatim); the CLI rejects what cannot
+// be a lens id so a typo never silently bills to "unattributed".
+func costLensShape(lens string) bool {
+	if len(lens) != 4 || lens[0] != 'L' || lens[1] != '-' {
+		return false
+	}
+	return lens[2] >= '0' && lens[2] <= '9' &&
+		lens[3] >= '0' && lens[3] <= '9'
 }
 
 func init() {
