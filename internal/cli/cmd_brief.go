@@ -121,6 +121,14 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 		}
 		fmt.Fprintln(r.Out, pl)
 	}
+	// G9 opaque surfaces (Task 6): presence-gated — a brief whose model
+	// carries no components prints no bytes here.
+	if ts := objAt(b, "tracked_surfaces"); len(ts.A) > 0 {
+		fmt.Fprintln(r.Out, "  tracked-but-opaque surfaces (findings only):")
+		for _, ln := range t31Strings(ts) {
+			fmt.Fprintf(r.Out, "    %s\n", ln)
+		}
+	}
 	if dr := objAt(b, "disposition_review"); len(dr.A) > 0 {
 		fmt.Fprintf(r.Out, "  disposition review: %d flagged high-risk "+
 			"dismissal(s) (B4)\n", len(dr.A))

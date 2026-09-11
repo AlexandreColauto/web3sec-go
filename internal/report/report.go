@@ -31,6 +31,7 @@ import (
 	"websec/internal/pricing"
 	"websec/internal/privileged"
 	"websec/internal/probes"
+	"websec/internal/protocolgraph"
 	"websec/internal/relations"
 	"websec/internal/risk"
 	"websec/internal/state"
@@ -762,6 +763,34 @@ func criticVerdictOf(f validation.Value) string {
 	return objStr(objAt(f, "verification"), "critic_verdict")
 }
 
+// componentSurfacesBlock is the G9 tracked-but-opaque surfaces block: one
+// line per protocol-model component (`- <kind> <path|url>:
+// <in_scope|out-of-scope><, paid>`, via protocolgraph.ComponentSurfaceLines).
+// Presence-gated (the additive convention): nil unless the campaign's
+// model file exists AND carries a non-empty components list, so a
+// component-free campaign gains no bytes. Findings may anchor on these
+// surfaces; structidx never indexes them.
+func componentSurfacesBlock(campaign *state.Campaign) []string {
+	modelPath := filepath.Join(campaign.ArtifactsDir, "protocol_model.json")
+	if !fileExists(modelPath) {
+		return nil
+	}
+	model, err := validation.ReadJson(modelPath)
+	if err != nil {
+		return nil
+	}
+	lines := protocolgraph.ComponentSurfaceLines(model)
+	if len(lines) == 0 {
+		return nil
+	}
+	L := []string{"## Tracked-but-opaque surfaces", "",
+		"> These surfaces are tracked for findings but opaque to " +
+			"structidx: never indexed, never prescreened.", ""}
+	L = append(L, lines...)
+	L = append(L, "")
+	return L
+}
+
 // Generate is generate(): write report.md, register/refresh the artifact and
 // log report.generated. Returns the report path.
 func Generate(campaign *state.Campaign) (string, error) {
@@ -938,6 +967,10 @@ func Generate(campaign *state.Campaign) (string, error) {
 		}
 	}
 
+	// G9 opaque surfaces (Task 6): the tracked-but-opaque component
+	// block, beside the Coverage scope section. Presence-gated (the
+	// additive convention) — a component-free campaign gains no bytes.
+	L = append(L, componentSurfacesBlock(campaign)...)
 	priv, err := PrivilegedSection(campaign)
 	if err != nil {
 		return "", err
