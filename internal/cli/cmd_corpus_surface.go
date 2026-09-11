@@ -23,20 +23,29 @@ import (
 	"websec/internal/validation"
 )
 
-const corpusSurfaceUsage = "usage: webv2 corpus-surface [-h] [--backtest] [--top TOP] campaign\n"
+const corpusSurfaceUsage = `usage: webv2 corpus-surface [-h] [--backtest] [--top TOP] [--baseline NAME]
+                            campaign
+`
 
 // corpusSurfaceHelp is argparse's `webv2 corpus-surface --help` output.
-const corpusSurfaceHelp = `usage: webv2 corpus-surface [-h] [--backtest] [--top TOP] campaign
+// I2b added --baseline NAME, which lengthens the option column: argparse
+// re-pads every option to the new help position and re-wraps the usage
+// block, so the whole block is re-pinned (generated with CPython 3.14's
+// argparse at COLUMNS=80 and pasted verbatim).
+const corpusSurfaceHelp = `usage: webv2 corpus-surface [-h] [--backtest] [--top TOP] [--baseline NAME]
+                            campaign
 
 positional arguments:
   campaign
 
 options:
-  -h, --help  show this help message and exit
-  --backtest  rank held-out eval cases severity-only vs with dev priors
-              (campaign is still required but ignored); the backtest
-              measures the RANKING SIGNALS THE STORE ACTUALLY CARRIES
-  --top TOP   top-K precision window for --backtest (default: 10)
+  -h, --help       show this help message and exit
+  --backtest       rank held-out eval cases severity-only vs with dev priors
+                   (campaign is still required but ignored); the backtest
+                   measures the RANKING SIGNALS THE STORE ACTUALLY CARRIES
+  --top TOP        top-K precision window for --backtest (default: 10)
+  --baseline NAME  run a detector baseline alongside the backtest; repeatable;
+                   NAME ∈ {always, never, slither, aderyn}
 `
 
 func runCorpusSurface(root string, args []string, r *Runner) int {
@@ -44,12 +53,15 @@ func runCorpusSurface(root string, args []string, r *Runner) int {
 	return t14Dispatch(root, r, func() error {
 		backtestFlag := &boolOpt{name: "--backtest"}
 		topFlag := &valOpt{name: "--top"}
+		// --baseline is repeatable (argparse action="append"): every
+		// occurrence accumulates in multi while val keeps the last one.
+		baselineFlag := &valOpt{name: "--baseline", append: true}
 		sp := &argSpec{
 			prog:  "corpus-surface",
 			usage: corpusSurfaceUsage,
 			pos:   []*posOpt{{name: "campaign"}},
 			flags: []*boolOpt{backtestFlag},
-			vals:  []*valOpt{topFlag},
+			vals:  []*valOpt{topFlag, baselineFlag},
 		}
 		if err := sp.parse(args); err != nil {
 			return err
@@ -74,6 +86,18 @@ func runCorpusSurface(root string, args []string, r *Runner) int {
 			}
 			top = n
 		}
+		// The choices check is parse-time in argparse, so it runs before
+		// the post-parse dependency checks below: a bad NAME is reported
+		// even when a prerequisite flag is missing too. The message reuses
+		// the --from family's exact shape (PyReprStr + quotedList).
+		for _, name := range baselineFlag.multi {
+			if !backtest.IsBaseline(name) {
+				return t14ArgparseErr(corpusSurfaceUsage, "corpus-surface",
+					"argument --baseline: invalid choice: %s "+
+						"(choose from %s)", validation.PyReprStr(name),
+					quotedList(backtest.BaselineRoster))
+			}
+		}
 		// --top is a --backtest window, not a sweep option: accepting it
 		// beside the plain sweep would silently ignore it, so it is an
 		// argparse usage error (exit 2) instead.
@@ -81,8 +105,13 @@ func runCorpusSurface(root string, args []string, r *Runner) int {
 			return t14ArgparseErr(corpusSurfaceUsage,
 				"corpus-surface", "--top requires --backtest")
 		}
+		// The floors need the held-out set, which only --backtest has.
+		if baselineFlag.seen && !backtestFlag.set {
+			return t14ArgparseErr(corpusSurfaceUsage, "corpus-surface",
+				"--baseline requires --backtest")
+		}
 		if backtestFlag.set {
-			return runCorpusBacktest(r, top)
+			return runCorpusBacktest(r, root, top, baselineFlag.multi)
 		}
 		c, err := t14Open(root, sp.pos[0].val)
 		if err != nil {
@@ -135,7 +164,22 @@ func runCorpusSurface(root string, args []string, r *Runner) int {
 // value is ignored — the backtest never opens the campaign, it reads
 // evalstore.LoadCases() and ranks pseudo-findings through
 // backtest.Run, which owns the verdict rule.
-func runCorpusBacktest(r *Runner, top int) error {
+//
+// I2b: when --baseline names are present the scorecard string is composed
+// with backtest.BaselineBlock, which scores the SAME held-out slice
+// (backtest.HeldOut — Run's selection, I1b exclusions included) against
+// the requested baselines. Run itself is untouched: the block is appended
+// after its last line, it never changes the verdict or the exit code, and
+// with no --baseline the bytes are exactly what they were before this
+// flag existed.
+//
+// The tool runner is spawned with os/exec DIRECTLY (backtest.RealToolRunner)
+// — never through internal/sandbox, whose RegisterExec mints
+// sandbox_execution records on a campaign. A baseline is an eval-side
+// measurement: it must not append artifacts or move a single byte of the
+// campaign it reports beside. An empty resolved root means "this CLI's
+// root", the checkout internal:// repos' gold paths are relative to.
+func runCorpusBacktest(r *Runner, root string, top int, baselines []string) error {
 	cases, err := evalstore.LoadCases()
 	if err != nil {
 		return err
@@ -143,6 +187,15 @@ func runCorpusBacktest(r *Runner, top int) error {
 	out, code := backtest.Run(cases, top)
 	if code != 0 {
 		return t14ExitErr(code, "%s", out)
+	}
+	if len(baselines) > 0 {
+		out += backtest.BaselineBlock(baselines, backtest.HeldOut(cases),
+			func(tool, toolRoot string) ([]validation.Value, error) {
+				if toolRoot == "" {
+					toolRoot = root
+				}
+				return backtest.RealToolRunner(tool, toolRoot)
+			})
 	}
 	fmt.Fprint(r.Out, out)
 	return nil
