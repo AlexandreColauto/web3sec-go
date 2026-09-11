@@ -331,7 +331,7 @@ p2_full_read "$LEGACY_ROOT" "$LEGACY_ID" "Go readers on legacy P2/P3 state" \
 
 # --- CLI smoke campaigns (steps 10-12) -----------------------------------
 rm -rf "$P1F/fixtures" "$P1F/smoke" "$P1F/smoke2" "$P1F/smoke3" \
-     "$P1F/legacy"
+     "$P1F/smoke3-blind" "$P1F/legacy"
 mkdir -p "$P1F/fixtures"
 
 # Fixtures: one tiny protocol model (two invariants), two findings of the
@@ -688,6 +688,12 @@ p3_ok "probes run" 0 probes "$CID3" run
 p3_ok "probes list" 0 probes "$CID3" list
 p3_ok "probes list --all" 0 probes "$CID3" list --all
 p3_ok "probes list --all --json" 0 probes "$CID3" list --all --json
+python3 -c '
+import json, sys
+n = len(json.load(sys.stdin).get("axes") or [])
+assert n, "axes list is empty"
+print("  ok repo-wide probes list --all --json: %d axes" % n)
+' <<<"$P1_OUT" || fail 12 "probes list --all --json: not JSON with a non-empty axes list"
 # The repo-wide campaign above snap-pins the whole repository, so no axis is
 # ever blind there. Index the assertion-strength fixture directly instead:
 # unpinned from the repo, its enforcement-timing axis is `blind` (sites 4,
@@ -697,6 +703,8 @@ p3_ok_in "$SMOKE3_BLIND" "blind init" 0 init --program VerifyP3Blind
 CID3B="$(grep -oE 'C-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
 [ -n "$CID3B" ] || fail 12 "smoke blind init: no campaign id in output"
 p3_ok_in "$SMOKE3_BLIND" "blind index" 0 index "$CID3B" --src "$P3_BLIND_FIXTURE"
+grep -qE '^index: 4 entries' <<<"$P1_OUT" \
+  || fail 12 "blind index: want 4 fixture entries, saw: $P1_OUT"
 p3_ok_in "$SMOKE3_BLIND" "blind probes run" 0 probes "$CID3B" run
 p3_ok_in "$SMOKE3_BLIND" "blind probes list --all --json" 0 probes "$CID3B" list --all --json
 python3 -c '
@@ -708,11 +716,19 @@ for a in json.load(sys.stdin).get("axes") or []:
 ' <<<"$P1_OUT"
 AXIS="$(python3 -c '
 import json, sys
+want = ("enforcement-timing", 4, 0, 5)
 d = json.load(sys.stdin)
 for a in d.get("axes") or []:
     if a.get("status") == "blind" and a.get("blind"):
+        got = (a["axis"], a["sites"], a["rows"], len(a.get("blind") or []))
+        if got != want:
+            print("  selected %s/%s/%s/%s, want %s/%s/%s/%s" % (got + want))
+            sys.exit(1)
         print(a["axis"]); break
-' <<<"$P1_OUT")"
+else:
+    print("  no axis with status=blind and a non-empty blind list")
+    sys.exit(1)
+' <<<"$P1_OUT" 2>&1)" || fail 12 "smoke blind axis: $AXIS"
 KEY="$(python3 -c '
 import json, sys
 d = json.load(sys.stdin)

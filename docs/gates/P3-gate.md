@@ -149,8 +149,9 @@ Everything else — every event hash, every `MEM-`/`PUB-`/`SCP-`/`PRC-`/
 
 ## 5. verify-full P3 — PASS
 
-The transcript below is from the 15-step revision at the gate date; the smoke
-now runs as step 12 (the bullet below counts it at head).
+The transcript below is from the 15-step revision at the gate date; at head
+the cross-audit is step 9 and the smoke runs as step 12 (the step-12 bullet
+below counts it at head).
 
 ```
 $ bash scripts/verify-full.sh
@@ -176,7 +177,7 @@ Wall clock: **50 s** with warm Go build/test caches (golden alone 25 s);
 well under the 5-minute budget. `scripts/golden.sh` measured separately at
 25 s.
 
-- **steps 11/12 (cross-audit, both directions)** now build P3 state in
+- **transcript steps 11/12 (cross-audit, both directions)** built P3 state in
   the campaign: `snap` the reference blind fixture → `index` →
   `sinks`/`prescreen` → `probes run` → `probes run --emit` →
   `relations --rebuild`, a **disproved rung's queued memory row** (D18
