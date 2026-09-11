@@ -3,36 +3,18 @@ package probes
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"regexp"
 	"sort"
 	"strings"
 
+	"websec/internal/srcclass"
 	"websec/internal/validation"
 )
 
-// testDoubleDirs is _TEST_DOUBLE_DIRS; testDoubleFileRe is
-// _TEST_DOUBLE_FILE_RE. A TEST DOUBLE is not a second site of a pattern, it is
-// scaffolding.
-var testDoubleDirs = map[string]struct{}{"mock": {}, "mocks": {}, "test": {},
-	"tests": {}, "harness": {}, "fixtures": {}}
-
-var testDoubleFileRe = regexp.MustCompile(`(?i)^mock[\w.-]*\.sol$|\w*mock\.sol$|\.t\.sol$`)
-
-// IsTestDoublePath is is_test_double_path.
-func IsTestDoublePath(path string) bool {
-	p := strings.ReplaceAll(path, "\\", "/")
-	p = strings.Trim(p, "/")
-	if p == "" {
-		return false
-	}
-	parts := strings.Split(p, "/")
-	for _, part := range parts[:len(parts)-1] {
-		if _, ok := testDoubleDirs[lower(part)]; ok {
-			return true
-		}
-	}
-	return testDoubleFileRe.MatchString(parts[len(parts)-1])
-}
+// IsTestDoublePath is is_test_double_path. The rule lives in
+// internal/srcclass, which is the ONE vocabulary for "what is this file":
+// the scorecard reports the same classification it scores against. A TEST
+// DOUBLE is not a second site of a pattern, it is scaffolding.
+func IsTestDoublePath(path string) bool { return srcclass.IsTestDouble(path) }
 
 // site is _site: one collapsed sibling site.
 func site(contract string, line int, paths map[string]string) validation.Value {

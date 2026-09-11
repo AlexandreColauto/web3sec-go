@@ -27,6 +27,7 @@
         "content_hash":  { "type": "string", "description": "sha256 over every file in the pinned copy, path-sorted, path prefixed" },
         "root":          { "type": "string", "description": "filesystem path of the immutable pinned copy" },
         "file_count":    { "type": "integer", "minimum": 0 },
+        "campaign_inside_target": { "type": "boolean", "description": "present and true only when the campaign directory sat inside the target the pin staged from — the geometry in which the campaign's own notes, findings and logs are part of the tree an agent can read as target source. Absent means not that case (including every pin taken before the field existed); it is never written as false, because a false here would read as a measurement" },
         "excluded":      { "type": "array", "items": { "type": "string" }, "description": "relative subpaths pruned from this pin by the bulk-default or --exclude sets, reported at their real depth (a deep match under an in-scope dir is its own subpath, not the top-level dir) — an audit pin that silently drops scope is a scope-drift bug, so the prune is recorded, not hidden" }
       }
     },

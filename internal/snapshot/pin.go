@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"websec/internal/state"
@@ -69,6 +70,34 @@ func trunc(s string, n int) string {
 func dirExists(p string) bool {
 	st, err := os.Stat(p)
 	return err == nil && st.IsDir()
+}
+
+// ContainmentWarning is the one sentence the containment geometry prints:
+// the campaign directory sits inside the target that was pinned, so the
+// campaign's own notes, findings and logs are physically part of the tree
+// an agent can read as target source. It is exported because both `snap`
+// (which prints it as `warning: ` + this) and `scorecard` (which reads the
+// recorded source.campaign_inside_target flag) must say the same thing;
+// internal/snapshot must not import internal/cli for it.
+const ContainmentWarning = "the campaign directory is inside the pinned target " +
+	"tree; its own notes are part of what an agent could read as target source"
+
+// insideTree reports whether dir is root itself or a strict descendant of
+// it, comparing whole path components: "/a/target2" is not inside
+// "/a/target", and neither is "/a/other". This is the only place the
+// comparison lives now: `scorecard` used to keep a twin of it, but that
+// comparison could never fire (it compared the staged copy against its own
+// parent) and the section reads the recorded flag instead. It is not
+// shared with internal/cli because sharing it would make internal/snapshot
+// import internal/cli. Both paths are clean and absolute by the time they
+// get here; filepath.Rel is the whole component-wise test.
+func insideTree(root, dir string) bool {
+	rel, err := filepath.Rel(filepath.Clean(root), filepath.Clean(dir))
+	if err != nil {
+		return false
+	}
+	return rel == "." ||
+		(rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
 // --- prune helpers ----------------------------------------------------------
@@ -224,6 +253,13 @@ func copyTree(src, dst string, excludes map[string]struct{}) error {
 // "src-content-"+content_hash[:12].
 func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Value, extraExcludes []string) (validation.Value, error) {
 	targetAbs := resolveSnap(target)
+	// Containment is a fact about THIS pin: the campaign directory (its
+	// notes, findings, logs) sitting inside the absolute target being
+	// pinned. It is decided here, where the target is resolved, because
+	// the recorded source.root is the staged COPY under the campaign dir —
+	// from what lands on disk the geometry is unrepresentable, so a reader
+	// downstream would be comparing a path against its own parent.
+	campaignInsideTarget := insideTree(targetAbs, resolveSnap(c.Dir))
 	snapRoot := resolveSnap(filepath.Join(c.Dir, "snapshots"))
 	st, err := stageTree(targetAbs, snapRoot, extraExcludes)
 	if err != nil {
@@ -300,6 +336,14 @@ func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Valu
 		validation.KV{K: "root", V: validation.VStr(final)},
 		validation.KV{K: "file_count", V: validation.VInt(int64(fileCount))},
 	)
+	// Presence-gated: the key exists only when the geometry actually
+	// holds. An absent key means "not the containment case" — which is
+	// also every snapshot pinned before this field existed, so old records
+	// read correctly without a migration.
+	if campaignInsideTarget {
+		source.O = append(source.O, validation.KV{K: "campaign_inside_target",
+			V: validation.VBool(true)})
+	}
 	if len(prunedPaths) > 0 {
 		names := make([]validation.Value, len(prunedPaths))
 		for i, n := range prunedPaths {
@@ -347,6 +391,15 @@ func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Valu
 	}
 	if _, err := c.PinSnapshot(snap); err != nil {
 		return validation.VNull(), err
+	}
+	// Printed here, not by the caller, because the pin path is the only
+	// place that still knows the TARGET: source.root is the staged copy,
+	// so `scorecard` reads the recorded flag instead and a caller could
+	// not reconstruct the geometry from the returned dict. stderr, not
+	// stdout: the pin's own report is the machine-readable part, and the
+	// `snap` verb has no stderr writer of its own to hand down.
+	if campaignInsideTarget {
+		fmt.Fprintln(os.Stderr, "warning: "+ContainmentWarning)
 	}
 	return snap, nil
 }

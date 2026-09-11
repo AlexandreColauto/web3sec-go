@@ -386,6 +386,71 @@ func TestPinRecordsActiveSnapshot(t *testing.T) {
 	}
 }
 
+// TestPinRecordsCampaignInsideTarget pins the containment fact at its source.
+//
+// The pin stages the tree as a COPY under <campaign>/snapshots/<id>, so the
+// recorded source.root is a descendant of the campaign directory and the
+// geometry (campaign directory inside the pinned target) can never be read
+// back off disk. It is decided here, where the absolute target is resolved,
+// and written ONLY when true: an absent key means "not the containment case",
+// which is also every snapshot pinned before the field existed.
+func TestPinRecordsCampaignInsideTarget(t *testing.T) {
+	// The store is a child of the target: the fact holds and is recorded.
+	// (The target also holds one ordinary file, so the walk actually reaches
+	// a non-excluded entry and creates the staging dir.)
+	outer := t.TempDir()
+	writeFiles(t, outer, map[string]string{"B.sol": "contract B {}"})
+	c := pinCampaign(t, filepath.Join(outer, "store"), "C-pincontain0001")
+	snap := mustPin(t, c, outer, nil, nil)
+	flag := objField(t, objField(t, snap, "source"), "campaign_inside_target")
+	if flag.Kind != validation.Bool || !flag.B {
+		t.Fatalf("campaign_inside_target = %v, want true", flag)
+	}
+	// The record must stay schema-valid with the key present.
+	pinnedRoot := strField(t, objField(t, snap, "source"), "root")
+	onDisk, err := validation.ReadJson(filepath.Join(pinnedRoot, "snapshot.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validation.Validate(onDisk, "snapshot", 1); err != nil {
+		t.Fatalf("on-disk snapshot.json with the flag fails schema: %v", err)
+	}
+
+	// Siblings: the ordinary geometry carries no key at all — never false.
+	root, target := pinTarget(t)
+	c2 := pinCampaign(t, root, "C-pincontain0002")
+	snap2 := mustPin(t, c2, target, nil, nil)
+	for _, kv := range objField(t, snap2, "source").O {
+		if kv.K == "campaign_inside_target" {
+			t.Fatalf("ordinary pin must not carry campaign_inside_target: %v",
+				kv.V)
+		}
+	}
+}
+
+// TestInsideTreeIsComponentWise pins the containment predicate the pin uses:
+// a sibling directory whose name merely shares a PREFIX is not inside.
+func TestInsideTreeIsComponentWise(t *testing.T) {
+	base := string(filepath.Separator) + filepath.Join("a", "target")
+	cases := []struct {
+		dir  string
+		want bool
+	}{
+		{base, true},
+		{filepath.Join(base, "sub"), true},
+		{filepath.Join(base, "sub", "deep"), true},
+		{base + "2", false},
+		{filepath.Join(string(filepath.Separator)+"a", "other"), false},
+		{filepath.Dir(base), false},
+	}
+	for _, tc := range cases {
+		if got := insideTree(base, tc.dir); got != tc.want {
+			t.Errorf("insideTree(%q, %q) = %v, want %v", base, tc.dir, got,
+				tc.want)
+		}
+	}
+}
+
 func mustPin(t *testing.T, c *state.Campaign, target string, cfg *validation.Value, extra []string) validation.Value {
 	t.Helper()
 	snap, err := PinSourceSnapshot(c, target, cfg, extra)
