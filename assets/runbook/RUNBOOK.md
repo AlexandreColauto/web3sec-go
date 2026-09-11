@@ -421,6 +421,74 @@ changed-surface diff (capped at 50 rows) and a plant check over changed files
 (the patch must not plant anything new). Fail-open throughout: verdicts never
 move status.
 
+**Wave I — external feedback: dates on eval cases, baseline floors, band
+precision, operator facts, four bridge predicates, SWC + disclosure.**
+Six items landed, and three of them changed what a number on your screen
+*means*, so read this before you quote one.
+
+*Eval cases now carry a date, and a date can strike a case out.* Suite rows
+gained `deployed_at` — when the bug lived on-chain or the advisory published —
+beside `created_at`, which stays the ingestion stamp. At scoring time
+`--backtest` excludes a held-out case whose date is strictly older than the
+newest dev case, and excludes a held-out case that is a near-duplicate
+(Jaccard ≥ 0.8 over class + root-cause + file basenames + repo) of any dev
+row. The run prints one line, `held-out excluded: <N> temporal, <M> near-dup`,
+and those rows never rank. **Nothing is deleted or rewritten** — exclusion is
+a scoring-time filter, so a re-run on a fixed dataset shows you what changed
+instead of hiding it. An unparseable `deployed_at` fails the row closed (it
+does not rank) and the run open (the run continues); if every held-out row is
+excluded you hit the ordinary empty-held-out exit, not a silent zero.
+
+*Never quote a recall without the floor beside it.* `--backtest --baseline
+NAME` (repeatable; NAME ∈ always, never, slither, aderyn) prints a baseline
+block after the `verdict:` line. `always` flags everything — it is the price
+of recall, printed as recall; `never` flags nothing and prints
+`precision: 0/0 (95% CI n/a)`, never a fabricated 0%. The tool baselines run
+the real binary once per resolved source root; a case with no local checkout
+(a GitHub URL, an empty `gold.locations`) is **skipped, never counted as a
+miss** (`skipped: <k>/<n> cases (no local checkout)`), and a binary that is
+missing or fails on every root prints a single SKIPPED line and the command
+still exits 0. The block is advisory: it never moves the verdict or the exit
+code, and it always prints in roster order, whatever order you passed the
+flags.
+
+*Acceptance scores are not probabilities.* The `## eval` section gains an
+acceptance-band precision table — `[0,1)`, `[1,2)`, `[2,4)`, `[4+Inf)` — giving
+gold-anchored vs live findings in suite-matched programs with a Wilson
+interval per band, plus a fabrication ledger. "Fabricated" means the record
+itself retracted the finding as disproved (`critic_verdict == "disproved"` or
+status `DISPROVED`); superseded, duplicate and out-of-scope rows are NOT
+fabrications and are not counted as such. Expected calibration error was
+refused as inapplicable to a score that is an additive evidence sum. Both
+blocks appear only when there is something to report.
+
+*Operator facts are dated assertions, never lookups.* `model <C> [file]
+--facts PATH` merges `dns`/`dependency` objects onto `components[]`; a fact
+matching no component, two components, or repeating a fact type on one
+component is an error. Extracting from a directory of manifests
+(`remappings.txt`, lockfiles) requires `--facts-observed-at YYYY-MM-DD`, and
+the date is never taken from the clock — a fact's date is something a human
+asserted. Nothing on this path resolves a name or opens a socket.
+
+*Four more bridge predicates — hint-only, by construction.* `prescreen` gained
+`threshold_without_enforcement`, `relayer_single_key`,
+`merkle_proof_no_length_check` and `verifier_default_on` (high criticality,
+`bridge-message` playbook). They read the structural index, which carries no
+state values, so they tell you where to look and never that a bug is there;
+the archetype descriptions say exactly what each one cannot see.
+
+*SWC cross-references, and a disclosure bundle that is recorded, not
+enforced.* Taxonomy classes may carry an `swc` id and then render
+`[OWASP SC06; SWC-104]`; the ids were fetched verbatim from the SWC registry
+on 2026-09-11, and that registry warns its own content has not been thoroughly
+updated since 2020 — the alias is a cross-reference for a reader, never an
+authority. Coverage is partial: rows without an `swc` key are byte-identical
+to before. `publish --disclosure FILE` attaches a bundle whose prose stays
+campaign-local while the shared record carries only its sha256 and embargo
+date, and the framework does **not** refuse, delay, or suppress a publish
+while an embargo is open — the extra line ends `— recorded, not enforced` so a
+recorded embargo is never mistaken for an enforced one.
+
 **Assign trajectories so components get ≥ 2 orthogonal angles:** A-code,
 B-economic, C-state-machine, D-attacker, E-historical, F-integration, G-drift,
 H-lifecycle (consensus/rollup commit→challenge→finalize game reasoning: model
