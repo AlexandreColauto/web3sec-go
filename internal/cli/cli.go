@@ -42,6 +42,7 @@ import (
 	"strings"
 
 	"websec/internal/validation"
+	"websec/internal/version"
 )
 
 // Runner carries the captured writers so tests capture output without
@@ -130,6 +131,13 @@ func (r *Runner) run(argv []string) int {
 	cmd, args := rest[0], rest[1:]
 	if cmd == "help" || cmd == "--help" || cmd == "-h" {
 		fmt.Fprint(r.Out, usageText())
+		return 0
+	}
+	// DEFECT-2 follow-up: the binary names its own build commit. Handled
+	// beside help (never a registered command) so the command surface and
+	// its help-parity tests cannot drift.
+	if cmd == "--version" || cmd == "-V" {
+		fmt.Fprintln(r.Out, version.Describe())
 		return 0
 	}
 	if c, ok := commandByName(cmd); ok {

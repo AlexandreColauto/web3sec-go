@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"websec/internal/validation"
+	"websec/internal/version"
 )
 
 // Campaign is filesystem-backed campaign state under <root>/campaigns/<id>/.
@@ -284,8 +285,15 @@ func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
 		return "", err
 	}
 	if !existing {
+		// DEFECT-2 follow-up: the pin records the framework build that
+		// produced the snapshot, so a later `brief` running a different
+		// binary can warn instead of silently trusting probe semantics
+		// that changed between builds. Event data is free-form (the audit
+		// checks the hash chain, never data keys), so old campaigns
+		// without the key simply never warn — the grandfather rule.
 		data := validation.VObj(
 			kv("ladder", objAt(objAt(snap, "source"), "ladder")),
+			kv("framework_build", validation.VStr(version.Commit())),
 		)
 		if _, err := c.Log("snapshot.pinned", &sid, &data); err != nil {
 			return "", err
