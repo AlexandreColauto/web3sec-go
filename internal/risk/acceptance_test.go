@@ -79,6 +79,19 @@ func setAcceptedRisk(f *validation.Value) {
 		))))
 }
 
+// setMitigation records a T13-shape mitigation_present: a JSON-encoded
+// STRING (dedup_meta is string-valued) built by the real MitigRecord so
+// the fixture carries the production shape, not a hand-rolled guess. It
+// MERGES into dedup_meta (setAck replaces the whole object, so a second
+// withKeyR would wipe the ack — stacking fixtures need the merge).
+func setMitigation(f *validation.Value) {
+	dm := orObj(objAt(*f, "dedup_meta"))
+	dm.O = setOrAppendR(dm.O, "mitigation_present",
+		validation.VStr(findings.MitigRecord("cei-order", "src/Escrow.sol",
+			23, "last write at L23 precedes call at L26")))
+	(*f).O = setOrAppendR((*f).O, "dedup_meta", dm)
+}
+
 func withKeyR(f validation.Value, key string, v validation.Value) validation.Value {
 	f.O = setOrAppendR(f.O, key, v)
 	return f
@@ -131,6 +144,128 @@ func TestAcceptanceDemotions(t *testing.T) {
 	setAcceptedRisk(&f)
 	if s, _ := AcceptanceScore(f); s != want-3.0 {
 		t.Fatalf("ack+risk = %v, want %v", s, want-3.0)
+	}
+}
+
+// TestAcceptanceMitigationDemotion pins the G5 soundness-layer demotion:
+// a T13 mitigation_present record demotes exactly 1.0, sets the
+// presence-pattern fields (MitigationDemoted + the pattern string), and
+// never disqualifies. Garbage shapes (non-JSON, pattern-less JSON, a
+// non-string value) must not move the score.
+func TestAcceptanceMitigationDemotion(t *testing.T) {
+	base := func() validation.Value {
+		return accFinding(func(v *validation.Value) {
+			setBand(v, "high")   // 2.0
+			setEvidence(v, "E4") // 2.0
+		})
+	}
+	if s, _ := AcceptanceScore(base()); s != 4.0 {
+		t.Fatalf("base = %v, want 4.0", s)
+	}
+	f := base()
+	setMitigation(&f)
+	e := Acceptance(f)
+	if e.Score != 3.0 {
+		t.Fatalf("mitigation = %v, want 3.0", e.Score)
+	}
+	if e.Disqualified {
+		t.Fatal("mitigation demotes; it never disqualifies")
+	}
+	if !e.MitigationDemoted || e.Mitigation != "cei-order" {
+		t.Fatalf("fields = %v/%q, want true/cei-order",
+			e.MitigationDemoted, e.Mitigation)
+	}
+	// stacking with the ack demotion: -1 (ack) -1 (mitigation).
+	g := base()
+	setAck(&g)
+	setMitigation(&g)
+	if s, _ := AcceptanceScore(g); s != 2.0 {
+		t.Fatalf("ack+mitigation = %v, want 2.0", s)
+	}
+	// all three demotions on the full block: 4.0 -1 -2 -1 = 0.0 exactly.
+	h := base()
+	setAck(&h)
+	setAcceptedRisk(&h)
+	setMitigation(&h)
+	he := Acceptance(h)
+	if he.Score != 0.0 {
+		t.Fatalf("ack+risk+mitigation = %v, want 0.0", he.Score)
+	}
+	if !he.AckDemoted || !he.RiskDemoted || !he.MitigationDemoted {
+		t.Fatalf("all three flags must fire: %#v", he)
+	}
+	if he.Mitigation != "cei-order" {
+		t.Fatalf("Mitigation = %q, want cei-order", he.Mitigation)
+	}
+	// garbage shapes never fire.
+	for name, rec := range map[string]validation.Value{
+		"non-json":   validation.VStr("not json at all"),
+		"no-pattern": validation.VStr(`{"file":"src/Escrow.sol"}`),
+		"non-string": validation.VObj(kvR("pattern",
+			validation.VStr("cei-order"))),
+	} {
+		j := base()
+		j = withKeyR(j, "dedup_meta", validation.VObj(
+			kvR("mitigation_present", rec)))
+		if je := Acceptance(j); je.Score != 4.0 || je.MitigationDemoted ||
+			je.Mitigation != "" {
+			t.Fatalf("%s: moved the entry: %#v", name, je)
+		}
+	}
+}
+
+// TestAcceptanceMitigationClampsAtZero pins the floor with demotions that
+// overshoot: low (0.5) -1 (ack) -2 (risk) -1 (mitigation) clamps to 0
+// with all three demotion fields visible.
+func TestAcceptanceMitigationClampsAtZero(t *testing.T) {
+	f := accFinding(func(v *validation.Value) {
+		setBand(v, "low") // 0.5
+	})
+	setAck(&f)
+	setAcceptedRisk(&f)
+	setMitigation(&f)
+	e := Acceptance(f)
+	if e.Score != 0 {
+		t.Fatalf("clamped = %v, want 0", e.Score)
+	}
+	if !e.AckDemoted || !e.RiskDemoted || !e.MitigationDemoted ||
+		e.Mitigation != "cei-order" {
+		t.Fatalf("clamped entry must show all three demotions: %#v", e)
+	}
+}
+
+// TestAcceptanceEntryJSONOmitsMitigationWhenZero is the byte-law check:
+// the default entry carries no mitigation keys in ANY rendering, and the
+// keys ARE present with the right values when the term fires.
+func TestAcceptanceEntryJSONOmitsMitigationWhenZero(t *testing.T) {
+	raw, err := json.Marshal(Acceptance(priorFinding()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"mitigation_demoted", "mitigation"} {
+		if _, ok := m[k]; ok {
+			t.Fatalf("demotion-free entry renders key %q: %s", k, raw)
+		}
+	}
+	f := priorFinding()
+	setMitigation(&f)
+	raw, err = json.Marshal(Acceptance(f))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m = nil
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["mitigation_demoted"] != true {
+		t.Fatalf("fired entry missing mitigation_demoted: %s", raw)
+	}
+	if m["mitigation"] != "cei-order" {
+		t.Fatalf("mitigation = %v, want cei-order: %s", m["mitigation"], raw)
 	}
 }
 

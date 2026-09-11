@@ -670,7 +670,8 @@ func criticCell(e risk.AcceptanceEntry) string {
 }
 
 // scoreCell is the two-decimal score with its demotion markers (A2 ack, A1
-// accepted risk) — the markers are what make a demoted number legible.
+// accepted risk, G5 soundness mitigation) — the markers are what make a
+// demoted number legible.
 // The G3 prior marker rides the same presence pattern: absent when the
 // term is zero, so policy-off tables never move.
 func scoreCell(e risk.AcceptanceEntry) string {
@@ -680,6 +681,9 @@ func scoreCell(e risk.AcceptanceEntry) string {
 	}
 	if e.RiskDemoted {
 		s += " -risk"
+	}
+	if e.MitigationDemoted {
+		s += " -mitigation"
 	}
 	if e.PriorFactor != 0 {
 		s += " +prior"
@@ -1593,6 +1597,20 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 			line += " — source unavailable for quote"
 		}
 		out = append(out, line)
+	}
+	// G5 soundness layer: the structural defense covering the flagged
+	// code. Sibling of the in-code-ack bullet in this correctness group —
+	// score-only, never a dismissal. Presence-gated: findings without a
+	// parseable mitigation_present render nothing here. The POLICY layer
+	// (accepted risk below) never reads this field.
+	if ms := objAt(objAt(f, "dedup_meta"), "mitigation_present"); ms.Kind ==
+		validation.Str && ms.S != "" {
+		if pattern, file, line, _, ok :=
+			findings.ParseMitigationPresent(ms.S); ok {
+			out = append(out, fmt.Sprintf(
+				"- soundness layer demotes: %s (%s:%s)",
+				pattern, file, line))
+		}
 	}
 	b := asObj(objAt(f, "bounty"))
 	if len(b.O) > 0 {
