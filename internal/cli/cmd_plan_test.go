@@ -6,6 +6,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -95,8 +96,11 @@ func TestPlanJSON(t *testing.T) {
 	if !strings.Contains(out, "\"read_only\": true") {
 		t.Fatalf("json missing read_only: %q", out[:200])
 	}
+	// `priorities` is the machine-readable twin of the text view's
+	// `plan: N queued priorities` line (TestPlanJSONMatchesTextQueue pins
+	// their agreement); the key must never be dropped again.
 	for _, want := range []string{"\"work_queue\"", "\"lenses\"",
-		"\"divergence\""} {
+		"\"divergence\"", "\"priorities\""} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("json missing %s", want)
 		}
@@ -124,6 +128,53 @@ func TestPlanJSON(t *testing.T) {
 	}
 	if errS != planNote {
 		t.Fatalf("stderr = %q", errS)
+	}
+}
+
+// t14SeededPlanCampaign is the fixture the plan-view tests share: a fresh
+// campaign with the default plan seeded from the fixture model.
+func t14SeededPlanCampaign(t *testing.T) (root, cid string) {
+	t.Helper()
+	root = mkroot(t)
+	cid = initOne(t, root)
+	t14TestSeed(t, root, cid)
+	return root, cid
+}
+
+// runPlanCapture is the CLI-runner helper for the fixture campaign: it runs
+// `plan` and returns stdout, failing the test on a non-zero exit.
+func runPlanCapture(t *testing.T, root, cid string, extra ...string) string {
+	t.Helper()
+	args := append([]string{"--root", root, "plan", cid}, extra...)
+	code, out, errS := run(t, args...)
+	if code != 0 {
+		t.Fatalf("plan %v exit %d: %q", extra, code, errS)
+	}
+	return out
+}
+
+// TestPlanJSONMatchesTextQueue: --json is the machine view of the SAME data
+// the text view prints — the work queue must be present and non-empty when
+// the text view queues priorities, and every count must agree.
+func TestPlanJSONMatchesTextQueue(t *testing.T) {
+	root, cid := t14SeededPlanCampaign(t)
+	outJSON := runPlanCapture(t, root, cid, "--json")
+	outText := runPlanCapture(t, root, cid)
+
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(outJSON), &doc); err != nil {
+		t.Fatalf("plan --json not JSON: %v", err)
+	}
+	wq, ok := doc["work_queue"].([]any)
+	if !ok || len(wq) == 0 {
+		t.Fatalf("work_queue missing/empty in --json: %s", outJSON)
+	}
+	want := fmt.Sprintf("plan: %d queued priorities", len(wq))
+	if !strings.Contains(outText, want) {
+		t.Fatalf("text view %q does not agree with json queue %d", want, len(wq))
+	}
+	if n, ok := doc["priorities"].(float64); !ok || int(n) != len(wq) {
+		t.Fatalf("priorities = %v, want %d", doc["priorities"], len(wq))
 	}
 }
 

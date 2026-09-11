@@ -104,8 +104,20 @@ func planOutput(c *state.Campaign, res validation.Value, stdout io.Writer,
 
 // planOutputJSON is the --json branch: the lens checklist and the divergence
 // status are appended to the plan response, then the whole thing is dumped.
+//
+// The machine view must carry the SAME data the text view prints. The queue
+// itself already rides along on the response, but the count the text view
+// derives from it (`plan: N queued priorities`) had no machine-readable twin:
+// a consumer reading `priorities` off the JSON got nothing (jq's absent-key
+// `null | length` is 0) while the operator text showed N. Both keys are
+// therefore normalized here — work_queue exactly as the text view reads it,
+// priorities as its length, so the two views cannot disagree.
 func planOutputJSON(c *state.Campaign, res, p validation.Value,
 	stdout io.Writer) error {
+	queue := objAt(res, "work_queue")
+	res.O = t14SetOrAppend(res.O, "work_queue", queue)
+	res.O = t14SetOrAppend(res.O, "priorities",
+		validation.VInt(int64(t14PyLen(queue))))
 	if p.Kind != validation.Obj {
 		res.O = t14SetOrAppend(res.O, "lenses", validation.VArr())
 		res.O = t14SetOrAppend(res.O, "divergence", validation.VNull())
