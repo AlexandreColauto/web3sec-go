@@ -394,6 +394,7 @@ func TestLoadLiveFindingsFiltersTerminalJunk(t *testing.T) {
 		{"F-000000000002", "DUPLICATE"},
 		{"F-000000000003", "OUT_OF_SCOPE"},
 		{"F-000000000004", "CONFIRMED"},
+		{"F-000000000005", "SUPERSEDED"},
 	} {
 		v := validation.VObj(
 			kv("finding_id", validation.VStr(s.id)),

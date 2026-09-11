@@ -45,6 +45,7 @@ var confirmedStatuses = map[string]bool{"CONFIRMED": true, "CHAIN": true}
 
 var junkStatuses = map[string]bool{
 	"DUPLICATE": true, "OUT_OF_SCOPE": true, "INFORMATIONAL": true,
+	"SUPERSEDED": true,
 }
 
 // Materializable is _materializable: proposals whose members are all

@@ -867,6 +867,25 @@ func TestBriefHasNoProblemLineWhenOnlyJunkFindingsExist(t *testing.T) {
 	}
 }
 
+func TestBriefTreatsSupersededAsJunk(t *testing.T) {
+	camp := newCamp(t, "noop-program")
+	f := hypoWithStatus(t, camp, "superseded finding", "access-control",
+		"SUPERSEDED")
+	fid := objStr(f, "finding_id")
+	b := build(t, camp, false)
+	if got := intField(objAt(b, "findings"), "total"); got != 1 {
+		t.Errorf("findings.total = %d, want 1", got)
+	}
+	if problemsContain(t, b, "graph was never written") {
+		t.Errorf("superseded-only campaign reports the unwritten-graph problem")
+	}
+	for _, id := range t35IDs(listAt(objAt(b, "findings"), "gate_deficits")) {
+		if id == fid {
+			t.Errorf("superseded finding %s listed in gate_deficits", fid)
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 // test_attention_ledger.py — the ledger half (B4/D7)
 // ---------------------------------------------------------------------------
