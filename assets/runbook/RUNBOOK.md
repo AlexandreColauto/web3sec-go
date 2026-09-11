@@ -369,6 +369,28 @@ submission-ready finding; the brief shows per-lens cost yield and — only when
 Wilson-upper precision is under 10% (n≥10 required; zero-hit trip starts at
 n=35, not n=20: the CI is the law).
 
+**Wave G tranche 3 — beyond-contract scope, cross-chain assumptions, post-patch proof.**
+`components[]` on the protocol model tracks non-contract surfaces (frontend,
+relayer, keeper-service, domain, offchain-service) as tracked-but-opaque:
+pinned by snapshot, cited by path+hash in findings, never indexed by
+structidx — findings on components arrive as model findings and flow through
+dedup/gate/report like contract findings. Two new canonical classes
+(`frontend-injection`, `infra-boundary`) with two data-only playbooks; no
+scanners ship with them. Per-hop cross-chain assumptions ride
+`chain_assumptions[]` (chains[] stays plain strings — legacy models unchanged)
+and render as assumption tables in `brief` + report; a `BRIDGES` hop touching
+an undeclared chain (or a bridged chain with no finality declared) lists an
+ASSUMPTION GAP row. Two structidx archetypes pre-screen the code side:
+`signature-no-separator` (verify-shaped entry points with no chain-id/domain
+parameter evidence) and `proof-accepted-without-depth-gate`, both hint-only
+via `prescreen`. After a patch, `verify --post-patch F-xxx --exec EXEC-xxx`
+regresses the finding: the new exec's exit vector against the baseline repro
+gives `still_reproducible` / `fixed` / `indeterminate`, recorded as
+`verification.patch_regression` beside the immunize clause — plus an advisory
+changed-surface diff (capped at 50 rows) and a plant check over changed files
+(the patch must not plant anything new). Fail-open throughout: verdicts never
+move status.
+
 **Assign trajectories so components get ≥ 2 orthogonal angles:** A-code,
 B-economic, C-state-machine, D-attacker, E-historical, F-integration, G-drift,
 H-lifecycle (consensus/rollup commit→challenge→finalize game reasoning: model
@@ -870,6 +892,7 @@ webv2 log <C> [--tail N]                                           tail the even
 webv2 verify <C> [--queue] [--exec E --finding F --verifier V --description D]   # log integrity / E6 queue / record an independent verification
 webv2 verify <C> --scaffold halmos|forge-fuzz --invariant INV-xxx   # write the harness scaffold artifact (the model fills the BODY region only; outside it is scaffold)
 webv2 verify <C> --harness-result INV-xxx --exec EXEC-xxx [--kind halmos|forge-fuzz]   # map a harness run to its rung: counterexample / PROVEN-BOUNDED / inconclusive (bounded — never an unbounded proof)
+webv2 verify <C> --post-patch F-xxx --exec EXEC-xxx [--snapshot SNAP-xxx]   # regress a finding against a post-patch run: still_reproducible / fixed / indeterminate (fail-open; status never moves; --finding/--verifier/--description are ignored)
 webv2 audit <C> [--json]                                           full integrity audit
 webv2 brief <C> [--json] [--deep]                                  operator cockpit (where it is + decisions waiting; pure view)
 
