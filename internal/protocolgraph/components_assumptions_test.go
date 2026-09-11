@@ -40,6 +40,45 @@ func TestComponentsAndAssumptionsRoundTrip(t *testing.T) {
 	}
 }
 
+// TestComponentsAssumptionsNullableDepth pins the one non-trivial type in
+// the additive keys: `confirmation_depth` is nullable (`["integer","null"]`),
+// and the aux string fields (`validator_set`, `threshold` on assumptions;
+// `url` on components) pass validation. Round-trip stability included.
+func TestComponentsAssumptionsNullableDepth(t *testing.T) {
+	raw := `{"protocol_id":"p","name":"nn","contracts":[],"actors":[],"assets":[],"relations":[],` +
+		`"components":[{"kind":"relayer","url":"https://relay.example","trust":"semi-trusted","in_scope":true,"paid_for":false}],` +
+		`"chain_assumptions":[{"chain":"mainnet","confirmation_depth":null,"validator_set":"mainnet-validators","threshold":"2/3"}]}`
+	v := mustParseJSON(t, raw)
+	if err := validation.Validate(v, "protocol_model", 1); err != nil {
+		t.Fatalf("null-depth literal rejected: %v", err)
+	}
+	compact := validation.CanonCompact(v)
+	if got := validation.CanonCompact(mustParseJSON(t, compact)); got != compact {
+		t.Errorf("null-depth round trip unstable\n got: %s\nwant: %s", got, compact)
+	}
+}
+
+// TestComponentsAssumptionsNegativePins guards the shape boundaries: bad
+// `kind` enum, missing required `kind`/`chain`, and stray properties must
+// all be rejected.
+func TestComponentsAssumptionsNegativePins(t *testing.T) {
+	base := `{"protocol_id":"p","name":"nn","contracts":[],"actors":[],"assets":[],"relations":[]`
+	cases := map[string]string{
+		"bad kind enum":             base + `,"components":[{"kind":"database","trust":"t","in_scope":true,"paid_for":true}]}`,
+		"missing kind":              base + `,"components":[{"trust":"t","in_scope":true,"paid_for":true}]}`,
+		"missing chain":             base + `,"chain_assumptions":[{"finality":"probabilistic"}]}`,
+		"stray component property":  base + `,"components":[{"kind":"frontend","trust":"t","in_scope":true,"paid_for":true,"owner":"eve"}]}`,
+		"stray assumption property": base + `,"chain_assumptions":[{"chain":"mainnet","owner":"eve"}]}`,
+	}
+	for name, raw := range cases {
+		t.Run(name, func(t *testing.T) {
+			if err := validation.Validate(mustParseJSON(t, raw), "protocol_model", 1); err == nil {
+				t.Errorf("expected rejection, got accept: %s", raw)
+			}
+		})
+	}
+}
+
 // TestLegacyModelWithoutNewKeysStillValid reuses the byte-exact legacy
 // fixture from TestGatewayModelArtifactRoundTrip: validate + marshal +
 // compare bytes to prove the additive keys change nothing for old models.
