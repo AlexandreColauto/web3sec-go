@@ -3,6 +3,13 @@
 // CONFIRMED findings/CHAINs plus human-approved memory rows), in two tiers
 // (root + user-global), with a hash-chained manifest, a sanctioned
 // scope-change operation, a derived advisory recall, and a verifier.
+//
+// I6 adds one inbound-only artifact: an operator-supplied disclosure bundle
+// (see disclosure.go). Its CONTENTS never enter shared memory — the bundle is
+// a campaign-local file, and the publish record carries only
+// disclosure_sha256 and disclosure_embargo_until. Shared memory is a
+// cross-campaign surface; free-text impact narratives do not belong on it.
+// The embargo is recorded, never enforced.
 package sharedmem
 
 import (
@@ -468,10 +475,36 @@ func sigKey(sig validation.Value) string {
 
 // ---- publish ---------------------------------------------------------------
 
+// PublishOpts carries the publish-time additions that do NOT change any
+// pre-existing record unless they are set. The zero value is the pre-I6
+// publish, byte for byte.
+type PublishOpts struct {
+	// DisclosureSHA256 is the hex digest of the campaign-local disclosure
+	// bundle attached to this publish. "" means no bundle was attached: the
+	// record then carries neither disclosure field. It is a THIRD, separate
+	// hash — never folded into signatures_sha256 or memory_sha256.
+	DisclosureSHA256 string
+	// DisclosureEmbargoUntil is the bundle's embargo_until recorded verbatim;
+	// "" is recorded as null (the key is required, the value may be null).
+	// RECORDED, never enforced: an open embargo does not refuse, delay, or
+	// suppress the publish.
+	DisclosureEmbargoUntil string
+}
+
 // PublishCampaign is publish_campaign: explicit, logged, actor-attributed,
-// idempotent.
+// idempotent. It is PublishCampaignWith with the zero-value options, so every
+// existing caller and every existing record is unchanged.
 func PublishCampaign(c *state.Campaign, actor string,
 	toGlobal bool) (validation.Value, error) {
+	return PublishCampaignWith(c, actor, toGlobal, PublishOpts{})
+}
+
+// PublishCampaignWith is publish_campaign with the I6 disclosure options.
+// Only opts.DisclosureSHA256 changes anything: when it is set, the publish
+// record gains disclosure_sha256 and disclosure_embargo_until (the bundle's
+// prose never leaves the campaign).
+func PublishCampaignWith(c *state.Campaign, actor string,
+	toGlobal bool, opts PublishOpts) (validation.Value, error) {
 	if actor == "" {
 		return validation.VNull(), errors.New("publish requires a recorded " +
 			"actor — cross-campaign sharing is a boundary-crossing act")
@@ -584,6 +617,15 @@ func PublishCampaign(c *state.Campaign, actor string,
 		kv("memory_added", validation.VInt(int64(memAdded))),
 		kv("signatures_sha256", validation.VStr(fileSha256(sigsPath(store)))),
 		kv("memory_sha256", validation.VStr(fileSha256(memPath(store)))))
+	// I6: the disclosure hash and embargo date ride the record — present ONLY
+	// when a bundle was attached, so a publish without one stays byte-
+	// identical to the pre-I6 record. The embargo is recorded, not enforced.
+	if opts.DisclosureSHA256 != "" {
+		record.O = append(record.O,
+			kv(DisclosureSHA256Field, validation.VStr(opts.DisclosureSHA256)),
+			kv(DisclosureEmbargoField,
+				disclosureEmbargoValue(opts.DisclosureEmbargoUntil)))
+	}
 	record, err = manifestAppend(store, record)
 	if err != nil {
 		return validation.VNull(), err

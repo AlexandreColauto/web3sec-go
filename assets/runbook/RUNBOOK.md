@@ -773,6 +773,7 @@ webv2 memory <C-xxx> --reflect "the fork needed an explicit block number" [--rou
 webv2 memory <C-xxx> --reject MEM-xxxx --reason "real but unreachable" [--rejection-class not-exploitable]
 webv2 publish <C-xxx> --actor NAME                     # publish confirmed knowledge to the shared store (cross-campaign)
 webv2 publish <C-xxx> --actor NAME --global            # -> user-global tier (~/.webv2/shared-memory, or WEBV2_GLOBAL_MEMORY_DIR)
+webv2 publish <C-xxx> --actor NAME --disclosure FILE # attach a disclosure bundle (JSON): its sha256 + embargo date ride the record, its prose stays campaign-local
 webv2 globalize --actor NAME                           # mark stored rows scope=global (recalled by EVERY campaign, whatever its program)
 webv2 shared [--verify]                                # the shared store, both tiers: view + integrity check
 ```
@@ -806,6 +807,24 @@ priority with no evidence ref and every N/A/deprioritized closure with no
 reason. A publish that adds nothing prints "nothing changed — <reason>" plus
 the next command, never silence. **Approve memory only after a human reads the
 candidate** — the agent never approves its own memory.
+
+**A disclosure bundle is operator-supplied, campaign-local, and NOT enforced.**
+`publish --disclosure FILE` reads a bundle (schema `disclosure`: `finding_ids`,
+`summary`, `impact`, `embargo_until`, optional `affected`/`references`/
+`contact`/`reporter_credit`) and refuses it, exit 1, unless every cited finding
+EXISTS in the campaign, is CONFIRMED or CHAIN, is part of this publish, and is
+cited once. The bundle is written to
+`<campaign>/artifacts/disclosure-bundle.json` and registered there; the publish
+RECORD carries only `disclosure_sha256` and `disclosure_embargo_until` — the
+prose never enters the shared store, which is a cross-campaign surface. When a
+bundle is attached the publish prints one extra line, e.g. `disclosure: bundle
+1a2b3c4d5e6f (2 findings), embargo_until 2026-10-01 — recorded, not enforced`.
+The embargo is a POLICY FIELD: the framework does not refuse, delay, or
+suppress a publish while an embargo is open — an embargo is an agreement
+between the researcher and the program, and the tool's only job is to make the
+state legible so a recorded embargo is never mistaken for an enforced one.
+A publish without `--disclosure` is byte-identical to before (no artifact, no
+record fields).
 
 ## 10. End of round
 
@@ -980,7 +999,7 @@ webv2 forkdiff <C> --src SRC [--json]                              match the tar
 webv2 recency <C> --target GIT-REPO --src SRC [--json]             recency-weighted file prioritization
 webv2 baseline {add NAME --path P [--source-url U] [--license L] | list | remove NAME}
 
-webv2 publish <C> --actor A [--global]                             publish confirmed knowledge to the shared store
+webv2 publish <C> --actor A [--global] [--disclosure FILE]         publish confirmed knowledge to the shared store (--disclosure: hash+embargo on the record, prose stays local)
 webv2 globalize --actor A [--program KEY]                          mark stored rows scope=global
 webv2 shared [--verify]                                            the shared store, both tiers: view + integrity check
 webv2 memory <C> [--approve MEM-xxx --by NAME | --reflect TEXT [--round N] | --reject MEM-xxx --reason R [--rejection-class C]]   list memory / approve / reflect / reject

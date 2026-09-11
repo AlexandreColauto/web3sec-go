@@ -13,10 +13,10 @@ import (
 	"websec/internal/validation"
 )
 
-const publishUsage = "usage: webv2 publish [-h] --actor ACTOR [--global] campaign\n"
+const publishUsage = "usage: webv2 publish [-h] --actor ACTOR [--global] [--disclosure FILE] campaign\n"
 
 // publishHelp is argparse's `webv2 publish --help` output, byte-exact.
-const publishHelp = `usage: webv2 publish [-h] --actor ACTOR [--global] campaign
+const publishHelp = `usage: webv2 publish [-h] --actor ACTOR [--global] [--disclosure FILE] campaign
 
 positional arguments:
   campaign
@@ -26,6 +26,11 @@ options:
   --actor ACTOR
   --global       write to ~/.webv2/shared-memory (visible from every root)
                  instead of the root-tier store
+  --disclosure FILE
+                 attach an operator-supplied disclosure bundle (JSON). The
+                 bundle stays campaign-local; its sha256 and embargo date ride
+                 the publish record and its prose never enters the shared
+                 store. The embargo is RECORDED, not enforced.
 `
 
 func runPublish(root string, args []string, r *Runner) int {
@@ -34,7 +39,8 @@ func runPublish(root string, args []string, r *Runner) int {
 		sp := &argSpec{
 			prog:  "publish",
 			usage: publishUsage,
-			vals:  []*valOpt{{name: "--actor", required: true}},
+			vals: []*valOpt{{name: "--actor", required: true},
+				{name: "--disclosure"}},
 			flags: []*boolOpt{{name: "--global"}},
 			pos:   []*posOpt{{name: "campaign"}},
 		}
@@ -49,8 +55,25 @@ func runPublish(root string, args []string, r *Runner) int {
 		if err != nil {
 			return err
 		}
-		rep, err := sharedmem.PublishCampaign(c, sp.vals[0].val,
-			sp.flags[0].set)
+		// I6: load + validate the bundle BEFORE the publish, then write and
+		// register the campaign-local artifact. A refused bundle exits 1 with
+		// nothing written; a publish that fails afterwards leaves only the
+		// campaign-local artifact (never the store).
+		opts := sharedmem.PublishOpts{}
+		var disc *sharedmem.Disclosure
+		if file := sp.vals[1].val; file != "" {
+			disc, err = sharedmem.LoadDisclosure(c, file)
+			if err != nil {
+				return t14ExitOut(1, "publish failed: %s\n", err.Error())
+			}
+			if err := sharedmem.WriteDisclosureArtifact(c, disc); err != nil {
+				return t14ExitOut(1, "publish failed: %s\n", err.Error())
+			}
+			opts.DisclosureSHA256 = disc.SHA256
+			opts.DisclosureEmbargoUntil = disc.EmbargoUntil
+		}
+		rep, err := sharedmem.PublishCampaignWith(c, sp.vals[0].val,
+			sp.flags[0].set, opts)
 		if err != nil {
 			return t14ExitOut(1, "publish failed: %s\n", err.Error())
 		}
@@ -59,6 +82,23 @@ func runPublish(root string, args []string, r *Runner) int {
 			pyIntText(objAt(rep, "signatures_added")),
 			pyIntText(objAt(rep, "memory_added")),
 			objStr(rep, "program_key"), objStr(rep, "tier"))
+		if disc != nil {
+			// I6: the state is made legible, never enforced — the framework
+			// does not refuse, delay, or suppress the publish while an
+			// embargo is open.
+			id := disc.SHA256
+			if len(id) > 12 {
+				id = id[:12]
+			}
+			if disc.EmbargoUntil != "" {
+				fmt.Fprintf(r.Out, "disclosure: bundle %s (%d findings), "+
+					"embargo_until %s — recorded, not enforced\n",
+					id, len(disc.FindingIDs), disc.EmbargoUntil)
+			} else {
+				fmt.Fprintf(r.Out, "disclosure: bundle %s (%d findings), "+
+					"no embargo\n", id, len(disc.FindingIDs))
+			}
+		}
 		noop := objAt(rep, "noop")
 		if noop.Kind != validation.Null {
 			// B5b/D6: a publish that adds nothing says so, and why — the
