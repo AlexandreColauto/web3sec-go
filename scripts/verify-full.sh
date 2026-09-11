@@ -331,7 +331,7 @@ p2_full_read "$LEGACY_ROOT" "$LEGACY_ID" "Go readers on legacy P2/P3 state" \
 
 # --- CLI smoke campaigns (steps 10-12) -----------------------------------
 rm -rf "$P1F/fixtures" "$P1F/smoke" "$P1F/smoke2" "$P1F/smoke3" \
-     "$P1F/legacy"
+     "$P1F/smoke3-blind" "$P1F/legacy"
 mkdir -p "$P1F/fixtures"
 
 # Fixtures: one tiny protocol model (two invariants), two findings of the
@@ -616,19 +616,25 @@ step 12 "P3 CLI smoke: index/probes/memory/publish/baselines/costs/run"
 P1_SEED="verify-p3-smoke"
 p1_step_reset
 SMOKE3="$P1F/smoke3"
-rm -rf "$SMOKE3" "$P1F/baselines"
-mkdir -p "$SMOKE3"
+# The blank-attestation leg below needs a corpus that is genuinely blind; the
+# repo-wide campaign snap-pins the whole repository, so it never has one. Its
+# own scratch root keeps that corpus separate and under this step's cleanup.
+SMOKE3_BLIND="$P1F/smoke3-blind"
+rm -rf "$SMOKE3" "$SMOKE3_BLIND" "$P1F/baselines"
+mkdir -p "$SMOKE3" "$SMOKE3_BLIND"
 
-p3_ok() {
-  local label="$1" want="$2"
-  shift 2
-  P1_OUT="$(run_p1 "$SMOKE3" "$@" 2>&1)"; P1_RC=$?
+# p3_ok_in ROOT LABEL WANT ARGV... — p3_ok for a root other than $SMOKE3.
+p3_ok_in() {
+  local root="$1" label="$2" want="$3"
+  shift 3
+  P1_OUT="$(run_p1 "$root" "$@" 2>&1)"; P1_RC=$?
   if [ "$P1_RC" -ne "$want" ]; then
     echo "$P1_OUT"
     fail 12 "$label: exit $P1_RC, want $want (webv2 $*)"
   fi
   printf '  ok %-24s exit=%s  webv2 %s\n' "$label" "$P1_RC" "$*"
 }
+p3_ok() { p3_ok_in "$SMOKE3" "$@"; }
 
 p3_ok init 0 init --program VerifyP3Smoke
 CID3="$(grep -oE 'C-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
@@ -682,13 +688,47 @@ p3_ok "probes run" 0 probes "$CID3" run
 p3_ok "probes list" 0 probes "$CID3" list
 p3_ok "probes list --all" 0 probes "$CID3" list --all
 p3_ok "probes list --all --json" 0 probes "$CID3" list --all --json
+python3 -c '
+import json, sys
+n = len(json.load(sys.stdin).get("axes") or [])
+assert n, "axes list is empty"
+print("  ok repo-wide probes list --all --json: %d axes" % n)
+' <<<"$P1_OUT" || fail 12 "probes list --all --json: not JSON with a non-empty axes list"
+# The repo-wide campaign above snap-pins the whole repository, so no axis is
+# ever blind there. Index the assertion-strength fixture directly instead:
+# unpinned from the repo, its enforcement-timing axis is `blind` (sites 4,
+# rows 0), which is the precondition `probes blank` asserts.
+P3_BLIND_FIXTURE="$ROOT/internal/probes/testdata/probes/assertion_strength/clean"
+p3_ok_in "$SMOKE3_BLIND" "blind init" 0 init --program VerifyP3Blind
+CID3B="$(grep -oE 'C-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
+[ -n "$CID3B" ] || fail 12 "smoke blind init: no campaign id in output"
+p3_ok_in "$SMOKE3_BLIND" "blind index" 0 index "$CID3B" --src "$P3_BLIND_FIXTURE"
+grep -qE '^index: 4 entries' <<<"$P1_OUT" \
+  || fail 12 "blind index: want 4 fixture entries, saw: $P1_OUT"
+p3_ok_in "$SMOKE3_BLIND" "blind probes run" 0 probes "$CID3B" run
+p3_ok_in "$SMOKE3_BLIND" "blind probes list --all --json" 0 probes "$CID3B" list --all --json
+python3 -c '
+import json, sys
+for a in json.load(sys.stdin).get("axes") or []:
+    print("  axis %-20s status=%-8s sites=%-3s rows=%-3s blind=%d" % (
+        a.get("axis"), a.get("status"), a.get("sites"), a.get("rows"),
+        len(a.get("blind") or [])))
+' <<<"$P1_OUT"
 AXIS="$(python3 -c '
 import json, sys
+want = ("enforcement-timing", 4, 0, 5)
 d = json.load(sys.stdin)
 for a in d.get("axes") or []:
     if a.get("status") == "blind" and a.get("blind"):
+        got = (a["axis"], a["sites"], a["rows"], len(a.get("blind") or []))
+        if got != want:
+            print("  selected %s/%s/%s/%s, want %s/%s/%s/%s" % (got + want))
+            sys.exit(1)
         print(a["axis"]); break
-' <<<"$P1_OUT")"
+else:
+    print("  no axis with status=blind and a non-empty blind list")
+    sys.exit(1)
+' <<<"$P1_OUT" 2>&1)" || fail 12 "smoke blind axis: $AXIS"
 KEY="$(python3 -c '
 import json, sys
 d = json.load(sys.stdin)
@@ -697,11 +737,11 @@ for a in d.get("axes") or []:
         print(a["blind"][0]["key"]); break
 ' <<<"$P1_OUT")"
 [ -n "$AXIS" ] && [ -n "$KEY" ] || fail 12 "smoke probes: no blind axis/key published"
-p3_ok "probes list --axis" 0 probes "$CID3" list --axis "$AXIS"
-p3_ok "probes blank" 0 probes "$CID3" blank --axis "$AXIS" \
+p3_ok_in "$SMOKE3_BLIND" "probes list --axis" 0 probes "$CID3B" list --axis "$AXIS"
+p3_ok_in "$SMOKE3_BLIND" "probes blank" 0 probes "$CID3B" blank --axis "$AXIS" \
   --anchor-blind "$KEY" --reason "the cited key is the only write on this axis" \
   --actor smoke
-p3_ok "probes list (after blank)" 0 probes "$CID3" list --all
+p3_ok_in "$SMOKE3_BLIND" "probes list (after blank)" 0 probes "$CID3B" list --all
 p3_ok "probes run --emit" 0 probes "$CID3" run --emit
 p3_ok "probes run --emit again" 0 probes "$CID3" run --emit
 p3_ok "plan after emit" 0 plan "$CID3"
