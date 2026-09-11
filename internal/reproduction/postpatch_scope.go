@@ -256,7 +256,9 @@ func SetScopePlantAPI(api ScopePlantAPI) { scopePlant = api }
 // `patch plants risk: <archetype-id> <path>:<line> (hint-only — triage
 // decides)`; zero hits is `patch plants nothing new (N files checked)`.
 // Archetype order is AvailableArchetypes order (sorted, re-sorted here for
-// determinism) and rows sort before return.
+// determinism) and rows sort before return. The rows carry the scope rows'
+// overflow convention: postPatchScopeCap rows plus one `… and N more` line
+// (a chatty archetype over a huge changed set must not flood the record).
 func PlantCheck(c *state.Campaign, newSnapshotDir string,
 	changedFiles []string) ([]string, error) {
 	if scopePlant.BuildIndex == nil || scopePlant.ArchetypeIDs == nil ||
@@ -323,6 +325,11 @@ func PlantCheck(c *state.Campaign, newSnapshotDir string,
 		return []string{fmt.Sprintf(
 			"patch plants nothing new (%d files checked)",
 			len(changedFiles))}, nil
+	}
+	if len(rows) > postPatchScopeCap {
+		rest := len(rows) - postPatchScopeCap
+		rows = append(rows[:postPatchScopeCap],
+			fmt.Sprintf("… and %d more", rest))
 	}
 	return rows, nil
 }

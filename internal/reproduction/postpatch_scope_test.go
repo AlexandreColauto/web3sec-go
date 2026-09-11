@@ -356,6 +356,59 @@ func TestPlantCheckRowsSorted(t *testing.T) {
 	}
 }
 
+// TestPlantCheckOverflowCap (H3): the plant rows carry the same overflow
+// convention as the scope rows — postPatchScopeCap rows plus one
+// "… and N more" line, never an unbounded detail join.
+func TestPlantCheckOverflowCap(t *testing.T) {
+	const hits = 60
+	nodes, toks := []validation.Value{}, []string{}
+	for i := 0; i < hits; i++ {
+		name := fmt.Sprintf("f%02d", i)
+		nodes = append(nodes, scopeNode("function", "P.sol#V."+name, name,
+			"P.sol", int64(i+1)))
+		toks = append(toks, name)
+	}
+	idx := validation.VObj(validation.KV{K: "nodes",
+		V: validation.VArr(nodes...)})
+	SetScopePlantAPI(ScopePlantAPI{
+		BuildIndex: func(*state.Campaign, string) (validation.Value,
+			error) {
+			return idx, nil
+		},
+		ArchetypeIDs: func() ([]string, error) {
+			return []string{"chatty"}, nil
+		},
+		LoadArchetype: func(string) (validation.Value, error) {
+			return validation.VObj(validation.KV{K: "checks",
+				V: validation.VArr(validation.VObj(validation.KV{
+					K: "type", V: validation.VStr(
+						"unguarded_function_exists")}))}), nil
+		},
+		EvalCheck: func(_, _ validation.Value) (string, string, error) {
+			return "present", "unguarded: " + strings.Join(toks, ", "), nil
+		},
+	})
+	t.Cleanup(func() { SetScopePlantAPI(ScopePlantAPI{}) })
+	c := newCampaign(t, "Acme Program")
+	rows, err := PlantCheck(c, t.TempDir(), []string{"P.sol"})
+	if err != nil {
+		t.Fatalf("PlantCheck: %v", err)
+	}
+	if len(rows) != postPatchScopeCap+1 {
+		t.Fatalf("rows = %d, want %d (cap + overflow)",
+			len(rows), postPatchScopeCap+1)
+	}
+	if !sort.StringsAreSorted(rows[:postPatchScopeCap]) {
+		t.Fatalf("first %d rows not sorted: %q", postPatchScopeCap,
+			rows[:postPatchScopeCap])
+	}
+	wantOverflow := fmt.Sprintf("… and %d more", hits-postPatchScopeCap)
+	if rows[postPatchScopeCap] != wantOverflow {
+		t.Fatalf("overflow row = %q, want %q", rows[postPatchScopeCap],
+			wantOverflow)
+	}
+}
+
 func TestAppendScopeDetail(t *testing.T) {
 	got := AppendScopeDetail("base detail",
 		[]string{"~ A.sol", "patch plants nothing new (1 files checked)"})
