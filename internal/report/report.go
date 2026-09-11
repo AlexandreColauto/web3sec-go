@@ -1678,6 +1678,19 @@ func immunizationWaived(campaign *state.Campaign, f validation.Value) bool {
 	return false
 }
 
+// patchRegressionMark renders the G11 post-patch verdict label. Unknown
+// verdicts fail open to INDETERMINATE, never to a fix claim.
+func patchRegressionMark(verdict string) string {
+	switch verdict {
+	case "fixed":
+		return "**FIXED**"
+	case "still_reproducible":
+		return "**STILL REPRODUCIBLE**"
+	default:
+		return "**INDETERMINATE**"
+	}
+}
+
 func riskScore(f validation.Value) float64 {
 	v := asObj(objAt(asObj(objAt(f, "risk")), "validated"))
 	s := objAt(v, "score")
@@ -2123,6 +2136,18 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		}
 		out = append(out, fmt.Sprintf("- patch verification: %s — %s",
 			mark, immRendered))
+		// G11 post-patch verdict (Task 8): presence-gated on the
+		// verification.patch_regression record verify --post-patch
+		// lands. Fail-open metadata — it never moves finding status.
+		if pr := objAt(asObj(objAt(f, "verification")),
+			"patch_regression"); pr.Kind == validation.Obj {
+			out = append(out, fmt.Sprintf("- patch regression: %s (%s → %s)",
+				patchRegressionMark(objStr(pr, "verdict")),
+				objStr(pr, "base_exec"), objStr(pr, "exec")))
+			if d := objStr(pr, "detail"); d != "" {
+				out = append(out, "- "+d)
+			}
+		}
 		if immState == "immunized" {
 			cls := objStr(rc, "class")
 			siblings := []validation.Value{}
