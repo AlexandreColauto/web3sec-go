@@ -18,16 +18,26 @@
 // the same five lines as before, byte for byte — and ok stays true: a
 // defect in the EVAL STORE is not a defect in this campaign, and the
 // scoring-time posture is fail-open.
+//
+// I3 (Wave I, Task 7): the section appends the acceptance score-band
+// precision block and the fabrication ledger (evalscore.Bands), both
+// presence-gated. ECE is REFUSED: the acceptance score is an additive
+// evidence sum, not a probability, so expected calibration error over it
+// would be meaningless (see internal/evalscore/bands.go). ok stays true
+// here too — the block is an advisory measurement, never a gate.
 package sections
 
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"websec/assets"
 	"websec/internal/evalscore"
 	"websec/internal/evalstore"
+	"websec/internal/findings"
+	"websec/internal/risk"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -43,6 +53,26 @@ var ErrSkip = errors.New("sections: skip (presence gate closed)")
 // duplicating a dev row), so the I1b problem render has no fixture to
 // exercise over the real pack.
 var evalCases = assets.LoadEvalCases
+
+// riskScore is the injected evalscore.ScoreFn, and the only place this
+// package reaches the acceptance score (evalscore never imports
+// internal/risk — the dependency shape it had before I3 is unchanged).
+//
+// risk.AcceptanceScore's second result is DISQUALIFIED, and this adapter
+// widens it to ok=true on purpose. A critic-disproved finding is
+// disqualified, but its additive sum still exists — the −2.0 term has
+// simply been erased by the score's 0 floor — and the band block's
+// denominator is the SAME live set the existing precision line divides
+// by. Dropping the disqualified rows would silently shrink one denominator
+// and not the other, and would hide exactly the refuted rows the
+// fabrication ledger exists to expose. Refutation is reported by the
+// LEDGER, never by bucketing: a disproved finding clamps to 0.0 and lands
+// in [0,1), which is where refuted evidence honestly sits on a "is this
+// score backed by a gold anchor" ladder.
+func riskScore(f validation.Value) (float64, bool) {
+	s, _ := risk.AcceptanceScore(f)
+	return s, true
+}
 
 // heldOutPartition is the suite partition counted as held-out in the
 // suite line (mirrors evalscore's split; every other partition reads
@@ -117,7 +147,42 @@ func Eval(c *state.Campaign) (validation.Value, error) {
 	for _, p := range problems {
 		problemVals = append(problemVals, validation.VStr(p))
 	}
-	return validation.VObj(
+
+	// I3: acceptance score-band precision + the fabrication ledger. The
+	// scope is the one evalscore already scores for this campaign (its
+	// matched program); the live set is read again here because the
+	// section — not evalscore — is what owns the risk import. A read
+	// failure leaves the set empty, which closes both presence gates: the
+	// block is an advisory addition and never fails the section.
+	liveByProgram := map[string][]validation.Value{}
+	if live, lerr := findings.LoadLiveFindings(c); lerr == nil {
+		liveByProgram[program] = live
+	}
+	bandRows, unscorable, fabricated, fabByBand := evalscore.Bands(
+		[]string{program}, liveByProgram, cases, riskScore)
+	inScope := len(liveByProgram[program])
+	if inScope > 0 {
+		lines = append(lines, "- acceptance-band precision (gold-anchored / "+
+			"live findings in suite-matched programs):")
+		for _, r := range bandRows {
+			// The header names the metric, so the row drops
+			// wilson.Format's "precision: " noun and keeps the interval.
+			lines = append(lines, "  - "+r.Label()+": "+
+				strings.TrimPrefix(r.Line, "precision: "))
+		}
+	}
+	if fabricated > 0 {
+		parts := make([]string, 0, len(evalscore.BandEdges()))
+		for i := range evalscore.BandEdges() {
+			parts = append(parts, fmt.Sprintf("%s=%d",
+				evalscore.BandLabel(i), fabByBand[i]))
+		}
+		lines = append(lines, fmt.Sprintf("- fabrication ledger: %d/%d live "+
+			"findings retracted as disproved; by band %s",
+			fabricated, inScope, strings.Join(parts, ", ")))
+	}
+
+	kvs := []validation.KV{
 		KV("matched", validation.VInt(int64(rep.GoldTotal))),
 		KV("dev", validation.VInt(int64(dev))),
 		KV("held_out", validation.VInt(int64(heldOut))),
@@ -128,6 +193,41 @@ func Eval(c *state.Campaign) (validation.Value, error) {
 		KV("precision", validation.VStr(rep.PrecisionLine)),
 		KV("lines", strArrOf(lines)),
 		KV("problems", validation.VArr(problemVals...)),
-		KV("ok", validation.VBool(true)),
-	), nil
+	}
+	// Presence gate: with no live finding in scope the band block is
+	// absent AND none of the new value keys exist (no zero-valued keys —
+	// the object is built by appending, not by emitting defaults).
+	if inScope > 0 {
+		bandVals := make([]validation.Value, 0, len(bandRows))
+		for _, r := range bandRows {
+			rowKVs := []validation.KV{KV("lo", validation.VFloat(r.Lo))}
+			// The last row's upper edge is +Inf, which the ordered-JSON
+			// writer cannot represent (encoding/json rejects the
+			// Infinity token, so the report would not round-trip):
+			// absence IS the open edge.
+			if !math.IsInf(r.Hi, 1) {
+				rowKVs = append(rowKVs, KV("hi", validation.VFloat(r.Hi)))
+			}
+			rowKVs = append(rowKVs,
+				KV("anchored", validation.VInt(int64(r.Anchored))),
+				KV("total", validation.VInt(int64(r.Total))),
+				KV("line", validation.VStr(r.Line)))
+			bandVals = append(bandVals, validation.VObj(rowKVs...))
+		}
+		kvs = append(kvs, KV("bands", validation.VArr(bandVals...)))
+		if unscorable > 0 {
+			kvs = append(kvs, KV("unscorable", validation.VInt(int64(unscorable))))
+		}
+		if fabricated > 0 {
+			fabVals := make([]validation.Value, 0, len(fabByBand))
+			for _, n := range fabByBand {
+				fabVals = append(fabVals, validation.VInt(int64(n)))
+			}
+			kvs = append(kvs,
+				KV("fabricated", validation.VInt(int64(fabricated))),
+				KV("fabrication_bands", validation.VArr(fabVals...)))
+		}
+	}
+	kvs = append(kvs, KV("ok", validation.VBool(true)))
+	return validation.VObj(kvs...), nil
 }

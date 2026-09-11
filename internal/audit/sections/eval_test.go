@@ -75,16 +75,21 @@ func TestEvalRendersPinnedLines(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Eval: %v", err)
 	}
-	// The exact five lines ARE the I1b byte walk: the shipped suite is
-	// partition-clean (uniform parseable deployed_at, no held-out
-	// duplicate of a dev row), so the presence-gated problem block adds
-	// nothing here. A sixth line in this list is a regression.
+	// The five base lines plus the I3 band block ARE the byte walk: the
+	// shipped suite is partition-clean (uniform parseable deployed_at, no
+	// held-out duplicate of a dev row), so the presence-gated I1b problem
+	// block adds nothing here. Both findings score 0.0 (neither carries
+	// risk/evidence fields) and one of them anchors, so the single
+	// non-empty bucket is [0,1) at 1/2. Nothing was retracted, so the
+	// fabrication ledger is absent.
 	want := []string{
 		"## eval",
 		"- suite: 1 gold cases matched (1 dev, 0 held-out)",
 		"- recall: 1/1 (95% CI 20.7–100.0%)",
 		"- precision: 1/2 (95% CI 9.5–90.5%)",
 		"- false positives (unanchored live findings): 1",
+		"- acceptance-band precision (gold-anchored / live findings in suite-matched programs):",
+		"  - [0,1): 1/2 (95% CI 9.5–90.5%)",
 	}
 	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
 		t.Fatalf("lines = %q\nwant %q", got, want)
@@ -155,15 +160,25 @@ func TestEvalRendersPartitionProblemsWhenPresent(t *testing.T) {
 		t.Fatalf("Eval: %v", err)
 	}
 	got := evalLines(t, sec)
-	wantTail := []string{
+	wantProblems := []string{
 		"- partition problems (rows excluded from the scorecard, never mutated): 1",
 		"  - unparseable-deployed_at CASE-0000000000h1",
 	}
-	if len(got) != 7 {
-		t.Fatalf("lines = %q\nwant the five pinned lines + %q", got, wantTail)
+	// Five base lines, then the I1b problem block, then the I3 band block
+	// (the single live finding scores 0.0 and anchors, so [0,1) is 1/1).
+	wantBands := []string{
+		"- acceptance-band precision (gold-anchored / live findings in suite-matched programs):",
+		"  - [0,1): 1/1 (95% CI 20.7–100.0%)",
 	}
-	if !reflect.DeepEqual(got[5:], wantTail) {
-		t.Fatalf("problem block = %q\nwant %q", got[5:], wantTail)
+	if len(got) != 9 {
+		t.Fatalf("lines = %q\nwant the five pinned lines + %q + %q",
+			got, wantProblems, wantBands)
+	}
+	if !reflect.DeepEqual(got[5:7], wantProblems) {
+		t.Fatalf("problem block = %q\nwant %q", got[5:7], wantProblems)
+	}
+	if !reflect.DeepEqual(got[7:], wantBands) {
+		t.Fatalf("band block = %q\nwant %q", got[7:], wantBands)
 	}
 	probs := objAt(sec, "problems")
 	if probs.Kind != validation.Arr || len(probs.A) != 1 ||
@@ -199,6 +214,8 @@ func TestEvalOmitsProblemBlockWhenClean(t *testing.T) {
 		"- recall: 1/1 (95% CI 20.7–100.0%)",
 		"- precision: 1/1 (95% CI 20.7–100.0%)",
 		"- false positives (unanchored live findings): 0",
+		"- acceptance-band precision (gold-anchored / live findings in suite-matched programs):",
+		"  - [0,1): 1/1 (95% CI 20.7–100.0%)",
 	}
 	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
 		t.Fatalf("lines = %q\nwant %q", got, want)
@@ -221,5 +238,160 @@ func TestEvalRegisteredLast(t *testing.T) {
 	RegisterAll(func(name string, _ SectionFunc) { names = append(names, name) })
 	if len(names) == 0 || names[len(names)-1] != "eval" {
 		t.Fatalf("eval not registered last: %v", names)
+	}
+}
+
+// evalScoredFinding is evalFinding plus the acceptance-score inputs the I3
+// block consumes: risk.validated.band with an irreversible reversibility
+// (band "critical" ⇒ 3.0 + 1.0 = 4.0), and an optional status retraction
+// signal. An empty band leaves the finding at score 0.0.
+func evalScoredFinding(class, path, band, status string) validation.Value {
+	kvs := []validation.KV{
+		KV("root_cause", validation.VObj(KV("class", validation.VStr(class)))),
+		KV("affected", validation.VArr(validation.VObj(
+			KV("path", validation.VStr(path))))),
+	}
+	if band != "" {
+		kvs = append(kvs, KV("risk", validation.VObj(
+			KV("validated", validation.VObj(KV("band", validation.VStr(band)))),
+			KV("reversibility", validation.VStr("irreversible")))))
+	}
+	if status != "" {
+		kvs = append(kvs, KV("status", validation.VStr(status)))
+	}
+	return validation.VObj(kvs...)
+}
+
+// TestEvalRendersBandBlockAfterFPLine: with live findings under a
+// suite-matched program the I3 block lands directly after the FP line —
+// one row per non-empty acceptance bucket (ascending), then the
+// fabrication ledger. The DISPROVED row is still a LIVE finding
+// (LoadLiveFindings filters only DUPLICATE/OUT_OF_SCOPE/SUPERSEDED) and it
+// still anchors: status is not an anchor rule. It is the ledger, not the
+// recall line, that reports the retraction.
+//
+// Scores: critical+irreversible = 4.0 → [4+); the other two have no risk
+// fields → 0.0 → [0,1), where one of the two anchors.
+func TestEvalRendersBandBlockAfterFPLine(t *testing.T) {
+	c := evalCampaign(t, "ES03BankReentrancy", []validation.Value{
+		evalScoredFinding("reentrancy", "src/ES03BankReentrancy.sol", "critical", ""),
+		evalFinding("oracle-manipulation", "src/ES03BankReentrancy.sol"),
+		evalScoredFinding("reentrancy", "src/ES03BankReentrancy.sol", "", "DISPROVED"),
+	})
+	sec, err := Eval(c)
+	if err != nil {
+		t.Fatalf("Eval: %v", err)
+	}
+	want := []string{
+		"## eval",
+		"- suite: 1 gold cases matched (1 dev, 0 held-out)",
+		"- recall: 1/1 (95% CI 20.7–100.0%)",
+		"- precision: 2/3 (95% CI 20.8–93.9%)",
+		"- false positives (unanchored live findings): 1",
+		"- acceptance-band precision (gold-anchored / live findings in suite-matched programs):",
+		"  - [0,1): 1/2 (95% CI 9.5–90.5%)",
+		"  - [4+): 1/1 (95% CI 20.7–100.0%)",
+		"- fabrication ledger: 1/3 live findings retracted as disproved; " +
+			"by band [0,1)=1, [1,2)=0, [2,4)=0, [4+)=0",
+	}
+	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
+		t.Fatalf("lines = %q\nwant %q", got, want)
+	}
+	// The value keys carry the same numbers for machine consumers.
+	bands := objAt(sec, "bands")
+	if bands.Kind != validation.Arr || len(bands.A) != 2 {
+		t.Fatalf("bands = %s, want two rows", validation.CanonCompact(bands))
+	}
+	row := bands.A[0]
+	if lo := objAt(row, "lo"); lo.Kind != validation.Flt || lo.F != 0 {
+		t.Fatalf("first row lo = %s, want 0", validation.CanonCompact(lo))
+	}
+	if hi := objAt(row, "hi"); hi.Kind != validation.Flt || hi.F != 1 {
+		t.Fatalf("first row hi = %s, want 1", validation.CanonCompact(hi))
+	}
+	if n := objAt(row, "anchored"); n.Kind != validation.Int || n.I != 1 {
+		t.Fatalf("first row anchored = %s, want 1", validation.CanonCompact(n))
+	}
+	if n := objAt(row, "total"); n.Kind != validation.Int || n.I != 2 {
+		t.Fatalf("first row total = %s, want 2", validation.CanonCompact(n))
+	}
+	if l := objStr(row, "line"); l != "precision: 1/2 (95% CI 9.5–90.5%)" {
+		t.Fatalf("first row line = %q", l)
+	}
+	// The last row's upper edge is +Inf. The ordered-JSON writer has no
+	// Infinity token (encoding/json rejects it), so `hi` is ABSENT there
+	// rather than unparseable: absence IS the open upper edge.
+	if hi := objAt(bands.A[1], "hi"); hi.Kind != validation.Null {
+		t.Fatalf("last row hi = %s, want absent (open +Inf edge)",
+			validation.CanonCompact(hi))
+	}
+	if fab := objAt(sec, "fabricated"); fab.Kind != validation.Int || fab.I != 1 {
+		t.Fatalf("fabricated = %s, want 1", validation.CanonCompact(fab))
+	}
+	fabBands := objAt(sec, "fabrication_bands")
+	if fabBands.Kind != validation.Arr || len(fabBands.A) != 4 ||
+		fabBands.A[0].I != 1 || fabBands.A[3].I != 0 {
+		t.Fatalf("fabrication_bands = %s, want [1 0 0 0]",
+			validation.CanonCompact(fabBands))
+	}
+	if u := objAt(sec, "unscorable"); u.Kind != validation.Null {
+		t.Fatalf("unscorable = %s, want absent when zero",
+			validation.CanonCompact(u))
+	}
+}
+
+// TestEvalBandBlockAbsentWithZeroLiveFindings is the presence gate at the
+// byte level: a matched program with no live findings renders EXACTLY the
+// pre-I3 five lines and carries none of the new value keys.
+func TestEvalBandBlockAbsentWithZeroLiveFindings(t *testing.T) {
+	c := evalCampaign(t, "ES03BankReentrancy", nil)
+	sec, err := Eval(c)
+	if err != nil {
+		t.Fatalf("Eval: %v", err)
+	}
+	want := []string{
+		"## eval",
+		"- suite: 1 gold cases matched (1 dev, 0 held-out)",
+		"- recall: 0/1 (95% CI 0.0–79.3%)",
+		"- precision: 0/0 (95% CI n/a)",
+		"- false positives (unanchored live findings): 0",
+	}
+	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
+		t.Fatalf("lines = %q\nwant the unchanged five %q", got, want)
+	}
+	for _, key := range []string{"bands", "unscorable", "fabricated",
+		"fabrication_bands"} {
+		if v := objAt(sec, key); v.Kind != validation.Null {
+			t.Errorf("%s = %s, want absent when the gate is closed",
+				key, validation.CanonCompact(v))
+		}
+	}
+	if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
+		t.Errorf("eval section must stay ok=true: %s", validation.DumpIndented(sec))
+	}
+}
+
+// TestEvalBandValueRoundTrips: the section value is serialized into the
+// audit report, so it must survive the framework's own ordered
+// writer/parser. This is the test behind the open [4+) edge being an
+// ABSENT `hi`: emitting +Inf would write an Infinity token that
+// encoding/json (and therefore ParseOrdered) rejects, leaving a report
+// nothing could read back.
+func TestEvalBandValueRoundTrips(t *testing.T) {
+	c := evalCampaign(t, "ES03BankReentrancy", []validation.Value{
+		evalScoredFinding("reentrancy", "src/ES03BankReentrancy.sol", "critical", ""),
+		evalFinding("oracle-manipulation", "src/ES03BankReentrancy.sol"),
+	})
+	sec, err := Eval(c)
+	if err != nil {
+		t.Fatalf("Eval: %v", err)
+	}
+	canon := validation.Canon(sec, true)
+	back, err := validation.ParseOrdered([]byte(canon))
+	if err != nil {
+		t.Fatalf("the section value does not round-trip: %v\n%s", err, canon)
+	}
+	if got := validation.Canon(back, true); got != canon {
+		t.Fatalf("round-trip moved bytes:\n got %s\nwant %s", got, canon)
 	}
 }
