@@ -37,9 +37,10 @@ import (
 // dates are explicit because they ARE the rule under test, and the four
 // near-dup key components (class, root-cause narrative, file, repo) are
 // explicit so a test can make two rows duplicates deliberately — or
-// deliberately not.
-func tc(id, partition, deployed, created, class, rootCause, file, repo string) validation.Value {
-	over := []validation.KV{
+// deliberately not. The trailing overrides exist for tests that need to
+// change a whole key, notably the source block (dataset provenance).
+func tc(id, partition, deployed, created, class, rootCause, file, repo string, over ...validation.KV) validation.Value {
+	fields := []validation.KV{
 		kv("partition", validation.VStr(partition)),
 		kv("created_at", validation.VStr(created)),
 		kv("gold", validation.VObj(
@@ -57,9 +58,34 @@ func tc(id, partition, deployed, created, class, rootCause, file, repo string) v
 			kv("files", validation.VArr(validation.VStr(file))))),
 	}
 	if deployed != "" {
-		over = append(over, kv("deployed_at", validation.VStr(deployed)))
+		fields = append(fields, kv("deployed_at", validation.VStr(deployed)))
 	}
-	return caseVal(id, over...)
+	fields = append(fields, over...)
+	return caseVal(id, fields...)
+}
+
+// manualDataset is the source-block override for a row with NO dataset
+// provenance: source.dataset = "manual", the label the shipped synthetic
+// pack carries. Its dates are build stamps, not provenance.
+func manualDataset() validation.KV {
+	return kv("source", validation.VObj(
+		kv("dataset", validation.VStr("manual")),
+		kv("record_id", validation.VStr("REC-1")),
+		kv("url", validation.VStr("https://example.com/rec-1"))))
+}
+
+// withoutSource drops the source block that caseVal always adds — the
+// malformed row test needs a case with no source AT ALL, and mergeKVs can
+// only replace a whole key, never remove one.
+func withoutSource(c validation.Value) validation.Value {
+	out := make([]validation.KV, 0, len(c.O))
+	for _, kv := range c.O {
+		if kv.K == "source" {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return validation.Value{Kind: validation.Obj, O: out}
 }
 
 // keyOf is the near-dup key the tests reason about.
@@ -166,6 +192,146 @@ func TestTemporalFallsBackToCreatedAt(t *testing.T) {
 	if len(h.Excluded) != 0 {
 		t.Fatalf("mixed-regime excluded = %v, want none (created_at fallback keeps it)",
 			excludedIDs(h))
+	}
+}
+
+// ---- temporal: dataset provenance ---------------------------------------
+
+// TestTemporalManualDevCannotCauseExclusion: a dev row whose source.dataset
+// is "manual" carries no dataset provenance — its date is the day the
+// fixture was written (a build stamp), not the day the bug existed in the
+// world. So it is NOT a temporal comparator: the older REAL held-out row
+// (Morph, published 2024-09-23) ranks. Non-manual provenance is unaffected
+// by this rule; the test next door pins that boundary.
+func TestTemporalManualDevCannotCauseExclusion(t *testing.T) {
+	manualDev := tc("CASE-0000000000d1", "dev", "2026-09-11",
+		"2026-09-11T00:00:00+00:00", "reentrancy",
+		"funds leave before the balance is zeroed", "src/Vault.sol", "acme/vault",
+		manualDataset())
+	realHeld := tc("CASE-0000000000h1", "held-out", "2024-09-23",
+		"2024-09-24T00:00:00+00:00", "oracle-manipulation",
+		"the borrow limit is priced off spot reserves", "src/Lender.sol", "acme/lender")
+
+	h := PartitionHealthFull([]validation.Value{manualDev, realHeld})
+	if len(h.Excluded) != 0 || len(h.Problems) != 0 {
+		t.Fatalf("excluded = %v, problems = %v — a build stamp cannot witness",
+			excludedIDs(h), h.Problems)
+	}
+
+	// The other direction still holds: a manual HELD-OUT row can be
+	// EXCLUDED by a comparator with real provenance. The rule removes the
+	// manual row from the comparator pool, never from the scored leg.
+	realDev := tc("CASE-0000000000d2", "dev", "2026-09-11",
+		"2026-09-11T00:00:00+00:00", "reentrancy",
+		"funds leave before the balance is zeroed", "src/Vault.sol", "acme/vault")
+	manualHeld := tc("CASE-0000000000h2", "held-out", "2024-09-23",
+		"2024-09-24T00:00:00+00:00", "oracle-manipulation",
+		"the borrow limit is priced off spot reserves", "src/Lender.sol", "acme/lender",
+		manualDataset())
+	h = PartitionHealthFull([]validation.Value{realDev, manualHeld})
+	if got := excludedIDs(h); !reflect.DeepEqual(got, []string{"CASE-0000000000h2"}) {
+		t.Fatalf("excluded = %v, want the older manual held-out row (real provenance still witnesses)", got)
+	}
+	if got := reasonsOf(h)[ReasonTemporal]; got != 1 {
+		t.Fatalf("temporal count = %d, want 1", got)
+	}
+}
+
+// TestTemporalRealDevStillExcludesOlderHeldOut pins the UNCHANGED rule
+// beside the new one, so the pair reads as the boundary: real provenance
+// against real provenance compares exactly as it always did.
+func TestTemporalRealDevStillExcludesOlderHeldOut(t *testing.T) {
+	realDev := tc("CASE-0000000000d1", "dev", "2026-05-01",
+		"2026-01-01T00:00:00+00:00", "reentrancy",
+		"funds leave before the balance is zeroed", "src/Vault.sol", "acme/vault")
+	realHeld := tc("CASE-0000000000h1", "held-out", "2024-09-23",
+		"2026-12-01T00:00:00+00:00", "oracle-manipulation",
+		"the borrow limit is priced off spot reserves", "src/Lender.sol", "acme/lender")
+
+	h := PartitionHealthFull([]validation.Value{realDev, realHeld})
+	if got := excludedIDs(h); !reflect.DeepEqual(got, []string{"CASE-0000000000h1"}) {
+		t.Fatalf("excluded = %v, want the strictly older held-out row", got)
+	}
+	if got := h.Excluded[0].Reason; got != ReasonTemporal {
+		t.Fatalf("reason = %q, want %q", got, ReasonTemporal)
+	}
+}
+
+// TestTemporalManualPairIsTheDocumentedLoss: manual vs manual is a
+// comparison with no provenance on either side, so nothing is excluded —
+// even though the held-out row is older. This is the DOCUMENTED LOSS of
+// the provenance rule: a manual held-out row gets no temporal protection
+// against manual dev rows. The near-dup leg is what still guards that
+// pair (see TestNearDupStillFiresAgainstManualDev); a manual pack's dates
+// are all the same build stamp anyway, so the ordering would be meaningless.
+func TestTemporalManualPairIsTheDocumentedLoss(t *testing.T) {
+	manualDev := tc("CASE-0000000000d1", "dev", "2026-09-11",
+		"2026-09-11T00:00:00+00:00", "reentrancy",
+		"funds leave before the balance is zeroed", "src/Vault.sol", "acme/vault",
+		manualDataset())
+	// Older on both clocks, so only provenance can keep it ranked.
+	manualHeld := tc("CASE-0000000000h1", "held-out", "2024-09-23",
+		"2024-09-24T00:00:00+00:00", "oracle-manipulation",
+		"the borrow limit is priced off spot reserves", "src/Lender.sol", "acme/lender",
+		manualDataset())
+
+	h := PartitionHealthFull([]validation.Value{manualDev, manualHeld})
+	if len(h.Excluded) != 0 || len(h.Problems) != 0 {
+		t.Fatalf("excluded = %v, problems = %v — manual provenance cannot witness on either side",
+			excludedIDs(h), h.Problems)
+	}
+}
+
+// TestTemporalMissingSourceStillWitnesses: the schema requires source, so a
+// row with NO source block is malformed rather than provenance-free. Fail
+// closed: it stays a temporal comparator and the older held-out row is
+// excluded. Absence must never LOOSEN an exclusion.
+func TestTemporalMissingSourceStillWitnesses(t *testing.T) {
+	noSource := withoutSource(tc("CASE-0000000000d1", "dev", "2026-09-11",
+		"2026-09-11T00:00:00+00:00", "reentrancy",
+		"funds leave before the balance is zeroed", "src/Vault.sol", "acme/vault"))
+	realHeld := tc("CASE-0000000000h1", "held-out", "2024-09-23",
+		"2024-09-24T00:00:00+00:00", "oracle-manipulation",
+		"the borrow limit is priced off spot reserves", "src/Lender.sol", "acme/lender")
+
+	h := PartitionHealthFull([]validation.Value{noSource, realHeld})
+	if got := excludedIDs(h); !reflect.DeepEqual(got, []string{"CASE-0000000000h1"}) {
+		t.Fatalf("excluded = %v, want the older held-out row (no source == malformed, not manual)", got)
+	}
+	if got := reasonsOf(h)[ReasonTemporal]; got != 1 {
+		t.Fatalf("temporal count = %d, want 1", got)
+	}
+}
+
+// TestNearDupStillFiresAgainstManualDev: the near-dup leg is
+// PROVENANCE-BLIND and stays that way — a planted fixture restating a real
+// bug's shape is still double-counting. Here the manual dev row is dated
+// late and the held-out row older, so under the old rule temporal would
+// have fired; now temporal is silent (manual cannot witness) and near-dup
+// is the leg that catches the duplicate. Precedence is untouched.
+func TestNearDupStillFiresAgainstManualDev(t *testing.T) {
+	manualDev := tc("CASE-0000000000d1", "dev", "2026-09-11",
+		"2026-09-11T00:00:00+00:00", "reentrancy",
+		"funds leave before the balance is zeroed", "src/Vault.sol", "acme/vault",
+		manualDataset())
+	realHeld := tc("CASE-0000000000h1", "held-out", "2024-09-23",
+		"2024-09-24T00:00:00+00:00", "reentrancy",
+		"funds leave before the balance is zeroed", "src/Vault.sol", "acme/vault")
+
+	if j := textsim.Jaccard(keyOf(t, manualDev), keyOf(t, realHeld)); j < nearDupThreshold {
+		t.Fatalf("fixture drift: Jaccard = %v, want >= %v by construction", j, nearDupThreshold)
+	}
+	h := PartitionHealthFull([]validation.Value{manualDev, realHeld})
+	if got := excludedIDs(h); !reflect.DeepEqual(got, []string{"CASE-0000000000h1"}) {
+		t.Fatalf("excluded = %v, want the duplicate held-out row", got)
+	}
+	e := h.Excluded[0]
+	if e.Reason != ReasonNearDup || e.Other != "CASE-0000000000d1" || e.Score != 1.0 {
+		t.Fatalf("exclusion = %+v, want near-dup against the manual dev row at 1.0", e)
+	}
+	r := reasonsOf(h)
+	if r[ReasonTemporal] != 0 || r[ReasonNearDup] != 1 {
+		t.Fatalf("reasons = %v, want only the near-dup (temporal must stay silent)", r)
 	}
 }
 

@@ -31,6 +31,27 @@ package evalstore
 //     UNORDERABLE: fail-closed on the row (it does not rank, in either
 //     partition — an unorderable dev row also leaves the dev pool it would
 //     otherwise anchor), fail-open on the run (the other rows still score).
+//   - PROVENANCE (locked, and the reason this list is not just "older"):
+//     a row whose source.dataset is exactly "manual" carries no dataset
+//     provenance, so ITS DATES CANNOT WITNESS. Manual rows are not
+//     temporal comparators — they can still be EXCLUDED by a comparator
+//     with real provenance, but they can never CAUSE an exclusion. Every
+//     other dataset (scabench, defihacklabs, c4audit, sherlock, ...) is
+//     real provenance and compares exactly as before; the comparison is
+//     real-vs-real or nothing. A missing or malformed source block is NOT
+//     manual and stays a comparator: the schema requires source, so
+//     absence means malformed, and fail-closed means exclusions only ever
+//     increase. WHY: the shipped synthetic pack carries dataset "manual"
+//     and deployed_at = the day the fixture file was written — a BUILD
+//     STAMP, chosen so the discipline would move zero bytes. A build stamp
+//     witnesses nothing about when the bug existed in the world, so
+//     comparing real provenance against it excluded real held-out rows
+//     (the Morph rows, dated 2024-09-23) for the wrong reason on any pack
+//     that mixes planted fixtures with real data. What manual HELD-OUT
+//     rows lose: no temporal protection against manual dev rows. The
+//     near-dup leg is what still guards that pair, and it is deliberately
+//     provenance-blind (a planted fixture restating a real bug's shape is
+//     still double-counting).
 //
 // Near-dup rule (locked): see dupKey and nearDupThreshold. Same-partition
 // pairs are NOT scanned — dev-dev duplication is the loader's problem, not
@@ -65,9 +86,10 @@ const (
 	// ReasonUnparseable: deployed_at was present but not a YYYY-MM-DD
 	// date. Problem line: "unparseable-deployed_at <case_id>".
 	ReasonUnparseable ExclusionReason = "unparseable-deployed_at"
-	// ReasonTemporal: strictly older than a dev row. Counted, not
-	// enumerated — it is a property of the split, not a defect to fix,
-	// so it carries no problem line.
+	// ReasonTemporal: strictly older than a dev row that carries real
+	// dataset provenance (a manual row cannot witness — see the locked
+	// ordering rule). Counted, not enumerated — it is a property of the
+	// split, not a defect to fix, so it carries no problem line.
 	ReasonTemporal ExclusionReason = "temporal"
 	// ReasonNearDup: restates a dev/training row. Problem line:
 	// "near-dup <held> ~ <other> <score>".
@@ -120,7 +142,8 @@ func PartitionHealthFull(cases []validation.Value) Health {
 	rows := make([]*healthRow, 0, len(cases))
 	for _, c := range cases {
 		r := &healthRow{c: c, id: objStr(c, "case_id"),
-			created: objStr(c, "created_at"), key: dupKey(c)}
+			created: objStr(c, "created_at"), key: dupKey(c),
+			manual: objStr(objAt(c, "source"), "dataset") == "manual"}
 		// The partition vocabulary mirrors backtest.Run exactly (the
 		// consumer): held-out ranks, dev sources priors, training is
 		// neither. Training rows are still near-dup REFERENCES — the
@@ -150,13 +173,18 @@ func PartitionHealthFull(cases []validation.Value) Health {
 
 	// Temporal pass: a held-out row is excluded iff it is STRICTLY older
 	// than some dev row — identical dates rank, so the same-day backfill
-	// the shipped suite carries is not a mass exclusion.
+	// the shipped suite carries is not a mass exclusion. The comparator
+	// set is filtered to rows with REAL provenance first (locked ordering
+	// rule, above): a manual dev row's date is a build stamp and cannot
+	// witness, so it never causes an exclusion — though a manual held-out
+	// row can still be excluded by a non-manual dev row. Rows with no
+	// usable comparators simply rank.
 	for _, h := range rows {
 		if !h.held || h.excluded {
 			continue
 		}
 		for _, d := range rows {
-			if !d.dev || d.excluded {
+			if !d.dev || d.excluded || d.manual {
 				continue
 			}
 			if strictlyOlder(h, d) {
@@ -229,6 +257,7 @@ type healthRow struct {
 	held     bool // the scored leg
 	dev      bool // the pool the temporal rule compares against
 	ref      bool // the pool the near-dup scan compares against
+	manual   bool // source.dataset == "manual": not a temporal comparator
 	deployed string
 	hasDep   bool
 	created  string
