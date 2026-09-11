@@ -1,7 +1,7 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
-Date: 2026-09-10 · Status: waves A–D + C0 + E5 LANDED; E1–E4 deferred by
-principle 6; D8 awaits a decision; the port-scaffolding cleanup is wave F
+Date: 2026-09-10 · Status: waves A–D + C0 + E5 LANDED; E1/E2 LANDED via G14,
+E3/E4 deferred by principle 6; D8 LANDED 2026-09-10; the port-scaffolding cleanup is wave F
 (`docs/LEANNESS_REVIEW.md`). **Wave G tranche 1 LANDED 2026-09-10 (G1, G6, G7;
 source: the "Beyond Smart Contracts" hybrid-defense report + our deep-research
 deliverable "Deconstructing Claims, Validating AI, and Weighting Risks");
@@ -10,6 +10,7 @@ tranche 2 LANDED 2026-09-11 (G2, G3, G4, G5, G8, G12–G18 — plan
 tranche 3 LANDED 2026-09-11 (G9, G10, G11 — plan
 `docs/superpowers/plans/2026-09-11-wave-g-tranche-3.md`).
 Wave G is COMPLETE (G1–G18 all LANDED).**
+Wave H backlog filed 2026-09-11 (15 items, open) — Wave I LANDED 2026-09-11 (I1–I6).
 
 Source: the Morph L2 rollup campaign (`C-42bd211e3e`, 537 events, 52 findings,
 snapshot `22ca805e`) against the gold-standard eval with two planted bugs
@@ -1565,14 +1566,13 @@ a decision to take with a real program page in hand, not in the abstract.
 **Status (2026-09-10, updated):** **E5 has LANDED** (checkpoint `92104cf`:
 `risk.reversibility` ∈ {irreversible +3.0, trusted-party +2.0, reversible
 +0.0}, absent = byte-identical scoring; G-02 regression pins 7.0 high — E6
-is closed by it). E1–E4 remain recorded, not scheduled: each adds a new
+is closed by it). E1/E2 CLOSED by G14 (amend/supersede + batch dispose, tranche 2); E3/E4 remain recorded, not scheduled: each adds a new
 capability surface for a workflow the evaluated campaigns never hit. They
 land when a real run trips them — that is what this document is for.
 
 ### E1. Finding amend/supersede (prior-round C1, P1-1)
 
-No path exists to amend a filed finding or supersede it with a corrected
-version (only plan/floor have supersede). Design:
+**LANDED via G14** (`4edfd60`): `webv2 amend <CID> <F>` and `webv2 supersede <CID> <F-new> --of <F-old>` exist (`internal/cli/cmd_amend.go`), with `SUPERSEDED` in the status set. The original ask is kept below as history. Design:
 `webv2 amend <CID> <F> --title/--class/--claim/--note` (bumps
 `claim_version`, appends `history[]` entry, logs `finding.amended`) and
 `webv2 supersede <CID> <F-new> --of <F-old>` (old → `SUPERSEDED` status,
@@ -1587,7 +1587,7 @@ into the successor's section.
 
 ### E2. Probe batch disposition (prior-round C4)
 
-The probes CLI is run/list/blank only. Design:
+**LANDED via G14** (`b8ed2c6`): the batch-dispose path lives in `internal/planner/batch.go`. The original ask is kept below as history. Design:
 `webv2 probes dispose <CID> <row-id...> --status answered|deprioritized
 --reason "..."` (batch; per-row reason required unless `--reason-all`) and
 `webv2 probes unblank <CID> <row-id...>`. Runs the B4 linter on the way in.
@@ -1771,8 +1771,8 @@ before the next starts. Order is by dependency, not wave letter:
 | 14 | D3 artifact reconcile + migration | — | M |
 | 15 | D4 dedup signature verbs + tier-2 flag | — | M |
 | 16 | D5 learning verbs | — | S |
-| 17 | E1 amend/supersede | — | M |
-| 18 | E2 probe batch disposition | B4 (linter runs on dispose) | S |
+| 17 | E1 amend/supersede — LANDED via G14 | — | M |
+| 18 | E2 probe batch disposition — LANDED via G14 | B4 (linter runs on dispose) | S |
 | 19 | E3 ladder other axis | — | S |
 | 20 | E4 campaign severity floor | — | S |
 
