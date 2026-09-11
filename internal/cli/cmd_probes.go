@@ -184,25 +184,35 @@ func parseProbesRun(a *probesArgs, args []string, r *Runner) error {
 		case "--emit":
 			a.emit = true
 			continue
+		}
+		// splitFlag is the shared argparse splitter (cmd_budget.go): the
+		// value flags take both `--flag VALUE` and `--flag=VALUE`, exactly as
+		// the converted verbs do.
+		name, val, hasVal := splitFlag(arg)
+		switch name {
 		case "--per-axis", "--total":
-			if i+1 >= len(args) {
-				return t14ArgparseErr(t29ProbesRunUsage,
-					"probes campaign run", "argument %s: expected one argument", arg)
+			if !hasVal {
+				if i+1 >= len(args) {
+					return t14ArgparseErr(t29ProbesRunUsage,
+						"probes campaign run",
+						"argument %s: expected one argument", name)
+				}
+				val = args[i+1]
+				i++
 			}
-			n, err := strconv.Atoi(args[i+1])
+			n, err := strconv.Atoi(val)
 			if err != nil {
 				return t14ArgparseErr(t29ProbesRunUsage,
 					"probes campaign run", "argument %s: invalid int value: %s",
-					arg, validation.PyReprStr(args[i+1]))
+					name, validation.PyReprStr(val))
 			}
-			if arg == "--per-axis" {
+			if name == "--per-axis" {
 				a.perAxis = n
 				a.perAxisSet = true
 			} else {
 				a.total = n
 				a.totalSet = true
 			}
-			i++
 			continue
 		}
 		return t14Unrecognized(arg)
@@ -225,14 +235,20 @@ func parseProbesList(a *probesArgs, args []string, r *Runner) error {
 		case "--json":
 			a.asJSON = true
 			continue
+		}
+		name, val, hasVal := splitFlag(arg)
+		switch name {
 		case "--axis":
-			if i+1 >= len(args) {
-				return t14ArgparseErr(t29ProbesListUsage,
-					"probes campaign list", "argument --axis: expected one argument")
+			if !hasVal {
+				if i+1 >= len(args) {
+					return t14ArgparseErr(t29ProbesListUsage,
+						"probes campaign list",
+						"argument --axis: expected one argument")
+				}
+				val = args[i+1]
+				i++
 			}
-			v := args[i+1]
-			a.axis = &v
-			i++
+			a.axis = &val
 			continue
 		}
 		return t14Unrecognized(arg)
@@ -248,24 +264,28 @@ func parseProbesBlank(a *probesArgs, args []string, r *Runner) error {
 			fmt.Fprint(r.Out, t29ProbesBlankHelp)
 			return errHelpShown
 		}
-		switch arg {
+		name, val, hasVal := splitFlag(arg)
+		switch name {
 		case "--axis", "--anchor-blind", "--reason", "--actor":
-			if i+1 >= len(args) {
-				return t14ArgparseErr(t29ProbesBlankUsage,
-					"probes campaign blank", "argument %s: expected one argument", arg)
+			if !hasVal {
+				if i+1 >= len(args) {
+					return t14ArgparseErr(t29ProbesBlankUsage,
+						"probes campaign blank",
+						"argument %s: expected one argument", name)
+				}
+				val = args[i+1]
+				i++
 			}
-			v := args[i+1]
-			switch arg {
+			switch name {
 			case "--axis":
-				a.axis = &v
+				a.axis = &val
 			case "--anchor-blind":
-				a.anchorBlind = &v
+				a.anchorBlind = &val
 			case "--reason":
-				a.reason = &v
+				a.reason = &val
 			default:
-				a.actor = &v
+				a.actor = &val
 			}
-			i++
 			continue
 		}
 		return t14Unrecognized(arg)
