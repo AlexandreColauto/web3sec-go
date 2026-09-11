@@ -926,6 +926,10 @@
             "window": { "type": "string", "description": "the ±N lines scanned around the anchor" }
           },
           "description": "A2: an in-code acknowledgement (owner comment marking the code as stub/TODO/not-implemented/...) found within the window of a finding anchor — acceptance likelihood is demoted (gate advisory, A3 score factor, report quote)"
+        },
+        "mitigation_present": {
+          "type": "string",
+          "description": "G5 soundness layer: a structural defense (guard modifier, CEI order, EIP-712 binding, pull pattern) covers the flagged code. Written ONLY by mitigscan; JSON-encoded string (all values string — dedup_meta additionalProperties is string-only). NEVER auto-dismisses: demotes in risk (Task 14). The POLICY layer (bounty.accepted_risk / check13) never reads or writes this; enforced by non-interference test (Task 15)."
         }
       },
       "description": "bookkeeping extras; capability_links is a JSON-encoded array for schema simplicity"
