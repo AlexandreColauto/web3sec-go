@@ -32,6 +32,7 @@ import (
 const t36VerifyUsage = `usage: webv2 verify [-h] [--queue] [--exec EXEC_ID] [--finding FINDING]
                     [--verifier VERIFIER] [--description DESCRIPTION]
                     [--scaffold {halmos,forge-fuzz}] [--invariant INVARIANT]
+                    [--harness-result INVARIANT] [--kind {halmos,forge-fuzz}]
                     campaign
 `
 
@@ -50,18 +51,23 @@ options:
                         what the independent run demonstrates
   --scaffold {halmos,forge-fuzz}
   --invariant INVARIANT
+  --harness-result INVARIANT
+  --exec EXEC_ID        EXEC id of the harness run (with --harness-result)
+  --kind {halmos,forge-fuzz}
 `
 
 // verifyArgs is the parsed verify command line.
 type verifyArgs struct {
-	campaign    string
-	execID      string
-	finding     string
-	verifier    string
-	description string
-	queue       bool
-	scaffold    string
-	invariant   string
+	campaign      string
+	execID        string
+	finding       string
+	verifier      string
+	description   string
+	queue         bool
+	scaffold      string
+	invariant     string
+	harnessResult string
+	kind          string
 }
 
 // t36VerifyValue consumes `--name VALUE` / `--name=VALUE`. matched=false means
@@ -107,7 +113,8 @@ func parseVerifyArgs(args []string, r *Runner) (*verifyArgs, bool, error) {
 			dst  *string
 		}{{"--exec", &a.execID}, {"--finding", &a.finding},
 			{"--verifier", &a.verifier}, {"--description", &a.description},
-			{"--scaffold", &a.scaffold}, {"--invariant", &a.invariant}} {
+			{"--scaffold", &a.scaffold}, {"--invariant", &a.invariant},
+			{"--harness-result", &a.harnessResult}, {"--kind", &a.kind}} {
 			v, next, ok, err := t36VerifyValue(args, i, f.name)
 			if err != nil {
 				return nil, false, err
@@ -138,6 +145,14 @@ func parseVerifyArgs(args []string, r *Runner) (*verifyArgs, bool, error) {
 			"argument --scaffold: invalid choice: %s "+
 				"(choose from 'halmos', 'forge-fuzz')",
 			validation.PyReprStr(a.scaffold))
+	}
+	// --kind shares the scaffold choice vocabulary (same argparse shape).
+	if a.kind != "" && a.kind != string(harness.Halmos) &&
+		a.kind != string(harness.ForgeFuzz) {
+		return nil, false, t14ArgparseErr(t36VerifyUsage, "verify",
+			"argument --kind: invalid choice: %s "+
+				"(choose from 'halmos', 'forge-fuzz')",
+			validation.PyReprStr(a.kind))
 	}
 	if len(pos) == 0 {
 		return nil, false, t14ArgparseErr(t36VerifyUsage, "verify",
@@ -348,6 +363,9 @@ func verifyCmd(root string, args []string, r *Runner) error {
 	c, err := t14Open(root, a.campaign)
 	if err != nil {
 		return err
+	}
+	if a.harnessResult != "" {
+		return verifyHarnessResult(c, a, r)
 	}
 	if a.scaffold != "" || a.invariant != "" {
 		return verifyScaffold(c, a, r)
