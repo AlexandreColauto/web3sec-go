@@ -119,6 +119,19 @@ P4_FIX = FIX + "/p4"
 P4_DATASETS = P4_FIX + "/datasets"
 P4_EVAL = P4_FIX + "/eval"
 P4_SFT = P4_FIX + "/sft"
+# Golden G16 (T19): the second probe-surface recipe. The first campaign pins
+# two axes BLIND on purpose (accumulator/blind + assertion_strength/clean, so
+# `probes blank` has a disposition to record) — which means a regression that
+# stops those detectors emitting rows moves no expectation in that run (the
+# C2/F6 blind spot). The surface2 campaign carries >=1 ROW on every registered
+# axis (the buggy fixture families + the leaky assertion pair), and the P5
+# phase below fails the run loudly if any axis drops to zero rows. That is
+# the rot gate: every probe axis carries rows or the suite is red.
+SURFACE2_FIX = FIX + "/fixtures-surface"
+SURFACE2_AXES = (
+    "accumulator-skew", "enforcement-timing", "guard-short-circuit",
+    "incentive-inversion", "liveness", "primitive-symmetry",
+)
 
 
 def now_for(step: int) -> str:
@@ -200,6 +213,43 @@ def make_target() -> Path:
         dest = tgt / "probes" / sub.replace("/", "_")
         dest.mkdir(parents=True)
         for f in sorted((fixture_root / sub).glob("*.sol")):
+            dest.joinpath(f.name).write_text(f.read_text())
+    return tgt
+
+
+def make_surface2_target() -> Path:
+    """Materialize the G16 second-surface target OUTSIDE the repo.
+
+    Same contract as make_target (temp dir outside any git repo, so no
+    git-clean worktree pin leaks in): the static Vault/Other/docs shell the
+    `model` step loads, plus the fixtures-surface Solidity trees — the buggy
+    fixture families (byte copies of the reference probes package's own
+    vectors) and the leaky assertion-strength pair (Own asserts the concept
+    at class 4, Consumer inherits it and writes state under a class-0 guard
+    without asserting). Every registered probe axis fires >=1 row on this
+    target; the trust-assumption rows come from FIX/model.json (INV-1 names
+    the trusted admin), loaded by the P5 `model-s2` step."""
+    tgt = Path(tempfile.mkdtemp(prefix="webv2-golden-surface2-target-"))
+    (tgt / "src").mkdir(parents=True)
+    (tgt / "docs").mkdir()
+    (tgt / "foundry.toml").write_text('[profile.default]\nsol = "0.8.24"\n')
+    (tgt / "src" / "Vault.sol").write_text(
+        "// Golden Vault\ncontract Vault { uint256 public total; }\n")
+    (tgt / "src" / "Other.sol").write_text("contract Other { }\n")
+    (tgt / "docs" / "INVARIANTS.md").write_text(
+        "# Golden Vault invariants\n"
+        "\n"
+        "INV-1: only the admin role may withdraw assets from the vault.\n"
+        "INV-2: the total assets must always cover the sum of all user claims.\n"
+        "INV-3: the pause role can only be granted through the timelock.\n"
+        "INV-4: the share price must not move in favor of existing shares; "
+        "out-of-band donations are by design and accrue to stakers.\n"
+        "INV-9: the oracle price must be fresh within one block.\n")
+    fixture_root = GO_ROOT / SURFACE2_FIX
+    for sub in sorted(p for p in fixture_root.iterdir() if p.is_dir()):
+        dest = tgt / sub.name
+        dest.mkdir(parents=True)
+        for f in sorted(sub.glob("*.sol")):
             dest.joinpath(f.name).write_text(f.read_text())
     return tgt
 
@@ -368,6 +418,11 @@ def recipe(state: dict) -> list[dict]:
     # audit would report the probe surface stale.
     snap_src = state.get("snapshot") or "<SNAP?>"
     cid2 = state.get("cid2") or "<C2?>"
+    # P5 (G16): the second surface campaign + its snapshot root. Same
+    # placeholder discipline as cid2/snap_src above: steps built before the
+    # ids are minted reference these and are never reached until they are.
+    cid3 = state.get("cid3") or "<C3?>"
+    snap2 = state.get("snap2") or "<SNAP2?>"
     return [
         # ---- P0 half: verbatim golden v1 (docs/gates/P0-gate.md) ----------
         {"name": "init", "exit": 0,
@@ -924,6 +979,40 @@ def recipe(state: dict) -> list[dict]:
          "argv": ["sft", "export", "--partition", "training"]},
         {"name": "sft-backfill", "exit": 0,
          "argv": ["sft", "backfill", cid, f[0]]},
+
+        # ---- P5 golden coverage (G16, T19): the second probe surface -----
+        # A THIRD campaign over the fixtures-surface target (make_surface2_
+        # target): the same surface-producing spine the first campaign uses
+        # up to probe+audit (init / snap / model / index / probes run /
+        # plan / probes run --emit / list --all --json / audit / audit
+        # --json / verify), only pointed at the new target dir. The fixture
+        # set is chosen so EVERY registered axis emits >=1 row (the buggy
+        # families for the four row-axes of campaign 1, the leaky Own/
+        # Consumer pair for enforcement-timing, accumulator/buggy for
+        # accumulator-skew, FIX/model.json for incentive-inversion) — and
+        # the `surface2` step below fails the run loudly if any axis ever
+        # drops to zero rows. Kept last: a new campaign touches no existing
+        # artifact, and its steps append after every P0-P4 index, so no
+        # existing capture moves.
+        {"name": "init-s2", "exit": 0, "cid3": 1,
+         "argv": ["init", "--program", "Surface Two"]},
+        {"name": "snap-s2", "exit": 0, "snapshot2": 1,
+         "argv": ["snap", cid3, state["target2"]]},
+        {"name": "model-s2", "exit": 0,
+         "argv": ["model", cid3, f"{FIX}/model.json"]},
+        {"name": "index-s2", "exit": 0,
+         "argv": ["index", cid3, "--src", snap2]},
+        {"name": "probes-run-s2", "exit": 0,
+         "argv": ["probes", cid3, "run"]},
+        {"name": "plan-s2", "exit": 0, "argv": ["plan", cid3]},
+        {"name": "probes-run-emit-s2", "exit": 0,
+         "argv": ["probes", cid3, "run", "--emit"]},
+        {"name": "probes-list-all-json-s2", "exit": 0, "surface2": 1,
+         "argv": ["probes", cid3, "list", "--all", "--json"]},
+        {"name": "audit-s2", "exit": 0, "argv": ["audit", cid3]},
+        {"name": "audit-json-s2", "exit": 0,
+         "argv": ["audit", cid3, "--json"]},
+        {"name": "verify-s2", "exit": 0, "argv": ["verify", cid3]},
     ]
 
 
@@ -933,11 +1022,98 @@ EXEC_RE = re.compile(r"(EXEC-[0-9a-f]+)")
 RUNG_RE = re.compile(r"rung (R-[0-9a-z]+) recorded")
 
 
+def check_surface2(twin: str, step: int, name: str, out: str,
+                   root: Path, cid3: str) -> None:
+    """The G16 rot gate: every registered axis carries >=1 row, and the
+    surface artifact carries every required key of probe_surface.schema.json.
+
+    This is the in-process half of the gate (it fails the RUN, not just the
+    checker): if a detector, the index, or the assembly stops producing rows
+    for an axis on the all-buggy corpus, golden-run.py exits loudly naming
+    the dark axis. The schema half is a stdlib-only required-keys check that
+    mirrors check-golden.py's spot checks — it reads the schema's own
+    `required` arrays, so the gate tracks the schema without a dependency."""
+    try:
+        doc = json.loads(out)
+    except ValueError as exc:
+        sys.exit(f"{twin} step {step:02d}-{name}: not JSON: {exc}")
+    axes = doc.get("axes")
+    if not isinstance(axes, list):
+        sys.exit(f"{twin} step {step:02d}-{name}: no axes list in the "
+                 f"surface:\n{out[:400]}")
+    by_name = {a["axis"]: a for a in axes
+               if isinstance(a, dict) and isinstance(a.get("axis"), str)}
+    for axis in SURFACE2_AXES:
+        a = by_name.get(axis)
+        if a is None:
+            sys.exit(f"{twin} step {step:02d}-{name}: SURFACE2 ROT — axis "
+                     f"{axis!r} missing from the surface (registration or "
+                     f"wiring drift); every probe axis must carry >=1 row")
+        sites = a.get("sites")
+        rows = a.get("rows")
+        if not isinstance(sites, int) or sites < 1:
+            sys.exit(f"{twin} step {step:02d}-{name}: SURFACE2 ROT — axis "
+                     f"{axis!r} reports sites={sites!r}: the detector saw no "
+                     f"code at all")
+        if not isinstance(rows, int) or rows < 1:
+            sys.exit(f"{twin} step {step:02d}-{name}: SURFACE2 ROT — axis "
+                     f"{axis!r} emitted rows={rows!r} (status="
+                     f"{a.get('status')!r}): an axis went dark and nothing "
+                     f"else in the suite would notice")
+    # Schema half: the artifact probe_surface.json must carry every required
+    # key of assets/schema/probe_surface.schema.json (top object, axes
+    # items, rows items, missing items, stats).
+    art = root / "campaigns" / cid3 / "artifacts" / "probe_surface.json"
+    if not art.is_file():
+        sys.exit(f"{twin} step {step:02d}-{name}: SURFACE2 ROT — surface "
+                 f"artifact missing: {art}")
+    try:
+        surface = json.loads(art.read_text())
+    except ValueError as exc:
+        sys.exit(f"{twin} step {step:02d}-{name}: surface artifact not "
+                 f"JSON: {exc}")
+    schema = json.loads(
+        (GO_ROOT / "assets" / "schema" / "probe_surface.schema.json")
+        .read_text())
+    missing_keys: list[str] = []
+
+    def require(obj: object, required: list, where: str) -> None:
+        if not isinstance(obj, dict):
+            missing_keys.append(f"{where}: not an object")
+            return
+        for k in required:
+            if k not in obj:
+                missing_keys.append(f"{where}: required key {k!r} absent")
+
+    require(surface, schema.get("required", []), "surface")
+    props = schema.get("properties", {})
+    for section, key in (("axes", "axis"), ("rows", "row_id"),
+                         ("missing", "axis")):
+        item_schema = props.get(section, {}).get("items", {})
+        items = surface.get(section)
+        if not isinstance(items, list):
+            missing_keys.append(f"surface.{section}: not a list")
+            continue
+        for n, item in enumerate(items):
+            require(item, item_schema.get("required", []),
+                    f"surface.{section}[{n}]")
+    require(surface.get("stats"), props.get("stats", {}).get("required", []),
+            "surface.stats")
+    if missing_keys:
+        sys.exit(f"{twin} step {step:02d}-{name}: SURFACE2 ROT — surface "
+                 f"artifact fails the probe_surface schema required-keys "
+                 f"check:\n  " + "\n  ".join(missing_keys))
+    n_rows = len(surface.get("rows", []))
+    print(f"[surface2] {len(SURFACE2_AXES)} axes carry rows "
+          f"(total {n_rows} emitted), schema required-keys ok")
+
+
 def main() -> None:
     shutil.rmtree(WORK, ignore_errors=True)
     (WORK / "captures").mkdir(parents=True)
     build_go()
     target = make_target()
+    target2 = make_surface2_target()
 
     roots: dict[str, str] = {}
     trees: dict[str, str] = {}
@@ -981,6 +1157,12 @@ def main() -> None:
                  "execs": [], "rungs": [], "target": str(target),
                  "snapshot": "", "cid2": "", "blind": [], "mem": [],
                  "prc": [], "dr": "", "dr2": "", "drsym": ""}
+        # P5 (G16): the second surface campaign's target + ids. Appended
+        # keys only — every P0-P4 placeholder above resolves exactly as
+        # before, so no existing capture moves.
+        state["target2"] = str(target2)
+        state["snap2"] = ""
+        state["cid3"] = ""
         states[twin] = state
         # The step LIST is state-independent, but each step's argv embeds ids
         # the pinned stream mints while the run proceeds, so it is rebuilt
@@ -1048,6 +1230,27 @@ def main() -> None:
                 if not m:
                     sys.exit(f"{twin} step {i:02d}-{name}: no campaign id in stdout:\n{out}")
                 state["cid2"] = m.group(0)
+            if st.get("cid3"):
+                # P5 (G16): the third campaign's id, minted by init-s2 from
+                # the pinned per-step stream (deterministic across runs).
+                m = re.search(r"C-[0-9a-f]+", out)
+                if not m:
+                    sys.exit(f"{twin} step {i:02d}-{name}: no campaign id in stdout:\n{out}")
+                state["cid3"] = m.group(0)
+            if st.get("snapshot2"):
+                # P5 (G16): the surface2 snapshot root (content-addressed,
+                # under the THIRD campaign): the canonical --src for the P5
+                # index step.
+                snap_dir = root / "campaigns" / state["cid3"] / "snapshots"
+                snaps = sorted(p for p in snap_dir.iterdir() if p.is_dir())
+                if not snaps:
+                    sys.exit(f"{twin} step {i:02d}-{name}: no snapshot dir under {snap_dir}")
+                state["snap2"] = str(snaps[-1])
+            if st.get("surface2"):
+                # P5 (G16): the rot gate — every axis carries >=1 row and
+                # the artifact validates against probe_surface.schema.json,
+                # or the run dies here naming the dark axis.
+                check_surface2(twin, i, name, out, root, state["cid3"])
             if st.get("snapshot"):
                 # The active snapshot root (content-addressed, identical in
                 # both twins): the canonical --src for every index-consuming
@@ -1165,3 +1368,12 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# Baseline note (G16, T19): before the P5 phase landed, the recipe ran 185
+# steps over campaigns C-<seed:00> (P0/P1/P2/P3) and C-<seed:cid2> (D19) plus
+# the P4 sft block, and the campaign-1 probe surface carried 5 rows with
+# accumulator-skew=blind and enforcement-timing=blind. P5 appends 11 steps
+# (init-s2 .. verify-s2) and changes no earlier index, argv, or state key —
+# any byte change to an existing capture outside the new *-s2 steps is a
+# regression, not an update.
