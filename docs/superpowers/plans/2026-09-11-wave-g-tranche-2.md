@@ -849,7 +849,7 @@ type Prior struct {
 }
 const DefaultMinN = 10
 func AcceptancePriors(minN int) (map[string]Prior, Prior, error) // per-class + global; global always exact
-func (p Prior) Render() string // "oracle-manipulation: 0.50 (n=12, 95% CI 26.7–72.5%)" | fallback appends " (fallback: global, n=3)"
+func (p Prior) Render() string // "oracle-manipulation: 0.50 (n=12, 95% CI 25.4–74.6%)" | fallback appends " (fallback: global, n=3)"
 ```
 
 `internal/risk` already imports `internal/evalstore`? VERIFY at edit time (acceptance reads the finding, not the store); if not, adding it must not create a cycle (evalstore imports validation + schema only). If a cycle appears, the prior lives in a new leaf `internal/calibration` imported by risk — same API names.
