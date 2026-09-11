@@ -13,6 +13,10 @@
     "sha256": "d0b3d5fe8be436f4fdb80c650739d1e52c6c195f48a1c8b95b3b25c108201d9f",
     "size": 496
    },
+   "merkle-proof-no-length-check.yaml": {
+    "sha256": "b629b22049a4663c150027c0198f1c68ff91ae844a9c9d42f8dbbb231603c91d",
+    "size": 1531
+   },
    "multisig-threshold-single-point.yaml": {
     "sha256": "d71fc3f7bc600a1ed8f4a87030e8219f606689f7c7aaf77b580c222278d280dc",
     "size": 1367
@@ -44,6 +48,10 @@
    "vault-share-pricing-surface.yaml": {
     "sha256": "0604e7e75cd327a4ae41e587c76b84a8a3fd556d8060fff819d94125797054a4",
     "size": 914
+   },
+   "verifier-default-on.yaml": {
+    "sha256": "3c8fec62a80a1164c47b5822d1cc192c0ee37775abe312286877caec846f0de8",
+    "size": 1389
    }
   },
   "evalsuite": {
@@ -378,8 +386,8 @@
   },
   "schema": {
    "archetype.schema.json": {
-    "sha256": "651114a71e64c9b3d2909bf564458d33a93597c88f366f955dfcb86515bf9ca0",
-    "size": 4436
+    "sha256": "1628cbd4f90bba43f43ad8d640523cd6a44bfa0fa2844439153953c0bfe87bc0",
+    "size": 5033
    },
    "assumption.schema.json": {
     "sha256": "1824958e45d59224750046c1634c66226e0e7004275aefdba08fc7f658e64fd4",
