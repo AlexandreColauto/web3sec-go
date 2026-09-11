@@ -698,19 +698,23 @@ means changing what `snap` pins for the smoke — or **exercise the blank
 attestation against a fixture-only index**, which this record did reproduce
 (`index --src internal/probes/testdata/probes/assertion_strength/clean` then
 `probes run` yields `enforcement-timing`: 4 sites, 0 rows, `blind`, 5
-near-keys), and which would have the smoke index a fixture tree instead of the
-snapshot.
+blind entries), and which would have the smoke index a fixture tree instead of
+the snapshot.
 
 **Repaired (2026-09-10, Task 5).** The second option was taken, narrowly:
 step 12 now builds a second scratch campaign whose index is built straight
 from `internal/probes/testdata/probes/assertion_strength/clean`, so its
-`enforcement-timing` axis is genuinely `blind` (sites 4, rows 0, 5 near-keys),
-and moves only the `probes list --axis` / `probes blank` / after-blank listing
-onto it. The repo-wide campaign keeps its `probes run --emit`, `plan`,
+`enforcement-timing` axis is genuinely `blind` (sites 4, rows 0, 5 blind
+entries), and moves its own corpus build (`init`, `index --src <fixture>`,
+`probes run`) plus the `probes list --axis` / `probes blank` / after-blank
+listing onto it. The repo-wide campaign keeps its `probes run --emit`, `plan`,
 `relations`, `resemble`, `corpus-surface`, memory/publish, baseline, cost and
-closing audit/verify assertions. The selector is unchanged and still requires
-`status == "blind"` with a non-empty `blind` list, and still fails the step by
-name if it finds none. `bash scripts/verify-full.sh` is green again, 13/13.
+closing audit/verify assertions. The selector was tightened: the blind
+requirement was already strict and is now pinned to the exact tuple the fixture
+produces (axis `enforcement-timing`, sites 4, rows 0, 5 blind entries), failing
+with a `selected ... want ...` message. Its old failure mode is unchanged: a
+corpus with no blind axis still fails the step by name.
+`bash scripts/verify-full.sh` is green again, 13/13.
 
 ### Still open (deferred, with the reason)
 
