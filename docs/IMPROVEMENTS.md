@@ -5,7 +5,9 @@ principle 6; D8 awaits a decision; the port-scaffolding cleanup is wave F
 (`docs/LEANNESS_REVIEW.md`). **Wave G tranche 1 LANDED 2026-09-10 (G1, G6, G7;
 source: the "Beyond Smart Contracts" hybrid-defense report + our deep-research
 deliverable "Deconstructing Claims, Validating AI, and Weighting Risks");
-tranches 2–4 (G2/G3, G4, G5, G8–G12) remain PROPOSED, awaiting an
+tranche 2 LANDED 2026-09-11 (G2, G3, G4, G5, G8, G12–G18 — plan
+`docs/superpowers/plans/2026-09-11-wave-g-tranche-2.md`);
+G9/G10/G11 (tranches 3–4) remain PROPOSED, awaiting an
 approve/defer review decision.**
 
 Source: the Morph L2 rollup campaign (`C-42bd211e3e`, 537 events, 52 findings,
@@ -1861,11 +1863,12 @@ pointers, not contracts — re-locate by symbol when editing.*
 
 # Wave G — Hybrid tools, calibration & the beyond-contract stack
 
-Date: 2026-09-10 · Status: **tranche 1 LANDED (G1, G6, G7) 2026-09-10**;
-tranches 2–4 (G2/G3, G4, G5, G8–G12) remain **PROPOSED** and await a review
+Date: 2026-09-10 · Status: **tranche 1 LANDED (G1, G6, G7) 2026-09-10;
+tranche 2 LANDED (G2, G3, G4, G5, G8, G12–G18) 2026-09-11**.
+Tranches 3–4 (G9, G10, G11) remain **PROPOSED** and await a review
 decision. **G13–G18 (2026-09-11, review follow-up — non-G jumps: ROI,
 operator correctness, PoC quality, coverage, tactic calibration, export)
-are PROPOSED alongside.** Anchors are pointers to be re-located at landing time (same
+landed with tranche 2.** Anchors are pointers to be re-located at landing time (same
 convention as above).
 
 **Sources.** (1) *Beyond Smart Contracts: A Hybrid Defense Strategy* — the
@@ -1905,23 +1908,23 @@ money (principle 2).
 | item | one-liner | effort | gate-for |
 |---|---|---|---|
 | G1 | detector output as first-class evidence + corroboration factor — LANDED (tranche 1, 2026-09-10) | M | — |
-| G2 | per-class three-weight table (search / acceptance / severity-if-real) | M | G3 |
-| G3 | acceptance priors from the adjudicated outcome store + A3 backtest | L | G2 |
-| G4 | gold-eval expansion (≥15 scenarios, clean control, CIs on recall) | M | claims |
-| G5 | two-layer defense matcher: `mitigation_present` vs check13 | M | G1 |
+| G2 | per-class three-weight table (search / acceptance / severity-if-real) — LANDED (tranche 2, 2026-09-11; weights ship neutral BY DESIGN — graduation needs a G3-backtest `improves` on real data) | M | G3 ✓ |
+| G3 | acceptance priors from the adjudicated outcome store + A3 backtest — LANDED (tranche 2, 2026-09-11; policy-gated `acceptance_priors`, `corpus-surface --backtest` verdict = Wilson-lower must strictly rise) | L | G2 ✓ |
+| G4 | gold-eval expansion (≥15 scenarios, clean control, CIs on recall) — LANDED (tranche 2, 2026-09-11; 17-case suite, presence-gated `## eval` audit section) | M | claims ✓ |
+| G5 | two-layer defense matcher: `mitigation_present` vs check13 — LANDED (tranche 2, 2026-09-11; non-interference law enforced by tests) | M | G1 ✓ |
 | G6 | critic triager-outlook rubric (prompt data, policy-injected) — LANDED (tranche 1, 2026-09-10) | S | — |
 | G7 | claim-intake checklist + `provenance[]` on baked-in external claims — LANDED (tranche 1, 2026-09-10) | S | — |
-| G8 | invariants → Halmos/forge PBT harnesses as an evidence rung | L | — |
+| G8 | invariants → Halmos/forge PBT harnesses as an evidence rung — LANDED (tranche 2, 2026-09-11; BODY-region scaffolds, rungs counterexample/PROVEN-BOUNDED(k)/inconclusive) | L | — |
 | G9 | beyond-contract `components[]` + two data-only playbooks | M | G3 |
 | G10 | cross-chain assumption table + separator/finality archetypes | S–M | — |
 | G11 | `verify --post-patch` regression loop | S–M | — |
-| G12 | OWASP/SCVS aliases on taxonomy classes | S | G7 |
-| G13 | cost-per-confirmed-finding + per-lens yield (ROI stop-loss) | S | — |
-| G14 | operator correctness: amend/supersede + batch dispose + dismissed-with-reach | M | — |
-| G15 | PoC quality gate at mint (rerun variance + fork freshness) | S | — |
-| G16 | second golden recipe for probe-surface coverage | S | C1/C2 |
-| G17 | tactic batting-average (per-lens/playbook precision, auto-deprioritize) | M | G3 |
-| G18 | Immunefi-shaped export flag on report | S | G12 |
+| G12 | OWASP/SCVS aliases on taxonomy classes — LANDED (tranche 2, 2026-09-11; 7 honest OWASP-2025 mappings fetched from the primary page, SCVS pending primary source — no secondhand ids) | S | G7 ✓ |
+| G13 | cost-per-confirmed-finding + per-lens yield (ROI stop-loss) — LANDED (tranche 2, 2026-09-11; cost-per-confirmed + `lens_yield` render as ADVISORY ONLY — no gate consumes them, by principle 2 the stop-loss stays the operator's hand) | S | — |
+| G14 | operator correctness: amend/supersede + batch dispose + dismissed-with-reach — LANDED (tranche 2, 2026-09-11; the sanctioned principle-6 verb exception: `amend` never moves status, `supersede` is the only exit INTO SUPERSEDED, batches are all-or-nothing, dismissed-with-reach joins by file overlap with a footnote saying so) | M | — |
+| G15 | PoC quality gate at mint (rerun variance + fork freshness) — LANDED (tranche 2, 2026-09-11; `--verify-reruns` opt-in variance, fork-stale advisory always-on with NAMED reason, fail-open: no advisory can block a mint) | S | — |
+| G16 | second golden recipe for probe-surface coverage — LANDED (tranche 2, 2026-09-11; P5 `surface2` campaign lights all six axes — every axis needs ≥1 row or the suite fails) | S | C1/C2 ✓ |
+| G17 | tactic batting-average (per-lens/playbook precision, auto-deprioritize) — LANDED (tranche 2, 2026-09-11; `auto_tune`-gated demotion, trip law is Wilson-upper <10% with n≥10 — zero-hit parks only from n=35; the doc's "0/20" rhetoric is ERRATA: 0/20's upper is 16.1% and does NOT park) | M | G3 ✓ |
+| G18 | Immunefi-shaped export flag on report — LANDED (tranche 2, 2026-09-11; `report --format immunefi`, one file per submission-ready finding, checklist-first fail-open) | S | G12 ✓ |
 
 ## G1. Detector evidence as first-class input
 
@@ -2068,6 +2071,10 @@ scenarios count as ground truth.
 - Metrics discipline: recall/precision rendered with Wilson CIs in a new audit
   section (gated on presence — principle 1). A 2/2-gold campaign must render
   `recall: 2/2 (95% CI 20–100%)` — the CI is the point.
+  *(erratum 2026-09-11: Wilson 95% for 2/2 is **34.2–100.0** — "20–100" is the
+  2/3 interval mislabeled; the framework renders the exact computed value from
+  `internal/wilson` with a pinned table, and the shipped eval-suite docs quote
+  the corrected numbers. Never tune math to a doc sentence — G7 discipline.)*
 - Prefer DeFiHackLabs-sourced golds (already confirmed-exploitable and
   provenanced via G3) over hand-planting where a license-clean PoC exists.
 
