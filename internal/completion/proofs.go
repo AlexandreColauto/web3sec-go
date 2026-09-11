@@ -97,6 +97,12 @@ func SetForkPocEvidence(f ForkPocAPI) {
 // proofProtocolModel is _proof_protocol_model. The artifact alone is NOT the
 // proof: every invariant the model declares must be in the seeded registry.
 func proofProtocolModel(c *state.Campaign) (validation.Value, error) {
+	cid := c.CampaignID
+	if cid == "" {
+		// A campaign in hand without an id keeps the documented metavariable
+		// rather than rendering a command with an empty hole.
+		cid = "<campaign>"
+	}
 	p := filepath.Join(c.ArtifactsDir, "protocol_model.json")
 	if !fileExists(p) {
 		return proofResult(false, []string{"artifacts/protocol_model.json — run the " +
@@ -105,7 +111,7 @@ func proofProtocolModel(c *state.Campaign) (validation.Value, error) {
 	model, err := validation.ReadJson(p)
 	if err != nil {
 		return proofResult(false, []string{"protocol model is unreadable/invalid — re-run " +
-			"`webv2 model " + c.CampaignID + " model.json`"}, "protocol model artifact unreadable"), nil
+			"`webv2 model " + cid + " model.json`"}, "protocol model artifact unreadable"), nil
 	}
 	modelIDs := []string{}
 	for _, inv := range listAt(model, "invariants") {
@@ -150,7 +156,7 @@ func proofProtocolModel(c *state.Campaign) (validation.Value, error) {
 		msg := fmt.Sprintf("invariant registry missing %d model invariant(s) "+
 			"(%s %s) — seeding did not run; re-run `webv2 model %s "+
 			"model.json`", len(unseeded), strings.Join(head, ", "), tail,
-			c.CampaignID)
+			cid)
 		note := fmt.Sprintf("protocol model loaded but %d invariant(s) unseeded",
 			len(unseeded))
 		return proofResult(false, []string{msg}, note), nil

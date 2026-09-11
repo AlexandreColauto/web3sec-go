@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"websec/internal/state"
 	"websec/internal/validation"
 )
 
@@ -154,5 +155,40 @@ func TestClauseMetAcceptsTheNamedDecision(t *testing.T) {
 	)
 	if !ClauseMet(withE7, econ) {
 		t.Error("E7 manual evidence no longer satisfies the clause")
+	}
+}
+
+// TestDeficitCampaignSlotNeverRendersEmpty pins the E7 repair hint against a
+// campaign in hand with no id: the campaign slot must read the documented
+// metavariable (what NameCampaign leaves for an empty id) or the real id,
+// never an empty hole between two spaces.
+func TestDeficitCampaignSlotNeverRendersEmpty(t *testing.T) {
+	cases := []struct {
+		name     string
+		campaign *state.Campaign
+		want     string
+	}{
+		{"no campaign at all", nil, campaignPlaceholder},
+		{"a campaign with no id", &state.Campaign{}, campaignPlaceholder},
+		{"a named campaign", &state.Campaign{CampaignID: "C-abc123"},
+			"C-abc123"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := unpFinding(validation.VNull())
+			d := EvidenceDeficit(f, "CONFIRMED", tc.campaign)
+			if d == nil {
+				t.Fatal("economic-class finding without evidence has no " +
+					"deficit")
+			}
+			slot := "`webv2 impact " + tc.want + " <finding> --unpriceable"
+			if !strings.Contains(*d, slot) {
+				t.Errorf("the hint does not name the campaign slot %q: %q",
+					slot, *d)
+			}
+			if strings.Contains(*d, "impact  ") {
+				t.Errorf("the campaign slot is an empty hole: %q", *d)
+			}
+		})
 	}
 }

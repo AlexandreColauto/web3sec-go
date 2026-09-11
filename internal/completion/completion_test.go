@@ -233,3 +233,44 @@ func TestPartialSeedNamesTheGap(t *testing.T) {
 		t.Errorf("missing must name INV-2: %v", missingOf(t, res))
 	}
 }
+
+// TestProofProtocolModelNamesTheCampaignItHas pins the unreadable-model hint
+// against a campaign in hand: the campaign slot reads the campaign's id, or
+// the documented metavariable when the campaign carries none — never an empty
+// hole between two spaces.
+func TestProofProtocolModelNamesTheCampaignItHas(t *testing.T) {
+	cases := []struct {
+		name string
+		cid  string
+		want string
+	}{
+		{"a campaign with no id", "", "<campaign>"},
+		{"a named campaign", "C-abc123", "C-abc123"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			art := filepath.Join(dir, "protocol_model.json")
+			if err := os.WriteFile(art, []byte("{ not json"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			res, err := proofProtocolModel(&state.Campaign{
+				ArtifactsDir: dir, CampaignID: tc.cid})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if isDone(t, res) {
+				t.Fatal("an unreadable model must not prove the stage")
+			}
+			missing := missingOf(t, res)
+			slot := "`webv2 model " + tc.want + " model.json`"
+			if !anyContains(missing, slot) {
+				t.Errorf("missing does not name the campaign slot %q: %v",
+					slot, missing)
+			}
+			if anyContains(missing, "model  model.json") {
+				t.Errorf("the campaign slot is an empty hole: %v", missing)
+			}
+		})
+	}
+}

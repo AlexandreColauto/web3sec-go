@@ -726,6 +726,10 @@ func TestProbesRunAdoptsRecordedQuotas(t *testing.T) {
 		{"an explicit pair wins over the record", 30, 70, false, false,
 			[]string{"--per-axis", "2", "--total", "5"}, false, 2, 5,
 			"passed on the command line"},
+		{"an explicit default per-axis still wins", 30, 70, false, false,
+			[]string{"--per-axis", "12"}, false, 12, 70,
+			"--per-axis passed on the command line; --total recorded in " +
+				"probe_surface.json"},
 		{"--emit adopts the recorded pair too", 2, 5, false, false,
 			[]string{"--emit"}, true, 2, 5,
 			"recorded in probe_surface.json"},
@@ -875,6 +879,9 @@ func TestProbesRunRepairsAroundACorruptSurfaceArtifact(t *testing.T) {
 	cases := []struct{ name, body string }{
 		{"truncated json", `{"campaign_id": "` + t29CID + `"`},
 		{"empty file", ""},
+		{"json array", `[]`},
+		{"json string", `"x"`},
+		{"json null", `null`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -2048,6 +2055,54 @@ func TestAuditHintStaysPlainWithoutRecordedQuotas(t *testing.T) {
 	if strings.Contains(got[0], "rebuilds with") {
 		t.Errorf("hint grew a quota clause from an artifact with none: %q",
 			got[0])
+	}
+}
+
+// TestAuditHintOmitsARecordedKnobTheCLIWouldRefuse pins the audit hint against
+// the run's own validation: a surface recording a knob below 1 must not be
+// quoted in a repair command the CLI exits 2 on.
+func TestAuditHintOmitsARecordedKnobTheCLIWouldRefuse(t *testing.T) {
+	cases := []struct {
+		name       string
+		perAxis    int
+		total      int
+		wantQuoted string
+		wantGone   string
+	}{
+		{"the invalid per-axis is left out", 0, 70,
+			"recorded --total 70", "--per-axis"},
+		{"neither knob is usable drops the clause", 0, 0,
+			"", "rebuilds with"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ws, c, idx, _ := t29Setup(t, t29Ranking, true)
+			t29Emit(t, ws)
+			stored, err := validation.ReadJson(t29SurfacePath(c))
+			if err != nil {
+				t.Fatal(err)
+			}
+			t29Set(&stored, "per_axis", validation.VInt(int64(tc.perAxis)))
+			t29Set(&stored, "total", validation.VInt(int64(tc.total)))
+			// raw write: the probe_surface schema requires knobs >= 1, but an
+			// artifact from a broken build is exactly the case under audit.
+			if err := os.WriteFile(t29SurfacePath(c),
+				[]byte(validation.DumpIndented(stored)+"\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			t29BumpIndexLine(t, c, idx)
+			got := t29Problems(t29AuditSection(t, c))
+			if len(got) != 1 {
+				t.Fatalf("problems = %d, want 1: %v", len(got), got)
+			}
+			if tc.wantQuoted != "" && !strings.Contains(got[0], tc.wantQuoted) {
+				t.Errorf("hint does not quote the usable knob: %q", got[0])
+			}
+			if strings.Contains(got[0], tc.wantGone) {
+				t.Errorf("hint quotes %q, which the CLI refuses: %q",
+					tc.wantGone, got[0])
+			}
+		})
 	}
 }
 

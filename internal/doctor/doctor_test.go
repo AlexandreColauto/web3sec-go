@@ -207,6 +207,39 @@ func TestSnapshotScopeNoPin(t *testing.T) {
 	}
 }
 
+// TestSnapshotScopeKeepsTheMetavariableForAnIdLessCampaign pins the snapshot
+// hint against a campaign in hand with no id: the campaign slot reads the
+// documented metavariable, never an empty hole between two spaces.
+func TestSnapshotScopeKeepsTheMetavariableForAnIdLessCampaign(t *testing.T) {
+	cases := []struct {
+		name string
+		cid  string
+		want string
+	}{
+		{"a campaign with no id", "", "<campaign>"},
+		{"a named campaign", "C-abc123", "C-abc123"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newCampaign(t, "doc5")
+			c.CampaignID = tc.cid
+			res, err := SnapshotScope(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			note := objStr(res, "note")
+			slot := "`webv2 snap " + tc.want + " <target>`"
+			if !strings.Contains(note, slot) {
+				t.Errorf("note does not name the campaign slot %q: %q",
+					slot, note)
+			}
+			if strings.Contains(note, "snap  <target>") {
+				t.Errorf("the campaign slot is an empty hole: %q", note)
+			}
+		})
+	}
+}
+
 func TestDoctorIncludesPreflight(t *testing.T) {
 	c := newCampaign(t, "Preflight Doc")
 	rep, err := Doctor(c)

@@ -673,7 +673,8 @@ planner's `campaignIDForPlan` became templates rendered with the campaign in
 hand — the sibling of `findings.NameCampaign` — and the re-recorded captures
 were checked substitution-only: `internal/orchestrator/testdata/oracles.json`
 is byte-identical to its predecessor once every campaign id is normalized
-back to `<campaign>` (392,394 → 392,409 bytes, 5 substitutions).
+back to `<campaign>` (392,772 → 392,787 bytes, +15 = 5 × (13 − 10), 5
+substitutions).
 
 **Acceptance item 1 — `scripts/verify-full.sh` green, all 13 steps — did not
 hold.** On re-run the script stops at step 12: steps 1–11 pass, and step 12

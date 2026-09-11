@@ -159,14 +159,16 @@ func knob(surface validation.Value, key string, def int) int {
 // repairQuotaNote names the quotas a bare repair run adopts from the surface,
 // so the hint tells the operator what the rebuild will use. It is a pure
 // function of the artifact: empty when neither knob is recorded as an integer.
-// The note is information, not an instruction — the bare command adopts these
-// values on its own (see the probes run repair rule).
+// A recorded knob the CLI would refuse (< 1) is left out — the note must stay
+// a command the CLI accepts. The note is information, not an instruction —
+// the bare command adopts these values on its own (see the probes run repair
+// rule).
 func repairQuotaNote(surface validation.Value) string {
 	parts := []string{}
-	if v := vGet(surface, "per_axis"); v.Kind == validation.Int {
+	if v := vGet(surface, "per_axis"); v.Kind == validation.Int && v.I >= 1 {
 		parts = append(parts, sprintf("--per-axis %d", v.I))
 	}
-	if v := vGet(surface, "total"); v.Kind == validation.Int {
+	if v := vGet(surface, "total"); v.Kind == validation.Int && v.I >= 1 {
 		parts = append(parts, sprintf("--total %d", v.I))
 	}
 	if len(parts) == 0 {

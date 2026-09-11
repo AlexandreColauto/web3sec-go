@@ -125,10 +125,16 @@ func SnapshotScope(campaign *state.Campaign) (validation.Value, error) {
 		return validation.VNull(), err
 	}
 	if sid == nil {
+		cid := campaign.CampaignID
+		if cid == "" {
+			// A campaign in hand without an id keeps the documented
+			// metavariable rather than rendering a command with an empty hole.
+			cid = "<campaign>"
+		}
 		return validation.VObj(
 			validation.KV{K: "active_snapshot", V: validation.VNull()},
 			validation.KV{K: "note", V: validation.VStr("no snapshot pinned " +
-				"— run `webv2 snap " + campaign.CampaignID + " <target>`")},
+				"— run `webv2 snap " + cid + " <target>`")},
 		), nil
 	}
 	snapDir := filepath.Join(campaign.Dir, "snapshots", *sid)

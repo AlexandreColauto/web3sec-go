@@ -363,10 +363,11 @@ func EvidenceDeficit(finding validation.Value, status string, campaign *state.Ca
 		if cl.Decision == "unpriceable" {
 			// the sanctioned alternative is part of the message: the silent
 			// "no evidence" is what pushed operators into invented numbers.
-			// A nil campaign (library callers) has no id to name, so the
-			// generic form stands in.
-			cid := "<campaign>"
-			if campaign != nil {
+			// A nil or id-less campaign (library callers) has no id to
+			// name, so the catalog's own metavariable stands in — the same
+			// text NameCampaign leaves when the id is empty.
+			cid := campaignPlaceholder
+			if campaign != nil && campaign.CampaignID != "" {
 				cid = campaign.CampaignID
 			}
 			msg += " and no unpriceable decision recorded (`webv2 impact " +

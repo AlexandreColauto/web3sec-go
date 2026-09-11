@@ -413,8 +413,14 @@ func TestGateBlocksWithoutForkPocAndImmunization(t *testing.T) {
 		t.Fatalf("submission_ready = %s, want false",
 			validation.PyRepr(objAt(r, "submission_ready")))
 	}
-	sawPlaceholder := false
-	for _, cid := range []string{"mainnet-fork-poc", "immunization"} {
+	for _, tc := range []struct {
+		cid      string
+		template bool
+	}{
+		{"mainnet-fork-poc", true},
+		{"immunization", false},
+	} {
+		cid := tc.cid
 		row := gateCheck(t, c, fid, cid)
 		if objStr(row, "result") != "fail" {
 			t.Fatalf("%s result = %q, want fail", cid, objStr(row, "result"))
@@ -433,11 +439,16 @@ func TestGateBlocksWithoutForkPocAndImmunization(t *testing.T) {
 		// the campaign in hand, so it is the catalog with the id substituted.
 		// The raw catalog row must really carry the placeholder — building
 		// the expectation by substituting into an already-rendered string
-		// would compare that string with itself.
+		// would compare that string with itself. Each row is asserted on its
+		// own, so one row silently losing the metavariable cannot lean on
+		// another's.
 		rawRem := objStr(ex, "remediation")
+		if got := strings.Contains(rawRem, campaignToken); got != tc.template {
+			t.Fatalf("%s catalog carries the campaign metavariable = %v, "+
+				"want %v", cid, got, tc.template)
+		}
 		wantRem := rawRem
-		if strings.Contains(rawRem, campaignToken) {
-			sawPlaceholder = true
+		if tc.template {
 			wantRem = strings.ReplaceAll(rawRem, campaignToken, c.CampaignID)
 		}
 		if objStr(row, "remediation") != wantRem {
@@ -446,10 +457,6 @@ func TestGateBlocksWithoutForkPocAndImmunization(t *testing.T) {
 		if strings.Contains(objStr(row, "remediation"), campaignToken) {
 			t.Fatalf("%s remediation still carries the metavariable", cid)
 		}
-	}
-	if !sawPlaceholder {
-		t.Fatal("gate explain catalog carries no campaign metavariable " +
-			"to substitute")
 	}
 }
 

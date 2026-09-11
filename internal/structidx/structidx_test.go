@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"websec/internal/validation"
@@ -210,18 +211,42 @@ func TestRequireParseVersion(t *testing.T) {
 	if err := RequireParseVersion(good, "structural index"); err != nil {
 		t.Fatalf("v3 index rejected: %v", err)
 	}
-	bad := validation.VObj(validation.KV{K: "parse_version", V: validation.VStr("2")})
-	err := RequireParseVersion(bad, "structural index")
-	if err == nil {
-		t.Fatal("v2 index accepted")
+	cases := []struct {
+		name      string
+		index     validation.Value
+		want      string
+		wantNamed bool
+	}{
+		{"a v2 index with no campaign_id", validation.VObj(
+			validation.KV{K: "parse_version", V: validation.VStr("2")}),
+			"structural index has parse_version='2', need '3' — rebuild it: " +
+				"`webv2 index <campaign> --src <target>`", false},
+		{"a v2 index that carries its campaign_id", validation.VObj(
+			validation.KV{K: "parse_version", V: validation.VStr("2")},
+			validation.KV{K: "campaign_id", V: validation.VStr("C-abc123")}),
+			"structural index has parse_version='2', need '3' — rebuild it: " +
+				"`webv2 index C-abc123 --src <target>`", true},
 	}
-	want := "structural index has parse_version='2', need '3' — rebuild it: " +
-		"`webv2 index <campaign> --src <target>`"
-	if err.Error() != want {
-		t.Errorf("stale message = %q, want %q", err.Error(), want)
-	}
-	if _, ok := err.(*StaleIndexError); !ok {
-		t.Errorf("error type = %T, want *StaleIndexError", err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := RequireParseVersion(tc.index, "structural index")
+			if err == nil {
+				t.Fatal("v2 index accepted")
+			}
+			if err.Error() != tc.want {
+				t.Errorf("stale message = %q, want %q", err.Error(), tc.want)
+			}
+			if _, ok := err.(*StaleIndexError); !ok {
+				t.Errorf("error type = %T, want *StaleIndexError", err)
+			}
+			if got := strings.Contains(err.Error(), "C-abc123"); got != tc.wantNamed {
+				t.Errorf("message names the campaign id = %v, want %v: %q",
+					got, tc.wantNamed, err.Error())
+			}
+			if tc.wantNamed && strings.Contains(err.Error(), CampaignPlaceholder) {
+				t.Errorf("message still carries the placeholder: %q", err.Error())
+			}
+		})
 	}
 	none := validation.VObj()
 	if err := RequireParseVersion(none, "structural index"); err == nil ||

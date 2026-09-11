@@ -690,9 +690,15 @@ p3_ok "probes list --all" 0 probes "$CID3" list --all
 p3_ok "probes list --all --json" 0 probes "$CID3" list --all --json
 python3 -c '
 import json, sys
-n = len(json.load(sys.stdin).get("axes") or [])
-assert n, "axes list is empty"
-print("  ok repo-wide probes list --all --json: %d axes" % n)
+try:
+    axes = json.load(sys.stdin).get("axes") or []
+except ValueError:
+    print("  probes list --all --json: response is not JSON")
+    sys.exit(1)
+if not axes:
+    print("  probes list --all --json: axes list is empty")
+    sys.exit(1)
+print("  ok repo-wide probes list --all --json: %d axes" % len(axes))
 ' <<<"$P1_OUT" || fail 12 "probes list --all --json: not JSON with a non-empty axes list"
 # The repo-wide campaign above snap-pins the whole repository, so no axis is
 # ever blind there. Index the assertion-strength fixture directly instead:

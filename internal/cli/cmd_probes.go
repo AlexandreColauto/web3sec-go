@@ -402,6 +402,13 @@ func effectiveProbeQuotas(a *probesArgs, c *state.Campaign) (int, int,
 	if surface == nil {
 		return perAxis, total, quotaProvenance(perAxisSrc, totalSrc), nil
 	}
+	// JSON that parses but is not an object records no quotas at all: the same
+	// silent fallback the unreadable-artifact branch exists to remove.
+	if surface.Kind != validation.Obj {
+		return 0, 0, "", t14ExitErr(2, "probes: unreadable %s (not a JSON "+
+			"object) — delete or repair it, or pass --per-axis and --total "+
+			"explicitly\n", path)
+	}
 	if !a.perAxisSet {
 		n, src, err := recordedProbeQuota(*surface, path, "per_axis",
 			"--per-axis", perAxis)
