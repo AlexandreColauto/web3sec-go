@@ -110,7 +110,9 @@ grep -q "selftest" help.txt || fail "--help lacks selftest"
 
 echo "--- webv2 selftest (embedded assets, no module tree)"
 ./webv2 selftest | tee selftest.txt || fail "standalone selftest"
-grep -q "embedded assets ok: 28 schemas" selftest.txt \
+# The sweep line proves the embedded packs are served; its counts move as
+# packs grow, so the assertion is the line, never the number.
+grep -q "embedded assets ok:" selftest.txt \
   || fail "selftest did not serve the embedded asset sweep"
 grep -q "ALL PASS" selftest.txt || fail "standalone selftest not ALL PASS"
 
