@@ -168,6 +168,27 @@ func ownGuardClasses(e validation.Value) map[string]int {
 	return own
 }
 
+// ownGuardSite is the entry's own strongest guard for one concept key:
+// (class, text). Ties on class keep the first in guard order.
+type ownGuardSite struct {
+	class int
+	text  string
+}
+
+// ownGuardSites is ownGuardClasses extended with the winning guard's text.
+func ownGuardSites(e validation.Value) map[string]ownGuardSite {
+	own := map[string]ownGuardSite{}
+	for _, g := range guardsOf(e) {
+		for _, key := range vStrList(g, "concept_keys") {
+			c := guardClass(g)
+			if cur, ok := own[key]; !ok || c > cur.class {
+				own[key] = ownGuardSite{class: c, text: vStr(g, "text")}
+			}
+		}
+	}
+	return own
+}
+
 // rejectionWhy is the human reason a site was rejected, verbatim.
 func rejectionWhy(e validation.Value, key string, st assertionSite, own int) string {
 	name := vStr(e, "name")

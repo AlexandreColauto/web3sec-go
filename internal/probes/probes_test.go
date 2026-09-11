@@ -2220,3 +2220,82 @@ func TestEveryNewProbeAnchorFieldMovesTheRowShape(t *testing.T) {
 		}
 	}
 }
+
+// ---- sentinel-form rows (recall wave, task 1) -----------------------------
+
+// TestAssertionStrengthSentinelGuard pins the sentinel clause: a consumer
+// whose own guard is a zero-check carries own_form=own_guard_text and the
+// adversarial why; the class-4 join still happens (the row is emitted) —
+// the point is that "covered" now demands the passing value.
+func TestAssertionStrengthSentinelGuard(t *testing.T) {
+	idx := t29Index(t, filepath.Join(t29ProbesDir, "assertion_strength", "sentinel"))
+	out := t29Raw(t, idx, validation.VNull(), "assertion-strength")
+	rows := vList(out, "rows")
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want 1: %s", len(rows), t29JSON(out))
+	}
+	surface, err := BuildSurfaceOpts(idx, validation.VNull(), 12, 40, 3,
+		"2026-01-01T00:00:00Z", ProdProbeOpts())
+	if err != nil {
+		t.Fatalf("BuildSurfaceOpts: %v", err)
+	}
+	joined := assertionRows(surface)
+	if len(joined) != 1 {
+		t.Fatalf("surface assertion rows = %d, want 1: %s", len(joined),
+			t29JSON(surface))
+	}
+	row := joined[0]
+	if vStr(row, "own_form") != "sentinel" {
+		t.Errorf("own_form = %q, want sentinel", vStr(row, "own_form"))
+	}
+	if !strings.Contains(vStr(row, "own_guard_text"), "!= bytes32(0)") {
+		t.Errorf("own_guard_text = %q", vStr(row, "own_guard_text"))
+	}
+	if !strings.Contains(vStr(row, "why"), "SENTINEL check") ||
+		!strings.Contains(vStr(row, "why"), "Name the value that passes") {
+		t.Errorf("why = %q — want the adversarial sentinel why", vStr(row, "why"))
+	}
+}
+
+// TestSentinelFormIsConditional is the negative control for the clause: it is
+// NOT a property of every joined row, and it is NOT on the reference surface.
+// Two ways to be wrong are pinned — a row whose consumer carries no guard at
+// all (own_class 0) keeps the reference why, and the zero ProbeOpts (the
+// byte-pinned parity path) never grows the field.
+func TestSentinelFormIsConditional(t *testing.T) {
+	// (a) an unguarded consumer: joined, but nothing sentinel about it.
+	plain, err := BuildSurfaceOpts(parityLoad(t, "index_collapse"),
+		parityLoad(t, "model"), 12, 40, 3, "2026-01-01T00:00:00Z",
+		ProdProbeOpts())
+	if err != nil {
+		t.Fatalf("BuildSurfaceOpts: %v", err)
+	}
+	rows := assertionRows(plain)
+	if len(rows) == 0 {
+		t.Fatal("collapse fixture has no assertion-strength row")
+	}
+	for _, row := range rows {
+		if _, ok := vGetPresent(row, "own_form"); ok {
+			t.Errorf("row %s has own_form %q under a class-%d own guard",
+				vStr(row, "row_id"), vStr(row, "own_form"), vInt(row, "own_class"))
+		}
+		if _, ok := vGetPresent(row, "own_guard_text"); ok {
+			t.Errorf("row %s has own_guard_text without own_form",
+				vStr(row, "row_id"))
+		}
+	}
+
+	// (b) the reference surface of the sentinel fixture itself: no clause.
+	idx := t29Index(t, filepath.Join(t29ProbesDir, "assertion_strength", "sentinel"))
+	reference, err := BuildSurface(idx, validation.VNull(), 12, 40, 3,
+		"2026-01-01T00:00:00Z")
+	if err != nil {
+		t.Fatalf("BuildSurface: %v", err)
+	}
+	for _, row := range vList(reference, "rows") {
+		if _, ok := vGetPresent(row, "own_form"); ok {
+			t.Errorf("reference row %s carries own_form — the field is not "+
+				"opt-in and a pinned golden would move", vStr(row, "row_id"))
+		}
+	}
+}

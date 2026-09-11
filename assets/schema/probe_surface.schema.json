@@ -130,6 +130,15 @@
           "concept_keys": { "type": "array", "items": { "type": "string" } },
           "own_class": { "type": "integer", "minimum": 0, "maximum": 4 },
           "assert_class": { "type": "integer", "minimum": 0, "maximum": 4 },
+          "own_form": {
+            "const": "sentinel",
+            "description": "assertion-strength rows only, and only when the caller builds the surface with ProbeOpts.SentinelForm (the shipped surface does): the consumer's own strongest guard for the row's concept key is a SENTINEL check — `!= 0`, `!= bytes32(0)`, `!= address(0)`, `> 0`, `.length > 0`. Such a check cannot express the truth of the value it guards: any non-zero lie passes it, so 'an assertion exists' is not an answer for this pair. Absent means only that no sentinel guard was found, never that the row is answered."
+          },
+          "own_guard_text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "assertion-strength rows only, present exactly with own_form=\"sentinel\": the consumer's own guard condition for the concept key, verbatim from the structural index (the reference's own-guard class is this guard's class)."
+          },
           "base": { "type": "string" },
           "base_line": { "type": "integer", "minimum": 0 },
           "custody": { "enum": ["burns", "mints"] },

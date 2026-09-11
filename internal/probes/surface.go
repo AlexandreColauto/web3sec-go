@@ -67,14 +67,24 @@ type ProbeOpts struct {
 	// coverage. Kept behind the flag for a future iteration with a
 	// tighter obligation shape.
 	AbsenceRows bool
+	// SentinelForm marks the assertion-strength rows whose consumer guards
+	// the concept with a SENTINEL check only — `!= 0`, `!= bytes32(0)`,
+	// `> 0`, `.length > 0` — a check that cannot express the truth of the
+	// value it guards: any non-zero lie passes it. Such a row carries
+	// own_form="sentinel", the guard's own text, and an adversarial `why`
+	// that demands the value passing the check before the pair can be
+	// called covered. Opt-in for the same reason as the enrichments above:
+	// the reference surface (the parity goldens) never classified guard
+	// form, and a Go-only field would move a pinned vector.
+	SentinelForm bool
 }
 
 // ProdProbeOpts is what the shipped surface is built with: the reference
 // surface plus the Go-only enrichments that survived measurement (C1 stage
-// tables, C2 symmetry). C3 (AbsenceRows) is NOT shipped — see the field's
-// comment for the Morph numbers that retired it.
+// tables, C2 symmetry, the sentinel-form clause). C3 (AbsenceRows) is NOT
+// shipped — see the field's comment for the Morph numbers that retired it.
 func ProdProbeOpts() ProbeOpts {
-	return ProbeOpts{StageTables: true, Symmetry: true}
+	return ProbeOpts{StageTables: true, Symmetry: true, SentinelForm: true}
 }
 
 // buildAxes runs every registered probe, collapses + ranks its rows and
@@ -119,6 +129,9 @@ func buildAxes(index, model validation.Value, paths map[string]string,
 		final := make([]validation.Value, len(rows))
 		for i, r := range rows {
 			final[i] = finalize(r, probeID, spec)
+		}
+		if opts.SentinelForm && probeID == "assertion-strength" {
+			final = attachSentinelForm(index, final)
 		}
 		if opts.StageTables && probeID == "assertion-strength" {
 			final = attachStageTables(index, final, stageMemo)

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"websec/internal/srcclass"
+	"websec/internal/structidx"
 	"websec/internal/validation"
 )
 
@@ -362,6 +363,114 @@ func vGetPresent(v validation.Value, key string) (validation.Value, bool) {
 		}
 	}
 	return validation.VNull(), false
+}
+
+// sentinelWhy replaces the template why for a sentinel-guarded row: the
+// generic "asserted there, consumed here" question is not the question this
+// row raises. The check the consumer runs cannot express the property the
+// asserter asserts, so the disposition has to name the value that passes it.
+func sentinelWhy(row validation.Value) string {
+	return vStr(row, "consumer") + "#" + pyStr(vGet(row, "consumer_line")) +
+		" guards " + pyStr(vGet(row, "concept_keys")) + " with a SENTINEL check (" +
+		vStr(row, "own_guard_text") + ") — any non-zero value passes it. " +
+		"Name the value that passes and who asserts its truth before " +
+		"calling this pair covered."
+}
+
+// sentinelSites is a memoized view of the index the sentinel clause reads:
+// the own guards of the functions named by the assertion-strength rows. The
+// contract closures are collected once, and each (contract, function, line)
+// is classified once, so a surface with hundreds of rows still walks the
+// index once.
+type sentinelSites struct {
+	closures map[string][]validation.Value
+	sites    map[string]map[string]ownGuardSite
+}
+
+// newSentinelSites indexes the contract closures by contract name.
+func newSentinelSites(index validation.Value) *sentinelSites {
+	s := &sentinelSites{closures: map[string][]validation.Value{},
+		sites: map[string]map[string]ownGuardSite{}}
+	for _, cnode := range contractNodes(index) {
+		name := vStr(cnode, "name")
+		if _, ok := s.closures[name]; !ok {
+			s.closures[name] = vObjList(cnode, "contract_closure")
+		}
+	}
+	return s
+}
+
+// siteFor is the named function's own strongest guard for one concept key,
+// read back through the index: the same contract_closure entry view the probe
+// itself classifies. The entry is matched on (name, line) so an overloaded
+// function is read as the row's own site; a row whose line matches nothing
+// falls back to the first entry with the name.
+func (s *sentinelSites) siteFor(contract, fn string, line int,
+	key string) (ownGuardSite, bool) {
+	cacheKey := contract + "\x00" + fn + "\x00" + itoa(line)
+	sites, ok := s.sites[cacheKey]
+	if !ok {
+		sites = map[string]ownGuardSite{}
+		fallback := map[string]ownGuardSite{}
+		for _, e := range s.closures[contract] {
+			if vStr(e, "name") != fn {
+				continue
+			}
+			own := ownGuardSites(e)
+			for k, v := range own {
+				if cur, ok := fallback[k]; !ok || v.class > cur.class {
+					fallback[k] = v
+				}
+			}
+			if vInt(e, "line") != line {
+				continue
+			}
+			for k, v := range own {
+				if cur, ok := sites[k]; !ok || v.class > cur.class {
+					sites[k] = v
+				}
+			}
+		}
+		if len(sites) == 0 {
+			sites = fallback
+		}
+		s.sites[cacheKey] = sites
+	}
+	site, ok := sites[key]
+	return site, ok
+}
+
+// attachSentinelForm is the surface half of the sentinel clause: an
+// assertion-strength row whose consumer rules the concept out with a
+// zero-check (own guard class <= 1, sentinel form) carries own_form =
+// "sentinel", the guard's own text, and the adversarial why that demands the
+// value passing the check. This runs after finalize and only when the caller
+// opts in (ProbeOpts.SentinelForm): the zero value of ProbeOpts is the
+// reference surface, which is what the parity goldens pin — the reference
+// cannot carry a field the Go port invented.
+//
+// The row's concept_keys are read in their published (sorted) order, so a
+// merged row that is sentinel-guarded under more than one key reports the
+// first one deterministically.
+func attachSentinelForm(index validation.Value,
+	rows []validation.Value) []validation.Value {
+	sites := newSentinelSites(index)
+	for i := range rows {
+		contract, consumer := vStr(rows[i], "contract"), vStr(rows[i], "consumer")
+		line := vInt(rows[i], "consumer_line")
+		for _, key := range vStrList(rows[i], "concept_keys") {
+			site, ok := sites.siteFor(contract, consumer, line, key)
+			if !ok || site.class > 1 ||
+				structidx.GuardForm(site.text) != "sentinel" {
+				continue
+			}
+			vSet(&rows[i], "own_form", validation.VStr("sentinel"))
+			vSet(&rows[i], "own_guard_text", validation.VStr(site.text))
+			vSet(&rows[i], "why", validation.VStr(sentinelWhy(rows[i])))
+			break
+		}
+	}
+	return rows
 }
 
 // RankKey is rank_key: (tier, -assertion_gap, n_siblings, name, row_id).
