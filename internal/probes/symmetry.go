@@ -485,11 +485,21 @@ func symSiteValue(c symCell) validation.Value {
 // surface row and the tests all phrase it the same way).
 func SymQuestion(d symDivergence) string { return symQuestion(d) }
 
+// payoutFundingQuestion is the forced question every funding-mismatch row
+// carries: the matrix shows the primitive divergence, but the miss that
+// matters is the payout path — what credits the balance the payout draws
+// from. The framework cannot know deployment funding; it can refuse to let
+// the question go unasked.
+const payoutFundingQuestion = " Who funds the observed payout — name the " +
+	"primitive that credits the paying balance for this asset; if none " +
+	"exists, the payout draws from an unfunded balance."
+
 func symQuestion(d symDivergence) string {
 	switch d.Kind {
 	case SymFundingMismatch:
 		return sprintf("%s: the forward path %s::%s#%d %s (%s) while %s::%s#%d "+
-			"moves %s out with %s on the %s path — who funds the difference?",
+			"moves %s out with %s on the %s path — who funds the difference?"+
+			payoutFundingQuestion,
 			d.Family, d.ExpCell.Contract, d.ExpCell.Function, d.ExpCell.Line,
 			d.Expected, d.ExpectedAsset, d.ObsCell.Contract, d.ObsCell.Function,
 			d.ObsCell.Line, d.Asset, d.Observed, d.Direction)

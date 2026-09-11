@@ -8,6 +8,7 @@ package probes
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"websec/internal/validation"
@@ -410,4 +411,78 @@ func TestFinalizeKeepsAbsentDeclaredFieldsExceptCustody(t *testing.T) {
 		t.Error("a nulled declared field validated: the fail-loud path was " +
 			"weakened")
 	}
+}
+
+// TestFundingMismatchCarriesPayoutQuestion: the funding-mismatch question
+// ends with the payout-funding sub-question, so dismissing the row requires
+// naming the crediting primitive (or recording that none exists).
+func TestFundingMismatchCarriesPayoutQuestion(t *testing.T) {
+	rows := fundingMismatchRows(t) // the existing fixture builder
+	if len(rows) == 0 {
+		t.Fatal("fixture lost its funding-mismatch row")
+	}
+	const suffix = " Who funds the observed payout — name the primitive that " +
+		"credits the paying balance for this asset; if none exists, the payout " +
+		"draws from an unfunded balance."
+	if !strings.HasSuffix(vStr(rows[0], "question"), suffix) {
+		t.Errorf("question = %q\nwant suffix %q", vStr(rows[0], "question"), suffix)
+	}
+	// Non-mismatch divergences stay unchanged.
+	for _, r := range nonMismatchDivergenceRows(t) {
+		if strings.Contains(vStr(r, "question"), "Who funds the observed payout") {
+			t.Errorf("sub-question leaked into a %q row", vStr(r, "divergence"))
+		}
+	}
+}
+
+// divergenceRows runs the shipped surface pipeline over one custody fixture
+// and returns only the rows carrying a divergence. The row's operator-visible
+// `why` IS the divergence's question (symmetryRawRows copies it into the
+// extras and attachSymmetry stamps it), so each returned row also exposes it
+// under the divergence's own field name `question`: the same string the
+// `symmetry` CLI prints and the matrix renders.
+func divergenceRows(t *testing.T, root string) []validation.Value {
+	t.Helper()
+	surface, err := BuildSurfaceOpts(t29Index(t, root), validation.VNull(),
+		12, 40, 3, "2026-01-01T00:00:00Z", ProdProbeOpts())
+	if err != nil {
+		t.Fatalf("BuildSurfaceOpts(%s): %v", root, err)
+	}
+	out := []validation.Value{}
+	for _, row := range t29Rows(surface, "custody-primitive") {
+		if vStr(row, "divergence") == "" {
+			continue
+		}
+		view := copyObj(row)
+		vSet(&view, "question", validation.VStr(vStr(row, "why")))
+		out = append(out, view)
+	}
+	return out
+}
+
+// fundingMismatchRows is the G-02 fixture (custody/buggy): the derived forward
+// path burns while the inherited recovery path pays out of its own balance.
+func fundingMismatchRows(t *testing.T) []validation.Value {
+	t.Helper()
+	out := []validation.Value{}
+	for _, r := range divergenceRows(t, filepath.Join(t29ProbesDir, "custody", "buggy")) {
+		if vStr(r, "divergence") == SymFundingMismatch {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// nonMismatchDivergenceRows is the NONCREDIT fixture: two sibling members
+// disagree on the (deposit, erc20) primitive, so the family carries
+// member-disagreement divergences and no funding mismatch.
+func nonMismatchDivergenceRows(t *testing.T) []validation.Value {
+	t.Helper()
+	out := []validation.Value{}
+	for _, r := range divergenceRows(t, filepath.Join(t29ProbesDir, "custody", "noncredit")) {
+		if vStr(r, "divergence") != SymFundingMismatch {
+			out = append(out, r)
+		}
+	}
+	return out
 }
