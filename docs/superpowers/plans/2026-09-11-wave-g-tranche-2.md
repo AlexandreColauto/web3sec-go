@@ -433,7 +433,7 @@ git commit -m "feat(G4): 17-case gold-eval suite (8+ classes, control + decoys) 
 - Test: `internal/evalscore/evalscore_test.go`
 
 **Interfaces:**
-- Consumes: `findings.LoadAllFindings`/`LoadLiveFindings` (campaign live set), `assets.LoadEvalCases()` (Task 2), `wilson.Format` (Task 1), `state.Campaign` target metadata (the program name the campaign pinned — read `campaign.json`'s target/program naming via `internal/state` — the join key is `program.program` matched case-insensitively against the campaign's target NAME; state exposes target name — Task 3's implementer finds the exact accessor in `internal/state` and records it in the report).
+- Consumes: `findings.LoadAllFindings`/`LoadLiveFindings` (campaign live set, `internal/findings/storage.go`), `assets.LoadEvalCases()` (Task 2), `wilson.Format` (Task 1), `state.Campaign` (campaign.go:17) — the campaign state doc's REQUIRED key `program` is the join key, matched case-insensitively against each case's `program.program`; read it via the existing state accessor (implementer finds `LoadState`-equivalent in `internal/state`, records the name in the report).
 - Produces:
 
 ```go
