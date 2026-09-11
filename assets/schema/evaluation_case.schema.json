@@ -35,6 +35,7 @@
             "forge-curated",
             "c4audit",
             "sherlock",
+            "immunefi-resolved",
             "smartbugs-curated",
             "manual"
           ],

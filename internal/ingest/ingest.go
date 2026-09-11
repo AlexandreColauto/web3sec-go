@@ -46,7 +46,8 @@ var Outcomes = []string{
 // datasets is the adapter registry's dataset vocabulary.
 var datasets = []string{
 	"scabench", "defihacklabs", "defihacklabs-explorer", "forge",
-	"forge-curated", "c4audit", "sherlock", "smartbugs-curated", "manual",
+	"forge-curated", "c4audit", "sherlock", "immunefi-resolved",
+	"smartbugs-curated", "manual",
 }
 
 // negativeByOutcome is _NEGATIVE_BY_OUTCOME: outcome -> (status,
