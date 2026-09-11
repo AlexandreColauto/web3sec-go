@@ -125,6 +125,14 @@
     "sha256": "40d15296318654b55454d76a8a4075c45af0f27cfe9d1bb3774749cd3499a6cd",
     "size": 7943
    },
+   "frontend-injection.yaml": {
+    "sha256": "d91b1fbd2f9a3768687b3d99ce3bda0cbc2a1839b93f9081c9e2ba64f796a5dd",
+    "size": 8193
+   },
+   "infra-boundary.yaml": {
+    "sha256": "f609b8133f3f8718348bd30f61324095c42de9d026c2ec85fb6cc40d601bc39e",
+    "size": 7811
+   },
    "oracle-manipulation.yaml": {
     "sha256": "21ada356f65abc3acfc28dce3f55de55f463532e4ced98b63dd06370089bdc92",
     "size": 9098
