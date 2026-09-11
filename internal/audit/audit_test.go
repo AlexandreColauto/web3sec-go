@@ -82,7 +82,7 @@ func writeLogLines(t *testing.T, c *state.Campaign, lines []string) {
 
 func TestAuditCleanCampaignPasses(t *testing.T) {
 	Setup()
-	if n := SectionNames(); len(n) != 14 {
+	if n := SectionNames(); len(n) != 15 || n[14] != "eval" {
 		t.Fatalf("sections not registered; SectionNames()=%v", n)
 	}
 	c := initCampaign(t)
@@ -464,13 +464,14 @@ func TestAuditSummaryLineFail(t *testing.T) {
 
 // TestAuditRegistryOrderPinned: the section registry exposes every ported
 // section in Python's audit.py code order — all 14, sequence_coverage (12)
-// between invariant_verification (11) and probe_surface (13).
+// between invariant_verification (11) and probe_surface (13) — with the
+// presence-gated G4 eval section appended last.
 func TestAuditRegistryOrderPinned(t *testing.T) {
 	Setup()
 	want := []string{"event_log", "artifacts", "execs", "findings",
 		"projection", "snapshots", "relations", "floor_policy",
 		"stage_completions", "baselines", "invariant_verification",
-		"sequence_coverage", "probe_surface", "unpriceable"}
+		"sequence_coverage", "probe_surface", "unpriceable", "eval"}
 	if got := SectionNames(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("SectionNames() = %v, want %v", got, want)
 	}
