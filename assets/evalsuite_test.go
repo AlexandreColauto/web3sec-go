@@ -80,6 +80,11 @@ func TestEvalSuiteSchemaAndCoverage(t *testing.T) {
 		t.Fatalf("G4 requires >=8 classes, got %d: %v", len(classes), classes)
 	}
 	if control != 2 { // ES17 clean control + ES16 ack decoy share the
+		// confirmed-not-exploitable outcome; the per-row law (which row is
+		// the ack decoy, which is the clean control, and that each still
+		// carries/omits its ack) is pinned by
+		// TestEvalSuiteAckDecoyAndCleanControl below — this count only
+		// fixes the cardinality.
 		t.Fatalf("exactly two confirmed-not-exploitable rows required, got %d", control)
 	}
 	for _, must := range []string{"access-control", "reentrancy", "oracle-manipulation",
