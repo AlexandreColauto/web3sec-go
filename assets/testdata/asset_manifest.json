@@ -40,8 +40,8 @@
   },
   "evalsuite": {
    "cases.json": {
-    "sha256": "92801c35017cfbeebb1f965ba8d06e747005dbe8e4875fca88f6ff0646b6505d",
-    "size": 15084
+    "sha256": "6fd1b4214f51106ca0d80cf2beb0acdc9cff28b195829c953ba1b2f07fccb4bd",
+    "size": 15645
    },
    "src/ES01VaultMissingAuth.sol": {
     "sha256": "fd19c9a38f0dbbc98c220b3b99e140a3113d8a1d27bff414b395033436c5dc7f",
@@ -406,8 +406,8 @@
     "size": 1826
    },
    "evaluation_case.schema.json": {
-    "sha256": "3946ba74499c7e11c39e84f278c284d6839c6d3af8fe9a3b83693da9b2b90ef3",
-    "size": 6494
+    "sha256": "2c8d6dd16395f72260008aacb38f415fd9db4b78bc3850a84523fb70c0d689c1",
+    "size": 7211
    },
    "finding.schema.json": {
     "sha256": "788b7a3ef0f5fa533d2e31d11bb83f0f009be26ea7cc64883dba92a8f8b7f46c",

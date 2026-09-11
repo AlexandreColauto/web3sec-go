@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://web3sec.local/schema/evaluation_case.schema.json",
   "title": "WebSec Evaluation Case",
-  "description": "One labeled case the framework measures itself against, distilled from a public dataset (or a manual entry). Cases belong to the FRAMEWORK, not to one campaign: the repo-level eval store (src/webv2/eval_store.py) keeps them in eval/cases.json with a sha256 sidecar, so a hand edit is detectable drift. Provenance is mandatory (sprint constraint 5): the source dataset + record id (+ url when the source has one), the ingestion stamp (created_at, stamped by add_case), and schema_version. The leakage partition (sprint constraint 4) states which evaluation split the case belongs to; 'held-out'/'training' cases are eval-only data and never surface as proposer context or promotable memory.",
+  "description": "One labeled case the framework measures itself against, distilled from a public dataset (or a manual entry). Cases belong to the FRAMEWORK, not to one campaign: the repo-level eval store (src/webv2/eval_store.py) keeps them in eval/cases.json with a sha256 sidecar, so a hand edit is detectable drift. Provenance is mandatory (sprint constraint 5): the source dataset + record id (+ url when the source has one), the ingestion stamp (created_at, stamped by add_case), the operator-supplied on-chain/advisory date (deployed_at, optional — never stamped or defaulted by the framework), and schema_version. The leakage partition (sprint constraint 4) states which evaluation split the case belongs to; 'held-out'/'training' cases are eval-only data and never surface as proposer context or promotable memory.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -161,6 +161,11 @@
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$",
       "format": "date-time",
       "description": "the ingestion stamp (sprint constraint 5): when this case entered the store; add_case stamps it when the caller omits it"
+    },
+
+    "deployed_at": {
+      "type": "string",
+      "description": "when the underlying bug lived on-chain (or the advisory's publication date): OPERATOR-SUPPLIED provenance, NOT an ingestion stamp. Distinct from created_at, which add_case stamps at ingestion. May be ABSENT — the framework never defaults, invents, or overwrites it; absent means the honest provenance date is unknown. Free-string by design (the repo's backfill is uniform YYYY-MM-DD, but no date parser gates the schema: date semantics and ordering belong to the temporal rule that consumes this key, not to validation)."
     },
 
     "schema_version": {
