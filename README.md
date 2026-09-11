@@ -105,7 +105,7 @@ scripts/            release.sh, runbook-walkthrough.sh, golden.sh,
 docs/gates/         per-phase gate reports (P0-P4)
 docs/archive/       frozen port-era records: the divergence ledger, the
                     twin-issue log, the Python-test accounting map
-docs/IMPROVEMENTS.md  the active campaign-improvement plan (waves A–I)
+docs/IMPROVEMENTS.md  the active campaign-improvement plan (waves A–J; K parked)
 docs/LEANNESS_REVIEW.md  the port-scaffolding removal plan (wave F)
 ```
 
@@ -157,8 +157,9 @@ Step 9 is also daemon-free by design: the docker e2e tiers live in
 - `assets/runbook/RUNBOOK.md` — the operator runbook (a test: the D7
   registry↔document check keeps it honest).
 - `docs/IMPROVEMENTS.md` — the improvement plan driven by real campaigns
-  (waves A–I: Wave G starts at L1865, the Wave H backlog at L2479, Wave I at
-  L2510) and its design principles, incl. the surface budget.
+  (waves A–J, with Wave K parked; navigate by heading — `## Wave G`, `## Wave H
+  — review backlog`, `## Wave I`, `# Wave J — definitive close-out`, `# Wave K`)
+  and its design principles, incl. the surface budget.
 - `docs/LEANNESS_REVIEW.md` — the wave-F leanness review (what was removed
   from the port scaffolding, and why the rest stayed).
 - `docs/runbook-go-notes.md` — RUNBOOK substitutions the Go binary needs

@@ -10,7 +10,12 @@ tranche 2 LANDED 2026-09-11 (G2, G3, G4, G5, G8, G12–G18 — plan
 tranche 3 LANDED 2026-09-11 (G9, G10, G11 — plan
 `docs/superpowers/plans/2026-09-11-wave-g-tranche-3.md`).
 Wave G is COMPLETE (G1–G18 all LANDED).**
-Wave H backlog filed 2026-09-11 (15 items, open) — Wave I LANDED 2026-09-11 (I1–I6).
+Wave H backlog filed 2026-09-11 — **closed by Wave J 2026-09-11** (H1–H15
+landed; H16 filed) — Wave I LANDED 2026-09-11 (I1–I6). **Wave J, the definitive
+close-out, LANDED 2026-09-11** (plan
+`docs/superpowers/plans/2026-09-11-wave-j.md`); see "Wave J — definitive
+close-out" below. Wave K (free prover backends) is **PARKED** — post-production,
+not required for readiness.
 
 Source: the Morph L2 rollup campaign (`C-42bd211e3e`, 537 events, 52 findings,
 snapshot `22ca805e`) against the gold-standard eval with two planted bugs
@@ -1911,7 +1916,7 @@ money (principle 2).
 | G1 | detector output as first-class evidence + corroboration factor — LANDED (tranche 1, 2026-09-10) | M | — |
 | G2 | per-class three-weight table (search / acceptance / severity-if-real) — LANDED (tranche 2, 2026-09-11; weights ship neutral BY DESIGN — graduation needs a G3-backtest `improves` on real data) | M | G3 ✓ |
 | G3 | acceptance priors from the adjudicated outcome store + A3 backtest — LANDED (tranche 2, 2026-09-11; policy-gated `acceptance_priors`, `corpus-surface --backtest` verdict = Wilson-lower must strictly rise) | L | G2 ✓ |
-| G4 | gold-eval expansion (≥15 scenarios, clean control, CIs on recall) — LANDED (tranche 2, 2026-09-11; 17-case suite, presence-gated `## eval` audit section) | M | claims ✓ |
+| G4 | gold-eval expansion (≥15 scenarios, clean control, CIs on recall) — LANDED (tranche 2, 2026-09-11; 17-case suite, presence-gated `## eval` audit section; grew to **19** in Wave J Task 3 — two pre-0.8.24 fixtures, so the suite is no longer a single-compiler monoculture) | M | claims ✓ |
 | G5 | two-layer defense matcher: `mitigation_present` vs check13 — LANDED (tranche 2, 2026-09-11; non-interference law enforced by tests) | M | G1 ✓ |
 | G6 | critic triager-outlook rubric (prompt data, policy-injected) — LANDED (tranche 1, 2026-09-10) | S | — |
 | G7 | claim-intake checklist + `provenance[]` on baked-in external claims — LANDED (tranche 1, 2026-09-10) | S | — |
@@ -2485,21 +2490,29 @@ Ordered roughly by real-world bite.
 
 | # | item | why it matters |
 |---|---|---|
-| H1 | `internal/costs/costs.go` unattributed edge: all cost rows lensed + bare priorities ⇒ no unattributed row emitted, planned count silently vanishes. Fix: add `\|\| planned["unattributed"]>0` to the emit gate + test that shape. | Only one that can surprise in a real campaign's advisory table. |
-| H2 | `internal/reproduction/postpatch_scope.go` uncapped walk: `scopeSolFiles` reads every common file fully; only output is capped (50 rows). Add a file-count or total-bytes guard. | Latency on huge vendored trees. |
-| H3 | Same file, uncapped detail join: cap plant rows with the same overflow convention as scope rows. | Record bloat on chatty archetypes × huge changed sets. |
-| H4 | Same file mirrors `structidx`'s excluded-dirs by value: extract a shared constant. | Silent drift if the parser's set changes. |
-| H5 | `dedup_meta.mitigation_present` + component citation hashes ride JSON strings / evidence description text: consider dedicated `affected[].hash`-style fields (schema migration). | Machine-checkable citations; today's shape is honest but stringly. |
-| H6 | evalsuite test lacks ES16-ack / ES17-clean presence asserts (`assets/evalsuite_test.go`). | The decoy/control semantics are covered in mitigscan tests but not in the suite's own test. |
-| H7 | mitigscan state-write regex under-detects nested-index writes (`deposits[rs[i]]`). | Pattern coverage, not a correctness bug (falls through to the next check). |
-| H8 | `SURFACE2_AXES` hand-copied literal vs `check-golden.py` `EXPECTED_PROBE_AXES` (`scripts/golden-run.py:131-134`): read the shared list. | A 7th axis would slip past the rot gate. |
-| H9 | `forgePassSummary` matches `Suite result` across the whole text instead of per-line (`internal/harness/outcome.go:208`). | Nil blast radius today (zero-FAIL-lines required regardless); tighten on touch. |
-| H10 | `sweep_t35_registry_test.go` still mirrors eight playbooks: extend to ten for tool-id coverage. | Registry-completeness intent. |
-| H11 | immunefi loader cleanup: dead `paid` param + twin `sha12` derivation paths (`internal/datasets/immunefi/`). | Hygiene. |
-| H12 | `string(rune)` test idiom → `strconv.Itoa` (`internal/evalscore/evalscore_test.go:376` + eval section test). | Robust past 9 cases. |
-| H13 | `class_weights.schema.json` strictness: `number` accepts int `1` and float `1.0` alike; confirm no `"null"`-string `source_url` in fixtures. | Schema hygiene; verify fixture data, then decide. |
-| H14 | Scaffold `_witness` storage var is contract-visible in halmos symbolic context (`internal/harness/harness.go`). | Harmless for dummy scaffolds; revisit when real invariants run. |
-| H15 | `reentrancy` carries no `swc` alias although the fetched registry list has SWC-107 ("Reentrancy") — the mapping I6 deliberately deferred. Adding it is one data line in `assets/taxonomy/aliases.json` (`"reentrancy": {"owasp": "SC05", "swc": "SWC-107"}`) plus **four pinned display literals** that must grow in step: `internal/report/aliases_test.go:36,64`, `internal/briefing/aliases_test.go:58`, `internal/classweights/aliases_test.go:92` — plus the `assets/testdata/asset_manifest.json` regen. No code change: `ClassAliasSuffix` already renders `[OWASP SC05; SWC-107]`. | Deferred by I6's byte law, which required every existing OWASP-only rendering to stay byte-identical in that wave, not by any doubt about the mapping (the id is in the fetched list and the class is the registry's own word for it). |
+| H1 | ~~`internal/costs/costs.go` unattributed edge: all cost rows lensed + bare priorities ⇒ no unattributed row emitted, planned count silently vanishes. Fix: add `\|\| planned["unattributed"]>0` to the emit gate + test that shape.~~ **LANDED Wave J** (`edf9aaf`) | Only one that can surprise in a real campaign's advisory table. |
+| H2 | ~~`internal/reproduction/postpatch_scope.go` uncapped walk: `scopeSolFiles` reads every common file fully; only output is capped (50 rows). Add a file-count or total-bytes guard.~~ **LANDED Wave J** (`502a0da`) | Latency on huge vendored trees. |
+| H3 | ~~Same file, uncapped detail join: cap plant rows with the same overflow convention as scope rows.~~ **LANDED Wave J** (`00d280a`) | Record bloat on chatty archetypes × huge changed sets. |
+| H4 | ~~Same file mirrors `structidx`'s excluded-dirs by value: extract a shared constant.~~ **LANDED Wave J** (`2d6a051`) | Silent drift if the parser's set changes. |
+| H5 | ~~`dedup_meta.mitigation_present` + component citation hashes ride JSON strings / evidence description text: consider dedicated `affected[].hash`-style fields (schema migration).~~ **LANDED Wave J** (`3dcea47`) | Machine-checkable citations; today's shape is honest but stringly. |
+| H6 | ~~evalsuite test lacks ES16-ack / ES17-clean presence asserts (`assets/evalsuite_test.go`).~~ **LANDED Wave J** (`2d6a051` + follow-up `1215f86`) | The decoy/control semantics are covered in mitigscan tests but not in the suite's own test. |
+| H7 | ~~mitigscan state-write regex under-detects nested-index writes (`deposits[rs[i]]`).~~ **LANDED Wave J** (`4ca4c2c`) | Pattern coverage, not a correctness bug (falls through to the next check). |
+| H8 | ~~`SURFACE2_AXES` hand-copied literal vs `check-golden.py` `EXPECTED_PROBE_AXES` (`scripts/golden-run.py:131-134`): read the shared list.~~ **LANDED Wave J** (`2d6a051`) | A 7th axis would slip past the rot gate. |
+| H9 | ~~`forgePassSummary` matches `Suite result` across the whole text instead of per-line (`internal/harness/outcome.go:208`).~~ **LANDED Wave J** (`c054884`) | Nil blast radius today (zero-FAIL-lines required regardless); tighten on touch. |
+| H10 | ~~`sweep_t35_registry_test.go` still mirrors eight playbooks: extend to ten for tool-id coverage.~~ **LANDED Wave J** (`c054884`) | Registry-completeness intent. |
+| H11 | ~~immunefi loader cleanup: dead `paid` param + twin `sha12` derivation paths (`internal/datasets/immunefi/`).~~ **LANDED Wave J** (`c054884`; scope widened to all four twins) | Hygiene. |
+| H12 | ~~`string(rune)` test idiom → `strconv.Itoa` (`internal/evalscore/evalscore_test.go:376` + eval section test).~~ **LANDED Wave J** (`0c4cc57`; the two sites the item named — the two more found under it are filed as H16) | Robust past 9 cases. |
+| H13 | ~~`class_weights.schema.json` strictness: `number` accepts int `1` and float `1.0` alike; confirm no `"null"`-string `source_url` in fixtures.~~ **RESOLVED Wave J** (`0c4cc57`; decision + comment, no migration) | Schema hygiene; verify fixture data, then decide. |
+| H14 | ~~Scaffold `_witness` storage var is contract-visible in halmos symbolic context (`internal/harness/harness.go`).~~ **RECORDED Wave J** (`0c4cc57`; hold stated at `WitnessVar`, no code change) | Harmless for dummy scaffolds; revisit when real invariants run. |
+| H15 | ~~`reentrancy` carries no `swc` alias although the fetched registry list has SWC-107 ("Reentrancy") — the mapping I6 deliberately deferred. Adding it is one data line in `assets/taxonomy/aliases.json` (`"reentrancy": {"owasp": "SC05", "swc": "SWC-107"}`) plus **four pinned display literals** that must grow in step: `internal/report/aliases_test.go:36,64`, `internal/briefing/aliases_test.go:58`, `internal/classweights/aliases_test.go:92` — plus the `assets/testdata/asset_manifest.json` regen. No code change: `ClassAliasSuffix` already renders `[OWASP SC05; SWC-107]`.~~ **LANDED Wave J** (`fa9bb27`) | Deferred by I6's byte law, which required every existing OWASP-only rendering to stay byte-identical in that wave, not by any doubt about the mapping (the id is in the fetched list and the class is the registry's own word for it). |
+| H16 | `string(rune('0'+i))` idiom survives in two more test files with no `%10` guard — `internal/report/sweep_t35_unprice_test.go:80`, `internal/cli/sweep_t35_unprice_test.go:36` (found by H12's sweep; same >9 latent drift). Fix: `strconv.Itoa`, same as H12. | Robustness past 9 rows in two table-driven tests; the item H12 named is fixed, these are the remainder. |
+
+**Status (closed by Wave J, 2026-09-11).** H1–H12 and H15 are landed; H13 and
+H14 were decisions the items asked for (a strictness finding and a hold
+statement) and landed as recorded decisions, not code changes. Nothing in this
+backlog is open except **H16**, which H12's sweep filed after closing its own
+scope — it is genuine and small (two identical one-line fixes), deliberately
+left rather than widening H12 past the files it named.
 
 E3 (ladder "other" axis) and E4 (campaign severity floor) stay deferred under
 principle 6 — they are NOT part of this backlog; they land when a real run
@@ -2813,3 +2826,455 @@ where the erratum beside it is intentional and unchanged.
 *Scope note: this pass covers the code/asset/plan diff through `5f5796b`. This
 close-out section itself contains `95% CI` strings by construction (it cites
 the pass) and is excluded from the count.*
+
+---
+
+# Wave K — Free prover backends behind the G8 seam (wrap, don't build)
+
+Date: 2026-09-11 · Status: **PARKED — post-production proposal (user decision
+2026-09-11).** Wave J, the definitive close-out, shipped without it: this
+section was written concurrently by another writer, was never one of Wave J's
+nine tasks, and is not required for production readiness. Nothing here blocks
+the shipped tree; nothing in the shipped tree blocks this except a green tree.
+
+*Rename note: parked as **Wave K** (items J1–J4 → K1–K4) because Wave J's own
+letters were spent by the close-out wave that shipped first. The rename is the
+only edit to this section's content: nothing below was rewritten, re-scoped or
+re-argued, and the only characters that moved are the item ids and the wave
+letter in cross-references.* Anchors are pointers to be re-located at landing
+time (same convention as above).
+
+**Sources.** (1) The Certora-architecture review (compiler → bytecode →
+TAC → static analysis → VC gen → SMT → counterexample) and the build-vs-wrap
+decision recorded before this wave: integrate provers, don't become one.
+(2) G8 as-landed (`internal/harness`: `halmos` + `forge-fuzz` BODY-region
+scaffolds, `counterexample / PROVEN-BOUNDED(k) / inconclusive` rungs).
+(3) Paid APIs out — every backend below is local, pinnable, no cloud, no key.
+
+**Decision (locked).** No new verifier is built in this wave. Each item adds
+one free backend behind the existing G8 seam: same invariant in, same
+BODY-law scaffold out, same EXEC record + outcome mapping, same
+presence-gated rendering. A backend earns acceptance weight only via the G3
+backtest law (`improves` on held-out adjudicated rows) — until then its rung
+renders and informs the critic, never moves a gate.
+
+**Consistency with the principles:** no new verbs anywhere (flags on `exec` /
+`verify` / `invariant-verify`, adapters, data, schemas); deterministic where
+judgment-free (principle 4 — pinned toolchains, fixed seeds, recorded
+timeouts); additive presence-gated fields so existing campaigns' bytes don't
+move (principle 1); fail-open advisories, fail-closed gates (principle 2);
+surface budget holds (principle 6).
+
+| item | one-liner | effort | gate-for |
+|---|---|---|---|
+| K1 | `solc` SMTChecker backend (zero new deps — the compiler you pin becomes a prover) | S | — |
+| K2 | Medusa backend (Go-native coverage-guided PBT, Foundry-compatible) | M | — |
+| K3 | Kontrol backend (open, self-hosted KEVM — the unbounded prover without the cloud bill) | M–L | K4 |
+| K4 | Scribble / CVL-subset spec surface, lowered to all backends | M | K1–K3 |
+
+## K1. `solc` SMTChecker backend
+
+**Motivation.** The cheapest soundness you don't have. `WEBV2_SOLC_DIR`
+already pins the compiler; `solc --model-checker-engine chc/bmc` turns the
+`assert`s you extract as `documented_invariants` into proofs or
+bytecode-level counterexamples with no new binary to pin.
+
+**Design.**
+- Scaffold kinds += `smt-bmc` / `smt-chc`: same invariant in, same BODY-law
+  (model writes predicate BODY only; `Validate` re-renders and rejects
+  outside-window moves — `internal/harness` pattern verbatim).
+- Sandbox: host profiles `smt-bmc` / `smt-chc` beside `halmos` /
+  `forge-fuzz` (`internal/sandbox/profiles.go`, exec allowlist, `--version`
+  first-line probe, fail-open omit when absent); every run is an EXEC record
+  with pinned `solc` version + engine + timeout.
+- Outcome mapping (existing vocabulary — extend, don't renumber):
+  counterexample → EXEC + evidence promotion through the normal ladder;
+  engine `SAFE` → `PROVEN-BOUNDED(k)` with `k` = unroll bound in the record
+  (never a bare "proven"); timeout/OOM → `inconclusive`.
+- No new verbs: `--backend smt-bmc|smt-chc` flag on the existing
+  generation / `exec` / `verify` path.
+**Anchors:** `internal/harness/`, `internal/sandbox/` (profiles, exec,
+probes), `internal/invariants/`, `internal/findings/levels.go` (rung
+vocabulary). **Tests:** scaffold byte-pins; BMC counterexample fixture;
+CHC `SAFE` → bounded rung with bound recorded; timeout → inconclusive;
+absent-binary omit; byte check without proofs.
+
+## K2. Medusa backend
+
+**Motivation.** Echidna's successor, Go-native, GPLv3, coverage-guided,
+property-based, Foundry-compatible — the fuzzer that embeds cleanly in a Go
+binary instead of dragging Haskell behind it. Complements `forge fuzz`
+(different scheduler, parallel workers, perverse-state exploration) rather
+than replacing it; differing FP profiles are corroboration signal for G1.
+
+**Design.**
+- Scaffold kind += `medusa`: Foundry-property skeleton with BODY region
+  (same law); pinned binary hash + fixed `--seed` recorded on every EXEC
+  (deterministic corpus; same seed → same run, timeouts → `inconclusive`).
+- Sandbox host profile `medusa` (allowlist + version probe + network `none`
+  + readonly fs, G8 pattern); corpus + coverage stored under `execs/`.
+- Outcome mapping: crash / property-break → EXEC + ladder promotion;
+  clean run → coverage evidence only (never a proof claim — fuzzing finds,
+  it doesn't prove); corpus minimized with seed pin before storing.
+- Flags only: `--backend medusa` on generation / exec; no new verb.
+**Anchors:** `internal/harness/`, `internal/sandbox/`,
+`internal/reproduction/`, `internal/datasets/slither`-style provenance
+(`provenance.tool = {name: medusa, version, seed}`). **Tests:** scaffold
+pins; seeded determinism (same seed, same verdict); counterexample fixture
+end-to-end to evidence; absent-binary omit; byte check without runs.
+
+## K3. Kontrol backend (self-hosted KEVM, no cloud)
+
+**Motivation.** The unbounded prover without the Certora bill: Kontrol +
+KEVM are Apache-2.0, open, self-hosted — Foundry tests as specs, proved for
+all inputs instead of fuzzed for some. Reserved for high-value math kernels
+and auth matrices where SMTChecker/Halmos return `inconclusive`.
+
+**Design.**
+- Scaffold kind += `kontrol`: symbolic Foundry test (`vm.symbolic` inputs)
+  with BODY region (same law); the human bounds loops/storage, the model
+  drafts the BODY — bounds are scaffold-owned data, reviewed, never
+  model-freeform.
+- Sandbox: pinned Nix-closure hash recorded on the EXEC (the whole K+LLVM+
+  KEVM closure — "same inputs → same bytes" dies without it); generous
+  timeout → `inconclusive` is the EXPECTED common case, rendered honestly
+  (the symbolic-scalability warning is the budget mechanism's native
+  language, G8 pattern).
+- Outcome mapping: `QED` → `PROVEN-UNBOUNDED` (new rung label, extending not
+  renumbering — it outranks `PROVEN-BOUNDED(k)` and must never merge with
+  it); counterexample → EXEC + promotion; timeout/OOM → `inconclusive`.
+  `PROVEN-UNBOUNDED` renders with prover version + timeout + bound
+  assumptions, never bare.
+- Flags only: `--backend kontrol`; no new verb. Heavy profiles never run by
+  default — invoked per-finding, never as a sweep.
+**Anchors:** `internal/harness/`, `internal/sandbox/` (Nix-closure pin +
+version probe), `internal/findings/levels.go` (new rung),
+`internal/report` (presence-gated render). **Tests:** scaffold pins;
+`QED` → unbounded rung with versions recorded; counterexample path;
+timeout → inconclusive; absent-toolchain omit; byte check without proofs.
+
+## K4. Scribble / CVL-subset spec surface, lowered to all backends
+
+**Motivation.** Three backends must not mean three spec languages. Scribble
+(ConsenSys, Apache-2.0 — annotations as comments, instrumented into code,
+consumed by Echidna/Medusa/forge/Harvey) is the low-friction surface; a
+pinned CVL-subset (`rule` + `invariant` + `assert`, no `ghost`/`hook` in
+v1) is the Certora-UX surface. One spec in, lowered to every backend —
+the 80%-of-Certora-UX at 5%-of-cost thesis, made concrete.
+
+**Design.**
+- Spec kinds: `scribble` annotations (`#if_succeeds`, `#invariant`) and
+  `cvl-subset` (`rule`/`invariant`/`assert` only — `ghost`/`hook`/
+  summaries explicitly refused in v1 with a named error pointing at K3
+  manual bounds instead). Model writes annotation BODY only; boundary
+  layer validates; scaffold keeps model out of structure (G8 law verbatim).
+- Lowering (deterministic, pure): scribble → instrumented source for
+  forge-fuzz/medusa; assertion-set → Halmos/SMTChecker harnesses;
+  rule bodies → Kontrol symbolic tests. Lowering failures are errors naming
+  file+line, never silent skips.
+- v1 refusals (locked): no `ghost`, no `hook`, no callee summaries — those
+  are the soundness cliff; K3 covers bounds by hand until a later wave
+  earns them with backtest data.
+- Flags only: `--spec scribble|cvl-subset --backend <name>` on the existing
+  generation path; results are ordinary EXEC/evidence records.
+**Anchors:** `internal/harness/` (new spec kinds + lowering),
+`internal/invariants/` (source of annotated statements),
+`internal/sandbox/` (instrumented-build recipe). **Tests:** annotation
+round-trip; CVL-subset accept/refuse matrix (`ghost` refused with named
+error); lowering each way on fixtures; instrumented build compiles against
+pinned solc; byte check without specs.
+
+## Wave K — explicit non-goals (principle 6, recorded so they stay dead)
+
+- Building a new verifier (TAC, alias analysis, VC gen, solver heuristics)
+  — integrate provers, don't become one.
+- Paid/cloud provers (Certora cloud or any keyed API) — local + pinnable
+  only; verdicts import as data (G1-adapter pattern), never as live gate
+  dependencies.
+- `ghost`/`hook`/summaries in v1, consensus/p2p fuzzing, training our own
+  detector — same dead list as Wave G, restated so K4 is not re-litigated.
+
+## Wave K — landing order & dependencies
+
+1. **K1 first** (zero new deps; proves the backend seam on the toolchain
+   you already pin) → **K4-spec-minimal** (scribble annotations feeding
+   the backends you already have: halmos/forge-fuzz/K1 — earns its keep
+   before new binaries arrive).
+2. **K2** (Medusa binary + seeded determinism) → **K3** (Kontrol closure
+   pin + unbounded rung).
+3. **K4-full** (CVL-subset accept/refuse + lowering to K1–K3) last — the
+   surface graduates only after every backend it lowers to exists.
+4. Backtest graduation (G3 law) happens per-backend after landing, never
+   inside the landing commit: rungs render and inform the critic first,
+   move gates only on `improves`.
+
+**Divergence posture:** every backend ships behind a presence-gate (no
+scaffold of that kind → no bytes) and every rung behind a policy
+default-off for gate weight; expected golden byte movers: none (new
+scaffold kinds, new rung labels, and new sandbox profiles are all
+unreachable in existing fixtures — verified per-item with the byte check).
+
+---
+
+# Wave J — definitive close-out (2026-09-11)
+
+**Premise.** Wave J was scoped as the *last* implementation round: close every
+open review item, delete every test that was skipping instead of checking,
+repair every doc that had drifted from the code, add the two operator-visible
+measurements the eval surface still lacked, then gate once — including `-race`
+and the determinism double-run, neither of which any wave had run since
+2026-09-10 — and merge. Nothing in it was exploratory. Plan of record:
+`docs/superpowers/plans/2026-09-11-wave-j.md`; base `f4b6c66` (Wave I merge);
+wave head `c4fc214`; 21 commits, 135 files, +3506/−813 — plus this close-out
+commit on top of it.
+
+| task | what shipped | commit(s) |
+|---|---|---|
+| J1 docs | stale-prose correction: header + Wave E status now say what actually landed | `c5fadfd` |
+| J2 perclass | per-class recall/precision block in `## eval` (`internal/evalscore/classes.go`) | `059d8e0` |
+| J3 diversity | ES18/ES19 pre-0.8.24 fixtures — suite 17 → **19** rows, no single-compiler monoculture | `422d04a` |
+| J4 backlog | all fifteen H items — H1–H15 | `edf9aaf` `502a0da` `00d280a` `4ca4c2c` `fa9bb27` `3dcea47` `2d6a051` `c054884` `0c4cc57` `1215f86` |
+| J5 lies | two skip-lies deleted and their gates wired; walkthrough rows; README drift | `8bbf6ee` `3f78475` |
+| J6 ci | `.github/workflows/ci.yml` — the gate runs without this box | `c4fc214` |
+| J7 truthy | `pyTruthy` consolidated: one canonical form, divergent variants named | `fcaee03` |
+| J8 recovery | torn-log hand-recovery procedure + `probes --flag=value` parity | `50f2644` |
+| J9 closeout | this section: Wave H closed, Wave K parked, CI-correctness pass, full gate | (close-out commit) |
+
+## J1. Stale prose corrected — the doc told two lies
+
+The Wave J header claimed E1/E2 were "deferred" and that D8 "awaits a
+decision". Both were false when written: **G14** had already landed E1/E2
+(`4edfd60`, `b8ed2c6`, `7230c42`) and **D8** had landed as `85b2e3d`. The fix
+is prose-only (8 lines, no code). It is the reason this close-out section
+exists at all: a landed item still described as pending is the same failure
+mode as a skipped test that reports success.
+
+## J2. Per-class recall/precision in `## eval`
+
+The aggregate eval line was the only scoring the audit rendered, so a suite
+that scored 19/19 could hide a class with zero recall. `## eval` now carries a
+per-class block between the aggregate and the acceptance-band table:
+
+```
+  - access-control: recall 1/1 (95% CI 20.7–100.0%), precision 1/2 (95% CI 9.5–90.5%)
+  - oracle-manipulation: recall 0/0 (95% CI n/a), precision 0/1 (95% CI 0.0–79.3%)
+```
+
+Two readings are locked in, both deliberate:
+
+- **A class with no applicable case renders `0/0 (95% CI n/a)`** rather than
+  being suppressed. A suppressed row and a perfect row are indistinguishable in
+  a table; `n/a` is not.
+- **The block header says the cells are small**: `per-class cells are small —
+  read the intervals, not the ratios`. A `1/1` is a 20.7–100.0% interval, not a
+  certainty, and the render says so where the operator reads it.
+
+## J3. Suite compiler diversity — 17 → 19 rows
+
+The source report asked for "contracts compiled with different, non-default
+compiler versions". Every one of the 17 fixtures carried `pragma solidity
+^0.8.24` (ES07's 0.8.19 note is a comment; it still compiles 0.8.24), so the
+suite's `17/17` was a single-compiler measurement wearing a general claim.
+Two fixtures with older pragmas (ES18/ES19) were added, both tool-flaggable.
+The suite self-score literal was re-derived rather than assumed: **19/19
+(95% CI 83.2–100.0%)**. The `17` count was stale in exactly two
+operator-facing places — `assets/runbook/RUNBOOK.md` (§Wave G tranche 2) and
+the G4 row above — and this close-out fixed both; the runbook line now also
+names the older pragmas, so the reason for the growth travels with the number.
+Historical plan files (`2026-09-11-wave-i.md`, `2026-09-11-wave-g-tranche-2.md`,
+and this wave's own plan, where `17` is a *pre-task* statement) keep their
+`17`s: they record what was true when they were written, and rewriting them
+would destroy the audit trail this methodology is built on.
+
+## J4. The Wave H backlog, closed
+
+All fifteen H items landed. Where an item's real scope differed from the plan's
+one-liner, the difference is recorded rather than quietly absorbed:
+
+- **H11 scope widened.** The plan named the immunefi `sha12Hex` twin; the
+  sweep found the same private function in `sherlock` and `c4audit` too —
+  **four** copies, all four now `validation.Sha12Hex` with a pin test.
+- **H12 scope narrowed → H16.** The item named `internal/evalscore/…` and the
+  eval-section test; those are fixed. The idiom also survives in
+  `internal/report/sweep_t35_unprice_test.go:80` and
+  `internal/cli/sweep_t35_unprice_test.go:36`, which the item did not name.
+  Rather than widen H12 past its own scope mid-commit, the remainder is filed
+  as **H16** (see the Wave H table above).
+- **H13 is a decision, not a migration.** `class_weights.schema.json` accepts
+  int `1` and float `1.0` alike. The fixture audit that settled it: 46 float
+  weights, 23 `source_url`s, **zero** `"null"` strings. Recorded in the
+  schema description; no data touched.
+- **H14 is recorded, not changed.** The `_witness` storage var is
+  contract-visible in halmos symbolic context. Harmless for dummy scaffolds;
+  the hold and its revisit condition are stated at `WitnessVar`.
+- **H5 is the largest single item** and got its own commit: an additive,
+  optional `affected[].citations` object (`mitigation_present`, `component`,
+  `^[0-9a-f]{12,64}$`, `additionalProperties: false`) so a citation is
+  machine-checkable instead of buried in a JSON string. Every pre-existing
+  stringly channel stayed byte-identical — `dedup_meta.mitigation_present` is
+  still `type: string` — which is what made the migration safe to land in the
+  same wave as everything else.
+- **Falsifiability was proved, not asserted.** Each new gate was verified by
+  breaking it: remove ES16's ack → H6 test fails; add an ack to ES17 → fails;
+  revert `ln`→`text` → H9 test fails; add a seventh axis to the shared table →
+  H8 rot gate fails. All mutations reverted; `assets/evalsuite/` byte-clean
+  afterwards.
+
+## J5. Two skip-lies deleted, five walkthrough rows added
+
+A skipped test that reports `ok` is worse than no test: it converts an
+unchecked surface into an apparent check. The skip audit found two, and both
+were **deleted, not converted** — with the reasoning recorded in the commit
+rather than left implicit:
+
+- **`WEBV2_PARITY_PROBE`** (`internal/orchestrator/parity_probe_test.go`) was
+  inert without an env var whose only un-skip was an untracked, gitignored
+  `.scratch/` driver whose other half is the **retired** Python twin. Nothing
+  to replace: the golden suite plus the committed legacy cross-audit cover the
+  same ground against committed fixtures.
+- **`requireClones` / `WEBV2_POC_ROOT`** (`internal/datasets/defihacklabs`)
+  was 4× SKIP on this box because `data/datasets/` is neither present nor
+  tracked (`git ls-files data` is empty). Converting would have meant
+  vendoring 930 third-party records and >700 PoCs; everything those tests
+  exercised is already exercised against the synthetic `sampleTree` in the
+  same file.
+
+Five new runbook-walkthrough rows then covered the four new flags that had
+never been executed by any gate (backtest baselines, tool baselines,
+`ingest --from aderyn`, `model --facts`), plus `publish --disclosure`. They
+are section-anchored, not line-anchored, so the rows survive edits above them.
+The binary-gated row prints `[SKIP]` when slither/aderyn are absent — an
+honest skip, named in the output, not a silent pass.
+
+## J6. CI — the gate now runs without this box
+
+`.github/workflows/ci.yml` (first workflow in the repo): ubuntu-latest, Go
+1.26.x, then `go build ./...`, `go vet ./...`, `go test ./... -count=1`,
+`bash scripts/golden.sh`.
+
+Deliberately excluded, and the exclusions are the interesting part: `-race`,
+the docker e2e tiers, and tool installation. The 13-step gate of record stays
+`scripts/verify-full.sh` on a workstation. What made this safe is a property
+worth stating: `golden.sh` pins its caches to repo-relative `.scratch/` paths
+and neither script contains a box-specific absolute path, so the recipe was
+reproduced on a fresh clone under `env -i` with a **read-only HOME** —
+build/vet/test/golden all exit 0. The gated suites (`forge`, `slither`,
+`aderyn`, the defihacklabs clones) SKIP rather than FAIL with an empty
+`PATH`, which is exactly what makes a minimal CI honest instead of red.
+
+## J7. `pyTruthy` — one canonical form, the rest named
+
+The predecessor's truthiness predicate existed as **twenty** copy-pasted local
+`pyTruthy` definitions (identical signature, an assortment of equivalent
+spellings — IntText, merged case, fall-through, operator-precedence). The
+commit deleted all twenty and left **one** canonical `validation.PyTruthy`
+("canonical format v1", its contract in the doc comment rather than "matches
+CPython" prose), now called from **72 sites across 22 files**. The three
+genuinely different truth functions were *not* folded in; they keep their own
+names and their file-local definitions:
+
+| variant | local defs | what makes it different |
+|---|---|---|
+| `pyTruthyBigNonEmpty` | 6 | any non-empty `Big` is truthy — even `Big == "0"` |
+| `pyTruthyInt64Only` | 2 | `Int` reads only `I`; a big integer reads **false** |
+| `pyTruthyLenientContainers` | 1 | empty arrays/objects read **truthy** |
+
+`pyTruthyCLI` (one local def) was surveyed and pinned but left out of scope.
+Seventeen new pin-test functions in seventeen new files freeze every
+definition's pre-consolidation truthiness, so the refactor is provably
+behaviour-preserving rather than merely plausible. 72 files, +987/−423.
+
+## J8. Torn-log recovery, by hand — and no repair verb
+
+A torn session log was a dead end: the framing guard refuses, `verify` reports
+a line-numbered malformed-line problem, and read paths emit a terse `error:
+EOF` with no next step. The runbook's §10 gained **"Torn log recovery (by
+hand, no tool)"**: copy the torn log aside as evidence, truncate at the last
+complete record, re-verify, record the loss.
+
+The procedure was derived from real reproductions in `.scratch`, not from
+reading the code, and that is what caught the case the plan had wrong: an
+in-flight tear truncates to a clean `"ok": true`, but a tear that ate whole
+records leaves the **state projection ahead of the log**, and verify then
+keeps reporting "state event tail does not match the log suffix". Recovery
+therefore needs a projection re-derive (rebuild the mirror, let `doctor`
+re-serialize it through the CLI's own writer) *before* re-verify. The plan's
+step 4 said "re-run verify" and would have looped forever on that input.
+
+**No `verify` repair verb was added, deliberately.** Rewriting a hash-chained
+log means the tool must state what the rewritten chain claims — and it cannot
+know. A hand procedure that records the loss is honest; an automated silent
+repair would not be.
+
+Also in this task: `probes` value flags now route through the shared
+`splitFlag` splitter the converted verbs use, so `--per-axis=2`, `--total=40`,
+`--axis=L-01`, `--anchor-blind=K`, `--reason=R` and `--actor=A` parse exactly
+like their space-separated forms — pinned byte-for-byte (stdout, stderr, exit
+code) by `TestProbesFlagEqualsFormIsTheSpaceForm`.
+
+## J9. The wave's premise corrections
+
+Recorded because each one contradicts something the plan asserted:
+
+1. **A concurrent writer existed.** Someone else added a +179-line "Free
+   prover backends" proposal to this file while the wave was running. It was
+   never one of Wave J's nine tasks. **User decision: adopt it as a parked
+   follow-up — Wave K** (see the section above). Nothing below was rewritten,
+   re-scoped or re-argued there; the only characters that moved are the item
+   ids and the wave letter in cross-references. It is not a Wave J deliverable
+   and nothing in it blocks the shipped tree.
+2. **H11 was four copies, not one.** See J4.
+3. **H12's real remainder was outside its named files.** Filed as H16.
+4. **H13/H14 were decisions, not code changes.** Both items asked for a
+   finding; both got one.
+5. **The torn-log procedure had a missing step.** See J8.
+6. **The suite count was stale in two places**, not the one the plan named.
+   See J3.
+
+## Wave J — CI-correctness pass (pre-merge, 2026-09-11)
+
+Same method as Wave I, applied to the wave diff. Added lines of
+`git diff f4b6c66..c4fc214` grepped for `(95% CI`; every literal
+`<k>/<n> (95% CI lo–hi%)` recomputed against `wilson.Interval`/`wilson.Format`
+semantics (`z = 1.959963984540054`, tenths of a percent, clipped to [0,1],
+`math.Round`).
+
+**29 added lines matched, carrying 39 literals across 6 distinct `(k,n)`
+pairs** (27 of the lines are code/test literals — `internal/audit/sections/
+eval_test.go`, `internal/evalscore/classes_test.go`, `internal/cli/
+cmd_selftest_test.go`, `internal/audit/eval_gate_test.go` — and 2 are the
+plan's own prose):
+
+| k/n | literal | k/n | literal |
+|---|---|---|---|
+| 0/0 | `n/a` | 1/2 | `9.5–90.5%` |
+| 0/1 | `0.0–79.3%` | 2/2 | `34.2–100.0%` |
+| 1/1 | `20.7–100.0%` | 19/19 | `83.2–100.0%` |
+
+**Zero mismatches.** The only literal new to this wave is `19/19
+(95% CI 83.2–100.0%)`, introduced by J3's suite growth; it was re-derived from
+the interval formula rather than copied from the prior 17/17 rendering. The
+`0/0 (95% CI n/a)` form appears 10 times and is the honest degenerate
+rendering, not a suppressed metric. The Wave G4 erratum is not repeated: no
+`2/2` literal anywhere in this wave reads `20–100%` (that interval belongs to
+`2/3`).
+
+## Wave J — declined with reasons (no open ask is a forgotten todo)
+
+Every still-open ask that this wave did **not** implement, with the reason it
+will not be. Nothing here is waiting on capacity; each is a decision.
+
+| ask | decision |
+|---|---|
+| corpus score cap | **Declined** — the cap is the operator's number. A framework-chosen cap would silently change what a score means; the operator sets it or nobody does. |
+| `structidx` ↔ `probes` shared authz vocabulary | **Declined** — it is a coverage-contract change, not a rename. Making two surfaces agree on vocabulary changes what each one promises to cover, which is a wave of its own. |
+| E6 queue tie-break | **Deliberate, pinned** — the current ordering is deterministic and pinned by test; a "better" tie-break is a preference, not a defect. |
+| C1 as `amend` | **Declined** — the store is append-only. `supersede` via G14 is the sanctioned spelling; re-opening C1 would add a second, weaker way to say the same thing. |
+| C2 | **Declined** — low value. |
+| C4 | **Recommended against** — it is a G-01-at-scale machine; the cost is in the running, not the building. |
+| C5 / E3 | **Deferred** — needs an "explored" rule first; without one the axis cannot be scored, only asserted. |
+| C7 / E4 | **Do-not-build** — a reporting knob with no consumer. |
+| `verify` log-repair verb | **Declined** — the hand procedure ships instead (J8). See the reasoning there: a chained log cannot be rewritten by a tool that cannot state what the rewritten chain claims. |
+
+With this table, Wave H is empty except H16, Wave K is explicitly parked, and
+every remaining ask carries a reason instead of a promise.

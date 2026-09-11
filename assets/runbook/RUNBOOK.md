@@ -376,7 +376,8 @@ read the exit code as the verdict; the JSON is the signal.** An issue with no
 anchorable instance is dropped, exactly as a Slither flag with no location is.
 
 **Wave G tranche 2 — measurement, soundness layers, bounded proofs.**
-The gold-eval suite (`schema/evalsuite` pack, 17 cases) scores a campaign when
+The gold-eval suite (`schema/evalsuite` pack, 19 cases — two of them older
+pragmas, so the suite is not a single-compiler monoculture) scores a campaign when
 its program matches — the audit gains a `## eval` section with recall/precision
 behind Wilson intervals (`internal/wilson`; small samples render wide, and that
 is the point). Per-class search weights ride `taxonomy/class_weights.json` and
