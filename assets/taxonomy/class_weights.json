@@ -1,0 +1,299 @@
+{
+  "schema_version": "1",
+  "classes": {
+    "access-control": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "high",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "authorization": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "medium",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "bridge-message": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "high",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "centralization-risk": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "medium",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "cross-chain-replay": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "high",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "donation": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "medium",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "dos-griefing": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "medium",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "economic-invariant": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "medium",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "flash-loan": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "high",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "liquidation-logic": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "medium",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "logic-error": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "medium",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "oracle-manipulation": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "high",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "precision-rounding": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "medium",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "reentrancy": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "high",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "share-price-accounting": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "medium",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "share-price-inflation": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "high",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "signature-replay": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "medium",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "token-integration": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "medium",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "unchecked-external-call": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "medium",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "upgrade-initializer": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "medium",
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "unmapped": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": null,
+      "provenance": [
+        {
+          "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
+          "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    }
+  }
+}

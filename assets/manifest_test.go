@@ -65,6 +65,7 @@ func TestAssetPackManifest(t *testing.T) {
 		"prompts_legacy": {LegacyPromptsFS, "prompts_legacy"},
 		"runbook":        {RunbookFS, "runbook"},
 		"evalsuite":      {EvalSuiteFS, "evalsuite"},
+		"taxonomy":       {TaxonomyFS, "taxonomy"},
 	}
 	for name, pack := range packs {
 		want, ok := m.Packs[name]

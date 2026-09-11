@@ -19,7 +19,7 @@ var knownSchemas = []string{
 	"shared_memory_row", "variant_ladder", "price_table", "assumption",
 	"model_request", "model_response", "trajectory", "playbook",
 	"evaluation_case", "archetype", "sequence_poc", "sequence_result",
-	"sft_example", "probe_surface",
+	"sft_example", "probe_surface", "class_weights",
 }
 
 // SchemaError is the port of webv2.validation.SchemaError. Msg holds the
