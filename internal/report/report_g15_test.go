@@ -66,6 +66,18 @@ func TestG15EvidenceFlakyRenders(t *testing.T) {
 	}
 }
 
+// The evidence join renders verbatim inside the reruns suffix.
+func TestG15EvidenceJoinRenders(t *testing.T) {
+	joined := g15Section(t, g15Item(
+		kv("reruns", validation.VStr(
+			"3/3 (execs EXEC-a,EXEC-b,EXEC-c)")),
+	))
+	want := "[reruns 3/3 (execs EXEC-a,EXEC-b,EXEC-c)]"
+	if !strings.Contains(joined, want) {
+		t.Fatalf("ladder line missing %q:\n%s", want, joined)
+	}
+}
+
 // Neither key: the line is byte-identical to the pre-G15 shape.
 func TestG15EvidenceSilentRendersUnchanged(t *testing.T) {
 	joined := g15Section(t, g15Item())

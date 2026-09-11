@@ -15,7 +15,7 @@ import (
 
 // g15Stub installs a stub rerun seam for one CLI mint; nil restores.
 func g15Stub(t *testing.T,
-	fn func(*state.Campaign, string, string) (int, []byte, error)) {
+	fn func(*state.Campaign, string, string) (string, int, []byte, error)) {
 	t.Helper()
 	reproduction.SetRerunExecutor(fn)
 	t.Cleanup(func() { reproduction.SetRerunExecutor(nil) })
@@ -40,12 +40,18 @@ func g15MintItem(t *testing.T, f *t20Fixture, execID string) validation.Value {
 }
 
 // Flag ON with a deterministic stub: the minted line is unchanged and
-// the item carries reruns:"3/3".
+// the item carries the rerun verdict with the rerun exec ids as the
+// audit join.
 func TestMintVerifyRerunsDeterministic(t *testing.T) {
 	f := t20Setup(t)
+	ids := []string{"EXEC-cli-rerun-1", "EXEC-cli-rerun-2",
+		"EXEC-cli-rerun-3"}
+	n := 0
 	g15Stub(t,
-		func(*state.Campaign, string, string) (int, []byte, error) {
-			return 0, []byte("PASS: poc\n"), nil
+		func(*state.Campaign, string, string) (string, int, []byte, error) {
+			id := ids[n]
+			n++
+			return id, 0, []byte("PASS: poc\n"), nil
 		})
 	code, out, errS := run(t, "--root", f.root, "mint", f.c.CampaignID,
 		f.fid, "--exec", f.pass, "--description", "unit PoC drains",
@@ -61,8 +67,10 @@ func TestMintVerifyRerunsDeterministic(t *testing.T) {
 	if errS != "" {
 		t.Fatalf("stderr = %q, want none", errS)
 	}
-	if got := objStr(g15MintItem(t, f, f.pass), "reruns"); got != "3/3" {
-		t.Fatalf("reruns = %q, want 3/3", got)
+	wantRuns := "3/3 (execs EXEC-cli-rerun-1,EXEC-cli-rerun-2," +
+		"EXEC-cli-rerun-3)"
+	if got := objStr(g15MintItem(t, f, f.pass), "reruns"); got != wantRuns {
+		t.Fatalf("reruns = %q, want %q", got, wantRuns)
 	}
 }
 
@@ -71,8 +79,8 @@ func TestMintVerifyRerunsDeterministic(t *testing.T) {
 func TestMintVerifyRerunsNotApplicable(t *testing.T) {
 	f := t20Setup(t)
 	g15Stub(t,
-		func(*state.Campaign, string, string) (int, []byte, error) {
-			return 0, nil, reproduction.ErrRerunUnavailable
+		func(*state.Campaign, string, string) (string, int, []byte, error) {
+			return "", 0, nil, reproduction.ErrRerunUnavailable
 		})
 	code, out, errS := run(t, "--root", f.root, "mint", f.c.CampaignID,
 		f.fid, "--exec", f.pass, "--description", "unit PoC drains",
@@ -120,8 +128,8 @@ func TestMintDefaultOffGainsNoKeys(t *testing.T) {
 func TestMintVerifyRerunsDoesNotLeak(t *testing.T) {
 	f := t20Setup(t)
 	g15Stub(t,
-		func(*state.Campaign, string, string) (int, []byte, error) {
-			return 0, []byte("PASS: poc\n"), nil
+		func(*state.Campaign, string, string) (string, int, []byte, error) {
+			return "EXEC-cli-rerun-1", 0, []byte("PASS: poc\n"), nil
 		})
 	if code, _, errS := run(t, "--root", f.root, "mint", f.c.CampaignID,
 		f.fid, "--exec", f.pass, "--description", "unit PoC drains",

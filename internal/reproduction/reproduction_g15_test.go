@@ -9,6 +9,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -99,18 +100,25 @@ func g15Mint(t *testing.T, c *state.Campaign, startedAt string) validation.Value
 }
 
 // g15Seam installs a stub rerunExecutor; the restore runs on cleanup.
+// The stub reports its own synthetic rerun exec ids (rerun-1..3 in run
+// order) so the evidence join is exercised end to end.
 func g15Seam(t *testing.T,
-	fn func(*state.Campaign, string, string) (int, []byte, error)) *int {
+	fn func(*state.Campaign, string, string) (string, int, []byte, error)) *int {
 	t.Helper()
 	prev := rerunExecutor
 	calls := 0
 	rerunExecutor = func(c *state.Campaign, profile,
-		command string) (int, []byte, error) {
+		command string) (string, int, []byte, error) {
 		calls++
 		return fn(c, profile, command)
 	}
 	t.Cleanup(func() { rerunExecutor = prev })
 	return &calls
+}
+
+// g15IDs returns distinct synthetic rerun exec ids keyed by call count.
+func g15IDs(n *int) string {
+	return "EXEC-rerun-" + strconv.Itoa(*n)
 }
 
 // g15Flag sets VerifyReruns for the test; the restore runs on cleanup.
@@ -142,24 +150,28 @@ func g15KeysEqual(a, b []string) bool {
 }
 
 // The deterministic half: stubbed 3/3 exit-vector equality mints
-// reruns:"3/3" and calls the seam exactly rerunAttempts times.
+// reruns:"3/3 (execs ...)" with the rerun exec ids as the audit join,
+// and calls the seam exactly rerunAttempts times.
 func TestG15RerunsDeterministic(t *testing.T) {
 	c := newCampaign(t, "g15")
 	g15Pin(t, c)
 	g15Flag(t, true)
+	n := 0
 	calls := g15Seam(t,
-		func(c *state.Campaign, profile, command string) (int, []byte, error) {
+		func(c *state.Campaign, profile, command string) (string, int, []byte, error) {
+			n++
 			if profile != "docker-networkless" {
 				t.Errorf("seam profile = %q", profile)
 			}
 			if command != g15Command {
 				t.Errorf("seam command = %q", command)
 			}
-			return 0, []byte(g15Stdout), nil
+			return g15IDs(&n), 0, []byte(g15Stdout), nil
 		})
 	item := g15Mint(t, c, "")
-	if got := objStr(item, "reruns"); got != "3/3" {
-		t.Fatalf("reruns = %q, want 3/3", got)
+	want := "3/3 (execs EXEC-rerun-1,EXEC-rerun-2,EXEC-rerun-3)"
+	if got := objStr(item, "reruns"); got != want {
+		t.Fatalf("reruns = %q, want %q", got, want)
 	}
 	if *calls != rerunAttempts {
 		t.Fatalf("seam calls = %d, want %d", *calls, rerunAttempts)
@@ -169,24 +181,27 @@ func TestG15RerunsDeterministic(t *testing.T) {
 	}
 }
 
-// The flaky half: 2/3 exit-vector equality mints reruns:"flaky 2/3".
-// The mint still succeeds (fail-open law).
+// The flaky half: 2/3 exit-vector equality mints reruns:"flaky 2/3
+// (execs ...)" — the join lists every successful rerun exec even when
+// one disagrees. The mint still succeeds (fail-open law).
 func TestG15RerunsFlaky(t *testing.T) {
 	c := newCampaign(t, "g15")
 	g15Pin(t, c)
 	g15Flag(t, true)
 	n := 0
 	g15Seam(t,
-		func(*state.Campaign, string, string) (int, []byte, error) {
+		func(*state.Campaign, string, string) (string, int, []byte, error) {
 			n++
+			id := g15IDs(&n)
 			if n == 3 {
-				return 0, []byte("Suite result: ok. 1 passed; 0 failed\nEXTRA\n"), nil
+				return id, 0, []byte("Suite result: ok. 1 passed; 0 failed\nEXTRA\n"), nil
 			}
-			return 0, []byte(g15Stdout), nil
+			return id, 0, []byte(g15Stdout), nil
 		})
 	item := g15Mint(t, c, "")
-	if got := objStr(item, "reruns"); got != "flaky 2/3" {
-		t.Fatalf("reruns = %q, want flaky 2/3", got)
+	want := "flaky 2/3 (execs EXEC-rerun-1,EXEC-rerun-2,EXEC-rerun-3)"
+	if got := objStr(item, "reruns"); got != want {
+		t.Fatalf("reruns = %q, want %q", got, want)
 	}
 	if n != rerunAttempts {
 		t.Fatalf("seam calls = %d, want %d", n, rerunAttempts)
@@ -200,8 +215,8 @@ func TestG15RerunsNotApplicable(t *testing.T) {
 	g15Pin(t, c)
 	g15Flag(t, true)
 	g15Seam(t,
-		func(*state.Campaign, string, string) (int, []byte, error) {
-			return 0, nil, ErrRerunUnavailable
+		func(*state.Campaign, string, string) (string, int, []byte, error) {
+			return "", 0, nil, ErrRerunUnavailable
 		})
 	item := g15Mint(t, c, "")
 	if got := objStr(item, "reruns"); got != "not-applicable" {
@@ -218,8 +233,8 @@ func TestG15RerunsUnavailableWrapped(t *testing.T) {
 	g15Pin(t, c)
 	g15Flag(t, true)
 	g15Seam(t,
-		func(*state.Campaign, string, string) (int, []byte, error) {
-			return 0, nil,
+		func(*state.Campaign, string, string) (string, int, []byte, error) {
+			return "", 0, nil,
 				errors.Join(errors.New("docker info failed"),
 					ErrRerunUnavailable)
 		})
@@ -240,9 +255,9 @@ func TestG15RerunsFlagOffSilent(t *testing.T) {
 	g15Flag(t, false)
 	consulted := false
 	g15Seam(t,
-		func(*state.Campaign, string, string) (int, []byte, error) {
+		func(*state.Campaign, string, string) (string, int, []byte, error) {
 			consulted = true
-			return 0, []byte(g15Stdout), nil
+			return "EXEC-rerun-1", 0, []byte(g15Stdout), nil
 		})
 	item := g15Mint(t, c, execAt)
 	if consulted {
@@ -286,8 +301,9 @@ func TestG15ForkStale(t *testing.T) {
 	g15Chain(t, c, sid, forkTS, true)
 	g15Flag(t, false)
 	item := g15Mint(t, c, "2026-09-08T12:00:05.000000+00:00") // 8d later
-	want := "snapshot pinned 2026-08-31T12:00:00.000000+00:00 fork_block " +
-		"23456789 \u2014 re-pin with snap + re-mint"
+	want := "stale: pinned 8 days ago \u2014 snapshot pinned " +
+		"2026-08-31T12:00:00.000000+00:00 fork_block 23456789 \u2014 " +
+		"re-pin with snap + re-mint"
 	if got := objStr(item, "fork_stale"); got != want {
 		t.Fatalf("fork_stale\n%q\nwant\n%q", got, want)
 	}
@@ -328,8 +344,8 @@ func TestG15ForkNullTimestampStale(t *testing.T) {
 	g15Chain(t, c, sid, "", true) // chain pin, no fork_timestamp
 	g15Flag(t, false)
 	item := g15Mint(t, c, "2026-09-08T12:00:05.000000+00:00")
-	want := "snapshot pinned " + created + " fork_block 23456789 \u2014 " +
-		"re-pin with snap + re-mint"
+	want := "stale: fork timestamp missing \u2014 snapshot pinned " +
+		created + " fork_block 23456789 \u2014 re-pin with snap + re-mint"
 	if got := objStr(item, "fork_stale"); got != want {
 		t.Fatalf("fork_stale\n%q\nwant\n%q", got, want)
 	}
@@ -342,8 +358,8 @@ func TestG15ForkNullChainStale(t *testing.T) {
 	_, created := g15Pin(t, c)
 	g15Flag(t, false)
 	item := g15Mint(t, c, "2026-09-08T12:00:05.000000+00:00")
-	want := "snapshot pinned " + created + " fork_block unknown \u2014 " +
-		"re-pin with snap + re-mint"
+	want := "stale: no snapshot data recorded \u2014 snapshot pinned " +
+		created + " fork_block unknown \u2014 re-pin with snap + re-mint"
 	if got := objStr(item, "fork_stale"); got != want {
 		t.Fatalf("fork_stale\n%q\nwant\n%q", got, want)
 	}
@@ -370,9 +386,11 @@ func TestG15SchemaRoundTrip(t *testing.T) {
 		kv("level", validation.VStr("E4")),
 		kv("type", validation.VStr("foundry-test")),
 		kv("description", validation.VStr("drains via reentry path")),
-		kv("reruns", validation.VStr("flaky 2/3")),
+		kv("reruns", validation.VStr(
+			"3/3 (execs EXEC-rerun-1,EXEC-rerun-2,EXEC-rerun-3)")),
 		kv("fork_stale", validation.VStr(
-			"snapshot pinned x fork_block unknown \u2014 re-pin with snap + re-mint")),
+			"stale: pinned 8 days ago \u2014 snapshot pinned x fork_block "+
+				"unknown \u2014 re-pin with snap + re-mint")),
 	)
 	if bad, err := validation.ValidateDefinition(withBoth, "finding",
 		"evidence_item"); err != nil || bad != nil {
@@ -393,13 +411,17 @@ func TestG15SchemaRoundTrip(t *testing.T) {
 	sid, _ := g15Pin(t, c)
 	g15Chain(t, c, sid, "2026-08-31T12:00:00.000000+00:00", true)
 	g15Flag(t, true)
+	n := 0
 	g15Seam(t,
-		func(*state.Campaign, string, string) (int, []byte, error) {
-			return 0, []byte(g15Stdout), nil
+		func(*state.Campaign, string, string) (string, int, []byte, error) {
+			n++
+			return g15IDs(&n), 0, []byte(g15Stdout), nil
 		})
 	live := g15Mint(t, c, "2026-09-08T12:00:05.000000+00:00")
-	if objStr(live, "reruns") != "3/3" {
-		t.Fatalf("live reruns = %q", objStr(live, "reruns"))
+	wantLive := "3/3 (execs EXEC-rerun-1,EXEC-rerun-2,EXEC-rerun-3)"
+	if objStr(live, "reruns") != wantLive {
+		t.Fatalf("live reruns = %q, want %q", objStr(live, "reruns"),
+			wantLive)
 	}
 	if !strings.Contains(objStr(live, "fork_stale"), "fork_block 23456789") {
 		t.Fatalf("live fork_stale = %q", objStr(live, "fork_stale"))
@@ -416,15 +438,143 @@ func TestG15HashIsLedgerHash(t *testing.T) {
 	c := newCampaign(t, "g15")
 	g15Pin(t, c)
 	g15Flag(t, true)
+	n := 0
 	g15Seam(t,
-		func(*state.Campaign, string, string) (int, []byte, error) {
-			return 0, []byte(g15Stdout), nil
+		func(*state.Campaign, string, string) (string, int, []byte, error) {
+			n++
+			return g15IDs(&n), 0, []byte(g15Stdout), nil
 		})
 	item := g15Mint(t, c, "")
-	if got := objStr(item, "reruns"); got != "3/3" {
+	want := "3/3 (execs EXEC-rerun-1,EXEC-rerun-2,EXEC-rerun-3)"
+	if got := objStr(item, "reruns"); got != want {
 		t.Fatalf("identical bytes must match the ledger hash: %q", got)
 	}
 	_ = TakeMintNotice()
 }
 
 var _ = sandbox.E4_PROFILES // keep the seam-package import honest
+
+// Fix round 1, IMPORTANT-1: null-chain, null-fork_timestamp and genuine
+// age>7d render mutually distinguishable reason markers FIRST, with the
+// detail text preserved after the marker.
+func TestG15ForkStaleReasonsDistinct(t *testing.T) {
+	staleOf := func(attach bool, forkTS string) string {
+		c := newCampaign(t, "g15")
+		sid, _ := g15Pin(t, c)
+		g15Chain(t, c, sid, forkTS, attach)
+		g15Flag(t, false)
+		return objStr(g15Mint(t, c,
+			"2026-09-08T12:00:05.000000+00:00"), "fork_stale")
+	}
+	noData := staleOf(false, "") // null chain
+	noTS := staleOf(true, "")    // chain pin, no fork_timestamp
+	aged := staleOf(true,
+		"2026-08-31T12:00:00.000000+00:00") // 8d before the exec
+	if !strings.HasPrefix(noData,
+		"stale: no snapshot data recorded \u2014 ") {
+		t.Fatalf("null chain marker\n%q", noData)
+	}
+	if !strings.HasPrefix(noTS,
+		"stale: fork timestamp missing \u2014 ") {
+		t.Fatalf("null timestamp marker\n%q", noTS)
+	}
+	if !strings.HasPrefix(aged, "stale: pinned 8 days ago \u2014 ") {
+		t.Fatalf("aged marker\n%q", aged)
+	}
+	if noData == noTS || noData == aged || noTS == aged {
+		t.Fatalf("stale reasons indistinguishable:\n%q\n%q\n%q",
+			noData, noTS, aged)
+	}
+	for _, m := range []string{noData, noTS, aged} {
+		for _, want := range []string{"snapshot pinned ", "fork_block ",
+			"re-pin with snap + re-mint"} {
+			if !strings.Contains(m, want) {
+				t.Fatalf("detail text lost %q in\n%q", want, m)
+			}
+		}
+	}
+}
+
+// Fix round 1, IMPORTANT-2 (rail B): the evidence item carries the rerun
+// exec ids as the audit join, and the cited original exec record is
+// byte-identical before and after the mint (the mint path never rewrites
+// exec records).
+func TestG15RerunJoinLeavesOriginalUntouched(t *testing.T) {
+	c := newCampaign(t, "g15")
+	g15Pin(t, c)
+	g15Flag(t, true)
+	n := 0
+	g15Seam(t,
+		func(*state.Campaign, string, string) (string, int, []byte, error) {
+			n++
+			return g15IDs(&n), 0, []byte(g15Stdout), nil
+		})
+	fid := integrityHypo(t, c, "reentrancy")
+	started := "2026-09-08T12:00:05.000000+00:00"
+	rec, err := sandbox.RegisterExec(c, sandbox.RegisterOpts{
+		Profile: "docker-networkless", Command: g15Command,
+		ReportedBy: "operator", ExitStatus: 0, FindingID: optStr(fid),
+		StdoutText: g15Stdout, StartedAt: &started,
+	})
+	if err != nil {
+		t.Fatalf("register exec: %v", err)
+	}
+	execID := objStr(rec, "exec_id")
+	recPath := filepath.Join(c.ExecsDir, execID, "exec_record.json")
+	before, err := os.ReadFile(recPath)
+	if err != nil {
+		t.Fatalf("read original record: %v", err)
+	}
+	tier := "T2"
+	if _, err := RecordAttempt(c, fid, "reproduced",
+		RecordOpts{ExecID: &execID, Tier: &tier}); err != nil {
+		t.Fatal(err)
+	}
+	out, err := MintReproEvidence(c, fid, execID, "drains via reentry",
+		&tier, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(recPath)
+	if err != nil {
+		t.Fatalf("re-read original record: %v", err)
+	}
+	if string(before) != string(after) {
+		t.Fatal("original exec record changed by a flag-ON mint")
+	}
+	var item validation.Value
+	for _, e := range objAt(out, "evidence").A {
+		if objStr(e, "artifact_id") == execID {
+			item = e
+		}
+	}
+	want := "3/3 (execs EXEC-rerun-1,EXEC-rerun-2,EXEC-rerun-3)"
+	if got := objStr(item, "reruns"); got != want {
+		t.Fatalf("reruns = %q, want %q", got, want)
+	}
+	entries, err := os.ReadDir(c.ExecsDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("mint wrote %d exec dirs, want 1 (the original)",
+			len(entries))
+	}
+}
+
+// A rerun that errors before producing an exec contributes no id to the
+// join: all-error reruns mint bare "flaky 0/3" and still succeed.
+func TestG15RerunsErrorOmitsJoin(t *testing.T) {
+	c := newCampaign(t, "g15")
+	g15Pin(t, c)
+	g15Flag(t, true)
+	g15Seam(t,
+		func(*state.Campaign, string, string) (string, int, []byte, error) {
+			return "", 0, nil, errors.New("container died mid-run")
+		})
+	item := g15Mint(t, c, "")
+	if got := objStr(item, "reruns"); got != "flaky 0/3" {
+		t.Fatalf("reruns = %q, want flaky 0/3", got)
+	}
+	_ = TakeMintNotice()
+}
