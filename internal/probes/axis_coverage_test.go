@@ -32,18 +32,21 @@ import (
 )
 
 // goldenCheckerAxes parses the EXPECTED_PROBE_AXES table out of
-// scripts/check-golden.py (the gate's list — the names it enforces and the
-// state each must reach).
+// scripts/probe_axes.py — the ONE shared gate list (H8) that
+// scripts/check-golden.py enforces and scripts/golden-run.py derives its
+// surface2 per-axis assertion from. Reading the shared file (rather than the
+// checker) is what keeps this edge honest: there is no second literal for a
+// new axis to hide in.
 func goldenCheckerAxes(t *testing.T) []string {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join("..", "..", "scripts", "check-golden.py"))
+	raw, err := os.ReadFile(filepath.Join("..", "..", "scripts", "probe_axes.py"))
 	if err != nil {
-		t.Fatalf("read check-golden.py: %v", err)
+		t.Fatalf("read probe_axes.py: %v", err)
 	}
 	m := regexp.MustCompile(`(?s)EXPECTED_PROBE_AXES: dict\[str, str\] = \{(.*?)\}`).
 		FindSubmatch(raw)
 	if m == nil {
-		t.Fatal("check-golden.py has no EXPECTED_PROBE_AXES table")
+		t.Fatal("probe_axes.py has no EXPECTED_PROBE_AXES table")
 	}
 	out := []string{}
 	for _, q := range regexp.MustCompile(`"([^"]+)":`).FindAllStringSubmatch(
@@ -51,7 +54,7 @@ func goldenCheckerAxes(t *testing.T) []string {
 		out = append(out, q[1])
 	}
 	if len(out) == 0 {
-		t.Fatal("EXPECTED_PROBE_AXES parsed empty — the checker's table has " +
+		t.Fatal("EXPECTED_PROBE_AXES parsed empty — the shared table has " +
 			"a shape this test no longer understands")
 	}
 	sort.Strings(out)
@@ -67,9 +70,10 @@ func TestRegisteredAxesMatchGoldenChecker(t *testing.T) {
 	sort.Strings(want)
 	got := goldenCheckerAxes(t)
 	if strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Errorf("check-golden.py enforces %v, the registry registers %v — a "+
-			"probe landed without widening the gate (or one was removed and "+
-			"the gate kept waiting for it)", got, want)
+		t.Errorf("the shared gate list (scripts/probe_axes.py) enforces %v, "+
+			"the registry registers %v — a probe landed without widening "+
+			"the gate (or one was removed and the gate kept waiting for "+
+			"it)", got, want)
 	}
 }
 

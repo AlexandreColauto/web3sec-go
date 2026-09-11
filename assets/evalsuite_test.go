@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"websec/assets"
+	"websec/internal/findings"
 	"websec/internal/taxonomy"
 	"websec/internal/validation"
 )
@@ -86,6 +87,75 @@ func TestEvalSuiteSchemaAndCoverage(t *testing.T) {
 		"cross-chain-replay", "dos-griefing"} {
 		if classes[must] == 0 {
 			t.Fatalf("required class %s missing", must)
+		}
+	}
+}
+
+// TestEvalSuiteAckDecoyAndCleanControl (H6) pins the TWO decoy/control rows
+// by PRESENCE, not by the aggregate count above: the count proves two
+// controls exist, it does not prove ES16 still carries the acknowledgement
+// its decoy semantics depend on, nor that ES17 stayed ack-free (an ack
+// accidentally added to the clean control would silently make it a second
+// decoy, and the aggregate count would not notice). "Carries an ack" is
+// asked of the scanner's own vocabulary
+// (findings.ContainsAckPhrase) — not a hand-copied literal.
+func TestEvalSuiteAckDecoyAndCleanControl(t *testing.T) {
+	cases, err := assets.LoadEvalCases()
+	if err != nil {
+		t.Fatalf("LoadEvalCases: %v", err)
+	}
+	byRecord := map[string]validation.Value{}
+	for i := range cases {
+		byRecord[evalObjAt(evalObjAt(cases[i], "source"), "record_id").S] =
+			cases[i]
+	}
+	for _, tc := range []struct {
+		record  string
+		outcome string
+		class   string
+		fixture string // repo-root-relative, as gold.locations[].file
+		wantAck bool
+	}{
+		// ES16: the in-code-ack decoy — a reentrancy-labelled row that is
+		// NOT exploitable precisely because the code acknowledges the
+		// reviewed pattern, so the fixture must carry the ack.
+		{"evalsuite-ES16", "confirmed-not-exploitable", "reentrancy",
+			"assets/evalsuite/src/ES16AckDecoyVault.sol", true},
+		// ES17: the clean control — zero findings by construction, so an
+		// ack phrase anywhere in it would falsify the control's premise.
+		{"evalsuite-ES17", "confirmed-not-exploitable", "access-control",
+			"assets/evalsuite/src/ES17CleanControl.sol", false},
+	} {
+		c, ok := byRecord[tc.record]
+		if !ok {
+			t.Fatalf("the suite no longer carries %s", tc.record)
+		}
+		gold := evalObjAt(c, "gold")
+		if got := evalObjAt(gold, "outcome").S; got != tc.outcome {
+			t.Errorf("%s outcome = %q, want %q", tc.record, got, tc.outcome)
+		}
+		if got := evalObjAt(gold, "bug_class").S; got != tc.class {
+			t.Errorf("%s bug_class = %q, want %q", tc.record, got, tc.class)
+		}
+		locs := evalObjAt(gold, "locations")
+		if len(locs.A) != 1 {
+			t.Fatalf("%s carries %d locations, want exactly 1", tc.record,
+				len(locs.A))
+		}
+		file := evalObjAt(locs.A[0], "file").S
+		if file != tc.fixture {
+			t.Fatalf("%s fixture = %q, want %q", tc.record, file, tc.fixture)
+		}
+		raw, err := assets.EvalSuiteFS.ReadFile(
+			strings.TrimPrefix(file, "assets/"))
+		if err != nil {
+			t.Fatalf("%s fixture missing from the embedded pack: %v",
+				tc.record, err)
+		}
+		if got := findings.ContainsAckPhrase(string(raw)); got != tc.wantAck {
+			t.Errorf("%s ack presence = %v, want %v (the decoy must carry "+
+				"the acknowledgement it is named for; the clean control "+
+				"must stay ack-free)", tc.record, got, tc.wantAck)
 		}
 	}
 }

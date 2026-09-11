@@ -30,6 +30,7 @@ import (
 	"sort"
 	"strings"
 
+	"websec/internal/solscope"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -54,10 +55,10 @@ const (
 	postPatchScopeBytesCap = 64 << 20
 )
 
-// scopeExcludedDirs mirrors structidx's excludedDirs (parser.go): the scope
-// must cover exactly the surface the index (and PlantCheck) sees.
-var scopeExcludedDirs = map[string]bool{".git": true, "node_modules": true,
-	"__pycache__": true, "cache": true, "out": true}
+// H4: the exclude set is solscope's shared constant (the same one
+// structidx's collectFiles uses) — the scope must cover exactly the surface
+// the index (and PlantCheck) sees, and one shared definition is what keeps
+// that true when the set changes.
 
 // ScopeDiff is the changed-surface diff: relative .sol path sets over the
 // old and new snapshot trees. Rows are `~ <path>` modified, `+ <path>`
@@ -139,7 +140,7 @@ func scopeSolFiles(root string, fileCap int) ([]string, bool, error) {
 		}
 		name := d.Name()
 		if d.IsDir() {
-			if path != root && scopeExcludedDirs[name] {
+			if path != root && solscope.IsExcluded(name) {
 				return fs.SkipDir
 			}
 			return nil
@@ -152,7 +153,7 @@ func scopeSolFiles(root string, fileCap int) ([]string, bool, error) {
 			return rerr
 		}
 		for _, part := range strings.Split(filepath.ToSlash(rel), "/") {
-			if scopeExcludedDirs[part] {
+			if solscope.IsExcluded(part) {
 				return nil
 			}
 		}

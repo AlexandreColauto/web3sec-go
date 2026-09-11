@@ -17,6 +17,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"websec/internal/solscope"
 	"websec/internal/validation"
 )
 
@@ -49,8 +50,6 @@ var (
 	// extCallSkip is the receiver blacklist _EXT_CALL_RE's loop applies.
 	extCallSkip = map[string]bool{"sender": true, "value": true, "data": true,
 		"sig": true, "code": true, "balance": true}
-	excludedDirs = map[string]bool{".git": true, "node_modules": true,
-		"__pycache__": true, "cache": true, "out": true}
 )
 
 // ---- Python-compatible compiled patterns -----------------------------------
@@ -910,6 +909,10 @@ type treeResult struct {
 }
 
 // collectFiles is the `**/*` + exclude-set + Path-order walk.
+//
+// H4: the exclude set is solscope's shared constant — the same one the
+// post-patch scope walk uses, so the index surface and the scope surface
+// cannot drift apart.
 func collectFiles(root string) ([]string, error) {
 	var files []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -918,7 +921,7 @@ func collectFiles(root string) ([]string, error) {
 		}
 		name := d.Name()
 		if d.IsDir() {
-			if path != root && excludedDirs[name] {
+			if path != root && solscope.IsExcluded(name) {
 				return fs.SkipDir
 			}
 			return nil
@@ -934,7 +937,7 @@ func collectFiles(root string) ([]string, error) {
 			return rerr
 		}
 		for _, part := range strings.Split(filepath.ToSlash(rel), "/") {
-			if excludedDirs[part] {
+			if solscope.IsExcluded(part) {
 				return nil
 			}
 		}
