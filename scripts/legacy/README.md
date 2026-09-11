@@ -20,7 +20,9 @@ the accumulator-blind fixture).
 `scripts/verify-full.sh` step 9 copies this tree into a scratch root and
 asserts that the **Go** binary:
 
-1. `audit` PASSes it with all 14 sections (`ok: true`),
+1. `audit` PASSes it with all 14 rendered sections (`ok: true`) — the
+   registry carries 15; the `eval` section is presence-gated and this
+   fixture matches no gold-eval suite program, so it renders 14,
 2. `verify` accepts the hash-chained event log written by Python's encoder,
 3. every P2/P3 reader works on Python-written state (`execs --json`, ladder
    report, memory view, probe axes).

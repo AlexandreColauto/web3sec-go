@@ -318,7 +318,8 @@ else:
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", str(d.get("spec_hash"))):
         fails.append(f"bad spec_hash {d.get('spec_hash')!r}")
 
-# 4. the audit: ok + all 14 sections + the VACUOUS sequence_coverage pin
+# 4. the audit: ok + all 14 rendered sections (15 registered; `eval` is
+#    presence-gated) + the VACUOUS sequence_coverage pin
 #    (no fork pin is attachable through the Go CLI, D19; a future chain-pin
 #    wiring must FLIP this assertion, not delete it)
 rep = json.loads((work / "captures" / "go" / "10-audit-json.out").read_text())
