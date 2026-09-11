@@ -41,6 +41,7 @@ import (
 	"websec/internal/state"
 	"websec/internal/structidx"
 	"websec/internal/validation"
+	"websec/internal/version"
 	"websec/internal/wilson"
 )
 
@@ -1999,6 +2000,64 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		}
 	}
 
+	// M6 (framework eval): an untouched lens names its mechanical table.
+	// The G-01 miss showed the failure mode — the brief nagged "questions
+	// worked 0/48" but never said L-03 was the unworked street nor that
+	// `enforce prevStateRoot` walks it. Per-lens probe closure already
+	// rides the brief's divergence block, so a lens with open rows and
+	// zero dispositions gets one routing line to the table that reads the
+	// structural index directly (no surface needed). L-02 has no table
+	// verb — its trust rows are already listed per-row above.
+	if div := objAt(brief, "divergence"); div.Kind == validation.Obj {
+		cid := lensActionCampaign(brief, campaign)
+		for _, l := range listAt(div, "lenses") {
+			lid := objStr(l, "id")
+			table, ok := lensMechanicalTable[lid]
+			if !ok || lensDispositioned(objStr(l, "status")) {
+				continue
+			}
+			probe := objAt(l, "probe")
+			if probe.Kind != validation.Obj {
+				// A surface exists but carries none of this lens's
+				// axes — the reduced-quota shape. The --emit refresh is
+				// already named by the divergence missing entries;
+				// route to the table instead.
+				if ps := objAt(brief, "probe_surface"); ps.Kind == validation.Obj {
+					actions = append(actions, fmt.Sprintf(
+						"%s has no probe surface for its axes — work it "+
+							"directly off the index: `%s`", lid,
+						fmt.Sprintf(table, cid)))
+				}
+				continue
+			}
+			if objBool(probe, "closed") {
+				continue
+			}
+			disp := intField(probe, "dispositioned")
+			open := intField(probe, "open")
+			if disp != 0 || open == 0 {
+				continue
+			}
+			actions = append(actions, fmt.Sprintf(
+				"%s open with 0/%d rows dispositioned (%d open) — run "+
+					"the mechanical table before theorizing: `%s`",
+				lid, intField(probe, "rows"), open,
+				fmt.Sprintf(table, cid)))
+		}
+	}
+
+	// DEFECT-2 follow-up: framework skew. The snapshot's pin event records
+	// the build that produced it; a different running build may carry
+	// different probe semantics (the eval's stale-binary case: the defect
+	// was fixed in checkout while the binary still crashed). Both sides
+	// known and different is the only loud case — old campaigns without
+	// the key and unstamped builds stay silent (the grandfather rule).
+	if campaign != nil {
+		if line := skewAction(brief, campaign); line != "" {
+			actions = append(actions, line)
+		}
+	}
+
 	// criticality coverage
 	if crit := objAt(brief, "criticality"); crit.Kind == validation.Obj {
 		for _, name := range listAt(crit, "uncovered_consensus_critical") {
@@ -2220,7 +2279,13 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 
 	generic := []string{}
 	for _, a := range actions {
+		// M6 lens-routing lines ("L-03 open with ...", "L-04 has no probe
+		// surface ...") are surface-derived mechanical work, same family
+		// as the probe-row actions — they must not count as "something
+		// else to do", or they would suppress the phase-guidance fallback
+		// on exactly the untouched-surface campaigns they route.
 		if !hasAnyPrefix(a, "work probe row ", "emit probe row ",
+			"L-01 ", "L-03 ", "L-04 ",
 			"divergence gate open — ", "work the oldest untouched question ",
 			"verify INV-") {
 			generic = append(generic, a)
@@ -2269,6 +2334,85 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		}
 	}
 	return actions, nil
+}
+
+// lensMechanicalTable is the M6 map: lens id -> the mechanical table verb
+// that reads the structural index directly, with one %s slot for the
+// campaign id. L-02 (trust-assumption) has no table verb and stays out —
+// its rows are worked per-row. L-01 routes to enforce because cursors,
+// sentinels and accumulators are storage variables: the enforcement table
+// shows where each is written, read and guarded, by stage.
+var lensMechanicalTable = map[string]string{
+	"L-01": "webv2 enforce %s <cursor-variable>",
+	"L-03": "webv2 enforce %s <variable>",
+	"L-04": "webv2 symmetry %s",
+}
+
+// lensDispositioned is the lens-status half of
+// planner.ProbeRowDispositioned: a lens entry closes under the same
+// terminal dispositions as a probe row.
+func lensDispositioned(status string) bool {
+	for _, d := range planner.ProbeRowDispositioned {
+		if status == d {
+			return true
+		}
+	}
+	return false
+}
+
+// lensActionCampaign is the campaign id for mechanical-table commands: the
+// live campaign when present, else the brief's own record, else the same
+// placeholder the gate uses for an unknown campaign.
+func lensActionCampaign(brief validation.Value, campaign *state.Campaign) string {
+	if campaign != nil && campaign.CampaignID != "" {
+		return campaign.CampaignID
+	}
+	if id := objStr(objAt(brief, "campaign"), "campaign_id"); id != "" {
+		return id
+	}
+	return "<campaign>"
+}
+
+// skewAction is the DEFECT-2 line: the active snapshot's pin event records
+// the framework build that produced it, and the running binary names its
+// own via internal/version. Both known and different is the only loud
+// case. A silent "" covers every honest unknown: old campaigns without the
+// key, no active snapshot, no event log to read, and unstamped builds.
+func skewAction(brief validation.Value, campaign *state.Campaign) string {
+	if !version.Known() {
+		return ""
+	}
+	running := version.Commit()
+	sid := objStr(objAt(brief, "campaign"), "active_snapshot")
+	if sid == "" {
+		return ""
+	}
+	pinned := pinBuild(campaign, sid)
+	if pinned == "" || pinned == running {
+		return ""
+	}
+	return fmt.Sprintf("framework skew: snapshot %s pinned with build %s "+
+		"but running build %s — probe-surface semantics may differ: "+
+		"re-pin (`webv2 snap %s <target>`) or run the pinning build",
+		sid, pinned, running, campaign.CampaignID)
+}
+
+// pinBuild is the framework_build the snapshot's pin event recorded, or ""
+// when the campaign predates the key (or the log cannot be read).
+func pinBuild(campaign *state.Campaign, sid string) string {
+	events, err := campaign.Events()
+	if err != nil {
+		return ""
+	}
+	for _, e := range events {
+		if objStr(e, "type") != "snapshot.pinned" || objStr(e, "ref") != sid {
+			continue
+		}
+		if b := objStr(objAt(e, "data"), "framework_build"); b != "" {
+			return b
+		}
+	}
+	return ""
 }
 
 // aliasSuffixLabels maps aliasSuffixLabel over a label list (G12 display:
