@@ -626,6 +626,9 @@ func TestFloorPolicyRefusesClassWeightSmuggling(t *testing.T) {
 // TestFloorPolicyRefusesBareClassesMap pins the second half of the boundary:
 // a top-level "classes" map with no inner severity_default is still refused
 // ("classes" is plural table shape; policy entries use singular "class").
+// NOTE (review choice): this doc PASSES shape validation — the overrides are
+// valid and LoadPolicyFile's shape check ignores extra top-level keys — so
+// the test genuinely pins the refusal walk, not a schema-first rejection.
 func TestFloorPolicyRefusesBareClassesMap(t *testing.T) {
 	body := `{"overrides": [{"class": "reentrancy", "floor": "E4", ` +
 		`"reason": "a written reason of length"}], ` +
@@ -637,6 +640,55 @@ func TestFloorPolicyRefusesBareClassesMap(t *testing.T) {
 	_, err := LoadPolicyFile(p)
 	if err == nil || !strings.Contains(err.Error(), "classes") {
 		t.Fatalf("floors must refuse a top-level classes map naming the key, got %v", err)
+	}
+}
+
+// TestFloorPolicyRefusesDeeplyNestedSeverityDefault pins the recursion: a
+// severity_default buried three objects deep inside an otherwise-valid
+// override is still refused (naming the key), a legitimate policy still
+// loads, and nesting past refusalWalkMaxDepth is refused fail-closed.
+func TestFloorPolicyRefusesDeeplyNestedSeverityDefault(t *testing.T) {
+	writePolicy := func(t *testing.T, body string) string {
+		t.Helper()
+		p := filepath.Join(t.TempDir(), "policy.json")
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	deep := writePolicy(t, `{"overrides": [{"class": "reentrancy", `+
+		`"floor": "E4", "reason": "a written reason of length", `+
+		`"note": {"l1": {"l2": {"severity_default": "critical"}}}}]}`)
+	if _, err := LoadPolicyFile(deep); err == nil ||
+		!strings.Contains(err.Error(), "severity_default") {
+		t.Fatalf("floors must refuse depth-3 severity_default naming the key, got %v", err)
+	}
+	legit := writePolicy(t, `{"overrides": [{"class": "reentrancy", `+
+		`"floor": "E4", "reason": "a written reason of length"}]}`)
+	ovs, err := LoadPolicyFile(legit)
+	if err != nil || len(ovs) != 1 {
+		t.Fatalf("legitimate policy must still load, got %v, %v", ovs, err)
+	}
+	// fail-closed cap: 40 levels of clean nesting, no bad key, still refused.
+	nested := map[string]any{}
+	cur := nested
+	for range 40 {
+		next := map[string]any{}
+		cur["l"] = next
+		cur = next
+	}
+	raw, err := json.Marshal(map[string]any{
+		"overrides": []any{map[string]any{
+			"class": "reentrancy", "floor": "E4",
+			"reason": "a written reason of length"}},
+		"extra": nested,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadPolicyFile(writePolicy(t, string(raw))); err == nil ||
+		!strings.Contains(err.Error(), "max nesting depth") {
+		t.Fatalf("floors must refuse over-depth docs fail-closed, got %v", err)
 	}
 }
 

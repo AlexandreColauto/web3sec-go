@@ -532,36 +532,52 @@ func insolvencyRisk(finding validation.Value) string {
 // refuseClassWeightKeys is the G2 class-weights boundary for caller-supplied
 // Values: RecordEconomicImpact's USD inputs arrive from CLI flag parsing, so
 // any class-weights-table key (severity_default / class_weights / classes)
-// smuggled into them is refused here, naming the key. Legitimate inputs are
-// scalars or null and never carry these keys.
-func refuseClassWeightKeys(vs ...validation.Value) error {
-	var walk func(v validation.Value) error
-	walk = func(v validation.Value) error {
-		switch v.Kind {
-		case validation.Obj:
-			for _, kv := range v.O {
-				if kv.K == "severity_default" || kv.K == "class_weights" ||
-					kv.K == "classes" {
-					return fmt.Errorf("risk input must not contain %q "+
-						"(severity_default is display-only; class weights live "+
-						"in the class-weights table, never in a risk decision)",
-						kv.K)
-				}
-				if err := walk(kv.V); err != nil {
-					return err
-				}
+// smuggled into them is refused here, naming the key. The walk is recursive
+// to the capped depth below, so a key buried at any realistic nesting depth
+// is still caught. Legitimate inputs are scalars or null and never carry
+// these keys.
+// refusalWalkMaxDepth caps the G2 refusal walk below — the same cap as the
+// floors boundary (internal/floors refuseWalk). Legitimate risk inputs are
+// scalars or null (depth 0), so the cap never fires on real traffic — it
+// only bounds pathological nesting, fail-closed.
+const refusalWalkMaxDepth = 32
+
+// refuseWalk visits every Obj key and Arr element of v down to
+// refusalWalkMaxDepth and refuses any class-weights-table key, naming it.
+func refuseWalk(v validation.Value, depth int) error {
+	if depth > refusalWalkMaxDepth {
+		return fmt.Errorf("risk input exceeds max nesting depth %d "+
+			"(refused as smuggled shape)", refusalWalkMaxDepth)
+	}
+	switch v.Kind {
+	case validation.Obj:
+		for _, kv := range v.O {
+			if kv.K == "severity_default" || kv.K == "class_weights" ||
+				kv.K == "classes" {
+				return fmt.Errorf("risk input must not contain %q "+
+					"(severity_default is display-only; class weights live "+
+					"in the class-weights table, never in a risk decision)",
+					kv.K)
 			}
-		case validation.Arr:
-			for _, e := range v.A {
-				if err := walk(e); err != nil {
-					return err
-				}
+			if err := refuseWalk(kv.V, depth+1); err != nil {
+				return err
 			}
 		}
-		return nil
+	case validation.Arr:
+		for _, e := range v.A {
+			if err := refuseWalk(e, depth+1); err != nil {
+				return err
+			}
+		}
 	}
+	return nil
+}
+
+// refuseClassWeightKeys runs the capped refuseWalk over each caller-supplied
+// Value (RecordEconomicImpact's three USD inputs).
+func refuseClassWeightKeys(vs ...validation.Value) error {
 	for _, v := range vs {
-		if err := walk(v); err != nil {
+		if err := refuseWalk(v, 0); err != nil {
 			return err
 		}
 	}

@@ -410,8 +410,11 @@ func scoreOf(t *testing.T, rows []validation.Value, cls string) float64 {
 }
 
 // TestExposureRowsSearchFactorApplied pins the G2 search-factor seam: with
-// the default (all-1.0) table the score is the old formula, and a swapped
-// 2.0 factor for one class exactly doubles that class's rounded score.
+// the default (all-1.0) table the score matches an independent recomputation
+// of the expression here, and a swapped 2.0 factor for one class exactly
+// doubles that class's rounded score. (Equality with pre-change code is NOT
+// shown here — this recomputes the same expression, so it cannot catch a
+// re-association; that proof is scripts/golden.sh, green with zero edits.)
 // Two hits keep the doubled comparison free of double-rounding drift
 // (round(2x) vs round(2*round(x)) agree here; see the report).
 func TestExposureRowsSearchFactorApplied(t *testing.T) {
