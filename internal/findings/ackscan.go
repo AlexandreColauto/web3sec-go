@@ -54,6 +54,32 @@ var ackPatterns = func() []*regexp.Regexp {
 	return out
 }()
 
+// ackMatch returns the first vocabulary phrase a single line carries
+// (first-match order per ackPhrases), ok=false when the line is clean.
+func ackMatch(line string) (string, bool) {
+	for j, re := range ackPatterns {
+		if re.MatchString(line) {
+			return ackPhrases[j], true
+		}
+	}
+	return "", false
+}
+
+// ContainsAckPhrase reports whether text carries any in-code acknowledgement
+// phrase, using the same vocabulary, word boundaries and first-match order
+// ackScanFile applies per line. It is the presence question without a
+// campaign or an anchor — used by the evalsuite's own ES16/ES17 presence
+// asserts (H6), so "the ack decoy carries an ack" is checked against the
+// scanner's vocabulary rather than a hand-copied literal.
+func ContainsAckPhrase(text string) bool {
+	for _, line := range strings.Split(text, "\n") {
+		if _, ok := ackMatch(line); ok {
+			return true
+		}
+	}
+	return false
+}
+
 // AckRecord is the in_code_ack value stored on finding.dedup_meta.
 func AckRecord(file string, line int, phrase string, window int) validation.Value {
 	return validation.VObj(
@@ -317,11 +343,8 @@ func ackScanFile(root string, a ackAnchor) (bool, validation.Value) {
 	}
 	for i := lo; i <= hi; i++ {
 		line := lines[i-1]
-		for j, re := range ackPatterns {
-			if re.MatchString(line) {
-				return true, AckRecord(ackRelPath(root, p), i,
-					ackPhrases[j], AckWindow)
-			}
+		if phrase, ok := ackMatch(line); ok {
+			return true, AckRecord(ackRelPath(root, p), i, phrase, AckWindow)
 		}
 	}
 	return false, validation.VNull()

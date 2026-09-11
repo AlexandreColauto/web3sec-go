@@ -2,6 +2,7 @@ package evalscore
 
 import (
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"websec/internal/state"
@@ -134,7 +135,10 @@ func TestScoreEndToEnd(t *testing.T) {
 		finding("access-control", "src/Vault.sol"),
 		finding("oracle-manipulation", "src/Vault.sol"),
 	} {
-		p := filepath.Join(c.FindingsDir, "F-e2e00000000"+string(rune('0'+i))+".json")
+		// H12: strconv.Itoa, not string(rune('0'+i)) — the rune form is
+		// only correct while the index stays below 10.
+		p := filepath.Join(c.FindingsDir,
+			"F-e2e00000000"+strconv.Itoa(i)+".json")
 		if err := validation.WriteJson(p, f, ""); err != nil {
 			t.Fatalf("WriteJson: %v", err)
 		}

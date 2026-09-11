@@ -89,7 +89,7 @@ func TestAliasReaderTableDriven(t *testing.T) {
 		wantSfx string
 		wantOK  bool
 	}{
-		{"reentrancy", "SC05", "", "[OWASP SC05]", true},
+		{"reentrancy", "SC05", "SWC-107", "[OWASP SC05; SWC-107]", true},
 		{"access-control", "SC01", "", "[OWASP SC01]", true},
 		{"oracle-manipulation", "SC02", "", "[OWASP SC02]", true},
 		{"logic-error", "SC03", "", "[OWASP SC03]", true},

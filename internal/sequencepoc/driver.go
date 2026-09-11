@@ -260,7 +260,7 @@ func buildStep(spec, s validation.Value) ([]string, error) {
 	// s["actor"] is a shell-safe identifier (the field rule above), so it
 	// is safe to embed verbatim in the JSON template.
 	role := validation.CanonCompact(objAt(s, "actor"))
-	if pyTruthy(objAt(s, "expect_revert")) {
+	if validation.PyTruthy(objAt(s, "expect_revert")) {
 		j := `{"step": ` + validation.IntText(objAt(s, "step")) +
 			`, "actor": ` + role + `, "tx_hash": null, "status": "revert",` +
 			` "revert_reason": "$reason"}`

@@ -138,7 +138,7 @@ func setActiveSnapshot(t *testing.T, c *state.Campaign, sid validation.Value) {
 		t.Fatal(err)
 	}
 	st.O = validation.SetOrAppend(st.O, "active_snapshot_id", sid)
-	if pyTruthy(sid) {
+	if validation.PyTruthy(sid) {
 		st.O = validation.SetOrAppend(st.O, "snapshots", validation.VArr(validation.VObj(
 			kv("snapshot_id", sid),
 			kv("pinned_at", validation.VStr(nowIso())),
@@ -167,7 +167,7 @@ func writeSnapshot(t *testing.T, c *state.Campaign, sid, body string) {
 func fakeExternalSurface(index validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, n := range listField(index, "nodes") {
-		if objStr(n, "kind") == "function" && pyTruthy(objAt(n, "is_entry_point")) {
+		if objStr(n, "kind") == "function" && validation.PyTruthy(objAt(n, "is_entry_point")) {
 			out = append(out, n)
 		}
 	}
@@ -181,7 +181,7 @@ func fakeExternalCallSites(index validation.Value) []validation.Value {
 		if objStr(n, "kind") != "function" {
 			continue
 		}
-		if pyTruthy(objAt(n, "calls_external")) || pyTruthy(objAt(n, "delegatecalls")) {
+		if validation.PyTruthy(objAt(n, "calls_external")) || validation.PyTruthy(objAt(n, "delegatecalls")) {
 			out = append(out, n)
 		}
 	}
@@ -598,11 +598,11 @@ func TestSetOrAppendAndTruthy(t *testing.T) {
 	for _, v := range []validation.Value{validation.VNull(), validation.VBool(false),
 		validation.VInt(0), validation.VFloat(0), validation.VStr(""),
 		validation.VArr(), validation.VObj()} {
-		if pyTruthy(v) {
-			t.Errorf("pyTruthy(%s) = true, want false", validation.CanonCompact(v))
+		if validation.PyTruthy(v) {
+			t.Errorf("validation.PyTruthy(%s) = true, want false", validation.CanonCompact(v))
 		}
 	}
-	if !pyTruthy(validation.VStr("x")) || !pyTruthy(validation.VArr(validation.VInt(0))) {
-		t.Error("pyTruthy of a non-empty value = false, want true")
+	if !validation.PyTruthy(validation.VStr("x")) || !validation.PyTruthy(validation.VArr(validation.VInt(0))) {
+		t.Error("PyTruthy of a non-empty value = false, want true")
 	}
 }

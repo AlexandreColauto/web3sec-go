@@ -709,7 +709,7 @@ func (p *Pipeline) execute(sid string, stage Stage, handler Handler,
 	}
 	done[sid] = true
 	note := detail
-	if !pyTruthy(detail) {
+	if !validation.PyTruthy(detail) {
 		note = validation.VStr("")
 	}
 	if err := p.C.SetStage(sid, "done", note, executorFor(stage.Kind)); err != nil {
@@ -810,7 +810,7 @@ func (p *Pipeline) blockModel(sid string, stage Stage, done, blocked map[string]
 	if err != nil {
 		return false, err
 	}
-	if proof.Kind == validation.Obj && pyTruthy(objAt(proof, "done")) {
+	if proof.Kind == validation.Obj && validation.PyTruthy(objAt(proof, "done")) {
 		done[sid] = true
 		note := validation.VStr("auto-completed: completion proof holds")
 		if err := p.C.SetStage(sid, "done", note, strPtr("derived")); err != nil {
@@ -849,7 +849,7 @@ func (p *Pipeline) blockModel(sid string, stage Stage, done, blocked map[string]
 	if proof.Kind == validation.Obj {
 		mv := objAt(proof, "missing")
 		missingData = mv
-		if pyTruthy(mv) {
+		if validation.PyTruthy(mv) {
 			missing = stringSlice(mv, 3)
 		}
 	}
@@ -991,7 +991,7 @@ func (p *Pipeline) ladderFindings() ([]validation.Value, error) {
 	}
 	out := []validation.Value{}
 	for _, f := range all {
-		if pyTruthy(objAt(objAt(f, "maximization"), "ladder_id")) {
+		if validation.PyTruthy(objAt(objAt(f, "maximization"), "ladder_id")) {
 			out = append(out, f)
 		}
 	}
@@ -1071,7 +1071,7 @@ func (p *Pipeline) builtinCampaignPlanning(
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if res.Kind == validation.Obj && pyTruthy(objAt(res, "read_only")) {
+	if res.Kind == validation.Obj && validation.PyTruthy(objAt(res, "read_only")) {
 		return validation.VStr("existing plan reused read-only — " +
 			"`webv2 plan " + p.C.CampaignID + " --rebuild` to regenerate"), nil
 	}
@@ -1189,30 +1189,6 @@ func appendTo(v *validation.Value, key string, val validation.Value) {
 	}
 	v.O = append(v.O, kvOf(key, validation.VArr(val)))
 }
-
-func pyTruthy(v validation.Value) bool {
-	switch v.Kind {
-	case validation.Null:
-		return false
-	case validation.Bool:
-		return v.B
-	case validation.Int:
-		if v.Big != "" {
-			return v.Big != "0"
-		}
-		return v.I != 0
-	case validation.Flt:
-		return v.F != 0
-	case validation.Str:
-		return v.S != ""
-	case validation.Arr:
-		return len(v.A) > 0
-	case validation.Obj:
-		return len(v.O) > 0
-	}
-	return false
-}
-
 func strArr(items []string) validation.Value {
 	out := make([]validation.Value, len(items))
 	for i, s := range items {

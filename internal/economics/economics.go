@@ -108,27 +108,6 @@ func listOf(model validation.Value, key string) []validation.Value {
 	return v.A
 }
 
-// pyTruthy is CPython truthiness (null/False/0/""/[]/{} are false).
-func pyTruthy(v validation.Value) bool {
-	switch v.Kind {
-	case validation.Null:
-		return false
-	case validation.Bool:
-		return v.B
-	case validation.Int:
-		return validation.IntText(v) != "0"
-	case validation.Flt:
-		return v.F != 0
-	case validation.Str:
-		return v.S != ""
-	case validation.Arr:
-		return len(v.A) > 0
-	case validation.Obj:
-		return len(v.O) > 0
-	}
-	return false
-}
-
 // has is _has: some asset declares this kind.
 func has(model validation.Value, kind string) bool {
 	for _, a := range listOf(model, "assets") {
@@ -235,8 +214,8 @@ func GenerateTransforms(model validation.Value) []validation.Value {
 func EquationGaps(model validation.Value) []validation.Value {
 	gaps := []validation.Value{}
 	for _, eq := range BuildEquations(model) {
-		enforced := pyTruthy(objAt(eq, "enforced_by"))
-		breakable := pyTruthy(objAt(eq, "breakable_by"))
+		enforced := validation.PyTruthy(objAt(eq, "enforced_by"))
+		breakable := validation.PyTruthy(objAt(eq, "breakable_by"))
 		if enforced && breakable {
 			continue
 		}

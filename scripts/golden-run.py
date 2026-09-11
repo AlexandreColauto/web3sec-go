@@ -103,6 +103,10 @@ import sys
 import tempfile
 from pathlib import Path
 
+# H8: the probe-axis gate list is shared with check-golden.py (the scripts/
+# dir is sys.path[0] when this file is run as a script, as golden.sh does).
+from probe_axes import SURFACE2_AXES
+
 GO_ROOT = Path(__file__).resolve().parent.parent
 PY_ROOT = GO_ROOT.parent / "web3sec-final"
 WORK = GO_ROOT / ".scratch" / "golden"
@@ -127,11 +131,12 @@ P4_SFT = P4_FIX + "/sft"
 # axis (the buggy fixture families + the leaky assertion pair), and the P5
 # phase below fails the run loudly if any axis drops to zero rows. That is
 # the rot gate: every probe axis carries rows or the suite is red.
+#
+# H8: SURFACE2_AXES is DERIVED from the one shared gate list
+# (scripts/probe_axes.py) — the same table check-golden.py enforces. It used
+# to be a hand-copied literal here, so a seventh axis could land in the
+# checker and never reach this recipe's per-axis assertion.
 SURFACE2_FIX = FIX + "/fixtures-surface"
-SURFACE2_AXES = (
-    "accumulator-skew", "enforcement-timing", "guard-short-circuit",
-    "incentive-inversion", "liveness", "primitive-symmetry",
-)
 
 
 def now_for(step: int) -> str:

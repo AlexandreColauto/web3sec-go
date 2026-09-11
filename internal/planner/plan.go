@@ -129,7 +129,7 @@ func nonCanonicalClasses(plan validation.Value) []string {
 	bad := []string{}
 	for _, p := range listOf(plan, "priorities") {
 		bc := objAt(p, "bug_class")
-		if !pyTruthy(bc) {
+		if !pyTruthyBigNonEmpty(bc) {
 			continue
 		}
 		canonical := false
@@ -252,7 +252,7 @@ func bootstrapPrivileged(b *planBuilder, campaign *state.Campaign,
 	}
 	var upgrades []validation.Value
 	for _, a := range listOf(model, "actors") {
-		if pyTruthy(objAt(a, "can_upgrade")) {
+		if pyTruthyBigNonEmpty(objAt(a, "can_upgrade")) {
 			upgrades = append(upgrades, a)
 		}
 	}
@@ -382,7 +382,7 @@ func maxThresholdText(entries []validation.Value) string {
 func coverageTargets(model validation.Value) validation.Value {
 	components := []string{}
 	for _, c := range listOf(model, "contracts") {
-		if pyTruthy(objAt(c, "in_scope")) {
+		if pyTruthyBigNonEmpty(objAt(c, "in_scope")) {
 			components = append(components, objStr(c, "name"))
 		}
 	}

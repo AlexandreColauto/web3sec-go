@@ -92,7 +92,7 @@ func TestForkPocBlockerCarriesStatusReason(t *testing.T) {
 			} else if blocker != forkPocBlockerFallback {
 				t.Errorf("blocker = %q, want the fallback constant", blocker)
 			}
-			if ready := objAt(result, "submission_ready"); pyTruthy(ready) {
+			if ready := objAt(result, "submission_ready"); pyTruthyBigNonEmpty(ready) {
 				t.Errorf("submission_ready = True with the fork PoC unproven")
 			}
 		})
@@ -144,7 +144,7 @@ func TestForkPocWaiverBlockerUnchanged(t *testing.T) {
 		t.Errorf("waived check appended the blocker %q: %s", blocker,
 			validation.CanonCompact(objAt(result, "blocking_reasons")))
 	}
-	if ready := objAt(result, "submission_ready"); !pyTruthy(ready) {
+	if ready := objAt(result, "submission_ready"); !pyTruthyBigNonEmpty(ready) {
 		t.Errorf("submission_ready = %s, want True (the waiver answered the "+
 			"fork PoC)", validation.PyRepr(ready))
 	}

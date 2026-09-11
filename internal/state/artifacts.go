@@ -10,32 +10,6 @@ import (
 	"websec/internal/validation"
 )
 
-// pyTruthy is CPython truthiness over a Value: null/False/0/""/[]/{} are
-// false, everything else true. Used by the `if note` / `executor or ...`
-// guards in set_stage.
-func pyTruthy(v validation.Value) bool {
-	switch v.Kind {
-	case validation.Null:
-		return false
-	case validation.Bool:
-		return v.B
-	case validation.Int:
-		if v.Big != "" {
-			return v.Big != "0"
-		}
-		return v.I != 0
-	case validation.Flt:
-		return v.F != 0
-	case validation.Str:
-		return v.S != ""
-	case validation.Arr:
-		return len(v.A) > 0
-	case validation.Obj:
-		return len(v.O) > 0
-	}
-	return false
-}
-
 // first3Upper is kind[:3].upper() (a short kind slices to its whole length).
 func first3Upper(s string) string {
 	rs := []rune(s)
@@ -111,7 +85,7 @@ func (c *Campaign) SetStage(stage, status string, note validation.Value, executo
 	}
 	entry.O = validation.SetOrAppend(entry.O, "attempts", validation.VInt(attempts))
 	entry.O = validation.SetOrAppend(entry.O, "last_run_at", validation.VStr(nowIso()))
-	if pyTruthy(note) {
+	if validation.PyTruthy(note) {
 		entry.O = validation.SetOrAppend(entry.O, "note", validation.VStr(capNote(note)))
 	}
 	if executor != nil && *executor != "" {

@@ -126,9 +126,9 @@ func FamiliesForFinding(model, finding validation.Value) map[string]struct{} {
 		pa := objAt(c, "path")
 		var key string
 		switch {
-		case pyTruthy(nm):
+		case pyTruthyBigNonEmpty(nm):
 			key = modelKey(nm)
-		case pyTruthy(pa):
+		case pyTruthyBigNonEmpty(pa):
 			key = modelKey(pa)
 		default:
 			key = modelKey(validation.VNull())
@@ -153,7 +153,7 @@ func FamiliesForFinding(model, finding validation.Value) map[string]struct{} {
 	}
 	for _, sm := range listOf(model, "state_machines") {
 		nm := objAt(sm, "name")
-		if !pyTruthy(nm) || nm.Kind != validation.Str {
+		if !pyTruthyBigNonEmpty(nm) || nm.Kind != validation.Str {
 			continue
 		}
 		for _, a := range affected {
@@ -238,9 +238,9 @@ func machinesLabel(model validation.Value) string {
 		id := objAt(m, "id")
 		nm := objAt(m, "name")
 		switch {
-		case pyTruthy(id):
+		case pyTruthyBigNonEmpty(id):
 			names = append(names, pyStr(id))
-		case pyTruthy(nm):
+		case pyTruthyBigNonEmpty(nm):
 			names = append(names, pyStr(nm))
 		default:
 			names = append(names, "?")
@@ -350,7 +350,7 @@ func markLensEntry(l validation.Value, outcome string, closing bool,
 func symmetryFamilies(symmetry []validation.Value) []string {
 	out := []string{}
 	for _, s := range symmetry {
-		if f := objAt(s, "family"); pyTruthy(f) {
+		if f := objAt(s, "family"); pyTruthyBigNonEmpty(f) {
 			out = append(out, pyStr(f))
 		}
 	}
@@ -374,7 +374,7 @@ func RolePrivilegeSurface(model validation.Value) map[string][]validation.Value 
 	groups := map[string][]validation.Value{}
 	for _, p := range listOf(model, "privileges") {
 		role := objAt(p, "role")
-		if !pyTruthy(role) {
+		if !pyTruthyBigNonEmpty(role) {
 			continue
 		}
 		label := capabilities.NormalizeLabel(pyStr(role))

@@ -19,7 +19,7 @@ package cli
 //	(--full) [PASS] pytest  <tail>         (--full) [PASS] go-test  <tail>
 //	                                       (--full) [PASS] evalsuite-selfcheck
 //	                                       <tail> (gold suite self-scores
-//	                                       17/17, FP 0 — scorer proof, not a
+//	                                       19/19, FP 0 — scorer proof, not a
 //	                                       detector claim)
 //	ALL PASS / N check(s) FAILED           identical
 //	exit 0 pass / 1 fail                   identical

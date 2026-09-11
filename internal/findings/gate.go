@@ -352,8 +352,8 @@ func ReachabilityDiagnostic(campaign *state.Campaign, minLevel string,
 			if err != nil {
 				return nil, err
 			}
-			hasDep = pyTruthy(objAt(pin, "deployment"))
-			hasChain = pyTruthy(objAt(pin, "chain"))
+			hasDep = validation.PyTruthy(objAt(pin, "deployment"))
+			hasChain = validation.PyTruthy(objAt(pin, "chain"))
 		}
 	}
 	if !(hasDep || hasChain) {
@@ -385,12 +385,12 @@ func ReachabilityDiagnostic(campaign *state.Campaign, minLevel string,
 // match the registry regardless of spelling.
 func invariantIDs(finding validation.Value) []string {
 	var ids []string
-	if iid := objAt(asDict(objAt(finding, "invariant")), "id"); pyTruthy(iid) &&
+	if iid := objAt(asDict(objAt(finding, "invariant")), "id"); validation.PyTruthy(iid) &&
 		iid.Kind == validation.Str {
 		ids = append(ids, normalizeInvIDFunc(iid.S))
 	}
 	sec := objAt(finding, "security_invariants")
-	if !pyTruthy(sec) || sec.Kind != validation.Arr {
+	if !validation.PyTruthy(sec) || sec.Kind != validation.Arr {
 		return ids
 	}
 	for _, s := range sec.A {
@@ -398,7 +398,7 @@ func invariantIDs(finding validation.Value) []string {
 			continue
 		}
 		id := objAt(s, "id")
-		if !pyTruthy(id) || id.Kind != validation.Str {
+		if !validation.PyTruthy(id) || id.Kind != validation.Str {
 			continue
 		}
 		nid := normalizeInvIDFunc(id.S)
@@ -677,7 +677,7 @@ func (g *gateRun) snapshotCompatible() {
 
 func (g *gateRun) shield(ver validation.Value) error {
 	iid := objAt(asDict(objAt(g.finding, "invariant")), "id")
-	if !pyTruthy(iid) || iid.Kind != validation.Str {
+	if !validation.PyTruthy(iid) || iid.Kind != validation.Str {
 		return nil
 	}
 	claims, err := intentClaimsFunc(g.campaign)
@@ -685,10 +685,10 @@ func (g *gateRun) shield(ver validation.Value) error {
 		return err
 	}
 	claim, ok := claims[normalizeInvIDFunc(iid.S)]
-	if !ok || !pyTruthy(claim) {
+	if !ok || !validation.PyTruthy(claim) {
 		return nil
 	}
-	if pyTruthy(objAt(ver, "shield_adjudication")) {
+	if validation.PyTruthy(objAt(ver, "shield_adjudication")) {
 		g.satisfied("shield-adjudication", nil)
 		return nil
 	}

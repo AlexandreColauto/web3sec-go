@@ -124,6 +124,23 @@
           "entry_point": {
             "type": "boolean",
             "description": "true if externally reachable without privileges"
+          },
+          "citations": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "H5 (additive, optional, written only when a producer mints a digest): machine-checkable citation hashes for the two channels whose payloads stay stringly \u2014 dedup_meta.mitigation_present (a JSON string) and component citations carried in evidence description text. Each value is the lowercase-hex digest of the cited payload's canonical bytes (sha256; 12..64 chars so the codebase's existing sha12 derivations compose). Absent on every pre-H5 finding: when this object is absent the stringly channels are byte-identical to before, and those channels remain the source of truth.",
+            "properties": {
+              "mitigation_present": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{12,64}$",
+                "description": "digest of the canonical dedup_meta.mitigation_present JSON string this affected site's mitigation citation was derived from \u2014 lets a consumer verify the stringly record was not rewritten after the citation was stamped"
+              },
+              "component": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{12,64}$",
+                "description": "digest of the cited component (the protocol-model component identity \u2014 kind + path/url \u2014 the affected site anchors on), for the component citations that today ride evidence description text"
+              }
+            }
           }
         }
       }

@@ -71,27 +71,6 @@ func lookup(v validation.Value, key string) (validation.Value, bool) {
 	return validation.VNull(), false
 }
 
-// pyTruthy is CPython truthiness: null/False/0/0.0/""/[]/{} are false.
-func pyTruthy(v validation.Value) bool {
-	switch v.Kind {
-	case validation.Null:
-		return false
-	case validation.Bool:
-		return v.B
-	case validation.Int:
-		return validation.IntText(v) != "0"
-	case validation.Flt:
-		return v.F != 0
-	case validation.Str:
-		return v.S != ""
-	case validation.Arr:
-		return len(v.A) > 0
-	case validation.Obj:
-		return len(v.O) > 0
-	}
-	return false
-}
-
 // pyStr is CPython str(v): raw for strings, "None"/"True"/"False" for the
 // scalars, and repr() for the containers (which is what str() does for them).
 func pyStr(v validation.Value) string {
@@ -281,7 +260,7 @@ func ActorByID(model validation.Value, actorID string) (validation.Value, bool) 
 func WhoCan(model validation.Value, capability string) []validation.Value {
 	hits := []validation.Value{}
 	for _, a := range listField(model, "actors") {
-		if v, ok := lookup(a, capability); ok && pyTruthy(v) {
+		if v, ok := lookup(a, capability); ok && validation.PyTruthy(v) {
 			hits = append(hits, a)
 		}
 	}
@@ -315,7 +294,7 @@ func WhoCan(model validation.Value, capability string) []validation.Value {
 func TrustBoundaryGaps(model validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, b := range listField(model, "trust_boundaries") {
-		if !pyTruthy(objAt(b, "validated")) {
+		if !validation.PyTruthy(objAt(b, "validated")) {
 			out = append(out, b)
 		}
 	}
@@ -328,7 +307,7 @@ func AccountingVars(model validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, c := range listField(model, "contracts") {
 		for _, v := range listField(c, "state_variables") {
-			if !pyTruthy(objAt(v, "accounting")) {
+			if !validation.PyTruthy(objAt(v, "accounting")) {
 				continue
 			}
 			out = append(out, validation.VObj(
@@ -350,10 +329,10 @@ func ExternalAssets(model validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, a := range listField(model, "assets") {
 		flags := []validation.Value{}
-		if pyTruthy(objAt(a, "fee_on_transfer")) {
+		if validation.PyTruthy(objAt(a, "fee_on_transfer")) {
 			flags = append(flags, validation.VStr("fee-on-transfer"))
 		}
-		if pyTruthy(objAt(a, "rebasing")) {
+		if validation.PyTruthy(objAt(a, "rebasing")) {
 			flags = append(flags, validation.VStr("rebasing"))
 		}
 		erc := objAt(a, "erc")
@@ -367,7 +346,7 @@ func ExternalAssets(model validation.Value) []validation.Value {
 		if decimals.Kind != validation.Null && !standardDecimals(decimals) {
 			flags = append(flags, validation.VStr("odd-decimals-"+pyStr(decimals)))
 		}
-		if nb := objAt(a, "nonstandard_behaviors"); pyTruthy(nb) {
+		if nb := objAt(a, "nonstandard_behaviors"); validation.PyTruthy(nb) {
 			flags = append(flags, extendFlags(nb)...)
 		}
 		if len(flags) > 0 {

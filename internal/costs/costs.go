@@ -426,8 +426,10 @@ func LensYield(c *state.Campaign) ([]validation.Value, error) {
 	}
 	// The unattributed bucket exists for cost rows lacking lens. When the
 	// plan is absent there is no other row to bill them to, so any
-	// unattributed spend still lands here.
-	if unattributedRows > 0 || !planOK {
+	// unattributed spend still lands here. Planned-count arm: a priority
+	// with no resolvable lens buckets to "unattributed" even when every
+	// cost row is lensed — emitting no row there would drop the count.
+	if unattributedRows > 0 || !planOK || planned["unattributed"] > 0 {
 		out = append(out, validation.VObj(
 			validation.KV{K: "lens", V: validation.VStr("unattributed")},
 			validation.KV{K: "n_planned",

@@ -51,11 +51,11 @@ func ComponentSurfaceLines(model validation.Value) []string {
 			loc = u.S
 		}
 		scope := "out-of-scope"
-		if pyTruthy(objAt(c, "in_scope")) {
+		if validation.PyTruthy(objAt(c, "in_scope")) {
 			scope = "in_scope"
 		}
 		line := "- " + name + " " + loc + ": " + scope
-		if pyTruthy(objAt(c, "paid_for")) {
+		if validation.PyTruthy(objAt(c, "paid_for")) {
 			line += ", paid"
 		}
 		out = append(out, line)

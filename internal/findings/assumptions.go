@@ -86,7 +86,7 @@ func checkFreshAssumptions(assumptions []validation.Value,
 				"assumptions start UNKNOWN; move them only through "+
 				"assumption_transition with evidence-store provenance", id, st)
 		}
-		if pyTruthy(objAt(a, "support")) || pyTruthy(objAt(a, "contradictions")) {
+		if validation.PyTruthy(objAt(a, "support")) || validation.PyTruthy(objAt(a, "contradictions")) {
 			return fmt.Errorf("assumption %s installed with "+
 				"support/contradictions: only the transition API may write "+
 				"those", id)

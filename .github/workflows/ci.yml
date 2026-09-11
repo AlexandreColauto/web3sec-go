@@ -1,0 +1,51 @@
+name: CI
+
+# The minimal green gate: compile, vet, the full Go test suite, and the golden
+# suite — nothing that needs this laptop. Four steps, in the order the local
+# gate uses them.
+#
+# Deliberately NOT here (they stay in scripts/verify-full.sh, the 13-step gate
+# of record, run on a workstation):
+#   * `go test -race`        — slow and flaky on shared runners.
+#   * docker e2e tiers       — scripts/p2-docker-e2e.sh needs a daemon+images.
+#   * binary-gated suites    — slither/aderyn/forge/anvil tests skip themselves
+#                              when the tool is absent; do not install them.
+# The ambient-only suites (forge-libs under .scratch/t16-libs, the sibling
+# sharevault checkout) also skip themselves on a fresh clone rather than fail.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: build, vet, tests, golden
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: go build
+        run: go build ./...
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test ./... -count=1
+
+      - name: golden suite
+        run: bash scripts/golden.sh

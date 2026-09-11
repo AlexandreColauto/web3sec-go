@@ -187,7 +187,7 @@ func validateCheckKeys(archID string, i int, check validation.Value) error {
 				allowedText(allowed))
 		}
 	}
-	has := func(key string) bool { return pyTruthy(objAt(check, key)) }
+	has := func(key string) bool { return pyTruthyBigNonEmpty(objAt(check, key)) }
 	switch t {
 	case "state_var_exists", "function_exists":
 		if !has("names") && !has("pattern") {
@@ -277,9 +277,14 @@ func AvailableArchetypes() ([]string, error) {
 	return out, nil
 }
 
-// pyTruthy is Python truthiness on a Value: None, "", 0, false and empty
-// collections are all falsy (the `not check.get("names")` guard).
-func pyTruthy(v validation.Value) bool {
+// pyTruthyBigNonEmpty is a DIVERGENT pyTruthy variant (Wave J Task 7), NOT the
+// canonical form; it is named so the divergence is visible.
+// Rule: exactly validation.PyTruthy, except that an Int with any non-empty Big
+// text is truthy — including Big == "0", which validation.PyTruthy (and
+// CPython) reads falsy. The divergence is reachable only for Values that
+// violate jval's invariant that Big is set only when the integer does not fit
+// int64.
+func pyTruthyBigNonEmpty(v validation.Value) bool {
 	switch v.Kind {
 	case validation.Null:
 		return false

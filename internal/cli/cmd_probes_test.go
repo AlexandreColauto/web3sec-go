@@ -2467,3 +2467,88 @@ func t29SamePairs(got [][2]string, want [][2]string) bool {
 	}
 	return true
 }
+
+// ---------------------------------------------------------------------------
+// Wave J Task 8 / J-recovery: `probes --flag=value` parity
+// ---------------------------------------------------------------------------
+
+// TestProbesFlagEqualsFormIsTheSpaceForm pins the argparse `--flag=value`
+// spelling on every probes value flag. `probes` is a scripting surface; the
+// rest of the CLI already routes value flags through the shared splitFlag
+// splitter, so an operator's script must not have to special-case this verb.
+//
+// The assertion is byte-equality against the space form, not "it parsed":
+// the two spellings are the same command line, so stdout, stderr and the exit
+// code must be identical byte for byte.
+func TestProbesFlagEqualsFormIsTheSpaceForm(t *testing.T) {
+	probes.Wire()
+	ws := t.TempDir()
+	c, err := state.Init(ws, "Probe CLI", state.InitOpts{CampaignID: t29CID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := structidx.IndexSnapshot(c, t29Ranking, structidx.DefaultBackend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := structidx.SaveIndex(c, idx); err != nil {
+		t.Fatal(err)
+	}
+
+	// same(t, space, eq) runs both spellings and requires byte-identical
+	// output on both streams and the same exit code.
+	same := func(t *testing.T, wantCode int, space, eq []string) {
+		t.Helper()
+		sc, so, se := run(t, space...)
+		ec, eo, ee := run(t, eq...)
+		if sc != wantCode || ec != wantCode {
+			t.Fatalf("exit: space %d / equals %d, want %d\nspace: %q%q\nequals: %q%q",
+				sc, ec, wantCode, so, se, eo, ee)
+		}
+		if so != eo {
+			t.Errorf("stdout differs\n space: %q\nequals: %q", so, eo)
+		}
+		if se != ee {
+			t.Errorf("stderr differs\n space: %q\nequals: %q", se, ee)
+		}
+	}
+
+	// run: both value flags.
+	same(t, 0, []string{"--root", ws, "probes", t29CID, "run",
+		"--per-axis", "2", "--total", "40"},
+		[]string{"--root", ws, "probes", t29CID, "run",
+			"--per-axis=2", "--total=40"})
+	surface, err := probes.CampaignSurface(c)
+	if err != nil || surface == nil {
+		t.Fatalf("surface = %v, %v", surface, err)
+	}
+	if got := objInt(*surface, "per_axis"); got != 2 {
+		t.Fatalf("per_axis = %d, want 2 — the = value was not consumed", got)
+	}
+	if got := objInt(*surface, "total"); got != 40 {
+		t.Fatalf("total = %d, want 40", got)
+	}
+
+	// list: --axis, and the flag-only forms still work beside it.
+	same(t, 0, []string{"--root", ws, "probes", t29CID, "list", "--axis", "L-01"},
+		[]string{"--root", ws, "probes", t29CID, "list", "--axis=L-01"})
+	same(t, 0, []string{"--root", ws, "probes", t29CID, "list", "--all", "--json"},
+		[]string{"--root", ws, "probes", t29CID, "list", "--all", "--json"})
+
+	// blank: a missing-arguments error must be identical through both
+	// spellings (the = form reaches the same parser with the same value).
+	same(t, 2, []string{"--root", ws, "probes", t29CID, "blank",
+		"--axis", "L-01"},
+		[]string{"--root", ws, "probes", t29CID, "blank", "--axis=L-01"})
+
+	// A rejected value keeps its exact message through the = form.
+	same(t, 2, []string{"--root", ws, "probes", t29CID, "run",
+		"--per-axis", "0", "--total", "40"},
+		[]string{"--root", ws, "probes", t29CID, "run",
+			"--per-axis=0", "--total=40"})
+	// ...and a non-integer is argparse's invalid-int error, not "unrecognized".
+	same(t, 2, []string{"--root", ws, "probes", t29CID, "run",
+		"--per-axis", "x", "--total", "40"},
+		[]string{"--root", ws, "probes", t29CID, "run",
+			"--per-axis=x", "--total=40"})
+}

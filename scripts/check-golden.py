@@ -11,8 +11,8 @@ golden-run.py captured:
      events.jsonl parse, and the event hash chain is intact: first
      prev_hash is the genesis hash, each next prev_hash is the prior
      event_hash);
-  3. every `audit --json` step reports all 14 registered sections and a
-     boolean ok (the audit surface is complete).
+  3. every `audit --json` step reports all 14 rendered sections and a
+     boolean ok (the audit surface is complete for these campaigns).
 
 Exit 0 = GOLDEN GREEN; exit 1 = a validation failure is reported per
 step/tree/section.
@@ -22,11 +22,19 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+# H8: the shared probe-axis gate list (scripts/probe_axes.py) — the same
+# table golden-run.py derives SURFACE2_AXES from.
+from probe_axes import EXPECTED_PROBE_AXES
+
 WORK = Path(__file__).resolve().parent.parent / ".scratch" / "golden"
 
-# The 14 audit sections in report (registration) order — pinned to the Go
-# registry (internal/audit/sections/register.go). A section missing here is
-# a hard failure in either direction.
+# The 14 audit sections these campaigns RENDER, in report (registration)
+# order. The registry (internal/audit/sections/register.go) carries 15: the
+# `eval` section is PRESENCE-GATED since G4 and renders only for a campaign
+# whose program matches the gold-eval suite. No golden campaign matches, so
+# the golden surface is the other 14 — this list is NOT a copy of the
+# registry and must not be "completed" to 15. A section missing here is a
+# hard failure in either direction.
 EXPECTED_SECTIONS: list[str] = [
     "event_log", "artifacts", "execs", "findings", "projection",
     "snapshots", "relations", "floor_policy", "stage_completions",
@@ -48,15 +56,12 @@ EXPECTED_SECTIONS: list[str] = [
 # at all, which is exactly the C2/F6 blind spot — an axis whose regression no
 # other gate can see. The keys are cross-checked against the registry by
 # internal/probes/axis_coverage_test.go, so a new probe cannot land without
-# widening this table.
-EXPECTED_PROBE_AXES: dict[str, str] = {
-    "accumulator-skew": "blind",
-    "enforcement-timing": "blind",
-    "guard-short-circuit": "rows",
-    "incentive-inversion": "rows",
-    "liveness": "rows",
-    "primitive-symmetry": "rows",
-}
+# widening the table.
+#
+# H8: the table itself lives in scripts/probe_axes.py — ONE source of truth
+# shared with golden-run.py, which used to carry a hand-copied axis literal.
+# The Go cross-check reads that file. (The import sits at the top of the
+# file, in the import block.)
 
 GENESIS_HASH = "0" * 64
 
@@ -160,7 +165,7 @@ def check_steps(spec: dict) -> None:
 
 
 def check_audit(spec: dict, step: int, name: str) -> None:
-    """An `audit --json` report must carry all 14 sections + boolean ok."""
+    """An `audit --json` report must carry all 14 rendered sections + ok."""
     f = WORK / "captures" / "go" / f"{step:02d}-{name}.out"
     try:
         doc = json.loads(f.read_text())

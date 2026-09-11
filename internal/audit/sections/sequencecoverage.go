@@ -181,7 +181,7 @@ func seqCoveredBy(c *state.Campaign, execs map[string]validation.Value,
 // over `repro.get("attempts") or []`.
 func attemptsOf(repro validation.Value) []validation.Value {
 	v := objAt(repro, "attempts")
-	if !pyTruthy(v) || v.Kind != validation.Arr {
+	if !validation.PyTruthy(v) || v.Kind != validation.Arr {
 		return nil
 	}
 	return v.A

@@ -134,7 +134,7 @@ func NextActions(c *state.Campaign) (validation.Value, error) {
 			return validation.VNull(), err
 		}
 		if proof.Kind == validation.Obj {
-			if pyTruthy(objAt(proof, "done")) {
+			if pyTruthyBigNonEmpty(objAt(proof, "done")) {
 				actions = append(actions, "["+stage+"] completion proof holds — "+
 					"pipeline.run() auto-completes the stage")
 			} else {
@@ -160,8 +160,8 @@ func NextActions(c *state.Campaign) (validation.Value, error) {
 			if pr.V.Kind != validation.Obj {
 				continue
 			}
-			if !pyTruthy(objAt(pr.V, "authoritative")) ||
-				pyTruthy(objAt(pr.V, "done")) {
+			if !pyTruthyBigNonEmpty(objAt(pr.V, "authoritative")) ||
+				pyTruthyBigNonEmpty(objAt(pr.V, "done")) {
 				continue
 			}
 			missing := listAt(pr.V, "missing")

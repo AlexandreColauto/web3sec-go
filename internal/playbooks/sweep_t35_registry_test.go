@@ -81,11 +81,17 @@ func containsString(list []string, want string) bool {
 	return false
 }
 
-// shippedClassesExt mirrors the in-package shippedClasses fixture.
+// shippedClassesExt mirrors the in-package shippedClasses fixture — and,
+// since H10, covers ALL TEN shipped playbooks: the eight original classes
+// plus frontend-injection and infra-boundary, which landed later and were
+// never widened here. The registry-completeness intent is the point: a tool
+// id referenced ONLY by one of those two playbooks was outside this test's
+// reach.
 var shippedClassesExt = []string{
 	"access-control", "bridge-message", "economic-invariant",
-	"oracle-manipulation", "precision-rounding", "reentrancy",
-	"share-price-inflation", "upgrade-initializer",
+	"frontend-injection", "infra-boundary", "oracle-manipulation",
+	"precision-rounding", "reentrancy", "share-price-inflation",
+	"upgrade-initializer",
 }
 
 // vObj reads a key from an object value (objAt is unexported).

@@ -135,27 +135,6 @@ func kv(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
 }
 
-// pyTruthy is Python's truthiness for the JSON shapes the module tests.
-func pyTruthy(v validation.Value) bool {
-	switch v.Kind {
-	case validation.Null:
-		return false
-	case validation.Bool:
-		return v.B
-	case validation.Int:
-		return v.I != 0 || v.Big != "" && v.Big != "0"
-	case validation.Flt:
-		return v.F != 0
-	case validation.Str:
-		return v.S != ""
-	case validation.Arr:
-		return len(v.A) > 0
-	case validation.Obj:
-		return len(v.O) > 0
-	}
-	return false
-}
-
 // pyRepr is validation.PyRepr for the error texts.
 func pyRepr(v validation.Value) string { return validation.PyRepr(v) }
 

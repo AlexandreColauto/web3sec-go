@@ -191,7 +191,7 @@ func proofCampaignPlanning(c *state.Campaign) (validation.Value, error) {
 			"no plan"), nil
 	}
 	priorities := listAt(plan, "priorities")
-	if !pyTruthy(objAt(plan, "priorities")) {
+	if !pyTruthyBigNonEmpty(objAt(plan, "priorities")) {
 		return proofResult(false, []string{"plan has zero priorities"},
 			"empty plan"), nil
 	}
@@ -331,7 +331,7 @@ func proofReproduction(c *state.Campaign) (validation.Value, error) {
 		}
 		repro := orEmpty(objAt(ver, "reproduction"))
 		if objStr(repro, "status") != "reproduced" &&
-			!pyTruthy(objAt(repro, "attempts")) {
+			!pyTruthyBigNonEmpty(objAt(repro, "attempts")) {
 			items = append(items, proofItem{objStr(f, "finding_id"),
 				"no reproduction attempt recorded"})
 		}

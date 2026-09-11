@@ -929,7 +929,7 @@ func optNumAt(obj validation.Value, key string) (float64, bool, error) {
 	if !ok || v.Kind == validation.Null {
 		return 0, false, nil
 	}
-	if !pyTruthy(v) {
+	if !pyTruthyBigNonEmpty(v) {
 		return 0, true, nil
 	}
 	f, err := asFloat(v)
@@ -941,7 +941,7 @@ func optNumAt(obj validation.Value, key string) (float64, bool, error) {
 
 // numOrZero is `v or 0` as a float for the comparison helpers.
 func numOrZero(v validation.Value) float64 {
-	if !pyTruthy(v) {
+	if !pyTruthyBigNonEmpty(v) {
 		return 0
 	}
 	f, err := asFloat(v)
@@ -951,8 +951,14 @@ func numOrZero(v validation.Value) float64 {
 	return f
 }
 
-// pyTruthy is Python bool(v).
-func pyTruthy(v validation.Value) bool {
+// pyTruthyBigNonEmpty is a DIVERGENT pyTruthy variant (Wave J Task 7), NOT the
+// canonical form; it is named so the divergence is visible.
+// Rule: exactly validation.PyTruthy, except that an Int with any non-empty Big
+// text is truthy — including Big == "0", which validation.PyTruthy (and
+// CPython) reads falsy. The divergence is reachable only for Values that
+// violate jval's invariant that Big is set only when the integer does not fit
+// int64.
+func pyTruthyBigNonEmpty(v validation.Value) bool {
 	switch v.Kind {
 	case validation.Bool:
 		return v.B

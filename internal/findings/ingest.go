@@ -50,29 +50,6 @@ func SetInvariantGuard(f func(*state.Campaign, validation.Value) error) {
 	assertInvariantsVerified = f
 }
 
-// pyTruthy is Python truthiness on a Value (0/empty/None are falsy; a
-// bool is its own value).
-func pyTruthy(v validation.Value) bool {
-	switch v.Kind {
-	case validation.Null:
-		return false
-	case validation.Bool:
-		return v.B
-	case validation.Int:
-		if v.Big != "" {
-			return v.Big != "0"
-		}
-		return v.I != 0
-	case validation.Flt:
-		return v.F != 0
-	case validation.Str:
-		return v.S != ""
-	case validation.Arr, validation.Obj:
-		return len(v.A) > 0 || len(v.O) > 0
-	}
-	return false
-}
-
 // pyStr is Python str() on a Value (scalars unquoted; containers repr —
 // the f-string default formatting).
 func pyStr(v validation.Value) string {
@@ -120,7 +97,7 @@ func validateEvidenceItem(item validation.Value) error {
 func checkExecGate(campaign *state.Campaign, findingID string,
 	item validation.Value, atIngest bool) error {
 	level := objStr(item, "level")
-	if level == "E7" && !pyTruthy(objAt(item, "artifact_id")) {
+	if level == "E7" && !validation.PyTruthy(objAt(item, "artifact_id")) {
 		return fmt.Errorf("E7 (economic impact quantified) must reference " +
 			"the artifact that carries the quantification (artifact_id)")
 	}
@@ -139,7 +116,7 @@ func checkExecGate(campaign *state.Campaign, findingID string,
 			"and cite the exec)", pyStr(objAt(item, "evidence_id")), level)
 	}
 	profile := objStr(item, "sandbox_profile")
-	if !pyTruthy(validation.VStr(profile)) {
+	if !validation.PyTruthy(validation.VStr(profile)) {
 		return fmt.Errorf("evidence %s at %s must name the sandbox_profile "+
 			"it was produced under (see sandbox.py)",
 			pyStr(objAt(item, "evidence_id")), level)
@@ -574,7 +551,7 @@ func IntakeCheckpoint(payload validation.Value, trajectory,
 		warnings = append(warnings, adv)
 	}
 	if trajectory == "economic" &&
-		!pyTruthy(objAt(objAt(payload, "risk"), "economic")) {
+		!validation.PyTruthy(objAt(objAt(payload, "risk"), "economic")) {
 		warnings = append(warnings,
 			"trajectory 'economic' but no risk.economic block recorded yet — "+
 				"the CONFIRMED gate for economic classes requires an E7 "+

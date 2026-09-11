@@ -224,6 +224,10 @@ webv2 probes <C-xxx> list [--axis L-0n|AXIS] [--all] [--json]
 webv2 probes <C-xxx> blank --axis L-0n|AXIS --anchor-blind K --reason "..." --actor NAME
 ```
 
+Every value flag above takes argparse's two spellings interchangeably:
+`--per-axis 2` and `--per-axis=2`, `--axis=L-01` and `--axis L-01` (CLI-wide,
+and scripts should assume it).
+
 On a fresh campaign the honest order is: `probes C-xxx run` (build the
 surface) → §5 `plan C-xxx` (creates the plan) → `probes C-xxx run --emit`
 (attach the obligations). The surface is a pure function of the index, so the
@@ -372,7 +376,8 @@ read the exit code as the verdict; the JSON is the signal.** An issue with no
 anchorable instance is dropped, exactly as a Slither flag with no location is.
 
 **Wave G tranche 2 — measurement, soundness layers, bounded proofs.**
-The gold-eval suite (`schema/evalsuite` pack, 17 cases) scores a campaign when
+The gold-eval suite (`schema/evalsuite` pack, 19 cases — two of them older
+pragmas, so the suite is not a single-compiler monoculture) scores a campaign when
 its program matches — the audit gains a `## eval` section with recall/precision
 behind Wilson intervals (`internal/wilson`; small samples render wide, and that
 is the point). Per-class search weights ride `taxonomy/class_weights.json` and
@@ -925,6 +930,121 @@ disposition is `complete` or waived. Open one per finding with
 `webv2 ladder <C-xxx> start <F-xxx>` (finding is positional), close it
 `complete` or waive it; `prove <C-xxx> --stage maximal-exploitation` names the
 findings still missing one.
+
+**Torn log recovery (by hand, no tool).** There is deliberately no `verify`
+repair verb: a repair path would have to say what a rewritten chain *claims*,
+and rewriting the chain is the one thing the log exists to prevent. The
+recovery is the procedure below, and it is lossy by construction — an
+append-only log that was cut mid-write cannot be undone, only cut back to the
+last record that fully existed.
+
+1. **See the failure.** Two shapes, from the same torn file.
+
+   The framing guard refuses the *next* write, and its last clause is the fix:
+
+   ```
+   error: validation: refusing to append to campaigns/<C-xxx>/events.jsonl: the
+   file does not end in a newline (torn write or external edit) — its last record
+   is incomplete and appending would merge two records into one unreadable line;
+   restore the file from a snapshot or truncate the partial line, then re-run
+   ```
+
+   `webv2 verify <C-xxx>` is the diagnostic: it names the first unreadable line
+   and exits **1**. It reports the **line number, not a byte offset**, and the
+   parenthesised text is the JSON decoder's own message — `EOF` and
+   `unexpected EOF` are the usual ones, `invalid character ...` means the tear
+   landed inside a line:
+
+   ```json
+   {
+     "events": 3,
+     "ok": false,
+     "problems": [
+       "line 3: not valid JSON (unexpected EOF) — integrity past this point is unverifiable"
+     ],
+     "chained": 0,
+     "legacy_unchained": 0,
+     "malformed_lines": 1
+   }
+   ```
+
+   `events` counts the unreadable line, so it is one MORE than the number of
+   surviving events; `chained`/`legacy_unchained` are 0 whenever a malformed
+   line is present (the checks past it are skipped, by design — the verdict is
+   always produced, it is the integrity that is unknown). A handful of verbs
+   die first with a terse `error: EOF` when they read the log before writing
+   it — that is the same tear, and `verify` is what says where it is.
+
+2. **Preserve the evidence, in its own step.** The torn copy is what the
+   post-mortem is read from; it is never deleted in the step that truncates the
+   log.
+
+   ```bash
+   cp campaigns/<C-xxx>/events.jsonl \
+      campaigns/<C-xxx>/events.jsonl.torn-$(date -u +%Y%m%d)
+   ```
+
+3. **Cut back to the last complete record.** Every event carries its
+   predecessor's hash, so a prefix cut at a record boundary is still a valid
+   chain — that is why the recovery is a truncation and never an edit.
+
+   ```bash
+   python3 - campaigns/<C-xxx>/events.jsonl <<'PY'
+   import sys
+   p = sys.argv[1]
+   d = open(p, 'rb').read()
+   i = d.rfind(b'\n')
+   open(p, 'wb').write(d[:i + 1] if i >= 0 else b'')
+   PY
+   ```
+
+   **The cost is real and it is not silent:** every event after the cut is
+   LOST. Those side effects must be redone through the CLI (re-running the
+   command appends a fresh event), and the loss — the cut time, the surviving
+   `seq`, and which side effects were redone — is recorded in the campaign
+   notes. The chain cannot tell you what you dropped; the torn copy is the only
+   record that anything existed there at all.
+
+4. **Re-verify.**
+
+   ```bash
+   webv2 verify <C-xxx>
+   ```
+
+   If the tear was the in-flight final record — the ordinary crash-mid-append
+   case, where the state projection was never updated — this now prints
+   `"ok": true` and exits 0 over the surviving prefix. **If instead it reports**
+
+   ```
+   "state event tail does not match the log suffix"
+   ```
+
+   then the tear ate whole records: `campaign_state.json` is a *projection*
+   that still mirrors events the log no longer has. The log is the record, so
+   the projection is re-derived FROM it, never the other way round:
+
+   ```bash
+   python3 - campaigns/<C-xxx> <<'PY'
+   import json, sys
+   d = sys.argv[1]
+   rec = [json.loads(l) for l in open(d + '/events.jsonl') if l.strip()]
+   st = json.load(open(d + '/campaign_state.json'))
+   st['events'] = rec[-1000:]        # the state mirror keeps the last 1000
+   json.dump(st, open(d + '/campaign_state.json', 'w'),
+             indent=2, ensure_ascii=True)
+   PY
+   webv2 doctor <C-xxx>              # re-serializes through the CLI's own writer
+   webv2 verify <C-xxx>              # "ok": true, exit 0
+   ```
+
+   `doctor` is what makes the hand-edit safe: it loads the state and rewrites it
+   with the tool's serializer, so no hand-rolled formatting rides along in the
+   file.
+
+5. **Keep the torn copy** beside the log (`events.jsonl.torn-<date>`) and only
+   now carry on. Do not delete it in this step — it is the evidence for the lost
+   events, and the only thing that can answer "what did the writer believe it
+   had written?".
 
 ## Evidence levels, floors, and the gate
 

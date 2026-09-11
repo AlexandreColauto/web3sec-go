@@ -47,31 +47,6 @@ func KV(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
 }
 
-// pyTruthy is Python truthiness for a decoded JSON value (None/False/0/""/
-// []/{} are falsy; every other value is truthy).
-func pyTruthy(v validation.Value) bool {
-	switch v.Kind {
-	case validation.Null:
-		return false
-	case validation.Bool:
-		return v.B
-	case validation.Int:
-		if v.Big != "" {
-			return v.Big != "0"
-		}
-		return v.I != 0
-	case validation.Flt:
-		return v.F != 0
-	case validation.Str:
-		return v.S != ""
-	case validation.Arr:
-		return len(v.A) > 0
-	case validation.Obj:
-		return len(v.O) > 0
-	}
-	return false
-}
-
 // pyStrValue is Python str(v): a string renders raw, everything else
 // renders exactly like repr(v) (str and repr agree outside str).
 func pyStrValue(v validation.Value) string {
@@ -127,7 +102,7 @@ func strListOf(v validation.Value) []string {
 // orEmptyObj is Python `x or {}`: a falsy value (None, {}, [], "", 0) folds
 // to an empty object, a truthy one passes through.
 func orEmptyObj(v validation.Value) validation.Value {
-	if !pyTruthy(v) {
+	if !validation.PyTruthy(v) {
 		return validation.VObj()
 	}
 	return v

@@ -108,7 +108,12 @@ func intPtr(v validation.Value) *int64 {
 	return &out
 }
 
-func pyTruthy(v validation.Value) bool {
+// pyTruthyInt64Only is a DIVERGENT pyTruthy variant (Wave J Task 7), NOT the
+// canonical form; it is named so the divergence is visible.
+// Rule: exactly validation.PyTruthy, except that an Int reads only the int64
+// field I and ignores Big — so an integer that overflowed int64 (Big set,
+// I == 0) reads FALSE where validation.PyTruthy reads it true.
+func pyTruthyInt64Only(v validation.Value) bool {
 	switch v.Kind {
 	case validation.Null:
 		return false

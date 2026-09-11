@@ -178,9 +178,11 @@ func ScanMitigations(c *state.Campaign, f validation.Value) (bool,
 // ScanMitigations, stamps the finding.mitigation_scanned event, and — when
 // the result differs from the stored record — updates
 // finding.dedup_meta.mitigation_present (a hit replaces it, a clean no-hit
-// clears it). A scan that cannot run returns its error and touches neither
-// the finding nor the log. It never writes bounty.*, never touches
-// in_code_ack, never changes status.
+// clears it). H5: the stringly record's digest is mirrored onto the affected
+// entry it cites (affected[].citations.mitigation_present) — a hit stamps
+// the mirror, a clean scan clears it with the record. A scan that cannot run
+// returns its error and touches neither the finding nor the log. It never
+// writes bounty.*, never touches in_code_ack, never changes status.
 func RecordMitigationScan(c *state.Campaign, findingID string) (bool, error) {
 	f, err := LoadFinding(c, findingID)
 	if err != nil {
@@ -197,6 +199,14 @@ func RecordMitigationScan(c *state.Campaign, findingID string) (bool, error) {
 		}
 		dm.O = validation.SetOrAppend(dm.O, "mitigation_present", rec)
 		f.O = validation.SetOrAppend(f.O, "dedup_meta", dm)
+		// H5: mirror the record's digest onto the affected entry it cites
+		// (affected[].citations.mitigation_present), so the stringly
+		// record is machine-checkable. A record that does not parse was
+		// never written by this function; skip the mirror rather than
+		// invent a citation.
+		if _, file, _, _, ok := ParseMitigationPresent(rec.S); ok {
+			f = StampMitigationCitation(f, file, rec.S)
+		}
 	} else if cur, ok := fieldAt(objAt(f, "dedup_meta"),
 		"mitigation_present"); ok && cur.Kind != validation.Null {
 		dm := objAt(f, "dedup_meta")
@@ -208,6 +218,9 @@ func RecordMitigationScan(c *state.Campaign, findingID string) (bool, error) {
 		}
 		dm.O = kept
 		f.O = validation.SetOrAppend(f.O, "dedup_meta", dm)
+		// H5: the mirror goes with the record — a clean scan must not
+		// leave a citation behind.
+		f = ClearMitigationCitation(f)
 	}
 	if err := SaveFinding(c, &f); err != nil {
 		return false, err
@@ -343,9 +356,13 @@ var mitigLocalDecl = regexp.MustCompile(`\b(uint\d*|int\d*|address|` +
 
 // mitigWriteHead matches an identifier or index-assignment head; the
 // operator itself is vetted by mitigLineIsWrite (comparisons — ==, !=,
-// <=, >=, => — are not writes).
+// <=, >=, => — are not writes). The head allows any run of index groups
+// (balances[a][b] = 0) and nesting up to three levels (deposits[rs[i]] = 0,
+// grid[a[b[c]]] += 1) — RE2 has no recursion, and Solidity cannot meaningfully
+// index deeper than a doubly-nested mapping.
 var mitigWriteHead = regexp.MustCompile(
-	`\w+(\[[^\]]*\])?\s*(\+=|-=|=)`)
+	`\w+(?:\[(?:[^\[\]]|\[(?:[^\[\]]|\[[^\[\]]*\])*\])*\])*` +
+		`\s*(\+=|-=|=)`)
 
 // mitigLineIsWrite reports whether line holds a storage write: an
 // assignment operator that is not part of a comparison, on a line that is
@@ -355,7 +372,7 @@ func mitigLineIsWrite(line string) bool {
 		return false
 	}
 	for _, loc := range mitigWriteHead.FindAllStringSubmatchIndex(line, -1) {
-		opS, opE := loc[4], loc[5]
+		opS, opE := loc[2], loc[3]
 		op := line[opS:opE]
 		if op == "+=" || op == "-=" {
 			return true

@@ -86,7 +86,7 @@ func TestBriefCriticalHuntSection(t *testing.T) {
 		t.Errorf("prescreen.matched = %v, want unguarded-asset-transfer",
 			matched)
 	}
-	if !pyTruthy(objAt(objAt(ch, "fork_diff"), "summary")) {
+	if !pyTruthyInt64Only(objAt(objAt(ch, "fork_diff"), "summary")) {
 		t.Error("fork_diff.summary is empty")
 	}
 	if got := objAt(objAt(ch, "invariant_verification"), "total"); got.I != 0 {
@@ -143,7 +143,7 @@ func TestBriefOmitsStaleHuntBlocks(t *testing.T) {
 	names := map[string]bool{}
 	for _, s := range objAt(ch, "stale_artifacts").A {
 		names[objStr(s, "artifact")] = true
-		if !pyTruthy(objAt(s, "re_run")) {
+		if !pyTruthyInt64Only(objAt(s, "re_run")) {
 			t.Errorf("stale %s carries no re-run command", objStr(s, "artifact"))
 		}
 	}

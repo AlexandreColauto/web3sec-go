@@ -293,7 +293,7 @@ func axisSurfaceBlocker(axis validation.Value, blank *validation.Value) string {
 
 // blindBlocker is the blind-status arm of axis_surface_blocker.
 func blindBlocker(axis validation.Value, blank *validation.Value) string {
-	if blank == nil || !pyTruthy(*blank) {
+	if blank == nil || !pyTruthyBigNonEmpty(*blank) {
 		return objStr(axis, "probe") + " saw " + pyStr(objAt(axis, "sites")) +
 			" sites and rejected every one of them (" +
 			itoa(len(listOf(axis, "blind"))) + " blind keys published) — " +
@@ -310,7 +310,7 @@ func blindBlocker(axis validation.Value, blank *validation.Value) string {
 			", which is not in the probe's blind[] keys: " +
 			validation.PyRepr(strArr(sortedKeys(keys)))
 	}
-	if !pyTruthy(objAt(*blank, "reason")) || !pyTruthy(objAt(*blank, "actor")) {
+	if !pyTruthyBigNonEmpty(objAt(*blank, "reason")) || !pyTruthyBigNonEmpty(objAt(*blank, "actor")) {
 		return "blank attestation needs a written reason and an actor"
 	}
 	return ""

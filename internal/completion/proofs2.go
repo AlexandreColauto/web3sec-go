@@ -89,7 +89,7 @@ func proofIndependentVerification(c *state.Campaign) (validation.Value, error) {
 	for _, f := range found {
 		iv := orEmpty(objAt(orEmpty(objAt(f, "verification")),
 			"independent_reproduction"))
-		if objStr(iv, "status") == "matches" && pyTruthy(objAt(iv, "verifier")) {
+		if objStr(iv, "status") == "matches" && pyTruthyBigNonEmpty(objAt(iv, "verifier")) {
 			continue
 		}
 		items = append(items, proofItem{objStr(f, "finding_id"),
@@ -118,7 +118,7 @@ func proofRiskCalibration(c *state.Campaign) (validation.Value, error) {
 	items := []proofItem{}
 	for _, f := range found {
 		band := objAt(orEmpty(objAt(orEmpty(objAt(f, "risk")), "validated")), "band")
-		if pyTruthy(band) {
+		if pyTruthyBigNonEmpty(band) {
 			continue
 		}
 		items = append(items, proofItem{objStr(f, "finding_id"),
@@ -180,7 +180,7 @@ func proofBountyGate(c *state.Campaign) (validation.Value, error) {
 	}
 	items := []proofItem{}
 	for _, f := range found {
-		if pyTruthy(objAt(orEmpty(objAt(f, "bounty")), "policy_checks")) {
+		if pyTruthyBigNonEmpty(objAt(orEmpty(objAt(f, "bounty")), "policy_checks")) {
 			continue
 		}
 		items = append(items, proofItem{objStr(f, "finding_id"),

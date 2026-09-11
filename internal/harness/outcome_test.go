@@ -109,6 +109,16 @@ Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 2.11ms
 note: rerun with --ffi to reproduce the stale-cache failure above
 `
 
+// forgeCrossLineSummary is the H9 shape: a counts line ("1 passed; 0 failed")
+// with no summary marker of its own, plus the words "Suite result" on a
+// DIFFERENT line. Whole-text matching promoted this run; the summary is the
+// line that carries the claim, so per-line matching must not.
+const forgeCrossLineSummary = `Suite result: ok.
+Ran 1 test for test/Inv.t.sol:InvInvariantFuzz
+[PASS] fuzz_inv_1(uint256) (runs: 256, calls: 1024, reverts: 31)
+1 passed; 0 failed; 0 skipped
+`
+
 // halmosNoisy is the halmos mixed log: the word "failure" (not the
 // "Status: fail" marker) plus "model" used as a verb — inconclusive.
 const halmosNoisy = `halmos 0.3.3 --root . --match-contract InvInvariantHalmos
@@ -158,6 +168,9 @@ func TestMapRunTable(t *testing.T) {
 		{"forge noisy log is inconclusive", ForgeFuzz, forgeNoisy,
 			false, 256, RungInconclusive,
 			"inconclusive (exit output unmapped)", 0},
+		{"forge cross-line Suite result is inconclusive", ForgeFuzz,
+			forgeCrossLineSummary, false, 256, RungInconclusive,
+			"inconclusive (exit output unmapped)", 0},
 		{"unknown kind is inconclusive", Kind("mythril"), halmosFail,
 			false, 100, RungInconclusive, "inconclusive", 0},
 	}
@@ -205,5 +218,24 @@ func TestMapRunForgeSeedPreferredOverFailLine(t *testing.T) {
 	_, summary := MapRun(ForgeFuzz, []byte(forgeFail), false, 256)
 	if !strings.Contains(strings.ToLower(summary), "seed") {
 		t.Fatalf("summary must carry the seed line, got %q", summary)
+	}
+}
+
+// TestForgePassSummaryIsPerLine (H9) is the direct law the table row above
+// exercises through MapRun: a counts line promotes only when the summary
+// marker ("---" or "Suite result") sits on that SAME line.
+func TestForgePassSummaryIsPerLine(t *testing.T) {
+	if forgePassSummary(forgeCrossLineSummary) {
+		t.Fatal("a counts line promoted a run whose \"Suite result\" marker " +
+			"sits on another line")
+	}
+	if !forgePassSummary(forgePass) {
+		t.Fatal("the real forge pass log must still promote")
+	}
+	// The other pre-existing summary form: a "---" rule ON the counts line.
+	// (H9 only tightened the Suite-result half; this shape behaved the same
+	// before and after.)
+	if !forgePassSummary("--- 1 passed; 0 failed; 0 skipped\n") {
+		t.Fatal("the \"---\" summary form must still promote")
 	}
 }

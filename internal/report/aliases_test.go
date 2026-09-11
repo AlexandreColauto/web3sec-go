@@ -33,7 +33,7 @@ func TestConfirmedSummaryRendersAliasSuffix(t *testing.T) {
 	reclassForAlias(t, camp, fs[0], "reentrancy")
 	reclassForAlias(t, camp, fs[1], "reentrancy")
 	text := mustGenerate(t, camp)
-	if !strings.Contains(text, "2 reentrancy [OWASP SC05]") {
+	if !strings.Contains(text, "2 reentrancy [OWASP SC05; SWC-107]") {
 		t.Errorf("confirmed summary lacks the reentrancy alias suffix:\n%s", text)
 	}
 }
@@ -61,7 +61,8 @@ func TestFindingBlockRendersAliasSuffix(t *testing.T) {
 	reclassForAlias(t, camp, fs[0], "reentrancy")
 	text := mustGenerate(t, camp)
 	sec := reportFindingSection(t, text, objStr(fs[0], "finding_id"))
-	if !strings.Contains(sec, "- bug class: `reentrancy` [OWASP SC05]") {
+	if !strings.Contains(sec,
+		"- bug class: `reentrancy` [OWASP SC05; SWC-107]") {
 		t.Errorf("finding block lacks the alias suffix: %q", sec)
 	}
 	secUnmapped := reportFindingSection(t, text, objStr(fs[2], "finding_id"))

@@ -1397,7 +1397,7 @@ func TestTwoHighestConsequenceItemsLeadTheDivergenceGate(t *testing.T) {
 	inv(t, camp, "INV-008", "liveness", "critical", "", "")
 	b, att := ledger(t, camp)
 	div := objAt(b, "divergence")
-	if !pyTruthy(div) || objBool(div, "closed") {
+	if !pyTruthyInt64Only(div) || objBool(div, "closed") {
 		t.Fatalf("the fixture must keep the divergence gate open")
 	}
 	lead := map[string]bool{}

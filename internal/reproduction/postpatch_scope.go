@@ -30,6 +30,7 @@ import (
 	"sort"
 	"strings"
 
+	"websec/internal/solscope"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -38,24 +39,56 @@ import (
 // (the bounded-output law — a vendored-deps patch must not flood the record).
 const postPatchScopeCap = 50
 
-// scopeExcludedDirs mirrors structidx's excludedDirs (parser.go): the scope
-// must cover exactly the surface the index (and PlantCheck) sees.
-var scopeExcludedDirs = map[string]bool{".git": true, "node_modules": true,
-	"__pycache__": true, "cache": true, "out": true}
+// postPatchScopeFilesCap / postPatchScopeBytesCap bound the WORK behind the
+// rows: the walk that collects .sol paths and the byte-equality reads that
+// compare them. The row output has always been capped (postPatchScopeCap);
+// without these a vendored tree (tens of thousands of sources, generated
+// megabyte files) makes the advisory walk and read unboundedly.
+const (
+	// Files: the walk keeps the lexically-first cap paths. A tree past the
+	// cap yields no diff at all (a truncated prefix would misreport tail
+	// files as removed) — one row says so instead.
+	postPatchScopeFilesCap = 20000
+	// Bytes: the total the equality pass may read across one diff. Once the
+	// budget is spent the remaining common files read as modified — the
+	// advisory must never call bytes "unchanged" that it did not read.
+	postPatchScopeBytesCap = 64 << 20
+)
+
+// H4: the exclude set is solscope's shared constant (the same one
+// structidx's collectFiles uses) — the scope must cover exactly the surface
+// the index (and PlantCheck) sees, and one shared definition is what keeps
+// that true when the set changes.
 
 // ScopeDiff is the changed-surface diff: relative .sol path sets over the
 // old and new snapshot trees. Rows are `~ <path>` modified, `+ <path>`
 // added, `- <path>` removed, sorted; capped at postPatchScopeCap rows plus
 // one `… and N more` overflow line. A missing/unreadable tree is an error
-// (the honest BLOCKED-shaped path — a garbage dir cannot diff).
+// (the honest BLOCKED-shaped path — a garbage dir cannot diff). The walk
+// and its byte-equality reads are bounded (postPatchScopeFilesCap /
+// postPatchScopeBytesCap); a tree past the file cap yields one explicit
+// "diff omitted" row rather than an unbounded or untrustworthy diff.
 func ScopeDiff(oldSnapshotDir, newSnapshotDir string) ([]string, error) {
-	oldFiles, err := scopeSolFiles(oldSnapshotDir)
+	return scopeDiffCapped(oldSnapshotDir, newSnapshotDir,
+		postPatchScopeFilesCap, postPatchScopeBytesCap)
+}
+
+// scopeDiffCapped is ScopeDiff with explicit caps (the tests drive small
+// ones; production always passes the constants above).
+func scopeDiffCapped(oldSnapshotDir, newSnapshotDir string, fileCap int,
+	byteCap int64) ([]string, error) {
+	oldFiles, oldTrunc, err := scopeSolFiles(oldSnapshotDir, fileCap)
 	if err != nil {
 		return nil, err
 	}
-	newFiles, err := scopeSolFiles(newSnapshotDir)
+	newFiles, newTrunc, err := scopeSolFiles(newSnapshotDir, fileCap)
 	if err != nil {
 		return nil, err
+	}
+	if oldTrunc || newTrunc {
+		return []string{fmt.Sprintf("! scope walk truncated at %d .sol "+
+			"files — diff omitted (snapshot too large to compare "+
+			"reliably)", fileCap)}, nil
 	}
 	oldSet, newSet := map[string]bool{}, map[string]bool{}
 	for _, f := range oldFiles {
@@ -64,13 +97,14 @@ func ScopeDiff(oldSnapshotDir, newSnapshotDir string) ([]string, error) {
 	for _, f := range newFiles {
 		newSet[f] = true
 	}
+	budget := byteCap
 	var rows []string
 	for _, f := range newFiles {
 		if !oldSet[f] {
 			rows = append(rows, "+ "+f)
 			continue
 		}
-		same, err := scopeSameBytes(oldSnapshotDir, newSnapshotDir, f)
+		same, err := scopeSameBytes(oldSnapshotDir, newSnapshotDir, f, &budget)
 		if err != nil {
 			return nil, err
 		}
@@ -92,10 +126,13 @@ func ScopeDiff(oldSnapshotDir, newSnapshotDir string) ([]string, error) {
 	return rows, nil
 }
 
-// scopeSolFiles is the snapshot's .sol surface: relative slash paths,
-// sorted, with structidx's excluded dirs skipped (cf. collectFiles).
-func scopeSolFiles(root string) ([]string, error) {
+// scopeSolFiles is the snapshot's .sol surface: relative slash paths, with
+// structidx's excluded dirs skipped (cf. collectFiles), the walk bounded at
+// fileCap (fs.SkipAll) so a huge tree costs at most fileCap directory reads.
+// The bool is true when the cap was hit; the slice is sorted either way.
+func scopeSolFiles(root string, fileCap int) ([]string, bool, error) {
 	var out []string
+	truncated := false
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry,
 		err error) error {
 		if err != nil {
@@ -103,7 +140,7 @@ func scopeSolFiles(root string) ([]string, error) {
 		}
 		name := d.Name()
 		if d.IsDir() {
-			if path != root && scopeExcludedDirs[name] {
+			if path != root && solscope.IsExcluded(name) {
 				return fs.SkipDir
 			}
 			return nil
@@ -116,36 +153,68 @@ func scopeSolFiles(root string) ([]string, error) {
 			return rerr
 		}
 		for _, part := range strings.Split(filepath.ToSlash(rel), "/") {
-			if scopeExcludedDirs[part] {
+			if solscope.IsExcluded(part) {
 				return nil
 			}
 		}
 		if filepath.Ext(path) != ".sol" {
 			return nil
 		}
+		if len(out) >= fileCap {
+			truncated = true
+			return fs.SkipAll
+		}
 		out = append(out, filepath.ToSlash(rel))
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	sort.Strings(out)
-	return out, nil
+	return out, truncated, nil
 }
 
-// scopeSameBytes reports whether the two trees hold identical bytes at rel.
-func scopeSameBytes(oldDir, newDir, rel string) (bool, error) {
-	oldRaw, err := os.ReadFile(filepath.Join(oldDir,
-		filepath.FromSlash(rel)))
+// scopeSameBytes reports whether the two trees hold identical bytes at rel,
+// drawing from the remaining byte budget: a pair larger than what remains is
+// reported MODIFIED without being read (an unread file is never "unchanged").
+func scopeSameBytes(oldDir, newDir, rel string, budget *int64) (bool, error) {
+	if *budget <= 0 {
+		return false, nil
+	}
+	oldPath := filepath.Join(oldDir, filepath.FromSlash(rel))
+	newPath := filepath.Join(newDir, filepath.FromSlash(rel))
+	size, err := scopePairBytes(oldPath, newPath)
 	if err != nil {
 		return false, err
 	}
-	newRaw, err := os.ReadFile(filepath.Join(newDir,
-		filepath.FromSlash(rel)))
+	if size > *budget {
+		*budget = 0
+		return false, nil
+	}
+	*budget -= size
+	oldRaw, err := os.ReadFile(oldPath)
+	if err != nil {
+		return false, err
+	}
+	newRaw, err := os.ReadFile(newPath)
 	if err != nil {
 		return false, err
 	}
 	return bytes.Equal(oldRaw, newRaw), nil
+}
+
+// scopePairBytes is the pair's on-disk size (the budget check that keeps an
+// oversized file from ever being read).
+func scopePairBytes(oldPath, newPath string) (int64, error) {
+	var total int64
+	for _, p := range []string{oldPath, newPath} {
+		info, err := os.Stat(p)
+		if err != nil {
+			return 0, err
+		}
+		total += info.Size()
+	}
+	return total, nil
 }
 
 // AppendScopeDetail rides scope rows on a Task 8 record's detail string:
@@ -188,7 +257,9 @@ func SetScopePlantAPI(api ScopePlantAPI) { scopePlant = api }
 // `patch plants risk: <archetype-id> <path>:<line> (hint-only — triage
 // decides)`; zero hits is `patch plants nothing new (N files checked)`.
 // Archetype order is AvailableArchetypes order (sorted, re-sorted here for
-// determinism) and rows sort before return.
+// determinism) and rows sort before return. The rows carry the scope rows'
+// overflow convention: postPatchScopeCap rows plus one `… and N more` line
+// (a chatty archetype over a huge changed set must not flood the record).
 func PlantCheck(c *state.Campaign, newSnapshotDir string,
 	changedFiles []string) ([]string, error) {
 	if scopePlant.BuildIndex == nil || scopePlant.ArchetypeIDs == nil ||
@@ -255,6 +326,11 @@ func PlantCheck(c *state.Campaign, newSnapshotDir string,
 		return []string{fmt.Sprintf(
 			"patch plants nothing new (%d files checked)",
 			len(changedFiles))}, nil
+	}
+	if len(rows) > postPatchScopeCap {
+		rest := len(rows) - postPatchScopeCap
+		rows = append(rows[:postPatchScopeCap],
+			fmt.Sprintf("… and %d more", rest))
 	}
 	return rows, nil
 }

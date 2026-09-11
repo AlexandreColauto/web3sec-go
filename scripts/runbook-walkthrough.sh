@@ -244,6 +244,62 @@ check baseline-add ok "baseline" §cheat -- "$WEBV2" --root . baseline add walkt
 check baseline-remove ok "removed" §cheat -- "$WEBV2" --root . baseline remove walkthrough
 check corpus-surface ok "corpus surface" §cheat -- "$WEBV2" --root . corpus-surface "$CID"
 
+# --- Wave G/I flags the walkthrough never exercised (Wave J Task 5) -----
+# `--backtest --baseline`, `ingest --from aderyn` and `model --facts` each
+# need state the walkthrough's own campaign does not have:
+#   * `--backtest` scores against the eval-suite store, and the campaign's
+#     program ("Runbook walkthrough") matches no suite case;
+#   * `--facts` merges onto model.components[], which the committed golden
+#     model.json does not carry — and the join is fail-closed (a fact
+#     matching ZERO components is an error, never a dropped row).
+# So they run on their OWN scratch campaign in this root, which leaves the
+# main campaign — and every row that depends on it — byte-untouched.
+WT_CID="$(q "$WEBV2" --root . init --program "SummerFi" \
+  | grep -oE 'C-[0-9a-f]+' | head -1)"
+[ -n "$WT_CID" ] || { echo "FAIL: flag-row campaign not created"; exit 1; }
+# The committed P4 eval store (4 adjudicated cases, one sharing the
+# campaign's program). The seam is empty-string-safe: evalstore reads
+# WEBV2_EVAL_DIR only when it is non-empty, so restoring "" restores the
+# default. It is restored immediately, before any other row runs.
+WT_EVAL_DIR="${WEBV2_EVAL_DIR:-}"
+export WEBV2_EVAL_DIR="$GO_ROOT/scripts/golden/p4/eval"
+check backtest-baselines ok "baseline always:|baseline never:|precision: 0/0" §5 -- \
+  "$WEBV2" --root . corpus-surface "$WT_CID" --backtest --baseline always --baseline never
+# BINARY-GATED: the tool baselines run the real slither/aderyn binaries. A
+# row that fails on a box without them is worse than no row, so it is
+# skipped unless both are present (mirrors the optional-tool idiom used
+# elsewhere in this repo — e.g. internal/harness's forge/libs probe).
+if command -v slither >/dev/null 2>&1 && command -v aderyn >/dev/null 2>&1; then
+  check backtest-tool-baselines ok "baseline slither:|baseline aderyn:|no local checkout" §5 -- \
+    "$WEBV2" --root . corpus-surface "$WT_CID" --backtest \
+    --baseline slither --baseline aderyn
+else
+  echo "[SKIP] §5      backtest-tool-baselines        slither/aderyn not on PATH"
+fi
+export WEBV2_EVAL_DIR="$WT_EVAL_DIR"
+# I2a: the detector lane over the committed Aderyn sample (pure JSON, no
+# binary at run time — `--from aderyn` parses a saved report).
+check ingest-aderyn ok "hypotheses created" §5 -- "$WEBV2" --root . ingest "$WT_CID" \
+  --from aderyn --json-file "$GO_ROOT/internal/datasets/aderyn/testdata/aderyn_sample.json"
+# I4: the checked-in operator-facts example. The model is generated inline
+# (the walkthrough already builds its fixtures this way) because a facts
+# document must name components the model actually declares.
+cat > "$RB/facts-model.json" <<'FACTSMODEL'
+{"protocol_id":"factsdemo","name":"Facts Demo",
+ "components":[
+  {"kind":"frontend","url":"https://app.example","trust":"semi-trusted",
+   "in_scope":true,"paid_for":true},
+  {"kind":"keeper-service","path":"apps/keeper","trust":"semi-trusted",
+   "in_scope":true,"paid_for":false}],
+ "contracts":[{"name":"Vault","path":"src/Vault.sol"}],
+ "actors":[{"id":"user","kind":"EOA"}],
+ "assets":[{"id":"share","kind":"share"}],
+ "relations":[]}
+FACTSMODEL
+check model-facts ok "facts: 2 applied (1 dns, 1 dependency) onto 2 components" §5 -- \
+  "$WEBV2" --root . model "$WT_CID" facts-model.json \
+  --facts "$GO_ROOT/assets/protocol/example_facts.json"
+
 # --- 5. floors + budget (RUNBOOK §5a; §cheat) ---------------------------
 check floors ok "floors" §5a -- "$WEBV2" --root . floors "$CID"
 check floors-set ok "floor policy set" §5a -- "$WEBV2" --root . floors "$CID" set reentrancy E5 \
@@ -395,6 +451,25 @@ check globalize ok "scope=global" §9 -- "$WEBV2" --root . globalize --actor ope
 check publish-global ok "global tier" §9 -- "$WEBV2" --root . publish "$CID" --actor operator --global
 check shared ok "shared" §9 -- "$WEBV2" --root . shared
 check shared-verify ok "shared" §9 -- "$WEBV2" --root . shared --verify
+# I6: `publish --disclosure` — the bundle is generated inline from the
+# CONFIRMED finding FID (the disclosure rule is fail-closed: an unknown or
+# unconfirmed id is refused). Its prose stays campaign-local; the publish
+# record carries only its sha256 and embargo date, and the extra output line
+# ends "recorded, not enforced" so an embargo is never read as a guarantee.
+cat > "$RB/disclosure.json" <<DISCLOSURE
+{
+  "schema_version": "1",
+  "finding_ids": ["$FID"],
+  "summary": "the vault releases collateral before the debt is burned",
+  "impact": "the attacker drains the pool at no cost",
+  "affected": [{"contract": "MiniVault", "chain": "ethereum", "path": "target/src/MiniVault.sol"}],
+  "embargo_until": "2026-10-01",
+  "contact": "security@example.invalid",
+  "reporter_credit": "walkthrough"
+}
+DISCLOSURE
+check publish-disclosure ok "recorded, not enforced" §9 -- "$WEBV2" --root . publish "$CID" \
+  --actor walkthrough --disclosure disclosure.json
 
 # --- money / economics / graph views (RUNBOOK §7u, §8; §cheat) ----------
 check cost ok "recorded COST-" §cheat -- "$WEBV2" --root . cost "$CID" --kind model --amount 12.50 \

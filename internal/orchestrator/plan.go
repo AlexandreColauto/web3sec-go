@@ -151,7 +151,7 @@ func (o *Orchestrator) writePlan(plan validation.Value, planPath string,
 
 // logReachability records the plan.reachability event when E5/E6 are blocked.
 func (o *Orchestrator) logReachability(reach validation.Value) error {
-	if !pyTruthy(objAt(reach, "e5")) && !pyTruthy(objAt(reach, "e6")) {
+	if !pyTruthyBigNonEmpty(objAt(reach, "e5")) && !pyTruthyBigNonEmpty(objAt(reach, "e6")) {
 		return nil
 	}
 	data := validation.VObj(

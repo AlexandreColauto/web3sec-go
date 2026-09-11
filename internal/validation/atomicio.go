@@ -180,6 +180,15 @@ func Sha256Hex(data []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// Sha12Hex is the deterministic-id derivation the ingest path and its
+// adapters share: the first 12 hex characters of the sha256 digest
+// (ingest's CASE- ids, the immunefi loader's case ids, H5's citation
+// digests). H11: the ingest and immunefi packages each kept a private twin
+// of this three-line function — one definition here, no drift.
+func Sha12Hex(data []byte) string {
+	return Sha256Hex(data)[:12]
+}
+
 // Sha256File is sha256_path: stream the file in 64KiB chunks.
 func Sha256File(path string) (string, error) {
 	fh, err := os.Open(path)

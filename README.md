@@ -5,7 +5,8 @@ The deterministic control plane for Web3 bug-bounty campaigns: one static
 surface that proves "same inputs → same bytes" without a model in the loop.
 
 **Go is the source of truth.** The Python twin (`web3sec-final`) was retired
-at the P4 cutover on 2026-09-09 (`docs/gates/P4-gate.md` §9.1). Campaign
+at the P4 cutover on 2026-09-09 (`docs/archive/README.md`; the as-built notes
+for every ported wave are in `docs/IMPROVEMENTS.md`). Campaign
 directories written by the reference stay readable forever — that promise is
 kept by a committed legacy fixture (`scripts/legacy/`) that `verify-full`
 step 9 audits with the Go binary. The port-era records (divergence ledger,
@@ -56,7 +57,7 @@ CID=$(ls campaigns | head -1)
 ./dist/webv2 --root . ingest $CID --json-file finding.json
 ./dist/webv2 --root . status $CID
 ./dist/webv2 --root . brief  $CID     # what matters now
-./dist/webv2 --root . audit  $CID     # 14-section integrity audit
+./dist/webv2 --root . audit  $CID     # 15-section integrity audit
 ```
 
 Campaign state lands in `campaigns/<C-id>/`: `events.jsonl` (hash-chained
@@ -104,7 +105,7 @@ scripts/            release.sh, runbook-walkthrough.sh, golden.sh,
 docs/gates/         per-phase gate reports (P0-P4)
 docs/archive/       frozen port-era records: the divergence ledger, the
                     twin-issue log, the Python-test accounting map
-docs/IMPROVEMENTS.md  the active campaign-improvement plan (waves A-E)
+docs/IMPROVEMENTS.md  the active campaign-improvement plan (waves A–J; K parked)
 docs/LEANNESS_REVIEW.md  the port-scaffolding removal plan (wave F)
 ```
 
@@ -114,21 +115,51 @@ docs/LEANNESS_REVIEW.md  the port-scaffolding removal plan (wave F)
 |------|---------|----------------|
 | self-check | `webv2 selftest [--full]` | assets, walkthrough, CLI audit, full suite |
 | unit + integration | `go test ./... -count=1` | the whole in-process suite, incl. the asset-pack manifest test |
-| golden suite | `scripts/golden.sh` | the deterministic recipe: exit codes, tree + event chain, 14-section audit surface |
+| golden suite | `scripts/golden.sh` | the deterministic recipe: exit codes, tree + event chain, 15-section audit surface |
 | RUNBOOK walkthrough | `scripts/runbook-walkthrough.sh` | every runbook command, documented exit code |
 | real containers | `scripts/p2-docker-e2e.sh` | docker exec (pass+fail) + anvil sequence end to end, plus the four `WEBV2_DOCKER_TESTS=1` package e2e tiers |
-| legacy compatibility | `scripts/verify-full.sh` step 9 | Go reads a reference-written campaign, all 14 sections clean |
+| legacy compatibility | `scripts/verify-full.sh` step 9 | Go reads a reference-written campaign, all 14 rendered sections clean (15 registered; `eval` is presence-gated) |
 | release | `scripts/release.sh` | static binary, embedded assets, standalone |
 
+The audit registers **15** sections; the 15th, `eval` (Wave G4), is
+presence-gated — it renders only when the campaign's program matches the
+gold-eval suite. Every other campaign's audit therefore shows the original
+**14**, which is why `scripts/check-golden.py` pins 14 and the golden /
+legacy fixtures carry no `eval` row.
+
 `scripts/verify-full.sh` runs every gate above except the release build in
-one fail-fast sequence — a clone of this repo alone is enough to run it.
+one fail-fast sequence — a clone of this repo alone runs it green (the two
+ambient fixtures below add coverage, they are not required to pass).
+
+Two ambient prerequisites are *not* part of a default clone, and the tests
+that need them SKIP with a reason rather than fail without them:
+
+- **forge libs** for the harness compile proof
+  (`internal/harness/harness_compile_test.go`): a directory holding both
+  `forge-std/src/Test.sol` and `halmos-cheatcodes/src/SymTest.sol`, looked up
+  as `$T16_LIBS`, then `<repo>/.scratch/t16-libs`, then `~/.foundry` /
+  `~/.config/.foundry` (each with or without a `lib/` level). Provision the
+  scratch copy with `git clone --depth 1
+  https://github.com/foundry-rs/forge-std .scratch/t16-libs/forge-std` and
+  `git clone --depth 1 https://github.com/a16z/halmos-cheatcodes
+  .scratch/t16-libs/halmos-cheatcodes` — nothing third-party is vendored
+  into this repository.
+- **the `sharevault` fixture checkout** for the corpus-surface e2e
+  (`internal/corpus/e2e_test.go`): a sibling directory
+  `<parent-of-repo>/sharevault/src`. It is a separate repository on purpose;
+  the test skips when it is absent, and nothing here moves it inside.
+
+Step 9 is also daemon-free by design: the docker e2e tiers live in
+`scripts/p2-docker-e2e.sh` and are never part of the 13-step gate.
 
 ## Docs
 
 - `assets/runbook/RUNBOOK.md` — the operator runbook (a test: the D7
   registry↔document check keeps it honest).
 - `docs/IMPROVEMENTS.md` — the improvement plan driven by real campaigns
-  (waves A–E) and its design principles, incl. the surface budget.
+  (waves A–J, with Wave K parked; navigate by heading — `## Wave G`, `## Wave H
+  — review backlog`, `## Wave I`, `# Wave J — definitive close-out`, `# Wave K`)
+  and its design principles, incl. the surface budget.
 - `docs/LEANNESS_REVIEW.md` — the wave-F leanness review (what was removed
   from the port scaffolding, and why the rest stayed).
 - `docs/runbook-go-notes.md` — RUNBOOK substitutions the Go binary needs

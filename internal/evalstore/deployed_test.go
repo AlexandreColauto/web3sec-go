@@ -85,15 +85,16 @@ func TestAddCaseWithoutDeployedAtStaysAbsent(t *testing.T) {
 
 // TestEvalSuiteRowsCarryDeployedAt: every checked-in suite row validates
 // under the amended evaluation_case schema AND carries a backfilled
-// YYYY-MM-DD deployed_at. 17 rows is the whole suite (Task 1's backfill
-// scope); a new row without a deployed_at fails here on purpose.
+// YYYY-MM-DD deployed_at. 19 rows is the whole suite (Task 1's 17-row
+// backfill scope + Wave J Task 3's two compiler-diversity fixtures); a new
+// row without a deployed_at fails here on purpose.
 func TestEvalSuiteRowsCarryDeployedAt(t *testing.T) {
 	cases, err := assets.LoadEvalCases()
 	if err != nil {
 		t.Fatalf("LoadEvalCases: %v", err)
 	}
-	if len(cases) != 17 {
-		t.Fatalf("suite has %d rows, want 17 — Task 1 backfills all 17", len(cases))
+	if len(cases) != 19 {
+		t.Fatalf("suite has %d rows, want 19 — Task 1 backfills 17, J-diversity adds 2", len(cases))
 	}
 	for i := range cases {
 		c := cases[i]

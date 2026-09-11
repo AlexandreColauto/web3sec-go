@@ -160,7 +160,7 @@ func isArtifactID(s string) bool {
 func invariantIDs(finding validation.Value) []string {
 	var ids []string
 	if inv := objAt(finding, "invariant"); inv.Kind == validation.Obj {
-		if id, ok := fieldAt(inv, "id"); ok && pyTruthy(id) {
+		if id, ok := fieldAt(inv, "id"); ok && validation.PyTruthy(id) {
 			ids = append(ids, normalizeValue(id))
 		}
 	}
@@ -173,7 +173,7 @@ func invariantIDs(finding validation.Value) []string {
 			continue
 		}
 		id, ok := fieldAt(s, "id")
-		if !ok || !pyTruthy(id) {
+		if !ok || !validation.PyTruthy(id) {
 			continue
 		}
 		nid := normalizeValue(id)

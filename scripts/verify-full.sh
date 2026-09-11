@@ -18,7 +18,8 @@
 #       produce a verdict, not a panic (Task 7 + hardening 7.2)
 #   9.  legacy cross-audit: a campaign written by the retired Python
 #       reference (committed fixture, scripts/legacy/) audits + verifies
-#       clean in Go, with all 14 sections and the P2/P3 state readable
+#       clean in Go, with all 14 rendered sections (15 registered; `eval` is
+#       presence-gated) and the P2/P3 state readable
 #  10.  P1 CLI smoke: the 21 P1 commands each invoked once in a valid shape
 #       against a scratch Go campaign, asserting documented exit codes
 #  11.  P2 CLI smoke: the P2 commands each invoked once in a valid shape
@@ -38,8 +39,9 @@
 # coverage with zero external dependencies. Steps 10-12 build their
 # campaigns with P2 state (exec/mint/ladder/chains/impact) AND P3 state
 # (snap/index/sinks/prescreen/probes+emit/relations, a disproved rung's
-# queued memory row, report.md), so the audit covers all 14 sections incl.
-# sequence_coverage and probe_surface.
+# queued memory row, report.md), so the audit covers all 14 rendered sections
+# (15 registered; `eval` is presence-gated) incl. sequence_coverage and
+# probe_surface.
 #
 # Exits non-zero at the first failing step, naming it.
 
@@ -490,7 +492,8 @@ echo "ok: 21 P1 commands exercised, exit codes as documented"
 #   impact --artifact    0   E7 evidence bound to a registered artifact
 #   impact --unpriceable 0   the named-decision path
 #   impact (incomplete)  2   documented refusal
-#   audit --json         0   all 14 sections, sequence_coverage included
+#   audit --json         0   all 14 rendered sections (15 registered; eval
+#                            presence-gated), sequence_coverage included
 #   verify               0   event-log integrity
 step 11 "P2 CLI smoke: exec ledger, mint, ladder, chains, impact, sequence"
 P1_SEED="verify-p2-smoke"
@@ -611,7 +614,8 @@ echo "ok: P2 commands exercised, exit codes as documented"
 #   run                        3  pipeline walk halts at the first model stage
 #   complete guard             2  documented refusal (short reason)
 #   complete                   0  completion
-#   audit / --json / verify    0  all 14 sections + event-log integrity
+#   audit / --json / verify    0  all 14 rendered sections (15 registered;
+#                                 eval presence-gated) + event-log integrity
 step 12 "P3 CLI smoke: index/probes/memory/publish/baselines/costs/run"
 P1_SEED="verify-p3-smoke"
 p1_step_reset
@@ -839,6 +843,12 @@ else
   fail 13 "runbook-walkthrough RED — the runbook and the binary disagree"
 fi
 echo "ok: runbook commands all match"
+# Wiring note (Wave J Task 5): this gate is daemon-free by design and must
+# stay that way, so the docker e2e tiers are NOT invoked here. Say so in the
+# gate output itself, not only in the README — a reader who sees 13/13 green
+# must know what it does not cover.
+echo "note: docker e2e tiers live in scripts/p2-docker-e2e.sh and are NOT part"
+echo "      of this gate — run them separately where the daemon is up"
 
 echo
 echo "VERIFY-FULL GREEN: all 13 steps pass"

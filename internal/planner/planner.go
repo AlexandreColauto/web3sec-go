@@ -147,8 +147,14 @@ func dropKey(o []validation.KV, key string) []validation.KV {
 	return o
 }
 
-// pyTruthy is Python truthiness over JSON-shaped values.
-func pyTruthy(v validation.Value) bool {
+// pyTruthyBigNonEmpty is a DIVERGENT pyTruthy variant (Wave J Task 7), NOT the
+// canonical form; it is named so the divergence is visible.
+// Rule: exactly validation.PyTruthy, except that an Int with any non-empty Big
+// text is truthy — including Big == "0", which validation.PyTruthy (and
+// CPython) reads falsy. The divergence is reachable only for Values that
+// violate jval's invariant that Big is set only when the integer does not fit
+// int64.
+func pyTruthyBigNonEmpty(v validation.Value) bool {
 	switch v.Kind {
 	case validation.Null:
 		return false

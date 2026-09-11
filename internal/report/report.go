@@ -86,7 +86,12 @@ func asObj(v validation.Value) validation.Value {
 	return v
 }
 
-func pyTruthy(v validation.Value) bool {
+// pyTruthyInt64Only is a DIVERGENT pyTruthy variant (Wave J Task 7), NOT the
+// canonical form; it is named so the divergence is visible.
+// Rule: exactly validation.PyTruthy, except that an Int reads only the int64
+// field I and ignores Big — so an integer that overflowed int64 (Big set,
+// I == 0) reads FALSE where validation.PyTruthy reads it true.
+func pyTruthyInt64Only(v validation.Value) bool {
 	switch v.Kind {
 	case validation.Null:
 		return false
@@ -163,7 +168,7 @@ func count(n int, singular string) string {
 func PrivilegedSection(campaign *state.Campaign) ([]string, error) {
 	modelPtr := privileged.LoadProtocolModel(campaign)
 	if modelPtr == nil || modelPtr.Kind != validation.Obj ||
-		!pyTruthy(objAt(*modelPtr, "privileges")) {
+		!pyTruthyInt64Only(objAt(*modelPtr, "privileges")) {
 		return nil, nil
 	}
 	if len(privileged.PrivilegedRoles(*modelPtr)) == 0 {
@@ -249,7 +254,7 @@ func ProbeSurfaceSection(campaign *state.Campaign) ([]string, error) {
 		"dispositioned, %d open)", intAt(summary, "rows"),
 		intAt(summary, "dispositioned"), intAt(summary, "open")))
 	staleNote := ""
-	if pyTruthy(objAt(summary, "stale")) {
+	if pyTruthyInt64Only(objAt(summary, "stale")) {
 		staleNote = " — **STALE**: the structural index has moved since this " +
 			"surface was built; re-run `webv2 probes " + campaign.CampaignID +
 			" run` and re-disposition what moved"
@@ -266,7 +271,7 @@ func ProbeSurfaceSection(campaign *state.Campaign) ([]string, error) {
 		}
 		var state string
 		switch {
-		case pyTruthy(objAt(d, "dispositioned")):
+		case pyTruthyInt64Only(objAt(d, "dispositioned")):
 			state = "**" + objStr(d, "status") + "**"
 			if objStr(d, "reason") != "" {
 				state += ": " + objStr(d, "reason")
@@ -664,7 +669,7 @@ func allFindingAccept(f validation.Value) string {
 }
 
 func allFindingSubmit(f validation.Value) string {
-	if pyTruthy(objAt(asObj(objAt(f, "bounty")), "submission_ready")) {
+	if pyTruthyInt64Only(objAt(asObj(objAt(f, "bounty")), "submission_ready")) {
 		return "yes"
 	}
 	return "—"
@@ -1057,7 +1062,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 		case "OUT_OF_SCOPE":
 			outOfScope++
 		}
-		if pyTruthy(objAt(asObj(objAt(f, "bounty")), "submission_ready")) {
+		if pyTruthyInt64Only(objAt(asObj(objAt(f, "bounty")), "submission_ready")) {
 			ready = append(ready, f)
 		}
 	}
@@ -1899,7 +1904,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	att := asObj(objAt(f, "attacker"))
 	if objStr(att, "profile") != "" {
 		capital := ""
-		if pyTruthy(objAt(att, "required_capital_usd")) {
+		if pyTruthyInt64Only(objAt(att, "required_capital_usd")) {
 			capital = " (capital: $" + pyCommaAuto(objAt(att, "required_capital_usd")) + ")"
 		}
 		out = append(out, "- attacker: "+objStr(att, "profile")+capital)
@@ -1921,7 +1926,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 			pyStr(objAt(iv, "recoverability")),
 			pyStr(objAt(iv, "insolvency_risk")), pyStr(objAt(iv, "score"))))
 	}
-	if reported := objAt(f, "reported_severity"); pyTruthy(reported) {
+	if reported := objAt(f, "reported_severity"); pyTruthyInt64Only(reported) {
 		band := "n/a"
 		if b := objAt(asObj(objAt(f, "risk")), "validated"); b.Kind == validation.Obj {
 			if bv := objAt(b, "band"); bv.Kind != validation.Null {

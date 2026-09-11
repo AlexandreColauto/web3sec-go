@@ -312,7 +312,7 @@ func coverageReasons(campaign *state.Campaign, finding, result,
 	declared := listOf(objAt(finding, "exploit_sequence"))
 	rawSteps := objAt(result, "steps")
 	executed := listOf(rawSteps)
-	if pyTruthy(rawSteps) && rawSteps.Kind != validation.Arr {
+	if validation.PyTruthy(rawSteps) && rawSteps.Kind != validation.Arr {
 		return []string{"executed steps in sequence_result.json is not a list"}
 	}
 	if len(executed) < len(declared) {
@@ -334,7 +334,7 @@ func coverageReasons(campaign *state.Campaign, finding, result,
 	}
 	rawSpecSteps := objAt(spec, "steps")
 	specSteps := listOf(rawSpecSteps)
-	if pyTruthy(rawSpecSteps) && rawSpecSteps.Kind != validation.Arr {
+	if validation.PyTruthy(rawSpecSteps) && rawSpecSteps.Kind != validation.Arr {
 		return []string{"staged spec.json steps is not a list"}
 	}
 	reasons = append(reasons, stepReasons(executed, specSteps)...)
@@ -358,7 +358,7 @@ func stepReasons(executed, specSteps []validation.Value) []string {
 				"step %d record is malformed", i+1))
 			continue
 		}
-		wantRevert := pyTruthy(objAt(specSteps[i], "expect_revert"))
+		wantRevert := validation.PyTruthy(objAt(specSteps[i], "expect_revert"))
 		status := objAt(s, "status")
 		reverted := status.Kind == validation.Str && status.S == "revert"
 		switch {
@@ -366,7 +366,7 @@ func stepReasons(executed, specSteps []validation.Value) []string {
 			reasons = append(reasons, fmt.Sprintf(
 				"step %d was expected to revert but the result records "+
 					"status %s", i+1, validation.PyRepr(status)))
-		case wantRevert && !pyTruthy(objAt(s, "revert_reason")):
+		case wantRevert && !validation.PyTruthy(objAt(s, "revert_reason")):
 			reasons = append(reasons, fmt.Sprintf(
 				"step %d reverted but records no revert reason", i+1))
 		case !wantRevert && !(status.Kind == validation.Str &&
@@ -403,7 +403,7 @@ func actorSet(steps []validation.Value) map[string]struct{} {
 		if s.Kind != validation.Obj {
 			continue
 		}
-		if actor := objAt(s, "actor"); pyTruthy(actor) {
+		if actor := objAt(s, "actor"); validation.PyTruthy(actor) {
 			out[valueKey(actor)] = struct{}{}
 		}
 	}
@@ -422,7 +422,7 @@ func missingActors(declared []validation.Value,
 			continue
 		}
 		actor := objAt(s, "actor")
-		if !pyTruthy(actor) {
+		if !validation.PyTruthy(actor) {
 			continue
 		}
 		if _, ok := executed[valueKey(actor)]; ok {

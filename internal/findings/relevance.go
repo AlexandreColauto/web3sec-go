@@ -85,7 +85,7 @@ func NondiscriminativeClasses() map[string]struct{} {
 
 // normTag is _norm_tag: str(value or "").strip().lower(), empty for absent.
 func normTag(v validation.Value) string {
-	if !pyTruthy(v) {
+	if !validation.PyTruthy(v) {
 		return ""
 	}
 	return pyStripLower(pyStr(v))
@@ -161,7 +161,7 @@ func MemoryRowRelevanceTags(row validation.Value) map[string][]string {
 	for l := range normCapValues(objAt(row, "required")) {
 		labels[l] = struct{}{}
 	}
-	if term := objAt(row, "terminal"); pyTruthy(term) {
+	if term := objAt(row, "terminal"); validation.PyTruthy(term) {
 		for l := range normCapValues(validation.VArr(term)) {
 			labels[l] = struct{}{}
 		}
@@ -337,7 +337,7 @@ func CorpusRecallGaps(campaign *state.Campaign) (validation.Value, error) {
 				for _, d := range disc.A {
 					labels[pyStr(d)] = struct{}{}
 				}
-			} else if !pyTruthy(objAt(c, "memory_ids")) {
+			} else if !validation.PyTruthy(objAt(c, "memory_ids")) {
 				noRows++
 			}
 		}

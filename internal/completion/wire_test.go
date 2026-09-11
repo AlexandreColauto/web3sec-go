@@ -103,7 +103,7 @@ func TestWiringPipelineAutoCompletes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !pyTruthy(objAt(proof, "done")) {
+	if !pyTruthyBigNonEmpty(objAt(proof, "done")) {
 		t.Fatalf("fixture proof does not hold: %s", pyJSONDumps(proof))
 	}
 	p := pipeline.New(c, noOrch{}, nil)
