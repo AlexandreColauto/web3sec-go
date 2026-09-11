@@ -449,7 +449,7 @@ func policyReason(ov validation.Value, path string) string {
 	if reason.Kind == validation.Str && reason.S != "" {
 		return reason.S
 	}
-	if !pyTruthy(reason) {
+	if !validation.PyTruthy(reason) {
 		return "declared in floor policy file " + filepath.Base(path)
 	}
 	return validation.PyRepr(reason)
@@ -461,31 +461,6 @@ func valueStr(v validation.Value) (string, bool) {
 		return v.S, true
 	}
 	return "", false
-}
-
-// pyTruthy is CPython truthiness over a Value: null/False/0/""/[]/{} are
-// false, everything else true.
-func pyTruthy(v validation.Value) bool {
-	switch v.Kind {
-	case validation.Null:
-		return false
-	case validation.Bool:
-		return v.B
-	case validation.Int:
-		if v.Big != "" {
-			return v.Big != "0"
-		}
-		return v.I != 0
-	case validation.Flt:
-		return v.F != 0
-	case validation.Str:
-		return v.S != ""
-	case validation.Arr:
-		return len(v.A) > 0
-	case validation.Obj:
-		return len(v.O) > 0
-	}
-	return false
 }
 
 // ---- local helpers -------------------------------------------------------

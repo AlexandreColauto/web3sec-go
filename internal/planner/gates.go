@@ -203,7 +203,7 @@ func lensClosed(l validation.Value, familiesOK bool) bool {
 	if reason.Kind != validation.Str || len(pyStrip(reason.S)) < 10 {
 		return false
 	}
-	if !pyTruthy(objAt(l, "closed_by")) {
+	if !pyTruthyBigNonEmpty(objAt(l, "closed_by")) {
 		return false
 	}
 	return familiesOK
@@ -252,7 +252,7 @@ func symmetryStub(uncovered []string) []string {
 func namedClasses(plan validation.Value) []string {
 	seen := map[string]struct{}{}
 	for _, p := range listOf(plan, "priorities") {
-		if bc := objAt(p, "bug_class"); pyTruthy(bc) {
+		if bc := objAt(p, "bug_class"); pyTruthyBigNonEmpty(bc) {
 			seen[pyStr(bc)] = struct{}{}
 		}
 	}

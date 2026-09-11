@@ -76,7 +76,7 @@ func surfaceIndex(surface validation.Value) (map[string]validation.Value,
 		if r.Kind != validation.Obj {
 			continue
 		}
-		if ax := objAt(r, "axis"); pyTruthy(ax) {
+		if ax := objAt(r, "axis"); pyTruthyBigNonEmpty(ax) {
 			rowsByAxis[pyStr(ax)] = append(rowsByAxis[pyStr(ax)], r)
 		}
 	}
@@ -88,7 +88,7 @@ func provenanceByRow(plan validation.Value) map[string]validation.Value {
 	byRow := map[string]validation.Value{}
 	for _, p := range listOf(plan, "priorities") {
 		prov, ok := probeProvenance(p)
-		if !ok || !pyTruthy(objAt(prov, "row_id")) {
+		if !ok || !pyTruthyBigNonEmpty(objAt(prov, "row_id")) {
 			continue
 		}
 		key := pyStr(objAt(prov, "row_id"))

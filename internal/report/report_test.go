@@ -31,7 +31,7 @@ import (
 	"websec/internal/validation"
 )
 
-// kv/objAt/listAt/asObj/pyTruthy/count live in report.go (same package).
+// kv/objAt/listAt/asObj/pyTruthyInt64Only/count live in report.go (same package).
 
 func seedSharedMemory(t *testing.T) {
 	t.Helper()

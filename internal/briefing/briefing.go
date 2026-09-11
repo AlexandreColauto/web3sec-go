@@ -377,11 +377,11 @@ func ChPrescreen(campaign *state.Campaign,
 		if r.Kind != validation.Obj {
 			continue
 		}
-		if pyTruthy(objAt(r, "forced")) {
+		if pyTruthyInt64Only(objAt(r, "forced")) {
 			forced = append(forced, objAt(r, "id"))
 		}
-		if !pyTruthy(objAt(r, "match")) &&
-			pyTruthy(objAt(r, "near_matches")) {
+		if !pyTruthyInt64Only(objAt(r, "match")) &&
+			pyTruthyInt64Only(objAt(r, "near_matches")) {
 			near = append(near, validation.KV{K: objStr(r, "id"),
 				V: objAt(r, "near_matches")})
 		}
@@ -789,13 +789,13 @@ func firstStamp(candidates ...string) *string {
 }
 
 func invariantsRankKey(item validation.Value) (bool, int64, string) {
-	return !pyTruthy(objAt(item, "high_consequence")),
+	return !pyTruthyInt64Only(objAt(item, "high_consequence")),
 		ageSortKey(intPtr(objAt(item, "age_seconds"))),
 		objStr(item, "invariant_id")
 }
 
 func leadRankKey(item validation.Value) (int, int64, string) {
-	high := pyTruthy(objAt(item, "high_consequence"))
+	high := pyTruthyInt64Only(objAt(item, "high_consequence"))
 	kind := objStr(item, "kind")
 	cls := 2
 	if kind == "queue" && high {
@@ -998,7 +998,7 @@ func AttentionLedger(campaign *state.Campaign, now string,
 			}
 			command := fmt.Sprintf("webv2 answered %s %s answered "+
 				"--reason R --actor A", cid, r.pid)
-			if pyTruthy(objAt(r.p, "probe")) {
+			if pyTruthyInt64Only(objAt(r.p, "probe")) {
 				command += " --anchor FIELD"
 			}
 			line := fmt.Sprintf("questions worked %d/%d — oldest untouched: "+
@@ -1107,7 +1107,7 @@ func AttentionLedger(campaign *state.Campaign, now string,
 	}
 	highCount := int64(0)
 	for _, it := range items {
-		if pyTruthy(objAt(it, "high_consequence")) {
+		if pyTruthyInt64Only(objAt(it, "high_consequence")) {
 			highCount++
 		}
 	}
@@ -1168,7 +1168,7 @@ func AttentionLedger(campaign *state.Campaign, now string,
 			named = objStr(items[0], "invariant_id")
 		}
 		for _, it := range items {
-			if pyTruthy(objAt(it, "high_consequence")) &&
+			if pyTruthyInt64Only(objAt(it, "high_consequence")) &&
 				objStr(it, "invariant_id") != named {
 				lines = append(lines, objStr(it, "line"))
 			}
@@ -1390,7 +1390,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 		if err != nil {
 			return validation.VNull(), err
 		}
-		keys[i] = e6key{pyTruthy(objAt(q, "mandatory")), k}
+		keys[i] = e6key{pyTruthyInt64Only(objAt(q, "mandatory")), k}
 	}
 	sort.SliceStable(e6List, func(i, j int) bool {
 		if keys[i].mandatory != keys[j].mandatory {
@@ -1631,18 +1631,18 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 		}
 		integProblems := []validation.KV{}
 		for _, sec := range asObj(objAt(report, "sections")).O {
-			if pyTruthy(objAt(sec.V, "problems")) {
+			if pyTruthyInt64Only(objAt(sec.V, "problems")) {
 				integProblems = append(integProblems, validation.KV{K: sec.K,
 					V: objAt(sec.V, "problems")})
 			}
 		}
-		if pyTruthy(objAt(shared, "problems")) {
+		if pyTruthyInt64Only(objAt(shared, "problems")) {
 			integProblems = append(integProblems, validation.KV{
 				K: "shared_store", V: objAt(shared, "problems")})
 		}
 		setKey(&brief, "integrity", validation.VObj(
-			kv("ok", validation.VBool(pyTruthy(objAt(report, "ok")) &&
-				pyTruthy(objAt(shared, "ok")))),
+			kv("ok", validation.VBool(pyTruthyInt64Only(objAt(report, "ok")) &&
+				pyTruthyInt64Only(objAt(shared, "ok")))),
 			kv("summary", validation.VStr(audit.AuditSummaryLine(report))),
 			kv("problems", validation.VObj(integProblems...)),
 			kv("shared_store", shared)))
@@ -1735,7 +1735,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	}
 
 	att, err := AttentionLedger(campaign, generatedAt, &campaign.CampaignID,
-		pyTruthy(objAt(campaignBlock, "closed")))
+		pyTruthyInt64Only(objAt(campaignBlock, "closed")))
 	if err != nil {
 		return validation.VNull(), err
 	}

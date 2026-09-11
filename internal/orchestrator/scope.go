@@ -67,14 +67,14 @@ func (o *Orchestrator) Snapshot(target string, opts SnapshotOpts) (validation.Va
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if opts.Deployment != nil && pyTruthy(*opts.Deployment) {
+	if opts.Deployment != nil && pyTruthyBigNonEmpty(*opts.Deployment) {
 		snap, err = snapshot.AttachDeploymentPin(o.C, strAt(snap, "snapshot_id"),
 			*opts.Deployment)
 		if err != nil {
 			return validation.VNull(), err
 		}
 	}
-	if opts.Chain != nil && pyTruthy(*opts.Chain) {
+	if opts.Chain != nil && pyTruthyBigNonEmpty(*opts.Chain) {
 		snap, err = snapshot.AttachChainPin(o.C, strAt(snap, "snapshot_id"),
 			*opts.Chain)
 		if err != nil {

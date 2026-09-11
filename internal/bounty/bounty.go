@@ -81,8 +81,14 @@ func getDefault(v validation.Value, key string, def validation.Value) validation
 	return def
 }
 
-// pyTruthy is Python truthiness for a JSON value.
-func pyTruthy(v validation.Value) bool {
+// pyTruthyBigNonEmpty is a DIVERGENT pyTruthy variant (Wave J Task 7), NOT the
+// canonical form; it is named so the divergence is visible.
+// Rule: exactly validation.PyTruthy, except that an Int with any non-empty Big
+// text is truthy — including Big == "0", which validation.PyTruthy (and
+// CPython) reads falsy. The divergence is reachable only for Values that
+// violate jval's invariant that Big is set only when the integer does not fit
+// int64.
+func pyTruthyBigNonEmpty(v validation.Value) bool {
 	switch v.Kind {
 	case validation.Null:
 		return false
@@ -228,7 +234,7 @@ func ExclusionHit(policy, finding validation.Value) (validation.Value, error) {
 		if !ok {
 			return validation.VNull(), fmt.Errorf("%s", validation.PyReprStr("pattern"))
 		}
-		if textHit(haystacks, pattern.S, pyTruthy(objAt(ex, "case_sensitive"))) {
+		if textHit(haystacks, pattern.S, pyTruthyBigNonEmpty(objAt(ex, "case_sensitive"))) {
 			return ex, nil
 		}
 	}
@@ -252,7 +258,7 @@ func AcceptedRiskHit(policy, finding validation.Value) (validation.Value, error)
 		if !ok {
 			return validation.VNull(), fmt.Errorf("%s", validation.PyReprStr("pattern"))
 		}
-		if textHit(haystacks, pattern.S, pyTruthy(objAt(ar, "case_sensitive"))) {
+		if textHit(haystacks, pattern.S, pyTruthyBigNonEmpty(objAt(ar, "case_sensitive"))) {
 			return ar, nil
 		}
 	}
@@ -291,10 +297,10 @@ func SeverityFor(policy, finding validation.Value) (string, string, error) {
 				continue
 			}
 			m := objAt(rule, "match")
-			if bc := objAt(m, "bug_classes"); pyTruthy(bc) && !inStringList(bc, class) {
+			if bc := objAt(m, "bug_classes"); pyTruthyBigNonEmpty(bc) && !inStringList(bc, class) {
 				continue
 			}
-			if br := objAt(m, "blast_radius"); pyTruthy(br) &&
+			if br := objAt(m, "blast_radius"); pyTruthyBigNonEmpty(br) &&
 				!inStringList(br, objStr(impact, "blast_radius")) {
 				continue
 			}
@@ -308,8 +314,8 @@ func SeverityFor(policy, finding validation.Value) (string, string, error) {
 					continue
 				}
 			}
-			if pyTruthy(objAt(m, "require_invariant_violation")) &&
-				!pyTruthy(objAt(objAt(finding, "invariant"), "violation_demonstrated")) {
+			if pyTruthyBigNonEmpty(objAt(m, "require_invariant_violation")) &&
+				!pyTruthyBigNonEmpty(objAt(objAt(finding, "invariant"), "violation_demonstrated")) {
 				continue
 			}
 			return sev, "matched severity rule for " + sev, nil
@@ -530,7 +536,7 @@ func ladderDisposition(campaign *state.Campaign,
 	}
 	stateV := objAt(objAt(lad, "disposition"), "state")
 	st := "open"
-	if pyTruthy(stateV) {
+	if pyTruthyBigNonEmpty(stateV) {
 		st = pyStrAny(stateV)
 	}
 	return st, lad, nil
@@ -813,7 +819,7 @@ func (g *gate) check6() error {
 
 // check6Fork is the require_fork_repro clause of check 6.
 func (g *gate) check6Fork(req validation.Value) error {
-	if !pyTruthy(objAt(req, "require_fork_repro")) {
+	if !pyTruthyBigNonEmpty(objAt(req, "require_fork_repro")) {
 		return nil
 	}
 	repro := objAt(objAt(g.f, "verification"), "reproduction")
@@ -830,7 +836,7 @@ func (g *gate) check6Fork(req validation.Value) error {
 
 // check6Economic is the require_economic_quantification clause of check 6.
 func (g *gate) check6Economic(req validation.Value) error {
-	if !pyTruthy(objAt(req, "require_economic_quantification")) {
+	if !pyTruthyBigNonEmpty(objAt(req, "require_economic_quantification")) {
 		return nil
 	}
 	usd := objAt(objAt(g.f, "economic_impact"), "extractable_usd")
@@ -873,7 +879,7 @@ func (g *gate) check7() error {
 			"ladder closed (maximal: "+pyStrAny(objAt(lad, "maximal_rung_id"))+")", "")
 	case "waived":
 		reason := objAt(objAt(lad, "disposition"), "reason")
-		if !pyTruthy(reason) {
+		if !pyTruthyBigNonEmpty(reason) {
 			reason = validation.VStr("")
 		}
 		g.add("maximal-exploitation", "pass", "ladder waived: "+
@@ -919,7 +925,7 @@ func (g *gate) check8() error {
 	sort.Strings(usdKeys)
 	basis := objAt(ei, "price_basis")
 	row := validation.VNull()
-	if pyTruthy(basis) && basis.Kind == validation.Str {
+	if pyTruthyBigNonEmpty(basis) && basis.Kind == validation.Str {
 		var err error
 		row, err = priceRowFunc(g.campaign, basis.S)
 		if err != nil {

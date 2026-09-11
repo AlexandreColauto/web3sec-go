@@ -83,7 +83,7 @@ func IsSequenceRequired(finding validation.Value) bool {
 		if s.Kind != validation.Obj {
 			continue
 		}
-		if actor := objAt(s, "actor"); pyTruthy(actor) {
+		if actor := objAt(s, "actor"); validation.PyTruthy(actor) {
 			actors[valueKey(actor)] = struct{}{}
 		}
 	}
@@ -107,7 +107,7 @@ func SnapshotHasForkTarget(campaign *state.Campaign) bool {
 	if err != nil {
 		return false
 	}
-	return pyTruthy(objAt(pin, "deployment")) || pyTruthy(objAt(pin, "chain"))
+	return validation.PyTruthy(objAt(pin, "deployment")) || validation.PyTruthy(objAt(pin, "chain"))
 }
 
 // OnchainSequenceRequired is onchain_sequence_required: the ON-CHAIN-shaped
@@ -245,23 +245,23 @@ func checkAssertionFields(i int, a, actors validation.Value,
 	kind := objStr(a, "kind")
 	switch kind {
 	case "balance":
-		if !pyTruthy(objAt(a, "account")) {
+		if !validation.PyTruthy(objAt(a, "account")) {
 			return fail(fmt.Sprintf("final_assertions[%d].account", i),
 				"required for kind 'balance' (native ETH balance)")
 		}
 	case "storage":
-		if !pyTruthy(objAt(a, "target")) || !pyTruthy(objAt(a, "slot")) {
+		if !validation.PyTruthy(objAt(a, "target")) || !validation.PyTruthy(objAt(a, "slot")) {
 			return fail(fmt.Sprintf("final_assertions[%d]", i),
 				"kind 'storage' requires both 'target' and 'slot'")
 		}
 	case "call":
-		if !pyTruthy(objAt(a, "target")) || !pyTruthy(objAt(a, "function")) {
+		if !validation.PyTruthy(objAt(a, "target")) || !validation.PyTruthy(objAt(a, "function")) {
 			return fail(fmt.Sprintf("final_assertions[%d]", i),
 				"kind 'call' requires both 'target' and 'function'")
 		}
 	}
 	acct := objAt(a, "account")
-	if !pyTruthy(acct) {
+	if !validation.PyTruthy(acct) {
 		return nil
 	}
 	if acct.Kind == validation.Str && addrRe.MatchString(acct.S) {
@@ -346,30 +346,6 @@ func valueKey(v validation.Value) string {
 		return "n:None"
 	}
 	return "r:" + validation.PyRepr(v)
-}
-
-// pyTruthy is Python truthiness for a decoded JSON value.
-func pyTruthy(v validation.Value) bool {
-	switch v.Kind {
-	case validation.Null:
-		return false
-	case validation.Bool:
-		return v.B
-	case validation.Int:
-		if v.Big != "" {
-			return v.Big != "0"
-		}
-		return v.I != 0
-	case validation.Flt:
-		return v.F != 0
-	case validation.Str:
-		return v.S != ""
-	case validation.Arr:
-		return len(v.A) > 0
-	case validation.Obj:
-		return len(v.O) > 0
-	}
-	return false
 }
 
 // pyStr is Python str(v) for a JSON scalar (str and repr agree outside str).

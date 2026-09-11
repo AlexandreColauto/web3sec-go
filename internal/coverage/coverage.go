@@ -369,14 +369,14 @@ func sweepRow(row validation.Value, trajectory string, opts SweepOpts) (validati
 
 	epr := numOrZero(objAt(row, "entry_points_reviewed")).addInt(opts.EntryPointsReviewed)
 	eprCap := numInt(opts.EntryPointsReviewed)
-	if pyTruthy(objAt(row, "entry_points_total")) {
+	if validation.PyTruthy(objAt(row, "entry_points_total")) {
 		eprCap = numOf(objAt(row, "entry_points_total"))
 	}
 	row.O = validation.SetOrAppend(row.O, "entry_points_reviewed", epr.min(eprCap).value())
 
 	fr := numOrZero(objAt(row, "functions_reviewed")).addInt(opts.FunctionsReviewed)
 	frCap := numInt(opts.FunctionsReviewed)
-	if pyTruthy(objAt(row, "functions_total")) {
+	if validation.PyTruthy(objAt(row, "functions_total")) {
 		frCap = numOf(objAt(row, "functions_total"))
 	}
 	row.O = validation.SetOrAppend(row.O, "functions_reviewed", fr.min(frCap).value())
@@ -400,7 +400,7 @@ func sweepRow(row validation.Value, trajectory string, opts SweepOpts) (validati
 // thoroughness is the row's density: round(reviewed/total, 3), or null when
 // the total is falsy.
 func thoroughness(reviewed, total validation.Value) validation.Value {
-	if !pyTruthy(total) {
+	if !validation.PyTruthy(total) {
 		return validation.VNull()
 	}
 	return validation.VFloat(validation.PythonRound(numOrZero(reviewed).div(total), 3))
@@ -516,7 +516,7 @@ func RefreshGaps(c *state.Campaign, model validation.Value) ([]validation.Value,
 		switch {
 		case status.S == "unknown":
 			priority := 0.5
-			if pyTruthy(objAt(row, "entry_points_total")) {
+			if validation.PyTruthy(objAt(row, "entry_points_total")) {
 				priority = 0.9
 			}
 			gaps = append(gaps, gapRow(path.S+" has never been swept",
@@ -530,14 +530,14 @@ func RefreshGaps(c *state.Campaign, model validation.Value) ([]validation.Value,
 	if err != nil {
 		return nil, err
 	}
-	if pyTruthy(dep) {
+	if validation.PyTruthy(dep) {
 		if unverified := unverifiedContracts(dep); unverified > 0 {
 			gaps = append(gaps, gapRow(fmt.Sprintf("%d deployed contracts have unverified source",
 				unverified), "unverified-deployment", objAt(dep, "network"), 0.8))
 		}
 	}
 	for _, q := range listField(model, "open_questions") {
-		if pyTruthy(objAt(q, "resolved")) {
+		if validation.PyTruthy(objAt(q, "resolved")) {
 			continue
 		}
 		question, err := reqKey(q, "question")
@@ -594,7 +594,7 @@ func activeDeployment(c *state.Campaign) (validation.Value, error) {
 		return validation.VNull(), err
 	}
 	sid := objAt(st, "active_snapshot_id")
-	if !pyTruthy(sid) {
+	if !validation.PyTruthy(sid) {
 		return validation.VNull(), nil
 	}
 	p := filepath.Join(c.Dir, "snapshots", sid.S, "snapshot.json")
@@ -605,7 +605,7 @@ func activeDeployment(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if !pyTruthy(doc) {
+	if !validation.PyTruthy(doc) {
 		doc = validation.VObj()
 	}
 	return objAt(doc, "deployment"), nil
@@ -647,7 +647,7 @@ func UpdateFunnel(c *state.Campaign) (validation.Value, error) {
 		}))),
 		kv("submission_ready", validation.VInt(countFindings(found,
 			func(f validation.Value) bool {
-				return pyTruthy(objAt(objAt(f, "bounty"), "submission_ready"))
+				return validation.PyTruthy(objAt(objAt(f, "bounty"), "submission_ready"))
 			}))),
 	)
 	cov, err := Load(c)
@@ -676,7 +676,7 @@ func countFindings(found []validation.Value, pred func(validation.Value) bool) i
 // {}).get("status"): "" when any link is absent or falsy.
 func reproductionStatus(f validation.Value) string {
 	verification := objAt(f, "verification")
-	if !pyTruthy(verification) {
+	if !validation.PyTruthy(verification) {
 		return ""
 	}
 	repro, ok := lookup(verification, "reproduction")
@@ -891,28 +891,6 @@ func getOr(v validation.Value, key string, def validation.Value) validation.Valu
 	return def
 }
 
-// pyTruthy is CPython truthiness: null/False/0/0.0/""/[]/{} are false.
-func pyTruthy(v validation.Value) bool {
-	switch v.Kind {
-	case validation.Null:
-		return false
-	case validation.Bool:
-		return v.B
-	case validation.Int:
-		if v.Big != "" {
-			return v.Big != "0"
-		}
-		return v.I != 0
-	case validation.Flt:
-		return v.F != 0
-	case validation.Str:
-		return v.S != ""
-	case validation.Arr, validation.Obj:
-		return len(v.A)+len(v.O) > 0
-	}
-	return false
-}
-
 // ---- Python number arithmetic --------------------------------------------
 
 // pynum is a Python number for the ledger arithmetic: an exact rational plus
@@ -953,7 +931,7 @@ func numOf(v validation.Value) pynum {
 // numOrZero is Python's `x or 0`: a falsy value (including a missing key) is
 // the int 0.
 func numOrZero(v validation.Value) pynum {
-	if !pyTruthy(v) {
+	if !validation.PyTruthy(v) {
 		return numInt(0)
 	}
 	return numOf(v)

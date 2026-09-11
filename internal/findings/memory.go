@@ -272,7 +272,7 @@ func memoryCheckEntry(c validation.Value,
 			validation.KV{K: "reason", V: validation.VStr(reason)},
 		)
 	}
-	if note := objAt(c, "note"); pyTruthy(note) {
+	if note := objAt(c, "note"); validation.PyTruthy(note) {
 		entry.O = append(entry.O, validation.KV{K: "note", V: note})
 	}
 	return memoryCheckKey(ids, mode), entry, gap, nil

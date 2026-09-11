@@ -94,7 +94,7 @@ func GenerateImmunefi(campaign *state.Campaign) ([]string, error) {
 	// flag, re-read after the refresh above.
 	ready := []validation.Value{}
 	for _, f := range all {
-		if pyTruthy(objAt(asObj(objAt(f, "bounty")), "submission_ready")) {
+		if pyTruthyInt64Only(objAt(asObj(objAt(f, "bounty")), "submission_ready")) {
 			ready = append(ready, f)
 		}
 	}
@@ -305,7 +305,7 @@ func immunefiSeverity(f, policy validation.Value) immunefiSection {
 		body = append(body, fmt.Sprintf("- class: `%s`%s", class,
 			classAliasSuffixSpaced(class)))
 	}
-	if reported := objAt(f, "reported_severity"); pyTruthy(reported) {
+	if reported := objAt(f, "reported_severity"); pyTruthyInt64Only(reported) {
 		band := "n/a"
 		if b := asObj(objAt(asObj(objAt(f, "risk")), "validated")); b.Kind == validation.Obj {
 			if bv := objAt(b, "band"); bv.Kind != validation.Null {

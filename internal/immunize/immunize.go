@@ -224,7 +224,7 @@ func IsImmunized(f validation.Value) bool {
 	return isTrue(objAt(pv, "patch_blocks_poc")) &&
 		intEq(objAt(pv, "boundary_mutations_tested"), MinMutations) &&
 		isFalse(objAt(pv, "boundary_bypass_found")) &&
-		pyTruthy(objAt(pv, "artifact_id"))
+		pyTruthyLenientContainers(objAt(pv, "artifact_id"))
 }
 
 // ImmunizationDetail is immunization_detail: (state, detail) for gate/report
@@ -235,7 +235,7 @@ func ImmunizationDetail(f validation.Value) (string, string) {
 		return "missing", "no patch verification recorded (webv2 " +
 			"immunize ... against the FORK PoC)"
 	}
-	if pyTruthy(objAt(pv, "boundary_bypass_found")) {
+	if pyTruthyLenientContainers(objAt(pv, "boundary_bypass_found")) {
 		return "bypass", "boundary bypass found: " +
 			truncate(pyStr(objAt(pv, "bypass")), 60) +
 			" — the patch does not hold"
@@ -309,8 +309,12 @@ func pyStr(v validation.Value) string {
 	return validation.PyRepr(v)
 }
 
-// pyTruthy is Python truthiness for the scalar shapes this module reads.
-func pyTruthy(v validation.Value) bool {
+// pyTruthyLenientContainers is a DIVERGENT pyTruthy variant (Wave J Task 7),
+// NOT the canonical form; it is named so the divergence is visible.
+// Rule: exactly validation.PyTruthy, except (a) empty arrays and objects read
+// TRUTHY (CPython and validation.PyTruthy read them falsy) and (b) an Int with
+// any non-empty Big text is truthy (Big == "0" included).
+func pyTruthyLenientContainers(v validation.Value) bool {
 	switch v.Kind {
 	case validation.Null:
 		return false

@@ -291,7 +291,7 @@ func AuditStageLedger(c *state.Campaign) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		if pr.Kind == validation.Obj && !pyTruthy(objAt(pr, "done")) {
+		if pr.Kind == validation.Obj && !pyTruthyBigNonEmpty(objAt(pr, "done")) {
 			missing := strList(objAt(pr, "missing"))
 			head := missing
 			if len(head) > 5 {

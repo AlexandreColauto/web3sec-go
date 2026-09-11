@@ -56,7 +56,7 @@ func triageRow(f validation.Value) (validation.Value, error) {
 	checks := listAt(asDict(objAt(f, "provenance")), "memory_checks")
 	historical := false
 	for _, c := range checks {
-		if c.Kind == validation.Obj && pyTruthy(objAt(c, "memory_ids")) {
+		if c.Kind == validation.Obj && pyTruthyBigNonEmpty(objAt(c, "memory_ids")) {
 			historical = true
 			break
 		}
@@ -75,7 +75,7 @@ func triageRow(f validation.Value) (validation.Value, error) {
 		v := numAt(att, "required_capital_usd")
 		capital = &v
 	}
-	prior := risk.PriorRisk(class, !pyTruthy(objAt(att, "required_privileges")),
+	prior := risk.PriorRisk(class, !pyTruthyBigNonEmpty(objAt(att, "required_privileges")),
 		true, historical, invariantID, capital)
 	cost := risk.ValidationCost(class, true, false)
 	slot := planner.DecisionRule(numAt(prior, "score"), cost)

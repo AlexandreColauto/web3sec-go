@@ -119,7 +119,7 @@ func (f *floorCurrent) set(ref, data validation.Value) {
 		f.order = append(f.order, k)
 	}
 	f.ref[k] = ref
-	if pyTruthy(data) {
+	if validation.PyTruthy(data) {
 		f.val[k] = data
 	} else {
 		f.val[k] = validation.VObj()

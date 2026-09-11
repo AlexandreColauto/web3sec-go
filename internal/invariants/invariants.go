@@ -133,27 +133,6 @@ func pyStr(v validation.Value) string {
 	}
 	return validation.PyRepr(v)
 }
-
-// pyTruthy is CPython truthiness (0/""/[]/{}/None/False are falsy).
-func pyTruthy(v validation.Value) bool {
-	switch v.Kind {
-	case validation.Null:
-		return false
-	case validation.Bool:
-		return v.B
-	case validation.Int:
-		if v.Big != "" {
-			return v.Big != "0"
-		}
-		return v.I != 0
-	case validation.Flt:
-		return v.F != 0
-	case validation.Str:
-		return v.S != ""
-	}
-	return len(v.A) > 0 || len(v.O) > 0
-}
-
 func strPtr(s string) *string { return &s }
 
 func inList(list []string, s string) bool {
@@ -419,7 +398,7 @@ func seedLiveness(c *state.Campaign, model validation.Value, reg *validation.Val
 	}
 	var machines []string
 	for _, sm := range objAt(model, "state_machines").A {
-		if name, ok := fieldAt(sm, "name"); ok && pyTruthy(name) {
+		if name, ok := fieldAt(sm, "name"); ok && validation.PyTruthy(name) {
 			machines = append(machines, pyStr(name))
 		}
 	}

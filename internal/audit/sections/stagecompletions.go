@@ -37,7 +37,7 @@ func StageCompletions(c *state.Campaign) (validation.Value, error) {
 		if pr.Kind != validation.Obj || len(pr.O) == 0 {
 			continue // Python `if pr`
 		}
-		if pyTruthy(objAt(pr, "authoritative")) || pyTruthy(objAt(pr, "done")) {
+		if validation.PyTruthy(objAt(pr, "authoritative")) || validation.PyTruthy(objAt(pr, "done")) {
 			continue
 		}
 		entry := orEmptyObj(objAt(ledger, kv.K))

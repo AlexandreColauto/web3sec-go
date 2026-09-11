@@ -433,7 +433,7 @@ func nextPriorityID(pid string) string {
 func findingClass(finding validation.Value) string {
 	rootCause := objAt(finding, "root_cause")
 	cls := objAt(rootCause, "class")
-	if !pyTruthy(cls) {
+	if !pyTruthyBigNonEmpty(cls) {
 		cls = objAt(finding, "bug_class")
 	}
 	known := taxonomy.KnownClasses()

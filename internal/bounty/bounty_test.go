@@ -1240,7 +1240,7 @@ func TestWaivedCheckClearsSubmissionReady(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if ready := objAt(got, "submission_ready"); !pyTruthy(ready) {
+			if ready := objAt(got, "submission_ready"); !pyTruthyBigNonEmpty(ready) {
 				t.Errorf("submission_ready = %s, want True (the waiver "+
 					"answered the blocking check)", validation.PyRepr(ready))
 			}

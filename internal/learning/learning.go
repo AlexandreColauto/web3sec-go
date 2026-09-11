@@ -144,13 +144,13 @@ func QueueMemory(c *state.Campaign, o QueueOpts) (validation.Value, error) {
 		mem.O = append(mem.O, kv("deciding_propositions",
 			validation.VArr(o.DecidingPropositions...)))
 	}
-	if o.Negative != nil && pyTruthy(*o.Negative) {
+	if o.Negative != nil && validation.PyTruthy(*o.Negative) {
 		mem.O = append(mem.O, kv("negative_mode", *o.Negative))
 	}
-	if o.Detector != nil && pyTruthy(*o.Detector) {
+	if o.Detector != nil && validation.PyTruthy(*o.Detector) {
 		mem.O = append(mem.O, kv("detector", *o.Detector))
 	}
-	if o.Regression != nil && pyTruthy(*o.Regression) {
+	if o.Regression != nil && validation.PyTruthy(*o.Regression) {
 		mem.O = append(mem.O, kv("regression", *o.Regression))
 	}
 	// Capability labels (B3/D2): a row derived from a finding carries that
