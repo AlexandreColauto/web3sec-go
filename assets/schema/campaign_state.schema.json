@@ -124,6 +124,49 @@
       }
     },
 
+    "eval_adjudications": {
+      "type": "array",
+      "description": "NON-GOLD ADJUDICATIONS for live findings that match no gold anchor. The eval join calls every unanchored live finding a false positive; that conflates three different states of the world - the finding is wrong, the finding is right but absent from the gold dataset, or the finding rests on an assumption the campaign could not discharge. One row per finding, replacing any prior row for that finding. Written by webv2 adjudicate; read by internal/evalscore.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["finding", "verdict", "basis", "reason", "actor", "at"],
+        "properties": {
+          "finding":    { "type": "string", "minLength": 1, "description": "the live finding id (F-xxxxxxxxxxxx) this row adjudicates" },
+          "verdict":    { "type": "string", "enum": ["additional-true-positive", "false-positive", "assumption-gated"] },
+          "severity":   { "type": "string", "enum": ["tbd", "low", "medium", "high", "critical"] },
+          "basis":      { "type": "string", "enum": ["dataset-cross-check", "author-review", "reproduction", "code-argument"] },
+          "assumption": { "type": "string", "minLength": 1, "description": "REQUIRED iff verdict is assumption-gated: the assumption that must hold for the finding to be real. Forbidden otherwise." },
+          "exec":       { "type": "string", "minLength": 1, "description": "optional EXEC-xxx reproduction link" },
+          "reason":     { "type": "string", "minLength": 10, "pattern": "\\S", "description": "a written reason of at least 10 chars that is not blank (evalscore.Validate trims before measuring, so whitespace-only text is not a reason)" },
+          "actor":      { "type": "string", "minLength": 1 },
+          "at":         { "type": "string" }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": ["verdict"],
+              "properties": {"verdict": {"const": "assumption-gated"}}
+            },
+            "then": {
+              "required": ["assumption"],
+              "properties": {"assumption": {"type": "string"}}
+            }
+          },
+          {
+            "if": {
+              "required": ["assumption"],
+              "properties": {"assumption": {"type": "string"}}
+            },
+            "then": {
+              "required": ["verdict"],
+              "properties": {"verdict": {"const": "assumption-gated"}}
+            }
+          }
+        ]
+      }
+    },
+
     "stages": {
       "type": "object",
       "description": "per-stage execution ledger: status, attempts, last model/stage ids. Discovery-stage sweep keys may name any discovery trajectory (code, economic, state-machine, attacker, historical, integration, drift, lifecycle, chain).",

@@ -42,7 +42,7 @@ func TestInitCreatesLayout(t *testing.T) {
 	wantKeys := []string{"campaign_id", "program", "created_at", "updated_at",
 		"phase", "phase_history", "halt_reason", "budget", "snapshots",
 		"active_snapshot_id", "artifacts", "stages", "events", "policy_path",
-		"floor_policy", "probe_blanks"}
+		"floor_policy", "probe_blanks", "eval_adjudications"}
 	if len(st.O) != len(wantKeys) {
 		t.Fatalf("state key count: %d", len(st.O))
 	}

@@ -1,8 +1,12 @@
 package evalscore
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"websec/internal/state"
@@ -157,5 +161,263 @@ func TestScoreEndToEnd(t *testing.T) {
 	}
 	if r.PrecisionLine != "precision: 1/2 (95% CI 9.5–90.5%)" {
 		t.Fatalf("precision: %q", r.PrecisionLine)
+	}
+}
+
+// goldCaseAccept is goldCase plus the eval spec's bug_class_accept list.
+func goldCaseAccept(id, program, outcome, class string, accept []string,
+	files ...string) validation.Value {
+	c := goldCase(id, program, outcome, class, files...)
+	items := make([]validation.Value, 0, len(accept))
+	for _, a := range accept {
+		items = append(items, validation.VStr(a))
+	}
+	g := obj(c, "gold")
+	g.O = append(g.O, kvE("bug_class_accept", validation.VArr(items...)))
+	c.O = validation.SetOrAppend(c.O, "gold", g)
+	return c
+}
+
+// TestAnchorBugClassAccept: the class leg of the anchor accepts the gold
+// bug_class OR any class the eval spec listed in bug_class_accept, and
+// nothing else moves — a class in neither list does not anchor, the
+// location suffix rule is unchanged, and a row WITHOUT the list behaves
+// exactly as before the key existed.
+func TestAnchorBugClassAccept(t *testing.T) {
+	caseDoc := goldCaseAccept("CASE-A", "p1", "confirmed-exploitable",
+		"dos-griefing", []string{"logic-error", "economic-invariant"},
+		"gold/Rollup.sol")
+	gold := obj(caseDoc, "gold")
+	if !anchor(finding("dos-griefing", "src/Rollup.sol"), gold) {
+		t.Fatal("the gold bug_class must still anchor")
+	}
+	if !anchor(finding("logic-error", "src/Rollup.sol"), gold) {
+		t.Fatal("a class ONLY in bug_class_accept must anchor")
+	}
+	if !anchor(finding("economic-invariant", "src/Rollup.sol"), gold) {
+		t.Fatal("every class in bug_class_accept must anchor")
+	}
+	if anchor(finding("reentrancy", "src/Rollup.sol"), gold) {
+		t.Fatal("a class in neither the gold class nor the accept list " +
+			"must NOT anchor")
+	}
+	if anchor(finding("logic-error", "src/Other.sol"), gold) {
+		t.Fatal("an accepted class at the wrong path must NOT anchor — the " +
+			"accept list is not a weakening of the location rule")
+	}
+	// The accept leg moves the HIT count, not only the predicate.
+	r := ScoreSuite([]string{"p1"}, map[string][]validation.Value{
+		"p1": {finding("logic-error", "src/Rollup.sol")},
+	}, []validation.Value{caseDoc})
+	if r.Hits != 1 || r.RecallLine != "recall: 1/1 (95% CI 20.7–100.0%)" {
+		t.Fatalf("accept-list hit not counted: %+v", r)
+	}
+
+	// Absent field: equality only, exactly as before.
+	plain := obj(goldCase("CASE-B", "p1", "confirmed-exploitable",
+		"access-control", "gold/Vault.sol"), "gold")
+	if !anchor(finding("access-control", "src/Vault.sol"), plain) {
+		t.Fatal("a gold row without bug_class_accept must still anchor its " +
+			"own class")
+	}
+	if anchor(finding("logic-error", "src/Vault.sol"), plain) {
+		t.Fatal("a gold row without bug_class_accept must anchor no other " +
+			"class")
+	}
+	if anchor(finding("", "src/Vault.sol"), plain) {
+		t.Fatal("a finding with no class must never anchor")
+	}
+
+	// Empty list: the key is present but says nothing, so it must behave
+	// exactly like absence — equality only. Pinned because an empty list is
+	// one schema-legal keystroke away from silently widening the anchor.
+	empty := obj(goldCaseAccept("CASE-C", "p1", "confirmed-exploitable",
+		"access-control", []string{}, "gold/Vault.sol"), "gold")
+	if !anchor(finding("access-control", "src/Vault.sol"), empty) {
+		t.Fatal("an empty accept list must still anchor the gold bug_class")
+	}
+	if anchor(finding("logic-error", "src/Vault.sol"), empty) {
+		t.Fatal("an empty accept list must accept no other class")
+	}
+}
+
+// goldPackRow is one schema-valid evaluation_case row for the loader tests:
+// only the fields the schema requires, plus bug_class_accept when given.
+func goldPackRow(id, program, class string, accept ...string) validation.Value {
+	gold := []validation.KV{
+		kvE("outcome", validation.VStr("confirmed-exploitable")),
+		kvE("bug_class", validation.VStr(class)),
+		kvE("root_cause", validation.VStr("the mechanism, at length")),
+	}
+	if accept != nil {
+		items := make([]validation.Value, 0, len(accept))
+		for _, a := range accept {
+			items = append(items, validation.VStr(a))
+		}
+		gold = append(gold, kvE("bug_class_accept", validation.VArr(items...)))
+	}
+	return validation.VObj(
+		kvE("case_id", validation.VStr(id)),
+		kvE("source", validation.VObj(
+			kvE("dataset", validation.VStr("manual")),
+			kvE("record_id", validation.VStr("MORPH-"+id)))),
+		kvE("partition", validation.VStr("held-out")),
+		kvE("program", validation.VObj(kvE("program", validation.VStr(program)))),
+		kvE("gold", validation.VObj(gold...)),
+		kvE("code", validation.VObj(kvE("repo",
+			validation.VStr("https://github.com/morph-l2/morph")))),
+		kvE("created_at", validation.VStr("2026-09-01T00:00:00Z")),
+		kvE("schema_version", validation.VInt(2)),
+	)
+}
+
+// writeGoldPack writes rows as a JSON array and returns the path plus the
+// sha256 of the exact bytes written.
+func writeGoldPack(t *testing.T, dir, name string, rows ...validation.Value) (string, string) {
+	t.Helper()
+	p := filepath.Join(dir, name)
+	data := []byte(validation.DumpIndentedASCII(validation.VArr(rows...)) + "\n")
+	if err := os.WriteFile(p, data, 0o644); err != nil {
+		t.Fatalf("write pack: %v", err)
+	}
+	sum := sha256.Sum256(data)
+	return p, hex.EncodeToString(sum[:])
+}
+
+func TestLoadGoldPackEmptyPathIsNoPack(t *testing.T) {
+	cases, err := LoadGoldPack("")
+	if err != nil || cases != nil {
+		t.Fatalf("empty path: cases=%v err=%v, want nil,nil", cases, err)
+	}
+}
+
+// TestLoadGoldPackAndSidecar: the two rows load, the rows keep their
+// bug_class_accept key, and the stem-named sidecar (cases.json ->
+// cases.sha256, the evalstore convention) verifies the pack.
+func TestLoadGoldPackAndSidecar(t *testing.T) {
+	dir := t.TempDir()
+	p, digest := writeGoldPack(t, dir, "morph-gold-cases.json",
+		goldPackRow("CASE-00000000000e", "Morph", "dos-griefing",
+			"logic-error", "economic-invariant"),
+		goldPackRow("CASE-00000000000f", "Morph", "logic-error"))
+	if err := os.WriteFile(filepath.Join(dir, "morph-gold-cases.sha256"),
+		[]byte(digest+"  morph-gold-cases.json\n"), 0o644); err != nil {
+		t.Fatalf("write sidecar: %v", err)
+	}
+
+	pack, err := OpenGoldPack(p)
+	if err != nil {
+		t.Fatalf("OpenGoldPack: %v", err)
+	}
+	if len(pack.Cases) != 2 {
+		t.Fatalf("cases = %d, want 2", len(pack.Cases))
+	}
+	if pack.Digest != digest {
+		t.Fatalf("digest = %s, want %s", pack.Digest, digest)
+	}
+	if !pack.Verified {
+		t.Fatal("a matching sidecar must verify the pack")
+	}
+	got := obj(obj(pack.Cases[0], "gold"), "bug_class_accept")
+	if got.Kind != validation.Arr || len(got.A) != 2 {
+		t.Fatalf("bug_class_accept not preserved: %v", got)
+	}
+	// LoadGoldPack is the thin wrapper every caller may use.
+	rows, err := LoadGoldPack(p)
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("LoadGoldPack: rows=%d err=%v", len(rows), err)
+	}
+}
+
+// TestLoadGoldPackNoSidecarIsUnverified: no sidecar is not a failure — the
+// pack loads, and Verified is false so the caller can say so.
+func TestLoadGoldPackNoSidecarIsUnverified(t *testing.T) {
+	dir := t.TempDir()
+	p, digest := writeGoldPack(t, dir, "gold.json",
+		goldPackRow("CASE-00000000000e", "Morph", "dos-griefing"))
+	pack, err := OpenGoldPack(p)
+	if err != nil {
+		t.Fatalf("OpenGoldPack: %v", err)
+	}
+	if pack.Verified {
+		t.Fatal("no sidecar: Verified must be false")
+	}
+	if pack.Digest != digest {
+		t.Fatalf("digest = %s, want %s", pack.Digest, digest)
+	}
+}
+
+// TestLoadGoldPackRefusals pins the fail-loud surface: a bad pack never
+// shrinks the answer key silently.
+func TestLoadGoldPackRefusals(t *testing.T) {
+	dir := t.TempDir()
+	good := goldPackRow("CASE-00000000000e", "Morph", "dos-griefing")
+	_, goodDigest := writeGoldPack(t, dir, "good.json", good)
+
+	notArray := filepath.Join(dir, "not-array.json")
+	if err := os.WriteFile(notArray, []byte(`{"case_id": "x"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	notObject := filepath.Join(dir, "not-object.json")
+	if err := os.WriteFile(notObject, []byte(`["nope"]`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	badClass := filepath.Join(dir, "bad-class.json")
+	data := []byte(validation.DumpIndentedASCII(validation.VArr(
+		goldPackRow("CASE-00000000000e", "Morph", "NOT_A_CLASS"))) + "\n")
+	if err := os.WriteFile(badClass, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dupPath, _ := writeGoldPack(t, dir, "dup.json", good, good)
+
+	badSidecar := filepath.Join(dir, "bad-sidecar.json")
+	badData := []byte(validation.DumpIndentedASCII(validation.VArr(good)) + "\n")
+	if err := os.WriteFile(badSidecar, badData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(badSidecar+".sha256",
+		[]byte(strings.Repeat("0", 64)+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	vec := []struct {
+		name string
+		path string
+		want []string
+	}{
+		{"missing file", filepath.Join(dir, "nope.json"),
+			[]string{"is not readable"}},
+		{"not an array", notArray,
+			[]string{notArray, "must be a JSON array of evaluation_case " +
+				"objects, found an object"}},
+		{"element not an object", notObject,
+			[]string{"row 0 must be a JSON object, found a string"}},
+		{"row fails validation", badClass,
+			[]string{"case CASE-00000000000e fails evaluation_case " +
+				"validation", "bug_class"}},
+		{"duplicate case_id", dupPath,
+			[]string{"duplicate case_id CASE-00000000000e"}},
+		{"corrupted sidecar", badSidecar,
+			[]string{"does not match its sidecar",
+				strings.Repeat("0", 64)}},
+	}
+	for _, tc := range vec {
+		t.Run(tc.name, func(t *testing.T) {
+			rows, err := LoadGoldPack(tc.path)
+			if err == nil {
+				t.Fatalf("LoadGoldPack(%s) = %d rows, want an error",
+					tc.path, len(rows))
+			}
+			for _, w := range tc.want {
+				if !strings.Contains(err.Error(), w) {
+					t.Fatalf("error %q does not name %q", err.Error(), w)
+				}
+			}
+		})
+	}
+	// The corrupted-sidecar message must print BOTH hashes.
+	_, err := LoadGoldPack(badSidecar)
+	if err == nil || !strings.Contains(err.Error(), goodDigest) {
+		t.Fatalf("mismatch error must print the file's own hash: %v", err)
 	}
 }

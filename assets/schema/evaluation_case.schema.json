@@ -103,6 +103,14 @@
           "pattern": "^[a-z0-9-]{3,64}$",
           "description": "a canonical taxonomy class OR the literal 'unmapped' — never a raw dataset label; the taxonomy map layer (webv2.taxonomy.normalize_class) resolves those"
         },
+        "bug_class_accept": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{3,64}$"
+          },
+          "description": "alternative canonical classes the eval spec ALSO accepts for this case's mechanism (the same vocabulary and pattern as bug_class): an auditor who filed the bug under one of these is not wrong, so the join anchors them too. Absent means 'the single bug_class only', exactly as before this key existed. This is the eval spec's accept list, not a weakening of the anchor — the location suffix rule is unchanged."
+        },
         "severity": {
           "enum": ["high", "medium", "low", "informational", "none", null],
           "description": "the dataset's severity label, when it states one"

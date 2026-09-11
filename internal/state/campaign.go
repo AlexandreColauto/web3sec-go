@@ -158,6 +158,9 @@ func Init(root, program string, opts InitOpts) (*Campaign, error) {
 		kv("policy_path", validation.VNull()),
 		kv("floor_policy", validation.VArr()),
 		kv("probe_blanks", validation.VArr()),
+		// Last key: NON-GOLD ADJUDICATIONS (see evalscore.adjudicate). Empty
+		// at init — a fresh campaign has judged nothing yet.
+		kv("eval_adjudications", validation.VArr()),
 	)
 	if err := validation.WriteJson(c.StatePath, state, "campaign_state"); err != nil {
 		return nil, err

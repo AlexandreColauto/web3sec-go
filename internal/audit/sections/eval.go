@@ -26,7 +26,7 @@
 // would be meaningless (see internal/evalscore/bands.go). ok stays true
 // here too — the block is an advisory measurement, never a gate.
 //
-// J-perclass (Wave J, Task 2): the section closes with the per-class
+// J-perclass (Wave J, Task 2): the section appends the per-class
 // recall/precision cells (evalscore.Classes) — methodology checkpoint 3
 // applied to our own output. Gated on the SAME presence rule as I3 (≥1
 // live finding in scope AND ≥1 matched case); the header warns that
@@ -34,6 +34,15 @@
 // ratios. With no live finding in scope the block and the `classes` value
 // key are absent: a zero-live campaign renders byte-for-byte what it
 // rendered before this task.
+//
+// Non-gold adjudication (evalscore/adjudicate.go, written by `webv2
+// adjudicate`): the section CLOSES with the split of the raw unanchored
+// count into additional-true-positive / false-positive / assumption-gated,
+// the adjusted precision line those rows produce, the unadjudicated
+// remainder, and — when rows apply to no unanchored finding — a stale count.
+// Gated on len(rows) > 0 alone (a row can outlive the finding it named), so
+// a campaign with zero rows renders byte-for-byte what it rendered before
+// this task: same `lines` array, same key set. ok stays true.
 package sections
 
 import (
@@ -192,9 +201,10 @@ func Eval(c *state.Campaign) (validation.Value, error) {
 	}
 
 	// J-perclass: per-class recall/precision over the SAME scope and
-	// anchor rule. Rendered LAST — after the fabrication ledger — and
-	// gated on ≥1 matched case (implied by Score ok) AND ≥1 live finding
-	// in scope: a clean or live-less campaign keeps its pre-J bytes.
+	// anchor rule. Rendered after the fabrication ledger — but BEFORE the
+	// adjudication block — and gated on ≥1 matched case (implied by Score
+	// ok) AND ≥1 live finding in scope: a clean or live-less campaign keeps
+	// its pre-J bytes.
 	classRows := evalscore.Classes([]string{program}, liveByProgram, cases)
 	if inScope > 0 && rep.GoldTotal > 0 {
 		lines = append(lines, "- recall/precision by gold class (small cells — "+
@@ -207,6 +217,41 @@ func Eval(c *state.Campaign) (validation.Value, error) {
 				strings.TrimPrefix(r.RecallLine, "recall: ")+
 				", precision "+
 				strings.TrimPrefix(r.PrecisionLine, "precision: "))
+		}
+	}
+
+	// Non-gold adjudications (evalscore/adjudicate.go, written by
+	// `webv2 adjudicate`): the rows that split the raw unanchored count
+	// into "real but absent from the gold dataset", "wrong" and
+	// "assumption-gated". Appended AFTER the J-perclass block and gated on
+	// len(rows) > 0 ALONE — a row can outlive the finding it named, so this
+	// gate is independent of the live-finding gate above. With no rows the
+	// section renders exactly the bytes it rendered before this task; the
+	// counters are the ones evalscore already scored (rep), never a second
+	// accounting. ok stays true: a recorded verdict is a claim, and this
+	// section reports it.
+	adjs, aerr := evalscore.Load(c)
+	if aerr != nil {
+		// Fail-open on advisory data, exactly as evalscore.Score does: an
+		// unreadable adjudication key degrades to "no rows".
+		adjs = nil
+	}
+	if len(adjs) > 0 {
+		adjudicated := rep.Additional + rep.FalsePositives + rep.Gated
+		lines = append(lines, fmt.Sprintf(
+			"- non-gold adjudications: %d of %d unanchored findings "+
+				"adjudicated (additional-true-positive %d, false-positive %d, "+
+				"assumption-gated %d)", adjudicated, rep.Unanchored,
+			rep.Additional, rep.FalsePositives, rep.Gated))
+		lines = append(lines,
+			"- adjusted precision (denominator excludes findings adjudicated "+
+				"true or gated): "+rep.AdjustedPrecisionLine,
+			fmt.Sprintf("- unadjudicated unanchored findings: %d",
+				rep.Unadjudicated))
+		if rep.StaleAdjudications > 0 {
+			lines = append(lines, fmt.Sprintf("- stale adjudications (rows "+
+				"that apply to no unanchored finding): %d",
+				rep.StaleAdjudications))
 		}
 	}
 
@@ -270,6 +315,42 @@ func Eval(c *state.Campaign) (validation.Value, error) {
 				KV("precision", validation.VStr(r.PrecisionLine))))
 		}
 		kvs = append(kvs, KV("classes", validation.VArr(classVals...)))
+	}
+	// Presence gate: the adjudication keys exist only when rows do — the
+	// same append-don't-default rule as the I3/J keys above, so a campaign
+	// with no adjudications carries the exact key set it carried before.
+	// `assumption` and `exec` are themselves optional within a row (the
+	// schema has no empty enum member), and `stale_adjudications` only
+	// appears when the count is non-zero.
+	if len(adjs) > 0 {
+		adjVals := make([]validation.Value, 0, len(adjs))
+		for _, a := range adjs {
+			rowKVs := []validation.KV{
+				KV("finding", validation.VStr(a.Finding)),
+				KV("verdict", validation.VStr(a.Verdict)),
+				KV("severity", validation.VStr(a.Severity)),
+				KV("basis", validation.VStr(a.Basis)),
+			}
+			if a.Assumption != "" {
+				rowKVs = append(rowKVs,
+					KV("assumption", validation.VStr(a.Assumption)))
+			}
+			if a.Exec != "" {
+				rowKVs = append(rowKVs, KV("exec", validation.VStr(a.Exec)))
+			}
+			rowKVs = append(rowKVs,
+				KV("actor", validation.VStr(a.Actor)),
+				KV("reason", validation.VStr(a.Reason)))
+			adjVals = append(adjVals, validation.VObj(rowKVs...))
+		}
+		kvs = append(kvs,
+			KV("adjudications", validation.VArr(adjVals...)),
+			KV("adjusted_precision", validation.VStr(rep.AdjustedPrecisionLine)),
+			KV("unadjudicated", validation.VInt(int64(rep.Unadjudicated))))
+		if rep.StaleAdjudications > 0 {
+			kvs = append(kvs, KV("stale_adjudications",
+				validation.VInt(int64(rep.StaleAdjudications))))
+		}
 	}
 	kvs = append(kvs, KV("ok", validation.VBool(true)))
 	return validation.VObj(kvs...), nil

@@ -7,6 +7,11 @@
 // sections). The section is exercised directly (the sections package
 // cannot import the audit package without an import cycle); the
 // registry-level omission is pinned by internal/audit's own gate test.
+//
+// The non-gold adjudication block (evalscore/adjudicate.go, written by
+// `webv2 adjudicate`) is appended after the J-perclass cells and gated on
+// len(rows) > 0 alone: the tests at the end of this file pin the block, its
+// value keys, the stale line, and the byte-identity of the zero-row campaign.
 package sections
 
 import (
@@ -14,8 +19,10 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 
+	"websec/internal/evalscore"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -480,5 +487,203 @@ func TestEvalClassesValueAndUnmappedBucket(t *testing.T) {
 	}
 	if r := objStr(classes.A[0], "class"); r != "reentrancy" {
 		t.Fatalf("first class row = %q, want reentrancy (sorted by Class)", r)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Non-gold adjudications
+// ---------------------------------------------------------------------------
+
+// evalRow is evalFinding plus the finding_id the adjudication store joins
+// on (evalscore.Record refuses an id that is not in the live set).
+func evalRow(class, path, findingID string) validation.Value {
+	f := evalFinding(class, path)
+	return validation.VObj(append([]validation.KV{
+		KV("finding_id", validation.VStr(findingID))}, f.O...)...)
+}
+
+// evalAdjudicated is the pinned two-finding campaign — one anchored
+// reentrancy finding, one unanchored oracle finding, both on the gold file —
+// with one row written through evalscore.Record, the production writer.
+func evalAdjudicated(t *testing.T, a evalscore.Adjudication) *state.Campaign {
+	t.Helper()
+	c := evalCampaign(t, "ES03BankReentrancy", []validation.Value{
+		evalRow("reentrancy", "src/ES03BankReentrancy.sol", "F-aaaaaaaaaaaa"),
+		evalRow("oracle-manipulation", "src/ES03BankReentrancy.sol",
+			"F-bbbbbbbbbbbb"),
+	})
+	if _, err := evalscore.Record(c, a); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+	return c
+}
+
+// evalPinnedLines is the byte walk every zero-adjudication rendering of this
+// fixture must still produce (TestEvalRendersPinnedLines' `want`, which the
+// I3/J blocks already fixed): five base lines, the band block, the class
+// block.
+func evalPinnedLines() []string {
+	return []string{
+		"## eval",
+		"- suite: 1 gold cases matched (1 dev, 0 held-out)",
+		"- recall: 1/1 (95% CI 20.7–100.0%)",
+		"- precision: 1/2 (95% CI 9.5–90.5%)",
+		"- false positives (unanchored live findings): 1",
+		"- acceptance-band precision (gold-anchored / live findings in suite-matched programs):",
+		"  - [0,1): 1/2 (95% CI 9.5–90.5%)",
+		"- recall/precision by gold class (small cells — read the intervals, not the ratios):",
+		"  - oracle-manipulation: recall 0/0 (95% CI n/a), precision 0/1 (95% CI 0.0–79.3%)",
+		"  - reentrancy: recall 1/1 (95% CI 20.7–100.0%), precision 1/1 (95% CI 20.7–100.0%)",
+	}
+}
+
+// TestEvalRendersAdjudicationBlock: one additional-true-positive row on the
+// unanchored finding adds the three-line block AFTER the class cells, lifts
+// the penalty from the adjusted precision line (1/2 raw → 1/1 adjusted) and
+// leaves the RAW fp/precision lines untouched, and carries the row in the
+// `adjudications` value with the section's row key order.
+func TestEvalRendersAdjudicationBlock(t *testing.T) {
+	c := evalAdjudicated(t, evalscore.Adjudication{
+		Finding: "F-bbbbbbbbbbbb", Verdict: "additional-true-positive",
+		Severity: "tbd", Basis: "author-review", Actor: "alice",
+		Reason: "the oracle spot price is never validated",
+	})
+	sec, err := Eval(c)
+	if err != nil {
+		t.Fatalf("Eval: %v", err)
+	}
+	want := append(evalPinnedLines(),
+		"- non-gold adjudications: 1 of 1 unanchored findings adjudicated "+
+			"(additional-true-positive 1, false-positive 0, assumption-gated 0)",
+		"- adjusted precision (denominator excludes findings adjudicated "+
+			"true or gated): precision: 1/1 (95% CI 20.7–100.0%)",
+		"- unadjudicated unanchored findings: 0")
+	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
+		t.Fatalf("lines = %q\nwant %q", got, want)
+	}
+	rows := objAt(sec, "adjudications")
+	if rows.Kind != validation.Arr || len(rows.A) != 1 {
+		t.Fatalf("adjudications = %s, want one row",
+			validation.CanonCompact(rows))
+	}
+	row := rows.A[0]
+	if got := objStr(row, "finding"); got != "F-bbbbbbbbbbbb" {
+		t.Fatalf("row finding = %q", got)
+	}
+	if got := objStr(row, "verdict"); got != "additional-true-positive" {
+		t.Fatalf("row verdict = %q", got)
+	}
+	if got := objStr(row, "severity"); got != "tbd" {
+		t.Fatalf("row severity = %q", got)
+	}
+	if got := objStr(row, "basis"); got != "author-review" {
+		t.Fatalf("row basis = %q", got)
+	}
+	if got := objStr(row, "actor"); got != "alice" {
+		t.Fatalf("row actor = %q", got)
+	}
+	if got := objStr(row, "reason"); got !=
+		"the oracle spot price is never validated" {
+		t.Fatalf("row reason = %q", got)
+	}
+	// Optional row keys are ABSENT, not empty.
+	if v := objAt(row, "assumption"); v.Kind != validation.Null {
+		t.Errorf("row assumption = %s, want absent",
+			validation.CanonCompact(v))
+	}
+	if v := objAt(row, "exec"); v.Kind != validation.Null {
+		t.Errorf("row exec = %s, want absent", validation.CanonCompact(v))
+	}
+	if got := objStr(sec, "adjusted_precision"); got !=
+		"precision: 1/1 (95% CI 20.7–100.0%)" {
+		t.Fatalf("adjusted_precision = %q", got)
+	}
+	if n := objAt(sec, "unadjudicated"); n.Kind != validation.Int || n.I != 0 {
+		t.Fatalf("unadjudicated = %s, want 0", validation.CanonCompact(n))
+	}
+	if v := objAt(sec, "stale_adjudications"); v.Kind != validation.Null {
+		t.Fatalf("stale_adjudications = %s, want absent when zero",
+			validation.CanonCompact(v))
+	}
+	if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
+		t.Errorf("a recorded adjudication must not fail the campaign: %s",
+			validation.DumpIndented(sec))
+	}
+}
+
+// TestEvalRendersStaleAdjudicationLine: a row on the ANCHORED finding applies
+// to no unanchored finding, so the stale line and the stale_adjudications
+// key appear — and the tally says none of the unanchored set was judged.
+func TestEvalRendersStaleAdjudicationLine(t *testing.T) {
+	c := evalAdjudicated(t, evalscore.Adjudication{
+		Finding: "F-aaaaaaaaaaaa", Verdict: "additional-true-positive",
+		Severity: "tbd", Basis: "author-review", Actor: "alice",
+		Reason: "the oracle spot price is never validated",
+	})
+	sec, err := Eval(c)
+	if err != nil {
+		t.Fatalf("Eval: %v", err)
+	}
+	want := append(evalPinnedLines(),
+		"- non-gold adjudications: 0 of 1 unanchored findings adjudicated "+
+			"(additional-true-positive 0, false-positive 0, assumption-gated 0)",
+		"- adjusted precision (denominator excludes findings adjudicated "+
+			"true or gated): precision: 1/2 (95% CI 9.5–90.5%)",
+		"- unadjudicated unanchored findings: 1",
+		"- stale adjudications (rows that apply to no unanchored finding): 1")
+	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
+		t.Fatalf("lines = %q\nwant %q", got, want)
+	}
+	if n := objAt(sec, "stale_adjudications"); n.Kind != validation.Int || n.I != 1 {
+		t.Fatalf("stale_adjudications = %s, want 1",
+			validation.CanonCompact(n))
+	}
+	if n := objAt(sec, "unadjudicated"); n.Kind != validation.Int || n.I != 1 {
+		t.Fatalf("unadjudicated = %s, want 1", validation.CanonCompact(n))
+	}
+}
+
+// TestEvalAdjudicationBlockAbsentWithZeroRows is the presence gate at the
+// byte level: a campaign with NO stored row renders exactly the lines it
+// rendered before the adjudication block existed and carries none of the new
+// value keys. (TestEvalRendersPinnedLines, TestEvalOmitsProblemBlockWhenClean
+// and TestEvalBandBlockAbsentWithZeroLiveFindings pin the same bytes from
+// the other directions.)
+func TestEvalAdjudicationBlockAbsentWithZeroRows(t *testing.T) {
+	c := evalCampaign(t, "ES03BankReentrancy", []validation.Value{
+		evalRow("reentrancy", "src/ES03BankReentrancy.sol", "F-aaaaaaaaaaaa"),
+		evalRow("oracle-manipulation", "src/ES03BankReentrancy.sol",
+			"F-bbbbbbbbbbbb"),
+	})
+	sec, err := Eval(c)
+	if err != nil {
+		t.Fatalf("Eval: %v", err)
+	}
+	if got := evalLines(t, sec); !reflect.DeepEqual(got, evalPinnedLines()) {
+		t.Fatalf("lines = %q\nwant the unchanged %q", got, evalPinnedLines())
+	}
+	for _, key := range []string{"adjudications", "adjusted_precision",
+		"unadjudicated", "stale_adjudications"} {
+		if v := objAt(sec, key); v.Kind != validation.Null {
+			t.Errorf("%s = %s, want absent with zero rows",
+				key, validation.CanonCompact(v))
+		}
+	}
+	for _, l := range evalLines(t, sec) {
+		if strings.Contains(l, "adjudicat") {
+			t.Errorf("zero-row campaign rendered an adjudication line: %q", l)
+		}
+	}
+	// The key set is exactly the pre-adjudication one.
+	wantKeys := map[string]bool{
+		"matched": true, "dev": true, "held_out": true, "hits": true,
+		"misses": true, "fp": true, "recall": true, "precision": true,
+		"lines": true, "problems": true, "bands": true, "classes": true,
+		"ok": true,
+	}
+	for _, kv := range sec.O {
+		if !wantKeys[kv.K] {
+			t.Errorf("unexpected section key %q", kv.K)
+		}
 	}
 }
