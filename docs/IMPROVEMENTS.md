@@ -2122,6 +2122,11 @@ discipline, extended to the payment question.
   the live bounty policy object at dispatch (exclusions, accepted_risks,
   minimum-severity/payout tables, scope) — injected, never copy-pasted, so the
   rubric can't drift from the gate that enforces it.
+  *(As landed, tranche 1: the rubric is a static prompt section instructing the
+  critic to read the live policy itself (`scope --show`, the brief) before
+  answering; automatic policy injection at dispatch REMAINS a G3-era idea —
+  the drift-prevention goal holds, via "cite the policy line, never a vibe",
+  not yet via machinery.)*
 - New finding field `verification.triager_outlook {likely | uncertain |
   unlikely, reason}` (schema-additive; the boundary layer rejects malformed
   responses as usual). Acceptance score: small POSITIVE/NEGATIVE nudge

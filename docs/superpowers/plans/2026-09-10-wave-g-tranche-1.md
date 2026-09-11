@@ -1,5 +1,14 @@
 # Wave G Tranche 1 — Hybrid Evidence & Critic Outlook — Implementation Plan
 
+> **Status: EXECUTED 2026-09-11.** All 8 tasks landed via subagent-driven
+> development on branch `wave-g-tranche-1` and merged to `main`; review
+> ledger, per-task briefs/reports and the final whole-branch review live in
+> git history and the SDD workspace until cleanup. Follow-ups consciously
+> deferred (recorded in `docs/IMPROVEMENTS.md` G1/G6 notes): dataset-registry
+> vocabulary + `--backtest` (G3 era), automatic policy injection for the
+> outlook rubric (G3 era), corroboration records only on operator-resolved
+> tool-less survivors.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Land Wave G tranche 1 of `docs/IMPROVEMENTS.md`: G7 (claim-intake methodology doc), G1 (Slither detector evidence as campaign findings + corroboration factor + tool-flags rendering), G6 (critic triager-outlook recorded and scored).

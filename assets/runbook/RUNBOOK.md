@@ -319,6 +319,7 @@ webv2 plan <C-xxx> --rebuild                # archive the outgoing plan to super
 webv2 answered <C-xxx> Q-xxx answered --reason "..." --ref EXEC-xxx   # close a plan priority
 webv2 answered <C-xxx> Q-xxx not-applicable --reason "considered, doesn't apply"
 webv2 ingest <C-xxx> --json-file payload.json [--trajectory T] [--stage S] [--answers-priority Q-xxx]
+webv2 ingest <C-xxx> --from slither --json-file slither.json   # detector lane: every Medium/High/Critical check becomes a HYPOTHESIS with provenance.sast_tools
 webv2 ingest --example                       # the validated payload template (PURE JSON on stdout; legend on stderr)
 ```
 
@@ -331,6 +332,14 @@ validates schema, fingerprints dedup, and intake-checks: an unknown bug class
 returns a taxonomy advisory (closest known classes, conservative E5 floor); a
 missing `economic_impact` on an economic trajectory is warned. **Never
 hand-write a finding file** — ingest is the only path in.
+
+The detector lane (`--from slither`) is evidence, not verdict: tool findings
+enter as HYPOTHESES like any other. When you resolve a dedup candidate as
+`same` and exactly one side is tool-flagged, the SURVIVOR records
+`dedup_meta.corroborated_by` (only when it is itself the non-tool side) —
+worth +0.5 acceptance. The `brief` shows a computed TOOL FLAGS section (tool
+findings by critic verdict, corroborated ids) so detector false-positive
+rates stay visible without touching the score.
 
 **Assign trajectories so components get ≥ 2 orthogonal angles:** A-code,
 B-economic, C-state-machine, D-attacker, E-historical, F-integration, G-drift,
