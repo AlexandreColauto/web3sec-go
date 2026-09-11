@@ -2,9 +2,9 @@
 """Regenerate assets/testdata/asset_manifest.json — the SHA-256 manifest of
 every embedded asset pack.
 
-The manifest pins the byte content of the eight go:embed packs (schema,
+The manifest pins the byte content of the nine go:embed packs (schema,
 archetypes, playbooks, prompts, prompts_legacy, runbook, evalsuite,
-taxonomy) exactly as the
+taxonomy, protocol) exactly as the
 binary sees them. assets.TestAssetPackManifest compares the EMBEDDED bytes
 against it, so an asset edit without a manifest update fails the test —
 this replaces the old twin checkout byte-identity comparisons.
@@ -36,6 +36,7 @@ PACKS = {
     "runbook": ("runbook", ["RUNBOOK.md", "AGENT_BOOTSTRAP.md"]),
     "evalsuite": ("evalsuite", ["cases.json", "src/*.sol"]),
     "taxonomy": ("taxonomy", ["class_weights.json", "aliases.json"]),
+    "protocol": ("protocol", ["*.json"]),
 }
 
 

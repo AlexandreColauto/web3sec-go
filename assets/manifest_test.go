@@ -28,7 +28,7 @@ type packEntry struct {
 }
 
 type assetManifest struct {
-	Version int                         `json:"version"`
+	Version int                             `json:"version"`
 	Packs   map[string]map[string]packEntry `json:"packs"`
 }
 
@@ -66,6 +66,7 @@ func TestAssetPackManifest(t *testing.T) {
 		"runbook":        {RunbookFS, "runbook"},
 		"evalsuite":      {EvalSuiteFS, "evalsuite"},
 		"taxonomy":       {TaxonomyFS, "taxonomy"},
+		"protocol":       {ProtocolFS, "protocol"},
 	}
 	for name, pack := range packs {
 		want, ok := m.Packs[name]

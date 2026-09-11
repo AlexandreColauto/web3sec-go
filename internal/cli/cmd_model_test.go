@@ -4,9 +4,33 @@ package cli
 // view. Vectors captured from the live Python CLI (.scratch/t14/py3.json).
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// t8FactsModelJSON is the I4 join fixture: a schema-valid model whose
+// components carry the two identity fields the facts join reads.
+const t8FactsModelJSON = `{"protocol_id":"factsdemo","name":"Facts Demo",` +
+	`"components":[` +
+	`{"kind":"frontend","url":"https://app.example","trust":"semi-trusted",` +
+	`"in_scope":true,"paid_for":true},` +
+	`{"kind":"offchain-service","path":"@openzeppelin/contracts",` +
+	`"trust":"trusted","in_scope":true,"paid_for":false}],` +
+	`"contracts":[{"name":"Vault","path":"src/Vault.sol"}],` +
+	`"actors":[{"id":"user","kind":"EOA"}],` +
+	`"assets":[{"id":"share","kind":"share"}],"relations":[]}`
+
+// t8FactsDocJSON is the operator document matching t8FactsModelJSON.
+const t8FactsDocJSON = `{"schema_version":"1","facts":[` +
+	`{"target":{"kind":"frontend","url":"https://app.example"},` +
+	`"dns":{"observed_at":"2026-01-02","source":"operator ticket OPS-77",` +
+	`"records":{"a":["203.0.113.7"]}}},` +
+	`{"target":{"kind":"offchain-service","path":"@openzeppelin/contracts"},` +
+	`"dependency":{"observed_at":"2026-01-02",` +
+	`"source":"operator-supplied manifest","package":"@openzeppelin/contracts",` +
+	`"version":"v4.9.3"}}]}`
 
 func TestModelNotLoaded(t *testing.T) {
 	root := mkroot(t)
@@ -118,6 +142,155 @@ func TestModelHelp(t *testing.T) {
 		t.Fatalf("help = %q, want %q", out, t14ModelHelp)
 	}
 	if errS != "" {
+		t.Fatalf("stderr = %q", errS)
+	}
+}
+
+// ---- I4: operator-supplied facts (Wave I Task 8) --------------------------
+
+// TestModelWithoutFactsMovesNoBytes: --facts is presence-gated — the same
+// invocation without it prints exactly the pre-change output, and WITH it
+// prints that output plus one summary line.
+func TestModelWithoutFactsMovesNoBytes(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	model := t14TestWrite(t, root, "model.json", t8FactsModelJSON)
+	code, plain, errS := run(t, "--root", root, "model", cid, model)
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	facts := t14TestWrite(t, root, "facts.json", t8FactsDocJSON)
+	code, merged, errS := run(t, "--root", root, "model", cid, model,
+		"--facts", facts)
+	if code != 0 {
+		t.Fatalf("facts exit %d: %q", code, errS)
+	}
+	want := "facts: 2 applied (1 dns, 1 dependency) onto 2 components\n"
+	if merged != plain+want {
+		t.Fatalf("merged stdout = %q, want %q (plain + summary)",
+			merged, plain+want)
+	}
+	// the stored model is the MERGED one (the merge precedes the store)
+	stored, err := os.ReadFile(filepath.Join(root, "campaigns", cid,
+		"artifacts", "protocol_model.json"))
+	if err != nil {
+		t.Fatalf("read stored model: %v", err)
+	}
+	if !strings.Contains(string(stored), `"dns"`) ||
+		!strings.Contains(string(stored), `"dependency"`) {
+		t.Fatalf("stored model is not the merged one: %s", stored)
+	}
+}
+
+// TestModelFactsJSONAcceptsDateFlag: --facts-observed-at is IGNORED (but
+// accepted) for a JSON document, where every fact carries its own date.
+func TestModelFactsJSONAcceptsDateFlag(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	model := t14TestWrite(t, root, "model.json", t8FactsModelJSON)
+	facts := t14TestWrite(t, root, "facts.json", t8FactsDocJSON)
+	code, out, errS := run(t, "--root", root, "model", cid, model,
+		"--facts", facts, "--facts-observed-at", "1999-12-31")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if !strings.HasSuffix(out, "facts: 2 applied (1 dns, 1 dependency) "+
+		"onto 2 components\n") {
+		t.Fatalf("stdout = %q", out)
+	}
+}
+
+// TestModelFactsDirectoryRequiresDate: a directory extraction has no date in
+// it, so the companion flag is a usage error when missing (exit 2).
+func TestModelFactsDirectoryRequiresDate(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	model := t14TestWrite(t, root, "model.json", t8FactsModelJSON)
+	dir := filepath.Join(root, "manifests")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	t14TestWrite(t, dir, "remappings.txt",
+		"@openzeppelin/contracts/=lib/openzeppelin-contracts@v4.9.3/\n")
+	code, out, errS := run(t, "--root", root, "model", cid, model,
+		"--facts", dir)
+	if code != 2 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(errS, "argument --facts-observed-at") {
+		t.Fatalf("stderr = %q", errS)
+	}
+	// an invalid date is refused the same way
+	code, _, errS = run(t, "--root", root, "model", cid, model,
+		"--facts", dir, "--facts-observed-at", "02.01.2026")
+	if code != 2 || !strings.Contains(errS, "argument --facts-observed-at") {
+		t.Fatalf("bad date: exit %d err=%q", code, errS)
+	}
+}
+
+// TestModelFactsDirectoryMerge: the directory mode extracts the offline
+// manifests and merges them before the store.
+func TestModelFactsDirectoryMerge(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	model := t14TestWrite(t, root, "model.json", t8FactsModelJSON)
+	dir := filepath.Join(root, "manifests")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	t14TestWrite(t, dir, "remappings.txt",
+		"# comment\n@openzeppelin/contracts/=lib/openzeppelin-contracts@v4.9.3/\n")
+	code, out, errS := run(t, "--root", root, "model", cid, model,
+		"--facts", dir, "--facts-observed-at", "2026-01-02")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if !strings.HasSuffix(out, "facts: 1 applied (0 dns, 1 dependency) "+
+		"onto 1 components\n") {
+		t.Fatalf("stdout = %q", out)
+	}
+	stored, err := os.ReadFile(filepath.Join(root, "campaigns", cid,
+		"artifacts", "protocol_model.json"))
+	if err != nil {
+		t.Fatalf("read stored model: %v", err)
+	}
+	if !strings.Contains(string(stored), `"v4.9.3"`) ||
+		!strings.Contains(string(stored), `"2026-01-02"`) {
+		t.Fatalf("stored model is not the merged one: %s", stored)
+	}
+}
+
+// TestModelFactsNoMatchIsAnError: a typo'd target fails the whole load.
+func TestModelFactsNoMatchIsAnError(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	model := t14TestWrite(t, root, "model.json", t8FactsModelJSON)
+	facts := t14TestWrite(t, root, "facts.json",
+		`{"schema_version":"1","facts":[{"target":{"kind":"frontend",`+
+			`"url":"https://typo.example"},"dns":{"observed_at":"2026-01-02",`+
+			`"source":"registrar export"}}]}`)
+	code, out, errS := run(t, "--root", root, "model", cid, model,
+		"--facts", facts)
+	if code != 2 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(errS,
+		"operator facts: no component matches kind=frontend url=https://typo.example") {
+		t.Fatalf("stderr = %q", errS)
+	}
+}
+
+// TestModelFactsRequiresAModelFile: --facts merges into a loaded model, so
+// the no-file form refuses it instead of silently ignoring the flag.
+func TestModelFactsRequiresAModelFile(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	facts := t14TestWrite(t, root, "facts.json", t8FactsDocJSON)
+	code, _, errS := run(t, "--root", root, "model", cid, "--facts", facts)
+	if code != 2 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if !strings.Contains(errS, "argument --facts") {
 		t.Fatalf("stderr = %q", errS)
 	}
 }

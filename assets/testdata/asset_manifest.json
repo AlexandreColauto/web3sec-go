@@ -374,14 +374,20 @@
     "size": 1404
    }
   },
+  "protocol": {
+   "example_facts.json": {
+    "sha256": "1d5ed932c1a02b3b8fba7158ee0840a71a556dc343243e1d47e6af731fe0c5b9",
+    "size": 1009
+   }
+  },
   "runbook": {
    "AGENT_BOOTSTRAP.md": {
     "sha256": "0967a3c9d7b9db18cbc2494fecf1c15e037a6be9ab52a4ddf6f858f9ab0aa834",
     "size": 21135
    },
    "RUNBOOK.md": {
-    "sha256": "e2774dccbb6c34207187f69b92973a756610b2f72e0ebfe9536ce56bbfb52d4a",
-    "size": 64877
+    "sha256": "fd52afb91e59c1e2ee57da81714b1ff4bf3759dbbfe7d1ae4ad1c652894c7330",
+    "size": 66130
    }
   },
   "schema": {
@@ -441,6 +447,10 @@
     "sha256": "b867aa47b08761ddfa940db997f674fba0375afe361d4205eb5c8817eee84892",
     "size": 10873
    },
+   "operator_facts.schema.json": {
+    "sha256": "3d62d267a61aaefa9bac0c2d451c5d9c1fa622aa06e4f20ef16f57ceecb27f30",
+    "size": 5058
+   },
    "playbook.schema.json": {
     "sha256": "fc8c78856012f0ec121f8503f80942c654b1d7135796be82996c4ff18bab0c02",
     "size": 8882
@@ -454,8 +464,8 @@
     "size": 14042
    },
    "protocol_model.schema.json": {
-    "sha256": "572ae2b4df404dc3dc0eaecdb7f312d088c452161238f3e80daf0504361ea051",
-    "size": 13576
+    "sha256": "8b1d398b125007a819bafa6ccd4c00f76ee506b918e7e9a306d9970cd357da3a",
+    "size": 16810
    },
    "relation.schema.json": {
     "sha256": "8f0d93d05c73be0ee3abc35a5732869bdffb3bc3db84eea0d0e1a129ce3af5fa",

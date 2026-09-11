@@ -172,7 +172,24 @@ webv2 snap <C-xxx> ./target-repo --exclude NAME           # prune more names (re
 webv2 index <C-xxx> --src ./target-repo      # rebuild the structural index (contract graph, no compiler)
 webv2 model <C-xxx> model.json               # load a protocol model (schema-validated; seeds invariants)
 webv2 model <C-xxx>                          # show the loaded model
+webv2 model <C-xxx> model.json --facts facts.json          # merge operator facts (DNS/dependency)
+webv2 model <C-xxx> model.json --facts ./manifests --facts-observed-at 2026-01-02
 ```
+
+**Facts are operator assertions, and the framework never resolves anything.**
+`--facts` merges dated, attributed `dns`/`dependency` objects onto
+`components[]`, joined on `(kind,url)` or `(kind,path)`: a fact that matches no
+component, matches two, or repeats a `dns`/`dependency` for one component is an
+error (a typo must never be dropped silently). A JSON document carries its own
+`observed_at` per fact; a **directory** of offline manifests
+(`remappings.txt`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`,
+`Cargo.lock`, `go.sum`, `foundry.lock`) has no date inside it, so
+`--facts-observed-at YYYY-MM-DD` is required and is **never** taken from the
+clock. There is deliberately no local DNS lookup: a DNS fact is something the
+operator observed and wrote down (with its date and its source) — nothing in
+the run resolves, guesses, or refreshes a record. Without `--facts` the verb
+emits exactly its pre-I4 bytes; with it, one summary line is appended after the
+load report.
 
 **Seeding is part of the load, and a half-load is loud.** The load prints how
 many invariants it registered into the guardrail registry and logs
@@ -894,7 +911,7 @@ webv2 waive <C> <stage> [--subject S] --reason R --actor A         waive one com
 webv2 scope <C> --policy policy.json                               load the bounty policy (program identity + gate scope)
 webv2 snap <C> <target> [--deployment F] [--chain F] [--exclude GLOB]   pin a source snapshot (+ deployment/chain pins; foundry.toml read automatically)
 webv2 index <C> --src SRC                                          rebuild the structural index for the active pin
-webv2 model <C> [file] [--json]                                    load a protocol model (seeds invariants) / show the loaded one
+webv2 model <C> [file] [--json] [--facts P] [--facts-observed-at D]    load a protocol model (seeds invariants) / show the loaded one; --facts merges operator-supplied DNS/dependency facts (offline only, no lookup)
 webv2 plan <C> [file] [--rebuild] [--json]                         read-only plan view; --rebuild archives + regenerates
 webv2 answered <C> <priority|L-0X> [<priority>...] <status> [--reason R] [--reason-all R] [--ref R] [--anchor FIELD] [--families a,b,c] [--symmetry fam=prim;...] [--actor A]   # one status over ONE OR MORE rows: gates run per row all-or-nothing (first refusal names its row, zero mutations)
 webv2 probes <C> run [--emit --per-axis N --total N] | list [--axis L-0n|AXIS] [--all] [--json] | blank --axis L-0n|AXIS --anchor-blind K --reason R --actor A
