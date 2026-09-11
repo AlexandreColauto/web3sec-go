@@ -22,7 +22,7 @@ Port state: web3sec-go HEAD `8240e3c` + the working-tree changes in §9
 | 1 | testmap finish: P3 rows real or documented | **PASS** — 155 flipped, 45 documented |
 | 2 | D19 close: `snap --deployment/--chain` | **PASS** — does not reproduce; probe + CLI test + golden |
 | 3 | Golden v4: P3 recipe byte-identical across twins | **PASS** — 166 steps × 2, 66 files, 2 campaigns |
-| 4 | verify-full P3: cross-audit + CLI smoke | **PASS** — 15 steps, 76 P3 invocations |
+| 4 | verify-full P3: cross-audit + CLI smoke | **PASS** — 13 steps, 80 P3 invocations |
 | 5 | P3 gate report (this document) | **PASS** |
 
 ---
@@ -149,6 +149,9 @@ Everything else — every event hash, every `MEM-`/`PUB-`/`SCP-`/`PRC-`/
 
 ## 5. verify-full P3 — PASS
 
+The transcript below is from the 15-step revision at the gate date; the smoke
+now runs as step 12 (the bullet below counts it at head).
+
 ```
 $ bash scripts/verify-full.sh
 === step 11/15: cross-audit: a Python-written campaign audits clean in Go ===
@@ -183,10 +186,14 @@ well under the 5-minute budget. `scripts/golden.sh` measured separately at
   build. `p2_cross_read` additionally reads the other twin's exec
   ledger, completed ladder, **queued memory row**, probe axes/blind keys
   and report.
-- **step 15 (P3 CLI smoke)**: **76 P3 invocations** against a scratch Go
-  campaign, each asserting the reference's documented exit code — the
-  structural surface, the probe surface incl. the named `blank`
-  attestation, `relations`/`resemble`/`corpus-surface`, the D18 memory
+- **step 12 (P3 CLI smoke)**: **80 P3 invocations** against scratch Go
+  campaigns — the repo-wide one for the structural/probe/memory/publish/
+  baseline/cost legs, plus a second root whose index is built straight from
+  the assertion-strength fixture — each asserting the reference's documented
+  exit code — the structural surface, the probe surface incl. the named
+  `blank` attestation (recorded against the fixture-only campaign, whose
+  enforcement-timing axis is `blind`: sites 4, rows 0, 5 near-keys),
+  `relations`/`resemble`/`corpus-surface`, the D18 memory
   happy path, `publish`/`globalize`/`shared`, `shield`/`precondition`,
   `brief`/`report`/`recency`, the baseline lifecycle, `cost`/`yields`/
   `price`, `env doctor`/`doctor`, `run` (exit 3), `complete` (guard 2 /
