@@ -717,6 +717,27 @@ with a `selected ... want ...` message. Its old failure mode is unchanged: a
 corpus with no blind axis still fails the step by name.
 `bash scripts/verify-full.sh` is green again, 13/13.
 
+**Final review and its fix (2026-09-10, `821aabd`).** Two reviewers took the
+batch as a unit, one for plan conformance and one adversarial. They found one
+RED and eight smaller items; `821aabd` closes all nine. The RED: a
+`probe_surface.json` that parsed as JSON but was not an object (`[]`, `"x"`,
+`null`) left the quota lookup empty, so a bare `probes run` silently kept the
+compiled 12/40 and then overwrote the artifact — the exact silent fallback
+Task 1 exists to remove; it now fails loudly like an unreadable artifact, with
+`[]` and `"x"` in the corrupt-artifact table. The rest: three id-less campaign
+paths (`findings/levels.go`, `completion/proofs.go`, `doctor/doctor.go`)
+rendered a hint with a hole in it (`webv2 impact  <finding> --unpriceable`) and
+are now guarded on a non-empty id, each with a test; `repairQuotaNote` no
+longer quotes a knob the CLI refuses, so the audit cannot print `--per-axis 0`
+for a command that exits 2; four test strengthenings (an explicit
+`--per-axis 12` over a 30/70 surface, a per-row placeholder assertion, a v2
+index that carries `campaign_id`, and the three id-less tests); the
+re-recorded capture sizes in this record corrected to 392,772 → 392,787; and
+the gate's new `axes` check no longer relies on a bare `assert`, which
+`python3 -O` would strip. The re-review returned Approved (0 RED, 0 YEL, three
+low items, parked in the list below). `bash scripts/verify-full.sh` green,
+13/13, at `821aabd`.
+
 ### Still open (deferred, with the reason)
 
 | item | evidence at HEAD | why deferred |
@@ -778,21 +799,34 @@ has the id; these paths do not, and each is parked rather than fixed:
   "structural index")`, which receives only the index — the caller's
   `c.CampaignID` is never threaded. **Recommendation:** thread the id or
   correct the comment.
-- `internal/structidx/structidx_test.go:214` — `TestRequireParseVersion`
-  exercises only the id-less branch, so the new named branch (`campaign_id`
-  present) has no test and a revert stays green.
-- `internal/immunize/immunize_test.go:439` — `sawPlaceholder` is declared
-  once outside the `mainnet-fork-poc`/`immunization` loop (`:416`) and set
-  inside it, so the per-row assertion passes when *either* row carries the
-  token even if a catalog row silently drops it.
-- The remaining hits are not operator-facing repair hints. At this head the
-  literal occurs **253 times in 96 Go files** (66 of them inside `_test.go`):
-  92 in template strings that are rendered with the id before printing, 84 in
-  comments, 66 in test-file uses (assertions, fixtures, the `campaignToken`
-  constant), 6 in usage/help strings, and 5 lines that are the literal
-  itself — the id-less fallbacks `planner/gates.go:42`,
-  `findings/ingest.go:562` and `findings/levels.go:368`, plus the constants
-  `findings/gate.go:29` and `structidx/parser.go:29`. A few dozen more sit
+- The remaining hits are not operator-facing repair hints. At this head
+  (`821aabd`) the literal occurs **256 times in 99 Go files**, 68 of them
+  inside `_test.go`; most of the rest are template strings that are rendered
+  with the id before printing, comments, and test fixtures and assertions. The
+  lines that *are* the literal are the id-less fallbacks
+  `planner/gates.go:43`, `findings/ingest.go:562`, `completion/proofs.go:104`
+  and `doctor/doctor.go:132`, plus the constants `findings/gate.go:29` (used
+  by `findings/levels.go` and the rest of that package) and
+  `structidx/parser.go:29`. A few dozen more sit outside `.go` files (plans,
+  this record, prompt assets, `testdata`) as the metavariable used
+  deliberately in documentation.
+- `internal/probes/audit.go:177` *(low)* — when the surface records a knob the
+  CLI refuses and the note drops it, the sentence still speaks of rebuilding
+  with the other recorded value, so it describes an `--emit` that exits 2 until
+  the artifact is repaired. **Recommendation:** name the unusable knob and
+  point at repairing the artifact, or drop the quota clause entirely.
+- `scripts/verify-full.sh:694` *(low)* — the repo-wide `axes` check catches
+  `ValueError`, but a valid non-object JSON body raises `AttributeError`, so
+  the named message is replaced by a traceback. The step still fails, because
+  the exit is non-zero and `fail 12` fires, so the cost is the message the
+  operator reads. **Recommendation:** catch `AttributeError`/`TypeError` too,
+  or type-check before `.get`.
+- `internal/findings/levels.go:369` *(info)* — the id-less fallback is spelled
+  `campaignPlaceholder` there while `doctor/doctor.go:132` and
+  `completion/proofs.go:104` keep the literal. Rendered text is identical and
+  no path can produce an empty or doubled id, so this is a consistency nit.
+  **Recommendation:** hoist one exported constant.
+ A few dozen more sit
   outside `.go` files (plans, this record, prompt assets, `testdata`) as the
   metavariable used deliberately in documentation.
 
