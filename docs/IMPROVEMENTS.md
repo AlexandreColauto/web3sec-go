@@ -2473,3 +2473,33 @@ fixture campaign; missing-section list; default (no flag) bytes unchanged.
 policy default-off; the expected golden byte movers are the corpus `search`
 weight swap (G2) and any accepted-off switch of A3 terms after a backtest win
 (G3/G6) — each gets its divergence-ledger row when it actually lands.
+
+---
+
+## Wave H — review backlog (filed 2026-09-11, from the tranche-2/3 gate reviews)
+
+Non-blocking follow-ups the per-task reviewers surfaced and the final
+whole-branch reviews triaged as FOLLOW-UP (nothing here is a correctness
+emergency; the DROPs — cosmetic/test-prose items — were discarded, not filed).
+Ordered roughly by real-world bite.
+
+| # | item | why it matters |
+|---|---|---|
+| H1 | `internal/costs/costs.go` unattributed edge: all cost rows lensed + bare priorities ⇒ no unattributed row emitted, planned count silently vanishes. Fix: add `\|\| planned["unattributed"]>0` to the emit gate + test that shape. | Only one that can surprise in a real campaign's advisory table. |
+| H2 | `internal/reproduction/postpatch_scope.go` uncapped walk: `scopeSolFiles` reads every common file fully; only output is capped (50 rows). Add a file-count or total-bytes guard. | Latency on huge vendored trees. |
+| H3 | Same file, uncapped detail join: cap plant rows with the same overflow convention as scope rows. | Record bloat on chatty archetypes × huge changed sets. |
+| H4 | Same file mirrors `structidx`'s excluded-dirs by value: extract a shared constant. | Silent drift if the parser's set changes. |
+| H5 | `dedup_meta.mitigation_present` + component citation hashes ride JSON strings / evidence description text: consider dedicated `affected[].hash`-style fields (schema migration). | Machine-checkable citations; today's shape is honest but stringly. |
+| H6 | evalsuite test lacks ES16-ack / ES17-clean presence asserts (`assets/evalsuite_test.go`). | The decoy/control semantics are covered in mitigscan tests but not in the suite's own test. |
+| H7 | mitigscan state-write regex under-detects nested-index writes (`deposits[rs[i]]`). | Pattern coverage, not a correctness bug (falls through to the next check). |
+| H8 | `SURFACE2_AXES` hand-copied literal vs `check-golden.py` `EXPECTED_PROBE_AXES` (`scripts/golden-run.py:131-134`): read the shared list. | A 7th axis would slip past the rot gate. |
+| H9 | `forgePassSummary` matches `Suite result` across the whole text instead of per-line (`internal/harness/outcome.go:208`). | Nil blast radius today (zero-FAIL-lines required regardless); tighten on touch. |
+| H10 | `sweep_t35_registry_test.go` still mirrors eight playbooks: extend to ten for tool-id coverage. | Registry-completeness intent. |
+| H11 | immunefi loader cleanup: dead `paid` param + twin `sha12` derivation paths (`internal/datasets/immunefi/`). | Hygiene. |
+| H12 | `string(rune)` test idiom → `strconv.Itoa` (`internal/evalscore/evalscore_test.go:376` + eval section test). | Robust past 9 cases. |
+| H13 | `class_weights.schema.json` strictness: `number` accepts int `1` and float `1.0` alike; confirm no `"null"`-string `source_url` in fixtures. | Schema hygiene; verify fixture data, then decide. |
+| H14 | Scaffold `_witness` storage var is contract-visible in halmos symbolic context (`internal/harness/harness.go`). | Harmless for dummy scaffolds; revisit when real invariants run. |
+
+E3 (ladder "other" axis) and E4 (campaign severity floor) stay deferred under
+principle 6 — they are NOT part of this backlog; they land when a real run
+trips them.
