@@ -102,6 +102,7 @@ func TestEvalPresentWithMatch(t *testing.T) {
 	// The ingested hypothesis carries no risk/evidence fields, so it scores
 	// 0.0 and lands in the single non-empty bucket [0,1) — anchored, hence
 	// 1/1 — and nothing was retracted, so the fabrication ledger is absent.
+	// J-perclass appends the per-class cell for the one matched class.
 	want := []string{
 		"## eval",
 		"- suite: 1 gold cases matched (1 dev, 0 held-out)",
@@ -110,6 +111,8 @@ func TestEvalPresentWithMatch(t *testing.T) {
 		"- false positives (unanchored live findings): 0",
 		"- acceptance-band precision (gold-anchored / live findings in suite-matched programs):",
 		"  - [0,1): 1/1 (95% CI 20.7–100.0%)",
+		"- recall/precision by gold class (small cells — read the intervals, not the ratios):",
+		"  - reentrancy: recall 1/1 (95% CI 20.7–100.0%), precision 1/1 (95% CI 20.7–100.0%)",
 	}
 	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("lines = %q\nwant %q", lines, want)

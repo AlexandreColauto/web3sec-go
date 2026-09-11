@@ -25,6 +25,15 @@
 // evidence sum, not a probability, so expected calibration error over it
 // would be meaningless (see internal/evalscore/bands.go). ok stays true
 // here too — the block is an advisory measurement, never a gate.
+//
+// J-perclass (Wave J, Task 2): the section closes with the per-class
+// recall/precision cells (evalscore.Classes) — methodology checkpoint 3
+// applied to our own output. Gated on the SAME presence rule as I3 (≥1
+// live finding in scope AND ≥1 matched case); the header warns that
+// per-class cells are small so the intervals are the reading, not the
+// ratios. With no live finding in scope the block and the `classes` value
+// key are absent: a zero-live campaign renders byte-for-byte what it
+// rendered before this task.
 package sections
 
 import (
@@ -182,6 +191,25 @@ func Eval(c *state.Campaign) (validation.Value, error) {
 			fabricated, inScope, strings.Join(parts, ", ")))
 	}
 
+	// J-perclass: per-class recall/precision over the SAME scope and
+	// anchor rule. Rendered LAST — after the fabrication ledger — and
+	// gated on ≥1 matched case (implied by Score ok) AND ≥1 live finding
+	// in scope: a clean or live-less campaign keeps its pre-J bytes.
+	classRows := evalscore.Classes([]string{program}, liveByProgram, cases)
+	if inScope > 0 && rep.GoldTotal > 0 {
+		lines = append(lines, "- recall/precision by gold class (small cells — "+
+			"read the intervals, not the ratios):")
+		for _, r := range classRows {
+			// The header names the metrics, so the rows drop
+			// wilson.Format's "recall: "/"precision: " nouns and keep
+			// the fractions and intervals.
+			lines = append(lines, "  - "+r.Class+": recall "+
+				strings.TrimPrefix(r.RecallLine, "recall: ")+
+				", precision "+
+				strings.TrimPrefix(r.PrecisionLine, "precision: "))
+		}
+	}
+
 	kvs := []validation.KV{
 		KV("matched", validation.VInt(int64(rep.GoldTotal))),
 		KV("dev", validation.VInt(int64(dev))),
@@ -227,6 +255,21 @@ func Eval(c *state.Campaign) (validation.Value, error) {
 				KV("fabricated", validation.VInt(int64(fabricated))),
 				KV("fabrication_bands", validation.VArr(fabVals...)))
 		}
+		// J-perclass: the same cells the block renders, one object each,
+		// in class order. Absent — like every I3 key — when the gate is
+		// closed: no zero-valued defaults.
+		classVals := make([]validation.Value, 0, len(classRows))
+		for _, r := range classRows {
+			classVals = append(classVals, validation.VObj(
+				KV("class", validation.VStr(r.Class)),
+				KV("cases", validation.VInt(int64(r.Cases))),
+				KV("hits", validation.VInt(int64(r.Hits))),
+				KV("live", validation.VInt(int64(r.Live))),
+				KV("anchored", validation.VInt(int64(r.Anchored))),
+				KV("recall", validation.VStr(r.RecallLine)),
+				KV("precision", validation.VStr(r.PrecisionLine))))
+		}
+		kvs = append(kvs, KV("classes", validation.VArr(classVals...)))
 	}
 	kvs = append(kvs, KV("ok", validation.VBool(true)))
 	return validation.VObj(kvs...), nil

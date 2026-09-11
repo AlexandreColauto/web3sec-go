@@ -90,6 +90,12 @@ func TestEvalRendersPinnedLines(t *testing.T) {
 		"- false positives (unanchored live findings): 1",
 		"- acceptance-band precision (gold-anchored / live findings in suite-matched programs):",
 		"  - [0,1): 1/2 (95% CI 9.5–90.5%)",
+		// J-perclass: the per-class cells land AFTER the I3 blocks. The
+		// FP class gets its own (zero-case) row — a live finding is
+		// attributed to exactly one class, never dropped.
+		"- recall/precision by gold class (small cells — read the intervals, not the ratios):",
+		"  - oracle-manipulation: recall 0/0 (95% CI n/a), precision 0/1 (95% CI 0.0–79.3%)",
+		"  - reentrancy: recall 1/1 (95% CI 20.7–100.0%), precision 1/1 (95% CI 20.7–100.0%)",
 	}
 	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
 		t.Fatalf("lines = %q\nwant %q", got, want)
@@ -165,20 +171,28 @@ func TestEvalRendersPartitionProblemsWhenPresent(t *testing.T) {
 		"  - unparseable-deployed_at CASE-0000000000h1",
 	}
 	// Five base lines, then the I1b problem block, then the I3 band block
-	// (the single live finding scores 0.0 and anchors, so [0,1) is 1/1).
+	// (the single live finding scores 0.0 and anchors, so [0,1) is 1/1),
+	// then the J-perclass class block.
 	wantBands := []string{
 		"- acceptance-band precision (gold-anchored / live findings in suite-matched programs):",
 		"  - [0,1): 1/1 (95% CI 20.7–100.0%)",
 	}
-	if len(got) != 9 {
-		t.Fatalf("lines = %q\nwant the five pinned lines + %q + %q",
-			got, wantProblems, wantBands)
+	wantClasses := []string{
+		"- recall/precision by gold class (small cells — read the intervals, not the ratios):",
+		"  - reentrancy: recall 1/1 (95% CI 20.7–100.0%), precision 1/1 (95% CI 20.7–100.0%)",
+	}
+	if len(got) != 11 {
+		t.Fatalf("lines = %q\nwant the five pinned lines + %q + %q + %q",
+			got, wantProblems, wantBands, wantClasses)
 	}
 	if !reflect.DeepEqual(got[5:7], wantProblems) {
 		t.Fatalf("problem block = %q\nwant %q", got[5:7], wantProblems)
 	}
-	if !reflect.DeepEqual(got[7:], wantBands) {
-		t.Fatalf("band block = %q\nwant %q", got[7:], wantBands)
+	if !reflect.DeepEqual(got[7:9], wantBands) {
+		t.Fatalf("band block = %q\nwant %q", got[7:9], wantBands)
+	}
+	if !reflect.DeepEqual(got[9:], wantClasses) {
+		t.Fatalf("class block = %q\nwant %q", got[9:], wantClasses)
 	}
 	probs := objAt(sec, "problems")
 	if probs.Kind != validation.Arr || len(probs.A) != 1 ||
@@ -216,6 +230,8 @@ func TestEvalOmitsProblemBlockWhenClean(t *testing.T) {
 		"- false positives (unanchored live findings): 0",
 		"- acceptance-band precision (gold-anchored / live findings in suite-matched programs):",
 		"  - [0,1): 1/1 (95% CI 20.7–100.0%)",
+		"- recall/precision by gold class (small cells — read the intervals, not the ratios):",
+		"  - reentrancy: recall 1/1 (95% CI 20.7–100.0%), precision 1/1 (95% CI 20.7–100.0%)",
 	}
 	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
 		t.Fatalf("lines = %q\nwant %q", got, want)
@@ -293,6 +309,12 @@ func TestEvalRendersBandBlockAfterFPLine(t *testing.T) {
 		"  - [4+): 1/1 (95% CI 20.7–100.0%)",
 		"- fabrication ledger: 1/3 live findings retracted as disproved; " +
 			"by band [0,1)=1, [1,2)=0, [2,4)=0, [4+)=0",
+		// J-perclass: the class block is the LAST thing appended, i.e.
+		// after the fabrication ledger. Both retracted and anchored rows
+		// still count as LIVE findings.
+		"- recall/precision by gold class (small cells — read the intervals, not the ratios):",
+		"  - oracle-manipulation: recall 0/0 (95% CI n/a), precision 0/1 (95% CI 0.0–79.3%)",
+		"  - reentrancy: recall 1/1 (95% CI 20.7–100.0%), precision 2/2 (95% CI 34.2–100.0%)",
 	}
 	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
 		t.Fatalf("lines = %q\nwant %q", got, want)
@@ -360,7 +382,7 @@ func TestEvalBandBlockAbsentWithZeroLiveFindings(t *testing.T) {
 		t.Fatalf("lines = %q\nwant the unchanged five %q", got, want)
 	}
 	for _, key := range []string{"bands", "unscorable", "fabricated",
-		"fabrication_bands"} {
+		"fabrication_bands", "classes"} {
 		if v := objAt(sec, key); v.Kind != validation.Null {
 			t.Errorf("%s = %s, want absent when the gate is closed",
 				key, validation.CanonCompact(v))
@@ -393,5 +415,67 @@ func TestEvalBandValueRoundTrips(t *testing.T) {
 	}
 	if got := validation.Canon(back, true); got != canon {
 		t.Fatalf("round-trip moved bytes:\n got %s\nwant %s", got, canon)
+	}
+}
+
+// TestEvalClassesValueAndUnmappedBucket: the `classes` value carries the
+// same numbers the block renders, one row per class, in the SAME order the
+// lines appear. A live finding with no root_cause.class is attributed to
+// `unmapped` — rendered and counted, never dropped.
+func TestEvalClassesValueAndUnmappedBucket(t *testing.T) {
+	c := evalCampaign(t, "ES03BankReentrancy", []validation.Value{
+		validation.VObj( // no root_cause at all
+			KV("affected", validation.VArr(validation.VObj(
+				KV("path", validation.VStr("src/ES03BankReentrancy.sol"))))),
+		),
+	})
+	sec, err := Eval(c)
+	if err != nil {
+		t.Fatalf("Eval: %v", err)
+	}
+	want := []string{
+		"## eval",
+		"- suite: 1 gold cases matched (1 dev, 0 held-out)",
+		"- recall: 0/1 (95% CI 0.0–79.3%)",
+		"- precision: 0/1 (95% CI 0.0–79.3%)",
+		"- false positives (unanchored live findings): 1",
+		"- acceptance-band precision (gold-anchored / live findings in suite-matched programs):",
+		"  - [0,1): 0/1 (95% CI 0.0–79.3%)",
+		"- recall/precision by gold class (small cells — read the intervals, not the ratios):",
+		"  - reentrancy: recall 0/1 (95% CI 0.0–79.3%), precision 0/0 (95% CI n/a)",
+		"  - unmapped: recall 0/0 (95% CI n/a), precision 0/1 (95% CI 0.0–79.3%)",
+	}
+	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
+		t.Fatalf("lines = %q\nwant %q", got, want)
+	}
+	classes := objAt(sec, "classes")
+	if classes.Kind != validation.Arr || len(classes.A) != 2 {
+		t.Fatalf("classes = %s, want two rows",
+			validation.CanonCompact(classes))
+	}
+	unmapped := classes.A[1]
+	if got := objStr(unmapped, "class"); got != "unmapped" {
+		t.Fatalf("second class row = %q, want unmapped", got)
+	}
+	if n := objAt(unmapped, "cases"); n.Kind != validation.Int || n.I != 0 {
+		t.Fatalf("unmapped cases = %s, want 0",
+			validation.CanonCompact(n))
+	}
+	if n := objAt(unmapped, "live"); n.Kind != validation.Int || n.I != 1 {
+		t.Fatalf("unmapped live = %s, want 1",
+			validation.CanonCompact(n))
+	}
+	if n := objAt(unmapped, "anchored"); n.Kind != validation.Int || n.I != 0 {
+		t.Fatalf("unmapped anchored = %s, want 0",
+			validation.CanonCompact(n))
+	}
+	if p := objStr(unmapped, "precision"); p != "precision: 0/1 (95% CI 0.0–79.3%)" {
+		t.Fatalf("unmapped precision = %q", p)
+	}
+	if r := objStr(unmapped, "recall"); r != "recall: 0/0 (95% CI n/a)" {
+		t.Fatalf("unmapped recall = %q", r)
+	}
+	if r := objStr(classes.A[0], "class"); r != "reentrancy" {
+		t.Fatalf("first class row = %q, want reentrancy (sorted by Class)", r)
 	}
 }
