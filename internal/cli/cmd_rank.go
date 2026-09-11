@@ -88,22 +88,36 @@ func rankCmd(root string, args []string, r *Runner) error {
 	if err != nil {
 		return err
 	}
+	// policy is hoisted: the budget read below and the G3 priors gate
+	// both resolve from the one loaded policy (absent/unloadable = VNull
+	// = today's behavior for both).
+	policy := validation.VNull()
 	if p := objStr(st, "policy_path"); p != "" {
-		if policy, perr := bounty.LoadPolicy(p); perr == nil {
-			if sb := objAt(policy, "submission_budget"); sb.Kind ==
-				validation.Obj {
-				if rb := objStr(sb, "rank_by"); rb == "severity" {
-					rankBy = "severity"
-				}
-				if mf := objAt(sb, "max_findings"); mf.Kind == validation.Int &&
-					mf.I > 0 {
-					budgetNote = fmt.Sprintf(
-						", submission budget %d", mf.I)
-				}
-			}
+		if loaded, perr := bounty.LoadPolicy(p); perr == nil {
+			policy = loaded
+		}
+	}
+	if sb := objAt(policy, "submission_budget"); sb.Kind ==
+		validation.Obj {
+		if rb := objStr(sb, "rank_by"); rb == "severity" {
+			rankBy = "severity"
+		}
+		if mf := objAt(sb, "max_findings"); mf.Kind == validation.Int &&
+			mf.I > 0 {
+			budgetNote = fmt.Sprintf(
+				", submission budget %d", mf.I)
 		}
 	}
 	entries := risk.AcceptanceRanking(live, rankBy)
+	if bounty.PriorsEnabled(policy) {
+		// G3 wPrior, policy-gated OFF by default: a store failure
+		// resolves to nil priors, which rank bit-identically to the
+		// plain path above — the flag degrades to today's order, never
+		// to an error.
+		priors, global, _ := risk.AcceptancePriors(risk.DefaultMinN)
+		entries = risk.AcceptanceRankingWithPriors(live, rankBy,
+			priors, global)
+	}
 	if len(entries) == 0 {
 		fmt.Fprintln(r.Out, "no live findings to rank")
 		return nil
@@ -156,6 +170,11 @@ func rankScore(e risk.AcceptanceEntry) string {
 	}
 	if e.RiskDemoted {
 		s += " -risk"
+	}
+	// the G3 prior marker rides the AckDemoted presence pattern: absent
+	// when the term is zero, so policy-off output never moves.
+	if e.PriorFactor != 0 {
+		s += " +prior"
 	}
 	return s
 }

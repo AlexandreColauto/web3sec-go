@@ -71,6 +71,8 @@
       }
     },
 
+    "acceptance_priors": { "type": "boolean", "default": false, "description": "G3 calibrated acceptance prior (wPrior): when true, the acceptance score adds the finding's class base rate over the eval store's adjudicated outcomes (bounded ±0.5, thin classes fall back to silent zero). Absent or false = today's score, byte-for-byte." },
+
     "severity_rules": {
       "type": "array",
       "minItems": 1,

@@ -26,7 +26,6 @@ import (
 
 	"websec/internal/findings"
 	"websec/internal/pricing"
-	"websec/internal/risk"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -1490,7 +1489,8 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 	// A3: the deterministic acceptance score, stored on the finding at gate
 	// time (the report and `webv2 rank` recompute it live, so the stored
 	// number is the gate's audit trail, not the source of truth).
-	score, _ := risk.AcceptanceScore(f)
+	// Policy-gated (G3): acceptance_priors true carries the class prior.
+	score, _ := gateAcceptance(f, g.policy)
 	riskObj := objAt(f, "risk")
 	if riskObj.Kind != validation.Obj {
 		riskObj = validation.VObj()

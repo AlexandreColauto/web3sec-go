@@ -13,6 +13,9 @@ package risk
 //	           + wCorroboration(dedup_meta.corroborated_by) = +0.5 (G1)
 //	           + outlook(verification.triager_outlook) = ±0.5 (G6)
 //	           + wReversibility(risk.reversibility)
+//	           + wPrior(class base rate over adjudicated outcomes, G3 —
+//	             policy-gated OFF via AcceptanceWithPriors, default 0;
+//	             applied LAST, just before the floor clamp)
 //
 // Weights (the validated_risk wLevel table is reused for evidence, so the
 // score and the 1..10 band can never disagree about what E4 is worth):
@@ -37,6 +40,7 @@ package risk
 
 import (
 	"fmt"
+	"math"
 	"sort"
 
 	"websec/internal/findings"
@@ -84,7 +88,10 @@ var wAcceptanceReversibility = map[string]float64{
 
 // AcceptanceEntry is one scored finding: the clamped score, the
 // disqualification flag, and which demotions fired (for the table's
-// demotion markers).
+// demotion markers). PriorFactor/Prior are the G3 calibrated prior term:
+// additive, omitempty, and set ONLY when the prior clause fires — a zero
+// entry renders exactly as before (the AckDemoted presence pattern: no
+// marker, no JSON key, no byte moves when the term is absent).
 type AcceptanceEntry struct {
 	Finding      validation.Value
 	Score        float64
@@ -92,12 +99,40 @@ type AcceptanceEntry struct {
 	AckDemoted   bool
 	RiskDemoted  bool
 	Corroborated bool
+	PriorFactor  float64 `json:"prior_factor,omitempty"`
+	Prior        string  `json:"prior,omitempty"`
 }
 
 // Acceptance computes the full entry. Every component is optional: an
 // absent field contributes 0, exactly like the E5 reversibility factor, so
 // a bare HYPOTHESIS scores 0.0 and nothing panics on partial findings.
+//
+// Byte law: Acceptance is AcceptanceWithPriors with nil priors, and the
+// prior clause runs ONLY when priors != nil — so the default path cannot
+// move one float.
 func Acceptance(finding validation.Value) AcceptanceEntry {
+	return AcceptanceWithPriors(finding, nil, Prior{})
+}
+
+// AcceptanceWithPriors computes the full entry with the G3 calibrated
+// class prior (wPrior). Body is Acceptance's, verbatim, plus the prior
+// clause after ALL existing terms and just before the floor clamp: the
+// term participates in the clamp like every other weight, and nil priors
+// yield BIT-IDENTICAL results (x+0.0 == x exactly — the clause is skipped
+// wholesale, not added as zero).
+//
+// The clause fires only when every gate holds: priors != nil, the
+// finding's root_cause.class is known in the map, the class prior is not
+// a fallback, and its n >= DefaultMinN (the thickness the priors'
+// producer demands). The term is the verbatim law:
+//
+//	wPrior = clamp(2*(rate - global.rate) * min(1, n/30), -0.5, +0.5)
+//
+// Presence-gated in both score and entry: when the gates fail — or the
+// term computes to exactly zero — score is untouched AND PriorFactor/Prior
+// stay zero-valued (omitempty ⇒ absent in every rendering).
+func AcceptanceWithPriors(finding validation.Value, priors map[string]Prior,
+	global Prior) AcceptanceEntry {
 	e := AcceptanceEntry{Finding: finding}
 	score := 0.0
 
@@ -167,6 +202,30 @@ func Acceptance(finding validation.Value) AcceptanceEntry {
 		}
 	}
 
+	// prior (G3 wPrior): the class base rate over adjudicated outcomes,
+	// policy-gated OFF at the caller (risk stays pure — the caller resolves
+	// the flag and the priors). LAST in the addition chain, just before
+	// the clamp: document position — a late term still clamps, an early
+	// one would too, but only this position keeps "nil priors ⇒ the old
+	// bytes" provable by inspection (everything above is untouched).
+	if priors != nil {
+		cls := orStr(objAt(orObj(objAt(finding, "root_cause")), "class"))
+		if p, ok := priors[cls]; ok && !p.Fallback && p.N >= DefaultMinN {
+			term := 2 * (p.Rate - global.Rate) *
+				math.Min(1, float64(p.N)/30)
+			if term > 0.5 {
+				term = 0.5
+			} else if term < -0.5 {
+				term = -0.5
+			}
+			score += term
+			if term != 0 {
+				e.PriorFactor = term
+				e.Prior = p.Render()
+			}
+		}
+	}
+
 	if score < 0 {
 		score = 0
 	}
@@ -186,10 +245,22 @@ func AcceptanceScore(finding validation.Value) (float64, bool) {
 // else falls back to acceptance. Order: qualified rows first, then
 // disqualified; within each group by the chosen key, ties broken by
 // finding_id so two runs over the same tree always print the same table.
+//
+// Byte law: AcceptanceRanking delegates with nil priors, so NO current
+// caller changes behavior.
 func AcceptanceRanking(fs []validation.Value, by string) []AcceptanceEntry {
+	return AcceptanceRankingWithPriors(fs, by, nil, Prior{})
+}
+
+// AcceptanceRankingWithPriors is the campaign-aware ranking hub: the
+// caller (a layer that holds the campaign policy) resolves the
+// acceptance_priors flag, calls AcceptancePriors once, and passes the map
+// here. Nil priors score every finding with Acceptance exactly.
+func AcceptanceRankingWithPriors(fs []validation.Value, by string,
+	priors map[string]Prior, global Prior) []AcceptanceEntry {
 	entries := make([]AcceptanceEntry, 0, len(fs))
 	for _, f := range fs {
-		entries = append(entries, Acceptance(f))
+		entries = append(entries, AcceptanceWithPriors(f, priors, global))
 	}
 	less := func(a, b AcceptanceEntry) bool {
 		if a.Disqualified != b.Disqualified {

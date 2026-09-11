@@ -415,6 +415,15 @@ func precisionBlock(campaign *state.Campaign, all []validation.Value,
 		keyName = "severity"
 	}
 	entries := risk.AcceptanceRanking(live, rankBy)
+	if bounty.PriorsEnabled(policy) {
+		// G3 wPrior, policy-gated OFF by default: a store failure
+		// resolves to nil priors, which rank bit-identically to the
+		// plain path above — the flag degrades to today's order, never
+		// to an error.
+		priors, global, _ := risk.AcceptancePriors(risk.DefaultMinN)
+		entries = risk.AcceptanceRankingWithPriors(live, rankBy,
+			priors, global)
+	}
 	top, capped := risk.AcceptanceTopK(entries, k)
 	if k > 0 {
 		L = append(L, fmt.Sprintf(
@@ -662,6 +671,8 @@ func criticCell(e risk.AcceptanceEntry) string {
 
 // scoreCell is the two-decimal score with its demotion markers (A2 ack, A1
 // accepted risk) — the markers are what make a demoted number legible.
+// The G3 prior marker rides the same presence pattern: absent when the
+// term is zero, so policy-off tables never move.
 func scoreCell(e risk.AcceptanceEntry) string {
 	s := risk.ScoreText(e.Score)
 	if e.AckDemoted {
@@ -669,6 +680,9 @@ func scoreCell(e risk.AcceptanceEntry) string {
 	}
 	if e.RiskDemoted {
 		s += " -risk"
+	}
+	if e.PriorFactor != 0 {
+		s += " +prior"
 	}
 	return s
 }
