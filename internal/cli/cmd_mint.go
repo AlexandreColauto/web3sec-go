@@ -21,6 +21,7 @@ import (
 const mintHelp = `usage: webv2 mint [-h] --exec EXEC_ID --description DESCRIPTION
                   [--tier {T1,T2,T3,T4}]
                   [--type {balance-delta,differential,fork-test,foundry-test,fuzz,historical-analog,invariant-test,manual,reachability,reasoning,static-analysis,symbolic-witness,trace,unit-test}]
+                  [--verify-reruns]
                   campaign finding
 
 positional arguments:
@@ -33,6 +34,8 @@ options:
   --description DESCRIPTION
   --tier {T1,T2,T3,T4}
   --type {balance-delta,differential,fork-test,foundry-test,fuzz,historical-analog,invariant-test,manual,reachability,reasoning,static-analysis,symbolic-witness,trace,unit-test}
+  --verify-reruns       re-run the PoC 3x and record the variance advisory
+                        (fail-open; needs a container runtime)
 `
 
 // mintTiers is the argparse choice list for --tier (declaration order).
@@ -43,6 +46,7 @@ func runMint(root string, args []string, r *Runner) int {
 	var pos []string
 	execID, description, tier, etype := "", "", "", ""
 	haveExec, haveDesc, haveTier, haveType := false, false, false, false
+	verifyReruns := false
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
@@ -86,6 +90,8 @@ func runMint(root string, args []string, r *Runner) int {
 			i++
 		case strings.HasPrefix(a, "--type="):
 			etype, haveType = strings.TrimPrefix(a, "--type="), true
+		case a == "--verify-reruns":
+			verifyReruns = true
 		case a == "-h" || a == "--help":
 			fmt.Fprint(r.Out, mintHelp)
 			return 0
@@ -159,6 +165,12 @@ func runMint(root string, args []string, r *Runner) int {
 			return 0
 		}
 	}
+	// The variance gate is process-global in the library (the other mint
+	// callers — ladder, sequence — never opt in); save/restore so
+	// in-process test runs cannot leak the flag between commands.
+	prevVerify := reproduction.VerifyReruns
+	reproduction.VerifyReruns = verifyReruns
+	defer func() { reproduction.VerifyReruns = prevVerify }()
 	out, err := reproduction.AttemptAndMint(c, pos[1], execID, description,
 		tierPtr, typePtr)
 	if err != nil {
@@ -168,6 +180,9 @@ func runMint(root string, args []string, r *Runner) int {
 			return 2
 		}
 		return r.withErr(root, func() error { return err })
+	}
+	if notice := reproduction.TakeMintNotice(); notice != "" {
+		fmt.Fprintln(r.Err, notice)
 	}
 	level, err := findings.FindingLevel(out)
 	if err != nil {

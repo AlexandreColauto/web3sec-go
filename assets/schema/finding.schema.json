@@ -1104,6 +1104,14 @@
         "re_parented_from": {
           "type": "string",
           "description": "G14a supersede: the finding id this evidence item was copied from; set only on re-parented copies, the source finding keeps its own array untouched"
+        },
+        "reruns": {
+          "type": "string",
+          "description": "G15 PoC variance advisory at mint: N=3 rerun exit-vector agreement against the cited exec (3/3, flaky n/3, not-applicable). Advisory metadata only — never blocks the mint."
+        },
+        "fork_stale": {
+          "type": "string",
+          "description": "G15 fork-freshness advisory at mint: the pinned snapshot's fork age against the exec clock. Advisory metadata only — never blocks the mint."
         }
       }
     },

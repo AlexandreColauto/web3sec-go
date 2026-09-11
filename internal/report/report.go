@@ -1958,6 +1958,14 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 			if objStr(e, "sandbox_profile") != "" {
 				line += " (sandbox: " + objStr(e, "sandbox_profile") + ")"
 			}
+			// G15 advisories ride the line presence-gated: a fresh /
+			// un-rerun item renders exactly as before.
+			if objStr(e, "reruns") != "" {
+				line += " [reruns " + objStr(e, "reruns") + "]"
+			}
+			if objStr(e, "fork_stale") != "" {
+				line += " [fork stale]"
+			}
 			out = append(out, line)
 		}
 	}
