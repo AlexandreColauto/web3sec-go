@@ -61,6 +61,9 @@ options:
                         payload JSON file (omit with --example)
   --example             print a valid example payload to stdout and exit
   --trajectory TRAJECTORY
+                         full trajectory name or dispatch letter (A=code
+                         B=economic C=state-machine D=attacker E=historical
+                         F=integration G=drift H=lifecycle)
   --stage STAGE         discovery stage that produced this
   --answers-priority ANSWERS_PRIORITY
                         close a plan priority (Q-*) with this finding as the
@@ -75,6 +78,32 @@ options:
                         tool-output ingest (G1/I2a); requires
                         --json-file
 `
+
+// trajectoryLetterAliases is the M4 map: the runbook and prompt 39
+// (trajectory dispatch) teach trajectories as A–H letters, while the
+// schema enum wants full names. Single letters normalize here, at parse
+// time; anything else passes through to schema validation unchanged
+// (chain|model have no letters; junk still fails loudly there).
+var trajectoryLetterAliases = map[string]string{
+	"a": "code",
+	"b": "economic",
+	"c": "state-machine",
+	"d": "attacker",
+	"e": "historical",
+	"f": "integration",
+	"g": "drift",
+	"h": "lifecycle",
+}
+
+// normalizeTrajectory maps a dispatch letter to its trajectory name.
+func normalizeTrajectory(val string) string {
+	if len(val) == 1 {
+		if full, ok := trajectoryLetterAliases[strings.ToLower(val)]; ok {
+			return full
+		}
+	}
+	return val
+}
 
 // t14ExamplePayload is examples/hypothesis.example.json verbatim.
 const t14ExamplePayload = `{
@@ -334,7 +363,7 @@ func parseIngest(args []string, r *Runner) (*ingestArgs, error) {
 		case "--from":
 			a.from = val
 		case "--trajectory":
-			a.trajectory = val
+			a.trajectory = normalizeTrajectory(val)
 		case "--stage":
 			a.stage = val
 		case "--answers-priority":

@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	"websec/internal/state"
@@ -225,45 +224,17 @@ func copyTree(src, dst string, excludes map[string]struct{}) error {
 // "src-content-"+content_hash[:12].
 func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Value, extraExcludes []string) (validation.Value, error) {
 	targetAbs := resolveSnap(target)
-	ladder, commit, dirty, err := DetectLadder(targetAbs)
+	snapRoot := resolveSnap(filepath.Join(c.Dir, "snapshots"))
+	st, err := stageTree(targetAbs, snapRoot, extraExcludes)
 	if err != nil {
 		return validation.VNull(), err
 	}
-
-	snapRoot := resolveSnap(filepath.Join(c.Dir, "snapshots"))
-	if err := os.MkdirAll(snapRoot, 0o755); err != nil {
-		return validation.VNull(), err
-	}
-	// Never copy the store into itself: when snap_root lives inside the
-	// target, exclude the top-level entry that leads to it.
-	excludes := map[string]struct{}{}
-	for k := range SourceExcludes {
-		excludes[k] = struct{}{}
-	}
-	for k := range BulkSourceExcludes {
-		excludes[k] = struct{}{}
-	}
-	for _, k := range extraExcludes {
-		excludes[k] = struct{}{}
-	}
-	if rel, rerr := filepath.Rel(targetAbs, snapRoot); rerr == nil && rel != "." &&
-		rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		excludes[strings.Split(rel, string(os.PathSeparator))[0]] = struct{}{}
-	}
-	// The SCOPE this pin deliberately drops, computed from the target so it
-	// is reported identically on every ladder path.
-	pruneSet := map[string]struct{}{}
-	for k := range excludes {
-		if _, keep := SourceExcludes[k]; !keep {
-			pruneSet[k] = struct{}{}
-		}
-	}
-	prunedPaths := excludedNamesIn(targetAbs, pruneSet)
-
-	staging := snapRoot + string(os.PathSeparator) +
-		"staging-" + strings.ReplaceAll(snapNowIso(), ":", "") +
-		fmt.Sprintf("-%d", os.Getpid())
-	worktreeAdded := false
+	ladder, commit, dirty := st.ladder, st.commit, st.dirty
+	prunedPaths := st.prunedPaths
+	staging := st.staging
+	worktreeAdded := st.worktreeAdded
+	contentHash, fileCount := st.contentHash, st.fileCount
+	snapshotID := st.snapshotID
 	defer func() {
 		// The worktree moved (rename) or was discarded (re-pin noop): only
 		// a leftover staging dir needs rmtree + prune, exactly like the
@@ -275,40 +246,6 @@ func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Valu
 			}
 		}
 	}()
-
-	if ladder == "git-clean" && commit != nil {
-		Git(targetAbs, "worktree", "add", "--detach", staging, *commit)
-		if dirExists(staging) {
-			worktreeAdded = true
-		} else {
-			// git missing/raced: fall back to a copy.
-			if err := copyTree(targetAbs, staging, excludes); err != nil {
-				return validation.VNull(), err
-			}
-		}
-	} else {
-		if err := copyTree(targetAbs, staging, excludes); err != nil {
-			return validation.VNull(), err
-		}
-	}
-
-	// Physical prune: required on the worktree path (whole tree checked
-	// out), a no-op on the copytree path (ignore already pruned).
-	pruneExcludes(staging, pruneSet)
-
-	contentHash, fileCount, err := ContentHash(staging)
-	if err != nil {
-		return validation.VNull(), err
-	}
-	var snapshotID string
-	switch ladder {
-	case "git-clean":
-		snapshotID = "src-" + trunc(*commit, 12)
-	case "git-dirty":
-		snapshotID = "src-" + trunc(*commit, 8) + "-" + trunc(contentHash, 12)
-	default: // no-vcs: the content hash is the only identity
-		snapshotID = "src-content-" + trunc(contentHash, 12)
-	}
 
 	final := filepath.Join(snapRoot, snapshotID)
 	if dirExists(final) {

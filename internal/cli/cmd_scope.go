@@ -244,10 +244,10 @@ const t14TopUsage = `usage: webv2 [-h] [--root ROOT]
              {init,status,doctor,complete,dedup,prioritize,repro-queue,chains,terminals,privileged,cost,yields,relations,resemble,index,sinks,prescreen,forkdiff,recency,baseline,brief,invariant-verify,artifact-register,artifact-list,invariant-contradict,publish,globalize,corpus-surface,shared,report,memory,ingest,model,plan,answered,probes,floors,execs,budget,exec,scope,move,mint,sequence,verdict,recall,impact,snap,run,log,verify,audit,ladder,waive,prove,gate,price,price-basis,env,classify,shield,precondition,immunize,resolve-candidate,hint,sft} ...
 `
 
-const t14ScopeUsage = `usage: webv2 scope [-h] [--policy POLICY] campaign
+const t14ScopeUsage = `usage: webv2 scope [-h] [--policy POLICY] [--example] campaign
 `
 
-const t14ScopeHelp = `usage: webv2 scope [-h] [--policy POLICY] campaign
+const t14ScopeHelp = `usage: webv2 scope [-h] [--policy POLICY] [--example] campaign
 
 positional arguments:
   campaign
@@ -255,6 +255,25 @@ positional arguments:
 options:
   -h, --help       show this help message and exit
   --policy POLICY  path to a bounty-policy JSON
+  --example        print a valid example policy to stdout and exit
+`
+
+// t14ExamplePolicy is the M1 template: a minimal schema-valid bounty
+// policy, mirroring the `ingest --example` contract (pipeable stdout).
+// platform "direct" marks it operator-drafted: replace program,
+// program_url, chains and scope with the program's own terms before the
+// gate can mistake it for ground truth.
+const t14ExamplePolicy = `{
+  "program": "Acme Protocol",
+  "program_url": "https://example.com/bounty",
+  "platform": "direct",
+  "chains": ["ethereum"],
+  "scope": [{"target": "Vault", "kind": "contract"}],
+  "exclusions": [],
+  "severity_rules": [{"severity": "critical", "match": {"bug_classes": ["access-control"], "require_invariant_violation": true}}],
+  "poc_requirements": {"min_evidence_level": "E4", "require_fork_repro": false},
+  "reporting": {"contact": "security@example.com", "required_fields": ["PoC", "impact"]}
+}
 `
 
 // ---- cmd_scope ------------------------------------------------------------
@@ -262,12 +281,15 @@ options:
 func runScope(root string, args []string, r *Runner) error {
 	var pos []string
 	policy := ""
+	example := false
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
 		case a == "-h" || a == "--help":
 			fmt.Fprint(r.Out, t14ScopeHelp)
 			return nil
+		case a == "--example":
+			example = true
 		case a == "--policy" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			policy = args[i+1]
 			i++
@@ -281,6 +303,16 @@ func runScope(root string, args []string, r *Runner) error {
 		default:
 			pos = append(pos, a)
 		}
+	}
+	// --example wins before the campaign requirement, like ingest
+	// --example: the template is pipeable stdout, no campaign needed.
+	if example {
+		fmt.Fprint(r.Out, t14ExamplePolicy)
+		fmt.Fprint(r.Err, "this policy template IS the scope schema "+
+			"contract: save as policy.json, replace program, program_url, "+
+			"chains and scope with the program's own terms, then: "+
+			"webv2 scope <campaign> --policy policy.json\n")
+		return nil
 	}
 	if len(pos) < 1 {
 		return t14ArgparseErr(t14ScopeUsage, "scope",
