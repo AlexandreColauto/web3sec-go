@@ -529,8 +529,51 @@ func insolvencyRisk(finding validation.Value) string {
 // the ceiling basis is dropped, and the log keeps both events. A finding
 // that never carried the decision is written exactly as before — no new
 // key — so old behaviour is byte-identical.
+// refuseClassWeightKeys is the G2 class-weights boundary for caller-supplied
+// Values: RecordEconomicImpact's USD inputs arrive from CLI flag parsing, so
+// any class-weights-table key (severity_default / class_weights / classes)
+// smuggled into them is refused here, naming the key. Legitimate inputs are
+// scalars or null and never carry these keys.
+func refuseClassWeightKeys(vs ...validation.Value) error {
+	var walk func(v validation.Value) error
+	walk = func(v validation.Value) error {
+		switch v.Kind {
+		case validation.Obj:
+			for _, kv := range v.O {
+				if kv.K == "severity_default" || kv.K == "class_weights" ||
+					kv.K == "classes" {
+					return fmt.Errorf("risk input must not contain %q "+
+						"(severity_default is display-only; class weights live "+
+						"in the class-weights table, never in a risk decision)",
+						kv.K)
+				}
+				if err := walk(kv.V); err != nil {
+					return err
+				}
+			}
+		case validation.Arr:
+			for _, e := range v.A {
+				if err := walk(e); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	for _, v := range vs {
+		if err := walk(v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func RecordEconomicImpact(campaign *state.Campaign, findingID string,
 	extractableUSD, maxLossUSD, requiredCapitalUSD validation.Value) (validation.Value, error) {
+	if err := refuseClassWeightKeys(extractableUSD, maxLossUSD,
+		requiredCapitalUSD); err != nil {
+		return validation.VNull(), err
+	}
 	f, err := findings.LoadFinding(campaign, findingID)
 	if err != nil {
 		return validation.VNull(), err

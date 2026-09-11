@@ -605,6 +605,41 @@ func TestApplyPolicyFileVectors(t *testing.T) {
 	}
 }
 
+// TestFloorPolicyRefusesClassWeightSmuggling pins the G2 boundary: a floor
+// policy file smuggling class-weights-table shape ({classes: {...:
+// {severity_default: ...}}}) is refused with an error naming the key —
+// before shape validation, so the smuggle is named, not shape-masked.
+func TestFloorPolicyRefusesClassWeightSmuggling(t *testing.T) {
+	body := `{"overrides": [{"class": "reentrancy", "floor": "E4", ` +
+		`"reason": "a written reason of length"}], ` +
+		`"classes": {"reentrancy": {"severity_default": "critical"}}}`
+	p := filepath.Join(t.TempDir(), "policy.json")
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadPolicyFile(p)
+	if err == nil || !strings.Contains(err.Error(), "severity_default") {
+		t.Fatalf("floors must refuse class-weights-shaped input naming the key, got %v", err)
+	}
+}
+
+// TestFloorPolicyRefusesBareClassesMap pins the second half of the boundary:
+// a top-level "classes" map with no inner severity_default is still refused
+// ("classes" is plural table shape; policy entries use singular "class").
+func TestFloorPolicyRefusesBareClassesMap(t *testing.T) {
+	body := `{"overrides": [{"class": "reentrancy", "floor": "E4", ` +
+		`"reason": "a written reason of length"}], ` +
+		`"classes": {"reentrancy": {"search": 2.0}}}`
+	p := filepath.Join(t.TempDir(), "policy.json")
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadPolicyFile(p)
+	if err == nil || !strings.Contains(err.Error(), "classes") {
+		t.Fatalf("floors must refuse a top-level classes map naming the key, got %v", err)
+	}
+}
+
 // TestClockAndSaveSeams pins the two seams the Python module reaches for
 // through state/campaign: now_iso() and campaign._save(st).
 func TestClockAndSaveSeams(t *testing.T) {

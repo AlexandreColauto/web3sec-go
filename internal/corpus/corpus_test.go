@@ -397,6 +397,45 @@ func TestExposureDeterministic(t *testing.T) {
 	}
 }
 
+// scoreOf reads the "score" of one bug_class row from ExposureRows output.
+func scoreOf(t *testing.T, rows []validation.Value, cls string) float64 {
+	t.Helper()
+	for _, r := range rows {
+		if objStr(r, "bug_class") == cls {
+			return objAt(r, "score").F
+		}
+	}
+	t.Fatalf("no exposure row for class %q", cls)
+	return math.NaN()
+}
+
+// TestExposureRowsSearchFactorApplied pins the G2 search-factor seam: with
+// the default (all-1.0) table the score is the old formula, and a swapped
+// 2.0 factor for one class exactly doubles that class's rounded score.
+// Two hits keep the doubled comparison free of double-rounding drift
+// (round(2x) vs round(2*round(x)) agree here; see the report).
+func TestExposureRowsSearchFactorApplied(t *testing.T) {
+	inv := invOf(t, "reentrancy", "3", "2", "100.0")
+	hits := []validation.Value{hit("a", "x"), hit("b", "y")}
+	probed := []validation.Value{probedRow("reentrancy", true, hits, "high")}
+	base := scoreOf(t, ExposureRows(inv, probed), "reentrancy")
+	old := searchFactor
+	defer func() { searchFactor = old }()
+	searchFactor = func(cls string) float64 {
+		if cls == "reentrancy" {
+			return 2.0
+		}
+		return 1.0
+	}
+	doubled := scoreOf(t, ExposureRows(inv, probed), "reentrancy")
+	if doubled != validation.PythonRound(base*2, 6) {
+		t.Fatalf("factor 2.0 must double the score: %v vs %v", doubled, base*2)
+	}
+	if want := validation.PythonRound(2*log2(1+5)*1.0*2.0, 6); doubled != want {
+		t.Fatalf("swapped score = %v, want %v", doubled, want)
+	}
+}
+
 // ---- report + bundle blocks ---------------------------------------------
 
 const donationVault = "contract Vault {\n" +

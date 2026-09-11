@@ -931,6 +931,23 @@ func TestRecordEconomicImpactNoNumbers(t *testing.T) {
 	}
 }
 
+// TestRecordEconomicImpactRefusesClassWeightSmuggling pins the G2 boundary
+// mirroring the floors test: a caller-supplied Value smuggling
+// class-weights-table shape ({classes: {...: {severity_default: ...}}}) is
+// refused with an error naming the key.
+func TestRecordEconomicImpactRefusesClassWeightSmuggling(t *testing.T) {
+	c := riskCamp(t)
+	fid := ingest(t, c)
+	smuggled := validation.VObj(kv("classes", validation.VObj(
+		kv("reentrancy", validation.VObj(
+			kv("severity_default", validation.VStr("critical")))))))
+	_, err := RecordEconomicImpact(c, fid, smuggled, validation.VNull(),
+		validation.VNull())
+	if err == nil || !strings.Contains(err.Error(), "severity_default") {
+		t.Fatalf("risk must refuse class-weights-shaped input naming the key, got %v", err)
+	}
+}
+
 // TestMintImpactEvidence ports the E7 slices of tests/test_runbook_flow.py
 // and tests/test_independent_verification.py.
 func TestMintImpactEvidence(t *testing.T) {

@@ -311,12 +311,78 @@ func FloorTableReport(campaign *state.Campaign) (validation.Value, error) {
 	), nil
 }
 
+// refuseClassWeightKeys is the G2 class-weights boundary: the floor policy
+// file shape is {"overrides": [...]}, so class-weights-table keys must never
+// appear in it. severity_default is display-only and class_weights / classes
+// belong to the taxonomy table, never to a floor decision. The walk runs
+// BEFORE shape validation so smuggled keys are named, not shape-masked.
+func refuseClassWeightKeys(doc validation.Value) error {
+	var walk func(v validation.Value) error
+	walk = func(v validation.Value) error {
+		switch v.Kind {
+		case validation.Obj:
+			for _, kv := range v.O {
+				if kv.K == "severity_default" || kv.K == "class_weights" {
+					return fmt.Errorf("floor policy must not contain %q "+
+						"(severity_default is display-only; class weights live "+
+						"in the class-weights table, never in a floor decision)",
+						kv.K)
+				}
+				if err := walk(kv.V); err != nil {
+					return err
+				}
+			}
+		case validation.Arr:
+			for _, e := range v.A {
+				if err := walk(e); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	if err := walk(doc); err != nil {
+		return err
+	}
+	// "classes" (plural) is not a floor-policy key at any level — policy
+	// entries use singular "class" — so a top-level classes map is always
+	// smuggled table shape. Checked after the never-legitimate keys so the
+	// error names the most specific smuggled key first.
+	var classesWalk func(v validation.Value) error
+	classesWalk = func(v validation.Value) error {
+		switch v.Kind {
+		case validation.Obj:
+			for _, kv := range v.O {
+				if kv.K == "classes" {
+					return fmt.Errorf("floor policy must not contain %q "+
+						"(floor policy entries use singular \"class\"; per-class "+
+						"weights live in the class-weights table)", kv.K)
+				}
+				if err := classesWalk(kv.V); err != nil {
+					return err
+				}
+			}
+		case validation.Arr:
+			for _, e := range v.A {
+				if err := classesWalk(e); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	return classesWalk(doc)
+}
+
 // LoadPolicyFile is load_policy_file: read a per-campaign floor policy file,
 // {"overrides": [{"class": ..., "floor": ..., "reason": ...}]}.
 func LoadPolicyFile(path string) ([]validation.Value, error) {
 	p := filepath.Clean(path)
 	doc, err := validation.ReadJson(p)
 	if err != nil {
+		return nil, err
+	}
+	if err := refuseClassWeightKeys(doc); err != nil {
 		return nil, err
 	}
 	overrides := objAt(doc, "overrides")
