@@ -1,0 +1,12 @@
+id: proof-accepted-without-depth-gate
+name: Merkle proof accepted without finality depth gate
+criticality: high
+description: >
+  A proof-verification entry point that marks a root accepted without
+  requiring any confirmation depth, checkpoint, or finality evidence.
+  A freshly relayed, reorgable root is trusted as final — the bridge
+  finality-assumption gap.
+checks:
+  - type: merkle_verify_without_depth_gate
+    names: ["verifyProof", "processProof", "relayRoot", "submitRoot", "proveWithdrawal"]
+playbook_hint: bridge-message
