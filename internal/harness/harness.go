@@ -49,6 +49,21 @@ const DummyMessage = `unicode"unfilled scaffold — replace the BODY"`
 // contract. Model bodies may reuse it; its writer in the dummy keeps the
 // harness functions non-view (model bodies must be free to call into the
 // target, so pure/view would cripple them).
+//
+// H14 conditional hold — DELIBERATELY NOT REMOVED, but not yet earning its
+// keep either. The slot is contract-visible in the halmos symbolic context:
+// a symbolic storage variable is one more piece of state the solver may
+// branch on, so it is a (small, unmeasured) inference cost every invariant
+// run pays. Today the only writer is the dummy scaffold's `_witness =
+// block.timestamp` line, whose real job is the solc mutability warning
+// (2018) — the placeholder bodies never run as proofs, so with them the
+// slot is harmless. Revisit when a real invariant is written against a
+// scaffold: if nothing in the live harness reads or writes it, drop the
+// slot (and the mutability workaround moves with the dummy that needed it);
+// until then removing it would trade a measured-zero cost for an unmeasured
+// solc warning class. Note the scaffold bytes are pinned by
+// harness_test.go, so any removal is a visible pin edit either way. No code
+// change here on purpose — this note is the record of the deferred decision.
 const WitnessVar = `uint256 private _witness;`
 
 // DummyHalmos and DummyFuzz are the compile-valid placeholder statements

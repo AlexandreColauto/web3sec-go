@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "class_weights",
+  "description": "H13 decision — search/acceptance are `number` on purpose. JSON Schema has ONE number type, so this admits the integer 1 and the float 1.0 alike; weights are compared numerically (multiplied into score arithmetic), never by textual form, so narrowing to `type: integer` would be wrong and spelling `1.0` vs `1` is not a contract. Fixtures verified clean at the time of this decision: all 46 weight values in assets/taxonomy/class_weights.json are written as floats (1.0), all 23 provenance source_urls are non-empty strings of length >= 8 with no \"null\"-style placeholder, and 0 literal \"null\" strings appear anywhere in the file — so no fixture migration was needed and none was made. The minimum/maximum bounds ARE load-bearing (they bound a multiplier) and stay strict.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "classes"],

@@ -13,6 +13,7 @@ import (
 	"errors"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"websec/internal/state"
@@ -40,8 +41,10 @@ func evalCampaign(t *testing.T, program string, live []validation.Value) *state.
 		t.Fatalf("state.Init: %v", err)
 	}
 	for i, f := range live {
+		// H12: strconv.Itoa, not string(rune('0'+i)) — the rune form is
+		// only correct while the index stays below 10.
 		p := filepath.Join(c.FindingsDir,
-			"F-eval000000000"+string(rune('0'+i))+".json")
+			"F-eval000000000"+strconv.Itoa(i)+".json")
 		if err := validation.WriteJson(p, f, ""); err != nil {
 			t.Fatalf("WriteJson: %v", err)
 		}
