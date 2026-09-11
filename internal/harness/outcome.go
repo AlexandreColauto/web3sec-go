@@ -197,6 +197,12 @@ func counterexampleLine(text string) (string, bool) {
 // "0 failed" on a forge summary line (a "---" rule or the Suite result
 // line). Callers additionally require no FAIL line anywhere, so a mixed
 // log with both can never promote.
+//
+// H9: BOTH markers are matched on the SAME line. The Suite-result test used
+// to scan the whole text, so a "1 passed; 0 failed" line from one suite
+// promoted the run whenever the words "Suite result" appeared anywhere else
+// in the log — a run whose suites never agreed could read as proved. The
+// summary line is the claim; a claim is one line.
 func forgePassSummary(text string) bool {
 	for _, ln := range strings.Split(text, "\n") {
 		if !strings.Contains(ln, "1 passed") ||
@@ -206,7 +212,7 @@ func forgePassSummary(text string) bool {
 		if strings.Contains(ln, "---") {
 			return true
 		}
-		if strings.Contains(text, "Suite result") {
+		if strings.Contains(ln, "Suite result") {
 			return true
 		}
 	}

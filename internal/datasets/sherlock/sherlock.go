@@ -28,8 +28,6 @@
 package sherlock
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
@@ -401,7 +399,7 @@ func buildCase(row validation.Value, index int, partitionOverride string, maps *
 	}
 	notes += "; synthetic code pointer (no pinned snapshot) — ground truth at source.url"
 	return validation.VObj(
-		kv("case_id", validation.VStr("CASE-"+sha12Hex(Dataset+"|"+id))),
+		kv("case_id", validation.VStr("CASE-"+validation.Sha12Hex([]byte(Dataset+"|"+id)))),
 		kv("source", validation.VObj(source...)),
 		kv("partition", validation.VStr(partition)),
 		kv("program", validation.VObj(
@@ -437,13 +435,6 @@ var Outcomes = []string{
 	"out-of-scope",
 	"duplicate",
 	"economic-no-go",
-}
-
-// sha12Hex is ingest.sha12's twin (unexported there): first 12 hex chars of
-// sha256 — the deterministic case-id derivation.
-func sha12Hex(text string) string {
-	sum := sha256.Sum256([]byte(text))
-	return hex.EncodeToString(sum[:])[:12]
 }
 
 func inList(s string, list []string) bool {

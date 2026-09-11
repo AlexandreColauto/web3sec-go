@@ -37,8 +37,6 @@
 package immunefi
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
@@ -100,11 +98,12 @@ var severityToGold = map[string]string{
 // enum so Ingest can reject a bad override loudly).
 var Partitions = []string{"dev", "held-out", "training"}
 
-// mapOutcome applies statusToOutcome. paid is accepted but ignored here by
-// design (it rides notes, never the outcome); rowID names the row in the
-// unknown-status error.
-func mapOutcome(status string, paid bool, rowID string) (string, error) {
-	_ = paid
+// mapOutcome applies statusToOutcome. The paid fact does NOT reach the
+// outcome by design — it rides the notes string (see buildCase) — so this
+// function is deliberately not given it (H11: the parameter was accepted and
+// immediately discarded, which read as if payment could change the outcome).
+// rowID names the row in the unknown-status error.
+func mapOutcome(status, rowID string) (string, error) {
 	base, ok := statusToOutcome[status]
 	if !ok {
 		return "", fmt.Errorf("immunefi: unknown status %s for row %s",
@@ -246,7 +245,7 @@ func buildRecord(doc validation.Value) (validation.Value, error) {
 		}
 		severityRaw = kv.S
 	}
-	outcome, err := mapOutcome(status, paid, id)
+	outcome, err := mapOutcome(status, id)
 	if err != nil {
 		return validation.VNull(), err
 	}
@@ -294,7 +293,8 @@ type IngestOptions struct {
 // eval store at a directory for the call (tests pass a temp dir); empty
 // means the ambient WEBV2_EVAL_DIR / cwd-relative default. Returns the stored
 // case docs in row order. case_id is deterministic
-// (CASE-sha12("immunefi-resolved|"+row id), mirroring ingest's derivation)
+// (CASE-<sha12 of "immunefi-resolved|"+row id> — validation.Sha12Hex, the
+// SAME derivation ingest uses (H11 removed the private twin))
 // so a replay over the same rows yields the same ids; created_at stamps
 // state.NowIso() (the WEBV2_NOW pin), so determinism lives in the row
 // CONTENT, not the timestamp.
@@ -408,7 +408,7 @@ func buildCase(row validation.Value, index int, partitionOverride string, maps *
 		notes += " reported severity " + raw + " folded to high (schema has no critical band)"
 	}
 	return validation.VObj(
-		kv("case_id", validation.VStr("CASE-"+sha12Hex(Dataset+"|"+id))),
+		kv("case_id", validation.VStr("CASE-"+validation.Sha12Hex([]byte(Dataset+"|"+id)))),
 		kv("source", validation.VObj(source...)),
 		kv("partition", validation.VStr(partition)),
 		kv("program", validation.VObj(
@@ -444,13 +444,6 @@ var Outcomes = []string{
 	"out-of-scope",
 	"duplicate",
 	"economic-no-go",
-}
-
-// sha12Hex is ingest.sha12's twin (unexported there): first 12 hex chars of
-// sha256 — the deterministic case-id derivation.
-func sha12Hex(text string) string {
-	sum := sha256.Sum256([]byte(text))
-	return hex.EncodeToString(sum[:])[:12]
 }
 
 func inList(s string, list []string) bool {

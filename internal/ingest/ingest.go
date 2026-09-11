@@ -15,8 +15,6 @@
 package ingest
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -88,11 +86,6 @@ func (r Result) Value() validation.Value {
 			validation.VStr(r.Canonical), validation.VBool(r.Mapped))})
 }
 
-func sha12(text string) string {
-	sum := sha256.Sum256([]byte(text))
-	return hex.EncodeToString(sum[:])[:12]
-}
-
 // IngestRecord is ingest_record: turn one common-shape adapter record into
 // framework structures. PURE. maps nil loads every repo map file.
 func IngestRecord(record validation.Value, maps *validation.Value) (Result, error) {
@@ -161,7 +154,7 @@ func IngestRecord(record validation.Value, maps *validation.Value) (Result, erro
 	if err != nil {
 		return Result{}, err
 	}
-	caseID := "CASE-" + sha12(dataset+"|"+rid.S)
+	caseID := "CASE-" + validation.Sha12Hex([]byte(dataset+"|"+rid.S))
 	source := []validation.KV{
 		{K: "dataset", V: validation.VStr(dataset)},
 		{K: "record_id", V: validation.VStr(rid.S)},
@@ -363,7 +356,7 @@ func memoryRow(a memoryRowArgs) (validation.Value, error) {
 	}
 	row := validation.VObj(
 		validation.KV{K: "memory_id", V: validation.VStr("MEM-" +
-			sha12(a.caseID+"|"+a.kind+"|"+a.status))},
+			validation.Sha12Hex([]byte(a.caseID+"|"+a.kind+"|"+a.status)))},
 		validation.KV{K: "campaign_id", V: validation.VStr(
 			"ingest:" + a.dataset + ":" + a.recordID)},
 		validation.KV{K: "finding_id", V: validation.VNull()},
@@ -469,7 +462,7 @@ func ReplaceProgramKey(programKey string, newWrappers []validation.Value,
 	sort.Strings(added)
 	record := validation.VObj(
 		validation.KV{K: "record_id", V: validation.VStr("RPK-" +
-			sha12(programKey+"|"+state.NowIso()))},
+			validation.Sha12Hex([]byte(programKey+"|"+state.NowIso())))},
 		validation.KV{K: "action", V: validation.VStr("program_key.replaced")},
 		validation.KV{K: "program_key", V: validation.VStr(programKey)},
 		validation.KV{K: "tier", V: validation.VStr(tierLabel)},
