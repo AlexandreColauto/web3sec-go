@@ -34,7 +34,7 @@ depth from an entry point, each with the assertions its containing function
 carries, plus the (write, read) stage pairs that no assertion about the
 variable covers. A name the index knows as a storage variable is matched as
 one; anything else is tokenized the way the index tokenizes expressions, so
-"prev-state root" finds the same sites as "prevStateRoot".
+"fee accumulator" finds the same sites as "feeAccumulator".
 
 positional arguments:
   campaign              campaign id

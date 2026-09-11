@@ -204,7 +204,7 @@ node carries `guards[]` (auth/sentinel/arithmetic facts from its own body),
 `uses[]` (line-tagged read/write/emit/param uses with `concept_keys`), and
 every contract carries `contract_closure` (the transitive inheritance chain).
 External-call edges include **cast and chained forms**
-(`IMorphERC20Upgradeable(_token).burn(...)`, `a.b().method(`). `probes run`
+(`IERC20(_token).burn(...)`, `a.b().method(`). `probes run`
 rejects a `parse_version 2` index and names the rebuild instead of reading a
 tree with no cast-form calls as a tree with no calls:
 `webv2 index <C-xxx> --src <target>`.
@@ -281,7 +281,7 @@ The second is about the ARGUMENT: whatever the wording, the reason has to name
 something from the row's own surface entry — the contract, the function it is
 about, the base it inherits, the siblings it is symmetric to, the concept keys
 it asserts. "the flow looked fine when I traced it" is refused, because there
-is nothing in it a reader can open; "`L1ERC20Gateway` pays out along the path
+is nothing in it a reader can open; "`L1TokenGateway` pays out along the path
 it asserts" is accepted, because the next person can go and look. The refusal
 lists the symbols it would have taken. Both rules have one escape, and it is a
 signature, not a synonym: `--override-dismissal --override-reason "<why it is
@@ -307,7 +307,7 @@ decide nothing; they are how the operator checks a lens attestation against the
 code instead of against memory.
 
 ```bash
-webv2 enforce <C-xxx> "prevStateRoot" [--contract 0xabc...]   # L-03: where a variable is written, where it is read
+webv2 enforce <C-xxx> "<storage-var>" [--contract 0xabc...]   # L-03: where a variable is written, where it is read
 webv2 symmetry <C-xxx> [--family 0xdef...]                    # L-04: the per-family (direction, asset) custody matrix
 ```
 
@@ -346,17 +346,17 @@ you ran in the finding's evidence:
 | fact | where it lives | how to read it |
 | --- | --- | --- |
 | constructor arguments | deploy script / `broadcast/*.json` / verified source | `forge inspect <C> abi` for the signature, then the broadcast receipt, or the explorer's Constructor Args |
-| owner-set caps and thresholds | live storage | `cast call <addr> "MAX_STAKERS()(uint256)"` (or `storageLayout` + `cast storage`) |
+| owner-set caps and thresholds | live storage | `cast call <addr> "<capGetter>()(uint256)"` (or `storageLayout` + `cast storage`) |
 | slot maps seeded at `initialize` | initializer args, not the setter code | compare the deployed `initialize(...)` calldata with the code's assumptions |
 | relayer / oracle / messenger addresses | live storage, or an `immutable` baked into the runtime code | `cast call` the getter; an immutable has no storage slot — read the deploy calldata or `forge inspect <C> deployedBytecode` |
 | role grants made after deploy | governance txs, not `grantRole` calls in the repo | the chain's logs — a role the code never grants may still be held |
 | timelock delays, challenge windows, bonds | constructor/config, often changeable | read the getter, then read who can change it and when it last changed |
 
 The three that bite hardest in practice, because the code reads as correct:
-`Staking.sol`'s `MAX_STAKERS` (the cap decides whether the validator set can
-fill — a set that cannot fill never finalizes), a gateway's slot map (which
-slot index is authoritative for a given asset decides whether a replay lands
-in an empty cell), and a bridge's relayer threshold (the quorum number
+an owner-set cap (the cap decides whether the set that must fill can ever
+fill — a set that cannot fill never finalizes), an initializer slot map
+(which index is authoritative for a given key decides whether a write lands
+in an empty cell), and a messenger / relayer threshold (the quorum number
 decides whether a challenge can ever be met). None of them is a bug in the
 source; all of them are exploitable or fatal at the deployed value.
 
@@ -565,7 +565,7 @@ verbs:
 
 ```bash
 webv2 answered <C-xxx> L-04 answered --families a,b,c \
-  --symmetry "deposit=burn;withdraw=mint;drop=safeTransfer" --reason "..." --actor NAME
+  --symmetry "lock=transferIn;payout=transferOut;slash=burn" --reason "..." --actor NAME
 ```
 
 Quote them from `webv2 symmetry <C-xxx>` (§4b) — the matrix prints every
@@ -730,6 +730,46 @@ webv2 sequence verify <C-xxx> F-xxx [--exec EXEC-xxx]     # do the attempts have
 
 Off-chain (no pin) the multi-step sequence is proven through the normal
 ladder, because steps in a logic bug are not transactions.
+
+### 6b. Non-gold adjudication: the three verdicts
+
+The eval join scores every live finding that anchors no gold case as a false
+positive, which conflates three states of the world. `adjudicate` writes the
+verdict down, and the tally it prints is the same accounting the audit's
+`## eval` section renders:
+
+```bash
+webv2 adjudicate <C-xxx> F-xxx --verdict additional-true-positive --basis dataset-cross-check --reason "real, and the suite has no case for this code site" --actor NAME
+webv2 adjudicate <C-xxx> F-xxx --verdict false-positive --basis reproduction --reason "the PoC reverts on the caller's own guard" --actor NAME
+webv2 adjudicate <C-xxx> F-xxx --verdict assumption-gated --assumption "the oracle is updatable by any caller" --basis code-argument --reason "real only while that assumption holds" --actor NAME
+webv2 adjudicate <C-xxx>                              # list the recorded rows
+```
+
+- **additional-true-positive** — a claim about the **GOLD DATASET**, not about
+  the campaign: the finding is real and the answer key simply does not contain
+  it. It is not a claim that the campaign found more bugs than the suite
+  records, and it moves no status and no evidence.
+- **false-positive** — the finding is wrong.
+- **assumption-gated** — the finding is real only if the named `--assumption`
+  holds; `--assumption` is required with this verdict and meaningful only
+  there.
+
+`--verdict`, `--basis`, `--actor` and `--reason` (≥ 10 written characters) are
+required to record a row; `--severity` defaults to `tbd`, `--exec` cites the
+exec record the verdict rests on, and `--json` prints the rows with the tally
+as one object. A row **replaces** the prior row for the same finding. A verdict
+moves the **adjusted precision the audit section prints**: a finding
+adjudicated additional-true-positive or assumption-gated leaves the
+false-positive penalty, and the remaining penalty is what `adjusted precision`
+excludes. Omit the finding to list the rows.
+
+A row the state file holds that validation refuses is not silently dropped:
+the tally counts it on its own `invalid adjudication rows (refused by
+validation)` line, and the `--json` view carries the matching
+`invalid_adjudications` key only when that count is non-zero. When the
+campaign state itself no longer validates the eval join never runs, so the
+listing ends with `eval join unavailable: campaign state does not validate`
+and withholds every counter rather than printing a table of zeroes.
 
 ## 7. Independent verification (E6) and impact (E7)
 
@@ -943,6 +983,66 @@ between the researcher and the program, and the tool's only job is to make the
 state legible so a recorded embargo is never mistaken for an enforced one.
 A publish without `--disclosure` is byte-identical to before (no artifact, no
 record fields).
+
+### 9a. The scorecard: one read-only view of the campaign
+
+`report` and `brief` answer what the campaign concluded; `scorecard` answers
+what it actually did, and it writes nothing while answering:
+
+```bash
+webv2 scorecard <C-xxx>                                # campaign, surface, findings, process, eval
+webv2 scorecard <C-xxx> --no-surface                   # skip the surface walk (a large pin on a slow filesystem)
+webv2 scorecard <C-xxx> --json                         # the same sections as one object, the same numbers
+```
+
+Every row is derived from what is already on disk — campaign state, the
+hash-chained event log, the exec ledgers, `findings/` and the stored
+adjudications. The command never writes, logs or scores, and a section whose
+data source is absent says so in words instead of printing a zero that reads
+as a measurement.
+
+The **surface** section walks the pinned tree through `srcclass` and splits it
+into implementation / test-double / library / interface / other rows — the
+count covers EVERYTHING the pin kept, so a config, a README or a data file is
+its own `other` bucket rather than silently inflating product code. It exists
+because a file count is arithmetically right and materially misleading: "153
+files" silently includes foundry test doubles, vendored libraries and config,
+so the composition, not the total, is what the operator reads. `--no-surface`
+omits the section entirely rather than printing it empty.
+
+The **eval** section is the gold-eval join, and it prints **both** precisions:
+the raw precision, in which every unanchored live finding counts as a false
+positive, and the adjudication-adjusted precision, which removes the findings
+adjudicated additional-true-positive or assumption-gated from the penalty
+denominator. A campaign whose program matches no suite case says so rather
+than printing a zero.
+
+**`--gold FILE` grades a held-out target whose answer key cannot ship in the
+binary.** The embedded suite is the dev pack, and a real held-out target
+matches none of it, so its eval section would be skipped and every precision
+number unreachable. `--gold` loads an operator-supplied `evaluation_case`
+JSON array at grading time and uses those rows INSTEAD of the embedded suite
+(replace, never merge — a synthetic dev row must not score against a real
+held-out campaign). When a sha256 sidecar sits beside the pack (the store
+convention `<stem>.sha256`, or `cases.sha256` in the same directory) it is
+verified against the file's raw bytes; the eval section then prints the
+provenance, `gold pack: <path> (sha256 <first 12 hex>)`, or, when there was
+no sidecar, `gold pack: <path> (unverified - no sha256 sidecar found)`. A
+missing file, a pack that is not a JSON array, a row that fails
+`evaluation_case` validation (the error names its `case_id`), a duplicate
+`case_id` and a drifting sidecar (the error prints both hashes) are all
+refused, exit 1 — a mis-typed gold row must never quietly shrink the answer
+key. The same flag and the same provenance line serve `adjudicate`, whose
+tally is computed from the same suite. **The pack is an ANSWER KEY:
+grading-time input, never part of a campaign run, and a campaign agent must
+never be handed it** — exactly the leakage rule the held-out split enforces.
+
+The **containment** section has exactly one trigger, and the pin decides it:
+the campaign directory sitting inside the target being pinned, so the
+campaign's own notes, findings and logs are physically part of the tree an
+agent reads as target source. `snap` warns on stderr at pin time; the section
+replays the flag the pin recorded, so the warning survives a walk that never
+sees the target again.
 
 ## 10. End of round
 
@@ -1178,6 +1278,7 @@ webv2 verify <C> --harness-result INV-xxx --exec EXEC-xxx [--kind halmos|forge-f
 webv2 verify <C> --post-patch F-xxx --exec EXEC-xxx [--snapshot SNAP-xxx]   # regress a finding against a post-patch run: still_reproducible / fixed / indeterminate (fail-open; status never moves; --finding/--verifier/--description are ignored)
 webv2 audit <C> [--json]                                           full integrity audit
 webv2 brief <C> [--json] [--deep]                                  operator cockpit (where it is + decisions waiting; pure view)
+webv2 scorecard <C> [--json] [--no-surface]                        one read-only view: surface, findings, process, eval
 
 webv2 move <C> <finding> TO_STATUS --reason R [--actor A] [--adjacent SIBLING] [--adjacent-clear]   # the ONLY status-transition path
 webv2 amend <C> <finding> [--title T] [--class C] [--claim K] [--note N] [--actor A]   # correct a filed finding (bumps claim_version; status never moves)
@@ -1186,6 +1287,7 @@ webv2 mint <C> <finding> --exec E --description D [--tier T1|T2|T3|T4] [--type T
 webv2 verdict <C> <finding> --verdict V --reason R [--outlook O --outlook-reason R]   hostile-critic verdict
 webv2 recall <C> --finding F [--mode negative|comparative] [--note N]   # recorded graph-memory consult
 webv2 gate <C> [F-xxx] | webv2 gate --explain <CHECK>              bounty gate / per-finding CONFIRMED dry-run
+webv2 adjudicate <C> [<finding>] [--json] [--verdict V] [--severity S] [--basis B] [--assumption TEXT] [--exec EXEC] [--actor A] [--reason R]   non-gold verdict (moves the adjusted precision)
 webv2 impact <C> <finding> --extractable USD [--max-loss USD] [--artifact ART] | --unpriceable --ceiling C --reason R --actor A
 webv2 sequence run <C> SPEC.json --finding F [--workdir W]         # T4 multi-tx PoC under fork-runner
 webv2 sequence verify <C> F-xxx [--exec E]                         # do the attempts have verified coverage?
