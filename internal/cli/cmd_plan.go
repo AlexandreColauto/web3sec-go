@@ -9,6 +9,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 
 	"websec/internal/orchestrator"
@@ -127,6 +128,7 @@ func planOutputText(c *state.Campaign, res, p validation.Value,
 	stdout io.Writer) error {
 	planOutputQueue(res, stdout)
 	planOutputReachability(res, stdout)
+	planOutputTrackedSurfaces(c, stdout)
 	if p.Kind != validation.Obj {
 		return nil
 	}
@@ -167,6 +169,22 @@ func planOutputReachability(res validation.Value, stdout io.Writer) {
 			fmt.Fprintf(stdout, "    %s unreachable: %s\n",
 				strings.ToUpper(lvl), scalarStr(miss))
 		}
+	}
+}
+
+// planOutputTrackedSurfaces is the G9 opaque-surface block in the plan
+// view: the model's tracked-but-opaque components as tracked surfaces.
+// Presence-gated (the additive convention): no model file, an unreadable
+// one, or no components — no bytes, so a component-free plan view is
+// unchanged.
+func planOutputTrackedSurfaces(c *state.Campaign, stdout io.Writer) {
+	model, err := validation.ReadJson(filepath.Join(c.ArtifactsDir,
+		"protocol_model.json"))
+	if err != nil {
+		return
+	}
+	for _, ln := range planner.TrackedSurfacesSection(model) {
+		fmt.Fprintf(stdout, "  %s\n", ln)
 	}
 }
 

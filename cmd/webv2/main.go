@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 
+	"websec/internal/archetypes"
 	"websec/internal/cli"
 	"websec/internal/costs"
 	"websec/internal/dedup"
@@ -93,6 +94,9 @@ func init() {
 		SinkFunctions:    structidx.SinkFunctions,
 	})
 	forkdiff.Wire()
+	// Task 9 (G11 scope): the post-patch plant check seam (same target as
+	// cli.ensureSeams installs for in-process callers).
+	archetypes.WireScopePlant()
 	// T28 seams: learning (D18 memory queue), relations, shared_memory.
 	cli.WireT28Seams()
 	// T33 seams: eval_store (trajectory/metrics case_partition, corpus

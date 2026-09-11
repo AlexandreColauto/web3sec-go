@@ -158,8 +158,8 @@ func TestCanonicalClassesIsTheKnownSet(t *testing.T) {
 			t.Errorf("canonical class %q is not known", cls)
 		}
 	}
-	if len(canonical) != 20 {
-		t.Errorf("canonical class count = %d, want 20", len(canonical))
+	if len(canonical) != 22 {
+		t.Errorf("canonical class count = %d, want 22", len(canonical))
 	}
 }
 

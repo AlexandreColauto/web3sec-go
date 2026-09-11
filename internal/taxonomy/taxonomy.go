@@ -99,7 +99,8 @@ func SetCompatClasses(f func() []string) {
 // compatibility groups and the five asset-class hint sets.
 func defaultCompatClasses() []string {
 	return []string{
-		"oracle-manipulation", "flash-loan", "economic-invariant",
+		"oracle-manipulation", "flash-loan", "frontend-injection",
+		"infra-boundary", "economic-invariant",
 		"share-price-inflation", "precision-rounding", "token-integration",
 		"logic-error", "access-control", "authorization", "upgrade-initializer",
 		"centralization-risk", "signature-replay", "reentrancy",

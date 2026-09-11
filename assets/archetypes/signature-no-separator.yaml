@@ -1,0 +1,11 @@
+id: signature-no-separator
+name: Signature verified without chain or domain separator
+criticality: high
+description: >
+  A signature-verification entry point whose parameter list carries no
+  chain-id or domain-separator argument. Cross-chain, the same signature
+  verifies on every chain — the Nomad/Harmony-shape replay assumption gap.
+checks:
+  - type: sig_verify_no_separator
+    names: ["verify", "recover", "checkSign", "isValidSignature"]
+playbook_hint: bridge-message

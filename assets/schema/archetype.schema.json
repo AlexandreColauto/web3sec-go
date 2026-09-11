@@ -79,6 +79,24 @@
               "type": {"const": "external_call_pattern"},
               "pattern": {"$ref": "#/definitions/pattern"}
             }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "names"],
+            "properties": {
+              "type": {"const": "sig_verify_no_separator"},
+              "names": {"$ref": "#/definitions/names"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "names"],
+            "properties": {
+              "type": {"const": "merkle_verify_without_depth_gate"},
+              "names": {"$ref": "#/definitions/names"}
+            }
           }
         ]
       }

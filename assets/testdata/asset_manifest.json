@@ -13,6 +13,14 @@
     "sha256": "d0b3d5fe8be436f4fdb80c650739d1e52c6c195f48a1c8b95b3b25c108201d9f",
     "size": 496
    },
+   "proof-accepted-without-depth-gate.yaml": {
+    "sha256": "3f8c5a067a9725719c270ccd610e003c12eebc85766d91d3a30d399467ff0efb",
+    "size": 535
+   },
+   "signature-no-separator.yaml": {
+    "sha256": "9f53aa2328b60490715a743a06c5d5387b19762bb5eaaf31968be2aafa20b3f1",
+    "size": 478
+   },
    "unguarded-asset-transfer.yaml": {
     "sha256": "cee30f455e7ad23d10b49d8db1fcd60da31973dde37bd1fe04e2d70fedea6593",
     "size": 519
@@ -116,6 +124,14 @@
    "economic-invariant.yaml": {
     "sha256": "40d15296318654b55454d76a8a4075c45af0f27cfe9d1bb3774749cd3499a6cd",
     "size": 7943
+   },
+   "frontend-injection.yaml": {
+    "sha256": "d91b1fbd2f9a3768687b3d99ce3bda0cbc2a1839b93f9081c9e2ba64f796a5dd",
+    "size": 8193
+   },
+   "infra-boundary.yaml": {
+    "sha256": "f609b8133f3f8718348bd30f61324095c42de9d026c2ec85fb6cc40d601bc39e",
+    "size": 7811
    },
    "oracle-manipulation.yaml": {
     "sha256": "21ada356f65abc3acfc28dce3f55de55f463532e4ced98b63dd06370089bdc92",
@@ -348,14 +364,14 @@
     "size": 21135
    },
    "RUNBOOK.md": {
-    "sha256": "fed272f23f706c6bb1b984b462884dd794e9a7eea62fc3c203c195bc31da6afc",
-    "size": 62141
+    "sha256": "cdbac37d51af652ca579c9f9ab84ae7a5a94c366ee9f40b944c57aa9ac376188",
+    "size": 63910
    }
   },
   "schema": {
    "archetype.schema.json": {
-    "sha256": "e2d3636a767faf75d1308afdd841a917329c4f0be1a9c89638855f12bb149fc6",
-    "size": 3234
+    "sha256": "48289e73372f8552521ae5d78475676de8a0373ecd1262de181e0fef12b4c7e4",
+    "size": 3839
    },
    "assumption.schema.json": {
     "sha256": "1824958e45d59224750046c1634c66226e0e7004275aefdba08fc7f658e64fd4",
@@ -394,8 +410,8 @@
     "size": 6494
    },
    "finding.schema.json": {
-    "sha256": "9f84f4e86721b6473d3ace787822479d94d02379f027f9568c9cfa2cb01e44a2",
-    "size": 46508
+    "sha256": "788b7a3ef0f5fa533d2e31d11bb83f0f009be26ea7cc64883dba92a8f8b7f46c",
+    "size": 47938
    },
    "memory.schema.json": {
     "sha256": "7ac50f7aea59519bd158cd1ad422167b00a870e9e89f6cb7b8c93b010960bb10",
@@ -422,8 +438,8 @@
     "size": 14042
    },
    "protocol_model.schema.json": {
-    "sha256": "322fb57d8a7b4f0e889162c3d249f2f0a55c36f3e90af3207ff0d0ac3954f89b",
-    "size": 12496
+    "sha256": "572ae2b4df404dc3dc0eaecdb7f312d088c452161238f3e80daf0504361ea051",
+    "size": 13576
    },
    "relation.schema.json": {
     "sha256": "8f0d93d05c73be0ee3abc35a5732869bdffb3bc3db84eea0d0e1a129ce3af5fa",
@@ -480,8 +496,8 @@
     "size": 1314
    },
    "class_weights.json": {
-    "sha256": "384a8dc1de0e5339ac27c446c49d28975231ce1dd98b3f22eb14e8f55b801852",
-    "size": 11990
+    "sha256": "2abd6aa00a5deac35e7d6401621d7db4f619f772ab1ef2fdbd02a9bb21f72045",
+    "size": 12958
    }
   }
  },

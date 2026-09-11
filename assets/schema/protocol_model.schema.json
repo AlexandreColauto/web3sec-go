@@ -13,6 +13,38 @@
     "chains":      { "type": "array", "items": { "type": "string" }, "minItems": 1 },
     "subsystems":  { "type": "array", "items": { "type": "string" }, "description": "e.g. defi-vault, bridge, staking, governance, l2" },
 
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["kind", "trust", "in_scope", "paid_for"],
+        "properties": {
+          "kind": { "enum": ["frontend", "relayer", "keeper-service", "domain", "offchain-service"] },
+          "path": { "type": "string" },
+          "url":  { "type": "string" },
+          "trust": { "type": "string" },
+          "in_scope": { "type": "boolean" },
+          "paid_for": { "type": "boolean" }
+        }
+      }
+    },
+    "chain_assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["chain"],
+        "properties": {
+          "chain": { "type": "string" },
+          "finality": { "type": "string" },
+          "confirmation_depth": { "type": ["integer", "null"] },
+          "messenger": { "type": "string" },
+          "validator_set": { "type": "string" },
+          "threshold": { "type": "string" },
+          "separator": { "type": "string" }
+        }
+      }
+    },
+
     "contracts": {
       "type": "array",
       "items": {

@@ -16,7 +16,8 @@ import (
 
 var expectedIDs = []string{
 	"cross-chain-relay-no-authz", "delegatecall-to-user-input",
-	"flash-loan-oracle-manipulation", "unguarded-asset-transfer",
+	"flash-loan-oracle-manipulation", "proof-accepted-without-depth-gate",
+	"signature-no-separator", "unguarded-asset-transfer",
 	"unguarded-initialize", "uninitialized-proxy",
 	"vault-share-pricing-surface",
 }
@@ -85,6 +86,27 @@ contract Vault {
     function withdraw(uint256 shares) external {}
 }
 `,
+	// G10: inline copies of testdata/sigverify/buggy.sol and
+	// testdata/merkleproof/buggy.sol — the fixture files are canonical.
+	"signature-no-separator": `
+contract SigVerifier {
+    function verify(bytes memory signature, address signer) external pure returns (address recovered) {
+        bytes32 h = keccak256(abi.encodePacked(signer));
+        recovered = ecrecover(h, uint8(signature[0]), bytes32(0), bytes32(0));
+    }
+}
+`,
+	"proof-accepted-without-depth-gate": `
+contract MerkleDistributor {
+    mapping(bytes32 => bool) public accepted;
+
+    function verifyProof(bytes32[] memory proof, bytes32 root) external {
+        bytes32 h = proof[0];
+        require(h != bytes32(0), "empty proof");
+        accepted[root] = true;
+    }
+}
+`,
 }
 
 // makeTree is make_tree: a campaign + a one-file src tree, indexed.
@@ -109,7 +131,7 @@ func makeTree(t *testing.T, sol string) (validation.Value, *state.Campaign) {
 	return idx, c
 }
 
-func TestAvailableArchetypesAreExactlyTheSeven(t *testing.T) {
+func TestAvailableArchetypesAreExactlyTheNine(t *testing.T) {
 	got, err := AvailableArchetypes()
 	if err != nil {
 		t.Fatal(err)
@@ -117,8 +139,8 @@ func TestAvailableArchetypesAreExactlyTheSeven(t *testing.T) {
 	if strings.Join(got, ",") != strings.Join(expectedIDs, ",") {
 		t.Fatalf("available_archetypes() = %v, want %v", got, expectedIDs)
 	}
-	if len(got) != 7 {
-		t.Fatalf("expected 7 archetypes, got %d", len(got))
+	if len(got) != 9 {
+		t.Fatalf("expected 9 archetypes, got %d", len(got))
 	}
 }
 
@@ -152,7 +174,7 @@ func TestEachArchetypeMatchesItsPlantedTree(t *testing.T) {
 
 func TestEachPlantedTreeMatchesOnlyItsOwnArchetype(t *testing.T) {
 	// Discrimination matrix: each planted tree has ALL checks present for its
-	// own archetype and at least one absent check for each of the other six.
+	// own archetype and at least one absent check for each of the other eight.
 	for _, aid := range expectedIDs {
 		t.Run(aid, func(t *testing.T) {
 			idx, _ := makeTree(t, trees[aid])

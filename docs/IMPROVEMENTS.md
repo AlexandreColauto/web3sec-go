@@ -7,8 +7,9 @@ source: the "Beyond Smart Contracts" hybrid-defense report + our deep-research
 deliverable "Deconstructing Claims, Validating AI, and Weighting Risks");
 tranche 2 LANDED 2026-09-11 (G2, G3, G4, G5, G8, G12–G18 — plan
 `docs/superpowers/plans/2026-09-11-wave-g-tranche-2.md`);
-G9/G10/G11 (tranches 3–4) remain PROPOSED, awaiting an
-approve/defer review decision.**
+tranche 3 LANDED 2026-09-11 (G9, G10, G11 — plan
+`docs/superpowers/plans/2026-09-11-wave-g-tranche-3.md`).
+Wave G is COMPLETE (G1–G18 all LANDED).**
 
 Source: the Morph L2 rollup campaign (`C-42bd211e3e`, 537 events, 52 findings,
 snapshot `22ca805e`) against the gold-standard eval with two planted bugs
@@ -1864,9 +1865,9 @@ pointers, not contracts — re-locate by symbol when editing.*
 # Wave G — Hybrid tools, calibration & the beyond-contract stack
 
 Date: 2026-09-10 · Status: **tranche 1 LANDED (G1, G6, G7) 2026-09-10;
-tranche 2 LANDED (G2, G3, G4, G5, G8, G12–G18) 2026-09-11**.
-Tranches 3–4 (G9, G10, G11) remain **PROPOSED** and await a review
-decision. **G13–G18 (2026-09-11, review follow-up — non-G jumps: ROI,
+tranche 2 LANDED (G2, G3, G4, G5, G8, G12–G18) 2026-09-11;
+tranche 3 LANDED (G9, G10, G11) 2026-09-11 — Wave G COMPLETE (G1–G18)**.
+**G13–G18 (2026-09-11, review follow-up — non-G jumps: ROI,
 operator correctness, PoC quality, coverage, tactic calibration, export)
 landed with tranche 2.** Anchors are pointers to be re-located at landing time (same
 convention as above).
@@ -1915,9 +1916,9 @@ money (principle 2).
 | G6 | critic triager-outlook rubric (prompt data, policy-injected) — LANDED (tranche 1, 2026-09-10) | S | — |
 | G7 | claim-intake checklist + `provenance[]` on baked-in external claims — LANDED (tranche 1, 2026-09-10) | S | — |
 | G8 | invariants → Halmos/forge PBT harnesses as an evidence rung — LANDED (tranche 2, 2026-09-11; BODY-region scaffolds, rungs counterexample/PROVEN-BOUNDED(k)/inconclusive) | L | — |
-| G9 | beyond-contract `components[]` + two data-only playbooks | M | G3 |
-| G10 | cross-chain assumption table + separator/finality archetypes | S–M | — |
-| G11 | `verify --post-patch` regression loop | S–M | — |
+| G9 | beyond-contract `components[]` + two data-only playbooks — LANDED (tranche 3, 2026-09-11; tracked-but-opaque surfaces, `frontend-injection` + `infra-boundary` classes/playbooks, no scanners) | M | G3 ✓ |
+| G10 | cross-chain assumption table + separator/finality archetypes — LANDED (tranche 3, 2026-09-11; sidecar `chain_assumptions[]`, two mechanical gap rules, selector-evidence predicates, hint-only) | S–M | — |
+| G11 | `verify --post-patch` regression loop — LANDED (tranche 3, 2026-09-11; still_reproducible/fixed/indeterminate verdicts + capped scope diff + plant check, fail-open) | S–M | — |
 | G12 | OWASP/SCVS aliases on taxonomy classes — LANDED (tranche 2, 2026-09-11; 7 honest OWASP-2025 mappings fetched from the primary page, SCVS pending primary source — no secondhand ids) | S | G7 ✓ |
 | G13 | cost-per-confirmed-finding + per-lens yield (ROI stop-loss) — LANDED (tranche 2, 2026-09-11; cost-per-confirmed + `lens_yield` render as ADVISORY ONLY — no gate consumes them, by principle 2 the stop-loss stays the operator's hand) | S | — |
 | G14 | operator correctness: amend/supersede + batch dispose + dismissed-with-reach — LANDED (tranche 2, 2026-09-11; the sanctioned principle-6 verb exception: `amend` never moves status, `supersede` is the only exit INTO SUPERSEDED, batches are all-or-nothing, dismissed-with-reach joins by file overlap with a footnote saying so) | M | — |

@@ -16,7 +16,8 @@ import (
 
 var shippedClasses = []string{
 	"access-control", "bridge-message", "economic-invariant",
-	"oracle-manipulation", "precision-rounding", "reentrancy",
+	"frontend-injection", "infra-boundary", "oracle-manipulation",
+	"precision-rounding", "reentrancy",
 	"share-price-inflation", "upgrade-initializer",
 }
 
@@ -55,7 +56,7 @@ func shippedText(t *testing.T, name string) string {
 	return string(raw)
 }
 
-func TestAvailablePlaybooksAreExactlyTheShippedEight(t *testing.T) {
+func TestAvailablePlaybooksAreExactlyTheShippedTen(t *testing.T) {
 	got, err := AvailablePlaybooks()
 	if err != nil {
 		t.Fatal(err)
@@ -63,8 +64,8 @@ func TestAvailablePlaybooksAreExactlyTheShippedEight(t *testing.T) {
 	if strings.Join(got, ",") != strings.Join(shippedClasses, ",") {
 		t.Fatalf("available_playbooks() = %v, want %v", got, shippedClasses)
 	}
-	if len(got) != 8 {
-		t.Fatalf("expected 8 shipped playbooks, got %d", len(got))
+	if len(got) != 10 {
+		t.Fatalf("expected 10 shipped playbooks, got %d", len(got))
 	}
 }
 

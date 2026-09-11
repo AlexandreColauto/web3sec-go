@@ -194,7 +194,8 @@ func validateCheckKeys(archID string, i int, check validation.Value) error {
 			return missingDiscriminator(archID, i, t,
 				"need 'names' and/or 'pattern'")
 		}
-	case "unguarded_function_exists":
+	case "unguarded_function_exists", "sig_verify_no_separator",
+		"merkle_verify_without_depth_gate":
 		if !has("names") {
 			return missingDiscriminator(archID, i, t, "need 'names'")
 		}

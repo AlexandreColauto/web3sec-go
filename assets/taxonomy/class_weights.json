@@ -127,6 +127,34 @@
         }
       ]
     },
+    "frontend-injection": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "high",
+      "provenance": [
+        {
+          "source_url": "taxonomy: canonical class addition (G9)",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "new canonical class; no loss history — weights neutral until a G3 backtest graduates them",
+          "note": "severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "infra-boundary": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "high",
+      "provenance": [
+        {
+          "source_url": "taxonomy: canonical class addition (G9)",
+          "checked_date": "2026-09-11",
+          "primary": true,
+          "figure": "new canonical class; no loss history — weights neutral until a G3 backtest graduates them",
+          "note": "severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
     "liquidation-logic": {
       "search": 1.0,
       "acceptance": 1.0,

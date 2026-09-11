@@ -3,7 +3,7 @@
   "name": "a.yaml",
   "text": "aliases:\n  some-label: Defi-Rekt\n",
   "error_kind": "ValueError",
-  "error": "taxonomy map {dir}/a.yaml: aliases['some-label'] -> 'Defi-Rekt' is neither a canonical class nor 'unmapped' (20 canonical classes: access-control, authorization, bridge-message, centralization-risk, cross-chain-replay, donation, dos-griefing, economic-invariant, flash-loan, liquidation-logic, logic-error, oracle-manipulation, precision-rounding, reentrancy, share-price-accounting, share-price-inflation, signature-replay, token-integration, unchecked-external-call, upgrade-initializer)",
+  "error": "taxonomy map {dir}/a.yaml: aliases['some-label'] -> 'Defi-Rekt' is neither a canonical class nor 'unmapped' (22 canonical classes: access-control, authorization, bridge-message, centralization-risk, cross-chain-replay, donation, dos-griefing, economic-invariant, flash-loan, frontend-injection, infra-boundary, liquidation-logic, logic-error, oracle-manipulation, precision-rounding, reentrancy, share-price-accounting, share-price-inflation, signature-replay, token-integration, unchecked-external-call, upgrade-initializer)",
   "map_json": null
  },
  {
@@ -73,7 +73,7 @@
   "name": "k.yaml",
   "text": "default: \"\"\naliases: {}\n",
   "error_kind": "ValueError",
-  "error": "taxonomy map {dir}/k.yaml: default -> '' is neither a canonical class nor 'unmapped' (20 canonical classes: access-control, authorization, bridge-message, centralization-risk, cross-chain-replay, donation, dos-griefing, economic-invariant, flash-loan, liquidation-logic, logic-error, oracle-manipulation, precision-rounding, reentrancy, share-price-accounting, share-price-inflation, signature-replay, token-integration, unchecked-external-call, upgrade-initializer)",
+  "error": "taxonomy map {dir}/k.yaml: default -> '' is neither a canonical class nor 'unmapped' (22 canonical classes: access-control, authorization, bridge-message, centralization-risk, cross-chain-replay, donation, dos-griefing, economic-invariant, flash-loan, frontend-injection, infra-boundary, liquidation-logic, logic-error, oracle-manipulation, precision-rounding, reentrancy, share-price-accounting, share-price-inflation, signature-replay, token-integration, unchecked-external-call, upgrade-initializer)",
   "map_json": null
  },
  {
@@ -143,14 +143,14 @@
   "name": "u.yaml",
   "text": "default: Reentrancy\n",
   "error_kind": "ValueError",
-  "error": "taxonomy map {dir}/u.yaml: default -> 'Reentrancy' is neither a canonical class nor 'unmapped' (20 canonical classes: access-control, authorization, bridge-message, centralization-risk, cross-chain-replay, donation, dos-griefing, economic-invariant, flash-loan, liquidation-logic, logic-error, oracle-manipulation, precision-rounding, reentrancy, share-price-accounting, share-price-inflation, signature-replay, token-integration, unchecked-external-call, upgrade-initializer)",
+  "error": "taxonomy map {dir}/u.yaml: default -> 'Reentrancy' is neither a canonical class nor 'unmapped' (22 canonical classes: access-control, authorization, bridge-message, centralization-risk, cross-chain-replay, donation, dos-griefing, economic-invariant, flash-loan, frontend-injection, infra-boundary, liquidation-logic, logic-error, oracle-manipulation, precision-rounding, reentrancy, share-price-accounting, share-price-inflation, signature-replay, token-integration, unchecked-external-call, upgrade-initializer)",
   "map_json": null
  },
  {
   "name": "v.yaml",
   "text": "aliases:\n  x: Access-Control\n",
   "error_kind": "ValueError",
-  "error": "taxonomy map {dir}/v.yaml: aliases['x'] -> 'Access-Control' is neither a canonical class nor 'unmapped' (20 canonical classes: access-control, authorization, bridge-message, centralization-risk, cross-chain-replay, donation, dos-griefing, economic-invariant, flash-loan, liquidation-logic, logic-error, oracle-manipulation, precision-rounding, reentrancy, share-price-accounting, share-price-inflation, signature-replay, token-integration, unchecked-external-call, upgrade-initializer)",
+  "error": "taxonomy map {dir}/v.yaml: aliases['x'] -> 'Access-Control' is neither a canonical class nor 'unmapped' (22 canonical classes: access-control, authorization, bridge-message, centralization-risk, cross-chain-replay, donation, dos-griefing, economic-invariant, flash-loan, frontend-injection, infra-boundary, liquidation-logic, logic-error, oracle-manipulation, precision-rounding, reentrancy, share-price-accounting, share-price-inflation, signature-replay, token-integration, unchecked-external-call, upgrade-initializer)",
   "map_json": null
  },
  {

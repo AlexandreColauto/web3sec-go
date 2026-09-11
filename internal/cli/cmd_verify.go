@@ -33,6 +33,7 @@ const t36VerifyUsage = `usage: webv2 verify [-h] [--queue] [--exec EXEC_ID] [--f
                     [--verifier VERIFIER] [--description DESCRIPTION]
                     [--scaffold {halmos,forge-fuzz}] [--invariant INVARIANT]
                     [--harness-result INVARIANT] [--kind {halmos,forge-fuzz}]
+                    [--post-patch FINDING] [--snapshot SNAPSHOT]
                     campaign
 `
 
@@ -54,6 +55,11 @@ options:
   --harness-result INVARIANT
   --exec EXEC_ID        EXEC id of the harness run (with --harness-result)
   --kind {halmos,forge-fuzz}
+  --post-patch FINDING
+                        finding to regress against the post-patch run (with --exec)
+                        (--finding/--verifier/--description are ignored with --post-patch)
+  --snapshot SNAPSHOT   advisory pin recorded on the verdict (tree comparison
+                        is a later step, not this command)
 `
 
 // verifyArgs is the parsed verify command line.
@@ -68,6 +74,8 @@ type verifyArgs struct {
 	invariant     string
 	harnessResult string
 	kind          string
+	postPatch     string
+	snapshot      string
 }
 
 // t36VerifyValue consumes `--name VALUE` / `--name=VALUE`. matched=false means
@@ -114,7 +122,8 @@ func parseVerifyArgs(args []string, r *Runner) (*verifyArgs, bool, error) {
 		}{{"--exec", &a.execID}, {"--finding", &a.finding},
 			{"--verifier", &a.verifier}, {"--description", &a.description},
 			{"--scaffold", &a.scaffold}, {"--invariant", &a.invariant},
-			{"--harness-result", &a.harnessResult}, {"--kind", &a.kind}} {
+			{"--harness-result", &a.harnessResult}, {"--kind", &a.kind},
+			{"--post-patch", &a.postPatch}, {"--snapshot", &a.snapshot}} {
 			v, next, ok, err := t36VerifyValue(args, i, f.name)
 			if err != nil {
 				return nil, false, err
@@ -366,6 +375,13 @@ func verifyCmd(root string, args []string, r *Runner) error {
 	}
 	if a.harnessResult != "" {
 		return verifyHarnessResult(c, a, r)
+	}
+	if a.postPatch != "" {
+		return verifyPostPatch(c, a, r)
+	}
+	if a.snapshot != "" {
+		return t14ExitErr(2,
+			"verify --snapshot needs --post-patch FINDING\n")
 	}
 	if a.scaffold != "" || a.invariant != "" {
 		return verifyScaffold(c, a, r)

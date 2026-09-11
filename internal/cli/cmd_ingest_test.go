@@ -101,6 +101,7 @@ var t14FindingLegend = []string{
 	"verification/critic_verdict: pending|confirmed|possible|disproved|duplicate|out_of_scope|informational",
 	"verification/triager_outlook/outcome: likely|uncertain|unlikely",
 	"verification/independent_reproduction/status: not_attempted|matches|differs|failed|contradicts",
+	"verification/patch_regression/verdict: still_reproducible|fixed|indeterminate",
 	"bounty/policy_checks[]/result: pass|fail|unknown|human-review",
 	"provenance/memory_checks[]/mode: negative|comparative",
 	"provenance/memory_checks[]/relevance/basis[]: bug_class|capability|cwe",

@@ -63,6 +63,14 @@ var (
 		"liquidation-logic":     "E5",
 		"bridge-message":        "E6",
 		"cross-chain-replay":    "E6",
+		// Offchain families (G9): the failure lives in the dapp/offchain
+		// estate, not in contract code semantics — mirror the
+		// bridge-message scenario floor (E6, independent reproduction),
+		// not a new floor. Deliberately absent from
+		// CROSS_CHAIN_E6_CLASSES (cross-chain-witness flavor only) and
+		// from ECONOMIC_CONFIRMATION_CLASSES (no three-clause gate).
+		"frontend-injection": "E6",
+		"infra-boundary":     "E6",
 	}
 
 	// CROSS_CHAIN_E6_CLASSES is _CROSS_CHAIN_E6_CLASSES: classes whose E6

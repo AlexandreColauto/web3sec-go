@@ -32,6 +32,7 @@ import (
 	"websec/internal/planner"
 	"websec/internal/playbooks"
 	"websec/internal/probes"
+	"websec/internal/protocolgraph"
 	"websec/internal/relations"
 	"websec/internal/risk"
 	"websec/internal/roles"
@@ -1272,6 +1273,71 @@ func Bounty(campaign *state.Campaign) (validation.Value, error) {
 		kv("evaluated", validation.VArr(evaluated...))), nil
 }
 
+// TrackedSurfaces is the G9 opaque-surface view: one display line per
+// protocol-model component (`- <kind> <path|url>:
+// <in_scope|out-of-scope><, paid>`, via protocolgraph.ComponentSurfaceLines).
+// A missing model file (or a model with no components) yields no lines —
+// the caller presence-gates on len, so a component-free campaign's brief
+// bytes are unchanged. Findings may anchor on these surfaces; structidx
+// never indexes them.
+func TrackedSurfaces(campaign *state.Campaign) []string {
+	modelPath := filepath.Join(campaign.ArtifactsDir, "protocol_model.json")
+	if _, err := os.Stat(modelPath); err != nil {
+		return nil
+	}
+	model, err := validation.ReadJson(modelPath)
+	if err != nil {
+		return nil
+	}
+	return protocolgraph.ComponentSurfaceLines(model)
+}
+
+// ChainAssumptions is the G10 assumption-table view: one display line per
+// AssumptionTable row plus one per gap, via the shared
+// protocolgraph.RenderAssumptionLines builder (the same bytes the report
+// renders, so the two can never drift apart).
+//
+// Presence-gated (the Task 4 law): the block renders ONLY when
+// len(rows) > 0 AND (any row carries a non-null detail OR len(gaps) > 0).
+// A row carries detail when any non-chain field is non-null. A chains-only
+// legacy model (no assumptions, no BRIDGES-touch gaps) yields no lines —
+// the caller gates on len, so a legacy campaign's brief bytes are
+// unchanged. Findings never anchor on these lines; structidx never indexes
+// them.
+func ChainAssumptions(campaign *state.Campaign) []string {
+	modelPath := filepath.Join(campaign.ArtifactsDir, "protocol_model.json")
+	if _, err := os.Stat(modelPath); err != nil {
+		return nil
+	}
+	model, err := validation.ReadJson(modelPath)
+	if err != nil {
+		return nil
+	}
+	rows, gaps := protocolgraph.AssumptionTable(model)
+	if len(rows) == 0 {
+		return nil
+	}
+	hasDetail := false
+	for _, r := range rows {
+		for _, pair := range r.O {
+			if pair.K == "chain" {
+				continue
+			}
+			if pair.V.Kind != validation.Null {
+				hasDetail = true
+				break
+			}
+		}
+		if hasDetail {
+			break
+		}
+	}
+	if !hasDetail && len(gaps) == 0 {
+		return nil
+	}
+	return protocolgraph.RenderAssumptionLines(rows, gaps)
+}
+
 // BuildBrief is build_brief: the full briefing.
 func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	now *string) (validation.Value, error) {
@@ -1619,6 +1685,22 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 		setKey(&brief, "probe_surface", validation.VNull())
 	} else {
 		setKey(&brief, "probe_surface", *summary)
+	}
+
+	// G9 opaque surfaces (Task 6): the model's tracked-but-opaque
+	// component surfaces, one display line per component. Presence-gated
+	// (the additive convention): a campaign whose model carries no
+	// components gains no key at all.
+	if surfaces := TrackedSurfaces(campaign); len(surfaces) > 0 {
+		setKey(&brief, "tracked_surfaces", strArr(surfaces))
+	}
+
+	// G10 assumption table (Task 4): the model's per-hop declared table
+	// plus ASSUMPTION GAP lines, one display line per row/gap. Presence-
+	// gated (the additive convention): a chains-only legacy campaign
+	// gains no key at all.
+	if lines := ChainAssumptions(campaign); len(lines) > 0 {
+		setKey(&brief, "chain_assumption_lines", strArr(lines))
 	}
 
 	// B4 disposition review: high-risk rows (tier 0 / gap >= 3) dismissed

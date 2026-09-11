@@ -721,6 +721,41 @@
               "type": "string"
             }
           }
+        },
+        "patch_regression": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "G11 post-patch verdict: re-running the finding's original reproduction after a patch, comparing exit-vectors (exit status + stdout hash) between the new exec and the baseline repro exec the minted evidence cites. Fail-open metadata only — never moves finding status, never blocks.",
+          "required": [
+            "verdict",
+            "exec",
+            "base_exec"
+          ],
+          "properties": {
+            "verdict": {
+              "enum": [
+                "still_reproducible",
+                "fixed",
+                "indeterminate"
+              ]
+            },
+            "exec": {
+              "type": "string",
+              "description": "the post-patch EXEC record the verdict ran against"
+            },
+            "base_exec": {
+              "type": "string",
+              "description": "the baseline repro EXEC record the minted evidence cites"
+            },
+            "detail": {
+              "type": "string",
+              "description": "one-line verdict detail; scope review appends rows here"
+            },
+            "snapshot": {
+              "type": ["string", "null"],
+              "description": "advisory snapshot pin recorded with the verdict (tree comparison is scope review's job, not this command's)"
+            }
+          }
         }
       }
     },
