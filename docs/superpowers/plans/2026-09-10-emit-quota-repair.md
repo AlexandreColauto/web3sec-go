@@ -231,6 +231,54 @@ Requirements:
 Verification: no code touched; the record's numbers reproduced by the
 implementer.
 
+## Task 5 — give the P3 smoke the blind axis it asserts
+
+Added after Task 3, when the batch's own acceptance run showed the gate is red
+for reasons older than this batch.
+
+`scripts/verify-full.sh` step 12 selects an axis whose `status` is exactly
+`blind` (`:685-699`) and then uses it for `probes blank` (`:700-702`). No axis
+in the smoked corpus is ever blind: `snap` pins the whole repository, not the
+directory it is handed (`webv2 snap <c> internal/probes/testdata/probes/cursor/clean`
+prints `pinned src-… (git-clean, 1071 files)`), so the enforcement-timing probe
+sees 125 sites and ranks 12 rows instead of the fixture-only `sites 4, rows 0,
+blind` that `internal/probes/probes_test.go:780-799` exercises. The step has
+therefore failed since the check was written, at every commit tested
+(`7baaa6a`, `8240e3c`, `9e9a671~1`, `9e9a671`, `2dbea50`, `10477d4`,
+`2737486`) — including the one whose report claimed 13/13.
+
+The corpus option is the one that works, and it is reproduced: a campaign whose
+index is built directly from the fixture —
+`webv2 index <c> --src internal/probes/testdata/probes/assertion_strength/clean`
+— reports `index: 4 entries (snapshot unpinned)` and a surface whose
+enforcement-timing axis is `status=blind sites=4 rows=0 blind=5`.
+
+Files:
+
+- `scripts/verify-full.sh` — step 12.
+- `docs/gates/P3-gate.md` — only where it would otherwise state something false
+  about what the smoke does or how many invocations it makes.
+- `docs/feedback-triage.md` — the paragraph Task 3 wrote about the split.
+
+Requirements:
+
+1. Keep the assertion strict. The selector must still require a genuinely blind
+   axis (`status == "blind"` with a non-empty `blind` list); the fix is to give
+   the smoke a corpus that has one, not to relax the check.
+2. Exercise the blank attestation against a scratch campaign whose index comes
+   from the fixture directly, and leave the existing repo-wide campaign's
+   assertions (emit, relations, corpus-surface, resemble, memory, publish,
+   baselines, costs) exactly as they are. The blank exercise moves; nothing it
+   asserted may be dropped.
+3. No weakening anywhere else: if a check currently fails, it must still fail;
+   no assertion may be deleted, and no exit code expectation may be relaxed.
+4. State the fact in the record: the step now passes because the corpus carries
+   a blind axis, and the earlier 13/13 claim is already annotated as not
+   reproducing.
+
+Verification: the whole `scripts/verify-full.sh` must be green, all 13 steps,
+and the report must paste the run's tail and the blind-axis table it selected.
+
 ## Acceptance
 
 1. `scripts/verify-full.sh` green, all 13 steps.
