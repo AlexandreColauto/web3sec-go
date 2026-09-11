@@ -461,6 +461,10 @@
     "sha256": "55fc8349c8182efbf09b80666f8eecc3dee6ba1d3bead1721f575e3cf9512fef",
     "size": 6515
    },
+   "taxonomy_aliases.schema.json": {
+    "sha256": "1ed4073f011953a4e41ff9adb9698ec1d6ab9aec20e6f7d1d17cf2af19e6a381",
+    "size": 1611
+   },
    "trajectory.schema.json": {
     "sha256": "e653a5350c5278dc43fb574f4a947591ba1819dd75f2d9b7384a87446deb5caf",
     "size": 11742
@@ -471,6 +475,10 @@
    }
   },
   "taxonomy": {
+   "aliases.json": {
+    "sha256": "6521bfe455bfa8834a7524d7de09196949f21e64592b7d28935fad390f606c86",
+    "size": 1314
+   },
    "class_weights.json": {
     "sha256": "384a8dc1de0e5339ac27c446c49d28975231ce1dd98b3f22eb14e8f55b801852",
     "size": 11990

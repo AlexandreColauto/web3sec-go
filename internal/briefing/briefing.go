@@ -21,6 +21,7 @@ import (
 	"websec/internal/audit"
 	"websec/internal/bounty"
 	"websec/internal/chainengine"
+	"websec/internal/classweights"
 	"websec/internal/completion"
 	"websec/internal/costs"
 	"websec/internal/findings"
@@ -2064,7 +2065,8 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		detail := ""
 		labelOnly := objInt(cr, "label_only_checks")
 		if labelOnly != 0 {
-			labels := strings.Join(strListOf(objAt(cr, "discounted")), ", ")
+			labels := strings.Join(aliasSuffixLabels(
+				strListOf(objAt(cr, "discounted"))), ", ")
 			if labels == "" {
 				labels = "-"
 			}
@@ -2155,4 +2157,28 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		}
 	}
 	return actions, nil
+}
+
+// aliasSuffixLabels maps aliasSuffixLabel over a label list (G12 display:
+// the stored corpus_recall.discounted keys are never rewritten, only the
+// rendered line gains the pinned OWASP id).
+func aliasSuffixLabels(labels []string) []string {
+	out := make([]string, 0, len(labels))
+	for _, l := range labels {
+		out = append(out, aliasSuffixLabel(l))
+	}
+	return out
+}
+
+// aliasSuffixLabel renders one discounted class label for display: the bare
+// machine key ("bug_class=reentrancy") plus its pinned OWASP id when the
+// class carries an alias ("bug_class=reentrancy [OWASP SC05]"), bare
+// otherwise (presence-gated, zero byte move for unmapped classes).
+func aliasSuffixLabel(label string) string {
+	if cls, ok := strings.CutPrefix(label, "bug_class="); ok {
+		if sfx := classweights.ClassAliasSuffix(cls); sfx != "" {
+			return label + " " + sfx
+		}
+	}
+	return label
 }

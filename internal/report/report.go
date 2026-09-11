@@ -17,6 +17,7 @@ import (
 
 	"websec/internal/bounty"
 	"websec/internal/capabilities"
+	"websec/internal/classweights"
 	"websec/internal/completion"
 	"websec/internal/costs"
 	"websec/internal/coverage"
@@ -996,7 +997,13 @@ func Generate(campaign *state.Campaign) (string, error) {
 		sort.SliceStable(rows, func(i, j int) bool { return rows[i].n > rows[j].n })
 		parts := []string{}
 		for _, r := range rows {
-			parts = append(parts, fmt.Sprintf("%d %s", r.n, r.cls))
+			// G12: a mapped class names its pinned OWASP id; an unmapped
+			// class renders bare (presence-gated, zero byte move).
+			if sfx := classweights.ClassAliasSuffix(r.cls); sfx != "" {
+				parts = append(parts, fmt.Sprintf("%d %s %s", r.n, r.cls, sfx))
+			} else {
+				parts = append(parts, fmt.Sprintf("%d %s", r.n, r.cls))
+			}
 		}
 		L = append(L, fmt.Sprintf("- **confirmed: %d** — %s", len(confirmed),
 			strings.Join(parts, ", ")))
@@ -1624,6 +1631,16 @@ func reachFindingClass(f validation.Value) string {
 	return "unclassified"
 }
 
+// classAliasSuffixSpaced is the G12 display suffix with its leading space
+// (" [OWASP SC05]") or "" when the class carries no alias — the empty string
+// keeps unmapped render sites byte-identical.
+func classAliasSuffixSpaced(class string) string {
+	if sfx := classweights.ClassAliasSuffix(class); sfx != "" {
+		return " " + sfx
+	}
+	return ""
+}
+
 // reachInt reads an integer row field across the Int/Flt shapes (0 when
 // absent — the HighRiskRow caution reads the same way).
 func reachInt(row validation.Value, key string) int64 {
@@ -1769,8 +1786,8 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	if objStr(rc, "cwe") != "" {
 		cwe = "CWE " + objStr(rc, "cwe")
 	}
-	out = append(out, fmt.Sprintf("- bug class: `%s` %s", pyStr(objAt(rc, "class")),
-		cwe))
+	out = append(out, fmt.Sprintf("- bug class: `%s`%s %s", pyStr(objAt(rc, "class")),
+		classAliasSuffixSpaced(objStr(rc, "class")), cwe))
 	inv := asObj(objAt(f, "invariant"))
 	if objStr(inv, "statement") != "" {
 		out = append(out, "- violated invariant: "+objStr(inv, "statement"))

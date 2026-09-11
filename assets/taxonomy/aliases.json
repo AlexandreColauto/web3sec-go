@@ -1,0 +1,35 @@
+{
+  "schema_version": "1",
+  "standards": {
+    "owasp": [
+      {"id": "SC01", "title": "Access Control Vulnerabilities"},
+      {"id": "SC02", "title": "Price Oracle Manipulation"},
+      {"id": "SC03", "title": "Logic Errors"},
+      {"id": "SC04", "title": "Lack of Input Validation"},
+      {"id": "SC05", "title": "Reentrancy Attacks"},
+      {"id": "SC06", "title": "Unchecked External Calls"},
+      {"id": "SC07", "title": "Flash Loan Attacks"},
+      {"id": "SC08", "title": "Integer Overflow and Underflow"},
+      {"id": "SC09", "title": "Insecure Randomness"},
+      {"id": "SC10", "title": "Denial of Service (DoS) Attacks"}
+    ]
+  },
+  "classes": {
+    "access-control": {"owasp": "SC01"},
+    "oracle-manipulation": {"owasp": "SC02"},
+    "logic-error": {"owasp": "SC03"},
+    "reentrancy": {"owasp": "SC05"},
+    "unchecked-external-call": {"owasp": "SC06"},
+    "flash-loan": {"owasp": "SC07"},
+    "dos-griefing": {"owasp": "SC10"}
+  },
+  "provenance": [
+    {
+      "source_url": "https://owasp.org/www-project-smart-contract-top-10/",
+      "checked_date": "2026-09-11",
+      "primary": true,
+      "figure": "SC01..SC10 ids+titles pinned to the 2025 tab; page sha256 8e00aeab57c1172752346bd6612677015c3eed01a9292595c5dad8c609718e4b",
+      "note": "scvs pending primary source"
+    }
+  ]
+}

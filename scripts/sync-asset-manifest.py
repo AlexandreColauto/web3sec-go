@@ -35,7 +35,7 @@ PACKS = {
     "prompts_legacy": ("prompts_legacy", ["*.md"]),
     "runbook": ("runbook", ["RUNBOOK.md", "AGENT_BOOTSTRAP.md"]),
     "evalsuite": ("evalsuite", ["cases.json", "src/*.sol"]),
-    "taxonomy": ("taxonomy", ["class_weights.json"]),
+    "taxonomy": ("taxonomy", ["class_weights.json", "aliases.json"]),
 }
 
 
