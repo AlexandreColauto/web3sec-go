@@ -1,4 +1,4 @@
-package validation
+package jval
 
 // KV list surgery helpers — the one canonical home for the object-field
 // set/append pattern the framework uses on every artifact it builds.

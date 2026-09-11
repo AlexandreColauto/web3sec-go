@@ -30,6 +30,80 @@
     "size": 914
    }
   },
+  "evalsuite": {
+   "cases.json": {
+    "sha256": "92801c35017cfbeebb1f965ba8d06e747005dbe8e4875fca88f6ff0646b6505d",
+    "size": 15084
+   },
+   "src/ES01VaultMissingAuth.sol": {
+    "sha256": "fd19c9a38f0dbbc98c220b3b99e140a3113d8a1d27bff414b395033436c5dc7f",
+    "size": 529
+   },
+   "src/ES02GovernanceOwnable.sol": {
+    "sha256": "5ef1897e157282b6ab8001f37faa8ac532b8120cec4c5c638fe291dc68ac692b",
+    "size": 483
+   },
+   "src/ES03BankReentrancy.sol": {
+    "sha256": "2145f57a24b3c914debbe3ece7bed01a366ab90142e2080cb10f933c509f4bb6",
+    "size": 532
+   },
+   "src/ES04LenderUnderflow.sol": {
+    "sha256": "e566d17ea2f89f15956920d054043867c488aafedfa334312ad588e3951b3859",
+    "size": 569
+   },
+   "src/ES05LPOracleSpot.sol": {
+    "sha256": "0b575103417c5e4521d3c22d656b7a52c7fc226dabd2e97adb64a72c37363277",
+    "size": 652
+   },
+   "src/ES06VTokenDonation.sol": {
+    "sha256": "33da5f86af4a623b27adc44ac6d70864ba557e11ab20e66f1f49289b7dc19473",
+    "size": 663
+   },
+   "src/ES07FeeMathFloor.sol": {
+    "sha256": "458b3008405d937f5fe9f0b9435eab2c47a5b1505c91fdf411ce7c1deaa1396c",
+    "size": 643
+   },
+   "src/ES08ImplNoInitializer.sol": {
+    "sha256": "8096f52bef42054c80ab78381f080a4f054a77750cb59645e71a92686c4e1a84",
+    "size": 552
+   },
+   "src/ES09BridgeNoChainId.sol": {
+    "sha256": "184964870608fb6c8d3f7841c8655867c7c19cbf4d3f66fb5cca9152fbedf921",
+    "size": 694
+   },
+   "src/ES10GovernanceQueueDoS.sol": {
+    "sha256": "db168e857fb44756fc801696060318f4b32d65a7370ba90425153ee0cad5168b",
+    "size": 543
+   },
+   "src/ES11MintInflation.sol": {
+    "sha256": "b77f6925065b5af2efda8950e4521f7bc723922d2e9bb6d8f291405ecfb5abb7",
+    "size": 776
+   },
+   "src/ES12SignatureReplay.sol": {
+    "sha256": "ef75ba3056d8254fb9d4ccb086de4c2d2135db54c1b705b732cb97cd82458d46",
+    "size": 784
+   },
+   "src/ES13FlashLoanSpot.sol": {
+    "sha256": "72abb8bd4f480a144b6e447508ab7196e0e2c4a31d72c9b2c40c301caefe87bc",
+    "size": 640
+   },
+   "src/ES14LiquidationTWAP.sol": {
+    "sha256": "43800d4db316cdfaa3a8ab544334f7ee8c0534b0b83bf933c7fb411cf5ecfd3d",
+    "size": 766
+   },
+   "src/ES15BridgeMsgReplay.sol": {
+    "sha256": "5a899211e4671f50ee7f5c69e0a123c698f078b12bdf05ce85334f08ecf2a39b",
+    "size": 593
+   },
+   "src/ES16AckDecoyVault.sol": {
+    "sha256": "5de027033c1de3ce637ddcffa46027fab63f9db8f102dc36ef3e9b24db2f8a23",
+    "size": 792
+   },
+   "src/ES17CleanControl.sol": {
+    "sha256": "33d2c22ad3cbaeb6471fd8ebd74e0d406b658e5a84bd2edc49dec9dd053e0ac5",
+    "size": 731
+   }
+  },
   "playbooks": {
    "access-control.yaml": {
     "sha256": "ec5021f9c86615ddcc1a7ab708697ee84874ab2694e8b3f7cc07480da3e6e0ff",

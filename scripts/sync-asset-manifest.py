@@ -33,6 +33,7 @@ PACKS = {
     "prompts": ("prompts", ["*.md"]),
     "prompts_legacy": ("prompts_legacy", ["*.md"]),
     "runbook": ("runbook", ["RUNBOOK.md", "AGENT_BOOTSTRAP.md"]),
+    "evalsuite": ("evalsuite", ["cases.json", "src/*.sol"]),
 }
 
 
