@@ -103,6 +103,20 @@ func AcceptancePriors(minN int) (map[string]Prior, Prior, error) {
 	if err != nil {
 		return nil, Prior{}, err
 	}
+	out, global := AcceptancePriorsFrom(cases, minN)
+	return out, global, nil
+}
+
+// AcceptancePriorsFrom is the pure computation behind AcceptancePriors:
+// the same grouping over an explicit case slice, with no store read and
+// no error path (a slice cannot fail to load). The backtest (Task 12)
+// builds dev-only priors through this function so held-out rows can
+// never confirm themselves. AcceptancePriors delegates to it, so the
+// two can never disagree about what a class's numbers are.
+func AcceptancePriorsFrom(cases []validation.Value, minN int) (map[string]Prior, Prior) {
+	if minN <= 0 {
+		minN = DefaultMinN
+	}
 	counts, globalK, globalN, _ := adjudicated(cases)
 	global := makePrior("global", globalK, globalN, false, globalN)
 	out := make(map[string]Prior, len(counts))
@@ -117,7 +131,21 @@ func AcceptancePriors(minN int) (map[string]Prior, Prior, error) {
 		fb.Fallback = true
 		out[class] = fb
 	}
-	return out, global, nil
+	return out, global
+}
+
+// IsAdjudicated reports whether an outcome string is inside the
+// adjudicated ground-truth vocabulary (gold.outcome). Anything outside
+// it (missing, null, "unknown") was never adjudicated and carries no
+// signal either way. Exported for the backtest's skipped count so the
+// CLI and the prior can never disagree about which rows count.
+func IsAdjudicated(outcome string) bool {
+	for _, o := range adjudicatedOutcomes {
+		if o == outcome {
+			return true
+		}
+	}
+	return false
 }
 
 // AdjudicatedStats reports the store's adjudicated n and the rows skipped

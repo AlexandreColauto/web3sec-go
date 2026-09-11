@@ -15,30 +15,41 @@ package cli
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 
+	"websec/internal/backtest"
 	"websec/internal/corpus"
+	"websec/internal/evalstore"
 	"websec/internal/validation"
 )
 
-const corpusSurfaceUsage = "usage: webv2 corpus-surface [-h] campaign\n"
+const corpusSurfaceUsage = "usage: webv2 corpus-surface [-h] [--backtest] [--top TOP] campaign\n"
 
 // corpusSurfaceHelp is argparse's `webv2 corpus-surface --help` output.
-const corpusSurfaceHelp = `usage: webv2 corpus-surface [-h] campaign
+const corpusSurfaceHelp = `usage: webv2 corpus-surface [-h] [--backtest] [--top TOP] campaign
 
 positional arguments:
   campaign
 
 options:
   -h, --help  show this help message and exit
+  --backtest  rank held-out eval cases severity-only vs with dev priors
+              (campaign is still required but ignored); the backtest
+              measures the RANKING SIGNALS THE STORE ACTUALLY CARRIES
+  --top TOP   top-K precision window for --backtest (default: 10)
 `
 
 func runCorpusSurface(root string, args []string, r *Runner) int {
 	ensureSeams()
 	return t14Dispatch(root, r, func() error {
+		backtestFlag := &boolOpt{name: "--backtest"}
+		topFlag := &valOpt{name: "--top"}
 		sp := &argSpec{
 			prog:  "corpus-surface",
 			usage: corpusSurfaceUsage,
 			pos:   []*posOpt{{name: "campaign"}},
+			flags: []*boolOpt{backtestFlag},
+			vals:  []*valOpt{topFlag},
 		}
 		if err := sp.parse(args); err != nil {
 			return err
@@ -46,6 +57,25 @@ func runCorpusSurface(root string, args []string, r *Runner) int {
 		if sp.helpSeen {
 			fmt.Fprint(r.Out, corpusSurfaceHelp)
 			return nil
+		}
+		top := 10
+		if topFlag.seen {
+			n, err := strconv.Atoi(topFlag.val)
+			if err != nil {
+				return t14ArgparseErr(corpusSurfaceUsage,
+					"corpus-surface",
+					"argument --top: invalid int value: %s",
+					quoteSingle(topFlag.val))
+			}
+			if n <= 0 {
+				return t14ArgparseErr(corpusSurfaceUsage,
+					"corpus-surface",
+					"argument --top: must be >= 1 (got %d)", n)
+			}
+			top = n
+		}
+		if backtestFlag.set {
+			return runCorpusBacktest(r, top)
 		}
 		c, err := t14Open(root, sp.pos[0].val)
 		if err != nil {
@@ -90,6 +120,25 @@ func runCorpusSurface(root string, args []string, r *Runner) int {
 		}
 		return nil
 	})
+}
+
+// runCorpusBacktest is `webv2 corpus-surface <campaign> --backtest`:
+// the G3 prior scorecard over the repo-level eval store. The campaign
+// positional stays required (the argparse shape is unchanged) but its
+// value is ignored — the backtest never opens the campaign, it reads
+// evalstore.LoadCases() and ranks pseudo-findings through
+// backtest.Run, which owns the verdict rule.
+func runCorpusBacktest(r *Runner, top int) error {
+	cases, err := evalstore.LoadCases()
+	if err != nil {
+		return err
+	}
+	out, code := backtest.Run(cases, top)
+	if code != 0 {
+		return t14ExitErr(code, "%s", out)
+	}
+	fmt.Fprint(r.Out, out)
+	return nil
 }
 
 func init() {
