@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 
+	"websec/internal/archetypes"
 	"websec/internal/bounty"
 	"websec/internal/corpus"
 	"websec/internal/costs"
@@ -326,6 +327,12 @@ func ensureSeams() {
 	// forkdiff: the baselines audit section (audit.py section 10) reads the
 	// baselines directory and the T0-parser fingerprint from here.
 	forkdiff.Wire()
+	// Task 9 (G11 scope): the post-patch plant check reads the real
+	// structidx indexer, the real archetype pack and the real
+	// EvaluatePrecondition through this seam (wired here, the top module,
+	// because the structidx→reproduction import cycle bars a direct
+	// dependency — same reason as the bounty resolver above).
+	archetypes.WireScopePlant()
 	// T28: the learning/relations/shared_memory seams (D15/D18 closure).
 	wireT28Seams()
 	// T33: the eval_store seams (trajectory/metrics case_partition and
