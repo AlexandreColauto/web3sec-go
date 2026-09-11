@@ -6,3 +6,8 @@ dist/
 
 # Go build cache (local)
 .gocache/
+
+# Wave G deep-research source reports (cited in docs/IMPROVEMENTS.md, kept
+# out of the tree on purpose — third-party citations inside them)
+Beyond Smart Contracts_*.md
+Deconstructing Claims, Validating AI, and Weighting Risks_*.md
