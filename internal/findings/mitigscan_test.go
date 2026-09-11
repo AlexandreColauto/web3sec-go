@@ -73,7 +73,7 @@ func mitigDecode(t *testing.T, hit bool, rec validation.Value) (pattern,
 	return pattern, file, line, evidence
 }
 
-func TestMitigScanES17CEI(t *testing.T) {
+func TestMitigScanCEIOrderEffectsBeforeInteraction(t *testing.T) {
 	c := mitigCamp(t, "ES17CleanControl.sol")
 	f := mitigFinding(t, c, "src/ES17CleanControl.sol", "withdraw",
 		"the withdraw handler forwards deposits via call after zeroing")
@@ -113,6 +113,62 @@ func TestMitigScanES17SweepAbsent(t *testing.T) {
 	}
 	if hit {
 		t.Error("sweep must not match: no write precedes its transfer")
+	}
+}
+
+// noCallSol: a state write with NO interaction anywhere — an interaction
+// that never happens earns no cei-order credit, and no other pattern
+// applies (no guard, no EIP-712 marker, non-claim function name), so the
+// verdict must be clean.
+const noCallSol = `pragma solidity ^0.8.24;
+contract NoCall {
+    mapping(address => uint256) public deposits;
+    function store() external {
+        deposits[msg.sender] = 0;
+    }
+}
+`
+
+func TestMitigScanCEIOrderWriteWithoutCallAbsent(t *testing.T) {
+	c, _ := ackCamp(t, map[string]string{"src/NoCall.sol": noCallSol})
+	f := mitigFinding(t, c, "src/NoCall.sol", "store",
+		"the store handler zeroes deposits with no interaction")
+	hit, rec, err := ScanMitigations(c, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hit {
+		t.Errorf("write with no call must match nothing, got %q", rec.S)
+	}
+}
+
+// loopSol: write-before-call, but embedded in a for loop — loop-safety
+// can't be regex-proved, so cei-order must not fire (and no other pattern
+// applies: non-claim name, deposits mapping, no guard, no EIP-712 marker).
+const loopSol = `pragma solidity ^0.8.24;
+contract Loopy {
+    mapping(address => uint256) public deposits;
+    function distribute(address[] calldata rs) external {
+        for (uint i = 0; i < rs.length; i++) {
+            address r = rs[i];
+            deposits[r] = 0;
+            (bool ok, ) = r.call{value: 1}("");
+            require(ok, "send");
+        }
+    }
+}
+`
+
+func TestMitigScanCEIOrderLoopDisqualifies(t *testing.T) {
+	c, _ := ackCamp(t, map[string]string{"src/Loopy.sol": loopSol})
+	f := mitigFinding(t, c, "src/Loopy.sol", "distribute",
+		"the distribute handler zeroes deposits then calls in a loop")
+	hit, rec, err := ScanMitigations(c, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hit {
+		t.Errorf("write-in-loop must match nothing, got %q", rec.S)
 	}
 }
 

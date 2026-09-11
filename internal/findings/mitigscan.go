@@ -25,7 +25,10 @@
 //	2. "cei-order" — in the function body, the LAST storage write
 //	   (\w+(\[...\])?\s*(=|+=|-=) on a non-local line) occurs BEFORE the
 //	   first external interaction
-//	   (.call{| .call(| .send(| .transfer(| delegatecall| staticcall).
+//	   (.call{| .call(| .send(| .transfer(| delegatecall| staticcall),
+//	   with BOTH sides present (no interaction, no credit) and no
+//	   for(/while( loop in the region (loops disqualify regex-level
+//	   proof).
 //	3. "eip712-binding" — the file contains DOMAIN_SEPARATOR|
 //	   _hashTypedDataV4|typehash|0x1901 (case-insensitive for the hex).
 //	4. "pull-pattern" — the file declares a claim-style function
@@ -374,13 +377,23 @@ func mitigLineIsWrite(line string) bool {
 	return false
 }
 
-// mitigCEI implements "cei-order": the LAST storage write in the region
-// occurs BEFORE the first external interaction. Either side absent means
-// no statement about order — no hit.
+// mitigLoopHead marks loop statements: loop-safety can't be proved over
+// regex-level source, so any loop inside the region disqualifies cei-order
+// outright (a pull pattern inside a loop must never read as CEI-clean).
+var mitigLoopHead = regexp.MustCompile(`\bfor\s*\(|\bwhile\s*\(`)
+
+// mitigCEI implements "cei-order": the region holds BOTH a storage write
+// and an external interaction, the LAST write precedes the FIRST
+// interaction, and the region contains no loop. Either side absent means
+// no statement about order — no hit (an interaction that never happens
+// earns no CEI credit); a loop means ordering can't be proved here.
 func mitigCEI(lines []string, start, end int) (int, string, bool) {
 	lastWrite, firstInteract := 0, 0
 	for i := start; i <= end; i++ {
 		ln := lines[i-1]
+		if mitigLoopHead.MatchString(ln) {
+			return 0, "", false
+		}
 		if mitigInteract.MatchString(ln) && firstInteract == 0 {
 			firstInteract = i
 		}
@@ -388,7 +401,8 @@ func mitigCEI(lines []string, start, end int) (int, string, bool) {
 			lastWrite = i
 		}
 	}
-	if lastWrite == 0 || firstInteract == 0 || lastWrite >= firstInteract {
+	hasWrite, hasCall := lastWrite != 0, firstInteract != 0
+	if !hasWrite || !hasCall || lastWrite >= firstInteract {
 		return 0, "", false
 	}
 	return lastWrite,
