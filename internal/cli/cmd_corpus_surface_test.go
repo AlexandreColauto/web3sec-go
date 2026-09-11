@@ -170,14 +170,20 @@ func TestCorpusSurfaceDeterministicArtifact(t *testing.T) {
 // and severity (Task 7's helper shape, extended for the backtest's
 // held-out scorecard and band-carrying pseudo-findings). An empty
 // severity omits gold.severity (the schema leaves it optional).
+//
+// narrative is the row's own root-cause sentence, and it is deliberately
+// explicit: I1b's near-dup scan keys on class + root_cause + file
+// basenames + repo and compares EVERY held-out row against EVERY
+// dev/training row, so a shared boilerplate narrative would make the whole
+// store mutually duplicate by construction and empty the held-out leg.
+// These fixtures are about prior arithmetic — each row states its own bug.
 func seedEvalCase(t *testing.T, caseID, partition, class, outcome,
-	severity, recordID string) {
+	severity, recordID, narrative string) {
 	t.Helper()
 	gold := []validation.KV{
 		{K: "outcome", V: validation.VStr(outcome)},
 		{K: "bug_class", V: validation.VStr(class)},
-		{K: "root_cause", V: validation.VStr(
-			"synthetic root cause for backtest calibration testing")},
+		{K: "root_cause", V: validation.VStr(narrative)},
 	}
 	if severity != "" {
 		gold = append(gold,
@@ -204,9 +210,13 @@ func seedEvalCase(t *testing.T, caseID, partition, class, outcome,
 }
 
 // seedDevClass writes n dev rows for one class, the first k of them
-// accepted. Case ids ride a caller base so two classes never collide.
+// accepted. Case ids ride a caller base so two classes never collide. The
+// rows share one narrative, which is safe on purpose: dev-dev pairs are
+// not scanned (same-partition duplication is the loader's problem), only
+// held-out-vs-dev is — so the narrative must differ from every HELD-OUT
+// narrative of any class, and does.
 func seedDevClass(t *testing.T, class string, accepted, n, base int,
-	tag string) {
+	tag, narrative string) {
 	t.Helper()
 	for i := 0; i < n; i++ {
 		outcome := "disproved"
@@ -214,7 +224,7 @@ func seedDevClass(t *testing.T, class string, accepted, n, base int,
 			outcome = "confirmed-exploitable"
 		}
 		seedEvalCase(t, fmt.Sprintf("CASE-%012x", base+i), "dev",
-			class, outcome, "", fmt.Sprintf("%s-%d", tag, i))
+			class, outcome, "", fmt.Sprintf("%s-%d", tag, i), narrative)
 	}
 }
 
@@ -226,16 +236,22 @@ func seedDevClass(t *testing.T, class string, accepted, n, base int,
 // the two accepted reentrancy rows above them.
 func seedImprovesStore(t *testing.T) {
 	t.Helper()
-	seedDevClass(t, "reentrancy", 8, 10, 0x100, "impr-re")
-	seedDevClass(t, "oracle-manipulation", 2, 10, 0x200, "impr-or")
+	seedDevClass(t, "reentrancy", 8, 10, 0x100, "impr-re",
+		"the vault releases funds before the balance is zeroed")
+	seedDevClass(t, "oracle-manipulation", 2, 10, 0x200, "impr-or",
+		"the borrow limit is priced from instantaneous spot reserves")
 	seedEvalCase(t, "CASE-000000000001", "held-out",
-		"oracle-manipulation", "disproved", "low", "impr-h1")
+		"oracle-manipulation", "disproved", "low", "impr-h1",
+		"a signature digest omits the chain id so one claim replays")
 	seedEvalCase(t, "CASE-000000000002", "held-out",
-		"oracle-manipulation", "out-of-scope", "low", "impr-h2")
+		"oracle-manipulation", "out-of-scope", "low", "impr-h2",
+		"the queue reverts the whole batch whenever a single target fails")
 	seedEvalCase(t, "CASE-000000000003", "held-out",
-		"reentrancy", "confirmed-exploitable", "low", "impr-h3")
+		"reentrancy", "confirmed-exploitable", "low", "impr-h3",
+		"a first depositor donates tokens to inflate the share price")
 	seedEvalCase(t, "CASE-000000000004", "held-out",
-		"reentrancy", "confirmed-exploitable", "low", "impr-h4")
+		"reentrancy", "confirmed-exploitable", "low", "impr-h4",
+		"the fee division floors dust amounts away to zero")
 }
 
 const backtestHeader = "backtest: priors from dev partition only " +
@@ -289,13 +305,17 @@ func TestCorpusBacktestFlatIndistinguishable(t *testing.T) {
 	// One class, uniform severity: the class rate IS the global rate,
 	// so wPrior computes to exactly zero and method B ranks
 	// bit-identically to method A — the same experiment, no verdict.
-	seedDevClass(t, "reentrancy", 5, 10, 0x300, "flat-re")
+	seedDevClass(t, "reentrancy", 5, 10, 0x300, "flat-re",
+		"the withdraw path is reentrancy-free and checks effects first")
 	seedEvalCase(t, "CASE-000000000001", "held-out",
-		"reentrancy", "disproved", "medium", "flat-h1")
+		"reentrancy", "disproved", "medium", "flat-h1",
+		"liquidation values collateral with a manipulable spot ratio")
 	seedEvalCase(t, "CASE-000000000002", "held-out",
-		"reentrancy", "disproved", "medium", "flat-h2")
+		"reentrancy", "disproved", "medium", "flat-h2",
+		"the upgrade initializer is callable by any external account")
 	seedEvalCase(t, "CASE-000000000003", "held-out",
-		"reentrancy", "confirmed-exploitable", "medium", "flat-h3")
+		"reentrancy", "confirmed-exploitable", "medium", "flat-h3",
+		"a merkle proof is accepted without any depth or length check")
 	code, out, errS := run(t, "corpus-surface", "C-nope",
 		"--backtest", "--top", "2")
 	if code != 0 {

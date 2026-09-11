@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"websec/internal/structidx"
+	"websec/internal/textsim"
 	"websec/internal/validation"
 )
 
@@ -413,36 +414,13 @@ func NearMatches(check, index validation.Value, k int) []string {
 }
 
 // Jaccard is _jaccard: bigram-Jaccard similarity of two identifiers.
-func Jaccard(a, b string) float64 {
-	A, B := bigrams(a), bigrams(b)
-	inter, union := 0, len(B)
-	for k := range A {
-		if B[k] {
-			inter++
-		} else {
-			union++
-		}
-	}
-	if union == 0 {
-		return 0.0
-	}
-	return float64(inter) / float64(union)
-}
-
-// bigrams is _bigrams: the lowercased 2-gram set, the whole string when it is
-// one rune or shorter.
-func bigrams(s string) map[string]bool {
-	rs := []rune(strings.ToLower(s))
-	out := map[string]bool{}
-	if len(rs) > 1 {
-		for i := 0; i+1 < len(rs); i++ {
-			out[string(rs[i:i+2])] = true
-		}
-		return out
-	}
-	out[string(rs)] = true
-	return out
-}
+//
+// The rule itself lives in internal/textsim. evalstore's I1b near-dup scan
+// needs the SAME function, and evalstore cannot import this package (this
+// package reaches evalstore through structidx -> orchestrator -> risk), so
+// the leaf owns the implementation and this name stays the archetypes-facing
+// alias. One implementation, two callers, no second copy to drift.
+func Jaccard(a, b string) float64 { return textsim.Jaccard(a, b) }
 
 // checkLiterals is _check_literals: the literal identifiers a check looks
 // for (for near-matching) — its names plus every >3-char identifier token in
