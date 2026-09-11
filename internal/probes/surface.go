@@ -48,11 +48,34 @@ type ProbeOpts struct {
 	// custody-primitive rows: members of one inheritance family disagreeing
 	// about the custody primitive for a (direction, asset).
 	Symmetry bool
+	// AbsenceRows adds the never-asserted-consumption rows (C3) as
+	// assertion-strength rows: a concept written to storage by one stage
+	// and read by a stage declared below it, while nothing in the closure
+	// asserts it at any class. OFF in ProdProbeOpts — the row rides the
+	// existing axis, probe id, anchors and schema, and only its `why` is
+	// rewritten (the reference template assumes an asserter).
+	//
+	// Measured on the Morph tree (500 files, 8082 index entries) before
+	// being switched off: the ungated form emitted 421 enforcement-timing
+	// rows and the hand-off gate still emitted 276, whose top-ranked
+	// members are constructors, pure address/hash computations, test
+	// scaffolding and `msg:sender` — at tier 0 with assertion_gap 4, i.e.
+	// above the rows that carry real defects. The G-01-shaped row the
+	// campaign actually needed (`Rollup.commitBatch`, asserted later in
+	// `finalizeBatch`) is emitted by the reference probe itself once the
+	// surface can be built at all; the absence rows added noise, not
+	// coverage. Kept behind the flag for a future iteration with a
+	// tighter obligation shape.
+	AbsenceRows bool
 }
 
 // ProdProbeOpts is what the shipped surface is built with: the reference
-// surface plus the Go-only enrichments.
-func ProdProbeOpts() ProbeOpts { return ProbeOpts{StageTables: true, Symmetry: true} }
+// surface plus the Go-only enrichments that survived measurement (C1 stage
+// tables, C2 symmetry). C3 (AbsenceRows) is NOT shipped — see the field's
+// comment for the Morph numbers that retired it.
+func ProdProbeOpts() ProbeOpts {
+	return ProbeOpts{StageTables: true, Symmetry: true}
+}
 
 // buildAxes runs every registered probe, collapses + ranks its rows and
 // returns the internal axis table (with `_rows`).
@@ -67,11 +90,30 @@ func buildAxes(index, model validation.Value, paths map[string]string,
 			return nil, err
 		}
 		raw := out.rows
+		sites := out.sites
 		var symExtras map[string]validation.Value
 		if opts.Symmetry && probeID == "custody-primitive" {
 			var symRows []validation.Value
 			symRows, symExtras = symmetryRawRows(index, model)
 			raw = append(append([]validation.Value(nil), raw...), symRows...)
+		}
+		absent := map[string]string{}
+		if probeID == "assertion-strength" {
+			// OBS-1 (Morph): one joined key fanned out into near-dup
+			// near-key entries attesting the tokenizer rather than the
+			// code. Unconditional — the collapse only drops duplicates
+			// from the reference's own blind list.
+			out.blind = collapseNearKeys(out.blind)
+		}
+		if opts.AbsenceRows && probeID == "assertion-strength" {
+			var ar []validation.Value
+			var err error
+			ar, absent, err = absenceRawRows(index, model)
+			if err != nil {
+				return nil, err
+			}
+			raw = append(append([]validation.Value(nil), raw...), ar...)
+			sites += len(ar)
 		}
 		rows := rankRows(collapse(raw, probeID, spec, paths), spec)
 		final := make([]validation.Value, len(rows))
@@ -81,6 +123,9 @@ func buildAxes(index, model validation.Value, paths map[string]string,
 		if opts.StageTables && probeID == "assertion-strength" {
 			final = attachStageTables(index, final, stageMemo)
 		}
+		if opts.AbsenceRows && probeID == "assertion-strength" {
+			final = attachAbsence(final, absent)
+		}
 		if opts.Symmetry && probeID == "custody-primitive" {
 			final = attachSymmetry(final, symExtras)
 		}
@@ -88,7 +133,7 @@ func buildAxes(index, model validation.Value, paths map[string]string,
 			kv("probe", validation.VStr(probeID)),
 			kv("axis", validation.VStr(spec.axis)),
 			kv("lens", validation.VStr(spec.lens)),
-			kv("sites", validation.VInt(int64(out.sites))),
+			kv("sites", validation.VInt(int64(sites))),
 			kv("rows", validation.VInt(int64(len(rows)))),
 			kv("blind", validation.VArr(out.blind...)),
 			kv("blind_total", validation.VInt(int64(out.blindTotal))),
