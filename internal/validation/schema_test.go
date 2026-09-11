@@ -68,7 +68,7 @@ func TestSingleErrorPapercut(t *testing.T) {
 		want := "finding validation failed at status: 'BOGUS' is not one of " +
 			"['HYPOTHESIS', 'NEEDS_RESEARCH', 'PROVISIONALLY_VALID', 'POSSIBLE', " +
 			"'CONFIRMED', 'DISPROVED', 'DUPLICATE', 'OUT_OF_SCOPE', 'INFORMATIONAL', " +
-			"'CHAIN'] (+0 more errors)"
+			"'CHAIN', 'SUPERSEDED'] (+0 more errors)"
 		if se.Msg != want {
 			t.Errorf("single-error max_errors=1:\n got %q\nwant %q", se.Msg, want)
 		}

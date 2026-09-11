@@ -424,6 +424,8 @@ webv2 verdict <C-xxx> F-xxx --verdict confirmed --reason "no compensating contro
 webv2 recall <C-xxx> --finding F-xxx --mode negative   # recorded graph-memory consult (gate REQUIRES negative/comparative)
 webv2 move <C-xxx> F-xxx POSSIBLE --reason "triage: the mechanism is falsifiable"
 webv2 move <C-xxx> F-xxx CONFIRMED --reason "gates passed"
+webv2 amend <C-xxx> F-xxx --title "corrected title" --note "why"   # correct a filed finding in place (bumps claim_version, never moves status)
+webv2 supersede <C-xxx> F-new --of F-old   # retire F-old to SUPERSEDED; its evidence is COPIED into F-new, never moved
 webv2 gate <C-xxx> F-xxx                              # read-only per-finding CONFIRMED dry-run (exit 1 while checks fail)
 ```
 
@@ -842,6 +844,8 @@ webv2 audit <C> [--json]                                           full integrit
 webv2 brief <C> [--json] [--deep]                                  operator cockpit (where it is + decisions waiting; pure view)
 
 webv2 move <C> <finding> TO_STATUS --reason R [--actor A] [--adjacent SIBLING] [--adjacent-clear]   # the ONLY status-transition path
+webv2 amend <C> <finding> [--title T] [--class C] [--claim K] [--note N] [--actor A]   # correct a filed finding (bumps claim_version; status never moves)
+webv2 supersede <C> <new> --of <old> [--actor A]   # old -> SUPERSEDED; evidence COPIED into new (re_parented_from), old array untouched
 webv2 mint <C> <finding> --exec E --description D [--tier T1|T2|T3|T4] [--type TYPE]   # record+mint evidence (idempotent per exec)
 webv2 verdict <C> <finding> --verdict V --reason R [--outlook O --outlook-reason R]   hostile-critic verdict
 webv2 recall <C> --finding F [--mode negative|comparative] [--note N]   # recorded graph-memory consult

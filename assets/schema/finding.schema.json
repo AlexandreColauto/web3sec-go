@@ -58,7 +58,8 @@
         "DUPLICATE",
         "OUT_OF_SCOPE",
         "INFORMATIONAL",
-        "CHAIN"
+        "CHAIN",
+        "SUPERSEDED"
       ]
     },
     "trajectory": {
@@ -1099,6 +1100,10 @@
         "snapshot_id": {
           "type": "string",
           "description": "snapshot this evidence was produced against"
+        },
+        "re_parented_from": {
+          "type": "string",
+          "description": "G14a supersede: the finding id this evidence item was copied from; set only on re-parented copies, the source finding keeps its own array untouched"
         }
       }
     },

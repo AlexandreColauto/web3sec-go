@@ -169,7 +169,7 @@ func TestMoveIllegalTransitionFails(t *testing.T) {
 	}
 	want := "move failed: HYPOTHESIS -> CONFIRMED is not a legal transition " +
 		"(legal: ['DISPROVED', 'DUPLICATE', 'INFORMATIONAL', 'NEEDS_RESEARCH', " +
-		"'OUT_OF_SCOPE', 'POSSIBLE', 'PROVISIONALLY_VALID'])\n"
+		"'OUT_OF_SCOPE', 'POSSIBLE', 'PROVISIONALLY_VALID', 'SUPERSEDED'])\n"
 	if errS != want {
 		t.Fatalf("stderr\n%q\nwant\n%q", errS, want)
 	}
