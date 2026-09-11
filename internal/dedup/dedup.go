@@ -611,8 +611,16 @@ func ResolveCandidate(campaign *state.Campaign, findingID, ofFindingID, verdict,
 		}
 		oneTooled := len(valueStrings(getDeep(one, "provenance", "sast_tools"))) > 0
 		twoTooled := len(valueStrings(getDeep(two, "provenance", "sast_tools"))) > 0
-		if oneTooled != twoTooled {
-			_, survivor := pickYoungerOlder(one, two)
+		// The corroboration dies with the duplicate record: it is written ONLY
+		// on a survivor that is itself tool-less (the non-tool side the SAST
+		// finding corroborates). When the SAST finding is the older side it
+		// survives, and a link written on it would name a merged-away model
+		// record no consumer can read — the G1 law is directional, so that
+		// case records nothing at all (no write, no event).
+		_, survivor := pickYoungerOlder(one, two)
+		survivorTooled :=
+			len(valueStrings(getDeep(survivor, "provenance", "sast_tools"))) > 0
+		if oneTooled != twoTooled && !survivorTooled {
 			other := one
 			if objStr(survivor, "finding_id") == objStr(one, "finding_id") {
 				other = two

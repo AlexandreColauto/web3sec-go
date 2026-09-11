@@ -980,11 +980,12 @@ func TestResolveSameRecordsCorroboration(t *testing.T) {
 }
 
 // TestResolveSameRecordsCorroborationWhenToolSideOlder is the reversed-order
-// regression: the SAST finding is created FIRST, so mergeYounger keeps it as
-// the survivor and merges the younger model side into it. The corroboration
-// link must land on the LIVE survivor — writing it before the merge put it on
-// the model side, which becomes DUPLICATE and is dropped by LoadLiveFindings,
-// leaving the G1 +0.5 inert on every ranked finding.
+// law pin: the SAST finding is created FIRST, so pickYoungerOlder makes it the
+// survivor and merges the younger model side into it. The G1 law corroborates
+// ONLY the non-tool side, so a tool-side survivor gets NOTHING — no
+// dedup_meta.corroborated_by, and no dedup.corroborated event. The
+// corroboration dies with the duplicate (merged-away) record, by design:
+// records are only written where a consumer can read them.
 func TestResolveSameRecordsCorroborationWhenToolSideOlder(t *testing.T) {
 	wireSeams(t)
 	c := pinnedCamp(t)
@@ -1002,12 +1003,21 @@ func TestResolveSameRecordsCorroborationWhenToolSideOlder(t *testing.T) {
 	if s := objStr(reloadID(t, c, idOf(younger)), "status"); s != "DUPLICATE" {
 		t.Fatalf("the younger model side status = %q, want DUPLICATE", s)
 	}
-	corr := getDeep(survivor, "dedup_meta", "corroborated_by")
-	if corr.Kind != validation.Str || corr.S != idOf(younger) {
-		t.Fatalf("corroborated_by not recorded on the live survivor: %s",
+	// Direction matters: a tool-side survivor is not the corroborated side.
+	if corr := getDeep(survivor, "dedup_meta", "corroborated_by"); corr.Kind == validation.Str {
+		t.Fatalf("a tool-side survivor must record no corroboration, got %s",
 			validation.CanonCompact(corr))
 	}
-	// ranking reads LoadLiveFindings: the bonus must be reachable from there.
+	if corr := getDeep(reloadID(t, c, idOf(younger)), "dedup_meta", "corroborated_by"); corr.Kind == validation.Str {
+		t.Fatalf("the merged-away model side must record no corroboration, got %s",
+			validation.CanonCompact(corr))
+	}
+	for _, e := range eventTypes(t, c) {
+		if e == "dedup.corroborated" {
+			t.Fatal("a tool-side survivor must emit no dedup.corroborated event")
+		}
+	}
+	// ranking reads LoadLiveFindings: the surviving tool side carries nothing.
 	live, err := findings.LoadLiveFindings(c)
 	if err != nil {
 		t.Fatal(err)
@@ -1016,8 +1026,8 @@ func TestResolveSameRecordsCorroborationWhenToolSideOlder(t *testing.T) {
 	for _, f := range live {
 		if idOf(f) == idOf(toolF) {
 			found = true
-			if getDeep(f, "dedup_meta", "corroborated_by").Kind != validation.Str {
-				t.Fatal("live survivor carries no corroborated_by")
+			if getDeep(f, "dedup_meta", "corroborated_by").Kind == validation.Str {
+				t.Fatal("live tool-side survivor carries a corroborated_by")
 			}
 		}
 	}
