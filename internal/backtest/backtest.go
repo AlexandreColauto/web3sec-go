@@ -51,13 +51,28 @@ const HeaderLine = "backtest: priors from dev partition only " +
 	"pseudo-findings carry class+band ONLY — this certifies the " +
 	"SIGNAL, not a full pipeline."
 
-// severityBands mirrors risk's wAcceptanceSeverity keys: the only
-// severity strings that carry weight. A gold severity outside this set
-// (informational, none, null) contributes nothing — Acceptance's own
-// posture for an unrecognized band — so the copy below is the mapping,
-// not a reinterpretation.
+// BandLine is the output's second line: the schema honesty label. The
+// evaluation_case gold.severity enum carries NO critical slot
+// (high|medium|low|informational|none|null), so a critical ground-truth
+// value can only arrive outside the validated path (loaders fold
+// critical->high before the store — see G3 and the immunefi loader — and
+// AddCase itself rejects it at validation). The backtest refuses to
+// invent a critical weight for such a row: it scores 0 from severity,
+// exactly like a null-severity row, and says so here plus in the
+// per-run band-coverage count below — never silently.
+const BandLine = "bands: critical is unrepresentable in gold.severity " +
+	"(schema) — critical-band rows score 0 here; " +
+	"loaders must fold (see G3)"
+
+// severityBands is the contributing band set: gold severities that carry
+// weight through AcceptanceWithPriors (high 2.0 / medium 1.0 / low 0.5 —
+// all nonzero, so membership here IS contribution). Everything else
+// (critical — unrepresentable in the schema — plus informational, none,
+// null) contributes nothing: Acceptance's own posture for an
+// unrecognized band is 0, so the copy below is the mapping, not a
+// reinterpretation.
 var severityBands = map[string]bool{
-	"critical": true, "high": true, "medium": true, "low": true,
+	"high": true, "medium": true, "low": true,
 }
 
 // Run scores the held-out partition twice and renders the scorecard.
@@ -93,8 +108,11 @@ func Run(cases []validation.Value, top int) (string, int) {
 
 	var b strings.Builder
 	b.WriteString(HeaderLine + "\n")
+	b.WriteString(BandLine + "\n")
 	fmt.Fprintf(&b, "eval store: %d adjudicated, %d skipped\n",
 		adjudicated, skipped)
+	fmt.Fprintf(&b, "band coverage: %d/%d rows contributed\n",
+		bandContrib(held), len(held))
 	k := top
 	if k > len(held) {
 		fmt.Fprintf(&b, "note: --top %d clamped to %d held-out cases\n",
@@ -132,6 +150,21 @@ func Run(cases []validation.Value, top int) (string, int) {
 		hitsB, accepted)
 	fmt.Fprintf(&b, "verdict: %s\n", verdict)
 	return b.String(), 0
+}
+
+// bandContrib counts the held-out rows whose gold severity maps to a
+// contributing band (severityBands membership == nonzero severity weight,
+// per the table in the severityBands comment). Rows outside the set —
+// critical, informational, none, null, absent — score 0 from severity;
+// the count keeps that visible instead of silent.
+func bandContrib(held []validation.Value) int {
+	n := 0
+	for _, c := range held {
+		if severityBands[orStr(objAt(objAt(c, "gold"), "severity"))] {
+			n++
+		}
+	}
+	return n
 }
 
 // rankHits ranks one pseudo-finding per held-out case by score desc,
@@ -175,7 +208,10 @@ func rankHits(held []validation.Value, priors map[string]risk.Prior,
 
 // pseudoFinding builds the backtest's unit of ranking: class + band
 // ONLY. No evidence level, no critic verdict, no corroboration —
-// anything more would certify a pipeline the store never ran.
+// anything more would certify a pipeline the store never ran. A
+// severity outside severityBands (critical included — the schema has no
+// critical slot) yields a bandless finding: 0 from severity, stated in
+// BandLine and the coverage count rather than papered over.
 func pseudoFinding(class, severity string) validation.Value {
 	riskObj := validation.VObj()
 	if severityBands[severity] {

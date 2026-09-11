@@ -74,6 +74,13 @@ func runCorpusSurface(root string, args []string, r *Runner) int {
 			}
 			top = n
 		}
+		// --top is a --backtest window, not a sweep option: accepting it
+		// beside the plain sweep would silently ignore it, so it is an
+		// argparse usage error (exit 2) instead.
+		if topFlag.seen && !backtestFlag.set {
+			return t14ArgparseErr(corpusSurfaceUsage,
+				"corpus-surface", "--top requires --backtest")
+		}
 		if backtestFlag.set {
 			return runCorpusBacktest(r, top)
 		}

@@ -243,6 +243,12 @@ const backtestHeader = "backtest: priors from dev partition only " +
 	"pseudo-findings carry class+band ONLY — this certifies the " +
 	"SIGNAL, not a full pipeline.\n"
 
+// backtestBands mirrors backtest.BandLine byte-for-byte: the schema
+// honesty label printed on every run.
+const backtestBands = "bands: critical is unrepresentable in gold.severity " +
+	"(schema) — critical-band rows score 0 here; " +
+	"loaders must fold (see G3)\n"
+
 func TestCorpusBacktestImproves(t *testing.T) {
 	t.Setenv("WEBV2_EVAL_DIR", t.TempDir())
 	seedImprovesStore(t)
@@ -260,7 +266,9 @@ func TestCorpusBacktestImproves(t *testing.T) {
 	// the wilson package first: 0/2 -> 0.0-65.8%, 2/2 -> 34.2-100.0%),
 	// pinned byte-for-byte here.
 	want := backtestHeader +
+		backtestBands +
 		"eval store: 24 adjudicated, 0 skipped\n" +
+		"band coverage: 4/4 rows contributed\n" +
 		"method A (severity-only):\n" +
 		"top-2 precision: 0/2 (95% CI 0.0–65.8%)\n" +
 		"selected accepted: 0\n" +
@@ -297,7 +305,9 @@ func TestCorpusBacktestFlatIndistinguishable(t *testing.T) {
 		t.Fatalf("stderr = %q, want empty", errS)
 	}
 	want := backtestHeader +
+		backtestBands +
 		"eval store: 13 adjudicated, 0 skipped\n" +
+		"band coverage: 3/3 rows contributed\n" +
 		"method A (severity-only):\n" +
 		"top-2 precision: 0/2 (95% CI 0.0–65.8%)\n" +
 		"selected accepted: 0\n" +
@@ -327,7 +337,9 @@ func TestCorpusBacktestClamp(t *testing.T) {
 	// Clamped to the 4 held-out rows, both methods select the same SET
 	// (2/4 each) — same experiment at full width, indistinguishable.
 	want := backtestHeader +
+		backtestBands +
 		"eval store: 24 adjudicated, 0 skipped\n" +
+		"band coverage: 4/4 rows contributed\n" +
 		"note: --top 99 clamped to 4 held-out cases\n" +
 		"method A (severity-only):\n" +
 		"top-4 precision: 2/4 (95% CI 15.0–85.0%)\n" +
@@ -391,6 +403,22 @@ func TestCorpusBacktestTopArgErrors(t *testing.T) {
 	if !strings.Contains(errS,
 		"the following arguments are required: campaign") {
 		t.Fatalf("missing campaign: stderr = %q", errS)
+	}
+}
+
+func TestCorpusBacktestTopRequiresBacktest(t *testing.T) {
+	t.Setenv("WEBV2_EVAL_DIR", t.TempDir())
+	seedImprovesStore(t)
+	// --top is a --backtest window: beside the plain sweep it used to be
+	// accepted and silently ignored. Now an argparse usage error, exit 2.
+	code, _, errS := run(t, "corpus-surface", "C-nope", "--top", "2")
+	if code != 2 {
+		t.Fatalf("exit = %d, want 2", code)
+	}
+	want := corpusSurfaceUsage + "webv2 corpus-surface: error: " +
+		"--top requires --backtest\n"
+	if errS != want {
+		t.Fatalf("stderr = %q, want %q", errS, want)
 	}
 }
 
