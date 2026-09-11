@@ -193,7 +193,7 @@ well under the 5-minute budget. `scripts/golden.sh` measured separately at
   the assertion-strength fixture — each asserting the reference's documented
   exit code — the structural surface, the probe surface incl. the named
   `blank` attestation (recorded against the fixture-only campaign, whose
-  enforcement-timing axis is `blind`: sites 4, rows 0, 5 near-keys),
+  enforcement-timing axis is `blind`: sites 4, rows 0, 5 blind entries),
   `relations`/`resemble`/`corpus-surface`, the D18 memory
   happy path, `publish`/`globalize`/`shared`, `shield`/`precondition`,
   `brief`/`report`/`recency`, the baseline lifecycle, `cost`/`yields`/
@@ -358,7 +358,7 @@ export GOCACHE=$PWD/.scratch/gocache GOPATH=$PWD/.scratch/gopath \
 go test ./... -count=1 && go test -race ./... -count=1
 bash scripts/golden.sh                 # 166 steps x 2 twins, ~25 s
 bash scripts/p2-docker-e2e.sh          # real docker + anvil, ~25 s
-bash scripts/verify-full.sh            # 15 steps, 50 s warm (all caches hot)
+bash scripts/verify-full.sh            # 13 steps, 50 s warm (all caches hot)
 python3 scripts/check-testmap.py
 python3 .scratch/t32/d19_probe.py      # D19 cross-twin probe
 ```
