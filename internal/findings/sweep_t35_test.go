@@ -24,12 +24,31 @@ func TestExhaustionMessageNamesTheCommand(t *testing.T) {
 	if _, err := c.SetDiscoveryBudget(1, "op"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := IngestHypothesis(c, hypoPayload(), "code", "t", ""); err != nil {
+	// Suspicion is free: both hypotheses land at E0. The slot is spent on the
+	// first RISE above E0, so the second rise is what hits the ceiling.
+	a, err := IngestHypothesis(c, hypoPayload(), "code", "t", "")
+	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = IngestHypothesis(c, hypoPayload(), "code", "t", "")
+	b, err := IngestHypothesis(c, hypoPayload(), "code", "t", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AddEvidence(c, objStr(a, "finding_id"), validation.VObj(
+		kv("evidence_id", validation.VStr("EV-a")),
+		kv("level", validation.VStr("E1")),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr("the first rise spends the slot")),
+	)); err != nil {
+		t.Fatal(err)
+	}
+	_, err = AddEvidence(c, objStr(b, "finding_id"), validation.VObj(
+		kv("evidence_id", validation.VStr("EV-b")),
+		kv("level", validation.VStr("E1")),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr("the second rise must fail"))))
 	if err == nil {
-		t.Fatal("second ingest must fail on the exhausted budget")
+		t.Fatal("second rise must fail on the exhausted budget")
 	}
 	msg := err.Error()
 	if !strings.Contains(msg, "--set-discovery") {

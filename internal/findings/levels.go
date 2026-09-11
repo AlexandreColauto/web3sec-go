@@ -453,6 +453,14 @@ func objAt(v validation.Value, key string) validation.Value {
 	return validation.VNull()
 }
 
+// objBool is the boolean flavor of objAt: true only for a present JSON true
+// (absent, null, and every other kind are false — the Python .get(k) truth
+// test on a bool-or-missing field).
+func objBool(v validation.Value, key string) bool {
+	got := objAt(v, key)
+	return got.Kind == validation.Bool && got.B
+}
+
 // objStr is the string flavor of objAt ("" when absent or not a string).
 func objStr(v validation.Value, key string) string {
 	for _, kv := range v.O {

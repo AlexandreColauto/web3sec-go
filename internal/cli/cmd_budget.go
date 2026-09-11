@@ -185,7 +185,7 @@ func budgetSetDiscovery(c *state.Campaign, a *budgetArgs, r *Runner) error {
 		return err
 	}
 	fmt.Fprintf(r.Out, "discovery: max_discovery_findings -> %d "+
-		"(%d recorded so far; actor: %s)\n",
+		"(%d risen so far; actor: %s)\n",
 		objInt(disc, "max_discovery_findings"),
 		objInt(disc, "discovery_findings_so_far"), actor)
 	return nil
@@ -233,7 +233,7 @@ func budgetShow(c *state.Campaign, a *budgetArgs, r *Runner) error {
 			t14Money(objFlt(st, "limit_usd")), pos,
 			t14Money(objFlt(st, "remaining_usd")))
 	}
-	fmt.Fprintf(r.Out, "discovery: %d/%d findings recorded (ceiling: "+
+	fmt.Fprintf(r.Out, "discovery: %d/%d findings risen so far (ceiling: "+
 		"webv2 budget %s --set-discovery N)\n",
 		objInt(disc, "discovery_findings_so_far"),
 		objInt(disc, "max_discovery_findings"), c.CampaignID)

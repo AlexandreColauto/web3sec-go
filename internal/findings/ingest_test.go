@@ -154,12 +154,21 @@ func TestIngestStampsProvenanceAndSignature(t *testing.T) {
 	if got := objStr(hist.A[0], "to"); got != "HYPOTHESIS" {
 		t.Fatalf("history[0].to = %q", got)
 	}
-	b, _ := c.Budget()
-	if got := objAt(b, "discovery_findings_so_far").I; got != 1 {
-		t.Fatalf("discovery_findings_so_far = %d, want 1", got)
+	// A bare hypothesis costs no discovery slot: the budget meters RISES
+	// above E0, not suspicion (the reform). The rise path below charges one.
+	assertSlotCount(t, c, 0)
+	if objBool(f, "discovery_slot_consumed") {
+		t.Fatal("a bare hypothesis must not carry the slot flag")
+	}
+	risen := addEvidenceOfLevel(t, c, f, "E1")
+	assertSlotCount(t, c, 1)
+	if !objBool(risen, "discovery_slot_consumed") {
+		t.Fatal("the first above-E0 evidence must set the slot flag")
 	}
 }
 
+// TestDiscoveryBudgetEnforced: the ceiling no longer gates hypothesis
+// INGEST (suspicion is free); it gates the first RISE above E0.
 func TestDiscoveryBudgetEnforced(t *testing.T) {
 	root := t.TempDir()
 	c, err := state.Init(root, "Acme Program", state.InitOpts{
@@ -170,10 +179,15 @@ func TestDiscoveryBudgetEnforced(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := IngestHypothesis(c, hypoPayload(), "code", "", ""); err != nil {
-		t.Fatal(err)
-	}
-	_, err = IngestHypothesis(c, hypoPayload(), "code", "", "")
+	a := ingestBare(t, c)
+	b := ingestBare(t, c) // both hypotheses land at E0, ceiling untouched
+	assertSlotCount(t, c, 0)
+	addEvidenceOfLevel(t, c, a, "E1") // the one affordable rise
+	_, err = AddEvidence(c, objStr(b, "finding_id"), validation.VObj(
+		kv("evidence_id", validation.VStr("EV-b")),
+		kv("level", validation.VStr("E1")),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr("the second rise cannot be paid"))))
 	wantErr(t, err, "budget")
 }
 
@@ -406,6 +420,223 @@ func TestIntakeCheckpointEconomicWithoutImpact(t *testing.T) {
 	if got := IntakeCheckpoint(with, "economic", ""); len(got) != 0 {
 		t.Fatalf("warnings = %v", got)
 	}
+}
+
+// ---- discovery-slot reform: suspicion is free, confirmation is metered ----
+
+// ingestBare files a schema-valid HYPOTHESIS with no evidence (E0).
+func ingestBare(t *testing.T, c *state.Campaign) validation.Value {
+	t.Helper()
+	f, err := IngestHypothesis(c, hypoPayload(), "code", "05", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
+}
+
+// addEvidenceOfLevel appends one code-reading evidence item at [level].
+func addEvidenceOfLevel(t *testing.T, c *state.Campaign, f validation.Value,
+	level string) validation.Value {
+	t.Helper()
+	out, err := AddEvidence(c, objStr(f, "finding_id"), validation.VObj(
+		kv("evidence_id", validation.VStr("EV-"+strings.ToLower(level))),
+		kv("level", validation.VStr(level)),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr("code reading at "+level)),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+// ingestWithEvidence is ingestBare with the payload already carrying one
+// above-E0 item — the pre-loaded rise.
+func ingestWithEvidence(t *testing.T, c *state.Campaign,
+	level string) validation.Value {
+	t.Helper()
+	item := validation.VObj(
+		kv("evidence_id", validation.VStr("EV-pre")),
+		kv("level", validation.VStr(level)),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr("pre-loaded code reading")),
+	)
+	f, err := IngestHypothesis(c,
+		hypoPayload(kv("evidence", validation.VArr(item))), "code", "05", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
+}
+
+// assertSlotCount reads budget.discovery_findings_so_far off the campaign.
+func assertSlotCount(t *testing.T, c *state.Campaign, want int64) {
+	t.Helper()
+	b, err := c.Budget()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := objAt(b, "discovery_findings_so_far").I; got != want {
+		t.Fatalf("discovery_findings_so_far = %d, want %d", got, want)
+	}
+}
+
+// TestDiscoverySlotConsumedOnRiseNotIngest: a bare hypothesis costs no slot;
+// the first above-E0 evidence consumes exactly one; a second item consumes
+// no more; a finding that ingests WITH pre-loaded above-E0 evidence pays at
+// ingest.
+func TestDiscoverySlotConsumedOnRiseNotIngest(t *testing.T) {
+	c := ingestCamp(t)
+	f := ingestBare(t, c)
+	assertSlotCount(t, c, 0)
+	if objBool(f, "discovery_slot_consumed") {
+		t.Fatal("bare hypothesis must not carry the slot flag")
+	}
+
+	f = addEvidenceOfLevel(t, c, f, "E1")
+	assertSlotCount(t, c, 1)
+	if !objBool(f, "discovery_slot_consumed") {
+		t.Fatal("first above-E0 evidence must set the slot flag")
+	}
+	f = addEvidenceOfLevel(t, c, f, "E2")
+	assertSlotCount(t, c, 1) // idempotent
+	if objAt(f, "evidence").Kind != validation.Arr ||
+		len(objAt(f, "evidence").A) != 2 {
+		t.Fatalf("evidence = %v", objAt(f, "evidence"))
+	}
+
+	c2 := ingestCamp(t)
+	pre := ingestWithEvidence(t, c2, "E1") // pre-loaded rise
+	assertSlotCount(t, c2, 1)
+	if !objBool(pre, "discovery_slot_consumed") {
+		t.Fatal("a pre-loaded above-E0 payload must set the slot flag")
+	}
+}
+
+// TestDiscoverySlotRefusalKeepsTheIngestText: the ceiling still gates rises,
+// not hypotheses, and its refusal is byte-identical to the ingest-era text.
+func TestDiscoverySlotRefusalKeepsTheIngestText(t *testing.T) {
+	c := slotCappedCampaign(t, 1)
+	a := ingestBare(t, c)
+	addEvidenceOfLevel(t, c, a, "E1")
+	assertSlotCount(t, c, 1)
+
+	// Bare suspicion is still free at the ceiling.
+	b := ingestBare(t, c)
+	assertSlotCount(t, c, 1)
+	if _, err := AddEvidence(c, objStr(b, "finding_id"), validation.VObj(
+		kv("evidence_id", validation.VStr("EV-b1")),
+		kv("level", validation.VStr("E1")),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr("the second rise cannot be paid")),
+	)); err == nil || err.Error() != slotExhaustedText(c) {
+		t.Fatalf("rise refusal = %v, want %q", err, slotExhaustedText(c))
+	}
+	if _, err := ingestWithEvidenceRaw(c, "E1"); err == nil ||
+		err.Error() != slotExhaustedText(c) {
+		t.Fatalf("pre-loaded rise refusal = %v, want %q", err,
+			slotExhaustedText(c))
+	}
+}
+
+// TestDiscoverySlotChargedOnPromotionAboveE0: the transition seam charges on
+// the first promotion above E0 and only once per finding.
+func TestDiscoverySlotChargedOnPromotionAboveE0(t *testing.T) {
+	c := ingestCamp(t)
+	f := ingestBare(t, c)
+	fid := objStr(f, "finding_id")
+	assertSlotCount(t, c, 0)
+	if _, err := Transition(c, fid, "PROVISIONALLY_VALID",
+		"static read supports it", "", "", false); err != nil {
+		t.Fatal(err)
+	}
+	assertSlotCount(t, c, 1)
+	got, err := LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !objBool(got, "discovery_slot_consumed") {
+		t.Fatal("a promotion above E0 must set the slot flag")
+	}
+	// A second promotion above E0 (E1 -> E2) is already paid for.
+	if _, err := Transition(c, fid, "POSSIBLE", "reachability shown",
+		"", "", false); err != nil {
+		t.Fatal(err)
+	}
+	assertSlotCount(t, c, 1)
+	// A fall back to the E0 baseline charges nothing.
+	if _, err := Transition(c, fid, "NEEDS_RESEARCH", "back to research",
+		"", "", false); err != nil {
+		t.Fatal(err)
+	}
+	assertSlotCount(t, c, 1)
+}
+
+// TestDiscoverySlotRefusesPromotionAtCeiling is the negative control for the
+// transition seam: the refusal is the same text, and the hypothesis itself
+// stays free.
+func TestDiscoverySlotRefusesPromotionAtCeiling(t *testing.T) {
+	c := slotCappedCampaign(t, 1)
+	a := ingestBare(t, c)
+	if _, err := Transition(c, objStr(a, "finding_id"), "POSSIBLE",
+		"reachability shown", "", "", false); err != nil {
+		t.Fatal(err)
+	}
+	b := ingestBare(t, c) // free at the ceiling
+	_, err := Transition(c, objStr(b, "finding_id"), "POSSIBLE",
+		"reachability shown", "", "", false)
+	if err == nil || err.Error() != slotExhaustedText(c) {
+		t.Fatalf("promotion refusal = %v, want %q", err, slotExhaustedText(c))
+	}
+	// The refused promotion left B at E0 — no partial move, no charge.
+	got, err := LoadFinding(c, objStr(b, "finding_id"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := objStr(got, "status"); s != "HYPOTHESIS" {
+		t.Fatalf("refused promotion changed status to %q", s)
+	}
+	if objBool(got, "discovery_slot_consumed") {
+		t.Fatal("a refused promotion must not set the slot flag")
+	}
+	assertSlotCount(t, c, 1)
+}
+
+// slotCappedCampaign is a fresh campaign whose only spendable slot is the
+// one ceiling in [max].
+func slotCappedCampaign(t *testing.T, max int64) *state.Campaign {
+	t.Helper()
+	root := t.TempDir()
+	c, err := state.Init(root, "Acme Program", state.InitOpts{
+		Budget: &validation.Value{Kind: validation.Obj, O: []validation.KV{
+			kv("max_discovery_findings", validation.VInt(max)),
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+// slotExhaustedText is the ceiling refusal — byte-identical to the text the
+// ingest path raised before the slot moved to the rise.
+func slotExhaustedText(c *state.Campaign) string {
+	return "discovery budget exhausted — raise the ceiling (webv2 budget " +
+		c.CampaignID + " --set-discovery N --actor NAME) or plan a new pass"
+}
+
+// ingestWithEvidenceRaw is ingestWithEvidence with the error returned rather
+// than fataled, for refusal assertions.
+func ingestWithEvidenceRaw(c *state.Campaign,
+	level string) (validation.Value, error) {
+	item := validation.VObj(
+		kv("evidence_id", validation.VStr("EV-raw")),
+		kv("level", validation.VStr(level)),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr("pre-loaded code reading")),
+	)
+	return IngestHypothesis(c,
+		hypoPayload(kv("evidence", validation.VArr(item))), "code", "05", "")
 }
 
 func TestIntakeCheckpointSeamAdvisory(t *testing.T) {

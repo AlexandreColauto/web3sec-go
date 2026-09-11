@@ -199,6 +199,16 @@ func transition(campaign *state.Campaign, findingID, toStatus, reason string,
 			return validation.VNull(), fmt.Errorf("%s", adjacentRequiredMsg)
 		}
 	}
+	// A promotion that lifts the finding above the E0 baseline is a rise: it
+	// pays the discovery slot once, before the move is durable (a refusal
+	// leaves the finding exactly where it was). Terminal junk states carry no
+	// floor row and sit at the baseline, so they never charge.
+	if toIdx, fromIdx := statusBaselineIndex(toStatus),
+		statusBaselineIndex(fromStatus); toIdx > fromIdx && toIdx > 0 {
+		if err := ConsumeSlotOnce(campaign, &finding); err != nil {
+			return validation.VNull(), err
+		}
+	}
 	if err := applyStatus(campaign, &finding, fromStatus, toStatus, reason,
 		actor); err != nil {
 		return validation.VNull(), err

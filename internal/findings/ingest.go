@@ -251,17 +251,6 @@ func enforceRiseGuardrail(campaign *state.Campaign, finding validation.Value,
 // pass. stage/model are "" for None (both are falsy in every Python use).
 func IngestHypothesis(campaign *state.Campaign, payload validation.Value,
 	trajectory, stage, model string) (validation.Value, error) {
-	budget, err := campaign.Budget()
-	if err != nil {
-		return validation.VNull(), err
-	}
-	if objAt(budget, "discovery_findings_so_far").I >=
-		objAt(budget, "max_discovery_findings").I {
-		return validation.VNull(), fmt.Errorf("%s",
-			"discovery budget exhausted — raise the ceiling (webv2 budget "+
-				campaign.CampaignID+" --set-discovery N --actor NAME) or plan a new pass")
-	}
-
 	fid := NewFindingID()
 	ts := nowIso()
 	p := validation.Value{Kind: validation.Obj,
@@ -334,14 +323,22 @@ func IngestHypothesis(campaign *state.Campaign, payload validation.Value,
 		if err := enforceRiseGuardrail(campaign, p, top, "E0"); err != nil {
 			return validation.VNull(), err
 		}
+		// A payload that arrives ALREADY above the E0 baseline is a rise: it
+		// pays the discovery slot here, exactly as add_evidence would. A bare
+		// hypothesis (E0, no evidence) pays nothing — suspicion is free.
+		topIdx, err := LevelIndex(top)
+		if err != nil {
+			return validation.VNull(), err
+		}
+		if e0, _ := LevelIndex("E0"); topIdx > e0 {
+			if err := ConsumeSlotOnce(campaign, &p); err != nil {
+				return validation.VNull(), err
+			}
+		}
 	}
-	// The discovery slot is consumed BEFORE the finding is written: the slot
-	// is a budget, and a crash between the two writes must cost the operator
-	// a slot (recoverable, visible) rather than hand out a free one. Saving
-	// first left an uncounted discovery behind any failure in this window.
-	if err := campaign.ConsumeDiscoverySlot(); err != nil {
-		return validation.VNull(), err
-	}
+	// The finding is written AFTER any slot charge: the slot is a budget, and
+	// a crash between the two writes must cost the operator a slot
+	// (recoverable, visible) rather than hand out a free one.
 	if err := SaveFinding(campaign, &p); err != nil {
 		return validation.VNull(), err
 	}
@@ -518,6 +515,14 @@ func AddEvidence(campaign *state.Campaign, findingID string,
 	}
 	if err := enforceRiseGuardrail(campaign, finding, level, ""); err != nil {
 		return validation.VNull(), err
+	}
+	// The first piece of evidence above the E0 baseline is the finding's
+	// rise: it pays the discovery slot once (the flag on the finding makes
+	// every later add free). Level-neutral adds pay nothing.
+	if risesAboveBaseline(finding, level) {
+		if err := ConsumeSlotOnce(campaign, &finding); err != nil {
+			return validation.VNull(), err
+		}
 	}
 	ev := objAt(finding, "evidence")
 	ev.A = append(ev.A, it)

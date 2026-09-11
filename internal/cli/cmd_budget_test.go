@@ -10,7 +10,7 @@ import (
 )
 
 func t14BudgetDiscoveryLine(cid string) string {
-	return "discovery: 0/400 findings recorded " +
+	return "discovery: 0/400 findings risen so far " +
 		"(ceiling: webv2 budget " + cid + " --set-discovery N)\n"
 }
 
@@ -88,7 +88,7 @@ func TestBudgetSetDiscovery(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
-	if out != "discovery: max_discovery_findings -> 7 (0 recorded so far; "+
+	if out != "discovery: max_discovery_findings -> 7 (0 risen so far; "+
 		"actor: lead)\n" {
 		t.Fatalf("stdout = %q", out)
 	}
@@ -100,7 +100,7 @@ func TestBudgetSetDiscovery(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("report exit %d", code)
 	}
-	if !strings.Contains(out, "discovery: 0/7 findings recorded") {
+	if !strings.Contains(out, "discovery: 0/7 findings risen so far") {
 		t.Fatalf("report = %q", out)
 	}
 }
