@@ -1,0 +1,355 @@
+{
+  "success": true,
+  "error": null,
+  "results": {
+    "detectors": [
+      {
+        "elements": [
+          {
+            "type": "function",
+            "name": "borrow",
+            "source_mapping": {
+              "start": 321,
+              "length": 211,
+              "filename_relative": "src/ES04LenderUnderflow.sol",
+              "filename_absolute": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/probe/src/ES04LenderUnderflow.sol",
+              "filename_short": "src/ES04LenderUnderflow.sol",
+              "is_dependency": false,
+              "lines": [
+                7,
+                8,
+                9,
+                10,
+                11
+              ],
+              "starting_column": 5,
+              "ending_column": 6
+            },
+            "type_specific_fields": {
+              "parent": {
+                "type": "contract",
+                "name": "Lender",
+                "source_mapping": {
+                  "start": 178,
+                  "length": 390,
+                  "filename_relative": "src/ES04LenderUnderflow.sol",
+                  "filename_absolute": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/probe/src/ES04LenderUnderflow.sol",
+                  "filename_short": "src/ES04LenderUnderflow.sol",
+                  "is_dependency": false,
+                  "lines": [
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13
+                  ],
+                  "starting_column": 1,
+                  "ending_column": 2
+                }
+              },
+              "signature": "borrow(uint256)"
+            }
+          },
+          {
+            "type": "function",
+            "name": "dep-function",
+            "source_mapping": {
+              "start": 321,
+              "length": 211,
+              "filename_relative": "src/ES04LenderUnderflow.sol",
+              "filename_absolute": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/probe/src/ES04LenderUnderflow.sol",
+              "filename_short": "src/ES04LenderUnderflow.sol",
+              "is_dependency": true,
+              "lines": [
+                7,
+                8,
+                9,
+                10,
+                11
+              ],
+              "starting_column": 5,
+              "ending_column": 6
+            },
+            "type_specific_fields": {
+              "parent": {
+                "type": "contract",
+                "name": "Lender",
+                "source_mapping": {
+                  "start": 178,
+                  "length": 390,
+                  "filename_relative": "src/ES04LenderUnderflow.sol",
+                  "filename_absolute": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/probe/src/ES04LenderUnderflow.sol",
+                  "filename_short": "src/ES04LenderUnderflow.sol",
+                  "is_dependency": false,
+                  "lines": [
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13
+                  ],
+                  "starting_column": 1,
+                  "ending_column": 2
+                }
+              },
+              "signature": "borrow(uint256)"
+            }
+          },
+          {
+            "type": "function",
+            "name": "no-lines-node",
+            "source_mapping": {
+              "start": 321,
+              "length": 211,
+              "filename_relative": "src/ES04LenderUnderflow.sol",
+              "filename_absolute": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/probe/src/ES04LenderUnderflow.sol",
+              "filename_short": "src/ES04LenderUnderflow.sol",
+              "is_dependency": false,
+              "lines": [],
+              "starting_column": 5,
+              "ending_column": 6
+            },
+            "type_specific_fields": {
+              "parent": {
+                "type": "contract",
+                "name": "Lender",
+                "source_mapping": {
+                  "start": 178,
+                  "length": 390,
+                  "filename_relative": "src/ES04LenderUnderflow.sol",
+                  "filename_absolute": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/probe/src/ES04LenderUnderflow.sol",
+                  "filename_short": "src/ES04LenderUnderflow.sol",
+                  "is_dependency": false,
+                  "lines": [
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13
+                  ],
+                  "starting_column": 1,
+                  "ending_column": 2
+                }
+              },
+              "signature": "borrow(uint256)"
+            }
+          },
+          {
+            "type": "function",
+            "name": "short-name-node",
+            "source_mapping": {
+              "start": 321,
+              "length": 211,
+              "filename_relative": "",
+              "filename_absolute": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/probe/src/ES04LenderUnderflow.sol",
+              "filename_short": "src/ES04LenderUnderflow.sol",
+              "is_dependency": false,
+              "lines": [
+                9
+              ],
+              "starting_column": 5,
+              "ending_column": 6
+            },
+            "type_specific_fields": {
+              "parent": {
+                "type": "contract",
+                "name": "Lender",
+                "source_mapping": {
+                  "start": 178,
+                  "length": 390,
+                  "filename_relative": "src/ES04LenderUnderflow.sol",
+                  "filename_absolute": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/probe/src/ES04LenderUnderflow.sol",
+                  "filename_short": "src/ES04LenderUnderflow.sol",
+                  "is_dependency": false,
+                  "lines": [
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13
+                  ],
+                  "starting_column": 1,
+                  "ending_column": 2
+                }
+              },
+              "signature": "borrow(uint256)"
+            }
+          }
+        ],
+        "description": "Lender.borrow(uint256) (src/ES04LenderUnderflow.sol#7-11) ignores return value by address(msg.sender).call{value: amt}() (src/ES04LenderUnderflow.sol#10)\n",
+        "markdown": "[Lender.borrow(uint256)](src/ES04LenderUnderflow.sol#L7-L11) ignores return value by [address(msg.sender).call{value: amt}()](src/ES04LenderUnderflow.sol#L10)\n",
+        "first_markdown_element": "src/ES04LenderUnderflow.sol#L7-L11",
+        "id": "bc32d119311ea028ea3b06271d75db8eebc53c0490f82d45a24ca57e66c26f03",
+        "check": "unchecked-lowlevel",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "reference": "https://github.com/crytic/slither/wiki/Detector-Documentation#unchecked-low-level-calls"
+      },
+      {
+        "elements": [
+          {
+            "type": "function",
+            "name": "withdraw",
+            "source_mapping": {
+              "start": 228,
+              "length": 267,
+              "filename_relative": "src/ES03BankReentrancy.sol",
+              "filename_absolute": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/probe/src/ES03BankReentrancy.sol",
+              "filename_short": "src/ES03BankReentrancy.sol",
+              "is_dependency": false,
+              "lines": [
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ],
+              "starting_column": 5,
+              "ending_column": 6
+            },
+            "type_specific_fields": {
+              "parent": {
+                "type": "contract",
+                "name": "Bank",
+                "source_mapping": {
+                  "start": 90,
+                  "length": 441,
+                  "filename_relative": "src/ES03BankReentrancy.sol",
+                  "filename_absolute": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/probe/src/ES03BankReentrancy.sol",
+                  "filename_short": "src/ES03BankReentrancy.sol",
+                  "is_dependency": false,
+                  "lines": [
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13
+                  ],
+                  "starting_column": 1,
+                  "ending_column": 2
+                }
+              },
+              "signature": "withdraw()"
+            }
+          },
+          {
+            "type": "node",
+            "name": "(ok,None) = msg.sender.call{value: a}()",
+            "source_mapping": {
+              "start": 304,
+              "length": 43,
+              "filename_relative": "src/ES03BankReentrancy.sol",
+              "filename_absolute": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/probe/src/ES03BankReentrancy.sol",
+              "filename_short": "src/ES03BankReentrancy.sol",
+              "is_dependency": false,
+              "lines": [
+                8
+              ],
+              "starting_column": 9,
+              "ending_column": 52
+            },
+            "type_specific_fields": {
+              "parent": {
+                "type": "function",
+                "name": "withdraw",
+                "source_mapping": {
+                  "start": 228,
+                  "length": 267,
+                  "filename_relative": "src/ES03BankReentrancy.sol",
+                  "filename_absolute": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/probe/src/ES03BankReentrancy.sol",
+                  "filename_short": "src/ES03BankReentrancy.sol",
+                  "is_dependency": false,
+                  "lines": [
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11
+                  ],
+                  "starting_column": 5,
+                  "ending_column": 6
+                },
+                "type_specific_fields": {
+                  "parent": {
+                    "type": "contract",
+                    "name": "Bank",
+                    "source_mapping": {
+                      "start": 90,
+                      "length": 441,
+                      "filename_relative": "src/ES03BankReentrancy.sol",
+                      "filename_absolute": "/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.scratch/probe/src/ES03BankReentrancy.sol",
+                      "filename_short": "src/ES03BankReentrancy.sol",
+                      "is_dependency": false,
+                      "lines": [
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13
+                      ],
+                      "starting_column": 1,
+                      "ending_column": 2
+                    }
+                  },
+                  "signature": "withdraw()"
+                }
+              }
+            }
+          }
+        ],
+        "description": "Low level call in Bank.withdraw() (src/ES03BankReentrancy.sol#6-11):\n\t- (ok,None) = msg.sender.call{value: a}() (src/ES03BankReentrancy.sol#8)\n",
+        "markdown": "Low level call in [Bank.withdraw()](src/ES03BankReentrancy.sol#L6-L11):\n\t- [(ok,None) = msg.sender.call{value: a}()](src/ES03BankReentrancy.sol#L8)\n",
+        "first_markdown_element": "src/ES03BankReentrancy.sol#L6-L11",
+        "id": "6c964d4c7bb8a7eb3e7e1843dd6d8d2d3d980822e7c46bdca7cb5f8f3f4c5739",
+        "check": "low-level-calls",
+        "impact": "Informational",
+        "confidence": "High",
+        "reference": "https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls"
+      },
+      {
+        "description": "Reentrancy in Bank.withdraw() (src/ES03BankReentrancy.sol#6-11):\n\tExternal calls:\n\t- (ok,None) = msg.sender.call{value: a}() (src/ES03BankReentrancy.sol#8)\n\tState variables written after the call(s):\n\t- bal[msg.sender] = 0 (src/ES03BankReentrancy.sol#10)\n\tBank.bal (src/ES03BankReentrancy.sol#4) can be used in cross function reentrancies:\n\t- Bank.bal (src/ES03BankReentrancy.sol#4)\n\t- Bank.deposit() (src/ES03BankReentrancy.sol#5)\n\t- Bank.withdraw() (src/ES03BankReentrancy.sol#6-11)\n",
+        "markdown": "Reentrancy in [Bank.withdraw()](src/ES03BankReentrancy.sol#L6-L11):\n\tExternal calls:\n\t- [(ok,None) = msg.sender.call{value: a}()](src/ES03BankReentrancy.sol#L8)\n\tState variables written after the call(s):\n\t- [bal[msg.sender] = 0](src/ES03BankReentrancy.sol#L10)\n\t[Bank.bal](src/ES03BankReentrancy.sol#L4) can be used in cross function reentrancies:\n\t- [Bank.bal](src/ES03BankReentrancy.sol#L4)\n\t- [Bank.deposit()](src/ES03BankReentrancy.sol#L5)\n\t- [Bank.withdraw()](src/ES03BankReentrancy.sol#L6-L11)\n",
+        "first_markdown_element": "src/ES03BankReentrancy.sol#L6-L11",
+        "id": "7ef7835038251bad4d9ae0085c3be0596823b8bc2cc6eadc492797f4cbd0890f",
+        "check": "reentrancy-eth",
+        "impact": "High",
+        "confidence": "Medium",
+        "reference": "https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1"
+      }
+    ]
+  }
+}

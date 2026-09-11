@@ -320,6 +320,7 @@ webv2 answered <C-xxx> Q-xxx answered --reason "..." --ref EXEC-xxx   # close a 
 webv2 answered <C-xxx> Q-xxx not-applicable --reason "considered, doesn't apply"
 webv2 ingest <C-xxx> --json-file payload.json [--trajectory T] [--stage S] [--answers-priority Q-xxx]
 webv2 ingest <C-xxx> --from slither --json-file slither.json   # detector lane: every Medium/High/Critical check becomes a HYPOTHESIS with provenance.sast_tools
+webv2 ingest <C-xxx> --from aderyn --json-file aderyn.json     # detector lane (aderyn): every high_issues row becomes a HYPOTHESIS with provenance.sast_tools
 webv2 ingest --example                       # the validated payload template (PURE JSON on stdout; legend on stderr)
 ```
 
@@ -334,12 +335,24 @@ missing `economic_impact` on an economic trajectory is warned. **Never
 hand-write a finding file** — ingest is the only path in.
 
 The detector lane (`--from slither`) is evidence, not verdict: tool findings
-enter as HYPOTHESES like any other. When you resolve a dedup candidate as
+enter as HYPOTHESES like any other. The accepted input is **real Slither JSON**
+(`slither src --json out.json`: `results.detectors[]` with locations in
+`elements[].source_mapping`) — an earlier revision read a
+`vertices[]`/array-`results` shape that Slither never emits, so every real run
+produced zero hypotheses silently (corrected in Wave I; see
+`--from aderyn` below). When you resolve a dedup candidate as
 `same` and exactly one side is tool-flagged, the SURVIVOR records
 `dedup_meta.corroborated_by` (only when it is itself the non-tool side) —
 worth +0.5 acceptance. The `brief` shows a computed TOOL FLAGS section (tool
 findings by critic verdict, corroborated ids) so detector false-positive
 rates stay visible without touching the score.
+
+`--from aderyn` is the same lane over Aderyn JSON (`aderyn src --output
+out.json`): only `high_issues.issues[]` is admitted — Aderyn has no Medium band,
+so `high` is its High/Critical analogue — and `issue_count`/`detectors_used`
+are informational only. Aderyn exits 0 even when it has findings, so **never
+read the exit code as the verdict; the JSON is the signal.** An issue with no
+anchorable instance is dropped, exactly as a Slither flag with no location is.
 
 **Wave G tranche 2 — measurement, soundness layers, bounded proofs.**
 The gold-eval suite (`schema/evalsuite` pack, 17 cases) scores a campaign when

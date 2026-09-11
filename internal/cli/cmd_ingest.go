@@ -6,9 +6,10 @@ package cli
 // intake-checked, with the taxonomy advisory and intake warnings logged WITH
 // the finding. cli.py cmd_ingest verbatim.
 //
-// `--from slither --json-file out.json` (G1) is the SAST lane: the tool's JSON
-// output is adapted to hypothesis payloads (internal/datasets/slither) and fed
-// through the SAME orchestrator ingest path, one finding per admitted check.
+// `--from slither|aderyn --json-file out.json` (G1/I2a) is the SAST lane: the
+// tool's JSON output is adapted to hypothesis payloads
+// (internal/datasets/slither, internal/datasets/aderyn) and fed through the
+// SAME orchestrator ingest path, one finding per admitted check/issue.
 //
 // The `--example` payload is the shipped examples/hypothesis.example.json
 // (byte-identical to internal/taxonomy/testdata/seed/hypothesis.example.json)
@@ -24,6 +25,7 @@ import (
 	"regexp"
 	"strings"
 
+	"websec/internal/datasets/aderyn"
 	"websec/internal/datasets/slither"
 	"websec/internal/findings"
 	"websec/internal/orchestrator"
@@ -38,7 +40,7 @@ const t14IngestUsage = `usage: webv2 ingest [-h] [--json-file JSON_FILE] [--exam
                     [--answers-priority ANSWERS_PRIORITY]
                     [--priority-outcome {answered,not-applicable,deprioritized}]
                     [--json]
-                    [--from {slither}]
+                    [--from {slither,aderyn}]
                     [campaign]
 `
 
@@ -47,7 +49,7 @@ const t14IngestHelp = `usage: webv2 ingest [-h] [--json-file JSON_FILE] [--examp
                     [--answers-priority ANSWERS_PRIORITY]
                     [--priority-outcome {answered,not-applicable,deprioritized}]
                     [--json]
-                    [--from {slither}]
+                    [--from {slither,aderyn}]
                     [campaign]
 
 positional arguments:
@@ -69,7 +71,9 @@ options:
                         how --answers-priority closes the priority (default:
                         answered)
   --json
-  --from {slither}   tool-output ingest (G1); requires --json-file
+  --from {slither,aderyn}
+                        tool-output ingest (G1/I2a); requires
+                        --json-file
 `
 
 // t14ExamplePayload is examples/hypothesis.example.json verbatim.
@@ -154,7 +158,7 @@ func runIngest(root string, args []string, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	if a.from == "slither" {
+	if a.from != "" {
 		return runIngestSast(root, c, a, r)
 	}
 	payload, err := t14ReadPayload(a.jsonFile)
@@ -181,23 +185,44 @@ func runIngest(root string, args []string, r *Runner) error {
 	return nil
 }
 
-// runIngestSast is the G1 lane: Slither JSON -> hypothesis payloads -> the
+// sastLane is one tool-output adapter: the JSON->payloads reader plus the
+// discovery stage its hypotheses are attributed to. The table is the ONLY
+// place a SAST tool is declared — parseIngest's allowlist and the dispatch
+// below both read it, so a new tool is one entry, not three edits.
+type sastLane struct {
+	toPayloads func(validation.Value) ([]validation.Value, error)
+	stage      string
+}
+
+// sastLanes is the two-entry tool table (slither G1, aderyn I2a).
+var sastLanes = map[string]sastLane{
+	"slither": {toPayloads: slither.ToPayloads, stage: "sast-slither"},
+	"aderyn":  {toPayloads: aderyn.ToPayloads, stage: "sast-aderyn"},
+}
+
+// sastTools is the allowlist in argparse declaration order (the `choose from`
+// list order is the flag's declaration order, not map order).
+var sastTools = []string{"slither", "aderyn"}
+
+// runIngestSast is the SAST lane: tool JSON -> hypothesis payloads -> the
 // SAME orchestrator ingest as a model payload. A rejected payload exits 2
 // after reporting which check died — detector output is input, not verdict.
-// parseIngest has already enforced the --from/--json-file dependency.
+// parseIngest has already enforced the --from/--json-file dependency and the
+// tool allowlist, so `a.from` always names a sastLanes entry here.
 func runIngestSast(root string, c *state.Campaign, a *ingestArgs, r *Runner) error {
+	lane := sastLanes[a.from]
 	doc, err := t14ReadPayload(a.jsonFile) // existing ordered-JSON reader
 	if err != nil {
-		return t14ExitErr(2, "slither JSON unparsable: %s\n", err)
+		return t14ExitErr(2, "%s JSON unparsable: %s\n", a.from, err)
 	}
-	payloads, err := slither.ToPayloads(doc)
+	payloads, err := lane.toPayloads(doc)
 	if err != nil {
 		return t14ExitErr(2, "%s\n", err)
 	}
 	orch := orchestrator.New(c)
 	stage := a.stage
 	if stage == "" {
-		stage = "sast-slither"
+		stage = lane.stage
 	}
 	var created []string
 	for _, p := range payloads {
@@ -209,7 +234,7 @@ func runIngestSast(root string, c *state.Campaign, a *ingestArgs, r *Runner) err
 		}
 		created = append(created, objStr(f, "finding_id"))
 	}
-	fmt.Fprintf(r.Out, "slither ingest: %d hypotheses created\n", len(created))
+	fmt.Fprintf(r.Out, "%s ingest: %d hypotheses created\n", a.from, len(created))
 	for _, id := range created {
 		fmt.Fprintf(r.Out, "  %s\n", id)
 	}
@@ -329,15 +354,17 @@ func parseIngest(args []string, r *Runner) (*ingestArgs, error) {
 			pos = append(pos, arg)
 		}
 	}
-	if a.from != "" && a.from != "slither" {
-		return nil, t14ArgparseErr(t14IngestUsage, "ingest",
-			"argument --from: invalid choice: %s (choose from %s)",
-			validation.PyReprStr(a.from), quotedList([]string{"slither"}))
+	if a.from != "" {
+		if _, ok := sastLanes[a.from]; !ok {
+			return nil, t14ArgparseErr(t14IngestUsage, "ingest",
+				"argument --from: invalid choice: %s (choose from %s)",
+				validation.PyReprStr(a.from), quotedList(sastTools))
+		}
 	}
-	// The G1 lane's dependency is a parse-time argparse failure: it must fire
-	// before any command body, so a campaign that cannot be opened never
+	// The SAST lane's dependency is a parse-time argparse failure: it must
+	// fire before any command body, so a campaign that cannot be opened never
 	// shadows the missing flag.
-	if a.from == "slither" && a.jsonFile == "" {
+	if a.from != "" && a.jsonFile == "" {
 		return nil, t14ExitErr(2,
 			"argument --from: --json-file is required with --from\n")
 	}

@@ -2503,3 +2503,42 @@ Ordered roughly by real-world bite.
 E3 (ladder "other" axis) and E4 (campaign severity floor) stay deferred under
 principle 6 — they are NOT part of this backlog; they land when a real run
 trips them.
+
+---
+
+## Wave I (external-feedback responses, 2026-09-11)
+
+Responses to the external feedback round (items I1–I6). Each item lands as its
+own commit(s); this section is expanded by the wave's close-out task. Defect
+corrections found while planning the wave are filed here honestly — the earlier
+plan and runbook history blocks are NOT retro-edited to pretend the defect was
+always known.
+
+### I2a. G1 Slither adapter read a fabricated fixture shape (defect correction)
+
+**Defect.** The shipped G1 adapter (`internal/datasets/slither/slither.go`)
+read `results` as a JSON ARRAY and took locations from
+`vertices[].filename`/`line_no`. Real Slither JSON (slither 0.11.6,
+`slither src --json out.json`) has `results` as an OBJECT whose `detectors[]`
+rows carry locations in `elements[].source_mapping`. Neither `vertices` nor an
+array `results` exists in real output, so `slither.ToPayloads` returned an
+empty slice for every real document and `webv2 ingest --from slither` silently
+created ZERO hypotheses and exited 0 — a framework adapter reporting "found
+nothing" beside a tool that found 26 flags.
+
+**Why the suite could not see it.** The checked-in fixture
+`internal/datasets/slither/testdata/slither_sample.json` was fabricated in the
+same wrong shape, and `internal/cli/cmd_ingest_test.go` pinned that shape
+inline, so adapter and tests agreed with each other and disagreed with the
+tool.
+
+**Fix.** The adapter now reads `results.detectors[]`, anchors each detector
+from `elements[].source_mapping` (`filename_relative` → `filename_short` →
+`filename_absolute`; line = `lines[0]`, dropping unanchorable elements and
+dependency elements), and is pinned by REAL captured fixtures (slither 0.11.6
++ aderyn 0.6.8 over a scratch copy of `assets/evalsuite/src`, trimmed by
+deleting whole rows only). The same task adds an Aderyn loader
+(`internal/datasets/aderyn`) and generalizes the ingest lane (`--from
+{slither,aderyn}`). Fixed in
+`fix(I2): slither loader reads real Slither JSON; add aderyn loader + --from aderyn`
+(Wave I, 2026-09-11).
