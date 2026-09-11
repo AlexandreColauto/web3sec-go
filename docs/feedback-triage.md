@@ -573,7 +573,10 @@ future implementer should answer rather than re-derive.
 A full-repo review (report kept in `.scratch/review/`, untracked) found six
 defects with one shape: **a gate or a write that reports success without
 having done the work.** All six are fixed, each with a regression test, and
-`scripts/verify-full.sh` is green (13/13) on the result.
+`scripts/verify-full.sh` is green (13/13) on the result. **Correction
+(2026-09-10, emit-quota repair batch):** that claim did not reproduce on re-run
+at this commit (`da7200a`) — step 12 fails at the blind-axis assertion. See
+**Acceptance item 1 — …** in the P0-batch record below.
 
 | # | defect | fix |
 |---|---|---|
@@ -671,6 +674,32 @@ hand — the sibling of `findings.NameCampaign` — and the re-recorded captures
 were checked substitution-only: `internal/orchestrator/testdata/oracles.json`
 is byte-identical to its predecessor once every campaign id is normalized
 back to `<campaign>` (392,394 → 392,409 bytes, 5 substitutions).
+
+**Acceptance item 1 — `scripts/verify-full.sh` green, all 13 steps — did not
+hold.** On re-run the script stops at step 12: steps 1–11 pass, and step 12
+fails the assertion at `scripts/verify-full.sh:685-699`
+(`fail 12 "smoke probes: no blind axis/key published"`), which selects a
+campaign axis whose `status` is exactly `blind` and whose `blind` list is
+non-empty. `internal/probes/surface.go:143-152` sets `blind` only when the axis
+has `sites > 0` and `rows == 0`, and the smoked corpus never produces one. The
+reason is `snap`: it pins the whole repository, not the directory it is handed,
+so the smoke's `index --src <snapshot>` covers the entire tree — the
+enforcement-timing probe, blind against its single-fixture index, instead finds
+125 sites and ranks 12 rows, and the six axes come out five `emitted` and one
+`no-sites`. That assertion is therefore unsatisfiable on the corpus the script
+builds; it fails identically at `da7200a`, the commit whose record carries the
+13/13 claim corrected above, so that claim does not reproduce there and should
+not be repeated as fact. It also fails at `9e9a671` (which added the check, its
+P3 gate report claiming every step passes) and at the P0 batch's record commit
+`2737486` (its twin `690ee07`, on `wave-g-tranche-1`, fails identically).
+Repairing the acceptance needs a decision this batch did not take: either
+**make the smoked corpus contain a genuinely blind axis** — untried, and it
+means changing what `snap` pins for the smoke — or **exercise the blank
+attestation against a fixture-only index**, which this record did reproduce
+(`index --src internal/probes/testdata/probes/assertion_strength/clean` then
+`probes run` yields `enforcement-timing`: 4 sites, 0 rows, `blind`, 5
+near-keys), and which would have the smoke index a fixture tree instead of the
+snapshot.
 
 ### Still open (deferred, with the reason)
 
