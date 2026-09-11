@@ -129,6 +129,14 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 			fmt.Fprintf(r.Out, "    %s\n", ln)
 		}
 	}
+	// G10 assumption table (Task 4): presence-gated — a brief whose model
+	// is chains-only (no declared assumptions, no gaps) prints no bytes.
+	if al := objAt(b, "chain_assumption_lines"); len(al.A) > 0 {
+		fmt.Fprintln(r.Out, "  chain assumptions (declared table + gaps):")
+		for _, ln := range t31Strings(al) {
+			fmt.Fprintf(r.Out, "    %s\n", ln)
+		}
+	}
 	if dr := objAt(b, "disposition_review"); len(dr.A) > 0 {
 		fmt.Fprintf(r.Out, "  disposition review: %d flagged high-risk "+
 			"dismissal(s) (B4)\n", len(dr.A))

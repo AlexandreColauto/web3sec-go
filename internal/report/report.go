@@ -791,6 +791,58 @@ func componentSurfacesBlock(campaign *state.Campaign) []string {
 	return L
 }
 
+// chainAssumptionsBlock is the G10 per-hop assumption table: one line per
+// AssumptionTable row plus one per gap, via the shared
+// protocolgraph.RenderAssumptionLines builder (the same bytes the brief
+// renders, so the two can never drift apart).
+//
+// Presence-gated (the Task 4 law, the additive convention): nil unless
+// len(rows) > 0 AND (any row carries a non-null detail OR len(gaps) > 0),
+// so a chains-only legacy campaign gains no bytes. A row carries detail
+// when any non-chain field is non-null.
+func chainAssumptionsBlock(campaign *state.Campaign) []string {
+	modelPath := filepath.Join(campaign.ArtifactsDir, "protocol_model.json")
+	if !fileExists(modelPath) {
+		return nil
+	}
+	model, err := validation.ReadJson(modelPath)
+	if err != nil {
+		return nil
+	}
+	rows, gaps := protocolgraph.AssumptionTable(model)
+	if len(rows) == 0 {
+		return nil
+	}
+	hasDetail := false
+	for _, r := range rows {
+		for _, pair := range r.O {
+			if pair.K == "chain" {
+				continue
+			}
+			if pair.V.Kind != validation.Null {
+				hasDetail = true
+				break
+			}
+		}
+		if hasDetail {
+			break
+		}
+	}
+	if !hasDetail && len(gaps) == 0 {
+		return nil
+	}
+	lines := protocolgraph.RenderAssumptionLines(rows, gaps)
+	if len(lines) == 0 {
+		return nil
+	}
+	L := []string{"## Chain assumptions", "",
+		"> Declared per-hop assumptions; gaps mark hops whose endpoints " +
+			"declare nothing.", ""}
+	L = append(L, lines...)
+	L = append(L, "")
+	return L
+}
+
 // Generate is generate(): write report.md, register/refresh the artifact and
 // log report.generated. Returns the report path.
 func Generate(campaign *state.Campaign) (string, error) {
@@ -915,6 +967,12 @@ func Generate(campaign *state.Campaign) (string, error) {
 			gaps))
 		L = append(L, "")
 	}
+
+	// G10 assumption table (Task 4): the per-hop declared table plus
+	// ASSUMPTION GAP lines, beside the economics model section.
+	// Presence-gated (the additive convention) — a chains-only legacy
+	// campaign gains no bytes.
+	L = append(L, chainAssumptionsBlock(campaign)...)
 
 	covPath := filepath.Join(campaign.ArtifactsDir, "coverage.json")
 	if fileExists(covPath) {
