@@ -1313,6 +1313,17 @@ func Generate(campaign *state.Campaign) (string, error) {
 		L = append(L, "")
 	}
 
+	// dismissed-with-strong-reaching: the false-negative direction of the
+	// dismissal area. A dismissed finding a high-risk probe row still
+	// reaches is the queue nobody asked for: the row says "look here" and
+	// the finding says "never mind". Presence-gated (the additive
+	// convention): renders only when (a) at least one finding carries a
+	// terminal-dismissal status and (b) at least one high-risk probe row
+	// reaches a dismissed finding — otherwise the campaign gains no bytes.
+	if reach := dismissedWithReach(campaign, all); len(reach) > 0 {
+		L = append(L, reach...)
+	}
+
 	// B4 disposition review: high-risk probe rows dismissed with dismissal
 	// vocabulary, plus the explicit overrides of that gate. Presence-gated
 	// (the additive convention): it renders only when something was flagged
@@ -1386,6 +1397,183 @@ func Generate(campaign *state.Campaign) (string, error) {
 		return "", err
 	}
 	return out, nil
+}
+
+// dismissedTerminalStatuses are the dismissal-side terminal states: the
+// finding was looked at and set aside. SUPERSEDED is deliberately absent —
+// supersession is correction, not dismissal, so it never arms gate (a).
+var dismissedTerminalStatuses = []string{"DISPROVED", "OUT_OF_SCOPE",
+	"INFORMATIONAL", "DUPLICATE"}
+
+// dismissedWithReach renders the "Dismissed with strong reaching"
+// subsection: every terminal-dismissal finding a high-risk probe row
+// reaches, sorted by finding id then row ref (the determinism law: every
+// map iteration output is sorted). It returns nil when the presence gate is
+// closed — no terminal dismissals, no surface, no high-risk rows, or no
+// reach — so the campaign gains no bytes.
+func dismissedWithReach(campaign *state.Campaign,
+	all []validation.Value) []string {
+	dismissed := []validation.Value{}
+	for _, f := range all {
+		if dismissalTerminal(objStr(f, "status")) {
+			dismissed = append(dismissed, f)
+		}
+	}
+	if len(dismissed) == 0 {
+		return nil
+	}
+	surfacePtr, err := probes.CampaignSurface(campaign)
+	if err != nil || surfacePtr == nil {
+		return nil
+	}
+	indexPtr, err := probes.CampaignIndex(campaign)
+	if err != nil {
+		return nil
+	}
+	type hit struct {
+		fid, status, class, row string
+		tier, gap               int64
+	}
+	hits := []hit{}
+	for _, row := range listAt(*surfacePtr, "rows") {
+		if !planner.HighRiskRow(row) {
+			continue
+		}
+		files := reachRowFiles(row, indexPtr)
+		if len(files) == 0 {
+			continue
+		}
+		rid := objStr(row, "row_id")
+		for _, f := range dismissed {
+			ff := reachFindingFiles(f)
+			overlap := false
+			for name := range files {
+				if _, ok := ff[name]; ok {
+					overlap = true
+					break
+				}
+			}
+			if !overlap {
+				continue
+			}
+			hits = append(hits, hit{fid: objStr(f, "finding_id"),
+				status: objStr(f, "status"),
+				class:  reachFindingClass(f), row: rid,
+				tier: reachInt(row, "tier"),
+				gap:  reachInt(row, "assertion_gap")})
+		}
+	}
+	if len(hits) == 0 {
+		return nil
+	}
+	sort.SliceStable(hits, func(i, j int) bool {
+		if hits[i].fid != hits[j].fid {
+			return hits[i].fid < hits[j].fid
+		}
+		return hits[i].row < hits[j].row
+	})
+	L := []string{"### Dismissed with strong reaching", ""}
+	for _, h := range hits {
+		L = append(L, fmt.Sprintf("- `%s` (%s, class %s): reached by "+
+			"high-risk row `%s` (tier %d, assertion_gap %d)",
+			h.fid, h.status, h.class, h.row, h.tier, h.gap))
+	}
+	L = append(L, "reach joined by file overlap (no id-level link exists).")
+	L = append(L, "")
+	return L
+}
+
+// dismissalTerminal reports whether a finding status arms gate (a) of
+// the dismissed-with-reach section.
+func dismissalTerminal(status string) bool {
+	for _, s := range dismissedTerminalStatuses {
+		if status == s {
+			return true
+		}
+	}
+	return false
+}
+
+// reachRowFiles is the row side of the file-overlap join: the basenames of
+// the row's anchor files (RowAnchorPairs resolves contracts through the
+// index, falling back to bare contract names without one), plus the row's
+// own contract names for findings whose affected entry carries no path.
+func reachRowFiles(row validation.Value,
+	index *validation.Value) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, pair := range probes.RowAnchorPairs(row, index) {
+		file := pair
+		if i := strings.LastIndex(file, "#L"); i >= 0 {
+			file = file[:i]
+		}
+		if b := pathBase(file); b != "" {
+			out[b] = struct{}{}
+		}
+	}
+	for _, key := range []string{"contract", "base"} {
+		if v := objStr(row, key); v != "" {
+			out[v] = struct{}{}
+		}
+	}
+	for _, s := range listAt(row, "siblings") {
+		if v := objStr(s, "contract"); v != "" {
+			out[v] = struct{}{}
+		}
+	}
+	return out
+}
+
+// reachFindingFiles is the finding side of the join: the basenames of the
+// affected paths (or files), plus contract names for entries without one.
+func reachFindingFiles(f validation.Value) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, a := range listAt(f, "affected") {
+		p := objStr(a, "path")
+		if p == "" {
+			p = objStr(a, "file")
+		}
+		if p != "" {
+			if b := pathBase(p); b != "" {
+				out[b] = struct{}{}
+			}
+		}
+		if c := objStr(a, "contract"); c != "" {
+			out[c] = struct{}{}
+		}
+	}
+	return out
+}
+
+// reachFindingClass is the finding's root-cause class (bug_class, then
+// unclassified when neither is set).
+func reachFindingClass(f validation.Value) string {
+	if c := objStr(objAt(f, "root_cause"), "class"); c != "" {
+		return c
+	}
+	if c := objStr(f, "bug_class"); c != "" {
+		return c
+	}
+	return "unclassified"
+}
+
+// reachInt reads an integer row field across the Int/Flt shapes (0 when
+// absent — the HighRiskRow caution reads the same way).
+func reachInt(row validation.Value, key string) int64 {
+	switch v := objAt(row, key); v.Kind {
+	case validation.Int:
+		return v.I
+	case validation.Flt:
+		return int64(v.F)
+	}
+	return 0
+}
+
+// pathBase is path.Base without importing path at the call sites.
+func pathBase(p string) string {
+	if i := strings.LastIndex(p, "/"); i >= 0 {
+		return p[i+1:]
+	}
+	return p
 }
 
 // immunizationWaived reports whether an explicit immunization waiver covers
