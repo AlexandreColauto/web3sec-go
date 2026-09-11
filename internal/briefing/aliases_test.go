@@ -55,7 +55,8 @@ func TestCorpusLineLeavesStoredKeysBare(t *testing.T) {
 // TestAliasSuffixLabelTable: the display-only label transform.
 func TestAliasSuffixLabelTable(t *testing.T) {
 	for _, tc := range []struct{ in, want string }{
-		{"bug_class=reentrancy", "bug_class=reentrancy [OWASP SC05]"},
+		{"bug_class=reentrancy",
+			"bug_class=reentrancy [OWASP SC05; SWC-107]"},
 		{"bug_class=logic-error", "bug_class=logic-error [OWASP SC03]"},
 		{"bug_class=donation", "bug_class=donation"},
 		{"bug_class=unmapped", "bug_class=unmapped"},

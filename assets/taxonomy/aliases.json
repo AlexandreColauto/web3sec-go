@@ -57,7 +57,7 @@
     "access-control": {"owasp": "SC01"},
     "oracle-manipulation": {"owasp": "SC02"},
     "logic-error": {"owasp": "SC03"},
-    "reentrancy": {"owasp": "SC05"},
+    "reentrancy": {"owasp": "SC05", "swc": "SWC-107"},
     "unchecked-external-call": {"owasp": "SC06", "swc": "SWC-104"},
     "flash-loan": {"owasp": "SC07"},
     "dos-griefing": {"owasp": "SC10"}
