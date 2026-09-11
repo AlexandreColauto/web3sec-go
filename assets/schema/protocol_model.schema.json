@@ -230,7 +230,26 @@
           "depends_on": {"type": "array", "items": {"type": "string"}},
           "modified_by": {"type": ["string", "null"]},
           "test_strategy": { "type": "string" },
-          "assumptions": { "type": "array", "items": { "type": "string" } }
+          "assumptions": { "type": "array", "items": { "type": "string" } },
+          "verification": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "G8 harness outcome: the rung a `verify --harness-result` run landed on this invariant (OPTIONAL; links entries ride the same shape in invariant_links.json, which is schemaless)",
+            "properties": {
+              "harness": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "rung", "exec"],
+                "properties": {
+                  "kind": { "type": "string", "description": "harness skeleton kind (halmos | forge-fuzz)" },
+                  "rung": { "type": "string", "enum": ["counterexample", "proved-bounded", "inconclusive"] },
+                  "exec": { "type": "string", "description": "EXEC id whose stdout mapped to the rung" },
+                  "bounded_k": { "type": ["integer", "null"], "description": "bound for proved-bounded (parsed k=<n> or the invocation k); null otherwise" },
+                  "summary": { "type": "string" }
+                }
+              }
+            }
+          }
         }
       }
     },

@@ -931,6 +931,56 @@ func TestRecordEconomicImpactNoNumbers(t *testing.T) {
 	}
 }
 
+// TestRecordEconomicImpactRefusesClassWeightSmuggling pins the G2 boundary
+// mirroring the floors test: a caller-supplied Value smuggling
+// class-weights-table shape ({classes: {...: {severity_default: ...}}}) is
+// refused with an error naming the key.
+func TestRecordEconomicImpactRefusesClassWeightSmuggling(t *testing.T) {
+	c := riskCamp(t)
+	fid := ingest(t, c)
+	smuggled := validation.VObj(kv("classes", validation.VObj(
+		kv("reentrancy", validation.VObj(
+			kv("severity_default", validation.VStr("critical")))))))
+	_, err := RecordEconomicImpact(c, fid, smuggled, validation.VNull(),
+		validation.VNull())
+	if err == nil || !strings.Contains(err.Error(), "severity_default") {
+		t.Fatalf("risk must refuse class-weights-shaped input naming the key, got %v", err)
+	}
+}
+
+// TestRecordEconomicImpactRefusesDeeplyNestedSeverityDefault pins the
+// recursion: a severity_default buried three objects deep inside a
+// caller-supplied Value is still refused (naming the key), a legitimate
+// scalar input still records, and nesting past refusalWalkMaxDepth is
+// refused fail-closed.
+func TestRecordEconomicImpactRefusesDeeplyNestedSeverityDefault(t *testing.T) {
+	c := riskCamp(t)
+	fid := ingest(t, c)
+	deep := validation.VObj(kv("wrap", validation.VObj(
+		kv("l1", validation.VObj(
+			kv("l2", validation.VObj(
+				kv("severity_default", validation.VStr("critical")))))))))
+	if _, err := RecordEconomicImpact(c, fid, deep, validation.VNull(),
+		validation.VNull()); err == nil ||
+		!strings.Contains(err.Error(), "severity_default") {
+		t.Fatalf("risk must refuse depth-3 severity_default naming the key, got %v", err)
+	}
+	if _, err := RecordEconomicImpact(c, fid, validation.VInt(1_500_000),
+		validation.VNull(), validation.VNull()); err != nil {
+		t.Fatalf("legitimate scalar input must still record, got %v", err)
+	}
+	// fail-closed cap: 40 levels of clean nesting, no bad key, still refused.
+	nested := validation.VObj()
+	for range 40 {
+		nested = validation.VObj(kv("l", nested))
+	}
+	if _, err := RecordEconomicImpact(c, fid, nested, validation.VNull(),
+		validation.VNull()); err == nil ||
+		!strings.Contains(err.Error(), "max nesting depth") {
+		t.Fatalf("risk must refuse over-depth docs fail-closed, got %v", err)
+	}
+}
+
 // TestMintImpactEvidence ports the E7 slices of tests/test_runbook_flow.py
 // and tests/test_independent_verification.py.
 func TestMintImpactEvidence(t *testing.T) {

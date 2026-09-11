@@ -1,11 +1,13 @@
 package cli
 
-// cmd_answered: `webv2 answered <campaign> <priority> <status> [--reason R]
-// [--ref R] [--families F] [--symmetry S] [--anchor A] [--actor A]` — set a
-// plan priority's (Q-*) or lens entry's (L-*) status WITH closure provenance.
-// cli.py cmd_answered verbatim: closing statuses REQUIRE --reason, L-* ids
-// route to planner.mark_lens, and a probe row's disposition must name its
-// anchor.
+// cmd_answered: `webv2 answered <campaign> <priority> [priority ...] <status>
+// [--reason R] [--reason-all R] [--ref R] [--families F] [--symmetry S]
+// [--anchor A] [--actor A]` — set plan priorities' (Q-*) or one lens entry's
+// (L-*) status WITH closure provenance. cli.py cmd_answered verbatim for the
+// single-priority shape: closing statuses REQUIRE --reason, L-* ids route to
+// planner.mark_lens, and a probe row's disposition must name its anchor. The
+// batch shape (several Q-* priorities, one status for all rows) requires
+// --reason-all and runs every row's gates before any mutation lands.
 
 import (
 	"fmt"
@@ -17,27 +19,34 @@ import (
 	"websec/internal/validation"
 )
 
-const t14AnsweredUsage = `usage: webv2 answered [-h] [--reason REASON] [--ref REF] [--families FAMILIES]
-                      [--symmetry SYMMETRY] [--anchor ANCHOR] [--actor ACTOR]
+const t14AnsweredUsage = `usage: webv2 answered [-h] [--reason REASON] [--reason-all REASON] [--ref REF]
+                      [--families FAMILIES] [--symmetry SYMMETRY]
+                      [--anchor ANCHOR] [--actor ACTOR]
                       [--override-dismissal] [--override-reason OVERRIDE_REASON]
-                      campaign priority
+                      campaign priority [priority ...]
                       {open,assigned,answered,not-applicable,deprioritized,blocked}
 `
 
-const t14AnsweredHelp = `usage: webv2 answered [-h] [--reason REASON] [--ref REF] [--families FAMILIES]
-                      [--symmetry SYMMETRY] [--anchor ANCHOR] [--actor ACTOR]
+const t14AnsweredHelp = `usage: webv2 answered [-h] [--reason REASON] [--reason-all REASON] [--ref REF]
+                      [--families FAMILIES] [--symmetry SYMMETRY]
+                      [--anchor ANCHOR] [--actor ACTOR]
                       [--override-dismissal] [--override-reason OVERRIDE_REASON]
-                      campaign priority
+                      campaign priority [priority ...]
                       {open,assigned,answered,not-applicable,deprioritized,blocked}
 
 positional arguments:
   campaign
-  priority
+  priority              one or more plan priorities (Q-*); one status applies
+                        to all rows (a mixed-status batch is not supported).
+                        A single L-* lens still closes one at a time.
   {open,assigned,answered,not-applicable,deprioritized,blocked}
 
 options:
   -h, --help            show this help message and exit
   --reason REASON       why (required for closing statuses)
+  --reason-all REASON   why for every row of a batch close (required to close
+                        several priorities at once; --reason names a single
+                        closure, --reason-all rides every row)
   --ref REF             evidence ref: finding/exec/artifact id or file#L
                         anchor
   --families FAMILIES   comma-separated lens families attested as checked
@@ -66,8 +75,10 @@ options:
 type answeredArgs struct {
 	campaign          string
 	priority          string
+	priorities        []string
 	status            string
 	reason            *string
+	reasonAll         *string
 	ref               *string
 	families          *string
 	symmetry          *string
@@ -95,6 +106,9 @@ func runAnswered(root string, args []string, r *Runner) error {
 	}
 	closing := a.status == "answered" || a.status == "not-applicable" ||
 		a.status == "deprioritized" || a.status == "blocked"
+	if len(a.priorities) > 1 || a.reasonAll != nil {
+		return answeredBatch(c, a, closing, r)
+	}
 	if closing && (a.reason == nil || strings.TrimSpace(*a.reason) == "") {
 		return t14ExitErr(2, "answered: %s requires --reason (why). "+
 			"Pass --ref too when the answer rests on evidence "+
@@ -174,6 +188,8 @@ func answeredDst(a *answeredArgs, arg string) (**string, string) {
 	switch arg {
 	case "--reason":
 		return &a.reason, "reason"
+	case "--reason-all":
+		return &a.reasonAll, "reason-all"
 	case "--ref":
 		return &a.ref, "ref"
 	case "--families":
@@ -194,7 +210,8 @@ func answeredEq(a *answeredArgs, arg string) (bool, error) {
 		name string
 		dst  **string
 	}{
-		{"--reason", &a.reason}, {"--ref", &a.ref},
+		{"--reason", &a.reason}, {"--reason-all", &a.reasonAll},
+		{"--ref", &a.ref},
 		{"--families", &a.families}, {"--symmetry", &a.symmetry},
 		{"--anchor", &a.anchor}, {"--override-reason", &a.overrideReason},
 	} {
@@ -212,22 +229,35 @@ func answeredEq(a *answeredArgs, arg string) (bool, error) {
 }
 
 // finishAnswered enforces the required positionals and the status enum.
+// The status is the LAST positional; everything between the campaign and
+// the status is a priority, so `answered C Q-001 answered` keeps its old
+// shape while `answered C P1 P2 P3 status` closes a batch.
 func finishAnswered(a *answeredArgs, pos []string) (*answeredArgs, error) {
-	var missing []string
-	for i, name := range []string{"campaign", "priority", "status"} {
-		if len(pos) < i+1 {
-			missing = append(missing, name)
-		}
-	}
-	if len(missing) > 0 {
+	if len(pos) == 0 {
 		return nil, t14ArgparseErr(t14AnsweredUsage, "answered",
 			"the following arguments are required: %s",
-			strings.Join(missing, ", "))
+			"campaign, priority, status")
 	}
-	if len(pos) > 3 {
-		return nil, t14Unrecognized(strings.Join(pos[3:], " "))
+	if len(pos) == 1 {
+		return nil, t14ArgparseErr(t14AnsweredUsage, "answered",
+			"the following arguments are required: %s", "priority, status")
 	}
-	a.campaign, a.priority, a.status = pos[0], pos[1], pos[2]
+	if len(pos) == 2 {
+		// `answered C Q-001` names a priority but no status;
+		// `answered C answered` names a status but no row.
+		if t14InList(pos[1], answeredStatuses) {
+			return nil, t14ExitErr(2, "answered: at least one "+
+				"priority is required (got campaign %s and status "+
+				"%s, no row)\n", validation.PyReprStr(pos[0]),
+				validation.PyReprStr(pos[1]))
+		}
+		return nil, t14ArgparseErr(t14AnsweredUsage, "answered",
+			"the following arguments are required: %s", "status")
+	}
+	a.campaign = pos[0]
+	a.status = pos[len(pos)-1]
+	a.priorities = append([]string(nil), pos[1:len(pos)-1]...)
+	a.priority = a.priorities[0]
 	if !t14InList(a.status, answeredStatuses) {
 		return nil, t14ArgparseErr(t14AnsweredUsage, "answered",
 			"argument status: invalid choice: %s (choose from %s)",
@@ -426,6 +456,83 @@ func answeredPriority(c *state.Campaign, a *answeredArgs, closing bool,
 	return nil
 }
 
+// answeredBatch is the Q-* batch route: one status applies to every row (a
+// mixed-status batch is not supported), --reason-all rides every row, and
+// every row's gates run before any mutation lands — the first failure names
+// its row and nothing is written. Lenses close one at a time, never here.
+func answeredBatch(c *state.Campaign, a *answeredArgs, closing bool,
+	r *Runner) error {
+	for _, pid := range a.priorities {
+		if strings.HasPrefix(pid, "L-") {
+			return t14ExitErr(2, "answered: batch close supports Q-* "+
+				"priorities only — close lenses one at a time (got %s)\n",
+				pid)
+		}
+	}
+	var reason *string
+	switch {
+	case a.reasonAll != nil:
+		reason = a.reasonAll
+	case a.reason != nil:
+		if len(a.priorities) > 1 {
+			return t14ExitErr(2, "answered: closing %d priorities "+
+				"needs --reason-all (why) — --reason names a single "+
+				"closure, --reason-all rides every row.\n",
+				len(a.priorities))
+		}
+		reason = a.reason
+	}
+	if closing && (reason == nil || strings.TrimSpace(*reason) == "") {
+		return t14ExitErr(2, "answered: %s requires --reason-all (why). "+
+			"Pass --ref too when the answer rests on evidence "+
+			"(finding/exec/artifact/file#L).\n", validation.PyReprStr(a.status))
+	}
+	planPath := filepath.Join(c.ArtifactsDir, "campaign_plan.json")
+	plan, err := validation.ReadJson(planPath)
+	if err != nil {
+		return t14ExitErr(2, "answered failed: %s\n", err)
+	}
+	actor := a.actor
+	if actor == "" {
+		actor = "cli"
+	}
+	reasonStr := ""
+	if reason != nil {
+		reasonStr = *reason
+	}
+	rows := make([]planner.AnsweredRow, len(a.priorities))
+	logged := make([]bool, len(a.priorities))
+	for i, pid := range a.priorities {
+		rows[i] = planner.AnsweredRow{PriorityID: pid, Outcome: a.status,
+			Opts: planner.AnsweredOpts{Ref: a.ref, Actor: actor,
+				Anchor: a.anchor, OverrideDismissal: a.overrideDismissal,
+				OverrideReason: a.overrideReason,
+				OverrideLogged: &logged[i]}}
+	}
+	updated, err := planner.MarkAnsweredBatch(c, plan, rows, reasonStr)
+	if err != nil {
+		// The batch error already names the row
+		// ("answered: row 2 (Q-005): ..."), so it prints as-is.
+		return t14ExitErr(2, "%s\n", err)
+	}
+	for i, pid := range a.priorities {
+		if logged[i] {
+			fmt.Fprintf(r.Out, "  dismissal overridden: %s logged as "+
+				"probe.dismissal_overridden (actor %s)\n", pid, actor)
+		}
+		p, _ := t14FindByID(t14List(updated, "priorities"), pid)
+		ref := ""
+		if cr := objAt(p, "closed_ref"); t14Truthy(cr) {
+			ref = " (ref: " + scalarStr(cr) + ")"
+		}
+		if anchor := objAt(objAt(p, "probe"), "anchor"); t14Truthy(anchor) {
+			ref += " [anchor " + objStr(anchor, "field") + "]"
+		}
+		fmt.Fprintf(r.Out, "%s: status -> %s%s\n", pid, a.status, ref)
+	}
+	return nil
+}
+
 // checkProbeAnchor is the A4 operator-facing requirement: a probe closure
 // without an anchor is not a disposition, it is a shrug.
 func checkProbeAnchor(c *state.Campaign, a *answeredArgs, target,
@@ -574,8 +681,9 @@ func t14InList(x string, items []string) bool {
 
 func init() {
 	register(command{ord: 35, name: "answered",
-		line: `answered <campaign> <priority> <status> [--reason R] [--ref R]
-                        close/open a plan priority or lens with provenance`,
+		line: `answered <campaign> <priority> [priority ...] <status> [--reason R]
+                        [--reason-all R] [--ref R]
+                        close/open plan priorities or a lens with provenance`,
 		run: func(root string, args []string, r *Runner) int {
 			return t14Dispatch(root, r, func() error {
 				return runAnswered(root, args, r)

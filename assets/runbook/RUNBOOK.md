@@ -341,6 +341,34 @@ worth +0.5 acceptance. The `brief` shows a computed TOOL FLAGS section (tool
 findings by critic verdict, corroborated ids) so detector false-positive
 rates stay visible without touching the score.
 
+**Wave G tranche 2 — measurement, soundness layers, bounded proofs.**
+The gold-eval suite (`schema/evalsuite` pack, 17 cases) scores a campaign when
+its program matches — the audit gains a `## eval` section with recall/precision
+behind Wilson intervals (`internal/wilson`; small samples render wide, and that
+is the point). Per-class search weights ride `taxonomy/class_weights.json` and
+ship **neutral by design** — graduation needs a real `corpus-surface --backtest`
+`improves` verdict, never a feeling. `mitigscan` detects *structural defenses*
+at ingest (CEI ordering with no loop, function-modifier guards, EIP-712 domain
+separation, pull-ledger effects) into `dedup_meta.mitigation_present`: a −1.0
+acceptance demotion, **never a dismissal** — policy acceptances live on the
+separate `bounty.accepted_risk` rail (cited via `reference_url` when the policy
+provides one); the two layers may coexist on one finding and never mix.
+Invariants can generate harness scaffolds (`verify --scaffold`) — the model
+writes ONLY between the BODY markers, and a mapped run (`verify
+--harness-result`) lands a rung: `counterexample` (a real model),
+`PROVEN-BOUNDED (k)` (bounded — an admission, not an oracle), or
+`inconclusive`; nothing promotes a status from the harness side. At mint,
+`--verify-reruns` records 3x variance and stale-fork advisories on the evidence
+(fail-open: advisories never block a mint). Operator correctness: `amend`
+bumps `claim_version` (old critic verdicts re-stale by design), `supersede`
+retires a finding to SUPERSEDED (terminal, excluded from live/precision views,
+evidence COPIED forward), and `answered` batches dispose behind the same gates
+all-or-nothing. `report --format immunefi` exports intake-shaped files per
+submission-ready finding; the brief shows per-lens cost yield and — only when
+`auto_tune` is set in the bounty policy — auto-deprioritizes a lens whose
+Wilson-upper precision is under 10% (n≥10 required; zero-hit trip starts at
+n=35, not n=20: the CI is the law).
+
 **Assign trajectories so components get ≥ 2 orthogonal angles:** A-code,
 B-economic, C-state-machine, D-attacker, E-historical, F-integration, G-drift,
 H-lifecycle (consensus/rollup commit→challenge→finalize game reasoning: model
@@ -424,6 +452,8 @@ webv2 verdict <C-xxx> F-xxx --verdict confirmed --reason "no compensating contro
 webv2 recall <C-xxx> --finding F-xxx --mode negative   # recorded graph-memory consult (gate REQUIRES negative/comparative)
 webv2 move <C-xxx> F-xxx POSSIBLE --reason "triage: the mechanism is falsifiable"
 webv2 move <C-xxx> F-xxx CONFIRMED --reason "gates passed"
+webv2 amend <C-xxx> F-xxx --title "corrected title" --note "why"   # correct a filed finding in place (bumps claim_version, never moves status)
+webv2 supersede <C-xxx> F-new --of F-old   # retire F-old to SUPERSEDED; its evidence is COPIED into F-new, never moved
 webv2 gate <C-xxx> F-xxx                              # read-only per-finding CONFIRMED dry-run (exit 1 while checks fail)
 ```
 
@@ -831,18 +861,22 @@ webv2 snap <C> <target> [--deployment F] [--chain F] [--exclude GLOB]   pin a so
 webv2 index <C> --src SRC                                          rebuild the structural index for the active pin
 webv2 model <C> [file] [--json]                                    load a protocol model (seeds invariants) / show the loaded one
 webv2 plan <C> [file] [--rebuild] [--json]                         read-only plan view; --rebuild archives + regenerates
-webv2 answered <C> <priority|L-0X> <status> [--reason R] [--ref R] [--anchor FIELD] [--families a,b,c] [--symmetry fam=prim;...] [--actor A]
+webv2 answered <C> <priority|L-0X> [<priority>...] <status> [--reason R] [--reason-all R] [--ref R] [--anchor FIELD] [--families a,b,c] [--symmetry fam=prim;...] [--actor A]   # one status over ONE OR MORE rows: gates run per row all-or-nothing (first refusal names its row, zero mutations)
 webv2 probes <C> run [--emit --per-axis N --total N] | list [--axis L-0n|AXIS] [--all] [--json] | blank --axis L-0n|AXIS --anchor-blind K --reason R --actor A
 webv2 ingest <C> --json-file F (or -) [--trajectory T] [--stage S] [--answers-priority Q-xxx]   |  webv2 ingest --example
 
 webv2 run <C> [--until STAGE] [--max-stages N]                     walk the pipeline; halt at the first model stage (exit 3)
 webv2 log <C> [--tail N]                                           tail the event log
 webv2 verify <C> [--queue] [--exec E --finding F --verifier V --description D]   # log integrity / E6 queue / record an independent verification
+webv2 verify <C> --scaffold halmos|forge-fuzz --invariant INV-xxx   # write the harness scaffold artifact (the model fills the BODY region only; outside it is scaffold)
+webv2 verify <C> --harness-result INV-xxx --exec EXEC-xxx [--kind halmos|forge-fuzz]   # map a harness run to its rung: counterexample / PROVEN-BOUNDED / inconclusive (bounded — never an unbounded proof)
 webv2 audit <C> [--json]                                           full integrity audit
 webv2 brief <C> [--json] [--deep]                                  operator cockpit (where it is + decisions waiting; pure view)
 
 webv2 move <C> <finding> TO_STATUS --reason R [--actor A] [--adjacent SIBLING] [--adjacent-clear]   # the ONLY status-transition path
-webv2 mint <C> <finding> --exec E --description D [--tier T1|T2|T3|T4] [--type TYPE]   # record+mint evidence (idempotent per exec)
+webv2 amend <C> <finding> [--title T] [--class C] [--claim K] [--note N] [--actor A]   # correct a filed finding (bumps claim_version; status never moves)
+webv2 supersede <C> <new> --of <old> [--actor A]   # old -> SUPERSEDED; evidence COPIED into new (re_parented_from), old array untouched
+webv2 mint <C> <finding> --exec E --description D [--tier T1|T2|T3|T4] [--type TYPE] [--verify-reruns]   # record+mint evidence (idempotent per exec); --verify-reruns re-runs the PoC 3x (flaky advisories ride the evidence, fail-open)
 webv2 verdict <C> <finding> --verdict V --reason R [--outlook O --outlook-reason R]   hostile-critic verdict
 webv2 recall <C> --finding F [--mode negative|comparative] [--note N]   # recorded graph-memory consult
 webv2 gate <C> [F-xxx] | webv2 gate --explain <CHECK>              bounty gate / per-finding CONFIRMED dry-run
@@ -886,7 +920,7 @@ webv2 invariant-verify <C> INV-xxx (--artifact ART | --exec E)     CHECKED_AGAIN
 webv2 invariant-contradict <C> INV-xxx --evidence FILE#L|ART-xxx   mark an invariant CONTRADICTED (falsified by code)
 webv2 hint <C> --kind priority|exclusion|detector|note --content C [--source-ref ID] [--actor A]
 
-webv2 corpus-surface <C>                                           deterministic corpus sweep (advisory; registered artifact)
+webv2 corpus-surface <C> [--backtest [--top N]]                     deterministic corpus sweep (advisory; registered artifact); --backtest replays acceptance priors A/B over the adjudicated store — verdict improves ONLY if the Wilson lower bound strictly rises (--top requires --backtest)
 webv2 sinks <C> --src SRC [--json]                                 value-flow backward slice from asset sinks
 webv2 prescreen <C> --src SRC [--force ARCH] [--json]              archetype pre-screen over the index
 webv2 forkdiff <C> --src SRC [--json]                              match the target against baseline reference trees
@@ -897,7 +931,7 @@ webv2 publish <C> --actor A [--global]                             publish confi
 webv2 globalize --actor A [--program KEY]                          mark stored rows scope=global
 webv2 shared [--verify]                                            the shared store, both tiers: view + integrity check
 webv2 memory <C> [--approve MEM-xxx --by NAME | --reflect TEXT [--round N] | --reject MEM-xxx --reason R [--rejection-class C]]   list memory / approve / reflect / reject
-webv2 report <C>                                                   regenerate the report (a view)
+webv2 report <C> [--format md|immunefi]                            regenerate the report (a view); --format immunefi writes one intake-shaped file per submission-ready finding (checklist-first, never a blocker)
 
 webv2 ladder <C> {start,show,explore,add,repro,disprove,set-maximal,complete,waive,reopen,report} <F> [RUNG] [AXIS] [--name N] [--description D] [--axes A] [--capital C] [--ratio R] [--removes R] [--note NOTE] [--reason REASON] [--exec EXEC] [--actor ACTOR]
 webv2 immunize <C> F-xxx --poc-exec EXEC --patch P --mutations "M1 desc;M2 desc;M3 desc" [--bypass M] [--actor A]

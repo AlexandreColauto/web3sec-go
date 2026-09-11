@@ -146,7 +146,7 @@ func (s *Sandbox) Run(command string, opts RunOpts) (validation.Value, error) {
 
 	var containerArgv []string
 	var container validation.Value = validation.VNull()
-	if s.Profile != "host-readonly" {
+	if !HostProfile(s.Profile) {
 		argv, meta, err := BuildContainerArgv(s.Profile, command, opts.Workdir,
 			opts.Env)
 		if err != nil {
@@ -338,7 +338,7 @@ func Preview(profile, command string, workdir *string,
 		{K: "workdir", V: wd},
 		{K: "network", V: validation.VStr(profileNetwork[profile])},
 	}
-	if profile == "host-readonly" {
+	if HostProfile(profile) {
 		base = append(base, validation.KV{K: "note", V: validation.VStr(
 			"runs on the HOST (no container): this exec can never back E4+ " +
 				"evidence — use a container profile (docker-networkless, " +
@@ -561,10 +561,13 @@ func hashDir(d *string) validation.Value {
 }
 
 // toolVersions is _tool_versions: the host toolchain, probed once per exec.
+// halmos rides the same host LookPath + `--version` first-line probe as
+// slither/aderyn (fail-open: a missing binary is omitted, a failed probe
+// records "present (version probe failed)").
 func toolVersions() validation.Value {
 	out := []validation.KV{}
 	for _, tool := range []string{"forge", "cast", "slither", "aderyn",
-		"python3", "docker"} {
+		"halmos", "python3", "docker"} {
 		if _, err := exec.LookPath(tool); err != nil {
 			continue
 		}

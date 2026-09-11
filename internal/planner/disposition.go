@@ -155,6 +155,25 @@ func refutationBacked(campaign *state.Campaign, ref string) bool {
 // (the CLI and orchestrator.ingest) is gated the same way.
 func checkDismissalGate(campaign *state.Campaign, priorityID, outcome string,
 	prov validation.Value, hasProv bool, opts AnsweredOpts) error {
+	return checkDismissalGateInner(campaign, priorityID, outcome, prov,
+		hasProv, opts, false)
+}
+
+// checkDismissalGateDry is the batch pre-flight form of the gate: it
+// validates exactly what checkDismissalGate validates — including that an
+// override carries its justification — but records NOTHING, so a refused
+// batch leaves zero events behind. The apply pass then runs the recording
+// gate via MarkAnswered.
+func checkDismissalGateDry(campaign *state.Campaign, priorityID,
+	outcome string, prov validation.Value, hasProv bool,
+	opts AnsweredOpts) error {
+	return checkDismissalGateInner(campaign, priorityID, outcome, prov,
+		hasProv, opts, true)
+}
+
+func checkDismissalGateInner(campaign *state.Campaign, priorityID,
+	outcome string, prov validation.Value, hasProv bool, opts AnsweredOpts,
+	dry bool) error {
 	if !hasProv || !inList(outcome, ProbeRowDispositioned) ||
 		opts.Reason == nil {
 		return nil
@@ -202,6 +221,14 @@ func checkDismissalGate(campaign *state.Campaign, priorityID, outcome string,
 			kv("override_reason", validation.VStr(*opts.OverrideReason)),
 			kv("closed_reason", validation.VStr(*opts.Reason)),
 		)
+		if dry {
+			// Pre-flight: the override is valid, but recording it is the
+			// apply pass's job — a refused batch must leave zero events.
+			if opts.OverrideLogged != nil {
+				*opts.OverrideLogged = true
+			}
+			return nil
+		}
 		if _, err := campaign.Log("probe.dismissal_overridden",
 			&priorityID, &data); err != nil {
 			return err

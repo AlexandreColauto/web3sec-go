@@ -22,12 +22,12 @@ func TestCanonJSON(t *testing.T) {
 		{"empty obj compact", VObj(), true, "{}"},
 		{"empty arr spaced", VArr(), false, "[]"},
 		{"empty arr compact", VArr(), true, "[]"},
-		{"one int spaced", VObj(KV{"a", VInt(1)}), false, "{\"a\": 1}"},
-		{"one int compact", VObj(KV{"a", VInt(1)}), true, "{\"a\":1}"},
+		{"one int spaced", VObj(KV{K: "a", V: VInt(1)}), false, "{\"a\": 1}"},
+		{"one int compact", VObj(KV{K: "a", V: VInt(1)}), true, "{\"a\":1}"},
 		{"html raw", VStr("<>&/"), false, "\"<>&/\""},
 		{"html raw compact", VStr("<>&/"), true, "\"<>&/\""},
-		{"key sort compact", VObj(KV{"b", VInt(1)}, KV{"a", VInt(2)}), true, "{\"a\":2,\"b\":1}"},
-		{"key sort spaced", VObj(KV{"b", VInt(1)}, KV{"a", VInt(2)}), false, "{\"a\": 2, \"b\": 1}"},
+		{"key sort compact", VObj(KV{K: "b", V: VInt(1)}, KV{K: "a", V: VInt(2)}), true, "{\"a\":2,\"b\":1}"},
+		{"key sort spaced", VObj(KV{K: "b", V: VInt(1)}, KV{K: "a", V: VInt(2)}), false, "{\"a\": 2, \"b\": 1}"},
 		{"arr spaced", VArr(VInt(1), VInt(2), VInt(3)), false, "[1, 2, 3]"},
 		{"arr compact", VArr(VInt(1), VInt(2), VInt(3)), true, "[1,2,3]"},
 		{"float integral spaced", VFloat(1.0), false, "1.0"},
@@ -38,8 +38,8 @@ func TestCanonJSON(t *testing.T) {
 		{"tiny 1e-05", VFloat(1e-5), true, "1e-05"},
 		{"tiny 1e-04 fixed", VFloat(1e-4), true, "0.0001"},
 		{"0.1", VFloat(0.1), true, "0.1"},
-		{"true null", VObj(KV{"t", VBool(true)}, KV{"n", VNull()}), true, "{\"n\":null,\"t\":true}"},
-		{"nested sort", VObj(KV{"k", VObj(KV{"z", VInt(1)}, KV{"a", VArr(VBool(true), VNull(), VFloat(2.5))})}), true, "{\"k\":{\"a\":[true,null,2.5],\"z\":1}}"},
+		{"true null", VObj(KV{K: "t", V: VBool(true)}, KV{K: "n", V: VNull()}), true, "{\"n\":null,\"t\":true}"},
+		{"nested sort", VObj(KV{K: "k", V: VObj(KV{K: "z", V: VInt(1)}, KV{K: "a", V: VArr(VBool(true), VNull(), VFloat(2.5))})}), true, "{\"k\":{\"a\":[true,null,2.5],\"z\":1}}"},
 		{"backslash", VStr("a\\b"), true, "\"a\\\\b\""},
 		{"quote", VStr("a\"b"), true, "\"a\\\"b\""},
 		{"tab nl cr", VStr("a\tb\nc\rd"), true, "\"a\\tb\\nc\\rd\""},
@@ -67,8 +67,8 @@ func TestCanonJSON(t *testing.T) {
 // costs.jsonl encoder (Canon sorts keys because it is the hash form).
 func TestDumpsOrdered(t *testing.T) {
 	// CPython 3.14: json.dumps({"b": 1, "a": "é"}) == '{"b": 1, "a": "\u00e9"}'
-	v := VObj(KV{"b", VInt(1)}, KV{"a", VStr("\u00e9")},
-		KV{"c", VArr(VNull(), VBool(false), VFloat(2.5))})
+	v := VObj(KV{K: "b", V: VInt(1)}, KV{K: "a", V: VStr("\u00e9")},
+		KV{K: "c", V: VArr(VNull(), VBool(false), VFloat(2.5))})
 	if got, want := DumpsOrdered(v, true),
 		"{\"b\": 1, \"a\": \"\\u00e9\", \"c\": [null, false, 2.5]}"; got != want {
 		t.Errorf("ascii\n got: %q\nwant: %q", got, want)
@@ -78,8 +78,8 @@ func TestDumpsOrdered(t *testing.T) {
 		t.Errorf("raw\n got: %q\nwant: %q", got, want)
 	}
 	// Ints stay ints, nested objects keep their own order.
-	nested := VObj(KV{"z", VObj(KV{"y", VInt(1)}, KV{"x", VInt(2)})},
-		KV{"a", VInt(3)})
+	nested := VObj(KV{K: "z", V: VObj(KV{K: "y", V: VInt(1)}, KV{K: "x", V: VInt(2)})},
+		KV{K: "a", V: VInt(3)})
 	if got, want := DumpsOrdered(nested, true),
 		"{\"z\": {\"y\": 1, \"x\": 2}, \"a\": 3}"; got != want {
 		t.Errorf("nested\n got: %q\nwant: %q", got, want)

@@ -7,11 +7,11 @@ import (
 	"websec/internal/validation"
 )
 
-// A DISPROVED / CHAIN / INFORMATIONAL finding sharing a technical signature
-// with a live finding must be EXCLUDED from the sweep, not treated as a live
-// duplicate. Before the live-filter fix it was live and, as a later member of
-// the group, the sweep aborted trying to mark it DUPLICATE (an illegal
-// transition from a non-duplicatable state).
+// A DISPROVED / CHAIN / INFORMATIONAL / SUPERSEDED finding sharing a
+// technical signature with a live finding must be EXCLUDED from the sweep,
+// not treated as a live duplicate. Before the live-filter fix it was live
+// and, as a later member of the group, the sweep aborted trying to mark it
+// DUPLICATE (an illegal transition from a non-duplicatable state).
 func TestRunDedupExcludesNonDuplicatableStates(t *testing.T) {
 	wireSeams(t)
 	c := dedupCamp(t)
@@ -35,15 +35,17 @@ func TestRunDedupExcludesNonDuplicatableStates(t *testing.T) {
 	stamp(ch, "CHAIN")
 	in := hypoAt(t, c, "Informational finding", cls, path, fn)
 	stamp(in, "INFORMATIONAL")
+	sup := hypoAt(t, c, "Superseded finding", cls, path, fn)
+	stamp(sup, "SUPERSEDED")
 
 	report, err := RunDedup(c, true)
 	if err != nil {
 		t.Fatalf("RunDedup aborted on a non-duplicatable finding: %v", err)
 	}
-	// Only A is live; B/C/D are excluded, so nothing merges and A is the
+	// Only A is live; B/C/D/E are excluded, so nothing merges and A is the
 	// single untouched live finding.
 	if got := objAt(report, "untouched").I; got != 1 {
-		t.Errorf("untouched = %d, want 1 (the three non-duplicatable findings are excluded)", got)
+		t.Errorf("untouched = %d, want 1 (the four non-duplicatable findings are excluded)", got)
 	}
 	if got := objAt(report, "tier1_merges").Kind; got != validation.Arr ||
 		len(objAt(report, "tier1_merges").A) != 0 {

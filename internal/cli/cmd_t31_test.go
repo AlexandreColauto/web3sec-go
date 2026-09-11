@@ -440,13 +440,16 @@ options:
   --json
   --deep      fold in the full integrity audit
 `},
-		{"report", `usage: webv2 report [-h] campaign
+		{"report", `usage: webv2 report [-h] [--format {md,immunefi}] campaign
 
 positional arguments:
   campaign
 
 options:
   -h, --help  show this help message and exit
+  --format {md,immunefi}
+              report format: md writes report.md (default); immunefi writes
+              one report-immunefi-<FINDING-ID>.md per submission-ready finding
 `},
 		{"complete", `usage: webv2 complete [-h] [--actor ACTOR] [--reason REASON] campaign
 

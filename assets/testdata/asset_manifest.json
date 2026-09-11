@@ -30,6 +30,80 @@
     "size": 914
    }
   },
+  "evalsuite": {
+   "cases.json": {
+    "sha256": "92801c35017cfbeebb1f965ba8d06e747005dbe8e4875fca88f6ff0646b6505d",
+    "size": 15084
+   },
+   "src/ES01VaultMissingAuth.sol": {
+    "sha256": "fd19c9a38f0dbbc98c220b3b99e140a3113d8a1d27bff414b395033436c5dc7f",
+    "size": 529
+   },
+   "src/ES02GovernanceOwnable.sol": {
+    "sha256": "5ef1897e157282b6ab8001f37faa8ac532b8120cec4c5c638fe291dc68ac692b",
+    "size": 483
+   },
+   "src/ES03BankReentrancy.sol": {
+    "sha256": "2145f57a24b3c914debbe3ece7bed01a366ab90142e2080cb10f933c509f4bb6",
+    "size": 532
+   },
+   "src/ES04LenderUnderflow.sol": {
+    "sha256": "e566d17ea2f89f15956920d054043867c488aafedfa334312ad588e3951b3859",
+    "size": 569
+   },
+   "src/ES05LPOracleSpot.sol": {
+    "sha256": "0b575103417c5e4521d3c22d656b7a52c7fc226dabd2e97adb64a72c37363277",
+    "size": 652
+   },
+   "src/ES06VTokenDonation.sol": {
+    "sha256": "33da5f86af4a623b27adc44ac6d70864ba557e11ab20e66f1f49289b7dc19473",
+    "size": 663
+   },
+   "src/ES07FeeMathFloor.sol": {
+    "sha256": "458b3008405d937f5fe9f0b9435eab2c47a5b1505c91fdf411ce7c1deaa1396c",
+    "size": 643
+   },
+   "src/ES08ImplNoInitializer.sol": {
+    "sha256": "8096f52bef42054c80ab78381f080a4f054a77750cb59645e71a92686c4e1a84",
+    "size": 552
+   },
+   "src/ES09BridgeNoChainId.sol": {
+    "sha256": "184964870608fb6c8d3f7841c8655867c7c19cbf4d3f66fb5cca9152fbedf921",
+    "size": 694
+   },
+   "src/ES10GovernanceQueueDoS.sol": {
+    "sha256": "db168e857fb44756fc801696060318f4b32d65a7370ba90425153ee0cad5168b",
+    "size": 543
+   },
+   "src/ES11MintInflation.sol": {
+    "sha256": "b77f6925065b5af2efda8950e4521f7bc723922d2e9bb6d8f291405ecfb5abb7",
+    "size": 776
+   },
+   "src/ES12SignatureReplay.sol": {
+    "sha256": "ef75ba3056d8254fb9d4ccb086de4c2d2135db54c1b705b732cb97cd82458d46",
+    "size": 784
+   },
+   "src/ES13FlashLoanSpot.sol": {
+    "sha256": "72abb8bd4f480a144b6e447508ab7196e0e2c4a31d72c9b2c40c301caefe87bc",
+    "size": 640
+   },
+   "src/ES14LiquidationTWAP.sol": {
+    "sha256": "43800d4db316cdfaa3a8ab544334f7ee8c0534b0b83bf933c7fb411cf5ecfd3d",
+    "size": 766
+   },
+   "src/ES15BridgeMsgReplay.sol": {
+    "sha256": "5a899211e4671f50ee7f5c69e0a123c698f078b12bdf05ce85334f08ecf2a39b",
+    "size": 593
+   },
+   "src/ES16AckDecoyVault.sol": {
+    "sha256": "5de027033c1de3ce637ddcffa46027fab63f9db8f102dc36ef3e9b24db2f8a23",
+    "size": 792
+   },
+   "src/ES17CleanControl.sol": {
+    "sha256": "33d2c22ad3cbaeb6471fd8ebd74e0d406b658e5a84bd2edc49dec9dd053e0ac5",
+    "size": 731
+   }
+  },
   "playbooks": {
    "access-control.yaml": {
     "sha256": "ec5021f9c86615ddcc1a7ab708697ee84874ab2694e8b3f7cc07480da3e6e0ff",
@@ -274,8 +348,8 @@
     "size": 21135
    },
    "RUNBOOK.md": {
-    "sha256": "ed6ba1464420c848ed601498c10296ac298c6f11a894c988f81a8507ecd0247e",
-    "size": 58654
+    "sha256": "fed272f23f706c6bb1b984b462884dd794e9a7eea62fc3c203c195bc31da6afc",
+    "size": 62141
    }
   },
   "schema": {
@@ -288,20 +362,24 @@
     "size": 2929
    },
    "bounty_policy.schema.json": {
-    "sha256": "a71b2bea2ba77809f89b9756858c49bb10d2954e9a027fc66b076cfe7dd9e6d2",
-    "size": 6673
+    "sha256": "5c97b4009e331acf8e040bc880e1a5d839d96df7592180612ed3fdc8a32dd8a7",
+    "size": 7642
    },
    "campaign_plan.schema.json": {
     "sha256": "cc31e6eace6391bab2f5edf8387fb95aaee6eafe72abff84cd519d413ec3c19e",
     "size": 8925
    },
    "campaign_state.schema.json": {
-    "sha256": "1752295324200997ba67dbb31fe79da3c981f36528931e36caa61ce7b33ec7ff",
-    "size": 8720
+    "sha256": "88dac27d9947717f19f5b719286056afed18ece28ece8344c627db64f357a82f",
+    "size": 8731
    },
    "chain.schema.json": {
     "sha256": "44542248330cb6ab54788aab820785e135f4f9462ee8b046af5fb02ca0fd1530",
     "size": 7291
+   },
+   "class_weights.schema.json": {
+    "sha256": "f68a61f6497eb5b5bf298e4d092487a6dd932c3a076f5e14966e1f769a3dd56f",
+    "size": 1420
    },
    "coverage.schema.json": {
     "sha256": "7f79c076258277f315f95b0684c436408ca76c66c0e188fcea643b46e832e254",
@@ -312,12 +390,12 @@
     "size": 1826
    },
    "evaluation_case.schema.json": {
-    "sha256": "fc3e902cb0718f3a74fac0e764d95fce0242050774ffb5f1bb2e779383a0110f",
-    "size": 6461
+    "sha256": "3946ba74499c7e11c39e84f278c284d6839c6d3af8fe9a3b83693da9b2b90ef3",
+    "size": 6494
    },
    "finding.schema.json": {
-    "sha256": "b7e1aa0d44dc3d8b0d8e23a58b56a41384a2907e8636707c579b9b0baced63a1",
-    "size": 44887
+    "sha256": "9f84f4e86721b6473d3ace787822479d94d02379f027f9568c9cfa2cb01e44a2",
+    "size": 46508
    },
    "memory.schema.json": {
     "sha256": "7ac50f7aea59519bd158cd1ad422167b00a870e9e89f6cb7b8c93b010960bb10",
@@ -344,16 +422,16 @@
     "size": 14042
    },
    "protocol_model.schema.json": {
-    "sha256": "abec01dd11d3ab66c20298494596bc5e0d52e4f6bf14d88f9c3158e1313b24f0",
-    "size": 11371
+    "sha256": "322fb57d8a7b4f0e889162c3d249f2f0a55c36f3e90af3207ff0d0ac3954f89b",
+    "size": 12496
    },
    "relation.schema.json": {
     "sha256": "8f0d93d05c73be0ee3abc35a5732869bdffb3bc3db84eea0d0e1a129ce3af5fa",
     "size": 2048
    },
    "sandbox_execution.schema.json": {
-    "sha256": "75a920059c96121770469d83afd906ba0ed24b98fbd24394431cb81dcc7fc067",
-    "size": 3896
+    "sha256": "41b0ece64fc45725eb52ab4099b2bb241bf6a501f5645ca9f4ca5aa610158370",
+    "size": 3967
    },
    "sequence_poc.schema.json": {
     "sha256": "5560a3787408e1a3f1b47f0d7aa4ed675ba91a36581af50ae9889fd59019c4ec",
@@ -383,6 +461,10 @@
     "sha256": "55fc8349c8182efbf09b80666f8eecc3dee6ba1d3bead1721f575e3cf9512fef",
     "size": 6515
    },
+   "taxonomy_aliases.schema.json": {
+    "sha256": "1ed4073f011953a4e41ff9adb9698ec1d6ab9aec20e6f7d1d17cf2af19e6a381",
+    "size": 1611
+   },
    "trajectory.schema.json": {
     "sha256": "e653a5350c5278dc43fb574f4a947591ba1819dd75f2d9b7384a87446deb5caf",
     "size": 11742
@@ -390,6 +472,16 @@
    "variant_ladder.schema.json": {
     "sha256": "2e7f6c8e002ff5885f682c6b7c6ff68ead29aeab170b183d73d8bdb5a468783f",
     "size": 3903
+   }
+  },
+  "taxonomy": {
+   "aliases.json": {
+    "sha256": "6521bfe455bfa8834a7524d7de09196949f21e64592b7d28935fad390f606c86",
+    "size": 1314
+   },
+   "class_weights.json": {
+    "sha256": "384a8dc1de0e5339ac27c446c49d28975231ce1dd98b3f22eb14e8f55b801852",
+    "size": 11990
    }
   }
  },

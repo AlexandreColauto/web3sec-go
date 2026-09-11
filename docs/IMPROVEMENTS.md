@@ -5,7 +5,9 @@ principle 6; D8 awaits a decision; the port-scaffolding cleanup is wave F
 (`docs/LEANNESS_REVIEW.md`). **Wave G tranche 1 LANDED 2026-09-10 (G1, G6, G7;
 source: the "Beyond Smart Contracts" hybrid-defense report + our deep-research
 deliverable "Deconstructing Claims, Validating AI, and Weighting Risks");
-tranches 2–4 (G2/G3, G4, G5, G8–G12) remain PROPOSED, awaiting an
+tranche 2 LANDED 2026-09-11 (G2, G3, G4, G5, G8, G12–G18 — plan
+`docs/superpowers/plans/2026-09-11-wave-g-tranche-2.md`);
+G9/G10/G11 (tranches 3–4) remain PROPOSED, awaiting an
 approve/defer review decision.**
 
 Source: the Morph L2 rollup campaign (`C-42bd211e3e`, 537 events, 52 findings,
@@ -1861,9 +1863,12 @@ pointers, not contracts — re-locate by symbol when editing.*
 
 # Wave G — Hybrid tools, calibration & the beyond-contract stack
 
-Date: 2026-09-10 · Status: **tranche 1 LANDED (G1, G6, G7) 2026-09-10**;
-tranches 2–4 (G2/G3, G4, G5, G8–G12) remain **PROPOSED** and await a review
-decision. Anchors are pointers to be re-located at landing time (same
+Date: 2026-09-10 · Status: **tranche 1 LANDED (G1, G6, G7) 2026-09-10;
+tranche 2 LANDED (G2, G3, G4, G5, G8, G12–G18) 2026-09-11**.
+Tranches 3–4 (G9, G10, G11) remain **PROPOSED** and await a review
+decision. **G13–G18 (2026-09-11, review follow-up — non-G jumps: ROI,
+operator correctness, PoC quality, coverage, tactic calibration, export)
+landed with tranche 2.** Anchors are pointers to be re-located at landing time (same
 convention as above).
 
 **Sources.** (1) *Beyond Smart Contracts: A Hybrid Defense Strategy* — the
@@ -1903,17 +1908,23 @@ money (principle 2).
 | item | one-liner | effort | gate-for |
 |---|---|---|---|
 | G1 | detector output as first-class evidence + corroboration factor — LANDED (tranche 1, 2026-09-10) | M | — |
-| G2 | per-class three-weight table (search / acceptance / severity-if-real) | M | G3 |
-| G3 | acceptance priors from the adjudicated outcome store + A3 backtest | L | G2 |
-| G4 | gold-eval expansion (≥15 scenarios, clean control, CIs on recall) | M | claims |
-| G5 | two-layer defense matcher: `mitigation_present` vs check13 | M | G1 |
+| G2 | per-class three-weight table (search / acceptance / severity-if-real) — LANDED (tranche 2, 2026-09-11; weights ship neutral BY DESIGN — graduation needs a G3-backtest `improves` on real data) | M | G3 ✓ |
+| G3 | acceptance priors from the adjudicated outcome store + A3 backtest — LANDED (tranche 2, 2026-09-11; policy-gated `acceptance_priors`, `corpus-surface --backtest` verdict = Wilson-lower must strictly rise) | L | G2 ✓ |
+| G4 | gold-eval expansion (≥15 scenarios, clean control, CIs on recall) — LANDED (tranche 2, 2026-09-11; 17-case suite, presence-gated `## eval` audit section) | M | claims ✓ |
+| G5 | two-layer defense matcher: `mitigation_present` vs check13 — LANDED (tranche 2, 2026-09-11; non-interference law enforced by tests) | M | G1 ✓ |
 | G6 | critic triager-outlook rubric (prompt data, policy-injected) — LANDED (tranche 1, 2026-09-10) | S | — |
 | G7 | claim-intake checklist + `provenance[]` on baked-in external claims — LANDED (tranche 1, 2026-09-10) | S | — |
-| G8 | invariants → Halmos/forge PBT harnesses as an evidence rung | L | — |
+| G8 | invariants → Halmos/forge PBT harnesses as an evidence rung — LANDED (tranche 2, 2026-09-11; BODY-region scaffolds, rungs counterexample/PROVEN-BOUNDED(k)/inconclusive) | L | — |
 | G9 | beyond-contract `components[]` + two data-only playbooks | M | G3 |
 | G10 | cross-chain assumption table + separator/finality archetypes | S–M | — |
 | G11 | `verify --post-patch` regression loop | S–M | — |
-| G12 | OWASP/SCVS aliases on taxonomy classes | S | G7 |
+| G12 | OWASP/SCVS aliases on taxonomy classes — LANDED (tranche 2, 2026-09-11; 7 honest OWASP-2025 mappings fetched from the primary page, SCVS pending primary source — no secondhand ids) | S | G7 ✓ |
+| G13 | cost-per-confirmed-finding + per-lens yield (ROI stop-loss) — LANDED (tranche 2, 2026-09-11; cost-per-confirmed + `lens_yield` render as ADVISORY ONLY — no gate consumes them, by principle 2 the stop-loss stays the operator's hand) | S | — |
+| G14 | operator correctness: amend/supersede + batch dispose + dismissed-with-reach — LANDED (tranche 2, 2026-09-11; the sanctioned principle-6 verb exception: `amend` never moves status, `supersede` is the only exit INTO SUPERSEDED, batches are all-or-nothing, dismissed-with-reach joins by file overlap with a footnote saying so) | M | — |
+| G15 | PoC quality gate at mint (rerun variance + fork freshness) — LANDED (tranche 2, 2026-09-11; `--verify-reruns` opt-in variance, fork-stale advisory always-on with NAMED reason, fail-open: no advisory can block a mint) | S | — |
+| G16 | second golden recipe for probe-surface coverage — LANDED (tranche 2, 2026-09-11; P5 `surface2` campaign lights all six axes — every axis needs ≥1 row or the suite fails) | S | C1/C2 ✓ |
+| G17 | tactic batting-average (per-lens/playbook precision, auto-deprioritize) — LANDED (tranche 2, 2026-09-11; `auto_tune`-gated demotion, trip law is Wilson-upper <10% with n≥10 — zero-hit parks only from n=35; the doc's "0/20" rhetoric is ERRATA: 0/20's upper is 16.1% and does NOT park) | M | G3 ✓ |
+| G18 | Immunefi-shaped export flag on report — LANDED (tranche 2, 2026-09-11; `report --format immunefi`, one file per submission-ready finding, checklist-first fail-open) | S | G12 ✓ |
 
 ## G1. Detector evidence as first-class input
 
@@ -2060,6 +2071,10 @@ scenarios count as ground truth.
 - Metrics discipline: recall/precision rendered with Wilson CIs in a new audit
   section (gated on presence — principle 1). A 2/2-gold campaign must render
   `recall: 2/2 (95% CI 20–100%)` — the CI is the point.
+  *(erratum 2026-09-11: Wilson 95% for 2/2 is **34.2–100.0** — "20–100" is the
+  2/3 interval mislabeled; the framework renders the exact computed value from
+  `internal/wilson` with a pinned table, and the shipped eval-suite docs quote
+  the corrected numbers. Never tune math to a doc sentence — G7 discipline.)*
 - Prefer DeFiHackLabs-sourced golds (already confirmed-exploitable and
   provenanced via G3) over hand-planting where a license-clean PoC exists.
 
@@ -2309,6 +2324,120 @@ asset.
 `internal/report`. **Tests:** every alias target exists in the cited standard's
 committed id list; byte-gated report rendering.
 
+## G13. Cost-per-confirmed-finding + per-lens yield (ROI stop-loss)
+
+**Motivation.** Both source reports demand cost accounting (the 4.2×
+token-overhead multi-agent result is a different result), and G7 enforces it
+for *external* claims — but the framework never attributes its *own* spend.
+`budget/cost/yields/price` track campaign totals; nothing answers "$ per
+critic-confirmed" or "lens L-04 burned N tokens for 0 confirmations".
+
+**Design.**
+- Stamp `execs/` records + adapter calls with `cost{usd, tokens, ms}`
+  (reuses `internal/costs`, `internal/pricing` — data only).
+- Roll up in `brief` + report Results: `$/critic-confirmed`,
+  `$/evidence-confirmed`, and a per-lens/per-playbook yield table
+  `{n_planned, n_confirmed, cost}`. Presence-gated (no cost fields → no
+  bytes — principle 1).
+- No auto-kill: the table is advisory (fail-open, principle 2); the operator
+  kills the lens. G17 graduates this to auto-deprioritization.
+**Anchors:** `internal/costs`, `internal/pricing`, `internal/briefing`,
+`internal/report`. **Tests:** rollup arithmetic on a fixture campaign;
+byte check without cost fields; lens table ordering determinism.
+
+## G14. Operator correctness: amend/supersede + batch dispose + dismissed-with-reach
+
+**Motivation.** Three deferred/leftover asks (E1, E2, D1-C6) that keep biting
+under time pressure. Filed findings cannot be corrected except by hand-editing
+JSON (history loss, hash-chain lies); probes close one-row-at-a-time so the B4
+linter gets bypassed; DISPROVED/OUT_OF_SCOPE findings with tier-0/gap≥3 reach
+(the false-*negative* direction — everything else guards false positives) have
+no second-look queue.
+
+**Design.**
+- `amend <CID> <F> --title/--class/--claim/--note` bumps `claim_version`,
+  appends `history[]`, logs `finding.amended`; `supersede <CID> <F-new> --of
+  <F-old>` moves old → `SUPERSEDED`, re-parents evidence/chains. New verbs are
+  the principle-6 exception: the capability is demonstrably unreachable today
+  (E1's bar). Status-set + `levels.go` transitions extended.
+- Batch dispose: `answered <CID> <row-id...> --status … --reason …`
+  (`--reason-all` for shared reason), B4 v2/v3 gates run on the way in.
+- "Dismissed with strong reaching" report subsection (D1-C6 as designed):
+  DISPROVED/OUT_OF_SCOPE findings whose probe rows or evidence had
+  tier-0/gap≥3 surface — deterministic from surface + verdicts, presence-gated.
+**Anchors:** `internal/findings/*.go`, `internal/cli/cmd_amend.go` (new),
+`internal/planner/answered.go`, `internal/report`. **Tests:** amend round-trip
++ history; supersede re-parenting; batch gate refusal on one bad row;
+second-look fixture (morph's 3 G-01-burying rows reproduce).
+
+## G15. PoC quality gate at mint (rerun variance + fork freshness)
+
+**Motivation.** G11 proves the *fix* later; nothing proves the *proof* now.
+`mint` accepts an EXEC that passed once on a fork that may be weeks old.
+LLM-generated PoCs hallucinate non-determinism; fork-state drift makes green
+runs meaningless.
+
+**Design.** Two fail-open advisories at `mint` time (never blockers —
+principle 2):
+- **Rerun variance:** re-run the PoC N=3 through the existing sandbox seam;
+  `flaky` when not 3/3, recorded on the evidence item, surfaced in
+  `brief`/report. Deterministic replays stay silent (no bytes).
+- **Fork freshness:** `fork_block_number` vs pinned-snapshot age; stale
+  (>N blocks or >7d, policy-tunable) warns "re-pin with `snap`, re-`mint`".
+**Anchors:** `internal/reproduction`, `internal/cli/cmd_mint*.go`,
+`internal/findings/levels.go` (E4–E6 rung vocabulary — extend, don't
+renumber). **Tests:** flaky fixture (2/3) flagged; deterministic 3/3 silent;
+stale-fork warning + fresh silence; byte check when the fields are absent.
+
+## G16. Second golden recipe for probe-surface coverage
+
+**Motivation.** Plan-review §8, still open: the golden campaign's surface has
+4 rows, 0 of them assertion-strength, so C1/C2 enrichment is invisible to the
+one end-to-end check the project trusts. G4 is planted-*bug* eval
+(recall/precision); this is surface-*coverage* eval — a different blind spot.
+
+**Design.** One extra deterministic fixture emitting ≥1 row per probe axis
+(assertion-strength with a gap, custody divergence, trust, cursor,
+short-circuit) + in-process schema validation of the surface. No new bugs,
+just coverage — the next "0 rows of this axis, enrichment silently dead" rot
+fails the suite instead of shipping. Golden-safe by construction (new recipe,
+existing recipe untouched).
+**Anchors:** `scripts/golden/`, `internal/probes/*_test.go`,
+`assets/schema/probe_surface.schema.json`. **Tests:** the recipe itself;
+per-axis row presence; schema-valid surface; existing golden bytes unchanged.
+
+## G17. Tactic batting-average (per-lens/playbook precision, auto-deprioritize)
+
+**Motivation.** D5 gave `memory --reflect/--reject` but nothing *consumes*
+the ledger: a lens/playbook that goes 0/20 keeps getting planned. G3
+calibrates *classes*; this calibrates *our own tactics*.
+
+**Design.** Pure function over `evalstore` + campaign verdicts →
+per-lens/per-playbook `{n, precision, Wilson CI}` rendered in `brief`;
+planner down-weights below threshold only when
+`policy.auto_tune: true` (default off — same posture as G3's `wPrior`).
+No auto-promotion, only auto-deprioritization with a reason line (fail-open).
+**Anchors:** `internal/learning`, `internal/planner/lenses*.go`,
+`internal/evalstore`, `assets/schema/bounty_policy.schema.json`.
+**Tests:** precision + CI against a pinned table; threshold fallback;
+gated-off byte check; planner ordering with the flag on/off.
+
+## G18. Immunefi-shaped export flag on report
+
+**Motivation.** D8 established programs want prose Recommendation, not verified
+patches, and the platform report guide mandates sections (Summary / Impact /
+PoC / Recommendation / Related areas + severity against *their* table).
+Submissions today are hand-reformatted from `report.md` — the dumbest loss
+reason is "rejected for format".
+
+**Design.** Flag on the existing verb (no new surface): `report --format
+immunefi` renders existing fields into that shape + `submission_ready` mapped
+to the program's severity table, with a missing-section checklist (fail-open
+list, not blocker). G12 aliases ride it as the severity-mapping line.
+**Anchors:** `internal/report`, `internal/bounty` (program tables),
+`assets/taxonomy/aliases.json` (G12). **Tests:** section presence on a
+fixture campaign; missing-section list; default (no flag) bytes unchanged.
+
 ---
 
 ## Wave G — explicit non-goals (principle 6, recorded so they stay dead)
@@ -2335,6 +2464,9 @@ committed id list; byte-gated report rendering.
    variant fixtures.
 5. **G8 / G9 / G10 / G11 / G12** as decisions allow; G12 is gated on G7,
    G9's priors on G3, G10's fixtures on G4.
+6. **G13–G18 (review follow-up)** — G16 first (coverage safety before more
+   probe work), then G14 (E1/E2/C6 correctness), then G13+G15 (ROI + PoC
+   quality), then G18 (rides G12), then G17 (rides G3's backtest posture).
 
 **Divergence posture:** every wiring change ships behind a presence-gate or a
 policy default-off; the expected golden byte movers are the corpus `search`

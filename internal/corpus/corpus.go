@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 
+	"websec/internal/classweights"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -246,6 +247,10 @@ func scopeOf(w validation.Value) validation.Value {
 // ConfidenceFactor is CONFIDENCE_FACTOR.
 var ConfidenceFactor = map[string]float64{"high": 1.0, "medium": 0.5, "low": 0.25}
 
+// searchFactor is the test seam over classweights.SearchFactor, and the ONLY
+// graduation door: G3 may move numbers only in the JSON table, never in code.
+var searchFactor = classweights.SearchFactor
+
 // ExposureRows is exposure_rows: join corpus weights with probe results into
 // a ranked exposure list.
 //
@@ -274,7 +279,7 @@ func ExposureRows(inventory validation.Value, probed []validation.Value) []valid
 		weight := intAt(inv, "memory_rows") + intAt(inv, "eval_cases")
 		hits := listAt(p, "hits")
 		score := float64(len(hits)) * math.Log2(1+float64(weight)) *
-			ConfidenceFactor[objStr(p, "confidence")]
+			ConfidenceFactor[objStr(p, "confidence")] * searchFactor(cls)
 		score = validation.PythonRound(score, 6)
 		loss := floatAt(inv, "loss_usd_sum")
 		rows = append(rows, row{

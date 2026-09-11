@@ -353,7 +353,7 @@ func Doctor(campaign *state.Campaign) (validation.Value, error) {
 		ok := sandbox.ProfileAvailable(p)
 		profiles.O = append(profiles.O, validation.KV{K: p,
 			V: validation.VBool(ok)})
-		if ok && p != "host-readonly" {
+		if ok && !sandbox.HostProfile(p) {
 			e4 = append(e4, validation.VStr(p))
 		}
 	}

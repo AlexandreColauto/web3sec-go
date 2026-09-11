@@ -80,20 +80,39 @@ func TestSelftestFastModeMatchesVerifyShape(t *testing.T) {
 	}
 }
 
-// TestSelftestFullPlanAddsGoTest: --full appends exactly the suite check.
+// TestSelftestFullPlanAddsGoTest: --full appends the suite check and the
+// eval-suite self-score proof, in that order.
 func TestSelftestFullPlanAddsGoTest(t *testing.T) {
 	fast := selftestPlan(false)
 	full := selftestPlan(true)
-	if len(fast) != 3 || len(full) != 4 {
-		t.Fatalf("plan sizes = %d / %d, want 3 / 4", len(fast), len(full))
+	if len(fast) != 3 || len(full) != 5 {
+		t.Fatalf("plan sizes = %d / %d, want 3 / 5", len(fast), len(full))
 	}
 	if full[3].name != "go-test" {
-		t.Errorf("--full check = %q, want go-test", full[3].name)
+		t.Errorf("--full check 3 = %q, want go-test", full[3].name)
+	}
+	if full[4].name != "evalsuite-selfcheck" {
+		t.Errorf("--full check 4 = %q, want evalsuite-selfcheck", full[4].name)
 	}
 	for i := range fast {
 		if fast[i].name != full[i].name {
 			t.Errorf("check %d differs: %q vs %q", i, fast[i].name, full[i].name)
 		}
+	}
+}
+
+// TestSelftestEvalsuiteSelfcheck: the step proves the scorer against the
+// gold suite itself (17/17, FP 0) and prints the pinned ok line — scorer
+// semantics, not a detector claim.
+func TestSelftestEvalsuiteSelfcheck(t *testing.T) {
+	ok, detail := checkEvalsuiteSelfcheck()
+	if !ok {
+		t.Fatalf("checkEvalsuiteSelfcheck = false (%s)", detail)
+	}
+	want := "ok: gold suite self-scores 17/17 (95% CI 81.6–100.0%) — " +
+		"scorer semantics proven, NOT a detector claim"
+	if detail != want {
+		t.Fatalf("detail = %q\nwant %q", detail, want)
 	}
 }
 

@@ -1,4 +1,14 @@
-package validation
+// Package jval is the leaf ordered-JSON value layer: the Value/KV model,
+// its constructors, the canonical serializers, and the float formatter.
+//
+// WHY: package assets must parse a JSON pack into ordered values
+// (assets.LoadEvalCases), but package validation — the natural home —
+// reads its schemas from package assets, so assets cannot import
+// validation back (the edge would cycle). The value model therefore lives
+// here, importing nothing repo-internal; validation re-exports every
+// symbol as a type alias (validation.Value IS jval.Value), so all
+// existing validation.Value code compiles and behaves identically.
+package jval
 
 import (
 	"encoding/json"

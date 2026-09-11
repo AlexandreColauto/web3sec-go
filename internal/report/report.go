@@ -17,7 +17,9 @@ import (
 
 	"websec/internal/bounty"
 	"websec/internal/capabilities"
+	"websec/internal/classweights"
 	"websec/internal/completion"
+	"websec/internal/costs"
 	"websec/internal/coverage"
 	"websec/internal/economics"
 	"websec/internal/findings"
@@ -321,8 +323,8 @@ func unscoredNotice(campaign *state.Campaign) []string {
 // critic-confirmed live findings that fail the evidence floor) and
 // the top-K acceptance table — the operator's ranked answer over every LIVE
 // finding (the production live predicate, findings.LoadLiveFindings:
-// DUPLICATE / OUT_OF_SCOPE excluded; a DISPROVED finding stays visible,
-// disqualified at the bottom, so a critic/pipeline disagreement is
+// DUPLICATE / OUT_OF_SCOPE / SUPERSEDED excluded; a DISPROVED finding stays
+// visible, disqualified at the bottom, so a critic/pipeline disagreement is
 // legible). The score is recomputed live (risk.AcceptanceScore), never read
 // from the stored field, so the table is current even before the next gate
 // run.
@@ -362,7 +364,8 @@ func precisionBlock(campaign *state.Campaign, all []validation.Value,
 	var live []validation.Value
 	criticN, evidenceN, criticNoEvidenceN := 0, 0, 0
 	for _, f := range all {
-		if s := objStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" {
+		if s := objStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" ||
+			s == "SUPERSEDED" {
 			continue
 		}
 		live = append(live, f)
@@ -415,6 +418,15 @@ func precisionBlock(campaign *state.Campaign, all []validation.Value,
 		keyName = "severity"
 	}
 	entries := risk.AcceptanceRanking(live, rankBy)
+	if bounty.PriorsEnabled(policy) {
+		// G3 wPrior, policy-gated OFF by default: a store failure
+		// resolves to nil priors, which rank bit-identically to the
+		// plain path above — the flag degrades to today's order, never
+		// to an error.
+		priors, global, _ := risk.AcceptancePriors(risk.DefaultMinN)
+		entries = risk.AcceptanceRankingWithPriors(live, rankBy,
+			priors, global)
+	}
 	top, capped := risk.AcceptanceTopK(entries, k)
 	if k > 0 {
 		L = append(L, fmt.Sprintf(
@@ -448,6 +460,66 @@ func precisionBlock(campaign *state.Campaign, all []validation.Value,
 	}
 	L = append(L, "")
 	return L
+}
+
+// lensYieldBlock is the G13 cost-attribution table in Results: spend per
+// lens against the confirmations that lens produced, plus the framework's
+// own unit economics (cost per critic-confirmed / per evidence-confirmed
+// finding). Advisory only — it ranks spend, it gates nothing, and the
+// caller presence-gates it: no lens data, no bytes. Deterministic: rows
+// arrive L-id ascending with "unattributed" last (costs.LensYield), money
+// renders to 2 decimals, null quotients render n/a (never inf).
+func lensYieldBlock(campaign *state.Campaign,
+	ly []validation.Value) []string {
+	perCritic, perEvidence := "n/a", "n/a"
+	if rep, err := costs.YieldReport(campaign); err == nil {
+		totals := objAt(rep, "totals")
+		if v := objAt(totals,
+			"cost_per_critic_confirmed_usd"); v.Kind != validation.Null {
+			perCritic = "$" + lensMoney(v)
+		}
+		if v := objAt(totals,
+			"cost_per_evidence_confirmed_usd"); v.Kind != validation.Null {
+			perEvidence = "$" + lensMoney(v)
+		}
+	}
+	L := []string{"- **lens yield (advisory — never gates):** cost per " +
+		"critic-confirmed " + perCritic + " / per evidence-confirmed " +
+		perEvidence}
+	L = append(L, "  | lens | planned | confirmed | cost_usd |")
+	L = append(L, "  |---|---|---|---|")
+	for _, r := range ly {
+		L = append(L, fmt.Sprintf("  | %s | %d | %d | $%s |",
+			objStr(r, "lens"), lensInt(r, "n_planned"),
+			lensInt(r, "n_confirmed"), lensMoney(objAt(r, "cost_usd"))))
+	}
+	L = append(L, "")
+	return L
+}
+
+// lensMoney is Python's f"${x:.2f}" for the number shapes the rollup
+// holds (int 0 included — the unattributed bucket starts at zero).
+func lensMoney(v validation.Value) string {
+	switch v.Kind {
+	case validation.Flt:
+		return strconv.FormatFloat(v.F, 'f', 2, 64)
+	case validation.Int:
+		if v.Big != "" {
+			if f, err := strconv.ParseFloat(v.Big, 64); err == nil {
+				return strconv.FormatFloat(f, 'f', 2, 64)
+			}
+		}
+		return strconv.FormatFloat(float64(v.I), 'f', 2, 64)
+	}
+	return "0.00"
+}
+
+// lensInt is int(r.get(key, 0)) for the rollup's count shapes.
+func lensInt(r validation.Value, key string) int64 {
+	if v := objAt(r, key); v.Kind == validation.Int {
+		return v.I
+	}
+	return 0
 }
 
 // allFindingsTable is the D1 "All findings" table: one row per finding. Order
@@ -661,7 +733,10 @@ func criticCell(e risk.AcceptanceEntry) string {
 }
 
 // scoreCell is the two-decimal score with its demotion markers (A2 ack, A1
-// accepted risk) — the markers are what make a demoted number legible.
+// accepted risk, G5 soundness mitigation) — the markers are what make a
+// demoted number legible.
+// The G3 prior marker rides the same presence pattern: absent when the
+// term is zero, so policy-off tables never move.
 func scoreCell(e risk.AcceptanceEntry) string {
 	s := risk.ScoreText(e.Score)
 	if e.AckDemoted {
@@ -669,6 +744,12 @@ func scoreCell(e risk.AcceptanceEntry) string {
 	}
 	if e.RiskDemoted {
 		s += " -risk"
+	}
+	if e.MitigationDemoted {
+		s += " -mitigation"
+	}
+	if e.PriorFactor != 0 {
+		s += " +prior"
 	}
 	return s
 }
@@ -916,7 +997,13 @@ func Generate(campaign *state.Campaign) (string, error) {
 		sort.SliceStable(rows, func(i, j int) bool { return rows[i].n > rows[j].n })
 		parts := []string{}
 		for _, r := range rows {
-			parts = append(parts, fmt.Sprintf("%d %s", r.n, r.cls))
+			// G12: a mapped class names its pinned OWASP id; an unmapped
+			// class renders bare (presence-gated, zero byte move).
+			if sfx := classweights.ClassAliasSuffix(r.cls); sfx != "" {
+				parts = append(parts, fmt.Sprintf("%d %s %s", r.n, r.cls, sfx))
+			} else {
+				parts = append(parts, fmt.Sprintf("%d %s", r.n, r.cls))
+			}
 		}
 		L = append(L, fmt.Sprintf("- **confirmed: %d** — %s", len(confirmed),
 			strings.Join(parts, ", ")))
@@ -940,6 +1027,13 @@ func Generate(campaign *state.Campaign) (string, error) {
 			"packaging (patch immunization, program policy), not finding severity",
 			len(ready), len(confirmed)))
 		L = append(L, "")
+	}
+
+	// G13 cost attribution, presence-gated (the additive convention): a
+	// campaign with zero lens-carrying cost rows and no plan lens data
+	// renders no bytes here at all — no header, no table.
+	if ly, err := costs.LensYield(campaign); err == nil && len(ly) > 0 {
+		L = append(L, lensYieldBlock(campaign, ly)...)
 	}
 
 	// D1 (2026-09-10): the operator's single view of EVERY finding. The
@@ -1270,7 +1364,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 	dismissed := []validation.Value{}
 	for _, f := range all {
 		switch objStr(f, "status") {
-		case "DISPROVED", "OUT_OF_SCOPE", "DUPLICATE":
+		case "DISPROVED", "OUT_OF_SCOPE", "DUPLICATE", "SUPERSEDED":
 			dismissed = append(dismissed, f)
 		}
 	}
@@ -1292,6 +1386,17 @@ func Generate(campaign *state.Campaign) (string, error) {
 			L = append(L, "  - reason: "+reason)
 		}
 		L = append(L, "")
+	}
+
+	// dismissed-with-strong-reaching: the false-negative direction of the
+	// dismissal area. A dismissed finding a high-risk probe row still
+	// reaches is the queue nobody asked for: the row says "look here" and
+	// the finding says "never mind". Presence-gated (the additive
+	// convention): renders only when (a) at least one finding carries a
+	// terminal-dismissal status and (b) at least one high-risk probe row
+	// reaches a dismissed finding — otherwise the campaign gains no bytes.
+	if reach := dismissedWithReach(campaign, all); len(reach) > 0 {
+		L = append(L, reach...)
 	}
 
 	// B4 disposition review: high-risk probe rows dismissed with dismissal
@@ -1367,6 +1472,193 @@ func Generate(campaign *state.Campaign) (string, error) {
 		return "", err
 	}
 	return out, nil
+}
+
+// dismissedTerminalStatuses are the dismissal-side terminal states: the
+// finding was looked at and set aside. SUPERSEDED is deliberately absent —
+// supersession is correction, not dismissal, so it never arms gate (a).
+var dismissedTerminalStatuses = []string{"DISPROVED", "OUT_OF_SCOPE",
+	"INFORMATIONAL", "DUPLICATE"}
+
+// dismissedWithReach renders the "Dismissed with strong reaching"
+// subsection: every terminal-dismissal finding a high-risk probe row
+// reaches, sorted by finding id then row ref (the determinism law: every
+// map iteration output is sorted). It returns nil when the presence gate is
+// closed — no terminal dismissals, no surface, no high-risk rows, or no
+// reach — so the campaign gains no bytes.
+func dismissedWithReach(campaign *state.Campaign,
+	all []validation.Value) []string {
+	dismissed := []validation.Value{}
+	for _, f := range all {
+		if dismissalTerminal(objStr(f, "status")) {
+			dismissed = append(dismissed, f)
+		}
+	}
+	if len(dismissed) == 0 {
+		return nil
+	}
+	surfacePtr, err := probes.CampaignSurface(campaign)
+	if err != nil || surfacePtr == nil {
+		return nil
+	}
+	indexPtr, err := probes.CampaignIndex(campaign)
+	if err != nil {
+		return nil
+	}
+	type hit struct {
+		fid, status, class, row string
+		tier, gap               int64
+	}
+	hits := []hit{}
+	for _, row := range listAt(*surfacePtr, "rows") {
+		if !planner.HighRiskRow(row) {
+			continue
+		}
+		files := reachRowFiles(row, indexPtr)
+		if len(files) == 0 {
+			continue
+		}
+		rid := objStr(row, "row_id")
+		for _, f := range dismissed {
+			ff := reachFindingFiles(f)
+			overlap := false
+			for name := range files {
+				if _, ok := ff[name]; ok {
+					overlap = true
+					break
+				}
+			}
+			if !overlap {
+				continue
+			}
+			hits = append(hits, hit{fid: objStr(f, "finding_id"),
+				status: objStr(f, "status"),
+				class:  reachFindingClass(f), row: rid,
+				tier: reachInt(row, "tier"),
+				gap:  reachInt(row, "assertion_gap")})
+		}
+	}
+	if len(hits) == 0 {
+		return nil
+	}
+	sort.SliceStable(hits, func(i, j int) bool {
+		if hits[i].fid != hits[j].fid {
+			return hits[i].fid < hits[j].fid
+		}
+		return hits[i].row < hits[j].row
+	})
+	L := []string{"### Dismissed with strong reaching", ""}
+	for _, h := range hits {
+		L = append(L, fmt.Sprintf("- `%s` (%s, class %s): reached by "+
+			"high-risk row `%s` (tier %d, assertion_gap %d)",
+			h.fid, h.status, h.class, h.row, h.tier, h.gap))
+	}
+	L = append(L, "reach joined by file overlap (no id-level link exists).")
+	L = append(L, "")
+	return L
+}
+
+// dismissalTerminal reports whether a finding status arms gate (a) of
+// the dismissed-with-reach section.
+func dismissalTerminal(status string) bool {
+	for _, s := range dismissedTerminalStatuses {
+		if status == s {
+			return true
+		}
+	}
+	return false
+}
+
+// reachRowFiles is the row side of the file-overlap join: the basenames of
+// the row's anchor files (RowAnchorPairs resolves contracts through the
+// index, falling back to bare contract names without one), plus the row's
+// own contract names for findings whose affected entry carries no path.
+func reachRowFiles(row validation.Value,
+	index *validation.Value) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, pair := range probes.RowAnchorPairs(row, index) {
+		file := pair
+		if i := strings.LastIndex(file, "#L"); i >= 0 {
+			file = file[:i]
+		}
+		if b := pathBase(file); b != "" {
+			out[b] = struct{}{}
+		}
+	}
+	for _, key := range []string{"contract", "base"} {
+		if v := objStr(row, key); v != "" {
+			out[v] = struct{}{}
+		}
+	}
+	for _, s := range listAt(row, "siblings") {
+		if v := objStr(s, "contract"); v != "" {
+			out[v] = struct{}{}
+		}
+	}
+	return out
+}
+
+// reachFindingFiles is the finding side of the join: the basenames of the
+// affected paths (or files), plus contract names for entries without one.
+func reachFindingFiles(f validation.Value) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, a := range listAt(f, "affected") {
+		p := objStr(a, "path")
+		if p == "" {
+			p = objStr(a, "file")
+		}
+		if p != "" {
+			if b := pathBase(p); b != "" {
+				out[b] = struct{}{}
+			}
+		}
+		if c := objStr(a, "contract"); c != "" {
+			out[c] = struct{}{}
+		}
+	}
+	return out
+}
+
+// reachFindingClass is the finding's root-cause class (bug_class, then
+// unclassified when neither is set).
+func reachFindingClass(f validation.Value) string {
+	if c := objStr(objAt(f, "root_cause"), "class"); c != "" {
+		return c
+	}
+	if c := objStr(f, "bug_class"); c != "" {
+		return c
+	}
+	return "unclassified"
+}
+
+// classAliasSuffixSpaced is the G12 display suffix with its leading space
+// (" [OWASP SC05]") or "" when the class carries no alias — the empty string
+// keeps unmapped render sites byte-identical.
+func classAliasSuffixSpaced(class string) string {
+	if sfx := classweights.ClassAliasSuffix(class); sfx != "" {
+		return " " + sfx
+	}
+	return ""
+}
+
+// reachInt reads an integer row field across the Int/Flt shapes (0 when
+// absent — the HighRiskRow caution reads the same way).
+func reachInt(row validation.Value, key string) int64 {
+	switch v := objAt(row, key); v.Kind {
+	case validation.Int:
+		return v.I
+	case validation.Flt:
+		return int64(v.F)
+	}
+	return 0
+}
+
+// pathBase is path.Base without importing path at the call sites.
+func pathBase(p string) string {
+	if i := strings.LastIndex(p, "/"); i >= 0 {
+		return p[i+1:]
+	}
+	return p
 }
 
 // immunizationWaived reports whether an explicit immunization waiver covers
@@ -1494,8 +1786,8 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	if objStr(rc, "cwe") != "" {
 		cwe = "CWE " + objStr(rc, "cwe")
 	}
-	out = append(out, fmt.Sprintf("- bug class: `%s` %s", pyStr(objAt(rc, "class")),
-		cwe))
+	out = append(out, fmt.Sprintf("- bug class: `%s`%s %s", pyStr(objAt(rc, "class")),
+		classAliasSuffixSpaced(objStr(rc, "class")), cwe))
 	inv := asObj(objAt(f, "invariant"))
 	if objStr(inv, "statement") != "" {
 		out = append(out, "- violated invariant: "+objStr(inv, "statement"))
@@ -1580,6 +1872,20 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		}
 		out = append(out, line)
 	}
+	// G5 soundness layer: the structural defense covering the flagged
+	// code. Sibling of the in-code-ack bullet in this correctness group —
+	// score-only, never a dismissal. Presence-gated: findings without a
+	// parseable mitigation_present render nothing here. The POLICY layer
+	// (accepted risk below) never reads this field.
+	if ms := objAt(objAt(f, "dedup_meta"), "mitigation_present"); ms.Kind ==
+		validation.Str && ms.S != "" {
+		if pattern, file, line, _, ok :=
+			findings.ParseMitigationPresent(ms.S); ok {
+			out = append(out, fmt.Sprintf(
+				"- soundness layer demotes: %s (%s:%s)",
+				pattern, file, line))
+		}
+	}
 	b := asObj(objAt(f, "bounty"))
 	if len(b.O) > 0 {
 		line := fmt.Sprintf("- bounty gate: eligible=%s, submission_ready=%s",
@@ -1610,6 +1916,16 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		}
 		if note := objStr(ar, "note"); note != "" {
 			line += " — " + note
+		}
+		// G7 hygiene (Task 15): a policy claim without a reference is
+		// still valid, but the report stamps it. Golden-safe by evidence:
+		// no golden policy carries accepted_risks and no golden tree
+		// renders an accepted-risk bullet (see task-15-report.md), so the
+		// absent-branch suffix moves zero golden bytes.
+		if refURL := objStr(ar, "reference_url"); refURL != "" {
+			line += " — cites " + refURL
+		} else {
+			line += " — no reference cited"
 		}
 		line += " (documented by the program; not submittable as written)"
 		out = append(out, line)
@@ -1658,6 +1974,14 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 				objStr(e, "type"), pyStr(objAt(e, "description")))
 			if objStr(e, "sandbox_profile") != "" {
 				line += " (sandbox: " + objStr(e, "sandbox_profile") + ")"
+			}
+			// G15 advisories ride the line presence-gated: a fresh /
+			// un-rerun item renders exactly as before.
+			if objStr(e, "reruns") != "" {
+				line += " [reruns " + objStr(e, "reruns") + "]"
+			}
+			if objStr(e, "fork_stale") != "" {
+				line += " [fork stale]"
 			}
 			out = append(out, line)
 		}

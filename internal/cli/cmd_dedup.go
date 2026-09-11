@@ -147,6 +147,7 @@ var argparseUsageBlocks = map[string]string{
 		"foundry-test,fuzz,historical-analog,invariant-test,manual," +
 		"reachability,reasoning,static-analysis,symbolic-witness,trace," +
 		"unit-test}]\n" +
+		"                  [--verify-reruns]\n" +
 		"                  campaign finding\n",
 	"classify": "usage: webv2 classify [-h] campaign exec_id\n",
 }

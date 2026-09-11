@@ -74,7 +74,7 @@ var t14JSONErrVectors = []struct{ doc, want string }{
 }
 
 var t14FindingLegend = []string{
-	"status: HYPOTHESIS|NEEDS_RESEARCH|PROVISIONALLY_VALID|POSSIBLE|CONFIRMED|DISPROVED|DUPLICATE|OUT_OF_SCOPE|INFORMATIONAL|CHAIN",
+	"status: HYPOTHESIS|NEEDS_RESEARCH|PROVISIONALLY_VALID|POSSIBLE|CONFIRMED|DISPROVED|DUPLICATE|OUT_OF_SCOPE|INFORMATIONAL|CHAIN|SUPERSEDED",
 	"trajectory: code|economic|state-machine|attacker|historical|integration|drift|lifecycle|chain|model",
 	"assumptions[]/type: reachability|authority|control|state|invariant|economic|environment|temporal|cross_domain",
 	"assumptions[]/status: UNKNOWN|SUPPORTED|REFUTED",

@@ -50,7 +50,7 @@ func TestIllegalJumpHypothesisToConfirmed(t *testing.T) {
 	}
 	want := "HYPOTHESIS -> CONFIRMED is not a legal transition (legal: " +
 		"['DISPROVED', 'DUPLICATE', 'INFORMATIONAL', 'NEEDS_RESEARCH', " +
-		"'OUT_OF_SCOPE', 'POSSIBLE', 'PROVISIONALLY_VALID'])"
+		"'OUT_OF_SCOPE', 'POSSIBLE', 'PROVISIONALLY_VALID', 'SUPERSEDED'])"
 	if err.Error() != want {
 		t.Fatalf("message = %q, want %q", err.Error(), want)
 	}
@@ -214,7 +214,7 @@ func TestEvidenceRejectedOnTerminalFinding(t *testing.T) {
 // Port of test_terminal_states_are_absorbing.
 func TestTerminalStatesAreAbsorbing(t *testing.T) {
 	for _, terminal := range []string{"DISPROVED", "OUT_OF_SCOPE",
-		"INFORMATIONAL", "DUPLICATE"} {
+		"INFORMATIONAL", "DUPLICATE", "SUPERSEDED"} {
 		c := ingestCamp(t)
 		f, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
 		if err != nil {

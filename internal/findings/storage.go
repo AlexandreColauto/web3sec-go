@@ -74,7 +74,7 @@ func LoadAllFindings(campaign *state.Campaign) ([]validation.Value, error) {
 }
 
 // LoadLiveFindings is load_live_findings: all findings not in a terminal
-// junk state (dedup, scope).
+// junk state (dedup, scope, superseded).
 func LoadLiveFindings(campaign *state.Campaign) ([]validation.Value, error) {
 	all, err := LoadAllFindings(campaign)
 	if err != nil {
@@ -82,7 +82,8 @@ func LoadLiveFindings(campaign *state.Campaign) ([]validation.Value, error) {
 	}
 	out := make([]validation.Value, 0, len(all))
 	for _, f := range all {
-		if s := objStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" {
+		if s := objStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" ||
+			s == "SUPERSEDED" {
 			continue
 		}
 		out = append(out, f)

@@ -153,6 +153,60 @@ func TestRankBudgetHeader(t *testing.T) {
 	}
 }
 
+func TestRankPolicyOffHasNoPriorKeys(t *testing.T) {
+	// The (f) CLI half: a campaign scoped with the DEFAULT policy (no
+	// acceptance_priors) ranks today's numbers with no prior marker
+	// anywhere in the output — the byte check on the rendered surface.
+	root := t.TempDir()
+	cid := initOne(t, root)
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f1 := rankCliFinding(t, c, "A scoped high-band finding", "high", "confirmed")
+	policy := validation.VObj(
+		kvT("program", validation.VStr("rank fixture program")),
+		kvT("program_url", validation.VStr("https://example.invalid/rank")),
+		kvT("chains", validation.VArr(validation.VStr("ethereum"))),
+		kvT("scope", validation.VArr(validation.VObj(
+			kvT("target", validation.VStr("src/")),
+			kvT("kind", validation.VStr("path"))))),
+		kvT("severity_rules", validation.VArr(validation.VObj(
+			kvT("severity", validation.VStr("critical")),
+			kvT("match", validation.VObj(
+				kvT("bug_classes",
+					validation.VArr(validation.VStr("access-control")))))))),
+		kvT("poc_requirements", validation.VObj(
+			kvT("min_evidence_level", validation.VStr("E4")),
+			kvT("require_fork_repro", validation.VBool(false)))))
+	policyPath := filepath.Join(root, "policy.json")
+	if err := validation.WriteJson(policyPath, policy, ""); err != nil {
+		t.Fatal(err)
+	}
+	doc, err := validation.ReadJson(c.StatePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc.O = validation.SetOrAppend(doc.O, "policy_path", validation.VStr(policyPath))
+	if err := validation.WriteJson(c.StatePath, doc, "campaign_state"); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", root, "rank", c.CampaignID)
+	if code != 0 {
+		t.Fatalf("exit %d, want 0: %q\n%s", code, errS, out)
+	}
+	// scoped (no unscoped note), today's number, no prior marker.
+	want := "acceptance ranking — 1 live finding(s) (key: acceptance)\n" +
+		"  #  id  score  band  evidence  critic  title\n" +
+		"  1  " + f1 + "  3.50  high  E0  confirmed  A scoped high-band finding\n"
+	if out != want {
+		t.Fatalf("output =\n%q\nwant\n%q", out, want)
+	}
+	if strings.Contains(out, "prior") {
+		t.Fatalf("policy-off rank output must not mention priors:\n%q", out)
+	}
+}
+
 func TestRankArgparse(t *testing.T) {
 	root := t.TempDir()
 	initOne(t, root)

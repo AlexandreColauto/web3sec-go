@@ -54,6 +54,7 @@
           "pattern":        { "type": "string", "description": "substring/keyword matched against finding class, title and description (same semantics as exclusions)" },
           "kind":           { "enum": ["known-issue", "design-decision", "mitigated", "accepted-risk"] },
           "reference":      { "type": "string", "description": "URL or note documenting the acceptance" },
+          "reference_url":  { "type": "string", "minLength": 8, "description": "the program page / scope clause the exclusion cites — G7 hygiene: a policy claim without a reference is still valid but the report stamps it (no reference cited)" },
           "note":           { "type": "string" },
           "min_severity":   { "enum": ["low", "medium", "high", "critical"], "description": "the acceptance stops applying at this severity and above — the gate then demands real handling" },
           "case_sensitive": { "type": "boolean", "default": false }
@@ -70,6 +71,10 @@
         "rank_by":      { "enum": ["acceptance", "severity"], "description": "default acceptance: acceptance score descending (disqualified last); severity: band order (critical > high > medium > low > informational), then validated score descending" }
       }
     },
+
+    "acceptance_priors": { "type": "boolean", "default": false, "description": "G3 calibrated acceptance prior (wPrior): when true, the acceptance score adds the finding's class base rate over the eval store's adjudicated outcomes (bounded ±0.5, thin classes fall back to silent zero). Absent or false = today's score, byte-for-byte." },
+
+    "auto_tune": { "type": "boolean", "default": false, "description": "G17 tactic batting average: when true, the planner auto-deprioritizes a lens whose verdict record is deep enough to trust and bad enough to act on (n_planned>=10 and the Wilson upper of confirmed/planned below 0.10) — its unstarted slots demote to park. Absent or false = today's queue, byte-for-byte." },
 
     "severity_rules": {
       "type": "array",

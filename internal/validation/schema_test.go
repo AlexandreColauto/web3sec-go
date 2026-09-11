@@ -19,7 +19,8 @@ func TestUnknownSchema(t *testing.T) {
 		"'relation', 'shared_signature', 'shared_memory_row', 'variant_ladder', " +
 		"'price_table', 'assumption', 'model_request', 'model_response', " +
 		"'trajectory', 'playbook', 'evaluation_case', 'archetype', " +
-		"'sequence_poc', 'sequence_result', 'sft_example', 'probe_surface')"
+		"'sequence_poc', 'sequence_result', 'sft_example', 'probe_surface', " +
+		"'class_weights', 'taxonomy_aliases')"
 	if err.Error() != want {
 		t.Errorf("unknown-schema text:\n got %q\nwant %q", err.Error(), want)
 	}
@@ -67,7 +68,7 @@ func TestSingleErrorPapercut(t *testing.T) {
 		want := "finding validation failed at status: 'BOGUS' is not one of " +
 			"['HYPOTHESIS', 'NEEDS_RESEARCH', 'PROVISIONALLY_VALID', 'POSSIBLE', " +
 			"'CONFIRMED', 'DISPROVED', 'DUPLICATE', 'OUT_OF_SCOPE', 'INFORMATIONAL', " +
-			"'CHAIN'] (+0 more errors)"
+			"'CHAIN', 'SUPERSEDED'] (+0 more errors)"
 		if se.Msg != want {
 			t.Errorf("single-error max_errors=1:\n got %q\nwant %q", se.Msg, want)
 		}

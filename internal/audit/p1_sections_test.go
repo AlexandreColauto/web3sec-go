@@ -231,8 +231,8 @@ func TestAuditRegistryOrderMatchesPython(t *testing.T) {
 	vec := loadP1Vectors(t)
 	sc := vec.fixture(t, "parity_p1")
 	want := pythonSectionOrder(t, sc.FullReport)
-	if got := SectionNames(); !reflect.DeepEqual(got, want) {
-		t.Fatalf("SectionNames() = %v\nwant %v", got, want)
+	if got := SectionNames(); !reflect.DeepEqual(got, append(append([]string{}, want...), "eval")) {
+		t.Fatalf("SectionNames() = %v\nwant %v + presence-gated eval", got, want)
 	}
 	if len(want) != 14 {
 		t.Fatalf("want 14 registered sections, got %d", len(want))

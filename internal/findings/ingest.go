@@ -382,6 +382,14 @@ func IngestHypothesis(campaign *state.Campaign, payload validation.Value,
 	if _, err := RecordAckScan(campaign, fid); err != nil {
 		// skipped — nothing to record
 	}
+	// G5: scan the pinned source for structural defenses covering the
+	// flagged code, so the soundness flag is present from the moment the
+	// finding is filed. Fail-open, same posture as the ack scan: a finding
+	// ingested against an unpinned or missing source (or with no resolvable
+	// anchor) simply has no mitigation record.
+	if _, err := RecordMitigationScan(campaign, fid); err != nil {
+		// skipped — nothing to record
+	}
 	if len(warnings) > 0 {
 		if _, err := campaign.Log("finding.intake_warnings", &fid,
 			warningsLogData(warnings)); err != nil {

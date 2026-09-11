@@ -11,6 +11,7 @@
 package audit
 
 import (
+	"errors"
 	"sort"
 	"strconv"
 	"strings"
@@ -75,22 +76,28 @@ func SectionNames() []string {
 
 // AuditCampaign is audit_campaign: run every registered section and build
 // {campaign_id, sections: {name: section}, ok}. Overall ok = all sections.
+// A presence-gated section that returns sections.ErrSkip is omitted from
+// the report (absent by construction — campaigns without an eval link
+// keep byte-identical output); any other error fails the audit.
 func AuditCampaign(c *state.Campaign) (validation.Value, error) {
-	sections := make([]validation.KV, 0, len(order))
+	secs := make([]validation.KV, 0, len(order))
 	ok := true
 	for _, name := range order {
 		sec, err := registry[name](c)
 		if err != nil {
+			if errors.Is(err, sections.ErrSkip) {
+				continue
+			}
 			return validation.VNull(), err
 		}
 		if !sectionOK(sec) {
 			ok = false
 		}
-		sections = append(sections, validation.KV{K: name, V: sec})
+		secs = append(secs, validation.KV{K: name, V: sec})
 	}
 	return validation.VObj(
 		validation.KV{K: "campaign_id", V: validation.VStr(c.CampaignID)},
-		validation.KV{K: "sections", V: validation.VObj(sections...)},
+		validation.KV{K: "sections", V: validation.VObj(secs...)},
 		validation.KV{K: "ok", V: validation.VBool(ok)},
 	), nil
 }

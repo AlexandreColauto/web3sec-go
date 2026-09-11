@@ -239,7 +239,7 @@ func RunDedup(campaign *state.Campaign, autoMerge bool) (validation.Value, error
 	// an illegal transition.
 	nonDuplicatable := map[string]bool{
 		"DUPLICATE": true, "OUT_OF_SCOPE": true, "DISPROVED": true,
-		"CHAIN": true, "INFORMATIONAL": true,
+		"CHAIN": true, "INFORMATIONAL": true, "SUPERSEDED": true,
 	}
 	live := make([]validation.Value, 0, len(all))
 	for _, f := range all {

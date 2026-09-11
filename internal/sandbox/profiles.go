@@ -18,9 +18,13 @@ import (
 	"websec/internal/validation"
 )
 
-// Profiles is PROFILES: every named execution profile.
-var Profiles = []string{"host-readonly", "docker-networkless", "docker-gvisor",
-	"vm-snapshot", "fork-runner"}
+// Profiles is PROFILES: every named execution profile. halmos and
+// forge-fuzz are G8 harness profiles: they execute on the HOST (no
+// container), running the host toolchain the way the slither/aderyn
+// toolVersions probes do — network none, read-only workspace. They can
+// never back E4+ evidence (see HostProfile).
+var Profiles = []string{"host-readonly", "halmos", "forge-fuzz",
+	"docker-networkless", "docker-gvisor", "vm-snapshot", "fork-runner"}
 
 // profileNetwork is _PROFILE_NETWORK: the honest network label per profile.
 // "bridge-host-gateway" is fork-runner's: the container sits on docker's
@@ -28,6 +32,8 @@ var Profiles = []string{"host-readonly", "docker-networkless", "docker-gvisor",
 // restriction is the operator's RPC endpoint's job, not docker's.
 var profileNetwork = map[string]string{
 	"host-readonly":      "none",
+	"halmos":             "none",
+	"forge-fuzz":         "none",
 	"docker-networkless": "none",
 	"docker-gvisor":      "none",
 	"vm-snapshot":        "none",
@@ -37,6 +43,8 @@ var profileNetwork = map[string]string{
 // profileFilesystem is _PROFILE_FILESYSTEM.
 var profileFilesystem = map[string]string{
 	"host-readonly":      "readonly",
+	"halmos":             "readonly",
+	"forge-fuzz":         "readonly",
 	"docker-networkless": "sandbox-tmp",
 	"docker-gvisor":      "sandbox-tmp",
 	"vm-snapshot":        "sandbox-tmp",
@@ -220,10 +228,25 @@ func probeDockerDaemon() bool {
 // DockerDaemonOK is the exported probe (env.py's doctor reads it).
 func DockerDaemonOK() bool { return dockerDaemonOK() }
 
+// HostProfile reports whether a profile executes on the host (no
+// container): host-readonly plus the G8 harness profiles, which run the
+// host halmos/forge binaries like the slither/aderyn probes do. Host
+// profiles can never back E4+ evidence — the doctor's e4_capable filter
+// and the exec dispatch both key off this (Task 17; Task 18's MapRun
+// will route harness runs through exec, still host-side).
+func HostProfile(profile string) bool {
+	switch profile {
+	case "host-readonly", "halmos", "forge-fuzz":
+		return true
+	default:
+		return false
+	}
+}
+
 // ProfileAvailable is _profile_available.
 func ProfileAvailable(profile string) bool {
 	switch profile {
-	case "host-readonly":
+	case "host-readonly", "halmos", "forge-fuzz":
 		return true
 	case "docker-networkless", "docker-gvisor", "fork-runner":
 		return dockerDaemonOK()

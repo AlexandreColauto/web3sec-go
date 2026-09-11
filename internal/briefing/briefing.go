@@ -21,6 +21,7 @@ import (
 	"websec/internal/audit"
 	"websec/internal/bounty"
 	"websec/internal/chainengine"
+	"websec/internal/classweights"
 	"websec/internal/completion"
 	"websec/internal/costs"
 	"websec/internal/findings"
@@ -39,12 +40,14 @@ import (
 	"websec/internal/state"
 	"websec/internal/structidx"
 	"websec/internal/validation"
+	"websec/internal/wilson"
 )
 
 var confirmedStatuses = map[string]bool{"CONFIRMED": true, "CHAIN": true}
 
 var junkStatuses = map[string]bool{
 	"DUPLICATE": true, "OUT_OF_SCOPE": true, "INFORMATIONAL": true,
+	"SUPERSEDED": true,
 }
 
 // Materializable is _materializable: proposals whose members are all
@@ -1537,6 +1540,17 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 				"gate findings)")))),
 		kv("critical_hunt", huntBlock))
 
+	// G13 cost attribution, presence-gated (the additive convention): a
+	// campaign with zero lens-carrying cost rows and no plan lens data
+	// keeps byte-identical brief output — no lens_yield key at all.
+	if lensYield, err := costs.LensYield(campaign); err != nil {
+		return validation.VNull(), err
+	} else if len(lensYield) > 0 {
+		econ := objAt(brief, "economics")
+		setKey(&econ, "lens_yield", validation.VArr(lensYield...))
+		setKey(&brief, "economics", econ)
+	}
+
 	if deepAudit {
 		// Python's `from . import audit` registers every section at import
 		// time; the port registers them through audit.Setup().
@@ -2052,7 +2066,8 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		detail := ""
 		labelOnly := objInt(cr, "label_only_checks")
 		if labelOnly != 0 {
-			labels := strings.Join(strListOf(objAt(cr, "discounted")), ", ")
+			labels := strings.Join(aliasSuffixLabels(
+				strListOf(objAt(cr, "discounted"))), ", ")
 			if labels == "" {
 				labels = "-"
 			}
@@ -2142,5 +2157,58 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 			}
 		}
 	}
+
+	// G17 tactic batting average (advisory render, policy-gated OFF plus
+	// presence-gated): one line per lens with verdict-resolved data. The
+	// rows come from the brief's own economics.lens_yield block — the
+	// same T22 join the queue gate consumes — so the gate, the table,
+	// and this line can never disagree. Presence gate: a real lens
+	// (never "unattributed") with n_planned>0 renders; anything thinner
+	// has no average to report. Appended last: advisory lines never
+	// suppress or reorder the standing actions. Renders only — gates
+	// nothing.
+	if bounty.AutoTuneForCampaign(campaign) {
+		if econ := objAt(brief, "economics"); econ.Kind == validation.Obj {
+			for _, r := range listAt(econ, "lens_yield") {
+				lens := objStr(r, "lens")
+				if lens == "" || lens == "unattributed" {
+					continue
+				}
+				planned := objInt(r, "n_planned")
+				confirmed := objInt(r, "n_confirmed")
+				if planned <= 0 {
+					continue
+				}
+				actions = append(actions, "lens "+lens+
+					" batting average — "+
+					wilson.Format(int(confirmed), int(planned),
+						"precision"))
+			}
+		}
+	}
 	return actions, nil
+}
+
+// aliasSuffixLabels maps aliasSuffixLabel over a label list (G12 display:
+// the stored corpus_recall.discounted keys are never rewritten, only the
+// rendered line gains the pinned OWASP id).
+func aliasSuffixLabels(labels []string) []string {
+	out := make([]string, 0, len(labels))
+	for _, l := range labels {
+		out = append(out, aliasSuffixLabel(l))
+	}
+	return out
+}
+
+// aliasSuffixLabel renders one discounted class label for display: the bare
+// machine key ("bug_class=reentrancy") plus its pinned OWASP id when the
+// class carries an alias ("bug_class=reentrancy [OWASP SC05]"), bare
+// otherwise (presence-gated, zero byte move for unmapped classes).
+func aliasSuffixLabel(label string) string {
+	if cls, ok := strings.CutPrefix(label, "bug_class="); ok {
+		if sfx := classweights.ClassAliasSuffix(cls); sfx != "" {
+			return label + " " + sfx
+		}
+	}
+	return label
 }

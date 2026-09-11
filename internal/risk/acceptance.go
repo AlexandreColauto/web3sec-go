@@ -10,9 +10,14 @@ package risk
 //	acceptance = wSeverity(band) + wEvidence(level) + wCritic(verdict)
 //	           - wAck(dedup_meta.in_code_ack present)
 //	           - wAcceptedRisk(bounty.accepted_risk recorded)
+//	           - wMitigation(dedup_meta.mitigation_present recorded, G5 —
+//	             score-only, never a dismissal)
 //	           + wCorroboration(dedup_meta.corroborated_by) = +0.5 (G1)
 //	           + outlook(verification.triager_outlook) = ±0.5 (G6)
 //	           + wReversibility(risk.reversibility)
+//	           + wPrior(class base rate over adjudicated outcomes, G3 —
+//	             policy-gated OFF via AcceptanceWithPriors, default 0;
+//	             applied LAST, just before the floor clamp)
 //
 // Weights (the validated_risk wLevel table is reused for evidence, so the
 // score and the 1..10 band can never disagree about what E4 is worth):
@@ -22,6 +27,7 @@ package risk
 //	critic     confirmed +1.5 / disproved -2.0 (disqualified) / else 0
 //	ack        -1.0 when the finding sits in acknowledged code (A2)
 //	risk       -2.0 when the program documented the risk as accepted (A1)
+//	mitigation -1.0 when a structural defense covers the flagged code (G5)
 //	reversib.  irreversible +1.0 / trusted-party +0.5 / reversible 0
 //
 // The critic column keys on the REAL critic_verdict enum
@@ -36,7 +42,9 @@ package risk
 // reviewer time here", and negative likelihood is not a thing.
 
 import (
+	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 
 	"websec/internal/findings"
@@ -58,10 +66,12 @@ var wAcceptanceCritic = map[string]float64{
 	"disproved": -2.0,
 }
 
-// Acceptance demotions (A2 in-code acknowledgement, A1 accepted risk).
+// Acceptance demotions (A2 in-code acknowledgement, A1 accepted risk, G5
+// structural-defense mitigation — each score-only, never a dismissal).
 const (
 	acceptanceAckDemotion        = 1.0
 	acceptanceRiskDemotion       = 2.0
+	acceptanceMitigationDemotion = 1.0
 	acceptanceCorroborationBonus = 0.5
 	acceptanceDefaultTopK        = 10
 )
@@ -84,20 +94,58 @@ var wAcceptanceReversibility = map[string]float64{
 
 // AcceptanceEntry is one scored finding: the clamped score, the
 // disqualification flag, and which demotions fired (for the table's
-// demotion markers).
+// demotion markers). PriorFactor/Prior are the G3 calibrated prior term:
+// additive, omitempty, and set ONLY when the prior clause fires — a zero
+// entry renders exactly as before (the AckDemoted presence pattern: no
+// marker, no JSON key, no byte moves when the term is absent).
 type AcceptanceEntry struct {
 	Finding      validation.Value
 	Score        float64
 	Disqualified bool
 	AckDemoted   bool
 	RiskDemoted  bool
+	// MitigationDemoted/Mitigation are the G5 soundness-layer demotion: a
+	// structural defense covers the flagged code, so the score drops by
+	// acceptanceMitigationDemotion — but the finding is never dismissed.
+	// Presence-gated the AckDemoted way: no marker, no JSON key, no byte
+	// moves when the term is absent.
+	MitigationDemoted bool   `json:"mitigation_demoted,omitempty"`
+	Mitigation        string `json:"mitigation,omitempty"`
 	Corroborated bool
+	PriorFactor  float64 `json:"prior_factor,omitempty"`
+	Prior        string  `json:"prior,omitempty"`
 }
 
 // Acceptance computes the full entry. Every component is optional: an
 // absent field contributes 0, exactly like the E5 reversibility factor, so
 // a bare HYPOTHESIS scores 0.0 and nothing panics on partial findings.
+//
+// Byte law: Acceptance is AcceptanceWithPriors with nil priors, and the
+// prior clause runs ONLY when priors != nil — so the default path cannot
+// move one float.
 func Acceptance(finding validation.Value) AcceptanceEntry {
+	return AcceptanceWithPriors(finding, nil, Prior{})
+}
+
+// AcceptanceWithPriors computes the full entry with the G3 calibrated
+// class prior (wPrior). Body is Acceptance's, verbatim, plus the prior
+// clause after ALL existing terms and just before the floor clamp: the
+// term participates in the clamp like every other weight, and nil priors
+// yield BIT-IDENTICAL results (x+0.0 == x exactly — the clause is skipped
+// wholesale, not added as zero).
+//
+// The clause fires only when every gate holds: priors != nil, the
+// finding's root_cause.class is known in the map, the class prior is not
+// a fallback, and its n >= DefaultMinN (the thickness the priors'
+// producer demands). The term is the verbatim law:
+//
+//	wPrior = clamp(2*(rate - global.rate) * min(1, n/30), -0.5, +0.5)
+//
+// Presence-gated in both score and entry: when the gates fail — or the
+// term computes to exactly zero — score is untouched AND PriorFactor/Prior
+// stay zero-valued (omitempty ⇒ absent in every rendering).
+func AcceptanceWithPriors(finding validation.Value, priors map[string]Prior,
+	global Prior) AcceptanceEntry {
 	e := AcceptanceEntry{Finding: finding}
 	score := 0.0
 
@@ -150,6 +198,24 @@ func Acceptance(finding validation.Value) AcceptanceEntry {
 		score -= acceptanceRiskDemotion
 		e.RiskDemoted = true
 	}
+	// G5 soundness layer: a structural defense covers the flagged code. A
+	// guard proves the ONE risk it guards; it never proves the whole
+	// payment path (the ack law, widened: mitigation demotes, dismissal
+	// needs the proof). The shape is T13's: dedup_meta.mitigation_present
+	// is a JSON-encoded STRING {pattern,file,line,evidence} (the string
+	// discipline dodges dedup_meta's additionalProperties string-only
+	// wall) — gate on a parseable record with a non-empty pattern. Policy
+	// accepted-risk (−2) is a DIFFERENT layer and stays with bounty
+	// keys — this block never reads bounty.
+	if ms := objAt(orObj(objAt(finding, "dedup_meta")),
+		"mitigation_present"); ms.Kind == validation.Str && ms.S != "" {
+		var m map[string]string
+		if json.Unmarshal([]byte(ms.S), &m) == nil && m["pattern"] != "" {
+			score -= acceptanceMitigationDemotion
+			e.MitigationDemoted = true
+			e.Mitigation = m["pattern"]
+		}
+	}
 
 	// corroboration (G1): operator-resolved same-root-cause pair where the
 	// partner is SAST-flagged; recorded by dedup.ResolveCandidate, consumed
@@ -164,6 +230,30 @@ func Acceptance(finding validation.Value) AcceptanceEntry {
 	if rv := orStr(objAt(riskObj, "reversibility")); rv != "" {
 		if w, ok := wAcceptanceReversibility[rv]; ok {
 			score += w
+		}
+	}
+
+	// prior (G3 wPrior): the class base rate over adjudicated outcomes,
+	// policy-gated OFF at the caller (risk stays pure — the caller resolves
+	// the flag and the priors). LAST in the addition chain, just before
+	// the clamp: document position — a late term still clamps, an early
+	// one would too, but only this position keeps "nil priors ⇒ the old
+	// bytes" provable by inspection (everything above is untouched).
+	if priors != nil {
+		cls := orStr(objAt(orObj(objAt(finding, "root_cause")), "class"))
+		if p, ok := priors[cls]; ok && !p.Fallback && p.N >= DefaultMinN {
+			term := 2 * (p.Rate - global.Rate) *
+				math.Min(1, float64(p.N)/30)
+			if term > 0.5 {
+				term = 0.5
+			} else if term < -0.5 {
+				term = -0.5
+			}
+			score += term
+			if term != 0 {
+				e.PriorFactor = term
+				e.Prior = p.Render()
+			}
 		}
 	}
 
@@ -186,10 +276,22 @@ func AcceptanceScore(finding validation.Value) (float64, bool) {
 // else falls back to acceptance. Order: qualified rows first, then
 // disqualified; within each group by the chosen key, ties broken by
 // finding_id so two runs over the same tree always print the same table.
+//
+// Byte law: AcceptanceRanking delegates with nil priors, so NO current
+// caller changes behavior.
 func AcceptanceRanking(fs []validation.Value, by string) []AcceptanceEntry {
+	return AcceptanceRankingWithPriors(fs, by, nil, Prior{})
+}
+
+// AcceptanceRankingWithPriors is the campaign-aware ranking hub: the
+// caller (a layer that holds the campaign policy) resolves the
+// acceptance_priors flag, calls AcceptancePriors once, and passes the map
+// here. Nil priors score every finding with Acceptance exactly.
+func AcceptanceRankingWithPriors(fs []validation.Value, by string,
+	priors map[string]Prior, global Prior) []AcceptanceEntry {
 	entries := make([]AcceptanceEntry, 0, len(fs))
 	for _, f := range fs {
-		entries = append(entries, Acceptance(f))
+		entries = append(entries, AcceptanceWithPriors(f, priors, global))
 	}
 	less := func(a, b AcceptanceEntry) bool {
 		if a.Disqualified != b.Disqualified {

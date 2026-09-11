@@ -32,7 +32,7 @@ var OpenStatuses = []string{"HYPOTHESIS", "NEEDS_RESEARCH",
 
 // TerminalStatuses are the finding statuses the learning proof tracks.
 var TerminalStatuses = []string{"CONFIRMED", "DISPROVED", "DUPLICATE",
-	"OUT_OF_SCOPE", "INFORMATIONAL", "CHAIN"}
+	"OUT_OF_SCOPE", "INFORMATIONAL", "CHAIN", "SUPERSEDED"}
 
 // AllAxes is ALL_AXES: the maximal-exploitation variant axes.
 var AllAxes = []string{"capital-minimization", "precondition-removal",

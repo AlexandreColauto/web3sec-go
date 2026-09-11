@@ -142,3 +142,51 @@ func TestCostNegativeAmountIsAValue(t *testing.T) {
 		t.Fatalf("zero: exit %d out=%q err=%q", code, out, errS)
 	}
 }
+
+// TestCostLensPassthrough is the G13 writer path: --lens lands on the row
+// (and the record line); omitting it leaves the key absent (never null);
+// a non-L-NN id is an argparse error, not a silent "unattributed".
+func TestCostLensPassthrough(t *testing.T) {
+	pinCostIDs(t, "COST-lens000001", "COST-lens000002")
+	root := mkroot(t)
+	cid := initOne(t, root)
+	code, out, errS := run(t, "--root", root, "cost", cid, "--kind",
+		"model", "--amount", "12.5", "--actor", "golden", "--lens", "L-01")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if out != "recorded COST-lens000001 model $12.50 lens=L-01\n" {
+		t.Fatalf("stdout = %q", out)
+	}
+	code, out, errS = run(t, "--root", root, "cost", cid, "--kind",
+		"compute", "--amount", "3")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if out != "recorded COST-lens000002 compute $3.00\n" {
+		t.Fatalf("stdout = %q", out)
+	}
+	body, err := os.ReadFile(filepath.Join(root, "campaigns", cid,
+		"costs.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSuffix(string(body), "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("rows = %d, want 2", len(lines))
+	}
+	if !strings.Contains(lines[0], `"lens": "L-01"`) {
+		t.Errorf("row[0] missing lens: %s", lines[0])
+	}
+	if strings.Contains(lines[1], `"lens"`) {
+		t.Errorf("lens-less row carries a lens key: %s", lines[1])
+	}
+	code, _, errS = run(t, "--root", root, "cost", cid, "--kind", "model",
+		"--amount", "1", "--lens", "liveness")
+	if code != 2 {
+		t.Fatalf("bad lens: exit %d, want 2", code)
+	}
+	if !strings.Contains(errS, "argument --lens: invalid lens id") {
+		t.Errorf("bad lens stderr = %q", errS)
+	}
+}

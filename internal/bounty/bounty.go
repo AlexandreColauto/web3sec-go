@@ -26,7 +26,6 @@ import (
 
 	"websec/internal/findings"
 	"websec/internal/pricing"
-	"websec/internal/risk"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -1227,10 +1226,14 @@ func (g *gate) check13() error {
 	}
 	// Record the acceptance on the finding (visible, counted, not
 	// submittable) before the waiver decision: a waived finding still
-	// carries the record, so the report can show both facts.
+	// carries the record, so the report can show both facts. G7 hygiene
+	// (Task 15): reference_url rides the same conditional copy — present
+	// in the policy entry means present in the record, absent means the
+	// record keeps its old bytes exactly (the fieldAt gate below).
 	rec := validation.VObj(
 		validation.KV{K: "pattern", V: validation.VStr(pattern)})
-	for _, key := range []string{"kind", "reference", "note"} {
+	for _, key := range []string{"kind", "reference", "reference_url",
+		"note"} {
 		if v, ok := fieldAt(ar, key); ok {
 			rec.O = append(rec.O, validation.KV{K: key, V: v})
 		}
@@ -1490,7 +1493,8 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 	// A3: the deterministic acceptance score, stored on the finding at gate
 	// time (the report and `webv2 rank` recompute it live, so the stored
 	// number is the gate's audit trail, not the source of truth).
-	score, _ := risk.AcceptanceScore(f)
+	// Policy-gated (G3): acceptance_priors true carries the class prior.
+	score, _ := gateAcceptance(f, g.policy)
 	riskObj := objAt(f, "risk")
 	if riskObj.Kind != validation.Obj {
 		riskObj = validation.VObj()

@@ -311,12 +311,78 @@ func FloorTableReport(campaign *state.Campaign) (validation.Value, error) {
 	), nil
 }
 
+// refusalWalkMaxDepth caps the G2 refusal walks below. Legitimate floor
+// policy docs are at most 3 levels deep (doc → overrides → entry), so the
+// cap never fires on real traffic — it only bounds pathological nesting,
+// fail-closed (deeper docs are refused as smuggled shape). The same cap is
+// applied uniformly in internal/risk (RecordEconomicImpact boundary).
+const refusalWalkMaxDepth = 32
+
+// refuseWalk is the shared recursive walker for both refusal passes: it
+// visits every Obj key and Arr element down to refusalWalkMaxDepth and
+// refuses any key for which bad returns true, naming it via errFmt.
+func refuseWalk(v validation.Value, depth int, bad func(string) bool, errFmt string) error {
+	if depth > refusalWalkMaxDepth {
+		return fmt.Errorf("floor policy exceeds max nesting depth %d "+
+			"(refused as smuggled shape)", refusalWalkMaxDepth)
+	}
+	switch v.Kind {
+	case validation.Obj:
+		for _, kv := range v.O {
+			if bad(kv.K) {
+				return fmt.Errorf(errFmt, kv.K)
+			}
+			if err := refuseWalk(kv.V, depth+1, bad, errFmt); err != nil {
+				return err
+			}
+		}
+	case validation.Arr:
+		for _, e := range v.A {
+			if err := refuseWalk(e, depth+1, bad, errFmt); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// refuseClassWeightKeys is the G2 class-weights boundary: the floor policy
+// file shape is {"overrides": [...]}, so class-weights-table keys must never
+// appear in it. severity_default is display-only and class_weights / classes
+// belong to the taxonomy table, never to a floor decision. Both passes use
+// the recursive refuseWalk (capped at refusalWalkMaxDepth), and the walk runs
+// BEFORE shape validation so smuggled keys are named, not shape-masked.
+func refuseClassWeightKeys(doc validation.Value) error {
+	neverLegit := func(k string) bool {
+		return k == "severity_default" || k == "class_weights"
+	}
+	if err := refuseWalk(doc, 0, neverLegit,
+		"floor policy must not contain %q "+
+			"(severity_default is display-only; class weights live "+
+			"in the class-weights table, never in a floor decision)"); err != nil {
+		return err
+	}
+	// "classes" (plural) is not a floor-policy key at any level the capped
+	// walk reaches — policy entries use singular "class" — so a top-level
+	// classes map is always smuggled table shape. Checked after the
+	// never-legitimate keys so the error names the most specific smuggled
+	// key first.
+	pluralTable := func(k string) bool { return k == "classes" }
+	return refuseWalk(doc, 0, pluralTable,
+		"floor policy must not contain %q "+
+			"(floor policy entries use singular \"class\"; per-class "+
+			"weights live in the class-weights table)")
+}
+
 // LoadPolicyFile is load_policy_file: read a per-campaign floor policy file,
 // {"overrides": [{"class": ..., "floor": ..., "reason": ...}]}.
 func LoadPolicyFile(path string) ([]validation.Value, error) {
 	p := filepath.Clean(path)
 	doc, err := validation.ReadJson(p)
 	if err != nil {
+		return nil, err
+	}
+	if err := refuseClassWeightKeys(doc); err != nil {
 		return nil, err
 	}
 	overrides := objAt(doc, "overrides")

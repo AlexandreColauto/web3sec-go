@@ -42,26 +42,70 @@ type AnsweredOpts struct {
 // disposition has to be falsifiable. Non-probe priorities are unaffected.
 func MarkAnswered(campaign *state.Campaign, plan validation.Value, priorityID,
 	outcome string, opts AnsweredOpts) (validation.Value, error) {
+	g, err := runAnsweredGates(campaign, plan, priorityID, outcome, opts,
+		false)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	ref, anchorRec, anchorSet := g.ref, g.anchorRec, g.anchorSet
+	priorities := listOf(plan, "priorities")
+	p := priorities[g.idx]
 	closing := outcome == "answered" || outcome == "not-applicable" ||
 		outcome == "deprioritized" || outcome == "blocked"
-	idx := -1
-	for i, p := range listOf(plan, "priorities") {
-		if objStr(p, "id") == priorityID {
-			idx = i
-			break
-		}
+	p.O = validation.SetOrAppend(p.O, "status", validation.VStr(outcome))
+	if closing {
+		p = closePriority(p, opts, ref, anchorSet, anchorRec)
+	} else {
+		p = reopenPriority(p)
 	}
-	if idx < 0 {
-		return validation.VNull(), errKey("no priority " +
-			validation.PyReprStr(priorityID) + " in the campaign plan")
+	priorities[g.idx] = p
+	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(priorities...))
+	if _, err := SavePlan(campaign, plan); err != nil {
+		return validation.VNull(), err
 	}
-	priorities := listOf(plan, "priorities")
-	p := priorities[idx]
+	data := statusData(outcome, opts, ref, anchorSet, anchorRec)
+	if _, err := campaign.Log("plan.priority_status", &priorityID,
+		&data); err != nil {
+		return validation.VNull(), err
+	}
+	return plan, nil
+}
+
+// answeredGateOut is the resolved output of the shared answered-gate
+// runner: the priority index, the (possibly anchor-rewritten) ref, and the
+// probe.anchor record when one was resolved.
+type answeredGateOut struct {
+	idx       int
+	ref       *string
+	anchorRec validation.Value
+	anchorSet bool
+}
+
+// runAnsweredGates is the ONE gate runner behind both MarkAnswered and the
+// batch pre-flight: lookup → checkAnchorless → checkCitedRecords →
+// resolveAnchor → the dismissal gate. Structural sharing, not a parity
+// comment: a new gate added here applies to both callers, so the pre-flight
+// cannot drift from apply. dry selects the dismissal-gate form —
+// checkDismissalGateInner(..., dry=true) validates an override without
+// recording it (pre-flight), dry=false records it (apply). The single-row
+// event/apply semantics live in MarkAnswered, which is the only caller with
+// dry=false.
+func runAnsweredGates(campaign *state.Campaign, plan validation.Value,
+	priorityID, outcome string, opts AnsweredOpts,
+	dry bool) (answeredGateOut, error) {
+	var out answeredGateOut
+	closing := outcome == "answered" || outcome == "not-applicable" ||
+		outcome == "deprioritized" || outcome == "blocked"
+	idx, err := findPriority(plan, priorityID)
+	if err != nil {
+		return out, err
+	}
+	out.idx = idx
+	p := listOf(plan, "priorities")[idx]
 	prov, hasProv := probeProvenance(p)
-	ref := opts.Ref
 	if err := checkAnchorless(priorityID, outcome, prov, hasProv,
 		opts.Anchor); err != nil {
-		return validation.VNull(), err
+		return out, err
 	}
 	// Shape before policy: whether the citation is the RIGHT one (does this
 	// --ref really name the anchor field it claims?) is a question about what
@@ -74,41 +118,28 @@ func MarkAnswered(campaign *state.Campaign, plan validation.Value, priorityID,
 	// anchor rule would otherwise answer "that is not the citation this field
 	// claims", which is true but hides the more useful fact that the record
 	// was never written.
-	if err := checkCitedRecords(campaign, priorityID, outcome, opts); err != nil {
-		return validation.VNull(), err
+	if err := checkCitedRecords(campaign, priorityID, outcome,
+		opts); err != nil {
+		return out, err
 	}
-	var anchorRec validation.Value
-	anchorSet := false
+	ref := opts.Ref
 	if opts.Anchor != nil && closing {
+		var anchorRec validation.Value
 		var err error
-		ref, anchorRec, err = resolveAnchor(campaign, priorityID, prov, hasProv,
-			opts, ref)
+		ref, anchorRec, err = resolveAnchor(campaign, priorityID, prov,
+			hasProv, opts, ref)
 		if err != nil {
-			return validation.VNull(), err
+			return out, err
 		}
-		anchorSet = true
+		out.anchorRec = anchorRec
+		out.anchorSet = true
 	}
-	if err := checkDismissalGate(campaign, priorityID, outcome, prov,
-		hasProv, opts); err != nil {
-		return validation.VNull(), err
+	out.ref = ref
+	if err := checkDismissalGateInner(campaign, priorityID, outcome, prov,
+		hasProv, opts, dry); err != nil {
+		return out, err
 	}
-	p.O = validation.SetOrAppend(p.O, "status", validation.VStr(outcome))
-	if closing {
-		p = closePriority(p, opts, ref, anchorSet, anchorRec)
-	} else {
-		p = reopenPriority(p)
-	}
-	priorities[idx] = p
-	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(priorities...))
-	if _, err := SavePlan(campaign, plan); err != nil {
-		return validation.VNull(), err
-	}
-	data := statusData(outcome, opts, ref, anchorSet, anchorRec)
-	if _, err := campaign.Log("plan.priority_status", &priorityID,
-		&data); err != nil {
-		return validation.VNull(), err
-	}
-	return plan, nil
+	return out, nil
 }
 
 // closePriority stamps the closure provenance (and, for an anchored probe row,

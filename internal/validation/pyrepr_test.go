@@ -62,9 +62,9 @@ func TestPyReprScalars(t *testing.T) {
 		{VFloat(math.Copysign(0, -1)), "-0.0"},
 		{VArr(VInt(1), VStr("a")), "[1, 'a']"},
 		{VArr(), "[]"},
-		{VObj(KV{"k", VInt(1)}), `{'k': 1}`},
+		{VObj(KV{K: "k", V: VInt(1)}), `{'k': 1}`},
 		{VObj(), "{}"},
-		{VObj(KV{"a", VNull()}, KV{"b", VBool(true)}), `{'a': None, 'b': True}`},
+		{VObj(KV{K: "a", V: VNull()}, KV{K: "b", V: VBool(true)}), `{'a': None, 'b': True}`},
 	}
 	for _, c := range cases {
 		if got := PyRepr(c.v); got != c.want {

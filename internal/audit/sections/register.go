@@ -2,7 +2,9 @@
 // Python's audit.py code order (event_log, artifacts, execs, findings,
 // projection, snapshots, relations, floor_policy, stage_completions,
 // baselines, invariant_verification, sequence_coverage, probe_surface,
-// unpriceable). It deliberately does NOT import the audit package: the
+// unpriceable) plus the presence-gated G4 eval section appended last: it
+// renders only when the campaign matches the eval suite, and AuditCampaign
+// omits it otherwise. It deliberately does NOT import the audit package: the
 // audit package (and its in-package tests) depend on sections, so a
 // sections->audit edge here would be an import cycle. The audit package
 // passes its own registerAuditSection so registration lands in the audit
@@ -35,4 +37,5 @@ func RegisterAll(register func(name string, fn SectionFunc)) {
 	register("sequence_coverage", SequenceCoverage)
 	register("probe_surface", ProbeSurface)
 	register("unpriceable", Unpriceable)
+	register("eval", Eval)
 }

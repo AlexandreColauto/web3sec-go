@@ -55,9 +55,9 @@ func TestWriteJsonFormat(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "a", "b", "out.json")
 	data := VObj(
-		KV{"a", VArr(VInt(1), VStr("x"))},
-		KV{"b", VObj()},
-		KV{"d", VStr("é")},
+		KV{K: "a", V: VArr(VInt(1), VStr("x"))},
+		KV{K: "b", V: VObj()},
+		KV{K: "d", V: VStr("é")},
 	)
 	if err := WriteJson(p, data, ""); err != nil {
 		t.Fatal(err)
@@ -81,7 +81,7 @@ func TestWriteJsonValidation(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "f.json")
 	bad := VObj(
-		KV{"finding_id", VStr("nope")},
+		KV{K: "finding_id", V: VStr("nope")},
 	)
 	err := WriteJson(p, bad, "finding")
 	var se *SchemaError
