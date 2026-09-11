@@ -16,7 +16,7 @@ func TestFloorsListTable(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
-	if !strings.HasPrefix(out, "effective CONFIRMED floors (20 classes):\n") {
+	if !strings.HasPrefix(out, "effective CONFIRMED floors (22 classes):\n") {
 		t.Fatalf("stdout = %q", out[:60])
 	}
 	for _, want := range []string{
