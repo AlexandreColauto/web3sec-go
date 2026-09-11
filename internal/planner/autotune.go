@@ -87,7 +87,7 @@ func applyAutoTune(out []validation.Value, plan validation.Value,
 		known[objStr(l, "id")] = true
 	}
 	prioLens := map[string]string{}
-	lensOfRow := map[int]string{}
+	lensOfRow := map[string]string{}
 	for _, p := range listOf(plan, "priorities") {
 		prioLens[objStr(p, "id")] = costs.PrioLensBucket(p, rowLens,
 			known)
@@ -106,7 +106,7 @@ func applyAutoTune(out []validation.Value, plan validation.Value,
 			validation.VStr("park"))
 		out[i].O = validation.SetOrAppend(out[i].O, "reason",
 			validation.VStr(reason))
-		lensOfRow[i] = lens
+		lensOfRow[objStr(row, "priority_id")] = lens
 		moved = true
 	}
 	if !moved {
@@ -127,7 +127,8 @@ func applyAutoTune(out []validation.Value, plan validation.Value,
 		if ri != rj {
 			return ri > rj
 		}
-		li, lj := lensOfRow[i], lensOfRow[j]
+		li, lj := lensOfRow[objStr(out[i], "priority_id")],
+			lensOfRow[objStr(out[j], "priority_id")]
 		if li != lj {
 			return li < lj
 		}

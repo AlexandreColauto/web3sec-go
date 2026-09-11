@@ -12,6 +12,7 @@ import (
 
 	"websec/internal/state"
 	"websec/internal/validation"
+	"websec/internal/wilson"
 )
 
 // atunePrio is one plan priority for the batting fixtures.
@@ -333,4 +334,77 @@ func TestSeedLensesIDsStoredAndStable(t *testing.T) {
 		t.Fatalf("replan added %d entries, want 0", len(again))
 	}
 	requireJSON(t, "replan ids stable", plan2, plan)
+}
+
+// TestAutoTuneTiebreakAttributesLensByPriorityID pins the L-id tiebreak
+// attribution: two tripped lenses (L-01 0/40, L-02 0/38) with equal-risk
+// rows interleaved in the pre-sort queue. The tiebreak must order the
+// parked tail by each row's own lens (L-01 block, then L-02 block, each
+// in priority order) with the matching reason line — a positional-index
+// lens lookup misattributes here and scrambles the tail.
+func TestAutoTuneTiebreakAttributesLensByPriorityID(t *testing.T) {
+	c := newCampaign(t, "atune-tiebreak")
+	surface := map[string]string{}
+	prios := []validation.Value{}
+	l01, l02 := []string{}, []string{}
+	for i := 1; i <= 38; i++ {
+		qa := fmt.Sprintf("Q-T-%03d", 2*i-1)
+		qb := fmt.Sprintf("Q-T-%03d", 2*i)
+		ra, rb := fmt.Sprintf("rT-%03d", 2*i-1), fmt.Sprintf("rT-%03d", 2*i)
+		surface[ra], surface[rb] = "L-01", "L-02"
+		prios = append(prios, atunePrio(qa, "open", ra, "", 0.9))
+		prios = append(prios, atunePrio(qb, "open", rb, "", 0.9))
+		l01 = append(l01, qa)
+		l02 = append(l02, qb)
+	}
+	for _, qid := range []string{"Q-T-077", "Q-T-078"} {
+		rid := "rT-" + qid[4:]
+		surface[rid] = "L-01"
+		prios = append(prios, atunePrio(qid, "open", rid, "", 0.9))
+		l01 = append(l01, qid)
+	}
+	atuneWriteSurface(t, c, surface)
+	plan := atuneWritePlan(t, c,
+		[]validation.Value{atuneLens("L-01", "liveness"),
+			atuneLens("L-02", "incentive-inversion")}, prios)
+	atuneWritePolicy(t, c, true)
+	q, err := WorkQueue(c, plan, validation.VObj(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(q) != 78 {
+		t.Fatalf("queue rows = %d, want 78 (40 L-01 + 38 L-02)", len(q))
+	}
+	reason := func(lens string, n int) string {
+		return fmt.Sprintf("- lens %s: auto-deprioritized "+
+			"(0/%d confirmed, 95%% CI upper %s%%)", lens, n,
+			wilson.UpperPct(0, n))
+	}
+	r01, r02 := reason("L-01", 40), reason("L-02", 38)
+	byID := atuneQueueOf(t, q)
+	for _, qid := range l01 {
+		row := byID[qid]
+		if got := objStr(row, "slot"); got != "park" {
+			t.Errorf("%s slot = %q, want park", qid, got)
+		}
+		if got := objStr(row, "reason"); got != r01 {
+			t.Errorf("%s reason = %q, want %q", qid, got, r01)
+		}
+	}
+	for _, qid := range l02 {
+		row := byID[qid]
+		if got := objStr(row, "slot"); got != "park" {
+			t.Errorf("%s slot = %q, want park", qid, got)
+		}
+		if got := objStr(row, "reason"); got != r02 {
+			t.Errorf("%s reason = %q, want %q", qid, got, r02)
+		}
+	}
+	// Parked tail: the L-01 block (priority order) then the L-02 block
+	// (priority order) — equal risk, so the L-id tiebreak owns the order.
+	for i, want := range append(append([]string{}, l01...), l02...) {
+		if got := objStr(q[i], "priority_id"); got != want {
+			t.Fatalf("queue[%d] = %q, want %q", i, got, want)
+		}
+	}
 }
