@@ -1,0 +1,184 @@
+# Playbook for the canonical bug class infra-boundary.
+# This is the framework's PRIOR for one bug class — context for the proposer,
+# never a verdict, never an instruction to the orchestrator. Every tool id
+# below exists in the tool registry (sandbox profiles + analysis tools).
+bug_class: infra-boundary
+title: Offchain trust boundary whose failure hands the protocol to the attacker
+description: >-
+  A trust-boundary failure in the offchain estate the protocol depends on —
+  a dapp domain without DNSSEC or CAA that an attacker can reissue or
+  hijack, a dangling DNS record on a protocol subdomain pointing at an
+  attacker-claimable endpoint, a deploy pipeline or CI runner that ships
+  attacker-controlled artifacts without multisig sign-off, or upgrade keys
+  held hot or single-sig instead of in a cold multisig. A genuine instance
+  turns the boundary failure into protocol control — a hijacked frontend
+  serving malicious approvals, a shipped backdoored artifact, or an
+  unauthorized upgrade — and clears the program's payout threshold. Hygiene
+  gaps with no path to protocol control or artifact integrity are not
+  instances. Exploitability lives in the offchain estate, hence the E6
+  floor (independent reproduction, mirroring bridge-message).
+evidence_floor: E6
+invariants:
+  - id: INV-IB-DNSSEC-CAA
+    statement: >-
+      The dapp domain enforces DNSSEC with a valid chain to the root and
+      publishes CAA records restricting issuance to the documented
+      certificate authorities.
+    typical_documentation: >-
+      DNS operations runbook; domain registrar configuration notes.
+  - id: INV-IB-NO-DANGLING-DNS
+    statement: >-
+      No protocol subdomain resolves to an unclaimed or attacker-claimable
+      endpoint — every DNS record on the protocol's zone points at
+      operator-controlled infrastructure.
+    typical_documentation: >-
+      Subdomain inventory; DNS zone audit notes.
+  - id: INV-IB-MULTISIG-DEPLOY
+    statement: >-
+      Every deploy-pipeline step that ships executable artifacts requires
+      multisig sign-off at the documented threshold — no single actor or
+      compromised runner can land an artifact alone.
+    typical_documentation: >-
+      Deploy runbook; CI pipeline definition and CODEOWNERS.
+  - id: INV-IB-COLD-CUSTODY
+    statement: >-
+      Upgrade keys live in a cold multisig at the documented threshold —
+      no hot key, single signer, or CI-held secret can authorize an
+      upgrade on its own.
+    typical_documentation: >-
+      Key-custody policy; multisig signer-set documentation.
+assumption_templates:
+  - id: AT-IB-REGISTRAR-TAKEOVER
+    type: environment
+    statement: >-
+      The registrar account for {domain} is compromised, so the attacker
+      can re-point DNS or reissue certificates for the dapp origin.
+    blocking: true
+    preferred_tools:
+      - trace
+      - source-slice
+  - id: AT-IB-DANGLING-TAKEOVER
+    type: reachability
+    statement: >-
+      The protocol subdomain {subdomain} is dangling to {endpoint}, which
+      the attacker can claim and serve protocol-branded content from.
+    blocking: true
+    preferred_tools:
+      - trace
+      - static-analysis
+  - id: AT-IB-CI-RUNNER
+    type: environment
+    statement: >-
+      The CI runner {runner} executes an attacker-controlled build step or
+      dependency, so a shipped artifact {artifact} carries attacker code.
+    blocking: true
+    preferred_tools:
+      - source-slice
+      - trace
+  - id: AT-IB-HOT-KEY
+    type: authority
+    statement: >-
+      The upgrade key {key_id} is held hot or single-sig, so one compromised
+      host or signer can authorize the upgrade {upgrade_id} alone.
+    blocking: true
+    preferred_tools:
+      - static-analysis
+      - source-slice
+  - id: AT-IB-DEPLOY-BYPASS
+    type: authority
+    statement: >-
+      The deploy of {artifact} can land without the documented multisig
+      sign-off — the pipeline's approval gate is advisory, skippable, or
+      missing on the {deploy_path} path.
+    blocking: false
+    preferred_tools:
+      - trace
+      - fork
+hunt_order:
+  - step: 1
+    tool_id: trace
+    purpose: >-
+      Walk the dapp domain's DNS estate — DNSSEC chain, CAA records, and
+      every protocol subdomain — and flag missing chains or records
+      pointing off-operator infrastructure.
+    stop_if: >-
+      DNSSEC chains to the root, CAA restricts issuance, and every
+      subdomain resolves to operator infrastructure.
+  - step: 2
+    tool_id: source-slice
+    purpose: >-
+      Slice the deploy pipeline definition — which steps ship executable
+      artifacts and which signers must approve each step before it lands.
+    stop_if: >-
+      every artifact-shipping step requires multisig sign-off at threshold
+      with no skippable gate.
+  - step: 3
+    tool_id: static-analysis
+    purpose: >-
+      Classify upgrade-key custody — cold multisig versus hot or single-sig
+      holders — and check which keys the pipeline or CI can reach.
+    stop_if: >-
+      every upgrade path requires the cold multisig at threshold and CI
+      holds no signing-capable secret.
+  - step: 4
+    tool_id: fork
+    purpose: >-
+      Simulate the attacker-driven upgrade or artifact at the pinned state
+      and observe whether protocol control changes without multisig
+      authorization.
+    stop_if: >-
+      the upgrade reverts without multisig authorization — no unilateral
+      control path exists.
+  - step: 5
+    tool_id: balance-delta
+    purpose: >-
+      Price the protocol control gained — extractable value under the
+      attacker upgrade — minus operating cost against the program's payout
+      threshold.
+    stop_if: >-
+      net extraction is below the program's payout threshold.
+failure_modes:
+  - statement: >-
+      DNSSEC chains to the root, CAA restricts issuance, and no subdomain
+      dangles — the attacker has no DNS path to the dapp origin.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      Every artifact-shipping deploy step requires multisig sign-off and CI
+      holds no signing-capable secret — a compromised runner alone ships
+      nothing.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      The boundary failure is real but confers no protocol control or
+      artifact integrity break above the program's payout threshold.
+    typical_rejection_class: below-threshold
+  - statement: >-
+      The claimed gap is the documented operating design — custody and
+      pipeline records show the control the hypothesis says is missing.
+    typical_rejection_class: invalid-hypothesis
+negative_memory_hooks:
+  - rejection_class: not-exploitable
+    proposition: >-
+      The DNS estate is secured and the deploy path requires multisig —
+      override only with a subdomain, runner, or key the prior run did not
+      cover.
+  - rejection_class: below-threshold
+    proposition: >-
+      The boundary failure confers no above-threshold control — override
+      only with a larger control path or a chained frontend takeover.
+  - rejection_class: invalid-hypothesis
+    proposition: >-
+      Key custody is cold-multisig at threshold — a new hypothesis must
+      name a key or deploy path the prior run did not cover.
+exploit_shape:
+  attacker_profile: >-
+    Any EOA with a registrar, DNS, CI, or signer-compromise foothold; no
+    privileged protocol role required.
+  capital_profile: >-
+    No capital floor beyond the compromise cost — domain claims and runner
+    access are the payload, not funds.
+  settlement_window: >-
+    Operator-paced — the takeover settles on DNS propagation, deploy
+    cadence, or the next upgrade window.
+  value_moved: >-
+    Protocol control via hijacked frontend, backdoored artifact, or
+    unauthorized upgrade, up to full governed value.

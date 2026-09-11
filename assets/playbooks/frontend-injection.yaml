@@ -1,0 +1,188 @@
+# Playbook for the canonical bug class frontend-injection.
+# This is the framework's PRIOR for one bug class — context for the proposer,
+# never a verdict, never an instruction to the orchestrator. Every tool id
+# below exists in the tool registry (sandbox profiles + analysis tools).
+bug_class: frontend-injection
+title: Dapp frontend or pairing surface that moves user funds or signatures to the attacker
+description: >-
+  Attacker-controlled content or approval flow in the dapp frontend or wallet
+  pairing surface that moves user funds or signatures — a DOM-XSS sink on a
+  signing page that rewrites the displayed recipient or amount, a permit or
+  approval request that names an attacker spender or an unbounded amount cap
+  the UI never shows, a pairing URI (WalletConnect session, deep link, QR)
+  that binds the victim's wallet to the attacker's origin, or a compromised
+  third-party script or malicious extension that observes or rewrites signing
+  payloads. A genuine instance turns the victim's own signature or approval
+  into attacker value flow — drained tokens via a spoofed spender, a permit
+  signature harvested for a lookalike domain, or a hijacked pairing session
+  — and clears the program's payout threshold. A correctly bound flow whose
+  displayed spender, amount, domain, and origin all match the signed payload
+  is not an instance. Exploitability lives in the offchain estate, hence the
+  E6 floor (independent reproduction, mirroring bridge-message).
+evidence_floor: E6
+invariants:
+  - id: INV-FI-APPROVAL-EXPLICIT
+    statement: >-
+      Every external approval or permit request names the exact spender and
+      an explicit amount cap, and the displayed spender and amount match the
+      signed payload on every signing path.
+    typical_documentation: >-
+      Frontend approval copy; permit/signature explainer docs.
+  - id: INV-FI-PAIRING-ORIGIN-BOUND
+    statement: >-
+      Pairing URIs and session proposals are origin-bound — a session
+      initiated for one origin cannot be re-aimed at a lookalike domain or
+      replayed against a different dapp deployment.
+    typical_documentation: >-
+      Wallet-pairing integration docs; WalletConnect session notes.
+  - id: INV-FI-NO-INLINE-THIRD-PARTY
+    statement: >-
+      Signing pages load no inline third-party scripts — every script on the
+      approval and signing path is first-party, pinned, and integrity-checked.
+    typical_documentation: >-
+      Content-security-policy docs; frontend dependency inventory.
+  - id: INV-FI-PERMIT-DOMAIN-BOUND
+    statement: >-
+      Every EIP-712 permit binds the expected chain id, verifying contract,
+      and dapp domain — a signature harvested on one domain or chain is
+      invalid on every other.
+    typical_documentation: >-
+      EIP-712 domain-separator notes; signature-verification NatSpec.
+assumption_templates:
+  - id: AT-FI-DOM-SINK
+    type: reachability
+    statement: >-
+      Untrusted DOM content on {signing_page} reaches the signing sink
+      {sink} — attacker-controlled text or markup rewrites the displayed
+      recipient or amount without altering the signed payload's appearance.
+    blocking: true
+    preferred_tools:
+      - static-analysis
+      - source-slice
+  - id: AT-FI-PERMIT-SPOOF
+    type: invariant
+    statement: >-
+      The permit or approval request {request} names an attacker-controlled
+      spender or an unbounded amount cap that the UI never displays to the
+      victim.
+    blocking: true
+    preferred_tools:
+      - static-analysis
+      - fork
+  - id: AT-FI-LOOKALIKE-DOMAIN
+    type: cross_domain
+    statement: >-
+      The lookalike domain {domain} serves a paired frontend whose sessions
+      and signatures the victim cannot distinguish from the genuine dapp
+      origin.
+    blocking: true
+    preferred_tools:
+      - trace
+      - source-slice
+  - id: AT-FI-EXTENSION-READ
+    type: environment
+    statement: >-
+      A malicious extension with the granted permissions {permissions} can
+      read or rewrite the signing payload on {signing_page} before the
+      wallet signs it.
+    blocking: true
+    preferred_tools:
+      - source-slice
+      - trace
+  - id: AT-FI-SUPPLY-CHAIN
+    type: environment
+    statement: >-
+      A third-party script {script_src} loaded on the signing path is
+      compromised or version-unpinned, so attacker JavaScript executes in
+      the signing page's origin.
+    blocking: false
+    preferred_tools:
+      - trace
+      - static-analysis
+hunt_order:
+  - step: 1
+    tool_id: static-analysis
+    purpose: >-
+      Slice the approve and permit construction — spender, amount cap, and
+      EIP-712 domain fields — and check each against what the UI displays.
+    stop_if: >-
+      every request names the exact spender with an explicit cap and the
+      domain binds chain id, contract, and dapp origin.
+  - step: 2
+    tool_id: source-slice
+    purpose: >-
+      Slice the pairing URI and session-proposal construction — which origin
+      is bound into the session and whether a lookalike domain can inherit
+      a genuine session.
+    stop_if: >-
+      sessions are bound to a single verified origin and die with it.
+  - step: 3
+    tool_id: trace
+    purpose: >-
+      Inventory the signing page's script supply chain — inline scripts,
+      third-party sources, pinning, and integrity attributes — plus the
+      granted extension permission surface.
+    stop_if: >-
+      every script is first-party, pinned, and integrity-checked, with no
+      privileged extension access to signing payloads.
+  - step: 4
+    tool_id: fork
+    purpose: >-
+      Execute the spoofed approval or harvested permit at the pinned state
+      from the attacker's address and observe the resulting token movement
+      authorization.
+    stop_if: >-
+      the spoofed request confers no movement — spender, cap, or domain
+      check rejects it.
+  - step: 5
+    tool_id: balance-delta
+    purpose: >-
+      Price the attacker-authorized movement minus gas against the
+      program's payout threshold.
+    stop_if: >-
+      net extraction is below the program's payout threshold.
+failure_modes:
+  - statement: >-
+      The displayed spender, amount, domain, and origin all match the signed
+      payload — the victim signs exactly what they see.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      The pairing session is bound to the verified origin and cannot be
+      re-aimed at a lookalike domain or replayed elsewhere.
+    typical_rejection_class: not-exploitable
+  - statement: >-
+      The spoofed approval or harvested signature confers value below the
+      program's payout threshold at pinned liquidity.
+    typical_rejection_class: below-threshold
+  - statement: >-
+      The claimed injection is the documented display design — the sink
+      renders only trusted, escaped content the hypothesis says is free.
+    typical_rejection_class: invalid-hypothesis
+negative_memory_hooks:
+  - rejection_class: not-exploitable
+    proposition: >-
+      The approval flow names the exact spender and cap and the domain is
+      bound — override only with a request or origin the prior run did not
+      cover.
+  - rejection_class: below-threshold
+    proposition: >-
+      Attacker-authorized movement is below the payout threshold at pinned
+      liquidity — override only with a larger approval, a second asset, or
+      a chained permit.
+  - rejection_class: invalid-hypothesis
+    proposition: >-
+      The pairing session is origin-bound and verified — a new hypothesis
+      must name a session or domain the prior run did not cover.
+exploit_shape:
+  attacker_profile: >-
+    Any EOA serving a lookalike frontend, extension, or bundled script; no
+    privileged protocol role required.
+  capital_profile: >-
+    No capital floor beyond hosting and gas — the victim's signature is the
+    payload, not attacker funds.
+  settlement_window: >-
+    Victim-paced — the extraction settles when the victim signs or pairs,
+    bounded by the approval or session lifetime.
+  value_moved: >-
+    Victim-approved token movement or harvested signatures executed by the
+    attacker, up to the spoofed cap.
