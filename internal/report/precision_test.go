@@ -382,6 +382,70 @@ func TestReportPrecisionRatioNoCriticConfirmed(t *testing.T) {
 	}
 }
 
+// TestReportPrecisionExcludesSuperseded pins G14 fix round 2: a SUPERSEDED
+// finding leaves the precision block (counts + top-K table) and renders
+// under the dismissed rows with its "superseded by <new>" reason (the
+// Transition history row Supersede writes — the link the new finding's
+// dedup_meta.supersedes points back from).
+func TestReportPrecisionExcludesSuperseded(t *testing.T) {
+	camp := clusterCamp(t)
+	f1 := mk(t, camp, "d1", "deposit", "Empty-pool 1:1 mint via deposit")
+	fid1 := objStr(f1, "finding_id")
+	old := mk(t, camp, "d2", "deposit",
+		"Deposit share-price set by first actor")
+	oldID := objStr(old, "finding_id")
+	newID := mkBareHypothesis(t, camp, "ShareVault restated inflation")
+	if _, err := findings.Supersede(camp, newID, oldID, "model"); err != nil {
+		t.Fatal(err)
+	}
+	persistAcceptanceScore(t, camp, fid1, 4.5)
+
+	text := mustGenerate(t, camp)
+
+	// counts: critic-confirmed 1 (f1 — the superseded old finding no longer
+	// counts); evidence-confirmed 2 (f1 plus the successor, which inherits
+	// the old finding's re-parented evidence copies and so still clears
+	// the floor). Ratio 0.0%: the one critic-confirmed finding has
+	// evidence.
+	wantLine := "- **precision:** critic-confirmed: 1  - " +
+		"evidence-confirmed: 2  - false-positive ratio: 0.0%"
+	if !strings.Contains(text, wantLine) {
+		t.Fatalf("missing %q\n---\n%s", wantLine, resultsSection(text))
+	}
+
+	// top-K: f1 + the new live hypothesis; the superseded old finding is
+	// out of the table bytes.
+	region := tableRegion(text, "- **top 2 by acceptance:**")
+	if region == "" {
+		t.Fatalf("missing top-2 header\n---\n%s", resultsSection(text))
+	}
+	if !strings.Contains(region, fid1) || !strings.Contains(region, newID) {
+		t.Fatalf("live f1 and its superseding successor must rank\n---\n%s",
+			region)
+	}
+	if strings.Contains(region, oldID) {
+		t.Fatalf("superseded %s must not appear in the table\n---\n%s",
+			oldID, region)
+	}
+
+	// dismissed rows: the old finding renders as SUPERSEDED with its
+	// Transition reason.
+	i := strings.Index(text, "## Dismissed candidates (with reasons)")
+	if i < 0 {
+		t.Fatalf("no dismissed section\n---\n%s", text)
+	}
+	sec := text[i:]
+	if j := strings.Index(sec, "\n## "); j != -1 {
+		sec = sec[:j]
+	}
+	if !strings.Contains(sec, "`"+oldID+"` **SUPERSEDED**") {
+		t.Fatalf("superseded finding not rendered as dismissed\n---\n%s", sec)
+	}
+	if !strings.Contains(sec, "reason: superseded by "+newID) {
+		t.Fatalf("superseded row missing its successor reason\n---\n%s", sec)
+	}
+}
+
 // resultsSection is the report's "## Results" section (the precision block
 // lives there) for failure output.
 func resultsSection(text string) string {

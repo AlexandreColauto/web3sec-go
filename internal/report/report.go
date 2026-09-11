@@ -321,8 +321,8 @@ func unscoredNotice(campaign *state.Campaign) []string {
 // critic-confirmed live findings that fail the evidence floor) and
 // the top-K acceptance table — the operator's ranked answer over every LIVE
 // finding (the production live predicate, findings.LoadLiveFindings:
-// DUPLICATE / OUT_OF_SCOPE excluded; a DISPROVED finding stays visible,
-// disqualified at the bottom, so a critic/pipeline disagreement is
+// DUPLICATE / OUT_OF_SCOPE / SUPERSEDED excluded; a DISPROVED finding stays
+// visible, disqualified at the bottom, so a critic/pipeline disagreement is
 // legible). The score is recomputed live (risk.AcceptanceScore), never read
 // from the stored field, so the table is current even before the next gate
 // run.
@@ -362,7 +362,8 @@ func precisionBlock(campaign *state.Campaign, all []validation.Value,
 	var live []validation.Value
 	criticN, evidenceN, criticNoEvidenceN := 0, 0, 0
 	for _, f := range all {
-		if s := objStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" {
+		if s := objStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" ||
+			s == "SUPERSEDED" {
 			continue
 		}
 		live = append(live, f)
@@ -1288,7 +1289,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 	dismissed := []validation.Value{}
 	for _, f := range all {
 		switch objStr(f, "status") {
-		case "DISPROVED", "OUT_OF_SCOPE", "DUPLICATE":
+		case "DISPROVED", "OUT_OF_SCOPE", "DUPLICATE", "SUPERSEDED":
 			dismissed = append(dismissed, f)
 		}
 	}

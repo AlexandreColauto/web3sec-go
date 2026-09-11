@@ -60,6 +60,23 @@ func hasEvent(t *testing.T, c *state.Campaign, typ string) validation.Value {
 	return validation.VNull()
 }
 
+// assertNoStatusEvent locks amend law 1 from the event side: no
+// finding.status event may exist after an amend (a from == to status
+// "transition" is a lie the hash chain must never carry).
+func assertNoStatusEvent(t *testing.T, c *state.Campaign) {
+	t.Helper()
+	events, err := c.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range events {
+		if objStr(e, "type") == "finding.status" {
+			t.Fatalf("amend emitted finding.status (ref %s) — amend "+
+				"must never move status", objStr(e, "ref"))
+		}
+	}
+}
+
 func TestSupersededStateMachine(t *testing.T) {
 	if _, ok := TERMINAL["SUPERSEDED"]; !ok {
 		t.Error("SUPERSEDED must join the TERMINAL absorbing set")
@@ -130,6 +147,10 @@ func TestAmendBumpsVersionHistoryAndEvent(t *testing.T) {
 		t.Errorf("finding.amended reason = %q, want %q",
 			objStr(objAt(e, "data"), "reason"), wantReason)
 	}
+	// Law 1: amend never moves status, so it emits no finding.status
+	// event (ingest logs finding.ingested, not finding.status — any
+	// finding.status event here would be the amend's lie).
+	assertNoStatusEvent(t, c)
 	// A second amend bumps again.
 	got, err = Amend(c, fid, AmendOpts{
 		Claim:    "share calculation rounds down in the attacker's favor always",
@@ -154,6 +175,8 @@ func TestAmendBumpsVersionHistoryAndEvent(t *testing.T) {
 	if objStr(last, "actor") != "cli" {
 		t.Fatalf("history actor = %q, want cli", objStr(last, "actor"))
 	}
+	// Still no finding.status event after the second amend.
+	assertNoStatusEvent(t, c)
 }
 
 func TestAmendNoteOnly(t *testing.T) {
