@@ -191,15 +191,67 @@ func evalExternalCallPattern(check, index validation.Value) (string, string, err
 
 // separatorMarkers is the hardcoded chain/domain separator marker list for
 // sig_verify_no_separator. Compared lowercase-contains against the structidx
-// selector (name + "(" + paramTypes + ")" — types only, parser.go): a
+// selector (name + "(" + paramTypes + ")" — types only, parser.go:446): a
 // check-level override key is YAGNI, so the list lives here, documented.
-// Case-insensitive compare is the whole trick — `ChainId` in code matches.
-var separatorMarkers = []string{"chainid", "chainId", "domainSeparator",
-	"domain_separator", "DOMAIN_SEPARATOR"}
+// "domainSeparator" (camelCase UDVT) and "domain_separator" (snake_case) are
+// both live needles for the raw selector text; normSepMarkers below is the
+// same list folded for concept-key comparison.
+var separatorMarkers = []string{"chainid", "domainSeparator",
+	"domain_separator"}
+
+// normSepMarkers folds separatorMarkers through normSepKey so the param-uses
+// evidence check compares like with like.
+var normSepMarkers = func() map[string]bool {
+	out := map[string]bool{}
+	for _, m := range separatorMarkers {
+		out[normSepKey(m)] = true
+	}
+	return out
+}()
+
+// normSepKey lowercases a separator marker or concept key after stripping
+// the concept-join colons (and underscores, which splitIdent consumes, so
+// they can never appear in a key): ConceptKeys("chainId") is
+// ["chain","chain:id","id"] (splitIdent parser.go:623-644, conceptSet
+// :668-697, ConceptKeys :711-719) and only normSepKey("chain:id") ==
+// "chainid" matches — a naive containsLower misses the bigram. The same
+// fold maps "domain:separator" onto "domainseparator".
+func normSepKey(s string) string {
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, ":", "")
+	s = strings.ReplaceAll(s, "_", "")
+	return s
+}
+
+// usesSeparatorParam reports whether any kind=="param" uses-entry of the
+// function carries separator evidence: a concept key folding onto a
+// separator marker. Param uses-entries are emitted per referenced parameter
+// with ConceptKeys(paramName) (parser.go:847-851), so a plain
+// `uint256 chainId` used in `require(chainId == block.chainid)` suppresses
+// the hit even though the selector `verify(bytes,address,uint256)` is
+// marker-free. An unreferenced chainId emits no entry — name alone is not
+// evidence.
+func usesSeparatorParam(n validation.Value) bool {
+	for _, u := range listAt(n, "uses") {
+		if objStr(u, "kind") != "param" {
+			continue
+		}
+		for _, k := range listAt(u, "concept_keys") {
+			if k.Kind != validation.Str {
+				continue
+			}
+			if normSepMarkers[normSepKey(k.S)] {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // evalSigVerifyNoSeparator is sig_verify_no_separator: a listed function
-// whose selector carries no separator marker. `names` is consumed exactly
-// like unguarded_function_exists (exact set match, not a regex).
+// whose selector carries no separator marker AND whose param uses carry no
+// separator concept evidence. `names` is consumed exactly like
+// unguarded_function_exists (exact set match, not a regex).
 func evalSigVerifyNoSeparator(check, index validation.Value) (string, string, error) {
 	names := stringSet(listAt(check, "names"))
 	if len(names) == 0 {
@@ -209,9 +261,16 @@ func evalSigVerifyNoSeparator(check, index validation.Value) (string, string, er
 	var hits []string
 	for _, n := range structidx.Nodes(index, "function") {
 		name := objStr(n, "name")
-		if names[name] && !containsLower(objStr(n, "selector"), separatorMarkers) {
-			hits = append(hits, name)
+		if !names[name] {
+			continue
 		}
+		if containsLower(objStr(n, "selector"), separatorMarkers) {
+			continue
+		}
+		if usesSeparatorParam(n) {
+			continue
+		}
+		hits = append(hits, name)
 	}
 	sort.Strings(hits)
 	if len(hits) > 0 {

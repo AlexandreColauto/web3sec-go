@@ -61,6 +61,35 @@ func TestSigVerifyNoSeparatorCleanMisses(t *testing.T) {
 	}
 }
 
+// TestSigVerifyUintChainIdCheckedMisses is the T3 precision fix: a plain
+// uint256 chainId param leaves no marker in the selector (paramTypes is
+// types-only, parser.go:446), but the param-uses entry carries
+// ConceptKeys("chainId") = ["chain","chain:id","id"] — the "chain:id" bigram
+// is separator evidence once colons are stripped. A require against
+// block.chainid must therefore MISS.
+func TestSigVerifyUintChainIdCheckedMisses(t *testing.T) {
+	idx := fixtureTree(t, "sigverify", "chainid_checked.sol")
+	res, detail := evalSingleCheck(t, "signature-no-separator", idx)
+	if res != "absent" {
+		t.Fatalf("chainid-checked sigverify: result = %q (%s), want absent", res, detail)
+	}
+}
+
+// TestSigVerifyUintChainIdUnusedHits guards the evidence semantics: a
+// chainId param that the body never references emits no kind=="param"
+// uses-entry (parser.go:847-851), so there is no separator evidence and the
+// hit stands.
+func TestSigVerifyUintChainIdUnusedHits(t *testing.T) {
+	idx := fixtureTree(t, "sigverify", "chainid_unused.sol")
+	res, detail := evalSingleCheck(t, "signature-no-separator", idx)
+	if res != "present" {
+		t.Fatalf("chainid-unused sigverify: result = %q (%s), want present", res, detail)
+	}
+	if !strings.Contains(detail, "verify") {
+		t.Fatalf("finding detail %q does not name the function", detail)
+	}
+}
+
 func TestMerkleVerifyWithoutDepthGateBuggyHits(t *testing.T) {
 	idx := fixtureTree(t, "merkleproof", "buggy.sol")
 	res, detail := evalSingleCheck(t, "proof-accepted-without-depth-gate", idx)
