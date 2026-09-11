@@ -1,0 +1,24 @@
+id: multisig-threshold-single-point
+name: Multisig threshold declared but consulted by no guard
+criticality: high
+description: >
+  A state variable whose name carries a threshold marker (threshold, quorum,
+  requiredSignatures, minSignatures) exists in a contract whose every
+  require/assert/reverting-if condition — across ALL of that contract's
+  functions — never mentions it. The "2-of-5" style gate is then decorative:
+  the number is declarable and settable while nothing on the execution path
+  consults it. Harmony-shape bridge governance.
+
+  VALUE-BLINDNESS (honesty note, not a caveat to be engineered away): the
+  structural index carries no state-variable values, no declared types and no
+  initializers — a state-variable node is {id, kind, name, path, line}. This
+  check therefore claims a SHAPE only: a threshold-marked name that no guard in
+  its own contract references. It does NOT claim the threshold is too low, is
+  unset, or is wrong; a contract whose enforcement lives in a base class or
+  inside a modifier body (modifier bodies are appended to reads/writes but not
+  to guard extraction) will read as a hit. HINT-only: confirm by reading the
+  execution path before opening a hunt.
+checks:
+  - type: threshold_without_enforcement
+    names: ["threshold", "quorum", "requiredSignatures", "minSignatures"]
+playbook_hint: bridge-message

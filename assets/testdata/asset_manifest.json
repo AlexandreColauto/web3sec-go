@@ -13,9 +13,17 @@
     "sha256": "d0b3d5fe8be436f4fdb80c650739d1e52c6c195f48a1c8b95b3b25c108201d9f",
     "size": 496
    },
+   "multisig-threshold-single-point.yaml": {
+    "sha256": "d71fc3f7bc600a1ed8f4a87030e8219f606689f7c7aaf77b580c222278d280dc",
+    "size": 1367
+   },
    "proof-accepted-without-depth-gate.yaml": {
     "sha256": "3f8c5a067a9725719c270ccd610e003c12eebc85766d91d3a30d399467ff0efb",
     "size": 535
+   },
+   "relayer-single-key.yaml": {
+    "sha256": "eb58dbb61a3751408770d041284054ed51b12cada851d71f6badb37e107844ef",
+    "size": 1155
    },
    "signature-no-separator.yaml": {
     "sha256": "9f53aa2328b60490715a743a06c5d5387b19762bb5eaaf31968be2aafa20b3f1",
@@ -370,8 +378,8 @@
   },
   "schema": {
    "archetype.schema.json": {
-    "sha256": "48289e73372f8552521ae5d78475676de8a0373ecd1262de181e0fef12b4c7e4",
-    "size": 3839
+    "sha256": "651114a71e64c9b3d2909bf564458d33a93597c88f366f955dfcb86515bf9ca0",
+    "size": 4436
    },
    "assumption.schema.json": {
     "sha256": "1824958e45d59224750046c1634c66226e0e7004275aefdba08fc7f658e64fd4",

@@ -16,7 +16,8 @@ import (
 
 var expectedIDs = []string{
 	"cross-chain-relay-no-authz", "delegatecall-to-user-input",
-	"flash-loan-oracle-manipulation", "proof-accepted-without-depth-gate",
+	"flash-loan-oracle-manipulation", "multisig-threshold-single-point",
+	"proof-accepted-without-depth-gate", "relayer-single-key",
 	"signature-no-separator", "unguarded-asset-transfer",
 	"unguarded-initialize", "uninitialized-proxy",
 	"vault-share-pricing-surface",
@@ -107,6 +108,38 @@ contract MerkleDistributor {
     }
 }
 `,
+	// I5a: inline copies of testdata/threshold/buggy.sol and
+	// testdata/relayer/buggy.sol — the fixture files are canonical.
+	"multisig-threshold-single-point": `
+contract HarmonyBridge {
+    address[] public owners;
+    uint256 public threshold;
+    address public owner;
+
+    function setThreshold(uint256 t) external {
+        threshold = t;
+    }
+
+    function execute(address target, bytes calldata data) external {
+        (bool ok, ) = target.call(data);
+        require(ok, "call failed");
+    }
+}
+`,
+	"relayer-single-key": `
+contract ForceBridge {
+    address public relayer;
+
+    modifier onlyBridge() {
+        require(msg.sender == relayer, "not relayer");
+        _;
+    }
+
+    function relayMessage(bytes32 message, bytes calldata proof) external onlyBridge {
+        emit Relayed(message);
+    }
+}
+`,
 }
 
 // makeTree is make_tree: a campaign + a one-file src tree, indexed.
@@ -131,7 +164,12 @@ func makeTree(t *testing.T, sol string) (validation.Value, *state.Campaign) {
 	return idx, c
 }
 
-func TestAvailableArchetypesAreExactlyTheNine(t *testing.T) {
+// TestAvailableArchetypesAreExactlyTheEleven is the count pin. Wave I Task 3
+// (I5a) lands Nine->Eleven: this task ships TWO archetypes
+// (multisig-threshold-single-point, relayer-single-key), so the pin moves by
+// exactly the two ids appended to expectedIDs. Task 4 (I5b) owns the next
+// bump; never "fix" this number for another task's files.
+func TestAvailableArchetypesAreExactlyTheEleven(t *testing.T) {
 	got, err := AvailableArchetypes()
 	if err != nil {
 		t.Fatal(err)
@@ -139,8 +177,8 @@ func TestAvailableArchetypesAreExactlyTheNine(t *testing.T) {
 	if strings.Join(got, ",") != strings.Join(expectedIDs, ",") {
 		t.Fatalf("available_archetypes() = %v, want %v", got, expectedIDs)
 	}
-	if len(got) != 9 {
-		t.Fatalf("expected 9 archetypes, got %d", len(got))
+	if len(got) != 11 {
+		t.Fatalf("expected 11 archetypes, got %d", len(got))
 	}
 }
 
