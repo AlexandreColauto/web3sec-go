@@ -113,6 +113,27 @@ func TestProbeLensViewStaleDisposition(t *testing.T) {
 	}
 }
 
+// TestProbeLensViewRefreshHintNamesCampaign pins the refresh command a
+// hand-loaded plan (no campaign_id of its own) produces: the campaign id comes
+// from the caller, never a `<campaign>` literal.
+func TestProbeLensViewRefreshHintNamesCampaign(t *testing.T) {
+	surface, index, plan := pvFixtures(t)
+	withProbes(t, probeEnv{surface: &surface, index: &index})
+	plan = deepCopy(t, plan)
+	plan.O = dropKey(plan.O, "campaign_id")
+	staleSha := "0000000000000000"
+	view := probeLensView(plan, "L-03", DivergenceOpts{Surface: &surface,
+		CurrentIndexSha: &staleSha, CampaignID: "C-abc12345"})
+	joined := strings.Join(view.issues, " ")
+	if !strings.Contains(joined,
+		"run `webv2 probes C-abc12345 run --emit`") {
+		t.Fatalf("refresh hint must name the campaign: %v", view.issues)
+	}
+	if strings.Contains(joined, "<campaign>") {
+		t.Fatalf("refresh hint still carries the placeholder: %v", view.issues)
+	}
+}
+
 // TestLensProbeClosureMatchesView pins the internal/public pair: the exported
 // closure is the view's counts, and both agree on the message.
 func TestLensProbeClosureMatchesView(t *testing.T) {

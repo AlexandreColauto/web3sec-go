@@ -2,6 +2,7 @@ package probes
 
 import (
 	"path/filepath"
+	"strings"
 
 	"websec/internal/planner"
 	"websec/internal/state"
@@ -40,8 +41,9 @@ func auditSurface(c *state.Campaign, surface validation.Value) (validation.Value
 	if vStr(surface, "index_sha") != strOrNil(currentSha) {
 		problems = append(problems, sprintf("probe surface is stale: built "+
 			"against index_sha %s, current index is %s — every row anchor "+
-			"describes the old tree; re-run `webv2 probes %s run --emit`",
-			vStr(surface, "index_sha"), strOrNil(currentSha), c.CampaignID))
+			"describes the old tree; re-run `webv2 probes %s run --emit`%s",
+			vStr(surface, "index_sha"), strOrNil(currentSha), c.CampaignID,
+			repairQuotaNote(surface)))
 	}
 	plan, err := planner.LoadPlanReadonly(c)
 	var planPtr *validation.Value
@@ -72,23 +74,25 @@ func auditSurface(c *state.Campaign, surface validation.Value) (validation.Value
 			if _, ok := surfaceSet[rid]; !ok {
 				problems = append(problems, sprintf("plan priority %s cites "+
 					"probe row %s, which the current surface does not carry — "+
-					"the surface was rebuilt without it (re-run `webv2 probes "+
-					"<campaign> run --emit`)", planRows[rid],
-					validation.PyReprStr(rid)))
+					"the surface was rebuilt without it; re-run `webv2 probes "+
+					"%s run --emit`%s", planRows[rid],
+					validation.PyReprStr(rid), c.CampaignID,
+					repairQuotaNote(surface)))
 			}
 		}
 		for _, rid := range sortedStrings(surfaceRows) {
 			if _, ok := planRows[rid]; !ok {
 				problems = append(problems, sprintf("probe row %s is in the "+
 					"surface but was never emitted as a plan priority — "+
-					"`webv2 probes %s run --emit`", validation.PyReprStr(rid),
-					c.CampaignID))
+					"`webv2 probes %s run --emit`%s", validation.PyReprStr(rid),
+					c.CampaignID, repairQuotaNote(surface)))
 			}
 		}
 	} else if len(surfaceRows) > 0 {
 		problems = append(problems, sprintf("the probe surface carries %d "+
 			"row(s) but no plan priority was emitted from it — `webv2 probes "+
-			"%s run --emit`", len(surfaceSet), c.CampaignID))
+			"%s run --emit`%s", len(surfaceSet), c.CampaignID,
+			repairQuotaNote(surface)))
 	}
 	rederived, reProblems := rederiveSurface(c, surface, currentSha)
 	problems = append(problems, reProblems...)
@@ -152,6 +156,26 @@ func knob(surface validation.Value, key string, def int) int {
 	return int(v.I)
 }
 
+// repairQuotaNote names the quotas a bare repair run adopts from the surface,
+// so the hint tells the operator what the rebuild will use. It is a pure
+// function of the artifact: empty when neither knob is recorded as an integer.
+// The note is information, not an instruction — the bare command adopts these
+// values on its own (see the probes run repair rule).
+func repairQuotaNote(surface validation.Value) string {
+	parts := []string{}
+	if v := vGet(surface, "per_axis"); v.Kind == validation.Int {
+		parts = append(parts, sprintf("--per-axis %d", v.I))
+	}
+	if v := vGet(surface, "total"); v.Kind == validation.Int {
+		parts = append(parts, sprintf("--total %d", v.I))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return " (rebuilds with the surface's recorded " + strings.Join(parts,
+		" ") + ")"
+}
+
 // rederiveProblems is the row-set + shape + disposition-stamp comparison.
 func rederiveProblems(c *state.Campaign, surface, fresh validation.Value,
 	plan *validation.Value) []string {
@@ -168,7 +192,8 @@ func rederiveProblems(c *state.Campaign, surface, fresh validation.Value,
 			storedByID[vStr(r, "row_id")] = r
 		}
 	}
-	rerun := "re-run `webv2 probes " + c.CampaignID + " run --emit`"
+	rerun := "re-run `webv2 probes " + c.CampaignID + " run --emit`" +
+		repairQuotaNote(surface)
 	for _, rid := range sortedKeys(freshByID) {
 		if _, ok := storedByID[rid]; !ok {
 			problems = append(problems, sprintf("re-deriving the surface "+
@@ -286,7 +311,8 @@ func blankProblems(c *state.Campaign, surface validation.Value,
 		if ax == nil {
 			problems = append(problems, sprintf("blank attestation for %s "+
 				"but the surface carries no such axis — re-run `webv2 probes "+
-				"%s run`", validation.PyReprStr(lens), c.CampaignID))
+				"%s run`%s", validation.PyReprStr(lens), c.CampaignID,
+				repairQuotaNote(surface)))
 			continue
 		}
 		if vStr(*ax, "status") != "blind" {

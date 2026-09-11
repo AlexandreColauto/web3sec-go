@@ -280,9 +280,9 @@ func IngestHypothesis(campaign *state.Campaign, payload validation.Value,
 	}
 	if objAt(budget, "discovery_findings_so_far").I >=
 		objAt(budget, "max_discovery_findings").I {
-		return validation.VNull(), fmt.Errorf(
-			"discovery budget exhausted — raise the ceiling (webv2 budget " +
-				"<campaign> --set-discovery N --actor NAME) or plan a new pass")
+		return validation.VNull(), fmt.Errorf("%s",
+			"discovery budget exhausted — raise the ceiling (webv2 budget "+
+				campaign.CampaignID+" --set-discovery N --actor NAME) or plan a new pass")
 	}
 
 	fid := NewFindingID()
@@ -369,7 +369,7 @@ func IngestHypothesis(campaign *state.Campaign, payload validation.Value,
 		return validation.VNull(), err
 	}
 	advisory := classAdvisoryFunc(rootClass)
-	warnings := IntakeCheckpoint(p, trajectory)
+	warnings := IntakeCheckpoint(p, trajectory, campaign.CampaignID)
 	if _, err := campaign.Log("finding.ingested", &fid,
 		ingestLogData(trajectory, stage, model, rootClass, advisory,
 			warnings)); err != nil {
@@ -553,8 +553,14 @@ func AddEvidence(campaign *state.Campaign, findingID string,
 }
 
 // IntakeCheckpoint is intake_checkpoint: pre-admission sanity checks —
-// WARNINGS, not rejections.
-func IntakeCheckpoint(payload validation.Value, trajectory string) []string {
+// WARNINGS, not rejections. campaignID names the campaign in the repair hint;
+// an empty id (a direct call with no campaign in hand) keeps the documented
+// metavariable rather than an empty hole.
+func IntakeCheckpoint(payload validation.Value, trajectory,
+	campaignID string) []string {
+	if campaignID == "" {
+		campaignID = "<campaign>"
+	}
 	var warnings []string
 	if adv := classAdvisoryFunc(rootClassPtr(payload)); adv != "" {
 		warnings = append(warnings, adv)
@@ -566,7 +572,7 @@ func IntakeCheckpoint(payload validation.Value, trajectory string) []string {
 				"the CONFIRMED gate for economic classes requires an E7 "+
 				"quantification artifact (balance-delta or manual evidence), or "+
 				"the NAMED DECISION that no figure is defensible "+
-				"(`webv2 impact <campaign> <finding> --unpriceable "+
+				"(`webv2 impact "+campaignID+" <finding> --unpriceable "+
 				"--ceiling '<capacity basis>' --reason R --actor A`)")
 	}
 	return warnings

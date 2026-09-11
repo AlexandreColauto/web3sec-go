@@ -20,10 +20,12 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"websec/internal/audit"
 	"websec/internal/orchestrator"
@@ -180,6 +182,7 @@ func t29Setup(t *testing.T, root string, withPlan bool) (string,
 	*state.Campaign, validation.Value, validation.Value) {
 	t.Helper()
 	probes.Wire() // a sibling test may have reset the planner seam
+	audit.Setup() // idempotent; makes the audit section registry order-free
 	ws := t.TempDir()
 	c, err := state.Init(ws, "Probe CLI", state.InitOpts{CampaignID: t29CID})
 	if err != nil {
@@ -661,6 +664,307 @@ func TestProbesRunRejectsAQuotaThatObligesNothing(t *testing.T) {
 	}
 }
 
+// t29SeedSurface campaign + saved index + a surface artifact built with the
+// given quotas, the starting point of every repair test.
+func t29SeedSurface(t *testing.T, perAxis, total int) (string,
+	*state.Campaign, validation.Value) {
+	t.Helper()
+	probes.Wire()
+	ws := t.TempDir()
+	c, err := state.Init(ws, "Probe CLI", state.InitOpts{CampaignID: t29CID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := structidx.IndexSnapshot(c, t29Ranking, structidx.DefaultBackend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := structidx.SaveIndex(c, idx); err != nil {
+		t.Fatal(err)
+	}
+	surface, err := probes.BuildSurface(idx, validation.VNull(), perAxis,
+		total, 3, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29WriteSurface(t, c, surface)
+	return ws, c, surface
+}
+
+// TestProbesRunAdoptsRecordedQuotas pins the repair rule per flag: an explicit
+// flag wins, an unset one adopts the quota the existing surface records, and
+// the output names both the effective numbers and their source. The canonical
+// ranking fixture yields only 10 candidate rows, so the emitted row count is
+// 10 under both the adopted 30/70 and the compiled-in 12/40: it cannot
+// discriminate adoption here. The recorded per_axis/total and the provenance
+// line are what do.
+func TestProbesRunAdoptsRecordedQuotas(t *testing.T) {
+	cases := []struct {
+		name          string
+		recordedPer   int
+		recordedTotal int
+		noArtifact    bool
+		perAsString   bool
+		args          []string
+		withPlan      bool
+		wantPer       int
+		wantTotal     int
+		wantSource    string
+	}{
+		{"no flags adopt the recorded pair", 30, 70, false, false, nil, false,
+			30, 70, "recorded in probe_surface.json"},
+		{"a tighter recorded pair still wins", 2, 5, false, false, nil, false,
+			2, 5, "recorded in probe_surface.json"},
+		{"an explicit per-axis wins and total falls back", 30, 70, false,
+			false, []string{"--per-axis", "2"}, false, 2, 70,
+			"--per-axis passed on the command line; --total recorded in " +
+				"probe_surface.json"},
+		{"an explicit total wins and per-axis falls back", 30, 70, false,
+			false, []string{"--total", "5"}, false, 30, 5,
+			"--per-axis recorded in probe_surface.json; --total passed on " +
+				"the command line"},
+		{"an explicit pair wins over the record", 30, 70, false, false,
+			[]string{"--per-axis", "2", "--total", "5"}, false, 2, 5,
+			"passed on the command line"},
+		{"--emit adopts the recorded pair too", 2, 5, false, false,
+			[]string{"--emit"}, true, 2, 5,
+			"recorded in probe_surface.json"},
+		{"one flag without an artifact keeps the other default", 12, 40, true,
+			false, []string{"--total", "5"}, false, 12, 5,
+			"--per-axis defaults; --total passed on the command line"},
+		{"an artifact without a usable per-axis names itself", 30, 70, false,
+			true, nil, false, 12, 70,
+			"--per-axis default (probe_surface.json records no integer); " +
+				"--total recorded in probe_surface.json"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ws, c, seed := t29SeedSurface(t, tc.recordedPer, tc.recordedTotal)
+			if tc.noArtifact {
+				if err := os.Remove(t29SurfacePath(c)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.perAsString {
+				bad := t29DeepCopy(seed)
+				t29Set(&bad, "per_axis", validation.VStr("thirty"))
+				body := validation.DumpIndented(bad) + "\n"
+				if err := os.WriteFile(t29SurfacePath(c), []byte(body),
+					0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.withPlan {
+				t29Plan(t, c)
+			}
+			args := append([]string{"--root", ws, "probes", t29CID, "run"},
+				tc.args...)
+			code, out, errS := run(t, args...)
+			if code != 0 {
+				t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+			}
+			got, err := probes.CampaignSurface(c)
+			if err != nil || got == nil {
+				t.Fatalf("surface = %v, %v", got, err)
+			}
+			if v := objInt(*got, "per_axis"); v != int64(tc.wantPer) {
+				t.Errorf("per_axis = %d, want %d", v, tc.wantPer)
+			}
+			if v := objInt(*got, "total"); v != int64(tc.wantTotal) {
+				t.Errorf("total = %d, want %d", v, tc.wantTotal)
+			}
+			flat := strings.Join(strings.Fields(out), " ")
+			want := fmt.Sprintf("quotas: --per-axis %d --total %d (%s)",
+				tc.wantPer, tc.wantTotal, tc.wantSource)
+			if !strings.Contains(flat, want) {
+				t.Errorf("output missing %q: %q", want, flat)
+			}
+			if tc.withPlan && !strings.Contains(flat, "emit: created") {
+				t.Errorf("--emit did not run off the repaired surface: %q",
+					flat)
+			}
+		})
+	}
+}
+
+// TestProbesRunWithoutASurfaceUsesTheDefaults pins the fallback: with no
+// artifact to repair, the compiled-in 12/40 still build the surface and the
+// provenance line says so.
+func TestProbesRunWithoutASurfaceUsesTheDefaults(t *testing.T) {
+	probes.Wire()
+	ws := t.TempDir()
+	c, err := state.Init(ws, "Probe CLI", state.InitOpts{CampaignID: t29CID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := structidx.IndexSnapshot(c, t29Ranking, structidx.DefaultBackend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := structidx.SaveIndex(c, idx); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "run")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	got, err := probes.CampaignSurface(c)
+	if err != nil || got == nil {
+		t.Fatalf("surface = %v, %v", got, err)
+	}
+	if v := objInt(*got, "per_axis"); v != 12 {
+		t.Errorf("per_axis = %d, want 12", v)
+	}
+	if v := objInt(*got, "total"); v != 40 {
+		t.Errorf("total = %d, want 40", v)
+	}
+	flat := strings.Join(strings.Fields(out), " ")
+	if !strings.Contains(flat, "quotas: --per-axis 12 --total 40 (defaults)") {
+		t.Errorf("output does not name the default provenance: %q", flat)
+	}
+}
+
+// TestProbesRunRejectsAnInvalidRecordedQuota pins the loud path: a knob the
+// artifact records as an integer that ValidateKnobs refuses must fail naming
+// the artifact and the value, and must write nothing.
+func TestProbesRunRejectsAnInvalidRecordedQuota(t *testing.T) {
+	cases := []struct{ key, flag string }{
+		{"per_axis", "--per-axis"},
+		{"total", "--total"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.key, func(t *testing.T) {
+			ws, c, seed := t29SeedSurface(t, 12, 40)
+			bad := t29DeepCopy(seed)
+			t29Set(&bad, tc.key, validation.VInt(0))
+			path := t29SurfacePath(c)
+			before := validation.DumpIndented(bad) + "\n"
+			if err := os.WriteFile(path, []byte(before), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			code, out, errS := run(t, "--root", ws, "probes", t29CID, "run")
+			if code != 2 {
+				t.Fatalf("exit %d, want 2: out=%q err=%q", code, out, errS)
+			}
+			if !strings.Contains(errS, "probe_surface.json") {
+				t.Errorf("err does not name the artifact: %q", errS)
+			}
+			if !strings.Contains(errS, tc.flag+" 0") {
+				t.Errorf("err does not name the recorded value: %q", errS)
+			}
+			if strings.Contains(out, "probe surface:") {
+				t.Errorf("a rejected record must print no surface line: %q",
+					out)
+			}
+			after, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(after) != before {
+				t.Errorf("a rejected record must write nothing: %q", after)
+			}
+		})
+	}
+}
+
+// TestProbesRunRepairsAroundACorruptSurfaceArtifact pins the remedy path: an
+// artifact the run cannot parse names the artifact and the way out (delete or
+// repair it, or pass the quotas explicitly) with the probes exit code 2, and
+// leaves the bytes as they were.
+func TestProbesRunRepairsAroundACorruptSurfaceArtifact(t *testing.T) {
+	cases := []struct{ name, body string }{
+		{"truncated json", `{"campaign_id": "` + t29CID + `"`},
+		{"empty file", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ws, c, _ := t29SeedSurface(t, 30, 70)
+			path := t29SurfacePath(c)
+			if err := os.WriteFile(path, []byte(tc.body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			code, out, errS := run(t, "--root", ws, "probes", t29CID, "run")
+			if code != 2 {
+				t.Fatalf("exit %d, want 2: out=%q err=%q", code, out, errS)
+			}
+			if !strings.Contains(errS, "probe_surface.json") {
+				t.Errorf("err does not name the artifact: %q", errS)
+			}
+			if !strings.Contains(errS, "--per-axis") ||
+				!strings.Contains(errS, "--total") {
+				t.Errorf("err does not offer the explicit-flag way out: %q",
+					errS)
+			}
+			if strings.Contains(out, "probe surface:") {
+				t.Errorf("a corrupt artifact must print no surface line: %q",
+					out)
+			}
+			after, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(after) != tc.body {
+				t.Errorf("a corrupt artifact must be left for the operator "+
+					"to delete or repair: %q", after)
+			}
+		})
+	}
+}
+
+// TestProbesRunPerAxisZeroOnTheCommandLineStillFails is the regression pin for
+// the gate: an explicit --per-axis 0 keeps its existing message even when the
+// artifact records a valid quota, and the artifact is left untouched.
+func TestProbesRunPerAxisZeroOnTheCommandLineStillFails(t *testing.T) {
+	ws, c, _ := t29SeedSurface(t, 30, 70)
+	path := t29SurfacePath(c)
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "run",
+		"--per-axis", "0")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(errS, "--per-axis must be >= 1, got 0") {
+		t.Errorf("err = %q", errS)
+	}
+	if strings.Contains(out, "probe surface:") {
+		t.Errorf("a rejected knob must print no surface line: %q", out)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Error("a rejected knob must leave the artifact untouched")
+	}
+}
+
+// TestProbesRunHelpStatesTheRepairRule pins the documentation half: --help
+// states the adoption rule, wrapped in the file's 80-column voice.
+func TestProbesRunHelpStatesTheRepairRule(t *testing.T) {
+	code, out, errS := run(t, "probes", t29CID, "run", "--help")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	flat := strings.Join(strings.Fields(out), " ")
+	if !strings.Contains(flat, "quotas: a quota flag the run was not given "+
+		"adopts the value already recorded in probe_surface.json (else the "+
+		"default)") {
+		t.Fatalf("help does not state the adoption rule: %q", flat)
+	}
+	if !strings.Contains(flat, "so a bare run repairs the surface the "+
+		"campaign has instead of shrinking it") {
+		t.Fatalf("help does not say what the rule is for: %q", flat)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if utf8.RuneCountInString(line) > 80 {
+			t.Errorf("help line exceeds 80 columns: %q", line)
+		}
+	}
+}
+
 func TestProbesRunAndListSurfaceTheFloorOverrunWarning(t *testing.T) {
 	probes.Wire()
 	ws := t.TempDir()
@@ -704,7 +1008,10 @@ func TestProbesRunAndListSurfaceTheFloorOverrunWarning(t *testing.T) {
 	if !strings.Contains(out, "warning: floor reserve 3") {
 		t.Fatalf("list output missing the warning: %q", out)
 	}
-	code, out, errS = run(t, "--root", ws, "probes", t29CID, "run")
+	// A bare re-run repairs the surface it has and would adopt the recorded
+	// --total 2 (and its warning) back, so the winning ceiling is explicit.
+	code, out, errS = run(t, "--root", ws, "probes", t29CID, "run",
+		"--total", "40")
 	if code != 0 {
 		t.Fatalf("re-run exit %d: out=%q err=%q", code, out, errS)
 	}
@@ -1658,6 +1965,278 @@ func TestAuditDetectsAStaleSurfaceAndAHandEditedAttestation(t *testing.T) {
 	}
 	if !t29HasProblem(sec, "stale") {
 		t.Fatalf("problems = %v", t29Problems(sec))
+	}
+}
+
+// t29GhostPriority appends a plan priority citing a probe row the surface does
+// not carry (the plan-priority-orphan condition).
+func t29GhostPriority(t *testing.T, c *state.Campaign) {
+	t.Helper()
+	plan := t29PlanJSON(t, c)
+	ghost := t29DeepCopy(t29ProbePriority(t, c, ""))
+	t29Set(&ghost, "id", validation.VStr("Q-900"))
+	prov := objAt(ghost, "probe")
+	t29Set(&prov, "row_id", validation.VStr("deadbeef00"))
+	t29Set(&ghost, "probe", prov)
+	prios := t29List(plan, "priorities")
+	prios = append(prios, ghost)
+	t29Set(&plan, "priorities", validation.VArr(prios...))
+	if _, err := planner.SavePlan(c, plan); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestAuditHintNamesTheRecordedQuotasWhenTheSurfaceDrifts pins the repair
+// information: a drifted surface that records 30/70 prints the quotas a bare
+// re-run adopts, and no problem carries the <campaign> placeholder.
+func TestAuditHintNamesTheRecordedQuotasWhenTheSurfaceDrifts(t *testing.T) {
+	ws, c, idx, _ := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	stored, err := validation.ReadJson(t29SurfacePath(c))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Set(&stored, "per_axis", validation.VInt(30))
+	t29Set(&stored, "total", validation.VInt(70))
+	t29WriteSurface(t, c, stored)
+	t29BumpIndexLine(t, c, idx)
+	got := t29Problems(t29AuditSection(t, c))
+	if len(got) != 1 {
+		t.Fatalf("problems = %d, want 1: %v", len(got), got)
+	}
+	if !strings.Contains(got[0], "--per-axis 30 --total 70") {
+		t.Errorf("hint does not name the recorded quotas: %q", got[0])
+	}
+	if !strings.Contains(got[0], "rebuilds with the surface's recorded") {
+		t.Errorf("hint does not say what the numbers are for: %q", got[0])
+	}
+	if !strings.Contains(got[0], t29CID) {
+		t.Errorf("hint does not name the campaign id: %q", got[0])
+	}
+	for _, p := range got {
+		if strings.Contains(p, "<campaign>") {
+			t.Errorf("problem carries the literal placeholder: %q", p)
+		}
+	}
+}
+
+// TestAuditHintStaysPlainWithoutRecordedQuotas pins the other half: an
+// artifact recording neither knob keeps the plain hint and grows no clause.
+func TestAuditHintStaysPlainWithoutRecordedQuotas(t *testing.T) {
+	ws, c, _, _ := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	stored, err := validation.ReadJson(t29SurfacePath(c))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Del(&stored, "per_axis")
+	t29Del(&stored, "total")
+	// raw write: the probe_surface schema requires both knobs, but an artifact
+	// from an older build may record neither, which is the case under test.
+	if err := os.WriteFile(t29SurfacePath(c),
+		[]byte(validation.DumpIndented(stored)+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t29GhostPriority(t, c)
+	got := t29Problems(t29AuditSection(t, c))
+	if len(got) != 1 {
+		t.Fatalf("problems = %d, want 1: %v", len(got), got)
+	}
+	if !strings.Contains(got[0], "`webv2 probes "+t29CID+" run --emit`") {
+		t.Errorf("hint is not the plain, copy-pasteable command: %q", got[0])
+	}
+	if strings.Contains(got[0], "rebuilds with") {
+		t.Errorf("hint grew a quota clause from an artifact with none: %q",
+			got[0])
+	}
+}
+
+// TestAuditPlanOrphanHintNamesTheCampaignID pins the placeholder fix on the
+// one hint that never used the real campaign id.
+func TestAuditPlanOrphanHintNamesTheCampaignID(t *testing.T) {
+	ws, c, _, _ := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	t29GhostPriority(t, c)
+	got := t29Problems(t29AuditSection(t, c))
+	if len(got) != 1 {
+		t.Fatalf("problems = %d, want 1: %v", len(got), got)
+	}
+	if !strings.Contains(got[0], "`webv2 probes "+t29CID+" run --emit`") {
+		t.Errorf("orphan hint does not name the campaign id: %q", got[0])
+	}
+	if strings.Contains(got[0], "<campaign>") {
+		t.Errorf("orphan hint still carries the placeholder: %q", got[0])
+	}
+	if !strings.Contains(got[0], "rebuilds with the surface's recorded") {
+		t.Errorf("orphan hint does not name the recorded quotas: %q", got[0])
+	}
+}
+
+// TestAuditProblemListIsPinnedForADriftedSurface pins the whole list (count,
+// order and text) so a hint edit cannot silently move the problem set.
+func TestAuditProblemListIsPinnedForADriftedSurface(t *testing.T) {
+	ws, c, idx, _ := t29Setup(t, t29Ranking, true)
+	t29Emit(t, ws)
+	stored, err := validation.ReadJson(t29SurfacePath(c))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Set(&stored, "per_axis", validation.VInt(30))
+	t29Set(&stored, "total", validation.VInt(70))
+	t29WriteSurface(t, c, stored)
+	t29GhostPriority(t, c)
+	t29BumpIndexLine(t, c, idx)
+	current := probes.CampaignIndexSha(c)
+	if current == nil {
+		t.Fatal("no current index sha")
+	}
+	quota := "(rebuilds with the surface's recorded --per-axis 30 --total 70)"
+	want := []string{
+		fmt.Sprintf("probe surface is stale: built against index_sha %s, "+
+			"current index is %s — every row anchor describes the old tree; "+
+			"re-run `webv2 probes %s run --emit` %s",
+			objStr(stored, "index_sha"), *current, t29CID, quota),
+		fmt.Sprintf("plan priority Q-900 cites probe row 'deadbeef00', which "+
+			"the current surface does not carry — the surface was rebuilt "+
+			"without it; re-run `webv2 probes %s run --emit` %s", t29CID,
+			quota),
+	}
+	got := t29Problems(t29AuditSection(t, c))
+	if len(got) != len(want) {
+		t.Fatalf("problems = %d, want %d:\n%s", len(got), len(want),
+			strings.Join(got, "\n"))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("problem[%d]:\n got %q\nwant %q", i, got[i], want[i])
+		}
+	}
+}
+
+// TestAuditProblemListIsPinnedForAHandEditedAttestation pins a hint-free
+// fixture exactly: this task must not move a problem it does not touch.
+func TestAuditProblemListIsPinnedForAHandEditedAttestation(t *testing.T) {
+	_, c, _, _ := t29Setup(t, t29Blind, true)
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Set(&st, "probe_blanks", validation.VArr(validation.VObj(
+		validation.KV{K: "axis", V: validation.VStr("L-03")},
+		validation.KV{K: "probe_axis", V: validation.VStr("assertion-strength")},
+		validation.KV{K: "anchor_blind", V: validation.VStr("ghost-key")},
+		validation.KV{K: "reason", V: validation.VStr("a written reason")},
+		validation.KV{K: "actor", V: validation.VStr("pytest")},
+		validation.KV{K: "at", V: validation.VStr("2026-01-01T00:00:00+00:00")},
+	)))
+	t29SaveState(t, c, st)
+	want := []string{"blank attestation for 'L-03' cites 'ghost-key' with " +
+		"no probes.blank event — the attestation was hand-edited"}
+	got := t29Problems(t29AuditSection(t, c))
+	if len(got) != len(want) {
+		t.Fatalf("problems = %d, want %d: %v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("problem[%d]:\n got %q\nwant %q", i, got[i], want[i])
+		}
+	}
+}
+
+// t29BlankForAnAxisTheSurfaceLacks persists a blank attestation citing a probe
+// axis (ghost-axis) and its matching probes.blank event, on a surface that
+// carries no such axis — the "surface carries no such axis" condition.
+func t29BlankForAnAxisTheSurfaceLacks(t *testing.T, c *state.Campaign) {
+	t.Helper()
+	const key = "ghost-key"
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Set(&st, "probe_blanks", validation.VArr(validation.VObj(
+		validation.KV{K: "axis", V: validation.VStr("L-03")},
+		validation.KV{K: "probe_axis", V: validation.VStr("ghost-axis")},
+		validation.KV{K: "anchor_blind", V: validation.VStr(key)},
+		validation.KV{K: "reason", V: validation.VStr("a written reason")},
+		validation.KV{K: "actor", V: validation.VStr("pytest")},
+		validation.KV{K: "at", V: validation.VStr("2026-01-01T00:00:00+00:00")},
+	)))
+	t29SaveState(t, c, st)
+	ref := "L-03"
+	data := validation.VObj(
+		validation.KV{K: "axis", V: validation.VStr("assertion-strength")},
+		validation.KV{K: "probe_axis", V: validation.VStr("ghost-axis")},
+		validation.KV{K: "anchor_blind", V: validation.VStr(key)},
+		validation.KV{K: "actor", V: validation.VStr("pytest")},
+		validation.KV{K: "reason", V: validation.VStr("a written reason")},
+		validation.KV{K: "replaced", V: validation.VBool(false)},
+	)
+	if _, err := c.Log("probes.blank", &ref, &data); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// t29NoSuchAxisProblem returns the one "surface carries no such axis" problem.
+func t29NoSuchAxisProblem(t *testing.T, c *state.Campaign) string {
+	t.Helper()
+	for _, p := range t29Problems(t29AuditSection(t, c)) {
+		if strings.Contains(p, "the surface carries no such axis") {
+			return p
+		}
+	}
+	t.Fatalf("no \"carries no such axis\" problem: %v",
+		t29Problems(t29AuditSection(t, c)))
+	return ""
+}
+
+// TestAuditNoSuchAxisHintNamesTheRecordedQuotas covers the sixth repair hint:
+// the condition co-occurs with a recorded-quota artifact, and a bare run
+// adopts those quotas, so this hint carries the same note as the --emit sites.
+func TestAuditNoSuchAxisHintNamesTheRecordedQuotas(t *testing.T) {
+	_, c, _, _ := t29Setup(t, t29Blind, true)
+	stored, err := validation.ReadJson(t29SurfacePath(c))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Set(&stored, "per_axis", validation.VInt(30))
+	t29Set(&stored, "total", validation.VInt(70))
+	t29WriteSurface(t, c, stored)
+	t29BlankForAnAxisTheSurfaceLacks(t, c)
+	got := t29NoSuchAxisProblem(t, c)
+	if !strings.Contains(got, "`webv2 probes "+t29CID+" run`") {
+		t.Errorf("hint is not the bare repair command: %q", got)
+	}
+	if !strings.Contains(got, "--per-axis 30 --total 70") {
+		t.Errorf("hint does not name the recorded quotas: %q", got)
+	}
+	if !strings.Contains(got, "rebuilds with the surface's recorded") {
+		t.Errorf("hint does not say what the numbers are for: %q", got)
+	}
+}
+
+// TestAuditNoSuchAxisHintStaysPlainWithoutRecordedQuotas is the other half: an
+// artifact recording neither knob renders the plain form, with no new clause.
+func TestAuditNoSuchAxisHintStaysPlainWithoutRecordedQuotas(t *testing.T) {
+	_, c, _, _ := t29Setup(t, t29Blind, true)
+	stored, err := validation.ReadJson(t29SurfacePath(c))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t29Del(&stored, "per_axis")
+	t29Del(&stored, "total")
+	// raw write: the probe_surface schema requires both knobs, but an artifact
+	// from an older build may record neither, which is the case under test.
+	if err := os.WriteFile(t29SurfacePath(c),
+		[]byte(validation.DumpIndented(stored)+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t29BlankForAnAxisTheSurfaceLacks(t, c)
+	got := t29NoSuchAxisProblem(t, c)
+	if !strings.Contains(got, "`webv2 probes "+t29CID+" run`") {
+		t.Errorf("hint is not the plain, copy-pasteable command: %q", got)
+	}
+	if strings.Contains(got, "rebuilds with") {
+		t.Errorf("hint grew a quota clause from an artifact with none: %q", got)
 	}
 }
 

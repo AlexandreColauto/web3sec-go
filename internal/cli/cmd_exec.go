@@ -274,8 +274,8 @@ func execRun(c *state.Campaign, campaignID, profile, command, workdir,
 			fmt.Fprintf(r.Err, "exec preflight FAIL: %s\n", scalarStr(i))
 		}
 		fmt.Fprintln(r.Err, "environment problem, not hypothesis problem — "+
-			"fix the above and re-run (re-check: webv2 doctor <campaign> / "+
-			"webv2 env doctor <campaign>)")
+			"fix the above and re-run (re-check: webv2 doctor "+campaignID+" / "+
+			"webv2 env doctor "+campaignID+")")
 		return 2
 	}
 	for _, w := range objAt(pre, "warnings").A {

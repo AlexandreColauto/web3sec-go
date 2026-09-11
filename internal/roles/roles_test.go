@@ -691,8 +691,19 @@ func TestStaleBlocksAreOmittedAndFlagged(t *testing.T) {
 	names := map[string]bool{}
 	for _, s := range stale {
 		names[objStr(s, "artifact")] = true
-		if objStr(s, "re_run") == "" {
+		reRun := objStr(s, "re_run")
+		if reRun == "" {
 			t.Errorf("no re_run for %s", objStr(s, "artifact"))
+		}
+		// the brief tells the operator which command restores the artifact:
+		// it must name the campaign, not the <campaign> metavariable.
+		if strings.Contains(reRun, "<campaign>") {
+			t.Errorf("re_run for %s still carries the metavariable: %q",
+				objStr(s, "artifact"), reRun)
+		}
+		if !strings.Contains(reRun, c.CampaignID) {
+			t.Errorf("re_run for %s does not name the campaign: %q",
+				objStr(s, "artifact"), reRun)
 		}
 	}
 	for _, want := range []string{"value_flow.json",

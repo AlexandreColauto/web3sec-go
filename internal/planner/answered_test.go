@@ -1,6 +1,7 @@
 package planner
 
 import (
+	"strings"
 	"testing"
 
 	"websec/internal/state"
@@ -76,6 +77,13 @@ func TestMarkAnsweredOracle(t *testing.T) {
 		plan, err := MarkAnswered(camp, plan, objStr(c, "pid"),
 			objStr(c, "outcome"), maOpts(t, c))
 		wantErr := objAt(c, "error")
+		if name == "no_surface" {
+			// The recording carries Python's uncopyable `<campaign>`
+			// literal; the port deliberately names the campaign, so the
+			// expectation is rewritten to the id in hand while the rest
+			// of the recorded message stays pinned.
+			wantErr = campaignNamed(t, wantErr, camp.CampaignID)
+		}
 		if wantErr.Kind != validation.Null {
 			requireErr(t, name, err, wantErr)
 			continue
@@ -180,6 +188,79 @@ func probePriority(t *testing.T, plan validation.Value, pid string) validation.V
 
 // strPtr is a *string helper.
 func strPtr(s string) *string { return &s }
+
+// campaignNamed rewrites the recorded oracle's `<campaign>` placeholder to the
+// campaign id the port names, keeping the rest of the recorded message pinned.
+func campaignNamed(t *testing.T, want validation.Value,
+	cid string) validation.Value {
+	t.Helper()
+	return validation.VObj(
+		kv("type", objAt(want, "type")),
+		kv("msg", validation.VStr(strings.Replace(objStr(want, "msg"),
+			"<campaign>", cid, 1))),
+	)
+}
+
+// TestMarkAnsweredNoSurfaceHintNamesCampaign pins the hint an operator sees
+// when a probe-row disposition has no surface to check against: the campaign
+// id in hand, not Python's uncopyable `<campaign>` literal.
+func TestMarkAnsweredNoSurfaceHintNamesCampaign(t *testing.T) {
+	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
+	withProbes(t, probeEnv{})
+	camp := newCampaign(t, "ma-no-surface-hint")
+	_, err := MarkAnswered(camp, maPlan(t, "plan_probe_rows.json"), "Q-005",
+		"answered", AnsweredOpts{Reason: strPtr("checked by hand"),
+			Anchor: strPtr("consumer")})
+	if err == nil {
+		t.Fatalf("a disposition with no probe surface must be an error")
+	}
+	want := "priority Q-005 cites probe row '81dfad6492' but the campaign " +
+		"has no probe surface — run `webv2 probes " + camp.CampaignID +
+		" run` first"
+	if got := err.Error(); got != want {
+		t.Fatalf("hint mismatch\n got: %q\nwant: %q", got, want)
+	}
+	if strings.Contains(err.Error(), "<campaign>") {
+		t.Fatalf("hint still carries the placeholder: %q", err.Error())
+	}
+}
+
+// TestMarkAnsweredAbsentRowHintNamesCampaign pins the other disposition error:
+// the cited row is not in the current surface, and the re-emit command names
+// the campaign id.
+func TestMarkAnsweredAbsentRowHintNamesCampaign(t *testing.T) {
+	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
+	surface, index := maSurface(t)
+	withProbes(t, probeEnv{surface: surface, index: index})
+	camp := newCampaign(t, "ma-absent-row-hint")
+	plan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
+	for i, p := range listOf(plan, "priorities") {
+		if objStr(p, "id") != "Q-005" {
+			continue
+		}
+		prov := objAt(p, "probe")
+		prov.O = validation.SetOrAppend(prov.O, "row_id",
+			validation.VStr("ffffffffffff"))
+		p.O = validation.SetOrAppend(p.O, "probe", prov)
+		prios := listOf(plan, "priorities")
+		prios[i] = p
+		plan.O = validation.SetOrAppend(plan.O, "priorities",
+			validation.VArr(prios...))
+	}
+	_, err := MarkAnswered(camp, plan, "Q-005", "answered", AnsweredOpts{
+		Reason: strPtr("checked by hand"), Anchor: strPtr("consumer")})
+	if err == nil {
+		t.Fatalf("a row absent from the surface must be an error")
+	}
+	want := "probe row 'ffffffffffff' is not in the current surface — " +
+		"re-run `webv2 probes " + camp.CampaignID + " run --emit`"
+	if got := err.Error(); got != want {
+		t.Fatalf("hint mismatch\n got: %q\nwant: %q", got, want)
+	}
+	if strings.Contains(err.Error(), "<campaign>") {
+		t.Fatalf("hint still carries the placeholder: %q", err.Error())
+	}
+}
 
 // TestSiblingRescanOracle pins the DISPROVED-side mirror: a lifecycle finding
 // spawns a sibling priority, --adjacent-clear logs instead, and a missing or

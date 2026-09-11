@@ -80,7 +80,7 @@ func ValidatePlan(campaign *state.Campaign,
 	if len(bad) > 0 {
 		return validation.VNull(), errValue("priorities " + strings.Join(bad, ", ") +
 			" declare non-canonical bug_class; the canonical class list is " +
-			"what `webv2 floors <campaign>` prints (one row per class, with " +
+			"what `webv2 floors " + campaign.CampaignID + "` prints (one row per class, with " +
 			"its CONFIRMED floor) — use a listed class or drop the " +
 			"bug_class key")
 	}

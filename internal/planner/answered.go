@@ -219,13 +219,13 @@ func resolveAnchor(campaign *state.Campaign, priorityID string,
 		return nil, validation.VNull(), errValue("priority " + priorityID +
 			" cites probe row " + validation.PyReprStr(rid) +
 			" but the campaign has no probe surface — run `webv2 probes " +
-			"<campaign> run` first")
+			campaign.CampaignID + " run` first")
 	}
 	row, ok := findRow(*surface, rid)
 	if !ok {
 		return nil, validation.VNull(), errValue("probe row " +
 			validation.PyReprStr(rid) + " is not in the current surface — " +
-			"re-run `webv2 probes <campaign> run --emit`")
+			"re-run `webv2 probes " + campaign.CampaignID + " run --emit`")
 	}
 	probeID := objStr(row, "probe")
 	if !PB().AnchorAllowed(probeID, anchor) {

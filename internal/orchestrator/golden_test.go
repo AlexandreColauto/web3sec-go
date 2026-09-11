@@ -12,7 +12,10 @@
 // bounty_gate_all step (oracle, state and events) was re-recorded from the Go
 // twin when D8 made check11's blocker carry fork_poc_status's reason instead
 // of the constant. The Python twin still emits the constant, so re-running
-// gen-vectors.py over `gates` would revert that one snapshot.
+// gen-vectors.py over `gates` would revert that one snapshot. The same
+// snapshot's five <campaign> remediation metavariables were re-recorded to
+// C-oracle00001 when the bounty gate started naming the campaign in hand
+// (Task 4); the Python twin still writes the metavariable.
 //
 // The three seams a replay must supply (structural index, adapter context,
 // independent-evidence minting) are installed with fakes whose recorded

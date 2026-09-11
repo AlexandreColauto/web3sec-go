@@ -532,14 +532,14 @@ func TestExampleIngestRoundTripsWithoutAdvisory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if warnings := findings.IntakeCheckpoint(payload, "discovery"); len(warnings) != 0 {
+	if warnings := findings.IntakeCheckpoint(payload, "discovery", ""); len(warnings) != 0 {
 		t.Errorf("ingesting the framework's own example produced warnings: %v",
 			warnings)
 	}
 	// the seam is live: an unknown class does produce the advisory
 	bad := validation.VObj(kv("root_cause",
 		validation.VObj(kv("class", validation.VStr("quantum-decoherence")))))
-	warnings := findings.IntakeCheckpoint(bad, "discovery")
+	warnings := findings.IntakeCheckpoint(bad, "discovery", "")
 	want := ClassAdvisory(ptr("quantum-decoherence"))
 	if len(warnings) != 1 || warnings[0] != want {
 		t.Errorf("intake warnings = %v, want [%s]", warnings, want)

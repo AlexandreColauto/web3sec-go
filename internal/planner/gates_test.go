@@ -1,6 +1,7 @@
 package planner
 
 import (
+	"strings"
 	"testing"
 
 	"websec/internal/validation"
@@ -68,6 +69,33 @@ func blanksOf(c validation.Value) map[string]validation.Value {
 		out[pair.K] = pair.V
 	}
 	return out
+}
+
+// TestProbeMissingHintNamesCampaign pins the missing-axis entry for a
+// hand-loaded plan (one that carries no campaign_id of its own): the re-emit
+// command names the campaign id the caller supplied, never `<campaign>`.
+func TestProbeMissingHintNamesCampaign(t *testing.T) {
+	surface, index, plan := pvFixtures(t)
+	withProbes(t, probeEnv{surface: &surface, index: &index})
+	plan = deepCopy(t, plan)
+	plan.O = dropKey(plan.O, "campaign_id")
+	bare := jsonValue(t, `{"axes":[],"rows":[]}`)
+	got := probeMissing(plan, DivergenceOpts{Surface: &bare,
+		CampaignID: "C-abc12345"})
+	if len(got) == 0 {
+		t.Fatalf("a lens whose axes the surface lacks must report an entry")
+	}
+	joined := ""
+	for _, m := range got {
+		joined += objStr(m, "what") + "\n"
+	}
+	if !strings.Contains(joined,
+		"run `webv2 probes C-abc12345 run --emit`") {
+		t.Fatalf("missing entry must name the campaign: %s", joined)
+	}
+	if strings.Contains(joined, "<campaign>") {
+		t.Fatalf("missing entry still carries the placeholder: %s", joined)
+	}
 }
 
 // TestProbeMissingOnlyOracle pins the probe-axis clause entries in isolation
@@ -174,5 +202,28 @@ func TestFakeAnchorRefOracle(t *testing.T) {
 	}
 	if n < 20 {
 		t.Fatalf("expected at least 20 anchor refs, checked %d", n)
+	}
+}
+
+// TestCampaignIDForPlanFallback pins the hardening: a direct call whose plan
+// carries no campaign_id and whose opts name no campaign has no id to render,
+// and an empty id would leave a hole in the command the hint prints, so the
+// documented metavariable stands in. No production path reaches this — every
+// operator-facing caller goes through DivergenceStatusFor, which supplies the
+// campaign — but a library caller must never get a broken command.
+func TestCampaignIDForPlanFallback(t *testing.T) {
+	plan := validation.VObj()
+	if got := campaignIDForPlan(plan, DivergenceOpts{}); got != "<campaign>" {
+		t.Fatalf("campaignIDForPlan = %q, want the metavariable fallback", got)
+	}
+	// the plan's own id, and the caller's, both still win over the fallback.
+	withPlanID := validation.VObj(kv("campaign_id", validation.VStr("C-plan")))
+	if got := campaignIDForPlan(withPlanID, DivergenceOpts{
+		CampaignID: "C-opts"}); got != "C-plan" {
+		t.Fatalf("plan id = %q, want C-plan", got)
+	}
+	if got := campaignIDForPlan(plan, DivergenceOpts{
+		CampaignID: "C-opts"}); got != "C-opts" {
+		t.Fatalf("caller id = %q, want C-opts", got)
 	}
 }

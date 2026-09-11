@@ -573,7 +573,10 @@ future implementer should answer rather than re-derive.
 A full-repo review (report kept in `.scratch/review/`, untracked) found six
 defects with one shape: **a gate or a write that reports success without
 having done the work.** All six are fixed, each with a regression test, and
-`scripts/verify-full.sh` is green (13/13) on the result.
+`scripts/verify-full.sh` is green (13/13) on the result. **Correction
+(2026-09-10, emit-quota repair batch):** that claim did not reproduce on re-run
+at this commit (`da7200a`) — step 12 fails at the blind-axis assertion. See
+**Acceptance item 1 — …** in the P0-batch record below.
 
 | # | defect | fix |
 |---|---|---|
@@ -616,7 +619,13 @@ Inputs: `../morph/webv2-workspace/reviews/webv2-framework-review.md`
 `2dbea50` → `b4a8397`) closed, what it deliberately left to the P1
 consumption plan, and one correction to the eval retro's premise. The P0
 plan's "out of scope" list *is* the P1 list, so nothing below is news to
-the plan — it is recorded here so it is not dropped.
+the plan — it is recorded here so it is not dropped. It also carries the
+follow-up emit-quota plan (`docs/superpowers/plans/2026-09-10-emit-quota-repair.md`,
+commits `1164289` → `9a4f809`; the range also carries two plan-amendment
+commits, `12da714` "Plan: name the campaign in the planner's disposition
+errors too" and `3cb90d1` "Plan: widen Task 4 to every uncopyable campaign
+placeholder"); the plan's entries are the audit's-repair-hint row
+and the placeholder sweep below.
 
 Reproductions below were re-run against a throwaway copy of the operator's
 campaign `C-21dd6a7642` with a binary built from HEAD; see "Where the
@@ -626,26 +635,71 @@ reproductions live" at the end.
 
 | item | commit | reproduction that used to fail | evidence it is fixed |
 |---|---|---|---|
-| **D1** schema-legal custody label | `2dbea50` "Emit a schema-legal custody label and keep divergence row identity" + `10477d4` "Restrict the omitted-field rule to the custody key so other gaps still fail loudly" | `probes C-21dd6a7642 run --emit` → `error: probe_surface validation failed at rows/5/custody: 'transfer-in' is not one of ['burns', 'mints']` | the bare command now exits 0 and emits `orphaned 34` (`emit: created 12, updated 28, kept 0, reopened 0, orphaned 34`), and the surface's own quotas (`--per-axis 30 --total 70`) exit 0 and emit `orphaned 8` (`emit: created 16, updated 54, kept 0, reopened 0, orphaned 8`) — both on the copy; `symCustodyLabel` writes `custody` only for mint→`mints`/burn→`burns` and `idSlots` falls back to `observed`; tests `TestCustodyPrimitiveOmitsCustodyForNonCreditDivergences`, `TestCustodyPrimitiveIdentitySurvivesOmittedCustody`, `TestMintAndBurnCustodyLabelsSurviveTheOmission`, `TestFinalizeKeepsAbsentDeclaredFieldsExceptCustody` |
+| **D1** schema-legal custody label | `2dbea50` "Emit a schema-legal custody label and keep divergence row identity" + `10477d4` "Restrict the omitted-field rule to the custody key so other gaps still fail loudly" | `probes C-21dd6a7642 run --emit` → `error: probe_surface validation failed at rows/5/custody: 'transfer-in' is not one of ['burns', 'mints']` | the bare command now exits 0 and emits `orphaned 34` (`emit: created 12, updated 28, kept 0, reopened 0, orphaned 34`), and the surface's own quotas (`--per-axis 30 --total 70`) exit 0 and emit `orphaned 8` (`emit: created 16, updated 54, kept 0, reopened 0, orphaned 8`) — both on the copy; `symCustodyLabel` writes `custody` only for mint→`mints`/burn→`burns` and `idSlots` falls back to `observed`; tests `TestCustodyPrimitiveOmitsCustodyForNonCreditDivergences`, `TestCustodyPrimitiveIdentitySurvivesOmittedCustody`, `TestMintAndBurnCustodyLabelsSurviveTheOmission`, `TestFinalizeKeepsAbsentDeclaredFieldsExceptCustody`; the bare-command default shown here was superseded by the emit-quota plan — see the audit's-repair-hint row below |
 | **D8** gate blocker wording | `53d182f` "Make the gate's fork blocker state the precise reason" | `gate C-21dd6a7642` → `blocker: no proven mainnet fork PoC (the latest required step)` | now prints `blocker: no proven mainnet fork PoC: fork-level evidence exists but no fork-runner exec has verified sequence coverage — run a T4 sequence PoC (webv2 sequence run); a single-call fork PoC cannot prove this multi-step exploit` (reproduced on the copy); `TestForkPocBlockerCarriesStatusReason`; the waiver path is unchanged (`TestForkPocWaiverBlockerUnchanged`) and only the pinned gates snapshot moved |
 | **D6** report precision | `022d986` "Report a non-negative false-positive ratio over the critic-confirmed set" | `report.md` → `- **precision:** critic-confirmed: 4  - evidence-confirmed: 5  - false-positive ratio: -25.0%` | now `- **precision:** critic-confirmed: 4  - evidence-confirmed: 5  - false-positive ratio: 0.0%` (reproduced on the copy); the ratio is `criticNoEvidenceN/criticN`, bounded to [0, 100], and `n/a (no critic-confirmed findings)` when the denominator is zero (`TestReportPrecisionRatioNeverNegative`, `TestReportPrecisionRatioNoCriticConfirmed`) |
 | **D4** memory queue command | `5041d54` "Queue the memory row a terminal finding needs" | `prove C-21dd6a7642 \| grep '^learning'` → `learning  open  [authoritative] — F-6791c9aee0b5: no memory entry for this terminal finding (learning.queue_memory); …` | `memory C-21dd6a7642 --queue-finding F-6791c9aee0b5 --kind confirmed` prints `MEM-5440ce05 queued for F-6791c9aee0b5 (CONFIRMED) — approve with: webv2 memory C-21dd6a7642 --approve MEM-5440ce05 --by NAME`, and `prove` then drops that finding from the `learning` line (both reproduced on the copy); tests `TestMemoryQueueFindingSatisfiesLearningProof`, `TestMemoryQueueFindingRejectsNonMemoryStatus`, `TestMemoryQueueFindingKindDerivation` |
 | **D5** coverage reason + help | `b4a8397` "Name the actors a sequence PoC is missing and document the coverage rule" | `sequence verify` on a two-actor `exploit_sequence` executed by one actor printed only `executed steps use 1 distinct actor(s) but the declared exploit needs 2 — a single-account PoC cannot cover a multi-actor exploit`, and `sequence run --help` never mentioned coverage | the reason now ends `; missing: <declared label>` (sorted, verbatim, nothing appended when coverage is met or exceeded), and the help states the rule; tests `TestActorGapReasonNamesMissingActor`, `TestActorGapReasonSortsAndKeepsLabelsVerbatim`, `TestActorCoverageMetYieldsNoActorReason`, `TestExecutedActorSupersetYieldsNoActorReason`, plus the `run --help` line in `internal/cli/cmd_sequence_test.go` |
+| **the audit's repair hint** (the suggested bare `probes run --emit` rebuilt the surface with default quotas and made the audit worse) | `1164289` "Let a bare probes run repair the surface it already has" + `0df62af` "Name the surface artifact when a bare probes run cannot read it" + `d818150` "Make the recorded-quota case discriminate on what the fixture can show" + `3ba046a` "Name the campaign and the recorded quotas in the audit's repair hints" + `e9c1f67` "Name the recorded quotas at the blank attestation's last repair hint" | on the copy, bare `probes C-21dd6a7642 run --emit` printed `emit: created 12, updated 28, kept 0, reopened 0, orphaned 34` (40 rows emitted against the original 62 recorded in the P0 measurement below) and `audit C-21dd6a7642` reported 34 `[probe_surface]` problems whose repair hint read `(re-run webv2 probes <campaign> run --emit)` | bare `probes C-21dd6a7642 run --emit` prints `emit: created 16, updated 54, kept 0, reopened 0, orphaned 8` — the surface's own recorded `--per-axis 30 --total 70` — and `audit C-21dd6a7642` reports 8 `[probe_surface]` problems, all eight naming the campaign and quoting the quotas: ``… re-run `webv2 probes C-21dd6a7642 run --emit` (rebuilds with the surface's recorded --per-axis 30 --total 70)``; no problem string contains `<campaign>` (reproduced on fresh copies of the campaign; `d818150` makes the parity fixture discriminate the recorded-quota case) |
 
-**D1 residual (open).** On the campaign copy the sanctioned repair now runs
-but does not reach a clean audit, and the residual is **flag-dependent**: the
-bare `probes <campaign> run --emit` the audit's own drift message suggests
-(`re-run webv2 probes C-21dd6a7642 run --emit`) leaves `orphaned 34` and 34
-`[probe_surface]` problems — the default quotas under-fill the axes — worse
-than the 24 before any emit; the surface's own quotas (`probes run --emit
---per-axis 30 --total 70`) rebuild 70 rows where the original had 62, leaving
-`orphaned 8` and 8 `[probe_surface]` problems — plan priorities Q-253…Q-260
-cite probe rows the rebuilt surface no longer carries — with the
-`trust-assumption` axis under-filling 29 → 21 rows (the copy also carries 4
-unrelated `[artifacts]` missing-file problems). So the plan's "audit then
-reports zero `[probe_surface]` problems" acceptance is **not** reproduced
-here; the abort is gone (the defect D1 names), and plan↔surface identity
-drift on this copy is a separate open item.
+**D1 residual (open).** The D1 row above records the bare-command default as
+it stood at the P0 batch; that half of the residual is now closed (see the
+audit's-repair-hint row and the placeholder sweep below). Bare
+`probes C-21dd6a7642 run --emit` adopts the surface's recorded quotas and
+leaves `orphaned 8`; what remains is **plan↔surface identity drift**, not a
+quota choice: any sanctioned repair rebuilds 70 rows where the original had
+62, so `audit C-21dd6a7642` reports 8 `[probe_surface]` problems — plan
+priorities Q-253…Q-260 cite probe rows the rebuilt surface no longer carries
+— with the `trust-assumption` axis under-filling 29 → 21 rows (the copy also
+carries 4 unrelated `[artifacts]` missing-file problems and 6
+`[sequence_coverage]` ones). So the plan's "audit then reports zero
+`[probe_surface]` problems" acceptance is **still not** reproduced here; the
+abort is gone (the defect D1 names) and the hint no longer makes the surface
+worse, but plan↔surface identity on this copy is a separate open item.
+
+**The `<campaign>` placeholder sweep (Task 4 of the emit-quota plan, added
+mid-plan by `12da714`, widened by `3cb90d1`).** The audit hint was the visible end of a defect class: an
+operator-facing repair hint that had the campaign id in hand but printed the
+literal `<campaign>` metavariable. `70047f5` "Name the campaign in the
+planner's probe-row repair hints", `7def13b` "Name the campaign in the rest
+of the framework's repair hints", `9ca4f46` "Name the campaign in the gate,
+bounty, roles and budget repair hints" and `9a4f809` "Name the campaign in
+the intake warning and the stale-index rebuild hint" swept it through
+`internal/planner`, `internal/cli`, `internal/completion`, `internal/doctor`,
+`internal/findings`, `internal/bounty`, `internal/roles` and
+`internal/structidx` (plus `internal/immunize`/`internal/taxonomy` in tests;
+two `testdata` trees were re-recorded). The gate/bounty catalogs and the
+planner's `campaignIDForPlan` became templates rendered with the campaign in
+hand — the sibling of `findings.NameCampaign` — and the re-recorded captures
+were checked substitution-only: `internal/orchestrator/testdata/oracles.json`
+is byte-identical to its predecessor once every campaign id is normalized
+back to `<campaign>` (392,394 → 392,409 bytes, 5 substitutions).
+
+**Acceptance item 1 — `scripts/verify-full.sh` green, all 13 steps — did not
+hold.** On re-run the script stops at step 12: steps 1–11 pass, and step 12
+fails the assertion at `scripts/verify-full.sh:685-699`
+(`fail 12 "smoke probes: no blind axis/key published"`), which selects a
+campaign axis whose `status` is exactly `blind` and whose `blind` list is
+non-empty. `internal/probes/surface.go:143-152` sets `blind` only when the axis
+has `sites > 0` and `rows == 0`, and the smoked corpus never produces one. The
+reason is `snap`: it pins the whole repository, not the directory it is handed,
+so the smoke's `index --src <snapshot>` covers the entire tree — the
+enforcement-timing probe, blind against its single-fixture index, instead finds
+125 sites and ranks 12 rows, and the six axes come out five `emitted` and one
+`no-sites`. That assertion is therefore unsatisfiable on the corpus the script
+builds; it fails identically at `da7200a`, the commit whose record carries the
+13/13 claim corrected above, so that claim does not reproduce there and should
+not be repeated as fact. It also fails at `9e9a671` (which added the check, its
+P3 gate report claiming every step passes) and at the P0 batch's record commit
+`2737486` (its twin `690ee07`, on `wave-g-tranche-1`, fails identically).
+Repairing the acceptance needs a decision this batch did not take: either
+**make the smoked corpus contain a genuinely blind axis** — untried, and it
+means changing what `snap` pins for the smoke — or **exercise the blank
+attestation against a fixture-only index**, which this record did reproduce
+(`index --src internal/probes/testdata/probes/assertion_strength/clean` then
+`probes run` yields `enforcement-timing`: 4 sites, 0 rows, `blind`, 5
+near-keys), and which would have the smoke index a fixture tree instead of the
+snapshot.
 
 ### Still open (deferred, with the reason)
 
@@ -694,16 +748,37 @@ a mirror collision existed before the fix. **Recommendation:** when the
 fallback is taken and `expected` differs from `observed`, fold `expected`
 into that slot; add a fixture with two same-consumer divergences to pin it.
 
-**The audit's repair hint can make the surface worse.** *Status: open.*
-`rederiveProblems` tells the operator to re-run the bare `probes run --emit`
-(`re-run webv2 probes <campaign> run --emit`, `internal/probes/audit.go:171`,
-used at `:176` and `:183`). On `C-21dd6a7642` that bare command rebuilds 40
-rows against the original 62 and leaves 34 `[probe_surface]` problems, where
-the surface's own recorded quotas (`--per-axis 30 --total 70`) leave 8; the
-pre-emit count was 24 (see the D1 residual above). **Recommendation:** have
-the hint quote the surface's recorded quotas, or default `run --emit` to
-them. It is the first thing an operator hits when following the tool's own
-instruction.
+**The `<campaign>` placeholder still reaches the operator on id-less paths.**
+*Status: open.* The sweep above closed the placeholder wherever the caller
+has the id; these paths do not, and each is parked rather than fixed:
+
+- `internal/structidx/index.go:44-49` — `RequireParseVersion` renders
+  `IndexRebuildCommand` with the index's `campaign_id` when it is present and
+  keeps the literal when it is absent, so a legacy/pre-v3 index with no
+  `campaign_id` prints `webv2 index <campaign> --src <target>`. The probes
+  path reaches it through `loadProbeIndex`
+  (`internal/cli/cmd_probes.go:459`) → `probes.RunProbes` →
+  `internal/probes/surface.go:205` `structidx.RequireParseVersion(index,
+  "structural index")`, which receives only the index — the caller's
+  `c.CampaignID` is never threaded. **Recommendation:** thread the id or
+  correct the comment.
+- `internal/structidx/structidx_test.go:214` — `TestRequireParseVersion`
+  exercises only the id-less branch, so the new named branch (`campaign_id`
+  present) has no test and a revert stays green.
+- `internal/immunize/immunize_test.go:439` — `sawPlaceholder` is declared
+  once outside the `mainnet-fork-poc`/`immunization` loop (`:416`) and set
+  inside it, so the per-row assertion passes when *either* row carries the
+  token even if a catalog row silently drops it.
+- The remaining hits are not operator-facing repair hints. At this head the
+  literal occurs **253 times in 96 Go files** (66 of them inside `_test.go`):
+  92 in template strings that are rendered with the id before printing, 84 in
+  comments, 66 in test-file uses (assertions, fixtures, the `campaignToken`
+  constant), 6 in usage/help strings, and 5 lines that are the literal
+  itself — the id-less fallbacks `planner/gates.go:42`,
+  `findings/ingest.go:562` and `findings/levels.go:368`, plus the constants
+  `findings/gate.go:29` and `structidx/parser.go:29`. A few dozen more sit
+  outside `.go` files (plans, this record, prompt assets, `testdata`) as the
+  metavariable used deliberately in documentation.
 
 **`--anchor custody` hard-errors on a non-credit divergence row.** *Status:
 open.* `custody` is a declared anchor for `custody-primitive`
@@ -721,7 +796,8 @@ parenthesised miss like the other assertion gaps.
 *Status: open.*
 `docs/superpowers/plans/2026-09-10-p0-review-consumption.md:59-61` asserts
 that after D1 `audit C-21dd6a7642` then reports zero `[probe_surface]`
-problems; the D1 residual above shows it does not on this campaign.
+problems; the D1 residual above shows it reports 8 on this campaign (plan
+priorities Q-253…Q-260), and the emit-quota plan did not change that.
 **Recommendation:** point that acceptance line at this section, so the plan
 and the record agree.
 
@@ -759,8 +835,13 @@ The plan's reproductions rest on controller-side scratch, not repo fixtures:
 
 - the campaign copy is `.scratch/morph-eval/campaigns/C-21dd6a7642`
   (untracked; the binary's `--root .` is `.scratch/morph-eval`);
-- to re-run: copy the campaign to a throwaway dir, build HEAD
-  (`GOCACHE=.scratch/gocache go build -o /tmp/webv2 ./cmd/webv2` —
+- the emit-quota record's before/after pair is `.scratch/bin/webv2-pre`
+  (built from `535366a`, the commit immediately before `1164289`) and
+  `.scratch/bin/webv2` (built from its head), each run against a fresh copy —
+  `.scratch/morph-eval-pre/campaigns/C-21dd6a7642` for the former (both
+  copies are untracked and gitignored);
+- to re-run: copy the campaign to a throwaway dir, build
+  (`GOCACHE=.scratch/gocache go build -o .scratch/bin/webv2 ./cmd/webv2` —
   `$HOME/.cache/go-build` is read-only in this environment), and pass
   `--root <copy>`. Prefer a copy: `probes run --emit`, `report` and
   `memory --queue-finding` all write.

@@ -413,6 +413,7 @@ func TestGateBlocksWithoutForkPocAndImmunization(t *testing.T) {
 		t.Fatalf("submission_ready = %s, want false",
 			validation.PyRepr(objAt(r, "submission_ready")))
 	}
+	sawPlaceholder := false
 	for _, cid := range []string{"mainnet-fork-poc", "immunization"} {
 		row := gateCheck(t, c, fid, cid)
 		if objStr(row, "result") != "fail" {
@@ -428,11 +429,33 @@ func TestGateBlocksWithoutForkPocAndImmunization(t *testing.T) {
 		if len(objStr(ex, "remediation")) < 10 {
 			t.Fatalf("%s remediation too short", cid)
 		}
-		if objStr(row, "remediation") != objStr(ex, "remediation") {
+		// gate explain is the campaign-less catalog; the gate itself names
+		// the campaign in hand, so it is the catalog with the id substituted.
+		// The raw catalog row must really carry the placeholder — building
+		// the expectation by substituting into an already-rendered string
+		// would compare that string with itself.
+		rawRem := objStr(ex, "remediation")
+		wantRem := rawRem
+		if strings.Contains(rawRem, campaignToken) {
+			sawPlaceholder = true
+			wantRem = strings.ReplaceAll(rawRem, campaignToken, c.CampaignID)
+		}
+		if objStr(row, "remediation") != wantRem {
 			t.Fatalf("%s remediation differs from gate explain", cid)
 		}
+		if strings.Contains(objStr(row, "remediation"), campaignToken) {
+			t.Fatalf("%s remediation still carries the metavariable", cid)
+		}
+	}
+	if !sawPlaceholder {
+		t.Fatal("gate explain catalog carries no campaign metavariable " +
+			"to substitute")
 	}
 }
+
+// campaignToken is the campaign metavariable the campaign-less catalogs
+// carry; the renderer substitutes the campaign in hand for it.
+const campaignToken = "<campaign>"
 
 // test_gate_passes_with_fork_poc_and_immunization.
 func TestGatePassesWithForkPocAndImmunization(t *testing.T) {

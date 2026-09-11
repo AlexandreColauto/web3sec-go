@@ -69,7 +69,7 @@ func showLoadedModel(c *state.Campaign, stdout io.Writer, asJSON bool) error {
 	pm := filepath.Join(c.ArtifactsDir, "protocol_model.json")
 	if !t14Exists(pm) {
 		fmt.Fprintln(stdout, "no protocol model loaded yet "+
-			"(webv2 model <campaign> model.json)")
+			"(webv2 model "+c.CampaignID+" model.json)")
 		return nil
 	}
 	m, err := protocolgraph.LoadModel(c, pm)

@@ -105,7 +105,7 @@ func proofProtocolModel(c *state.Campaign) (validation.Value, error) {
 	model, err := validation.ReadJson(p)
 	if err != nil {
 		return proofResult(false, []string{"protocol model is unreadable/invalid — re-run " +
-			"`webv2 model <campaign> model.json`"}, "protocol model artifact unreadable"), nil
+			"`webv2 model " + c.CampaignID + " model.json`"}, "protocol model artifact unreadable"), nil
 	}
 	modelIDs := []string{}
 	for _, inv := range listAt(model, "invariants") {
@@ -148,8 +148,9 @@ func proofProtocolModel(c *state.Campaign) (validation.Value, error) {
 			tail = "..."
 		}
 		msg := fmt.Sprintf("invariant registry missing %d model invariant(s) "+
-			"(%s %s) — seeding did not run; re-run `webv2 model <campaign> "+
-			"model.json`", len(unseeded), strings.Join(head, ", "), tail)
+			"(%s %s) — seeding did not run; re-run `webv2 model %s "+
+			"model.json`", len(unseeded), strings.Join(head, ", "), tail,
+			c.CampaignID)
 		note := fmt.Sprintf("protocol model loaded but %d invariant(s) unseeded",
 			len(unseeded))
 		return proofResult(false, []string{msg}, note), nil

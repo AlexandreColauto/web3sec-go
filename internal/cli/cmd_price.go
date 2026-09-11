@@ -85,7 +85,7 @@ func runPrice(root string, args []string, r *Runner) int {
 		}
 		rows := objAt(table, "prices").A
 		if len(rows) == 0 {
-			fmt.Fprint(r.Out, "(price table empty — `webv2 price <campaign> "+
+			fmt.Fprint(r.Out, "(price table empty — `webv2 price "+c.CampaignID+" "+
 				"set <asset> <usd> --source ...`)\n")
 			return nil
 		}

@@ -9,8 +9,10 @@ import (
 	"testing"
 )
 
-const t14BudgetDiscoveryLine = "discovery: 0/400 findings recorded " +
-	"(ceiling: webv2 budget <campaign> --set-discovery N)\n"
+func t14BudgetDiscoveryLine(cid string) string {
+	return "discovery: 0/400 findings recorded " +
+		"(ceiling: webv2 budget " + cid + " --set-discovery N)\n"
+}
 
 func TestBudgetNoCeiling(t *testing.T) {
 	root := mkroot(t)
@@ -20,8 +22,8 @@ func TestBudgetNoCeiling(t *testing.T) {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
 	want := "cost: $0.00 spent — NO CEILING SET (unbounded; set one with " +
-		"`webv2 budget <c> --set USD --actor <name>`)\n" +
-		t14BudgetDiscoveryLine
+		"`webv2 budget " + cid + " --set USD --actor <name>`)\n" +
+		t14BudgetDiscoveryLine(cid)
 	if out != want {
 		t.Fatalf("stdout = %q, want %q", out, want)
 	}
@@ -39,7 +41,7 @@ func TestBudgetSetCeiling(t *testing.T) {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
 	want := "cost: $0.00 spent vs $1,000.00 limit — within limit " +
-		"($1,000.00 remaining)\n" + t14BudgetDiscoveryLine
+		"($1,000.00 remaining)\n" + t14BudgetDiscoveryLine(cid)
 	if out != want {
 		t.Fatalf("stdout = %q, want %q", out, want)
 	}

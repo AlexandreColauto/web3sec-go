@@ -44,6 +44,10 @@ const t29ProbesRunUsage = `usage: webv2 probes campaign run [-h] [--emit] [--per
 
 const t29ProbesRunHelp = `usage: webv2 probes campaign run [-h] [--emit] [--per-axis N] [--total N]
 
+quotas: a quota flag the run was not given adopts the value already recorded
+in probe_surface.json (else the default), so a bare run repairs the surface
+the campaign has instead of shrinking it
+
 options:
   -h, --help    show this help message and exit
   --emit        also emit one plan priority per emitted row
@@ -87,7 +91,9 @@ type probesArgs struct {
 	cmd         string // "" means list (the default subcommand)
 	emit        bool
 	perAxis     int
+	perAxisSet  bool
 	total       int
+	totalSet    bool
 	axis        *string
 	all         bool
 	asJSON      bool
@@ -191,8 +197,10 @@ func parseProbesRun(a *probesArgs, args []string, r *Runner) error {
 			}
 			if arg == "--per-axis" {
 				a.perAxis = n
+				a.perAxisSet = true
 			} else {
 				a.total = n
+				a.totalSet = true
 			}
 			i++
 			continue
@@ -288,15 +296,28 @@ var errHelpShown = fmt.Errorf("help shown")
 
 // probesRun is cli.py _probes_run.
 func probesRun(a *probesArgs, c *state.Campaign, r *Runner) error {
-	if err := probes.ValidateKnobs(&a.perAxis, &a.total, nil); err != nil {
+	// An explicit flag is validated exactly as it always was, before the
+	// artifact is consulted, so `--per-axis 0` keeps its existing message.
+	var perAxisKnob, totalKnob *int
+	if a.perAxisSet {
+		perAxisKnob = &a.perAxis
+	}
+	if a.totalSet {
+		totalKnob = &a.total
+	}
+	if err := probes.ValidateKnobs(perAxisKnob, totalKnob, nil); err != nil {
 		return t14ExitErr(2, "probes: %v\n", err)
+	}
+	perAxis, total, provenance, err := effectiveProbeQuotas(a, c)
+	if err != nil {
+		return err
 	}
 	index, err := loadProbeIndex(c)
 	if err != nil {
 		return err
 	}
 	model := loadProbeModel(c)
-	surface, err := probes.RunProbes(c, index, model, a.perAxis, a.total, 3)
+	surface, err := probes.RunProbes(c, index, model, perAxis, total, 3)
 	if err != nil {
 		return err
 	}
@@ -304,6 +325,8 @@ func probesRun(a *probesArgs, c *state.Campaign, r *Runner) error {
 	fmt.Fprintf(r.Out, "probe surface: %d rows emitted (%d ranked, %d sites) "+
 		"— index_sha %s\n", objInt(stats, "emitted"), objInt(stats, "rows"),
 		objInt(stats, "sites"), t29Trunc(objStr(surface, "index_sha"), 12))
+	fmt.Fprintf(r.Out, "quotas: --per-axis %d --total %d (%s)\n", perAxis,
+		total, provenance)
 	for _, line := range probeAxisLines(surface, nil, true) {
 		fmt.Fprintln(r.Out, line)
 	}
@@ -344,6 +367,93 @@ func probesRun(a *probesArgs, c *state.Campaign, r *Runner) error {
 			"%s\n", strings.Join(parts, ", "))
 	}
 	return nil
+}
+
+// probeQuotaArtifact names the surface artifact an unset quota flag reads its
+// value from; the provenance line and the invalid-record error both use it.
+const probeQuotaArtifact = "probe_surface.json"
+
+// effectiveProbeQuotas resolves the run's quotas one flag at a time: an
+// explicit flag wins, else the value the existing surface artifact records,
+// else the compiled-in default. The artifact is only read when a flag is
+// unset, so an explicit pair never depends on it. The returned provenance
+// describes where each effective value came from.
+func effectiveProbeQuotas(a *probesArgs, c *state.Campaign) (int, int,
+	string, error) {
+	perAxis, total := a.perAxis, a.total
+	perAxisSrc, totalSrc := "passed on the command line",
+		"passed on the command line"
+	if !a.perAxisSet {
+		perAxisSrc = "defaults"
+	}
+	if !a.totalSet {
+		totalSrc = "defaults"
+	}
+	if a.perAxisSet && a.totalSet {
+		return perAxis, total, quotaProvenance(perAxisSrc, totalSrc), nil
+	}
+	path := filepath.Join(c.ArtifactsDir, probeQuotaArtifact)
+	surface, err := probes.CampaignSurface(c)
+	if err != nil {
+		return 0, 0, "", t14ExitErr(2, "probes: unreadable %s (%s) — "+
+			"delete or repair it, or pass --per-axis and --total explicitly\n",
+			path, err.Error())
+	}
+	if surface == nil {
+		return perAxis, total, quotaProvenance(perAxisSrc, totalSrc), nil
+	}
+	if !a.perAxisSet {
+		n, src, err := recordedProbeQuota(*surface, path, "per_axis",
+			"--per-axis", perAxis)
+		if err != nil {
+			return 0, 0, "", err
+		}
+		perAxis, perAxisSrc = n, src
+	}
+	if !a.totalSet {
+		n, src, err := recordedProbeQuota(*surface, path, "total",
+			"--total", total)
+		if err != nil {
+			return 0, 0, "", err
+		}
+		total, totalSrc = n, src
+	}
+	return perAxis, total, quotaProvenance(perAxisSrc, totalSrc), nil
+}
+
+// recordedProbeQuota reads one quota knob from an existing surface. A knob
+// that is not an integer is no record at all and the default stands; an
+// integer that fails ValidateKnobs is an error naming the artifact and the
+// value — a bad record must never be silently ignored.
+func recordedProbeQuota(surface validation.Value, path, key, flag string,
+	def int) (int, string, error) {
+	raw := objAt(surface, key)
+	if raw.Kind != validation.Int {
+		return def, "default (" + probeQuotaArtifact +
+			" records no integer)", nil
+	}
+	n := int(objInt(surface, key))
+	knob := &n
+	var err error
+	if key == "per_axis" {
+		err = probes.ValidateKnobs(knob, nil, nil)
+	} else {
+		err = probes.ValidateKnobs(nil, knob, nil)
+	}
+	if err != nil {
+		return 0, "", t14ExitErr(2, "probes: %s records an invalid %s %d: "+
+			"%v\n", path, flag, n, err)
+	}
+	return n, "recorded in " + probeQuotaArtifact, nil
+}
+
+// quotaProvenance names where each effective quota came from, collapsing the
+// two entries when they share a source.
+func quotaProvenance(perAxisSrc, totalSrc string) string {
+	if perAxisSrc == totalSrc {
+		return perAxisSrc
+	}
+	return fmt.Sprintf("--per-axis %s; --total %s", perAxisSrc, totalSrc)
 }
 
 // loadProbeIndex is cli.py _load_probe_index.

@@ -17,6 +17,7 @@ import (
 	"sort"
 	"strings"
 
+	"websec/internal/findings"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -176,6 +177,8 @@ func campaignPolicy(campaign *state.Campaign) (validation.Value, error) {
 }
 
 // artifactRerun is _ARTIFACT_RERUN (shared with briefing._stale_artifacts).
+// The <campaign> token is a template: StaleArtifacts renders the command with
+// the campaign in hand, so the brief's re-run line is copyable.
 var artifactRerun = [][2]string{
 	{"structural_index.json", "webv2 index <campaign> --src <target>"},
 	{"value_flow.json", "webv2 sinks <campaign> --src <target>"},
@@ -252,7 +255,8 @@ func StaleArtifacts(campaign *state.Campaign) ([]validation.Value, error) {
 			out = append(out, validation.VObj(
 				validation.KV{K: "artifact", V: validation.VStr(pair[0])},
 				validation.KV{K: "stale_snapshot", V: objAt(data, "snapshot_id")},
-				validation.KV{K: "re_run", V: validation.VStr(pair[1])}))
+				validation.KV{K: "re_run", V: validation.VStr(
+					findings.NameCampaign(pair[1], campaign.CampaignID))}))
 		}
 	}
 	return out, nil
