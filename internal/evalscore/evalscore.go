@@ -93,57 +93,115 @@ func anchor(f, gold validation.Value) bool {
 	return false
 }
 
-// ScoreSuite rolls the join up over a program scope: matched cases are the
-// suite cases whose lowercased program.program is in programs; live
-// findings are looked up by lowercased program. Findings under programs
-// with no matched case are out of scope (never FP, never in the precision
-// denominator).
-func ScoreSuite(programs []string, liveByProgram map[string][]validation.Value, cases []validation.Value) Report {
+// matchedCase is one suite case inside the matched program scope. It
+// carries exactly what a scoring pass reads, so the scope rule lives in
+// ONE place (matchCases) and every consumer — ScoreSuite, Bands — reuses
+// it instead of restating it.
+type matchedCase struct {
+	id      string
+	program string
+	gold    validation.Value
+	control bool
+	heldOut bool
+}
+
+// matchCases resolves the program scope (lowercased membership, the join
+// key), drops every out-of-scope row, and returns what is left sorted by
+// case_id — the deterministic order every scoring pass starts from.
+func matchCases(programs []string, cases []validation.Value) []matchedCase {
 	scope := map[string]bool{}
 	for _, p := range programs {
 		scope[strings.ToLower(p)] = true
 	}
-	live := map[string][]validation.Value{}
-	for p, fs := range liveByProgram {
-		k := strings.ToLower(p)
-		live[k] = append(live[k], fs...)
-	}
-	type scored struct {
-		id      string
-		program string
-		gold    validation.Value
-		control bool
-	}
-	var matched []scored
-	var r Report
+	var matched []matchedCase
 	for _, c := range cases {
 		prog := strings.ToLower(field(obj(c, "program"), "program"))
 		if !scope[prog] {
 			continue
 		}
 		gold := obj(c, "gold")
-		matched = append(matched, scored{
+		matched = append(matched, matchedCase{
 			id:      field(c, "case_id"),
 			program: prog,
 			gold:    gold,
 			control: field(gold, "outcome") == notExploitable,
+			heldOut: field(c, "partition") == heldOutPartition,
 		})
-		if field(c, "partition") == heldOutPartition {
-			r.HeldOut = true
-		}
 	}
-	// Deterministic iteration: sort ids before any scoring pass.
 	sort.SliceStable(matched, func(i, j int) bool { return matched[i].id < matched[j].id })
+	return matched
+}
 
-	// byProg groups the matched non-control golds per program so each
-	// live finding is anchor-checked once (a finding anchoring two golds
-	// still counts once toward precision).
+// lowerLive keys the live-findings map by lowercased program (the same
+// join key matchCases uses).
+func lowerLive(liveByProgram map[string][]validation.Value) map[string][]validation.Value {
+	live := map[string][]validation.Value{}
+	for p, fs := range liveByProgram {
+		k := strings.ToLower(p)
+		live[k] = append(live[k], fs...)
+	}
+	return live
+}
+
+// goldByProgram groups the matched non-control golds per program so each
+// live finding is anchor-checked once (a finding anchoring two golds
+// still counts once toward precision).
+func goldByProgram(matched []matchedCase) map[string][]validation.Value {
 	byProg := map[string][]validation.Value{}
 	for _, m := range matched {
 		if !m.control {
 			byProg[m.program] = append(byProg[m.program], m.gold)
 		}
 	}
+	return byProg
+}
+
+// scopedPrograms is the precision scope: every program with ≥1 matched
+// case, in case_id order, each once — including control-only programs (a
+// finding under a control program anchored nothing by definition, so it
+// is always FP).
+func scopedPrograms(matched []matchedCase) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, m := range matched {
+		if seen[m.program] {
+			continue
+		}
+		seen[m.program] = true
+		out = append(out, m.program)
+	}
+	return out
+}
+
+// anchorsAny reports whether any of the program's gold cases anchors the
+// live finding.
+func anchorsAny(f validation.Value, golds []validation.Value) bool {
+	for _, g := range golds {
+		if anchor(f, g) {
+			return true
+		}
+	}
+	return false
+}
+
+// ScoreSuite rolls the join up over a program scope: matched cases are the
+// suite cases whose lowercased program.program is in programs; live
+// findings are looked up by lowercased program. Findings under programs
+// with no matched case are out of scope (never FP, never in the precision
+// denominator).
+func ScoreSuite(programs []string, liveByProgram map[string][]validation.Value, cases []validation.Value) Report {
+	matched := matchCases(programs, cases)
+	live := lowerLive(liveByProgram)
+	var r Report
+	for _, m := range matched {
+		if m.heldOut {
+			r.HeldOut = true
+		}
+	}
+
+	// byProg groups the matched non-control golds per program so each
+	// live finding is anchor-checked once.
+	byProg := goldByProgram(matched)
 	anchored, liveTotal := 0, 0
 	for _, m := range matched {
 		fs := live[m.program]
@@ -161,23 +219,13 @@ func ScoreSuite(programs []string, liveByProgram map[string][]validation.Value, 
 		}
 	}
 	// Precision scope: live findings in suite-matched programs — every
-	// program with ≥1 matched case, including control-only ones (a
-	// finding under a control program anchored nothing by definition,
-	// so it is always FP).
-	seen := map[string]bool{}
-	for _, m := range matched {
-		if seen[m.program] {
-			continue
-		}
-		seen[m.program] = true
-		fs := live[m.program]
+	// program with ≥1 matched case, including control-only ones.
+	for _, p := range scopedPrograms(matched) {
+		fs := live[p]
 		liveTotal += len(fs)
 		for i := range fs {
-			for _, g := range byProg[m.program] {
-				if anchor(fs[i], g) {
-					anchored++
-					break
-				}
+			if anchorsAny(fs[i], byProg[p]) {
+				anchored++
 			}
 		}
 	}

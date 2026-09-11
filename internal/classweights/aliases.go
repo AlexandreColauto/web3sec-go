@@ -7,6 +7,7 @@ package classweights
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"websec/assets"
@@ -49,15 +50,23 @@ func LoadAliases() (validation.Value, error) {
 	return aliasDoc, aliasErr
 }
 
-// checkAliases enforces the two G12 pinning rules on a parsed aliases
+// checkAliases enforces the G12/I6 pinning rules on a parsed aliases
 // document: every classes[].owasp id is a member of the embedded
-// standards.owasp id list, and every class key is a class the weights table
-// carries (the T5-owned class list, itself drift-tested against
+// standards.owasp id list, every classes[].swc id (when present) is a member
+// of the embedded standards.swc list, and every class key is a class the
+// weights table carries (the T5-owned class list, itself drift-tested against
 // taxonomy.CanonicalClasses() plus the unmapped bucket).
+//
+// The SWC half is ADDITIVE: a pack with no standards.swc key carries no swc
+// ids and validates unchanged.
 func checkAliases(doc validation.Value) error {
 	ids := map[string]bool{}
 	for _, s := range listAt(objAt(objAt(doc, "standards"), "owasp")) {
 		ids[objAt(s, "id").S] = true
+	}
+	swcIDs := map[string]bool{}
+	for _, s := range listAt(objAt(objAt(doc, "standards"), "swc")) {
+		swcIDs[objAt(s, "id").S] = true
 	}
 	known := map[string]bool{}
 	if wdoc, err := Load(); err == nil {
@@ -77,6 +86,10 @@ func checkAliases(doc validation.Value) error {
 		if !ids[id] {
 			return fmt.Errorf("aliases.json: class %q aliases %q, not in the embedded standards list",
 				kv.K, id)
+		}
+		if swc := objAt(kv.V, "swc").S; swc != "" && !swcIDs[swc] {
+			return fmt.Errorf("aliases.json: class %q aliases %q, not in the embedded SWC standards list",
+				kv.K, swc)
 		}
 	}
 	return nil
@@ -109,16 +122,33 @@ func Alias(class string) (validation.Value, bool) {
 	return got, true
 }
 
-// ClassAliasSuffix is the display suffix for a class: "[OWASP SC05]" when
-// the class carries an alias, "" when it does not (callers render the
-// suffix presence-gated, so unmapped classes move zero bytes).
+// ClassAliasSuffix is the display suffix for a class: "[OWASP SC05]" when the
+// class carries an OWASP alias, "[OWASP SC05; SWC-107]" when it also carries
+// an SWC cross-reference (I6), "" when it does not (callers render the suffix
+// presence-gated, so unmapped classes move zero bytes). The OWASP-only bytes
+// are unchanged from before I6.
 func ClassAliasSuffix(class string) string {
 	row, ok := Alias(class)
 	if !ok {
 		return ""
 	}
+	return suffixOf(row)
+}
+
+// suffixOf renders one alias row's display suffix. It is the pure core of
+// ClassAliasSuffix (and the seam the byte-law test drives with synthetic
+// rows): standard ids in a pinned order, "; " separated, bracketed; the empty
+// suffix when the row carries no id at all.
+func suffixOf(row validation.Value) string {
+	parts := []string{}
 	if id := objAt(row, "owasp").S; id != "" {
-		return "[OWASP " + id + "]"
+		parts = append(parts, "OWASP "+id)
 	}
-	return ""
+	if id := objAt(row, "swc").S; id != "" {
+		parts = append(parts, id)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "[" + strings.Join(parts, "; ") + "]"
 }

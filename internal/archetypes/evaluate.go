@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"websec/internal/structidx"
+	"websec/internal/textsim"
 	"websec/internal/validation"
 )
 
@@ -19,7 +20,9 @@ import (
 var checkTypes = []string{"state_var_exists", "function_exists",
 	"unguarded_function_exists", "delegatecall_present",
 	"unguarded_entry_writes", "external_call_pattern",
-	"sig_verify_no_separator", "merkle_verify_without_depth_gate"}
+	"sig_verify_no_separator", "merkle_verify_without_depth_gate",
+	"threshold_without_enforcement", "relayer_single_key",
+	"merkle_proof_no_length_check", "verifier_default_on"}
 
 // checkKeys is _CHECK_KEYS: the discriminator keys each check type consumes.
 // A check carrying a key its type does not use is a silent-filter bug (the
@@ -34,6 +37,10 @@ var checkKeys = map[string]map[string]bool{
 	"external_call_pattern":            {"pattern": true},
 	"sig_verify_no_separator":          {"names": true},
 	"merkle_verify_without_depth_gate": {"names": true},
+	"threshold_without_enforcement":    {"names": true},
+	"relayer_single_key":               {"names": true},
+	"merkle_proof_no_length_check":     {"names": true},
+	"verifier_default_on":              {"names": true},
 }
 
 // EvaluatePrecondition is evaluate_precondition: one archetype check against
@@ -59,6 +66,14 @@ func EvaluatePrecondition(check, index validation.Value) (string, string, error)
 		return evalSigVerifyNoSeparator(check, index)
 	case "merkle_verify_without_depth_gate":
 		return evalMerkleVerifyWithoutDepthGate(check, index)
+	case "threshold_without_enforcement":
+		return evalThresholdWithoutEnforcement(check, index)
+	case "relayer_single_key":
+		return evalRelayerSingleKey(check, index)
+	case "merkle_proof_no_length_check":
+		return evalMerkleProofNoLengthCheck(check, index)
+	case "verifier_default_on":
+		return evalVerifierDefaultOn(check, index)
 	}
 	return "", "", fmt.Errorf("unknown check type %s", validation.PyReprStr(t))
 }
@@ -325,6 +340,373 @@ func evalMerkleVerifyWithoutDepthGate(check, index validation.Value) (string, st
 	return "absent", "no depth-gateless proof function among " + pyListRepr(names), nil
 }
 
+// ---------------------------------------------------------------------------
+// I5a: threshold + relayer-key bridge predicates.
+//
+// VALUE-BLINDNESS (governs both checks below, and it is not a caveat we can
+// engineer away): a state-variable node in the structural index is
+// {id, kind, name, path, line} — no value, no declared type, no initializer.
+// parser.go:1059-1061 builds it from the pyState capture without anything
+// else, and pyState itself drops the initializer (`(?:=\s*[^;]+)?`,
+// parser.go:87). So neither check may claim anything about a value:
+//
+//   - threshold_without_enforcement says "this marker-named state variable is
+//     mentioned by NO require/assert/reverting-if in its own contract". It does
+//     NOT say the threshold is too low, wrong, or even set.
+//   - relayer_single_key says "this gated entry point's key evidence is ONE
+//     relayer-marked state variable and nothing else". It does NOT say that
+//     key can move a message, that it is an address, or that the comparison
+//     against it is correct.
+//
+// Both are HINT-only shape claims, exactly like every other check here.
+
+// contractOf is the contract node id owning a member node: member ids are
+// "<contract id>.<member name>" (parser.go:1060 state vars, :1127 functions)
+// and a contract id is "<path>#<ContractName>", which never contains a dot.
+func contractOf(n validation.Value) string {
+	id := objStr(n, "id")
+	if i := strings.LastIndexByte(id, '.'); i >= 0 {
+		return id[:i]
+	}
+	return id
+}
+
+// strValues extracts the string members of a value list.
+func strValues(values []validation.Value) []string {
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		if v.Kind == validation.Str {
+			out = append(out, v.S)
+		}
+	}
+	return out
+}
+
+// anyContainsLower reports whether haystacks contain needle as a
+// case-insensitive substring.
+func anyContainsLower(haystacks []string, needle string) bool {
+	low := strings.ToLower(needle)
+	for _, h := range haystacks {
+		if strings.Contains(strings.ToLower(h), low) {
+			return true
+		}
+	}
+	return false
+}
+
+// evalThresholdWithoutEnforcement is threshold_without_enforcement: a state
+// variable whose name carries a threshold marker, in a contract that mentions
+// it in no guard condition anywhere.
+//
+// Evidence: the contract's OWN function nodes and their `guards` entries
+// (require/assert conditions and reverting `if`s, extractGuards
+// parser.go:746). Two honest limits ride along:
+//
+//   - Guards are extracted from a function's own body. A gate spelled inside a
+//     MODIFIER is appended to the reads/writes lists but never to `guards`
+//     (parser.go:1121-1132), so a threshold consulted only by a modifier is
+//     invisible here and this check reports a false hit. The bridge shapes
+//     this predicate exists for consult the threshold inline.
+//   - Inherited enforcement lives on the base contract's function nodes, so a
+//     derived contract that relies on a base-class guard reads as unenforced.
+//     Scoping to the owning contract is deliberate (the operator's question is
+//     "does THIS contract's execution path consult it"), and it is why the
+//     hit names the variable, never the verdict.
+func evalThresholdWithoutEnforcement(check, index validation.Value) (string, string, error) {
+	markers := strValues(listAt(check, "names"))
+	if len(markers) == 0 {
+		return "", "", fmt.Errorf("check type 'threshold_without_enforcement': " +
+			"missing required key 'names'")
+	}
+	hits := []string{}
+	seen := map[string]bool{}
+	for _, v := range structidx.Nodes(index, "state-variable") {
+		name := objStr(v, "name")
+		if !containsLower(name, markers) {
+			continue
+		}
+		guards := []string{}
+		for _, f := range structidx.Nodes(index, "function") {
+			if contractOf(f) != contractOf(v) {
+				continue
+			}
+			for _, g := range listAt(f, "guards") {
+				guards = append(guards, objStr(g, "text"))
+			}
+		}
+		if anyContainsLower(guards, name) {
+			continue
+		}
+		if !seen[name] {
+			seen[name] = true
+			hits = append(hits, name)
+		}
+	}
+	sort.Strings(hits)
+	if len(hits) > 0 {
+		return "present", "unenforced: " + strings.Join(hits, ", "), nil
+	}
+	return "absent", "no unenforced threshold state var among " + pyListRepr(markers), nil
+}
+
+// coSignerMarkers is the SECOND-key vocabulary for relayer_single_key: a relay
+// gate that also consults a signer set, an owner, a multisig, a council or a
+// guardian is not a single-key gate. Hardcoded (no check-level override — a
+// per-check list here would be YAGNI until a target needs it), documented, and
+// compared case-insensitively as a name substring.
+var coSignerMarkers = []string{"signer", "owner", "multisig", "council",
+	"guardian"}
+
+// relayGate reports whether an entry point carries a relay gate: an
+// AUTHORIZATION modifier by the parser's own vocabulary
+// (structidx.IsAuthzGuard — authzHints, concepts.go:37), or a modifier whose
+// NAME carries a relayer marker. The second arm matters: "relayer" is not in
+// the parser's authz vocabulary, so `onlyRelayer` alone would not count, and
+// a relay gate spelled that way is exactly the shape this check exists for.
+func relayGate(n validation.Value, markers []string) bool {
+	for _, m := range listAt(n, "guarded_by") {
+		if m.Kind != validation.Str {
+			continue
+		}
+		if structidx.IsAuthzGuard(m.S) || containsLower(m.S, markers) {
+			return true
+		}
+	}
+	return false
+}
+
+// evalRelayerSingleKey is relayer_single_key: an authz/relay-gated entry point
+// whose whole key evidence is ONE relayer-marked state variable of its own
+// contract and no second distinct signer/owner reference.
+//
+// Evidence read, all of it structural:
+//
+//   - guarded_by must carry a relay gate (relayGate above);
+//   - reads_storage must name exactly one same-contract state variable whose
+//     name carries a relayer marker. reads_storage is built from the
+//     contract's own declared state variables (parser.go:1121-1132), so a
+//     listed entry IS a state variable; but it is computed over the function
+//     body PLUS every applied modifier body, which means the index cannot
+//     distinguish "the gate consults this key" from "the body reads it". The
+//     check claims CONSULTED, never CHECKED.
+//   - no second distinct signer/owner reference: no co-signer-marked state
+//     variable of the same contract is read by the entry point, and none is
+//     named in one of its own guard texts.
+//
+// A state variable's declared TYPE is not in the index (see the
+// value-blindness note above), so "address" is part of the shape's name, not
+// of the evidence: a `uint256 relayer` would match identically.
+func evalRelayerSingleKey(check, index validation.Value) (string, string, error) {
+	markers := strValues(listAt(check, "names"))
+	if len(markers) == 0 {
+		return "", "", fmt.Errorf("check type 'relayer_single_key': " +
+			"missing required key 'names'")
+	}
+	hits := []string{}
+	for _, n := range structidx.ExternalSurface(index) {
+		if !relayGate(n, markers) {
+			continue
+		}
+		keyReads := []string{}
+		coSigner := false
+		for _, r := range listAt(n, "reads_storage") {
+			if r.Kind != validation.Str {
+				continue
+			}
+			if containsLower(r.S, markers) {
+				keyReads = append(keyReads, r.S)
+				continue
+			}
+			if containsLower(r.S, coSignerMarkers) {
+				coSigner = true
+			}
+		}
+		if len(dedupeStrings(keyReads)) != 1 {
+			continue
+		}
+		if coSigner || guardNamesCoSigner(n, index) {
+			continue
+		}
+		hits = append(hits, objStr(n, "name"))
+	}
+	sort.Strings(hits)
+	if len(hits) > 0 {
+		return "present", "single-key: " + strings.Join(hits, ", "), nil
+	}
+	return "absent", "no single-relayer gate among " + pyListRepr(markers), nil
+}
+
+// guardNamesCoSigner reports whether any guard text of the entry point names a
+// co-signer-marked state variable of its own contract — the second, distinct
+// signer/owner reference that separates a co-signed gate from a single-key
+// one.
+func guardNamesCoSigner(n validation.Value, index validation.Value) bool {
+	cosigners := []string{}
+	for _, v := range structidx.Nodes(index, "state-variable") {
+		if contractOf(v) != contractOf(n) {
+			continue
+		}
+		if name := objStr(v, "name"); containsLower(name, coSignerMarkers) {
+			cosigners = append(cosigners, name)
+		}
+	}
+	if len(cosigners) == 0 {
+		return false
+	}
+	for _, g := range listAt(n, "guards") {
+		if text := objStr(g, "text"); text != "" && containsLower(text, cosigners) {
+			return true
+		}
+	}
+	return false
+}
+
+// ---------------------------------------------------------------------------
+// I5b: merkle-path + default-on-verifier bridge predicates.
+//
+// VALUE-BLINDNESS (governs both checks below, and it is not a caveat we can
+// engineer away). The structural index does not carry what these two checks
+// would need to be verdicts:
+//
+//   - a function node carries no PARAMETER NAMES and no parameter values — its
+//     only signature evidence is the selector, name + TYPE list
+//     (parser.go:1139), and `uses` records referenced-parameter concept keys,
+//     never the parameter's declared name;
+//   - a state-variable node is {id,kind,name,path,line} (parser.go:1059-1061)
+//     and pyState drops the initializer (parser.go:87), so a write is visible
+//     only as "this function writes this name", never as the assigned value.
+//
+// So merkle_proof_no_length_check claims "this names-matched function's
+// selector carries an array/bytes-shaped type and none of its own guard
+// conditions mention `length`" — never "the path check is wrong". And
+// verifier_default_on claims "this trust-marked flag is written by a
+// construct|init|setup-shaped function with no authorization modifier" — never
+// "the flag is true". Both are HINT-only shape claims, exactly like every
+// other check here.
+
+// pathSelectorMarkers is the hardcoded array/bytes evidence for
+// merkle_proof_no_length_check, read as case-insensitive substrings of the
+// selector. HONESTY: the evidence is the selector TEXT, kept literal to the
+// plan — a fixed-size `bytes32` / `bytesNN` parameter satisfies the "bytes"
+// marker just as a dynamic `bytes` path does, because the index carries the
+// joined type list (`name(type,type)`, parser.go:1139) with no per-parameter
+// binding, and this check does not re-derive one. Documented false-hit class,
+// not a guess.
+var pathSelectorMarkers = []string{"[]", "bytes"}
+
+// lengthMarker is the completeness-check evidence: a guard whose condition text
+// mentions it means the path length IS consulted somewhere on this function's
+// own execution path. Guard text is the FIRST top-level require/assert argument
+// or a reverting `if` condition (extractGuards parser.go:746-796) — a length
+// test delegated to a callee or spelled in a modifier body emits no guard here
+// (modifier bodies feed reads/writes only, parser.go:1121-1132) and reads as
+// unchecked. Documented false hit, not silence.
+var lengthMarker = []string{"length"}
+
+// initShapedMarkers is the initializer-writer vocabulary for
+// verifier_default_on: a trust flag written by a constructor / initializer is
+// defaulted at birth, whereas the same write in an ordinary admin function is
+// a deliberate, post-deployment act.
+var initShapedMarkers = []string{"construct", "init", "setup"}
+
+// evalMerkleProofNoLengthCheck is merkle_proof_no_length_check: a function
+// whose name carries a listed marker, whose selector carries an array/bytes
+// parameter type, and whose own guards never mention `length`.
+//
+// `names` is consumed like every other marker list here (case-insensitive
+// substring), not as an exact set: the shipped defaults name entry-point
+// families (`verifyProof`, `proveWithdrawal`, `relayMessage`), and a target's
+// concrete name (`verifyWithdrawalProof`) is expected to match.
+func evalMerkleProofNoLengthCheck(check, index validation.Value) (string, string, error) {
+	markers := strValues(listAt(check, "names"))
+	if len(markers) == 0 {
+		return "", "", fmt.Errorf("check type 'merkle_proof_no_length_check': " +
+			"missing required key 'names'")
+	}
+	hits := []string{}
+	for _, n := range structidx.Nodes(index, "function") {
+		if !containsLower(objStr(n, "name"), markers) {
+			continue
+		}
+		if !containsLower(objStr(n, "selector"), pathSelectorMarkers) {
+			continue
+		}
+		if guardsMentionLength(n) {
+			continue
+		}
+		hits = append(hits, objStr(n, "name"))
+	}
+	sort.Strings(hits)
+	if len(hits) > 0 {
+		return "present", "no-length-check: " + strings.Join(hits, ", "), nil
+	}
+	return "absent", "no length-unchecked proof path among " + pyListRepr(markers), nil
+}
+
+// guardsMentionLength reports whether any require/assert/reverting-if condition
+// of the function mentions the length marker — the "completeness check exists
+// somewhere on this path" evidence.
+func guardsMentionLength(n validation.Value) bool {
+	for _, g := range listAt(n, "guards") {
+		if containsLower(objStr(g, "text"), lengthMarker) {
+			return true
+		}
+	}
+	return false
+}
+
+// evalVerifierDefaultOn is verifier_default_on: a state flag whose name carries
+// a trust-granting marker that is written by a construct|init|setup-shaped
+// function carrying no authorization modifier — the Nomad shape, a trust root
+// that is on at deployment.
+//
+// Evidence, all of it structural:
+//
+//   - the writer's name matches the initializer vocabulary (case-insensitive
+//     substring, so `constructor` and `initialize` both match);
+//   - the writer is unguarded: no `guarded_by` entry reads as an authorization
+//     modifier (structidx.IsAuthzGuard, concepts.go:37 — ownership, roles,
+//     admin, guardian, ...). A `constructor` has no modifiers by construction,
+//     so a constructor writer always satisfies this arm;
+//   - `writes_storage` names the marked flag. That list is built from the
+//     writer's OWN contract's declared state variables (parser.go:1144-1151),
+//     so the hit is a same-contract write by construction — no separate
+//     contract-scoping lookup is needed, unlike the I5a threshold check.
+//
+// VALUE-BLINDNESS: `writes_storage` records the write, never the literal, so
+// `verified = true` and `verified = false` in a constructor are
+// indistinguishable here. This check reports the SHAPE (an init-shaped,
+// unguarded writer for a trust-marked flag), and the hit names the flag only.
+func evalVerifierDefaultOn(check, index validation.Value) (string, string, error) {
+	markers := strValues(listAt(check, "names"))
+	if len(markers) == 0 {
+		return "", "", fmt.Errorf("check type 'verifier_default_on': " +
+			"missing required key 'names'")
+	}
+	hits := []string{}
+	seen := map[string]bool{}
+	for _, f := range structidx.Nodes(index, "function") {
+		if !containsLower(objStr(f, "name"), initShapedMarkers) {
+			continue
+		}
+		if !unguarded(f) {
+			continue
+		}
+		for _, w := range strValues(listAt(f, "writes_storage")) {
+			if seen[w] || !containsLower(w, markers) {
+				continue
+			}
+			seen[w] = true
+			hits = append(hits, w)
+		}
+	}
+	sort.Strings(hits)
+	if len(hits) > 0 {
+		return "present", "default-on: " + strings.Join(hits, ", "), nil
+	}
+	return "absent", "no default-on trust flag among " + pyListRepr(markers), nil
+}
+
 // containsLower reports whether strings.ToLower(s) contains any marker
 // (lowercased) — the case-insensitive marker match both G10 checks share.
 func containsLower(s string, markers []string) bool {
@@ -354,12 +736,15 @@ func NearMatches(check, index validation.Value, k int) []string {
 	t := objStr(check, "type")
 	var cands []string
 	switch t {
-	case "state_var_exists", "unguarded_entry_writes":
+	case "state_var_exists", "unguarded_entry_writes",
+		"threshold_without_enforcement", "relayer_single_key",
+		"verifier_default_on":
 		for _, n := range structidx.Nodes(index, "state-variable") {
 			cands = append(cands, objStr(n, "name"))
 		}
 	case "function_exists", "unguarded_function_exists",
-		"sig_verify_no_separator", "merkle_verify_without_depth_gate":
+		"sig_verify_no_separator", "merkle_verify_without_depth_gate",
+		"merkle_proof_no_length_check":
 		for _, n := range structidx.Nodes(index, "function") {
 			cands = append(cands, objStr(n, "name"))
 		}
@@ -413,36 +798,13 @@ func NearMatches(check, index validation.Value, k int) []string {
 }
 
 // Jaccard is _jaccard: bigram-Jaccard similarity of two identifiers.
-func Jaccard(a, b string) float64 {
-	A, B := bigrams(a), bigrams(b)
-	inter, union := 0, len(B)
-	for k := range A {
-		if B[k] {
-			inter++
-		} else {
-			union++
-		}
-	}
-	if union == 0 {
-		return 0.0
-	}
-	return float64(inter) / float64(union)
-}
-
-// bigrams is _bigrams: the lowercased 2-gram set, the whole string when it is
-// one rune or shorter.
-func bigrams(s string) map[string]bool {
-	rs := []rune(strings.ToLower(s))
-	out := map[string]bool{}
-	if len(rs) > 1 {
-		for i := 0; i+1 < len(rs); i++ {
-			out[string(rs[i:i+2])] = true
-		}
-		return out
-	}
-	out[string(rs)] = true
-	return out
-}
+//
+// The rule itself lives in internal/textsim. evalstore's I1b near-dup scan
+// needs the SAME function, and evalstore cannot import this package (this
+// package reaches evalstore through structidx -> orchestrator -> risk), so
+// the leaf owns the implementation and this name stays the archetypes-facing
+// alias. One implementation, two callers, no second copy to drift.
+func Jaccard(a, b string) float64 { return textsim.Jaccard(a, b) }
 
 // checkLiterals is _check_literals: the literal identifiers a check looks
 // for (for near-matching) — its names plus every >3-char identifier token in

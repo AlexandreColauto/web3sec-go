@@ -12,6 +12,45 @@
       {"id": "SC08", "title": "Integer Overflow and Underflow"},
       {"id": "SC09", "title": "Insecure Randomness"},
       {"id": "SC10", "title": "Denial of Service (DoS) Attacks"}
+    ],
+    "swc": [
+      {"id": "SWC-136", "title": "Unencrypted Private Data On-Chain"},
+      {"id": "SWC-135", "title": "Code With No Effects"},
+      {"id": "SWC-134", "title": "Message call with hardcoded gas amount"},
+      {"id": "SWC-133", "title": "Hash Collisions With Multiple Variable Length Arguments"},
+      {"id": "SWC-132", "title": "Unexpected Ether balance"},
+      {"id": "SWC-131", "title": "Presence of unused variables"},
+      {"id": "SWC-130", "title": "Right-To-Left-Override control character (U+202E)"},
+      {"id": "SWC-129", "title": "Typographical Error"},
+      {"id": "SWC-128", "title": "DoS With Block Gas Limit"},
+      {"id": "SWC-127", "title": "Arbitrary Jump with Function Type Variable"},
+      {"id": "SWC-126", "title": "Insufficient Gas Griefing"},
+      {"id": "SWC-125", "title": "Incorrect Inheritance Order"},
+      {"id": "SWC-124", "title": "Write to Arbitrary Storage Location"},
+      {"id": "SWC-123", "title": "Requirement Violation"},
+      {"id": "SWC-122", "title": "Lack of Proper Signature Verification"},
+      {"id": "SWC-121", "title": "Missing Protection against Signature Replay Attacks"},
+      {"id": "SWC-120", "title": "Weak Sources of Randomness from Chain Attributes"},
+      {"id": "SWC-119", "title": "Shadowing State Variables"},
+      {"id": "SWC-118", "title": "Incorrect Constructor Name"},
+      {"id": "SWC-117", "title": "Signature Malleability"},
+      {"id": "SWC-116", "title": "Block values as a proxy for time"},
+      {"id": "SWC-115", "title": "Authorization through tx.origin"},
+      {"id": "SWC-114", "title": "Transaction Order Dependence"},
+      {"id": "SWC-113", "title": "DoS with Failed Call"},
+      {"id": "SWC-112", "title": "Delegatecall to Untrusted Callee"},
+      {"id": "SWC-111", "title": "Use of Deprecated Solidity Functions"},
+      {"id": "SWC-110", "title": "Assert Violation"},
+      {"id": "SWC-109", "title": "Uninitialized Storage Pointer"},
+      {"id": "SWC-108", "title": "State Variable Default Visibility"},
+      {"id": "SWC-107", "title": "Reentrancy"},
+      {"id": "SWC-106", "title": "Unprotected SELFDESTRUCT Instruction"},
+      {"id": "SWC-105", "title": "Unprotected Ether Withdrawal"},
+      {"id": "SWC-104", "title": "Unchecked Call Return Value"},
+      {"id": "SWC-103", "title": "Floating Pragma"},
+      {"id": "SWC-102", "title": "Outdated Compiler Version"},
+      {"id": "SWC-101", "title": "Integer Overflow and Underflow"},
+      {"id": "SWC-100", "title": "Function Default Visibility"}
     ]
   },
   "classes": {
@@ -19,7 +58,7 @@
     "oracle-manipulation": {"owasp": "SC02"},
     "logic-error": {"owasp": "SC03"},
     "reentrancy": {"owasp": "SC05"},
-    "unchecked-external-call": {"owasp": "SC06"},
+    "unchecked-external-call": {"owasp": "SC06", "swc": "SWC-104"},
     "flash-loan": {"owasp": "SC07"},
     "dos-griefing": {"owasp": "SC10"}
   },
@@ -30,6 +69,13 @@
       "primary": true,
       "figure": "SC01..SC10 ids+titles pinned to the 2025 tab; page sha256 8e00aeab57c1172752346bd6612677015c3eed01a9292595c5dad8c609718e4b",
       "note": "scvs pending primary source"
+    },
+    {
+      "source_url": "https://raw.githubusercontent.com/SmartContractSecurity/SWC-registry/master/entries/index.md",
+      "checked_date": "2026-09-11",
+      "primary": false,
+      "figure": "entries/index.md sha256 1b72b31c1a7f8d287441828fc3d7df661143e2cfecc18fbcc83490ed0d3b9d6a",
+      "note": "SWC registry overview table fetched 2026-09-11; every id and title is the registry's own bytes. Registry staleness caveat (the registry's own words): the content of the SWC registry has not been thoroughly updated since 2020; it is known to be incomplete and may contain errors as well as crucial omissions. Maintained guidance: EEA EthTrust Security Levels specification (https://entethalliance.org/specs/ethtrust-sl). The alias is a cross-reference for a human reader, never an authority claim."
     }
   ]
 }

@@ -1,0 +1,44 @@
+{
+  "schema_version": "1",
+  "facts": [
+    {
+      "target": {
+        "kind": "frontend",
+        "url": "https://app.example"
+      },
+      "dns": {
+        "observed_at": "2026-01-02",
+        "source": "operator ticket OPS-77 (registrar export attached)",
+        "records": {
+          "a": [
+            "203.0.113.7"
+          ],
+          "cname": [
+            "edge.example-cdn.net"
+          ],
+          "ns": [
+            "ns1.example-dns.net",
+            "ns2.example-dns.net"
+          ],
+          "txt": [
+            "v=spf1 -all"
+          ]
+        }
+      }
+    },
+    {
+      "target": {
+        "kind": "keeper-service",
+        "path": "apps/keeper"
+      },
+      "dependency": {
+        "observed_at": "2026-01-02",
+        "source": "operator-supplied manifest",
+        "package": "@openzeppelin/contracts",
+        "version": "v4.9.3",
+        "pin": "@openzeppelin/contracts/=lib/openzeppelin-contracts@v4.9.3/",
+        "resolved_from": "remappings.txt"
+      }
+    }
+  ]
+}

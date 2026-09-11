@@ -24,7 +24,108 @@
           "url":  { "type": "string" },
           "trust": { "type": "string" },
           "in_scope": { "type": "boolean" },
-          "paid_for": { "type": "boolean" }
+          "paid_for": { "type": "boolean" },
+          "dns": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "observed_at",
+              "source"
+            ],
+            "properties": {
+              "observed_at": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+              },
+              "source": {
+                "type": "string",
+                "minLength": 3,
+                "description": "WHO supplied the fact (operator, registrar export, ticket id) and WHEN. The framework NEVER resolves DNS itself: this object is the only place a DNS fact can appear, which is why it is self-describing instead of carrying a global clock."
+              },
+              "records": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "a": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "uniqueItems": true
+                  },
+                  "aaaa": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "uniqueItems": true
+                  },
+                  "cname": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "uniqueItems": true
+                  },
+                  "ns": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "uniqueItems": true
+                  },
+                  "txt": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "uniqueItems": true
+                  },
+                  "mx": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            }
+          },
+          "dependency": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "observed_at",
+              "source",
+              "package"
+            ],
+            "properties": {
+              "observed_at": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+              },
+              "source": {
+                "type": "string",
+                "minLength": 3
+              },
+              "package": {
+                "type": "string",
+                "minLength": 1
+              },
+              "version": {
+                "type": "string"
+              },
+              "pin": {
+                "type": "string",
+                "description": "the lockfile/remappings line verbatim"
+              },
+              "resolved_from": {
+                "type": "string",
+                "description": "repo-relative manifest path"
+              }
+            }
+          }
         }
       }
     },

@@ -1,0 +1,26 @@
+id: merkle-proof-no-length-check
+name: Proof path consumed with no completeness check
+criticality: high
+description: >
+  A proof / withdrawal / message entry point whose name carries a marker
+  (verifyProof, processProof, proveWithdrawal, relayMessage) and whose selector
+  carries an array-or-bytes parameter type ([] or bytes), while none of its own
+  require/assert/reverting-if conditions mention length. The path is consumed
+  with no completeness check on it — Binance-Bridge shape.
+
+  VALUE-BLINDNESS (honesty note, not a caveat to be engineered away): the
+  structural index carries no parameter names and no parameter values, and a
+  function's only signature evidence is its selector — name plus TYPE list. The
+  array/bytes condition is therefore read from the selector TEXT, where a
+  fixed-size bytes32 / bytesNN parameter satisfies the "bytes" marker exactly
+  as a dynamic bytes path does. Guard evidence is the function's OWN
+  require/assert/reverting-if condition text: a length test delegated to a
+  callee, or spelled in a modifier body (modifier bodies feed reads/writes only,
+  never guard extraction), reads as unchecked here. This check claims a SHAPE —
+  a marked entry point whose own guards never mention length. It does NOT claim
+  the individual path check is wrong. HINT-only: confirm by reading the
+  execution path before opening a hunt.
+checks:
+  - type: merkle_proof_no_length_check
+    names: ["verifyProof", "processProof", "proveWithdrawal", "relayMessage"]
+playbook_hint: bridge-message

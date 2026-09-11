@@ -172,7 +172,24 @@ webv2 snap <C-xxx> ./target-repo --exclude NAME           # prune more names (re
 webv2 index <C-xxx> --src ./target-repo      # rebuild the structural index (contract graph, no compiler)
 webv2 model <C-xxx> model.json               # load a protocol model (schema-validated; seeds invariants)
 webv2 model <C-xxx>                          # show the loaded model
+webv2 model <C-xxx> model.json --facts facts.json          # merge operator facts (DNS/dependency)
+webv2 model <C-xxx> model.json --facts ./manifests --facts-observed-at 2026-01-02
 ```
+
+**Facts are operator assertions, and the framework never resolves anything.**
+`--facts` merges dated, attributed `dns`/`dependency` objects onto
+`components[]`, joined on `(kind,url)` or `(kind,path)`: a fact that matches no
+component, matches two, or repeats a `dns`/`dependency` for one component is an
+error (a typo must never be dropped silently). A JSON document carries its own
+`observed_at` per fact; a **directory** of offline manifests
+(`remappings.txt`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`,
+`Cargo.lock`, `go.sum`, `foundry.lock`) has no date inside it, so
+`--facts-observed-at YYYY-MM-DD` is required and is **never** taken from the
+clock. There is deliberately no local DNS lookup: a DNS fact is something the
+operator observed and wrote down (with its date and its source) — nothing in
+the run resolves, guesses, or refreshes a record. Without `--facts` the verb
+emits exactly its pre-I4 bytes; with it, one summary line is appended after the
+load report.
 
 **Seeding is part of the load, and a half-load is loud.** The load prints how
 many invariants it registered into the guardrail registry and logs
@@ -320,6 +337,7 @@ webv2 answered <C-xxx> Q-xxx answered --reason "..." --ref EXEC-xxx   # close a 
 webv2 answered <C-xxx> Q-xxx not-applicable --reason "considered, doesn't apply"
 webv2 ingest <C-xxx> --json-file payload.json [--trajectory T] [--stage S] [--answers-priority Q-xxx]
 webv2 ingest <C-xxx> --from slither --json-file slither.json   # detector lane: every Medium/High/Critical check becomes a HYPOTHESIS with provenance.sast_tools
+webv2 ingest <C-xxx> --from aderyn --json-file aderyn.json     # detector lane (aderyn): every high_issues row becomes a HYPOTHESIS with provenance.sast_tools
 webv2 ingest --example                       # the validated payload template (PURE JSON on stdout; legend on stderr)
 ```
 
@@ -334,12 +352,24 @@ missing `economic_impact` on an economic trajectory is warned. **Never
 hand-write a finding file** — ingest is the only path in.
 
 The detector lane (`--from slither`) is evidence, not verdict: tool findings
-enter as HYPOTHESES like any other. When you resolve a dedup candidate as
+enter as HYPOTHESES like any other. The accepted input is **real Slither JSON**
+(`slither src --json out.json`: `results.detectors[]` with locations in
+`elements[].source_mapping`) — an earlier revision read a
+`vertices[]`/array-`results` shape that Slither never emits, so every real run
+produced zero hypotheses silently (corrected in Wave I; see
+`--from aderyn` below). When you resolve a dedup candidate as
 `same` and exactly one side is tool-flagged, the SURVIVOR records
 `dedup_meta.corroborated_by` (only when it is itself the non-tool side) —
 worth +0.5 acceptance. The `brief` shows a computed TOOL FLAGS section (tool
 findings by critic verdict, corroborated ids) so detector false-positive
 rates stay visible without touching the score.
+
+`--from aderyn` is the same lane over Aderyn JSON (`aderyn src --output
+out.json`): only `high_issues.issues[]` is admitted — Aderyn has no Medium band,
+so `high` is its High/Critical analogue — and `issue_count`/`detectors_used`
+are informational only. Aderyn exits 0 even when it has findings, so **never
+read the exit code as the verdict; the JSON is the signal.** An issue with no
+anchorable instance is dropped, exactly as a Slither flag with no location is.
 
 **Wave G tranche 2 — measurement, soundness layers, bounded proofs.**
 The gold-eval suite (`schema/evalsuite` pack, 17 cases) scores a campaign when
@@ -390,6 +420,74 @@ gives `still_reproducible` / `fixed` / `indeterminate`, recorded as
 changed-surface diff (capped at 50 rows) and a plant check over changed files
 (the patch must not plant anything new). Fail-open throughout: verdicts never
 move status.
+
+**Wave I — external feedback: dates on eval cases, baseline floors, band
+precision, operator facts, four bridge predicates, SWC + disclosure.**
+Six items landed, and three of them changed what a number on your screen
+*means*, so read this before you quote one.
+
+*Eval cases now carry a date, and a date can strike a case out.* Suite rows
+gained `deployed_at` — when the bug lived on-chain or the advisory published —
+beside `created_at`, which stays the ingestion stamp. At scoring time
+`--backtest` excludes a held-out case whose date is strictly older than the
+newest dev case, and excludes a held-out case that is a near-duplicate
+(Jaccard ≥ 0.8 over class + root-cause + file basenames + repo) of any dev
+row. The run prints one line, `held-out excluded: <N> temporal, <M> near-dup`,
+and those rows never rank. **Nothing is deleted or rewritten** — exclusion is
+a scoring-time filter, so a re-run on a fixed dataset shows you what changed
+instead of hiding it. An unparseable `deployed_at` fails the row closed (it
+does not rank) and the run open (the run continues); if every held-out row is
+excluded you hit the ordinary empty-held-out exit, not a silent zero.
+
+*Never quote a recall without the floor beside it.* `--backtest --baseline
+NAME` (repeatable; NAME ∈ always, never, slither, aderyn) prints a baseline
+block after the `verdict:` line. `always` flags everything — it is the price
+of recall, printed as recall; `never` flags nothing and prints
+`precision: 0/0 (95% CI n/a)`, never a fabricated 0%. The tool baselines run
+the real binary once per resolved source root; a case with no local checkout
+(a GitHub URL, an empty `gold.locations`) is **skipped, never counted as a
+miss** (`skipped: <k>/<n> cases (no local checkout)`), and a binary that is
+missing or fails on every root prints a single SKIPPED line and the command
+still exits 0. The block is advisory: it never moves the verdict or the exit
+code, and it always prints in roster order, whatever order you passed the
+flags.
+
+*Acceptance scores are not probabilities.* The `## eval` section gains an
+acceptance-band precision table — `[0,1)`, `[1,2)`, `[2,4)`, `[4+Inf)` — giving
+gold-anchored vs live findings in suite-matched programs with a Wilson
+interval per band, plus a fabrication ledger. "Fabricated" means the record
+itself retracted the finding as disproved (`critic_verdict == "disproved"` or
+status `DISPROVED`); superseded, duplicate and out-of-scope rows are NOT
+fabrications and are not counted as such. Expected calibration error was
+refused as inapplicable to a score that is an additive evidence sum. Both
+blocks appear only when there is something to report.
+
+*Operator facts are dated assertions, never lookups.* `model <C> [file]
+--facts PATH` merges `dns`/`dependency` objects onto `components[]`; a fact
+matching no component, two components, or repeating a fact type on one
+component is an error. Extracting from a directory of manifests
+(`remappings.txt`, lockfiles) requires `--facts-observed-at YYYY-MM-DD`, and
+the date is never taken from the clock — a fact's date is something a human
+asserted. Nothing on this path resolves a name or opens a socket.
+
+*Four more bridge predicates — hint-only, by construction.* `prescreen` gained
+`threshold_without_enforcement`, `relayer_single_key`,
+`merkle_proof_no_length_check` and `verifier_default_on` (high criticality,
+`bridge-message` playbook). They read the structural index, which carries no
+state values, so they tell you where to look and never that a bug is there;
+the archetype descriptions say exactly what each one cannot see.
+
+*SWC cross-references, and a disclosure bundle that is recorded, not
+enforced.* Taxonomy classes may carry an `swc` id and then render
+`[OWASP SC06; SWC-104]`; the ids were fetched verbatim from the SWC registry
+on 2026-09-11, and that registry warns its own content has not been thoroughly
+updated since 2020 — the alias is a cross-reference for a reader, never an
+authority. Coverage is partial: rows without an `swc` key are byte-identical
+to before. `publish --disclosure FILE` attaches a bundle whose prose stays
+campaign-local while the shared record carries only its sha256 and embargo
+date, and the framework does **not** refuse, delay, or suppress a publish
+while an embargo is open — the extra line ends `— recorded, not enforced` so a
+recorded embargo is never mistaken for an enforced one.
 
 **Assign trajectories so components get ≥ 2 orthogonal angles:** A-code,
 B-economic, C-state-machine, D-attacker, E-historical, F-integration, G-drift,
@@ -743,6 +841,7 @@ webv2 memory <C-xxx> --reflect "the fork needed an explicit block number" [--rou
 webv2 memory <C-xxx> --reject MEM-xxxx --reason "real but unreachable" [--rejection-class not-exploitable]
 webv2 publish <C-xxx> --actor NAME                     # publish confirmed knowledge to the shared store (cross-campaign)
 webv2 publish <C-xxx> --actor NAME --global            # -> user-global tier (~/.webv2/shared-memory, or WEBV2_GLOBAL_MEMORY_DIR)
+webv2 publish <C-xxx> --actor NAME --disclosure FILE # attach a disclosure bundle (JSON): its sha256 + embargo date ride the record, its prose stays campaign-local
 webv2 globalize --actor NAME                           # mark stored rows scope=global (recalled by EVERY campaign, whatever its program)
 webv2 shared [--verify]                                # the shared store, both tiers: view + integrity check
 ```
@@ -776,6 +875,24 @@ priority with no evidence ref and every N/A/deprioritized closure with no
 reason. A publish that adds nothing prints "nothing changed — <reason>" plus
 the next command, never silence. **Approve memory only after a human reads the
 candidate** — the agent never approves its own memory.
+
+**A disclosure bundle is operator-supplied, campaign-local, and NOT enforced.**
+`publish --disclosure FILE` reads a bundle (schema `disclosure`: `finding_ids`,
+`summary`, `impact`, `embargo_until`, optional `affected`/`references`/
+`contact`/`reporter_credit`) and refuses it, exit 1, unless every cited finding
+EXISTS in the campaign, is CONFIRMED or CHAIN, is part of this publish, and is
+cited once. The bundle is written to
+`<campaign>/artifacts/disclosure-bundle.json` and registered there; the publish
+RECORD carries only `disclosure_sha256` and `disclosure_embargo_until` — the
+prose never enters the shared store, which is a cross-campaign surface. When a
+bundle is attached the publish prints one extra line, e.g. `disclosure: bundle
+1a2b3c4d5e6f (2 findings), embargo_until 2026-10-01 — recorded, not enforced`.
+The embargo is a POLICY FIELD: the framework does not refuse, delay, or
+suppress a publish while an embargo is open — an embargo is an agreement
+between the researcher and the program, and the tool's only job is to make the
+state legible so a recorded embargo is never mistaken for an enforced one.
+A publish without `--disclosure` is byte-identical to before (no artifact, no
+record fields).
 
 ## 10. End of round
 
@@ -881,7 +998,7 @@ webv2 waive <C> <stage> [--subject S] --reason R --actor A         waive one com
 webv2 scope <C> --policy policy.json                               load the bounty policy (program identity + gate scope)
 webv2 snap <C> <target> [--deployment F] [--chain F] [--exclude GLOB]   pin a source snapshot (+ deployment/chain pins; foundry.toml read automatically)
 webv2 index <C> --src SRC                                          rebuild the structural index for the active pin
-webv2 model <C> [file] [--json]                                    load a protocol model (seeds invariants) / show the loaded one
+webv2 model <C> [file] [--json] [--facts P] [--facts-observed-at D]    load a protocol model (seeds invariants) / show the loaded one; --facts merges operator-supplied DNS/dependency facts (offline only, no lookup)
 webv2 plan <C> [file] [--rebuild] [--json]                         read-only plan view; --rebuild archives + regenerates
 webv2 answered <C> <priority|L-0X> [<priority>...] <status> [--reason R] [--reason-all R] [--ref R] [--anchor FIELD] [--families a,b,c] [--symmetry fam=prim;...] [--actor A]   # one status over ONE OR MORE rows: gates run per row all-or-nothing (first refusal names its row, zero mutations)
 webv2 probes <C> run [--emit --per-axis N --total N] | list [--axis L-0n|AXIS] [--all] [--json] | blank --axis L-0n|AXIS --anchor-blind K --reason R --actor A
@@ -950,7 +1067,7 @@ webv2 forkdiff <C> --src SRC [--json]                              match the tar
 webv2 recency <C> --target GIT-REPO --src SRC [--json]             recency-weighted file prioritization
 webv2 baseline {add NAME --path P [--source-url U] [--license L] | list | remove NAME}
 
-webv2 publish <C> --actor A [--global]                             publish confirmed knowledge to the shared store
+webv2 publish <C> --actor A [--global] [--disclosure FILE]         publish confirmed knowledge to the shared store (--disclosure: hash+embargo on the record, prose stays local)
 webv2 globalize --actor A [--program KEY]                          mark stored rows scope=global
 webv2 shared [--verify]                                            the shared store, both tiers: view + integrity check
 webv2 memory <C> [--approve MEM-xxx --by NAME | --reflect TEXT [--round N] | --reject MEM-xxx --reason R [--rejection-class C]]   list memory / approve / reflect / reject

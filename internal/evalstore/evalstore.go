@@ -105,6 +105,13 @@ func writeCases(cases []validation.Value) error {
 
 // AddCase is add_case: validate + append one evaluation case, then rewrite
 // both files. Stamps the framework-owned fields the caller may omit.
+//
+// deployed_at is NOT one of them. It is operator-supplied provenance — when
+// the underlying bug lived on-chain, or the advisory's publication date —
+// and it rides through untouched: an absent key stays absent (defaulting it
+// would counterfeit a date nobody asserted) and a supplied value is never
+// overwritten by the created_at ingestion stamp. copyObj passes it through;
+// the only stamp this function owns is created_at.
 func AddCase(caseDoc validation.Value) (validation.Value, error) {
 	if caseDoc.Kind != validation.Obj {
 		return validation.VNull(), errors.New("an evaluation case must be a dict")
@@ -114,6 +121,9 @@ func AddCase(caseDoc validation.Value) (validation.Value, error) {
 	c.O = validation.SetDefault(c.O, "partition", validation.VStr("dev"))
 	c.O = validation.SetDefault(c.O, "schema_version", validation.VInt(2))
 	c.O = validation.SetDefault(c.O, "created_at", validation.VStr(state.NowIso()))
+	// Deliberately no SetDefault for deployed_at: absent stays absent (the
+	// store never invents an on-chain date), and a supplied value is passed
+	// through by copyObj rather than being rewritten to the ingestion stamp.
 
 	if err := checkGoldClass(c); err != nil {
 		return validation.VNull(), err

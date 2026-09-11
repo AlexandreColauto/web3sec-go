@@ -170,14 +170,20 @@ func TestCorpusSurfaceDeterministicArtifact(t *testing.T) {
 // and severity (Task 7's helper shape, extended for the backtest's
 // held-out scorecard and band-carrying pseudo-findings). An empty
 // severity omits gold.severity (the schema leaves it optional).
+//
+// narrative is the row's own root-cause sentence, and it is deliberately
+// explicit: I1b's near-dup scan keys on class + root_cause + file
+// basenames + repo and compares EVERY held-out row against EVERY
+// dev/training row, so a shared boilerplate narrative would make the whole
+// store mutually duplicate by construction and empty the held-out leg.
+// These fixtures are about prior arithmetic — each row states its own bug.
 func seedEvalCase(t *testing.T, caseID, partition, class, outcome,
-	severity, recordID string) {
+	severity, recordID, narrative string) {
 	t.Helper()
 	gold := []validation.KV{
 		{K: "outcome", V: validation.VStr(outcome)},
 		{K: "bug_class", V: validation.VStr(class)},
-		{K: "root_cause", V: validation.VStr(
-			"synthetic root cause for backtest calibration testing")},
+		{K: "root_cause", V: validation.VStr(narrative)},
 	}
 	if severity != "" {
 		gold = append(gold,
@@ -204,9 +210,13 @@ func seedEvalCase(t *testing.T, caseID, partition, class, outcome,
 }
 
 // seedDevClass writes n dev rows for one class, the first k of them
-// accepted. Case ids ride a caller base so two classes never collide.
+// accepted. Case ids ride a caller base so two classes never collide. The
+// rows share one narrative, which is safe on purpose: dev-dev pairs are
+// not scanned (same-partition duplication is the loader's problem), only
+// held-out-vs-dev is — so the narrative must differ from every HELD-OUT
+// narrative of any class, and does.
 func seedDevClass(t *testing.T, class string, accepted, n, base int,
-	tag string) {
+	tag, narrative string) {
 	t.Helper()
 	for i := 0; i < n; i++ {
 		outcome := "disproved"
@@ -214,7 +224,7 @@ func seedDevClass(t *testing.T, class string, accepted, n, base int,
 			outcome = "confirmed-exploitable"
 		}
 		seedEvalCase(t, fmt.Sprintf("CASE-%012x", base+i), "dev",
-			class, outcome, "", fmt.Sprintf("%s-%d", tag, i))
+			class, outcome, "", fmt.Sprintf("%s-%d", tag, i), narrative)
 	}
 }
 
@@ -226,16 +236,22 @@ func seedDevClass(t *testing.T, class string, accepted, n, base int,
 // the two accepted reentrancy rows above them.
 func seedImprovesStore(t *testing.T) {
 	t.Helper()
-	seedDevClass(t, "reentrancy", 8, 10, 0x100, "impr-re")
-	seedDevClass(t, "oracle-manipulation", 2, 10, 0x200, "impr-or")
+	seedDevClass(t, "reentrancy", 8, 10, 0x100, "impr-re",
+		"the vault releases funds before the balance is zeroed")
+	seedDevClass(t, "oracle-manipulation", 2, 10, 0x200, "impr-or",
+		"the borrow limit is priced from instantaneous spot reserves")
 	seedEvalCase(t, "CASE-000000000001", "held-out",
-		"oracle-manipulation", "disproved", "low", "impr-h1")
+		"oracle-manipulation", "disproved", "low", "impr-h1",
+		"a signature digest omits the chain id so one claim replays")
 	seedEvalCase(t, "CASE-000000000002", "held-out",
-		"oracle-manipulation", "out-of-scope", "low", "impr-h2")
+		"oracle-manipulation", "out-of-scope", "low", "impr-h2",
+		"the queue reverts the whole batch whenever a single target fails")
 	seedEvalCase(t, "CASE-000000000003", "held-out",
-		"reentrancy", "confirmed-exploitable", "low", "impr-h3")
+		"reentrancy", "confirmed-exploitable", "low", "impr-h3",
+		"a first depositor donates tokens to inflate the share price")
 	seedEvalCase(t, "CASE-000000000004", "held-out",
-		"reentrancy", "confirmed-exploitable", "low", "impr-h4")
+		"reentrancy", "confirmed-exploitable", "low", "impr-h4",
+		"the fee division floors dust amounts away to zero")
 }
 
 const backtestHeader = "backtest: priors from dev partition only " +
@@ -248,6 +264,25 @@ const backtestHeader = "backtest: priors from dev partition only " +
 const backtestBands = "bands: critical is unrepresentable in gold.severity " +
 	"(schema) — critical-band rows score 0 here; " +
 	"loaders must fold (see G3)\n"
+
+// improvesBacktestWant is the improves fixture's full scorecard, pinned
+// byte-for-byte. CI strings are wilson.Format's numbers (computed via go
+// run over the wilson package first: 0/2 -> 0.0–65.8%, 2/2 ->
+// 34.2–100.0%). It doubles as the PRE-I2b golden run: I2b's zero-bytes law
+// says a --backtest WITHOUT --baseline must still print exactly this.
+var improvesBacktestWant = backtestHeader +
+	backtestBands +
+	"eval store: 24 adjudicated, 0 skipped\n" +
+	"band coverage: 4/4 rows contributed\n" +
+	"method A (severity-only):\n" +
+	"top-2 precision: 0/2 (95% CI 0.0–65.8%)\n" +
+	"selected accepted: 0\n" +
+	"accepted available: 2\n" +
+	"method B (with dev priors):\n" +
+	"top-2 precision: 2/2 (95% CI 34.2–100.0%)\n" +
+	"selected accepted: 2\n" +
+	"accepted available: 2\n" +
+	"verdict: improves\n"
 
 func TestCorpusBacktestImproves(t *testing.T) {
 	t.Setenv("WEBV2_EVAL_DIR", t.TempDir())
@@ -262,25 +297,9 @@ func TestCorpusBacktestImproves(t *testing.T) {
 	if errS != "" {
 		t.Fatalf("stderr = %q, want empty", errS)
 	}
-	// CI strings are wilson.Format's numbers (computed via go run over
-	// the wilson package first: 0/2 -> 0.0-65.8%, 2/2 -> 34.2-100.0%),
-	// pinned byte-for-byte here.
-	want := backtestHeader +
-		backtestBands +
-		"eval store: 24 adjudicated, 0 skipped\n" +
-		"band coverage: 4/4 rows contributed\n" +
-		"method A (severity-only):\n" +
-		"top-2 precision: 0/2 (95% CI 0.0–65.8%)\n" +
-		"selected accepted: 0\n" +
-		"accepted available: 2\n" +
-		"method B (with dev priors):\n" +
-		"top-2 precision: 2/2 (95% CI 34.2–100.0%)\n" +
-		"selected accepted: 2\n" +
-		"accepted available: 2\n" +
-		"verdict: improves\n"
-	if out != want {
+	if out != improvesBacktestWant {
 		t.Fatalf("stdout mismatch:\n--- got ---\n%s\n--- want ---\n%s",
-			out, want)
+			out, improvesBacktestWant)
 	}
 }
 
@@ -289,13 +308,17 @@ func TestCorpusBacktestFlatIndistinguishable(t *testing.T) {
 	// One class, uniform severity: the class rate IS the global rate,
 	// so wPrior computes to exactly zero and method B ranks
 	// bit-identically to method A — the same experiment, no verdict.
-	seedDevClass(t, "reentrancy", 5, 10, 0x300, "flat-re")
+	seedDevClass(t, "reentrancy", 5, 10, 0x300, "flat-re",
+		"the withdraw path is reentrancy-free and checks effects first")
 	seedEvalCase(t, "CASE-000000000001", "held-out",
-		"reentrancy", "disproved", "medium", "flat-h1")
+		"reentrancy", "disproved", "medium", "flat-h1",
+		"liquidation values collateral with a manipulable spot ratio")
 	seedEvalCase(t, "CASE-000000000002", "held-out",
-		"reentrancy", "disproved", "medium", "flat-h2")
+		"reentrancy", "disproved", "medium", "flat-h2",
+		"the upgrade initializer is callable by any external account")
 	seedEvalCase(t, "CASE-000000000003", "held-out",
-		"reentrancy", "confirmed-exploitable", "medium", "flat-h3")
+		"reentrancy", "confirmed-exploitable", "medium", "flat-h3",
+		"a merkle proof is accepted without any depth or length check")
 	code, out, errS := run(t, "corpus-surface", "C-nope",
 		"--backtest", "--top", "2")
 	if code != 0 {
@@ -446,9 +469,200 @@ func TestCorpusBacktestHelpCarriesSignalLine(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit = %d, want 0", code)
 	}
-	if !strings.Contains(strings.ReplaceAll(out, "\n              ", " "),
+	// argparse re-wraps the help text when a longer option joins the
+	// parser (I2b's --baseline NAME), so the line breaks are not stable:
+	// flatten the text and assert the sentence survives.
+	flat := strings.Join(strings.Fields(out), " ")
+	if !strings.Contains(flat,
 		"the backtest measures the RANKING "+
 			"SIGNALS THE STORE ACTUALLY CARRIES") {
 		t.Fatalf("help must carry the signal line:\n%s", out)
+	}
+}
+
+// ---- corpus-surface --baseline (Wave I Task 6) -----------------------------
+
+// floorWant is the always/never floor block over seedImprovesStore's four
+// held-out rows (two accepted). wilson.Format pins both intervals.
+const floorWant = "baseline always:\n" +
+	"recall: 4/4 (95% CI 51.0–100.0%)\n" +
+	"precision: 2/4 (95% CI 15.0–85.0%)\n" +
+	"baseline never:\n" +
+	"recall: 0/4 (95% CI 0.0–49.0%)\n" +
+	"precision: 0/0 (95% CI n/a)\n"
+
+func TestCorpusBacktestBaselineRequiresBacktest(t *testing.T) {
+	t.Setenv("WEBV2_EVAL_DIR", t.TempDir())
+	seedImprovesStore(t)
+	// --baseline is a --backtest window exactly like --top: beside the
+	// plain sweep it would be silently ignored, so it is an argparse
+	// usage error (exit 2).
+	code, _, errS := run(t, "corpus-surface", "C-nope", "--baseline", "always")
+	if code != 2 {
+		t.Fatalf("exit = %d, want 2", code)
+	}
+	want := corpusSurfaceUsage + "webv2 corpus-surface: error: " +
+		"--baseline requires --backtest\n"
+	if errS != want {
+		t.Fatalf("stderr = %q, want %q", errS, want)
+	}
+}
+
+func TestCorpusBacktestBaselineUnknownName(t *testing.T) {
+	t.Setenv("WEBV2_EVAL_DIR", t.TempDir())
+	seedImprovesStore(t)
+	// The choice error fires even when --backtest is also missing:
+	// argparse rejects the choice at parse time, before any handler runs.
+	code, _, errS := run(t, "corpus-surface", "C-nope",
+		"--baseline", "nope")
+	if code != 2 {
+		t.Fatalf("exit = %d, want 2", code)
+	}
+	want := corpusSurfaceUsage + "webv2 corpus-surface: error: " +
+		"argument --baseline: invalid choice: 'nope' (choose from " +
+		"'always', 'never', 'slither', 'aderyn')\n"
+	if errS != want {
+		t.Fatalf("stderr = %q, want %q", errS, want)
+	}
+}
+
+func TestCorpusBacktestBaselineFloorsAndCanonicalOrder(t *testing.T) {
+	t.Setenv("WEBV2_EVAL_DIR", t.TempDir())
+	seedImprovesStore(t)
+	code, out, errS := run(t, "corpus-surface", "C-nope", "--backtest",
+		"--top", "2", "--baseline", "never", "--baseline", "always")
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0 (err=%q)", code, errS)
+	}
+	if errS != "" {
+		t.Fatalf("stderr = %q, want empty", errS)
+	}
+	// The block rides AFTER the verdict line and never changes it.
+	if !strings.Contains(out, "verdict: improves\nbaseline always:") {
+		t.Fatalf("the block did not follow the verdict:\n%s", out)
+	}
+	if !strings.HasSuffix(out, floorWant) {
+		t.Fatalf("floors mismatch:\n--- got tail ---\n%s\n--- want ---\n%s",
+			out, floorWant)
+	}
+	// argv order is accepted but must not reach the output.
+	_, reversed, errS := run(t, "corpus-surface", "C-nope", "--backtest",
+		"--top", "2", "--baseline", "always", "--baseline", "never")
+	if errS != "" {
+		t.Fatalf("reversed stderr = %q", errS)
+	}
+	if reversed != out {
+		t.Fatalf("argv order changed the bytes:\n--- got ---\n%s\n"+
+			"--- want ---\n%s", reversed, out)
+	}
+}
+
+func TestCorpusBacktestBaselineNotComputable(t *testing.T) {
+	t.Setenv("WEBV2_EVAL_DIR", t.TempDir())
+	seedImprovesStore(t)
+	// The seeded rows carry no gold.locations and only an
+	// internal://test repo, so no case is checkable: the tool is never
+	// spawned (so this test needs no binary) and every row is disclosed
+	// on the skipped line instead of being counted as a miss.
+	code, out, errS := run(t, "corpus-surface", "C-nope", "--backtest",
+		"--top", "2", "--baseline", "slither")
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0 (err=%q)", code, errS)
+	}
+	if errS != "" {
+		t.Fatalf("stderr = %q, want empty", errS)
+	}
+	want := "baseline slither:\n" +
+		"skipped: 4/4 cases (no local checkout)\n" +
+		"recall: 0/0 (95% CI n/a)\n" +
+		"precision: 0/0 (95% CI n/a)\n"
+	if !strings.HasSuffix(out, want) {
+		t.Fatalf("mismatch:\n--- got tail ---\n%s\n--- want ---\n%s",
+			out, want)
+	}
+}
+
+func TestCorpusBacktestWithoutBaselineMovesZeroBytes(t *testing.T) {
+	t.Setenv("WEBV2_EVAL_DIR", t.TempDir())
+	seedImprovesStore(t)
+	// I2b's zero-bytes law: with no --baseline the scorecard is the
+	// pre-task bytes, byte for byte (improvesBacktestWant is that pinned
+	// run) and the word baseline never appears.
+	code, out, errS := run(t, "corpus-surface", "C-nope",
+		"--backtest", "--top", "2")
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0 (err=%q)", code, errS)
+	}
+	if errS != "" {
+		t.Fatalf("stderr = %q, want empty", errS)
+	}
+	if out != improvesBacktestWant {
+		t.Fatalf("stdout moved:\n--- got ---\n%s\n--- want ---\n%s",
+			out, improvesBacktestWant)
+	}
+	if strings.Contains(out, "baseline") {
+		t.Fatalf("a baseline leaked into a plain backtest:\n%s", out)
+	}
+}
+
+// seedLocatedHeldCase seeds one held-out row that DOES carry a gold
+// location and a repo the comparator can resolve — the shape a tool
+// baseline needs before it will even look for its binary. seedEvalCase
+// (the prior-arithmetic fixture above) deliberately carries neither.
+func seedLocatedHeldCase(t *testing.T, caseID, outcome, file string) {
+	t.Helper()
+	doc := validation.VObj(
+		validation.KV{K: "case_id", V: validation.VStr(caseID)},
+		validation.KV{K: "partition", V: validation.VStr("held-out")},
+		validation.KV{K: "source", V: validation.VObj(
+			validation.KV{K: "dataset", V: validation.VStr("manual")},
+			validation.KV{K: "record_id", V: validation.VStr("bl-" + caseID)},
+		)},
+		validation.KV{K: "program", V: validation.VObj(
+			validation.KV{K: "program", V: validation.VStr("BaselineProgram")},
+		)},
+		validation.KV{K: "gold", V: validation.VObj(
+			validation.KV{K: "outcome", V: validation.VStr(outcome)},
+			validation.KV{K: "bug_class", V: validation.VStr("access-control")},
+			validation.KV{K: "root_cause", V: validation.VStr(
+				"the located held row for " + caseID)},
+			validation.KV{K: "locations", V: validation.VArr(
+				validation.VObj(validation.KV{K: "file",
+					V: validation.VStr(file)}))},
+		)},
+		validation.KV{K: "code", V: validation.VObj(
+			validation.KV{K: "repo", V: validation.VStr("internal://test")},
+		)},
+	)
+	if _, err := evalstore.AddCase(doc); err != nil {
+		t.Fatalf("seed %s: %v", caseID, err)
+	}
+}
+
+// TestCorpusBacktestBaselineMissingBinaryExitsZero drives the real
+// exec.LookPath gate through the CLI: with nothing on PATH the baseline
+// prints the one SKIPPED line, emits no recall/precision line, and the
+// command still exits 0 — a missing comparator is a coverage report, never
+// a scorecard failure.
+func TestCorpusBacktestBaselineMissingBinaryExitsZero(t *testing.T) {
+	t.Setenv("WEBV2_EVAL_DIR", t.TempDir())
+	seedLocatedHeldCase(t, "CASE-000000000001", "confirmed-exploitable",
+		"src/A.sol")
+	t.Setenv("PATH", t.TempDir()) // an empty PATH is "the tool is not installed"
+	code, out, errS := run(t, "corpus-surface", "C-nope", "--backtest",
+		"--baseline", "slither")
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0 (err=%q)", code, errS)
+	}
+	if errS != "" {
+		t.Fatalf("stderr = %q, want empty", errS)
+	}
+	want := "baseline slither: SKIPPED (slither not on PATH)\n"
+	i := strings.Index(out, "baseline slither:")
+	if i < 0 {
+		t.Fatalf("no slither block in:\n%s", out)
+	}
+	if out[i:] != want {
+		t.Fatalf("block = %q, want exactly %q (no metric lines)", out[i:], want)
 	}
 }

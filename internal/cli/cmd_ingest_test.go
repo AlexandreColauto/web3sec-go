@@ -397,9 +397,16 @@ func storedFinding(t *testing.T, root, cid string) validation.Value {
 func TestIngestFromSlitherCreatesHypotheses(t *testing.T) {
 	root := mkroot(t)
 	cid := initOne(t, root)
-	raw := `{"results":[{"check":"reentrancy-eth","impact":"High","confidence":"Medium",
-	  "description":"Reentrancy in Vault.withdraw (src/Vault.sol#42-58)",
-	  "vertices":[{"filename":"src/Vault.sol","line_no":50}]}]}`
+	// REAL Slither shape: results is an OBJECT carrying detectors[], and a
+	// location is elements[].source_mapping (the pre-Wave-I fixture used a
+	// fabricated array `results` + `vertices`, which made this lane create
+	// zero hypotheses).
+	raw := `{"success":true,"error":null,"results":{"detectors":[
+	  {"check":"reentrancy-eth","impact":"High","confidence":"Medium",
+	   "description":"Reentrancy in Bank.withdraw (src/ES03BankReentrancy.sol#L6-L11)",
+	   "elements":[{"type":"function","name":"withdraw","source_mapping":{
+	     "filename_relative":"src/ES03BankReentrancy.sol","filename_short":"src/ES03BankReentrancy.sol",
+	     "is_dependency":false,"lines":[6,7,8,9,10,11]}}]}]}}`
 	p := filepath.Join(t.TempDir(), "out.json")
 	if err := os.WriteFile(p, []byte(raw), 0o644); err != nil {
 		t.Fatal(err)
@@ -423,6 +430,46 @@ func TestIngestFromSlitherCreatesHypotheses(t *testing.T) {
 	}
 }
 
+func TestIngestFromAderynCreatesHypotheses(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	// REAL Aderyn shape (aderyn 0.6.8): high_issues.issues[] rows carry
+	// detector_name + instances[]. Only the high band is admitted.
+	raw := `{"files_summary":{"total_source_units":1},
+	  "issue_count":{"high":1,"low":0},
+	  "high_issues":{"issues":[
+	    {"title":"State change after external call",
+	     "description":"Changing state after an external call can lead to re-entrancy",
+	     "detector_name":"reentrancy-state-change",
+	     "instances":[{"contract_path":"ES03BankReentrancy.sol","line_no":8,
+	       "src":"...","src_char":0}]}]},
+	  "low_issues":{"issues":[]},"detectors_used":["reentrancy-state-change"]}`
+	p := filepath.Join(t.TempDir(), "ad.json")
+	if err := os.WriteFile(p, []byte(raw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errOut := run(t, "--root", root, "ingest", cid,
+		"--from", "aderyn", "--json-file", p)
+	if code != 0 {
+		t.Fatalf("exit %d: %s / %s", code, out, errOut)
+	}
+	if !strings.Contains(out, "aderyn ingest: 1 hypotheses created") {
+		t.Fatalf("summary must name the tool: %s", out)
+	}
+	f := storedFinding(t, root, cid)
+	tools := objAt(objAt(f, "provenance"), "sast_tools").A
+	if len(tools) != 1 || tools[0].S != "aderyn:reentrancy-state-change" {
+		t.Fatalf("provenance.sast_tools lost or wrong: %v", tools)
+	}
+	if cls := objAt(objAt(f, "root_cause"), "class").S; cls != "reentrancy" {
+		t.Fatalf("mapped class lost: %s", cls)
+	}
+	// The default stage is per-tool.
+	if got := objAt(f, "trajectory").S; got == "" {
+		t.Fatal("trajectory missing")
+	}
+}
+
 func TestIngestFromRejectsUnknownSource(t *testing.T) {
 	root := mkroot(t)
 	cid := initOne(t, root)
@@ -431,8 +478,11 @@ func TestIngestFromRejectsUnknownSource(t *testing.T) {
 	if code != 2 {
 		t.Fatalf("want usage error exit 2, got %d", code)
 	}
-	if !strings.Contains(errOut, "argument --from: invalid choice") {
-		t.Fatalf("argparse-shaped error expected: %s", errOut)
+	// Byte-for-byte the argparse shape, over the TWO-element allowlist.
+	want := t14IngestUsage + "webv2 ingest: error: argument --from: invalid choice: " +
+		"'mytool' (choose from 'slither', 'aderyn')\n"
+	if errOut != want {
+		t.Fatalf("stderr = %q, want %q", errOut, want)
 	}
 }
 
@@ -456,6 +506,11 @@ func TestIngestFromRequiresJsonFile(t *testing.T) {
 	if code != 2 || errOut != want {
 		t.Fatalf("precedence: exit %d stderr %q, want exit 2 %q",
 			code, errOut, want)
+	}
+	// Same law for the aderyn lane: the dependency is tool-independent.
+	code, _, errOut = run(t, "--root", root, "ingest", cid, "--from", "aderyn")
+	if code != 2 || errOut != want {
+		t.Fatalf("aderyn: exit %d stderr %q, want exit 2 %q", code, errOut, want)
 	}
 }
 

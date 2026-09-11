@@ -2499,7 +2499,317 @@ Ordered roughly by real-world bite.
 | H12 | `string(rune)` test idiom → `strconv.Itoa` (`internal/evalscore/evalscore_test.go:376` + eval section test). | Robust past 9 cases. |
 | H13 | `class_weights.schema.json` strictness: `number` accepts int `1` and float `1.0` alike; confirm no `"null"`-string `source_url` in fixtures. | Schema hygiene; verify fixture data, then decide. |
 | H14 | Scaffold `_witness` storage var is contract-visible in halmos symbolic context (`internal/harness/harness.go`). | Harmless for dummy scaffolds; revisit when real invariants run. |
+| H15 | `reentrancy` carries no `swc` alias although the fetched registry list has SWC-107 ("Reentrancy") — the mapping I6 deliberately deferred. Adding it is one data line in `assets/taxonomy/aliases.json` (`"reentrancy": {"owasp": "SC05", "swc": "SWC-107"}`) plus **four pinned display literals** that must grow in step: `internal/report/aliases_test.go:36,64`, `internal/briefing/aliases_test.go:58`, `internal/classweights/aliases_test.go:92` — plus the `assets/testdata/asset_manifest.json` regen. No code change: `ClassAliasSuffix` already renders `[OWASP SC05; SWC-107]`. | Deferred by I6's byte law, which required every existing OWASP-only rendering to stay byte-identical in that wave, not by any doubt about the mapping (the id is in the fetched list and the class is the registry's own word for it). |
 
 E3 (ladder "other" axis) and E4 (campaign severity floor) stay deferred under
 principle 6 — they are NOT part of this backlog; they land when a real run
 trips them.
+
+---
+
+## Wave I (external-feedback responses, 2026-09-11)
+
+Responses to the external feedback round (items I1–I6). Each item lands as its
+own commit(s); this section is expanded by the wave's close-out task. Defect
+corrections found while planning the wave are filed here honestly — the earlier
+plan and runbook history blocks are NOT retro-edited to pretend the defect was
+always known.
+
+### I1. Eval cases get a date, and a date can strike a case out (I1a + I1b)
+
+**What the feedback asked.** The G7 self-apply discipline (do not train on the
+thing you test) was only half-applied: the gold suite had no notion of *when* a
+case's bug lived, so a held-out case could be older than everything in the dev
+partition, and a near-copy of a dev case could sit in the held-out leg and
+inflate recall.
+
+**Landed.** I1a `b596bf8` (`deployed_at` on eval cases + schema), I1b `625cae2`
+(temporal gate + cross-partition near-dup scan, exclusions only).
+
+**What changed.** `assets/schema/evaluation_case.schema.json` gains an additive
+optional `deployed_at` (`created_at` stays the ingestion stamp written by
+`AddCase`; `deployed_at` is when the underlying bug lived on-chain / the
+advisory published, operator-supplied, absent-ok) and `AddCase` passes a
+supplied value through without defaulting or overwriting it.
+`internal/evalstore/temporal.go` adds `PartitionHealth`, applied at scoring
+time: a held-out row is temporal-excluded iff its date is strictly older than
+the max dev date (compare `deployed_at` when both rows carry a parseable
+`YYYY-MM-DD`, else `created_at`; an unparseable `deployed_at` fails the row
+closed and the run open), and near-dup-excluded iff its token Jaccard against
+ANY dev/training row is ≥ 0.8 (`nearDupThreshold`). `internal/backtest` prints
+`held-out excluded: <N> temporal, <M> near-dup` and the audit's `## eval`
+section renders the same block presence-gated (problems non-empty only). No
+stored row is mutated or deleted — rows are excluded from ranking, never
+rewritten, so a later fixed dataset shows what changed instead of hiding it.
+
+**Disclosures.** All 17 `assets/evalsuite/cases.json` rows carry
+`deployed_at: 2026-09-11` **copied from their own `created_at`** — the suite does
+not record real exploit/advisory dates, and none were invented; every row is
+copied, and no row claims a provenance it does not have.
+
+**Deviation (D1).** `archetypes.Jaccard` could not be imported from
+`internal/evalstore` — the cycle was verified real, not assumed. The function
+moved to a new leaf package `internal/textsim` (pure token-set Jaccard, its own
+tests), and `archetypes.Jaccard` survives as a one-line delegating wrapper so
+corpus callers move zero bytes.
+
+### I2. SAST loaders read the tools' real output, and every recall gets a floor (I2a + I2b)
+
+**What the feedback asked.** (a) The Slither lane had never been validated
+against real tool output, and Aderyn was not wired at all; (b) an eval recall
+number with no baseline beside it is unreadable — "found 26 flags" means
+nothing without "and a program that flags everything would score X".
+
+**Landed.** I2a `3ed9815` (Slither real-shape repair + Aderyn loader +
+`--from aderyn`), I2b `61f8a8b` (baseline runner). **I2a is a defect
+correction — the full write-up is the `I2a.` entry below; it is filed there in
+full rather than duplicated here.**
+
+**What changed (I2b).** `internal/backtest/baseline.go` adds the fixed roster
+`always, never, slither, aderyn` and
+`BaselineBlock(names, held, run ToolRunner) string`; `corpus-surface
+--backtest --baseline NAME` (repeatable) prints the block AFTER the `verdict:`
+line, advisory only — it never moves the verdict, the exit code, or any earlier
+byte, and it prints in roster order whatever order argv gave. `always` flags
+everything (the floor any detector must beat, so recall never prints without
+its price), `never` prints the literal `precision: 0/0 (95% CI n/a)` that
+`wilson.Format` already returns — never a fabricated 0%. The tool baselines run
+the real binary once per resolved source root, parse with the I2a loaders, and
+flag a case iff an admitted payload's file basename matches one of the case's
+`gold.locations[].file` basenames. A case with no local checkout (a GitHub URL,
+an empty `gold.locations`) is **skipped, never a miss**
+(`skipped: <k>/<n> cases (no local checkout)`); a missing binary or one that
+fails on every root prints a single SKIPPED line and exits 0. Spawning uses
+`os/exec` directly, deliberately not `internal/sandbox` (a sandbox run mints
+`sandbox_execution` records on a campaign; a baseline is an eval-side
+measurement on a read-only scorecard).
+
+**Deviation (adjudicated correct).** The locked plan text defined the baseline
+`recall` as `anchored / n` with "anchored" borrowed from the framework's own
+scoring semantics (`gold.outcome == "confirmed-exploitable"`). The shipped
+comparator scores `recall = flagged / scored` — for an *external detector
+baseline* the honest question is whether the tool flagged the case, and reusing
+the framework's anchor definition would have made `always` and `slither` differ
+in kind while hiding the tool's own behaviour. The Task 6 review adjudicated
+the shipped semantics correct; the plan sentence is superseded by the contract
+documented at `internal/backtest/baseline.go:117`.
+
+### I2a. G1 Slither adapter read a fabricated fixture shape (defect correction)
+
+**Defect.** The shipped G1 adapter (`internal/datasets/slither/slither.go`)
+read `results` as a JSON ARRAY and took locations from
+`vertices[].filename`/`line_no`. Real Slither JSON (slither 0.11.6,
+`slither src --json out.json`) has `results` as an OBJECT whose `detectors[]`
+rows carry locations in `elements[].source_mapping`. Neither `vertices` nor an
+array `results` exists in real output, so `slither.ToPayloads` returned an
+empty slice for every real document and `webv2 ingest --from slither` silently
+created ZERO hypotheses and exited 0 — a framework adapter reporting "found
+nothing" beside a tool that found 26 flags.
+
+**Why the suite could not see it.** The checked-in fixture
+`internal/datasets/slither/testdata/slither_sample.json` was fabricated in the
+same wrong shape, and `internal/cli/cmd_ingest_test.go` pinned that shape
+inline, so adapter and tests agreed with each other and disagreed with the
+tool.
+
+**Fix.** The adapter now reads `results.detectors[]`, anchors each detector
+from `elements[].source_mapping` (`filename_relative` → `filename_short` →
+`filename_absolute`; line = `lines[0]`, dropping unanchorable elements and
+dependency elements), and is pinned by REAL captured fixtures (slither 0.11.6
++ aderyn 0.6.8 over a scratch copy of `assets/evalsuite/src`, trimmed by
+deleting whole rows only). The same task adds an Aderyn loader
+(`internal/datasets/aderyn`) and generalizes the ingest lane (`--from
+{slither,aderyn}`). Fixed in
+`fix(I2): slither loader reads real Slither JSON; add aderyn loader + --from aderyn`
+(Wave I, 2026-09-11).
+
+### I3. Acceptance score-band precision, and ECE refused as inapplicable
+
+**What the feedback asked.** "Calibration" for acceptance scores — an expected
+calibration error (ECE) over the scores, so a reader could trust a high score.
+
+**Premise corrections (both recorded, both load-bearing).**
+1. **Acceptance scores are not probabilities**, so ECE over them is meaningless.
+   The score is an additive evidence sum — severity band 0–3, evidence level
+   0–3, critic verdict ±(−2/+1.5), demotions, reversibility, clamped at 0 — and
+   the schema description at `assets/schema/finding.schema.json:1248` is
+   authoritative. The honest question the scores CAN answer is "does a higher
+   score band actually contain a higher fraction of gold-anchored findings?",
+   and that is what shipped instead. ECE was refused, not deferred.
+2. **There is no "B4v3" anywhere in this tree** — no such gate, no such event
+   version. There is also no *stored refusal event*: stale/superseded refusals
+   surface as a `BoundaryError` at `internal/findings/boundary.go:258-262` and
+   are not logged. Neither shape was needed by this task; the mapping the
+   feedback implied does not exist.
+
+**Landed.** `4b57129`.
+
+**What changed.** `internal/evalscore/bands.go` adds
+`Bands(programs, liveByProgram, cases, score ScoreFn) (rows, unscorable,
+fabricated, fabByBand)` over the SAME suite scope `ScoreSuite` already defines
+(extracted into unexported helpers; `ScoreSuite` output stays byte-identical,
+proven by its existing tests). Buckets are the locked ladder
+`[0,1) [1,2) [2,4) [4,+Inf)` over `bandEdges = {0,1,2,4}`; each non-empty
+bucket renders `wilson.Format(anchored, total, "precision")` so the edges are
+always visible in the line. A finding whose score is unavailable, NaN or ±Inf
+is counted `unscorable` and lands in NO bucket (never a silent bucket 0). The
+fabrication ledger counts only findings the *record itself* retracted
+(`verification.critic_verdict == "disproved"` or status `DISPROVED`);
+`SUPERSEDED`/`DUPLICATE`/`OUT_OF_SCOPE`/`INFORMATIONAL` are explicitly NOT
+fabrications (a superseded row is a replacement, a duplicate is a dedup
+outcome, out-of-scope is a scope call) — the choice is a code comment so it
+cannot drift silently. `internal/audit/sections/eval.go` appends the block
+after the false-positive line and adds the `bands` / `unscorable` /
+`fabricated` / `fabrication_bands` value keys; everything is presence-gated, so
+a scope with zero live findings renders byte-identically to before.
+
+### I4. Operator-supplied DNS/dependency facts on `components[]` — readability, not hashing
+
+**What the feedback asked.** Make `remappings.txt` and lockfiles visible to the
+snapshot, and give `components[]` a place for DNS/dependency facts so an
+operator can answer "which package version, observed when, by whom?".
+
+**Premise correction (recorded).** `remappings.txt` and the lockfiles were
+**already inside the source Merkle root**. `internal/snapshot/hashing.go`
+`pinnedFiles` excludes only `SourceExcludes` (`.git`, `.hg`, `.slps`,
+`node_modules`, `cache`, `out`, `.venv`, `__pycache__`, `.mantis_snapshots`),
+has NO extension filter, and skips only a root-level `snapshot.json`; changing
+a remapping already moves the source hash, and `LockfileLeaves` additionally
+hashes the lockfiles as `dependency_lock_hash`. What was genuinely missing was
+**readability**: the snapshot gives one opaque dependency hash and the protocol
+model carried no dependency or DNS facts at all. This task adds the readable,
+dated, attributed slots — it does NOT add hashing (already correct) and does
+NOT add any network path.
+
+**Landed.** `668bcd0`.
+
+**What changed.** `assets/schema/operator_facts.schema.json` +
+`internal/protocolgraph/facts.go` (`ApplyFacts`, additive and idempotent,
+joined on `(kind,url)` or `(kind,path)`) + `internal/protocolgraph/manifests.go`
+(`FactsFromDir` over `remappings.txt` and six lockfile formats, format-specific
+and total — an unreadable entry is an error naming file+line, never skipped);
+`components[]` items gain two additive optional objects; `webv2 model <C>
+[file] --facts PATH [--facts-observed-at YYYY-MM-DD]`. A fact matching no
+component, matching two components, or repeating a fact type on one component
+is an ERROR (an operator asserted it; a typo must not be dropped silently). A
+directory of manifests has no date inside it, so `--facts-observed-at` is
+required there and is **never** taken from the wall clock; a JSON document
+carries its own `observed_at` per fact. There is no socket, no resolver, no
+DNS cache read — `rg -n "net\.|LookupHost|LookupIP|net\.Resolver"
+internal/protocolgraph/` returns nothing (the structural proof, run in the task
+gate). Without `--facts` the verb moves zero bytes.
+
+### I5. Four bridge predicates — threshold, relayer-key, Merkle-path, default-on verifier
+
+**What the feedback asked.** Cover the bridge shapes the paper names: a
+multisig threshold with no enforcement on the execution path, a single
+relayer key that can move messages, a Merkle proof accepted without a
+completeness/length check, and a trust flag that is written `true` by default.
+
+**Landed.** I5a `d87ff34` (`threshold_without_enforcement`,
+`relayer_single_key`), I5b `e3d3217` (`merkle_proof_no_length_check`,
+`verifier_default_on`). Plan coordination note corrected in `758e3b6`.
+
+**What changed.** Four check types + registry entries in
+`internal/archetypes/evaluate.go`, four schema `oneOf` variants, four YAML
+archetypes (all `criticality: high`, `playbook_hint: bridge-message`), paired
+buggy/clean fixtures, and the archetype count pin moved exactly once per task:
+Nine → **Eleven** (I5a) → **Thirteen** (I5b). (The plan's original coordination
+note predicted Ten → Twelve; the tree already shipped nine YAMLs, and the
+locked rule is "bump by exactly the predicates YOU add, never touch the other
+task's number" — hence Eleven and Thirteen. Verified, not re-derived.)
+
+**Honesty (the reason these are hint-only).** State-variable nodes in
+`structidx` carry NO values (`internal/parser/parser.go:1059-1061`;
+initializers are discarded at `:87`), so all four predicates match on *shape*:
+a threshold-named variable with no guard reference to it; an `onlyX`-guarded
+entry point whose guard maps to a single relayer-named address variable; a
+proof-shaped parameter with no `length` evidence on the path; a trust-named
+state flag written in a constructor/initializer-shaped function by an
+unguarded writer. Each YAML description and its code comment state what is
+invisible: they tell an operator where to look, never that a bug is there.
+
+### I6. SWC aliases fetched verbatim, and an embargoed disclosure bundle on publish
+
+**What the feedback asked.** (a) Cross-reference taxonomy classes to SWC ids
+(like the existing OWASP aliases); (b) let a publish carry a disclosure bundle
+with an embargo.
+
+**Landed.** `0e7a4f4` (aliases), `5f5796b` (disclosure bundle).
+
+**Fetch-primary discipline (I6a).** All 37 `SWC-<n>` ids and titles in
+`assets/taxonomy/aliases.json` were fetched **verbatim** from the SWC registry
+overview table
+(`raw.githubusercontent.com/SmartContractSecurity/SWC-registry/master/entries/index.md`)
+on **2026-09-11**; nothing was hand-typed from memory. `provenance[].figure`
+records the page's sha256. The registry's own staleness caveat is recorded in
+`provenance[].note`: its content has not been thoroughly updated since 2020, is
+known to be incomplete, and may contain errors; maintained guidance is the EEA
+EthTrust Security Levels specification. The alias is a cross-reference for a
+human reader, never an authority claim.
+
+**Coverage is partial and honest (I6a).** Exactly ONE class is mapped:
+`unchecked-external-call → SWC-104` ("Unchecked Call Return Value"). Every
+other class deliberately carries no `swc` key rather than inventing a mapping
+to reach a round number; an unmapped row renders byte-identically to before
+(`[OWASP SC06]`), and `ClassAliasSuffix` renders nothing for a class with no
+alias. The obvious second mapping, `reentrancy → SWC-107` ("Reentrancy"), is
+**DEFERRED**, not doubted: adding it moves four pinned display literals
+(`internal/report/aliases_test.go:36,64`, `internal/briefing/aliases_test.go:58`,
+`internal/classweights/aliases_test.go:92`) plus the asset manifest, and I6's
+byte law required every existing OWASP-only rendering to stay unchanged. It is
+filed as **H15** in the Wave H backlog below.
+
+**Disclosure bundle (I6b).** `assets/schema/disclosure.schema.json` +
+`internal/sharedmem/disclosure.go` + `PublishCampaignWith` (the old
+`PublishCampaign` delegates with the zero value, so every existing caller and
+record is byte-identical) + `publish --disclosure FILE`. Validation is
+fail-closed (exit 1): every cited finding must EXIST in the campaign, be
+`CONFIRMED`/`CHAIN` (never a hypothesis or a possible), be part of this
+publish, and be cited once. If the publish then fails, the campaign-local
+artifact stays on the campaign and is NOT in the shared store.
+
+**The safety property (package doc comment, restated here).** The bundle's
+CONTENTS never enter shared memory: the campaign-local artifact holds the
+prose, and the publish RECORD carries only `disclosure_sha256` (hex) and
+`disclosure_embargo_until`. Checked by a real grep of the written store tree
+for a sentinel string in the test's summary, not by an assertion about a
+struct.
+
+**Embargo is a policy field, NOT enforcement (locked).** The framework does
+not refuse, delay, or suppress a publish while an embargo is open; it makes the
+state legible so a recorded embargo is never mistaken for an enforced one. The
+output line says so: `disclosure: bundle <sha256[0:12]> (<n> findings),
+embargo_until <date> — recorded, not enforced` (or `, no embargo` for null).
+Record fields are appended ONLY when a bundle was attached; the disclosure hash
+is a third, separate field and is never folded into `sig`/`mem`.
+
+### Wave I — CI-correctness pass (pre-merge, 2026-09-11)
+
+**Method.** Added lines of `git diff <base c17d5dc>..<wave head>` grepped for
+`(95% CI`; every literal `<k>/<n> (95% CI lo–hi%)` recomputed against
+`wilson.Interval`/`wilson.Format` semantics (`z = 1.959963984540054`, bounds
+rendered as tenths of a percent, clipped to [0,1]).
+
+**Result: 49 added lines matched, 48 carried a parsable metric literal (the
+49th is the plan-prose sentence in this section's own bullet), spanning 12
+distinct `(k,n)` pairs:**
+
+| k/n | literal | k/n | literal |
+|---|---|---|---|
+| 0/0 | `n/a` | 1/2 | `9.5–90.5%` |
+| 0/1 | `0.0–79.3%` | 1/3 | `6.1–79.2%` |
+| 0/2 | `0.0–65.8%` | 2/2 | `34.2–100.0%` |
+| 0/3 | `0.0–56.1%` | 2/3 | `20.8–93.9%` |
+| 0/4 | `0.0–49.0%` | 2/4 | `15.0–85.0%` |
+| 1/1 | `20.7–100.0%` | 4/4 | `51.0–100.0%` |
+
+**Zero mismatches.** The G4 erratum is not repeated anywhere in the wave: both
+`2/2` literals added by Wave I read `34.2–100.0%` (the old wrong value was
+`20–100%`, which is the 2/3 interval). The one place a raw `2/2 (95% CI
+20–100%)` still appears in this document is the Wave G4 example at line 2074,
+where the erratum beside it is intentional and unchanged.
+
+*Scope note: this pass covers the code/asset/plan diff through `5f5796b`. This
+close-out section itself contains `95% CI` strings by construction (it cites
+the pass) and is excluded from the count.*

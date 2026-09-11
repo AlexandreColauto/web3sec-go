@@ -1,0 +1,25 @@
+id: verifier-default-on
+name: Trust flag written by an unguarded initializer
+criticality: high
+description: >
+  A state flag whose name carries a trust-granting marker (verified, isValid,
+  approved, whitelisted) is written by a constructor / initializer-shaped
+  function — a writer whose name contains construct, init or setup — that
+  carries no authorization modifier. The trust root is then established at
+  deployment rather than by an authorized post-deployment act. Nomad shape:
+  default-on trust root.
+
+  VALUE-BLINDNESS (honesty note, not a caveat to be engineered away): the
+  structural index carries no state-variable values or initializers, and
+  writes_storage records THAT a variable is written, never WHAT it was written
+  to — a constructor writing `verified = false` matches this check exactly as
+  one writing `verified = true`. The check also reads the writer's modifier
+  list through the parser's authorization vocabulary, so an initializer gated
+  by a modifier outside that vocabulary is not recognized as guarded. This
+  check claims a SHAPE — an unguarded construct/init/setup-shaped writer for a
+  trust-marked flag. It does NOT claim the flag is on. HINT-only: confirm by
+  reading the initializer before opening a hunt.
+checks:
+  - type: verifier_default_on
+    names: ["verified", "isValid", "approved", "whitelisted"]
+playbook_hint: bridge-message

@@ -11,6 +11,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES01VaultMissingAuth.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -26,6 +27,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES02GovernanceOwnable.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -41,6 +43,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES03BankReentrancy.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -56,6 +59,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES04LenderUnderflow.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -71,6 +75,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES05LPOracleSpot.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -86,6 +91,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES06VTokenDonation.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -101,6 +107,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES07FeeMathFloor.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -116,6 +123,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES08ImplNoInitializer.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -131,6 +139,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES09BridgeNoChainId.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -146,6 +155,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES10GovernanceQueueDoS.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -161,6 +171,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES11MintInflation.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -176,6 +187,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES12SignatureReplay.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -191,6 +203,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES13FlashLoanSpot.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -206,6 +219,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES14LiquidationTWAP.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -221,6 +235,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES15BridgeMsgReplay.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 planted-bug fixture; gold anchor is the finding shape a real run must produce"
   },
@@ -236,6 +251,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES16AckDecoyVault.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 ack decoy: CEI-guarded withdraw plus an ackscan vocabulary line; zero live findings is the hit"
   },
@@ -251,6 +267,7 @@
     "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
       "files": ["assets/evalsuite/src/ES17CleanControl.sol"], "snapshot_note": "planted fixture"},
     "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 clean control: the protocol that must yield zero findings; confirmed-not-exploitable is the hit"
   }

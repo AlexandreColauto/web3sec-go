@@ -32,6 +32,7 @@ import (
 	"sort"
 	"strings"
 
+	"websec/internal/evalstore"
 	"websec/internal/risk"
 	"websec/internal/validation"
 	"websec/internal/wilson"
@@ -82,10 +83,38 @@ var severityBands = map[string]bool{
 // line. The returned code is 0, or 2 with EmptyMessage when no
 // adjudicated held-out row exists to score.
 //
+// I1b (Wave I, Task 2): the held-out leg is filtered through
+// evalstore.PartitionHealth FIRST — a row that restates a dev/training row
+// or that predates the dev pool does not rank, and when the filter drops
+// anything the scorecard says so on its own line. The stored rows are
+// never touched; the dev leg is untouched too (dev rows only source
+// priors, so an unorderable dev row cannot flatter a rank — it just
+// cannot anchor the temporal comparison). If the exclusion empties the
+// held-out leg, the existing EmptyMessage path answers, unchanged.
+//
 // Verdict rule (the two-experiments-same-data law from G3): improve
 // only if B.lo > A.lo (Wilson lower bounds, strict); regress only if
 // A.lo > B.lo; else "indistinguishable".
 func Run(cases []validation.Value, top int) (string, int) {
+	excluded := map[string]bool{}
+	temporalN, nearDupN := 0, 0
+	var problems []string
+	for _, e := range evalstore.PartitionHealthFull(cases).Excluded {
+		if orStr(objAt(e.Case, "partition")) != "held-out" {
+			continue
+		}
+		excluded[orStr(objAt(e.Case, "case_id"))] = true
+		switch e.Reason {
+		case evalstore.ReasonTemporal:
+			temporalN++
+		case evalstore.ReasonNearDup:
+			nearDupN++
+		}
+		if e.Problem != "" {
+			problems = append(problems, e.Problem)
+		}
+	}
+
 	adjudicated, skipped := 0, 0
 	var dev, held []validation.Value
 	for _, c := range cases {
@@ -96,6 +125,9 @@ func Run(cases []validation.Value, top int) (string, int) {
 		adjudicated++
 		switch orStr(objAt(c, "partition")) {
 		case "held-out":
+			if excluded[orStr(objAt(c, "case_id"))] {
+				continue
+			}
 			held = append(held, c)
 		case "dev", "":
 			dev = append(dev, c)
@@ -111,6 +143,23 @@ func Run(cases []validation.Value, top int) (string, int) {
 	b.WriteString(BandLine + "\n")
 	fmt.Fprintf(&b, "eval store: %d adjudicated, %d skipped\n",
 		adjudicated, skipped)
+	// Presence-gated: a clean store's scorecard keeps its exact bytes.
+	// The counts are ROWS by reason (the locked exclusion semantics), not
+	// problem lines — one row is excluded for exactly one reason. The set
+	// is the rows the discipline REFUSED, which can include a row that was
+	// also unadjudicated (never ranked either way).
+	//
+	// The problem lines that follow are why a row vanished when neither
+	// count explains it: an unparseable deployed_at is excluded without
+	// being temporal or a duplicate, and a scorecard that silently shrinks
+	// by a row is exactly the failure the count line exists to prevent.
+	if temporalN+nearDupN+len(problems) > 0 {
+		fmt.Fprintf(&b, "held-out excluded: %d temporal, %d near-dup\n",
+			temporalN, nearDupN)
+		for _, p := range problems {
+			fmt.Fprintf(&b, "held-out problem: %s\n", p)
+		}
+	}
 	fmt.Fprintf(&b, "band coverage: %d/%d rows contributed\n",
 		bandContrib(held), len(held))
 	k := top

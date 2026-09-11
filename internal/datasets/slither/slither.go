@@ -49,6 +49,24 @@ const defaultClass = "logic-error"
 
 // ToPayloads renders every admitted Slither result as a hypothesis payload,
 // in deterministic (path, line, check) order.
+//
+// The document shape is the REAL one (slither 0.11.6, captured 2026-09-11):
+// `results` is an OBJECT whose `detectors` array holds the findings, and a
+// location is NOT a `vertex` — it is an element's `source_mapping`:
+//
+//	{success, error, results:{detectors:[{check, impact, confidence,
+//	   description, elements:[{type, name, source_mapping:{
+//	     filename_relative, filename_short, filename_absolute,
+//	     is_dependency, lines[]}}]}]}}
+//
+// An earlier revision of this adapter read `results` as an array and locations
+// from `vertices[].filename/line_no`; nothing in a real Slither document
+// matches that shape, so it silently produced ZERO payloads on every real run.
+// Note there is no `impact` band below Informational to fall back on and no
+// vertex kind to filter: every element is a location, and only elements that
+// (a) are not dependencies and (b) carry at least one line can be anchored. A
+// location we cannot anchor is noise, so the element is dropped rather than
+// guessed at.
 func ToPayloads(doc validation.Value) ([]validation.Value, error) {
 	type row struct {
 		path  string
@@ -57,7 +75,8 @@ func ToPayloads(doc validation.Value) ([]validation.Value, error) {
 		out   validation.Value
 	}
 	var rows []row
-	for _, r := range valsOf(objAt(doc, "results")) {
+	detectors := valsOf(objAt(objAt(doc, "results"), "detectors"))
+	for _, r := range detectors {
 		check := objStr(r, "check")
 		if check == "" {
 			return nil, fmt.Errorf("slither: result without 'check' id")
@@ -74,19 +93,29 @@ func ToPayloads(doc validation.Value) ([]validation.Value, error) {
 			line int64
 		}
 		var sites []site
-		for _, v := range valsOf(objAt(r, "vertices")) {
-			// Real Slither output mixes vertex kinds (source, sink,
-			// expression); only `source` (or untyped, older shapes)
-			// are locations we can anchor. Everything else is noise.
-			if vt := objStr(v, "type"); vt != "" && vt != "source" {
+		for _, el := range valsOf(objAt(r, "elements")) {
+			sm := objAt(el, "source_mapping")
+			if sm.Kind != validation.Obj {
 				continue
 			}
-			fn := objStr(v, "filename")
-			ln := objAt(v, "line_no")
-			if fn == "" || ln.Kind != validation.Int {
+			if objAt(sm, "is_dependency").B {
+				continue // a dependency's location is not this repo's code
+			}
+			// The filename fallback chain: relative -> short -> absolute.
+			fn := objStr(sm, "filename_relative")
+			if fn == "" {
+				fn = objStr(sm, "filename_short")
+			}
+			if fn == "" {
+				fn = objStr(sm, "filename_absolute")
+			}
+			// lines[0] anchors the element; an element without lines (or
+			// with an empty `lines` array) has no line we can render.
+			lines := valsOf(objAt(sm, "lines"))
+			if fn == "" || len(lines) == 0 || lines[0].Kind != validation.Int {
 				continue
 			}
-			sites = append(sites, site{fn, ln.I})
+			sites = append(sites, site{fn, lines[0].I})
 		}
 		if len(sites) == 0 {
 			continue // a flag with no location cannot anchor; drop it

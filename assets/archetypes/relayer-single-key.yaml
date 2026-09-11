@@ -1,0 +1,22 @@
+id: relayer-single-key
+name: Relay gate keyed on a single relayer variable
+criticality: high
+description: >
+  An authorization-gated external entry point whose entire key evidence is ONE
+  state variable whose name carries a relayer marker (relayer, executor,
+  operator, messenger), with no second distinct signer/owner reference read by
+  that entry point and none named in its own guards. Force-Bridge shape: one
+  key can move messages.
+
+  VALUE-BLINDNESS (honesty note, not a caveat to be engineered away): the
+  structural index carries no state-variable values, no declared types and no
+  initializers, and reads_storage merges the function body with every applied
+  modifier body. This check therefore claims a SHAPE only: the gate CONSULTS
+  exactly one relayer-marked state variable. It does NOT claim that key can
+  move a message, that the variable is an address (a uint256 relayer matches
+  identically), or that the comparison against it is correct. HINT-only:
+  confirm by reading the gate before opening a hunt.
+checks:
+  - type: relayer_single_key
+    names: ["relayer", "executor", "operator", "messenger"]
+playbook_hint: bridge-message

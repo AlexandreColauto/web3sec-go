@@ -97,6 +97,42 @@
               "type": {"const": "merkle_verify_without_depth_gate"},
               "names": {"$ref": "#/definitions/names"}
             }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "names"],
+            "properties": {
+              "type": {"const": "threshold_without_enforcement"},
+              "names": {"$ref": "#/definitions/names"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "names"],
+            "properties": {
+              "type": {"const": "relayer_single_key"},
+              "names": {"$ref": "#/definitions/names"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "names"],
+            "properties": {
+              "type": {"const": "merkle_proof_no_length_check"},
+              "names": {"$ref": "#/definitions/names"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "names"],
+            "properties": {
+              "type": {"const": "verifier_default_on"},
+              "names": {"$ref": "#/definitions/names"}
+            }
           }
         ]
       }
