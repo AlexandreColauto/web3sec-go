@@ -621,7 +621,7 @@ follow-up emit-quota plan (`docs/superpowers/plans/2026-09-10-emit-quota-repair.
 commits `1164289` → `9a4f809`; the range also carries two plan-amendment
 commits, `12da714` "Plan: name the campaign in the planner's disposition
 errors too" and `3cb90d1` "Plan: widen Task 4 to every uncopyable campaign
-placeholder"), whose entries are the audit's-repair-hint row
+placeholder"); the plan's entries are the audit's-repair-hint row
 and the placeholder sweep below.
 
 Reproductions below were re-run against a throwaway copy of the operator's
@@ -655,7 +655,7 @@ abort is gone (the defect D1 names) and the hint no longer makes the surface
 worse, but plan↔surface identity on this copy is a separate open item.
 
 **The `<campaign>` placeholder sweep (Task 4 of the emit-quota plan, added
-mid-plan by `3cb90d1`).** The audit hint was the visible end of a defect class: an
+mid-plan by `12da714`, widened by `3cb90d1`).** The audit hint was the visible end of a defect class: an
 operator-facing repair hint that had the campaign id in hand but printed the
 literal `<campaign>` metavariable. `70047f5` "Name the campaign in the
 planner's probe-row repair hints", `7def13b` "Name the campaign in the rest
