@@ -488,30 +488,6 @@ func useRepoMaps(t *testing.T) validation.Value {
 	return maps
 }
 
-// realRoots is the module-level (EXPLORER_DIR, POC_ROOT) pair, with the
-// WEBV2_POC_ROOT harness override applied (base/explorer + base/DeFiHackLabs,
-// exactly the sitecustomize patch the Python twin gets).
-func realRoots() (string, string) {
-	if base := os.Getenv("WEBV2_POC_ROOT"); base != "" {
-		return filepath.Join(base, "explorer"),
-			filepath.Join(base, "DeFiHackLabs")
-	}
-	return ExplorerDir, PocRoot
-}
-
-// requireClones is the Python `needs_clones` skipif.
-func requireClones(t *testing.T) (string, string) {
-	t.Helper()
-	if base := os.Getenv("WEBV2_POC_ROOT"); base != "" {
-		SetRoots(base)
-	}
-	explorer, poc := realRoots()
-	if !isDir(explorer) || !isDir(poc) {
-		t.Skip("dataset clones absent (data/datasets/ is read-only research data)")
-	}
-	return explorer, poc
-}
-
 func TestDefihacklabsIngestRecordPurePaths(t *testing.T) {
 	// ingest_record (pure) accepts adapter output: the resolved record yields
 	// an eval case + campaign seed; the PoC-less record yields a case with no
@@ -567,122 +543,13 @@ func TestDefihacklabsIngestRecordPurePaths(t *testing.T) {
 	}
 }
 
-func TestDefihacklabsIntegrationRecordCountAndPartitions(t *testing.T) {
-	requireClones(t)
-	records, err := LoadRecords(nil, nil)
-	if err != nil {
-		t.Fatalf("LoadRecords: %v", err)
-	}
-	if len(records) != 930 {
-		t.Fatalf("record count = %d want 930", len(records))
-	}
-	heldOut, dev := 0, 0
-	ids := map[string]bool{}
-	for _, r := range records {
-		switch text(at(r, "partition")) {
-		case "held-out":
-			heldOut++
-		case "dev":
-			dev++
-		}
-		ids[text(at(r, "id"))] = true
-	}
-	if heldOut != 279 || dev != 651 {
-		t.Fatalf("partitions held-out=%d dev=%d want 279/651", heldOut, dev)
-	}
-	if len(ids) != 930 {
-		t.Fatalf("unique ids = %d want 930", len(ids))
-	}
-}
-
-func TestDefihacklabsIntegrationPocResolutionOnDisk(t *testing.T) {
-	_, poc := requireClones(t)
-	records, err := LoadRecords(nil, nil)
-	if err != nil {
-		t.Fatalf("LoadRecords: %v", err)
-	}
-	resolved := 0
-	var missing []string
-	for _, r := range records {
-		path := text(at(at(r, "exploit"), "poc_path"))
-		if path == "" {
-			continue
-		}
-		resolved++
-		if !fileExists(filepath.Join(poc, path)) {
-			missing = append(missing, path)
-		}
-	}
-	if resolved < 700 {
-		t.Fatalf("resolved PoCs = %d want >= 700", resolved)
-	}
-	if len(missing) != 0 {
-		t.Fatalf("resolved paths absent on disk: %v", missing[:minInt(5, len(missing))])
-	}
-}
-
-func TestDefihacklabsIntegrationLengthCompliance(t *testing.T) {
-	requireClones(t)
-	records, err := LoadRecords(nil, nil)
-	if err != nil {
-		t.Fatalf("LoadRecords: %v", err)
-	}
-	for _, rec := range records {
-		id := text(at(rec, "id"))
-		if n := len([]rune(text(at(rec, "description")))); n < 20 || n > 10000 {
-			t.Fatalf("%s description len = %d", id, n)
-		}
-		if n := len([]rune(text(at(rec, "root_cause")))); n < 10 || n > 2000 {
-			t.Fatalf("%s root_cause len = %d", id, n)
-		}
-		if n := len([]rune(text(at(rec, "pattern")))); n < 15 || n > 500 {
-			t.Fatalf("%s pattern len = %d", id, n)
-		}
-		if n := len([]rune(text(at(rec, "title")))); n < 5 || n > 500 {
-			t.Fatalf("%s title len = %d", id, n)
-		}
-	}
-}
-
-func TestDefihacklabsIntegrationIngestRecordShapes(t *testing.T) {
-	// Pure shape verification only: every real record validates through
-	// ingest_record (no store writes — ingest_record is pure).
-	requireClones(t)
-	maps := useRepoMaps(t)
-	records, err := LoadRecords(nil, nil)
-	if err != nil {
-		t.Fatalf("LoadRecords: %v", err)
-	}
-	seeds := 0
-	for _, rec := range records {
-		res, err := ingest.IngestRecord(rec, &maps)
-		if err != nil {
-			t.Fatalf("%s: %v", text(at(rec, "id")), err)
-		}
-		if got := text(at(res.EvalCase, "partition")); got != text(at(rec, "partition")) {
-			t.Fatalf("%s partition = %q want %q", text(at(rec, "id")), got,
-				text(at(rec, "partition")))
-		}
-		if text(at(at(rec, "exploit"), "poc_path")) != "" {
-			if res.CampaignSeed == nil {
-				t.Fatalf("%s: campaign_seed must not be None", text(at(rec, "id")))
-			}
-			seeds++
-		}
-	}
-	if seeds < 700 {
-		t.Fatalf("seeds = %d want >= 700", seeds)
-	}
-}
-
-func fileExists(p string) bool {
-	st, err := os.Stat(p)
-	return err == nil && !st.IsDir()
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
+// The four `Integration*` tests that read the real 2.5 GB dataset clones
+// (930 records + 700 PoCs under data/datasets/, repointed by WEBV2_POC_ROOT)
+// were DELETED in Wave J Task 5, not converted: the data is third-party
+// research material that this repository does not vendor, and the Python
+// `needs_clones` skipif they carried meant they had never run in the default
+// gate here — four tests that always SKIP are a lie about coverage, not
+// coverage. Everything they exercised is exercised against the synthetic
+// clone tree above (sampleTree): LoadRecords, the partition assignment, the
+// ingest_record shape contract, and PoC-path resolution. Same precedent as
+// the F2b twin-harness deletions.

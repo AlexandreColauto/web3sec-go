@@ -839,6 +839,12 @@ else
   fail 13 "runbook-walkthrough RED — the runbook and the binary disagree"
 fi
 echo "ok: runbook commands all match"
+# Wiring note (Wave J Task 5): this gate is daemon-free by design and must
+# stay that way, so the docker e2e tiers are NOT invoked here. Say so in the
+# gate output itself, not only in the README — a reader who sees 13/13 green
+# must know what it does not cover.
+echo "note: docker e2e tiers live in scripts/p2-docker-e2e.sh and are NOT part"
+echo "      of this gate — run them separately where the daemon is up"
 
 echo
 echo "VERIFY-FULL GREEN: all 13 steps pass"
