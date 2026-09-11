@@ -142,6 +142,65 @@ func TestMitigScanCEIOrderWriteWithoutCallAbsent(t *testing.T) {
 	}
 }
 
+// nestedIndexSol (H7): the state write is a nested-index assignment
+// (deposits[rs[i]] = 0). The old head regex allowed one bracket group, so
+// the write was invisible and cei-order could not fire on it.
+const nestedIndexSol = `pragma solidity ^0.8.24;
+contract NestedIndex {
+    mapping(address => uint256) public deposits;
+    function payout(address[] calldata rs) external {
+        deposits[rs[0]] = 0;
+        (bool ok, ) = rs[0].call{value: 1}("");
+        require(ok, "send");
+    }
+}
+`
+
+func TestMitigScanCEIOrderNestedIndexWrite(t *testing.T) {
+	c, _ := ackCamp(t, map[string]string{"src/NestedIndex.sol": nestedIndexSol})
+	f := mitigFinding(t, c, "src/NestedIndex.sol", "payout",
+		"the payout handler zeroes deposits[rs[0]] before the call")
+	hit, rec, err := ScanMitigations(c, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pattern, _, line, _ := mitigDecode(t, hit, rec)
+	if pattern != "cei-order" {
+		t.Errorf("pattern = %q, want cei-order (the nested-index write "+
+			"precedes the call)", pattern)
+	}
+	if line != "5" {
+		t.Errorf("line = %q, want 5 (the nested-index write)", line)
+	}
+}
+
+// TestMitigLineIsWriteNestedIndex pins the write-head regex directly:
+// one-or-more index groups may nest; comparisons in the same shapes are not
+// writes.
+func TestMitigLineIsWriteNestedIndex(t *testing.T) {
+	for _, line := range []string{
+		"deposits[rs[i]] = 0;",
+		"balances[msg.sender][token] = 0;",
+		"grid[a][b][c] += 1;",
+		"m[i] -= 1;",
+		"deposits[msg.sender] = 0;",
+	} {
+		if !mitigLineIsWrite(line) {
+			t.Errorf("mitigLineIsWrite(%q) = false, want true", line)
+		}
+	}
+	for _, line := range []string{
+		"if (deposits[rs[i]] == 0) {",
+		"require(balances[a][b] == 0);",
+		"uint x = a[0] <= b[0];",
+	} {
+		if mitigLineIsWrite(line) {
+			t.Errorf("mitigLineIsWrite(%q) = true, want false (comparison)",
+				line)
+		}
+	}
+}
+
 // loopSol: write-before-call, but embedded in a for loop — loop-safety
 // can't be regex-proved, so cei-order must not fire (and no other pattern
 // applies: non-claim name, deposits mapping, no guard, no EIP-712 marker).

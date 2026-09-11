@@ -343,9 +343,13 @@ var mitigLocalDecl = regexp.MustCompile(`\b(uint\d*|int\d*|address|` +
 
 // mitigWriteHead matches an identifier or index-assignment head; the
 // operator itself is vetted by mitigLineIsWrite (comparisons — ==, !=,
-// <=, >=, => — are not writes).
+// <=, >=, => — are not writes). The head allows any run of index groups
+// (balances[a][b] = 0) and nesting up to three levels (deposits[rs[i]] = 0,
+// grid[a[b[c]]] += 1) — RE2 has no recursion, and Solidity cannot meaningfully
+// index deeper than a doubly-nested mapping.
 var mitigWriteHead = regexp.MustCompile(
-	`\w+(\[[^\]]*\])?\s*(\+=|-=|=)`)
+	`\w+(?:\[(?:[^\[\]]|\[(?:[^\[\]]|\[[^\[\]]*\])*\])*\])*` +
+		`\s*(\+=|-=|=)`)
 
 // mitigLineIsWrite reports whether line holds a storage write: an
 // assignment operator that is not part of a comparison, on a line that is
@@ -355,7 +359,7 @@ func mitigLineIsWrite(line string) bool {
 		return false
 	}
 	for _, loc := range mitigWriteHead.FindAllStringSubmatchIndex(line, -1) {
-		opS, opE := loc[4], loc[5]
+		opS, opE := loc[2], loc[3]
 		op := line[opS:opE]
 		if op == "+=" || op == "-=" {
 			return true
