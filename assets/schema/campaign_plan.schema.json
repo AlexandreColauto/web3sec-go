@@ -43,6 +43,7 @@
           "closed_ref": { "type": "string", "description": "evidence the closure rests on: a finding id (F-...), exec id (EXEC-...), artifact id, or file#L anchor. An 'answered' priority with no closed_ref is flagged in the report's answer-quality section" },
           "closed_at": { "type": "string" },
           "closed_by": { "type": "string" },
+          "passes": { "type": "string", "minLength": 3 },
           "bug_class": { "type": ["string", "null"] },
           "anchor_of": { "type": ["string", "null"] },
           "sibling_of": { "type": ["string", "null"] },

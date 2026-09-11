@@ -79,6 +79,147 @@ func dgEventsOfType(t *testing.T, root, cid, typ string) []validation.Value {
 	return out
 }
 
+// dgSeedSentinelSurface rewrites the seeded probe surface's fixture row with
+// Task 1's sentinel enrichment (own_form=sentinel, own_guard_text), so a CLI
+// closing of Q-005 is a closing of a sentinel-guarded row.
+func dgSeedSentinelSurface(t *testing.T, root, cid string) {
+	t.Helper()
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(c.ArtifactsDir, "probe_surface.json")
+	surface, err := validation.ReadJson(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	rows := t14List(surface, "rows").A
+	for i, r := range rows {
+		if objStr(r, "row_id") != "81dfad6492" {
+			continue
+		}
+		found = true
+		r.O = validation.SetOrAppend(r.O, "own_form",
+			validation.VStr("sentinel"))
+		r.O = validation.SetOrAppend(r.O, "own_guard_text",
+			validation.VStr("stateRoot != bytes32(0)"))
+		rows[i] = r
+	}
+	if !found {
+		t.Fatal("fixture row 81dfad6492 is gone")
+	}
+	if err := validation.WriteJson(p, surface, ""); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// dgStoredPriority reads one priority back off the campaign's saved plan.
+func dgStoredPriority(t *testing.T, root, cid, pid string) validation.Value {
+	t.Helper()
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := validation.ReadJson(filepath.Join(c.ArtifactsDir,
+		"campaign_plan.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range t14List(plan, "priorities").A {
+		if objStr(p, "id") == pid {
+			return p
+		}
+	}
+	t.Fatalf("priority %s not in the stored plan", pid)
+	return validation.VNull()
+}
+
+// TestAnsweredCLISentinelPassesFlag: the CLI refuses the closing disposition
+// of a sentinel row without --passes (naming both exits), accepts it with
+// the flag, and the refusal leaves the priority untouched.
+func TestAnsweredCLISentinelPassesFlag(t *testing.T) {
+	const reason = "commitBatch re-derives prev:state; the assertion is " +
+		"checked at finalizeBatch"
+
+	// (1) refusal: sentinel-guarded row, no --passes
+	root := mkroot(t)
+	cid := initOne(t, root)
+	t14TestSeed(t, root, cid)
+	dgSeedProbeCampaign(t, root, cid)
+	dgSeedSentinelSurface(t, root, cid)
+	code, out, errS := run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason", reason, "--anchor", "consumer")
+	if code != 2 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if out != "" {
+		t.Fatalf("stdout = %q", out)
+	}
+	for _, want := range []string{"sentinel-guarded probe row 81dfad6492",
+		"must name the value that passes", "--passes VALUE",
+		"--override-dismissal", "--override-reason"} {
+		if !strings.Contains(errS, want) {
+			t.Errorf("stderr missing %q:\n%s", want, errS)
+		}
+	}
+	// the refusal is a fixed sentence: both exits, named exactly
+	wantRefusal := "answered failed: sentinel-guarded probe row 81dfad6492: " +
+		"a closing disposition must name the value that passes its check " +
+		"(--passes VALUE) — or override explicitly (--override-dismissal " +
+		"--override-reason R)\n"
+	if errS != wantRefusal {
+		t.Errorf("stderr = %q\nwant %q", errS, wantRefusal)
+	}
+	// the refusal is a decision that did not happen: the priority is untouched
+	p := dgStoredPriority(t, root, cid, "Q-005")
+	if got := objStr(p, "status"); got != "open" {
+		t.Fatalf("refused closure changed the status to %q", got)
+	}
+	if objAt(p, "passes").Kind != validation.Null {
+		t.Fatalf("refused closure recorded passes = %q", objStr(p, "passes"))
+	}
+
+	// (2) accept: the same closure with the value that passes the check
+	passes := "any non-zero root; asserted at finalizeBatch"
+	code, _, errS = run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason", reason, "--anchor", "consumer",
+		"--passes", passes)
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	p = dgStoredPriority(t, root, cid, "Q-005")
+	if got := objStr(p, "status"); got != "answered" {
+		t.Errorf("status = %q, want answered", got)
+	}
+	if got := objStr(p, "passes"); got != passes {
+		t.Errorf("passes = %q, want %q", got, passes)
+	}
+
+	// (3) negative control: the rule is row-scoped — with no own_form on the
+	// surface row the very same closure needs no --passes.
+	root2 := mkroot(t)
+	cid2 := initOne(t, root2)
+	t14TestSeed(t, root2, cid2)
+	dgSeedProbeCampaign(t, root2, cid2)
+	// the guard: --passes followed by an option token is never a value
+	code, _, errS = run(t, "--root", root2, "answered", cid2, "Q-005",
+		"answered", "--reason", reason, "--anchor", "consumer",
+		"--passes", "--actor")
+	if code != 2 || !strings.Contains(errS,
+		"argument --passes: expected one argument") {
+		t.Fatalf("exit %d stderr = %q", code, errS)
+	}
+	code, _, errS = run(t, "--root", root2, "answered", cid2, "Q-005",
+		"answered", "--reason", reason, "--anchor", "consumer")
+	if code != 0 {
+		t.Fatalf("row without own_form: exit %d: %q", code, errS)
+	}
+	if strings.Contains(errS, "must name the value that passes") {
+		t.Fatalf("row-scoped rule fired without own_form: %q", errS)
+	}
+}
+
 func TestAnsweredOverrideFlagArgparse(t *testing.T) {
 	// a bare --override-reason (no value) is an argparse error, exit 2
 	code, out, errS := run(t, "answered", "C-x", "Q-005", "answered",

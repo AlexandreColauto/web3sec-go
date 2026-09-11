@@ -13,10 +13,16 @@ import (
 // OverrideDismissal/OverrideReason are B4: the explicit, logged override of
 // the dismissal gate on a high-risk row.
 type AnsweredOpts struct {
-	Reason            *string
-	Ref               *string
-	Actor             string
-	Anchor            *string
+	Reason *string
+	Ref    *string
+	Actor  string
+	Anchor *string
+	// PassesValue is B4 v3: for a sentinel-guarded probe row, the value that
+	// passes the row's zero-check ("root != bytes32(0)" is not the truth of
+	// the root). Closing such a row without naming it is refused unless the
+	// disposition takes the explicit, logged override. Nil when --passes was
+	// not given; the value is recorded on the priority as `passes`.
+	PassesValue       *string
 	OverrideDismissal bool
 	OverrideReason    *string
 	// OverrideLogged is an OUT parameter: the dismissal gate sets it to true
@@ -107,6 +113,15 @@ func runAnsweredGates(campaign *state.Campaign, plan validation.Value,
 		opts.Anchor); err != nil {
 		return out, err
 	}
+	// B4 v3, next to the anchor rule and for the same reason: a probe row's
+	// disposition has to be falsifiable. `--anchor` names the field the
+	// closure claims is safe; for a sentinel-guarded row that is not enough —
+	// the guard's own zero-check cannot express the truth of the value it
+	// guards, so the closure has to name the value that DOES pass it.
+	if err := checkSentinelPassesRow(campaign, outcome, prov, hasProv,
+		opts); err != nil {
+		return out, err
+	}
 	// Shape before policy: whether the citation is the RIGHT one (does this
 	// --ref really name the anchor field it claims?) is a question about what
 	// the author passed, and its message — "expected Rollup.sol#L45" — is the
@@ -154,6 +169,15 @@ func closePriority(p validation.Value, opts AnsweredOpts, ref *string,
 	}
 	p.O = validation.SetOrAppend(p.O, "closed_at", validation.VStr(nowIso()))
 	p.O = validation.SetOrAppend(p.O, "closed_by", validation.VStr(actorOr(opts.Actor)))
+	// The value that passes the row's sentinel check is part of the closure
+	// record — the same way closed_ref is. A value too short to be one is not
+	// recorded (the rule refuses it where it matters, and the schema pins the
+	// floor for the plan).
+	if opts.PassesValue != nil &&
+		len(strings.TrimSpace(*opts.PassesValue)) >= 3 {
+		p.O = validation.SetOrAppend(p.O, "passes",
+			validation.VStr(*opts.PassesValue))
+	}
 	if anchorSet {
 		prov, _ := probeProvenance(p)
 		prov.O = validation.SetOrAppend(prov.O, "anchor", anchorRec)
@@ -165,7 +189,7 @@ func closePriority(p validation.Value, opts AnsweredOpts, ref *string,
 // reopenPriority drops the closure provenance and any recorded probe anchor.
 func reopenPriority(p validation.Value) validation.Value {
 	for _, k := range []string{"closed_reason", "closed_ref", "closed_at",
-		"closed_by"} {
+		"closed_by", "passes"} {
 		p.O = dropKey(p.O, k)
 	}
 	if prov, ok := probeProvenance(p); ok {

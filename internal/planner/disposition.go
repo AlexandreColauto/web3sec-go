@@ -429,3 +429,64 @@ func invariantRegistered(campaign *state.Campaign, id string) bool {
 	reg := objAt(links, "invariants")
 	return reg.Kind == validation.Obj && hasKey(reg, id)
 }
+
+// ---------------------------------------------------------------------------
+// B4 v3: the sentinel-form rule. v2 catches the WORDS; the citation layer
+// catches prose that names nothing; this catches the one closure that is
+// checkable and still wrong: "the row is safe because an assertion exists"
+// when the guard is a zero-check. `stateRoot != bytes32(0)` cannot express the
+// truth of the root — every non-zero value passes it — so a closing
+// disposition of such a row has to name the value that DOES pass the check.
+// ---------------------------------------------------------------------------
+
+// checkSentinelPasses is the B4 v3 rule: a closing disposition of a
+// sentinel-guarded row (own_form=sentinel) must name the value that passes
+// the check. Existence of an assertion is not correctness; the disposition
+// has to be falsifiable. The family escape hatch (--override-dismissal with
+// --override-reason) stays the only way around it — see
+// checkSentinelPassesRow.
+func checkSentinelPasses(row validation.Value, outcome string,
+	opts AnsweredOpts) error {
+	if outcome != "answered" && outcome != "not-applicable" {
+		return nil
+	}
+	if objStr(row, "own_form") != "sentinel" {
+		return nil
+	}
+	if opts.PassesValue != nil &&
+		len(strings.TrimSpace(*opts.PassesValue)) >= 3 {
+		return nil
+	}
+	return errValue("sentinel-guarded probe row " + objStr(row, "row_id") +
+		": a closing disposition must name the value that passes its check " +
+		"(--passes VALUE) — or override explicitly (--override-dismissal " +
+		"--override-reason R)")
+}
+
+// checkSentinelPassesRow is the closure-seam half: it resolves the surface row
+// the disposition points at and applies the rule to it. A probe disposition
+// whose surface row cannot be resolved (no surface, or the row was re-emitted
+// away) is skipped — the anchor path reports that more usefully, and a row
+// nobody can look up must never become unclosable. An explicit dismissal
+// override passes the rule: the logged reason is the record of that decision.
+func checkSentinelPassesRow(campaign *state.Campaign, outcome string,
+	prov validation.Value, hasProv bool, opts AnsweredOpts) error {
+	if !hasProv || !inList(outcome, []string{"answered", "not-applicable"}) {
+		return nil
+	}
+	if opts.OverrideDismissal {
+		return nil
+	}
+	surface, err := PB().CampaignSurface(campaign)
+	if err != nil {
+		return err
+	}
+	if surface == nil {
+		return nil
+	}
+	row, ok := findRow(*surface, objStr(prov, "row_id"))
+	if !ok {
+		return nil
+	}
+	return checkSentinelPasses(row, outcome, opts)
+}

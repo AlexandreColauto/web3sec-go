@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"websec/internal/state"
 	"websec/internal/validation"
 )
 
@@ -581,5 +582,132 @@ func TestGhostCitationsAreRefused(t *testing.T) {
 	if _, err := MarkAnswered(camp, deepCopy(t, plan), pid, "answered",
 		AnsweredOpts{Reason: &ok, Anchor: strPtr("consumer")}); err != nil {
 		t.Fatalf("id-shaped prose must not be read as a citation: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// B4 v3: the sentinel-form rule (Task 2)
+// ---------------------------------------------------------------------------
+
+// sentinelDispositionFixture is the surface + campaign the sentinel rule is
+// exercised against: the file's recorded surface, with the one probe row's
+// object extended by the Task-1 sentinel enrichment (own_form=sentinel,
+// own_guard_text), and the recorded plan saved into a fresh campaign so the
+// refusing path can be read back off disk. It returns the campaign, the
+// surface in force, and the row id the plan's priority points at.
+func sentinelDispositionFixture(t *testing.T) (*state.Campaign,
+	*validation.Value, string) {
+	t.Helper()
+	surface, index := maSurface(t)
+	const rowID = "81dfad6492"
+	found := false
+	for i, r := range listOf(*surface, "rows") {
+		if objStr(r, "row_id") != rowID {
+			continue
+		}
+		found = true
+		r.O = validation.SetOrAppend(r.O, "own_form",
+			validation.VStr("sentinel"))
+		r.O = validation.SetOrAppend(r.O, "own_guard_text",
+			validation.VStr("root != bytes32(0)"))
+		listOf(*surface, "rows")[i] = r
+	}
+	if !found {
+		t.Fatalf("fixture row %s is gone", rowID)
+	}
+	withProbes(t, probeEnv{surface: surface, index: index})
+	camp := newCampaign(t, "dg-sentinel")
+	if _, err := SavePlan(camp, deepCopy(t, maPlan(t,
+		"plan_probe_rows.json"))); err != nil {
+		t.Fatalf("seed plan: %v", err)
+	}
+	return camp, surface, rowID
+}
+
+// priorityIDForRow is the plan priority whose probe provenance cites rowID.
+func priorityIDForRow(t *testing.T, plan validation.Value, rowID string) string {
+	t.Helper()
+	for _, p := range listOf(plan, "priorities") {
+		if prov, ok := probeProvenance(p); ok &&
+			objStr(prov, "row_id") == rowID {
+			return objStr(p, "id")
+		}
+	}
+	t.Fatalf("no priority cites probe row %s", rowID)
+	return ""
+}
+
+// plannerMarkAnsweredForTest drives MarkAnswered the way the CLI does — the
+// plan is read back from the campaign — and keeps the priority id in the
+// return values so a test can inspect what landed.
+func plannerMarkAnsweredForTest(t *testing.T, camp *state.Campaign, rowID,
+	outcome string, opts *AnsweredOpts) (validation.Value, string, error) {
+	t.Helper()
+	plan, err := LoadPlanReadonly(camp)
+	if err != nil {
+		t.Fatalf("load plan: %v", err)
+	}
+	pid := priorityIDForRow(t, plan, rowID)
+	updated, err := MarkAnswered(camp, plan, pid, outcome, *opts)
+	return updated, pid, err
+}
+
+// storedPriority is the on-disk priority the row was dispositioned as: the
+// record a refusal must leave byte-for-byte alone.
+func storedPriority(t *testing.T, camp *state.Campaign,
+	rowID string) validation.Value {
+	t.Helper()
+	plan, err := LoadPlanReadonly(camp)
+	if err != nil {
+		t.Fatalf("reload plan: %v", err)
+	}
+	return probePriority(t, plan, priorityIDForRow(t, plan, rowID))
+}
+
+// TestDispositionLintSentinelRowDemandsPasses: a closing disposition of a
+// sentinel-guarded row (own_form=sentinel from the surface) is refused
+// without --passes, accepted with it, and the stored priority carries it.
+func TestDispositionLintSentinelRowDemandsPasses(t *testing.T) {
+	// Fixture: the disposition_test.go surface builder, with the one row's
+	// object extended by own_form:"sentinel", own_guard_text:"root != bytes32(0)".
+	camp, _, rowID := sentinelDispositionFixture(t)
+
+	_, _, err := plannerMarkAnsweredForTest(t, camp, rowID, "answered",
+		&AnsweredOpts{Anchor: strPtr("consumer")})
+	if err == nil || !strings.Contains(err.Error(),
+		"a closing disposition must name the value that passes its check") {
+		t.Fatalf("err = %v, want the sentinel --passes refusal", err)
+	}
+
+	passes := "any non-zero root; its truth is asserted at finalizeBatch"
+	_, _, err = plannerMarkAnsweredForTest(t, camp, rowID, "answered",
+		&AnsweredOpts{Anchor: strPtr("consumer"), PassesValue: &passes})
+	if err != nil {
+		t.Fatalf("with --passes: %v", err)
+	}
+	prio := storedPriority(t, camp, rowID)
+	if objStr(prio, "passes") != passes {
+		t.Errorf("passes = %q", objStr(prio, "passes"))
+	}
+}
+
+// TestDispositionLintSentinelRowOverride: the family's one escape hatch still
+// opens the sentinel rule — an explicit, logged override closes the row
+// without a --passes value (and records none).
+func TestDispositionLintSentinelRowOverride(t *testing.T) {
+	camp, _, rowID := sentinelDispositionFixture(t)
+	why := "the owner confirmed the intended behavior in the spec"
+	_, _, err := plannerMarkAnsweredForTest(t, camp, rowID, "answered",
+		&AnsweredOpts{Anchor: strPtr("consumer"), OverrideDismissal: true,
+			OverrideReason: &why})
+	if err != nil {
+		t.Fatalf("an explicit override must pass the sentinel rule: %v", err)
+	}
+	prio := storedPriority(t, camp, rowID)
+	if got := objStr(prio, "status"); got != "answered" {
+		t.Errorf("status = %q, want answered", got)
+	}
+	if got := objStr(prio, "passes"); got != "" {
+		t.Errorf("passes = %q, want none (the override is the record)", got)
 	}
 }

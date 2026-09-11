@@ -21,7 +21,7 @@ import (
 
 const t14AnsweredUsage = `usage: webv2 answered [-h] [--reason REASON] [--reason-all REASON] [--ref REF]
                       [--families FAMILIES] [--symmetry SYMMETRY]
-                      [--anchor ANCHOR] [--actor ACTOR]
+                      [--anchor ANCHOR] [--passes VALUE] [--actor ACTOR]
                       [--override-dismissal] [--override-reason OVERRIDE_REASON]
                       campaign priority [priority ...]
                       {open,assigned,answered,not-applicable,deprioritized,blocked}
@@ -29,7 +29,7 @@ const t14AnsweredUsage = `usage: webv2 answered [-h] [--reason REASON] [--reason
 
 const t14AnsweredHelp = `usage: webv2 answered [-h] [--reason REASON] [--reason-all REASON] [--ref REF]
                       [--families FAMILIES] [--symmetry SYMMETRY]
-                      [--anchor ANCHOR] [--actor ACTOR]
+                      [--anchor ANCHOR] [--passes VALUE] [--actor ACTOR]
                       [--override-dismissal] [--override-reason OVERRIDE_REASON]
                       campaign priority [priority ...]
                       {open,assigned,answered,not-applicable,deprioritized,blocked}
@@ -60,6 +60,11 @@ options:
                         invariant, plain, rounded, safety, sentinel, sibling,
                         stranded_entry). Required to disposition a probe row;
                         the value recorded is the row's real anchor
+  --passes VALUE       sentinel-guarded rows only: the value that passes the
+                        check (the row's guard is a zero-check that cannot
+                        express the truth of the value it guards). Required to
+                        close a sentinel-form row without an override; recorded
+                        on the priority as its "passes" field
   --actor ACTOR         who is closing it (default: cli)
   --override-dismissal
                         B4: override the dismissal gate on a high-risk row
@@ -83,6 +88,7 @@ type answeredArgs struct {
 	families          *string
 	symmetry          *string
 	anchor            *string
+	passes            *string
 	actor             string
 	overrideDismissal bool
 	overrideReason    *string
@@ -165,6 +171,14 @@ func answeredFlag(args []string, i int, a *answeredArgs,
 		a.overrideDismissal = true
 		return 0, false, true, nil
 	}
+	// --passes takes a VALUE, so it carries the house looksLikeOption guard
+	// inline: `--passes --anchor consumer` is a missing value, never a value
+	// named "--anchor".
+	if arg == "--passes" && i+1 < len(args) && !looksLikeOption(args[i+1]) {
+		v := args[i+1]
+		a.passes = &v
+		return 1, false, true, nil
+	}
 	if dst, name := answeredDst(a, arg); dst != nil {
 		if i+1 >= len(args) {
 			return 0, false, true, t14ArgparseErr(t14AnsweredUsage,
@@ -176,6 +190,10 @@ func answeredFlag(args []string, i int, a *answeredArgs,
 	}
 	if handled, err := answeredEq(a, arg); handled || err != nil {
 		return 0, false, handled, err
+	}
+	if arg == "--passes" {
+		return 0, false, true, t14ArgparseErr(t14AnsweredUsage,
+			"answered", "argument --passes: expected one argument")
 	}
 	if strings.HasPrefix(arg, "-") {
 		return 0, false, true, t14Unrecognized(arg)
@@ -213,7 +231,8 @@ func answeredEq(a *answeredArgs, arg string) (bool, error) {
 		{"--reason", &a.reason}, {"--reason-all", &a.reasonAll},
 		{"--ref", &a.ref},
 		{"--families", &a.families}, {"--symmetry", &a.symmetry},
-		{"--anchor", &a.anchor}, {"--override-reason", &a.overrideReason},
+		{"--anchor", &a.anchor}, {"--passes", &a.passes},
+		{"--override-reason", &a.overrideReason},
 	} {
 		if strings.HasPrefix(arg, f.name+"=") {
 			v := strings.TrimPrefix(arg, f.name+"=")
@@ -422,8 +441,9 @@ func answeredPriority(c *state.Campaign, a *answeredArgs, closing bool,
 	overrideLogged := false
 	updated, err := planner.MarkAnswered(c, plan, a.priority, a.status,
 		planner.AnsweredOpts{Reason: a.reason, Ref: a.ref, Actor: actor,
-			Anchor: a.anchor, OverrideDismissal: a.overrideDismissal,
-			OverrideReason: a.overrideReason, OverrideLogged: &overrideLogged})
+			Anchor: a.anchor, PassesValue: a.passes,
+			OverrideDismissal: a.overrideDismissal,
+			OverrideReason:    a.overrideReason, OverrideLogged: &overrideLogged})
 	if err != nil {
 		return t14ExitErr(2, "answered failed: %s\n", err)
 	}
@@ -505,9 +525,10 @@ func answeredBatch(c *state.Campaign, a *answeredArgs, closing bool,
 	for i, pid := range a.priorities {
 		rows[i] = planner.AnsweredRow{PriorityID: pid, Outcome: a.status,
 			Opts: planner.AnsweredOpts{Ref: a.ref, Actor: actor,
-				Anchor: a.anchor, OverrideDismissal: a.overrideDismissal,
-				OverrideReason: a.overrideReason,
-				OverrideLogged: &logged[i]}}
+				Anchor: a.anchor, PassesValue: a.passes,
+				OverrideDismissal: a.overrideDismissal,
+				OverrideReason:    a.overrideReason,
+				OverrideLogged:    &logged[i]}}
 	}
 	updated, err := planner.MarkAnsweredBatch(c, plan, rows, reasonStr)
 	if err != nil {
