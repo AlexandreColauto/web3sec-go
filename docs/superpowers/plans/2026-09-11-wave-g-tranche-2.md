@@ -4,6 +4,8 @@
 
 **Goal:** Land Wave G tranche 2 of `docs/IMPROVEMENTS.md` in order: G4 (gold-eval expansion — make recall/precision claims measurable with Wilson CIs), G2 (per-class three-weight table as data), G3 (acceptance priors from adjudicated outcomes + `--backtest`), G5 (two-layer defense matcher: soundness `mitigation_present` vs policy `accepted_risk`), G8 (invariants → Halmos/forge harnesses with a `PROVEN-BOUNDED` rung).
 
+**Addendum (2026-09-11, user-updated spec):** tasks 19–26 land G16, G14, G13, G15, G12, G18, G17 in the user's stated order; closeout renumbered to Task 27.
+
 **Architecture:** Everything rides existing rails: the eval-case store (`internal/evalstore`, schema `evaluation_case.schema.json`), the embedded-asset pack pattern (`assets/*.go` FS + `scripts/sync-asset-manifest.py` + `TestAssetPackManifest`), the corpus surface (`internal/corpus`), the A3 score (`internal/risk/acceptance.go`), the ackscan post-ingest hook (`internal/findings/ackscan.go` + `ingest.go:382`), the bounty gate check13 (`internal/bounty/bounty.go:1201`), the sandbox exec path (`internal/sandbox`, docker profiles), and the audit-section registry (`internal/audit/sections/register.go`). New score influence is policy-gated OFF by default; new report sections are presence-gated so campaigns without an eval link keep byte-identical output.
 
 **Tech Stack:** Go 1.26.2, stdlib only. Pure-math Wilson interval in a new leaf package. Fixture data is JSON + tiny Solidity, embedded as asset packs and manifest-pinned. Tests: standard `testing`; docker-gated tests follow the existing skip-when-absent pattern (`internal/reproduction` docker e2e).
@@ -11,6 +13,7 @@
 ## Global Constraints
 
 - No new dependencies; no new CLI verbs (flags on existing verbs only). Surface budget: G3's backtest attaches to `corpus-surface` (the existing eval-store reader).
+- **Exception (human-sanctioned, 2026-09-11 IMPROVEMENTS G14):** `amend` + `supersede` are the ONLY new verbs allowed in this plan; nothing else may add one.
 - Determinism (principle 4): every number computed from stored data; no wall-clock, no map order in output. Floats printed with explicit formats; CI percentages one decimal, en-dash separator `–` (U+2013).
 - Additive + presence-gated (principle 1): untouched campaigns render byte-identical; the ONLY sanctioned byte movers in this tranche are (a) G2's corpus weight-table swap, which ships with an equal-valued initial table so golden MUST NOT move, and (b) none other. If any golden fixture byte moves in any other task, that is a regression — stop and report BLOCKED; never edit a golden fixture to "fix" a red golden.
 - Fail-open on judgment, fail-closed on money (principle 2): priors inform, never auto-dismiss; `wPrior` ships gated OFF by `bounty_policy.acceptance_priors` (default false); only a `--backtest` win on held-out data may flip the default (a later tranche decision, NOT this plan).
@@ -59,7 +62,15 @@
 | 16 | G8 | scaffold generator (halmos/fuzz templates, body-region validator, compile fixture) |
 | 17 | G8 | sandbox recipes + `verify --scaffold` + toolchain probe |
 | 18 | G8 | outcome mapping → `verification.harness` rung field + timeout→inconclusive + negative memory |
-| 19 | close | runbook + IMPROVEMENTS statuses + full gates |
+| 19 | G16 | second golden recipe: ≥1 row per probe axis (rot gate) |
+| 20 | G14a | `amend` + `supersede` (sanctioned verb exception) + SUPERSEDED status |
+| 21 | G14b | batch `answered` all-or-nothing + dismissed-with-reach subsection |
+| 22 | G13 | cost-per-confirmed + per-lens yield table (advisory) |
+| 23 | G15 | mint gate: rerun variance + fork freshness advisories (flag-off byte law) |
+| 24 | G12 | OWASP/SCVS aliases from a FETCHED primary page |
+| 25 | G18 | `report --format immunefi` export |
+| 26 | G17 | tactic batting average + policy-gated planner demotion |
+| 27 | close | runbook + IMPROVEMENTS statuses + Wilson erratum + full gates |
 
 ---
 
@@ -87,7 +98,7 @@ func TestIntervalPinnedTable(t *testing.T) {
 	}{
 		{2, 2, 0.342380, 1.0},        // the 2-gold case: NOT 20% — the
 		{2, 3, 0.207660, 0.938508},   // doc's illustrative "20–100" belongs
-		{15, 16, 0.716713, 0.988881}, // to 2/3, not 2/2 (G7 erratum, Task 19)
+		{15, 16, 0.716713, 0.988881}, // to 2/3, not 2/2 (G7 erratum, Task 27)
 		{0, 1, 0.0, 0.793451},
 		{8, 10, 0.490162, 0.943318},
 	}
@@ -1184,7 +1195,120 @@ forge-fuzz (`fuzz.invariant.t.sol` style): same spine minus SymTest, `function f
 
 ---
 
-### Task 19: tranche close-out — docs, erratum, full gates
+---
+
+---
+
+# TRANCHE-2 ADDENDUM — G16, G14, G13, G15, G12, G18, G17 (user-added 2026-09-11)
+
+Order = the user's landing note: G16 first (coverage before more probe work), G14 next (correctness), G13+G15, then G12→G18 (export rides aliases), G17 last (rides G3's backtest posture + G13's per-lens data). **G14's new verbs are the sanctioned principle-6 exception** (recorded in IMPROVEMENTS.md: `amend`/`supersede` are "demonstrably unreachable today"). Closeout renumbered to **Task 27**.
+
+---
+
+### Task 19: G16 second golden recipe — one row per probe-surface axis
+
+**Files:**
+- Create: `scripts/golden/fixtures-surface/assertion_strength_leaky/` (solidity pair: `src/Own.sol` asserting own class + `src/Consumer.sol` NOT asserting the consumed class → drives an assertion-strength row with `assertion_gap >= 1`), plus any micro-fixture needed so the NEW campaign's surface has ≥1 row for every axis in `check-golden.py:52 EXPECTED_PROBE_AXES` (assertion-strength, custody divergence, trust, cursor, short-circuit — the first four exist as `scripts/golden/probes/*` twins per `golden-run.py:195 probe_fixtures`; trust rows come from INV-1..9 material, check `probe_surface.schema.json:138 trust {actor,invariant,trust,kind,statement}`)
+- Modify: `scripts/golden-run.py` (new phase `P5-surface2` after the existing P4: build campaign `surface2` from the new fixture dir, run the SAME command sequence the first campaign uses up to `probe`+`audit`, then a hard per-axis presence assertion IN the runner: for each axis in EXPECTED_PROBE_AXES `assert any(row.axis == axis for row in surface)` + `validation.Validate(surface,"probe_surface",1)` equivalent via a python jsonschema-lite check on required keys (mirror `check-golden.py`'s existing schema spot-checks) — fail the run loudly)
+- Modify: `scripts/check-golden.py` ONLY if its section/axes pin needs a new campaign name added (verify at edit time: it iterates campaigns or pins one? read `check-golden.py:25-60` first)
+
+**Golden-safety:** existing campaigns' phases run UNCHANGED; the new campaign is appended AFTER them; `golden.sh` runs both. Any byte change to an EXISTING campaign fixture output = regression = BLOCKED, report, do not fix fixtures.
+
+- [ ] Step 1: run `scripts/golden.sh` capturing the CURRENT surface rows for the existing campaign (baseline note in report).
+- [ ] Step 2: write the leaky-assertion fixture pair + whatever `probes/` twins suffice for trust/custody/cursor/short-circuit rows in the new campaign (read `internal/probes/surface.go` + `stages.go:34 attachStageTables` (needs `ProbeOpts.StageTables` + an `assertion-strength` row present) to know what inputs light each axis).
+- [ ] Step 3: add P5 phase (same CLI-call style as `golden-run.py` phases; campaign name literal `surface2`); runner-side per-axis assertion so "0 rows of an axis" FAILS the suite going forward — that is the rot gate.
+- [ ] Step 4: `scripts/golden.sh` GREEN twice back-to-back (idempotency) + existing bytes identical (diff the audit outputs from step 1 baseline).
+- [ ] Step 5: Commit `git add scripts/golden-run.py scripts/golden/ scripts/check-golden.py && git commit -m "test(G16): second golden recipe — every probe axis carries >=1 row or the suite fails; assertion-strength no longer invisible"`
+
+---
+
+### Task 20: G14a `amend` + `supersede` — the sanctioned new-verb exception
+
+**Files:**
+- Create: `internal/cli/cmd_amend.go`, `internal/cli/cmd_supersede.go` (+ tests in `internal/cli/`)
+- Create: `internal/findings/amend.go` (store-side writers), test
+- Modify: `internal/findings/levels.go` (status set: `SUPERSEDED` joins TERMINAL-absorbing set `:32`, `ALLOWED_TRANSITIONS :75-91` gains `-> SUPERSEDED` from every NON-terminal status; SUPERSEDED transitions nowhere), `assets/schema/finding.schema.json` (`status` enum += `"SUPERSEDED"` ⇒ **legend law: pin it in `t14FindingLegend` walk-order**, `internal/cli/cmd_ingest_test.go:76`)
+
+**Semantics (exact):**
+- `webv2 amend <campaign> <finding> [--title T] [--class C] [--claim K] [--note N]` — at least one flag else usage error. `--class` runs the SAME canonicalization/compat path `SetClass` uses (find it in transitions.go; unknown class = reject). `--title/--claim` edit `title` / `root_cause.claim`; `--note` appends to `history[-1].reason` suffix? NO — note rides the history entry reason. Every successful amend: `claim_version` += 1 (`finding.schema.json:211` "bump on material re-state"), appends `history[]` entry `{at: nowIso(), from: <status>, to: <status>, reason: "amend: <changed keys>", actor: <--actor|model>}` (same shape as `applyStatus:228` entries — reuse the builder), logs event `finding.amended`. Status NEVER changes via amend. `boundary.go:254 stale-check` (critic claim_version vs finding) then naturally re-stales old verdicts — verify the check compares versions and the amend correctly trips it (test: verdict before amend ⇒ stale-refused after).
+- `webv2 supersede <campaign> <new-finding> --of <old-finding>` — old finding transitions to SUPERSEDED via `findings.Transition` (history + floor respected); NEW finding's `evidence` gains a re-parent marker `{evidence_id, re_parented_from: <old id>}` for every old evidence item — copy items, leave old's intact (append-only store: old finding keeps its evidence array untouched); `dedup_meta.supersedes = <old id>` (string key — `dedup_meta.additionalProperties:string` accepts, same channel as corroborated_by). Logs `finding.superseded`. Gate: only when old is NOT terminal-already and new != old.
+
+- [ ] Step 1: failing tests (cli suite style `run(t, args...)` from `cmd_ingest_test.go:26`): amend bumps version + history + re-stales verdict; no-flag = exit 2; supersede transitions old + re-parents evidence + dedup_meta.supersedes; supersede-onto-terminal refused; legend pin test green after enum add.
+- [ ] Step 2: implement → golden untouched (no golden campaign amends).
+- [ ] Step 3: Commit `feat(G14): amend/supersede — filed findings corrected without lying to the hash chain (sanctioned verb exception)`
+
+---
+
+### Task 21: G14b batch `answered` + dismissed-with-strong-reaching subsection
+
+**Files:**
+- Modify: `internal/cli/cmd_answered.go` (positionals: `campaign priority status` → accept MULTIPLE priorities; `--reason-all` shared-reason flag), `internal/planner/answered.go` (`MarkAnswered:43` loops via new `MarkAnsweredBatch` — validate EVERY row's gates (checkCitedRecords:77, checkDismissalGate:91, resolveAnchor:204) BEFORE applying ANY; all-or-nothing, first failure names the row and exits non-zero with zero mutations)
+- Modify: `internal/report/report.go` (new presence-gated subsection under the dismissal/verification area: "dismissed with strong reaching") — joins DISPROVED/OUT_OF_SCOPE/INFORMATIONAL/DUPLICATE findings against HIGH-RISK probe rows via the existing `disposition.HighRiskRow` predicate (`disposition.go:54` tier==0 || assertion_gap>=3): row reaches the finding's affected file/function anchor when the row's anchor field names it (reuse `resolveAnchor`'s comparison data — the same Q-row anchor mechanics; find the row↔finding link: rows reference propositions; propositions reference findings — follow `internal/probes`/plan link fields at edit time; if NO deterministic link exists, join by class+file overlap and say so in the section's footnote line).
+- Tests: batch refusal leaves zero mutations (mid-bad-row); `--reason-all` applies to each; subsection renders for the MORPH-style fixture (2 rows + dismissed finding → line present), absent when no high-risk rows or no dismissals (byte check).
+
+- [ ] Steps: failing tests → implement → golden untouched → Commit `feat(G14): batch dispose behind the same gates + dismissed-with-reach — the false-negative direction gets a queue`
+
+---
+
+### Task 22: G13 cost attribution — $/confirmed + per-lens yield, advisory-only
+
+**Files:**
+- Modify: `internal/costs/costs.go` (`YieldReport:164`: totals gains `cost_per_critic_confirmed_usd` + `cost_per_evidence_confirmed_usd` — denominator rows with `verification.critic_verdict.verdict == "confirmed"` vs evidence-bearing CONFIRMED/CHAIN status; `null` when denominator 0 (never ÷0); `RecordOpts:79` + row gains OPTIONAL `lens` string (writer passes when known: `cmd_priority`/plan-close paths that carry a lens id — find call sites at edit time, pass `""` elsewhere ⇒ absent key, omitempty-style via the validation builder)
+- Modify: `internal/briefing` (`:1374/:1531` economics block) + `internal/report` (`:893 Results`): append per-lens table row-set `lens_yield`: `{lens, n_planned (priorities per L-id — plan rows' lens field, L-ids derived per `lenses.go:193`), n_confirmed (findings via answered-priority refs), cost_usd (sum where row.lens == id + "unattributed" bucket)}` — PRESENCE-GATED: zero cost rows with lens data AND no plan ⇒ no bytes (both renderers).
+- Tests: rollup arithmetic on a fixture campaign (known rows → pinned numbers incl. the two per-confirmed quotients to 2 decimals); no-cost campaign renders NOTHING (byte check); lens table ordering = sorted L-id then unattributed last (determinism).
+- [ ] Steps: failing tests → implement → golden untouched → Commit `feat(G13): cost-per-confirmed + per-lens yield — the framework bills itself honestly (advisory, never auto-kill)`
+
+---
+
+### Task 23: G15 PoC quality gate at mint — variance + freshness advisories (fail-open)
+
+**Files:**
+- Modify: `internal/reproduction/reproduction.go` (`AttemptAndMint:445` / `MintReproEvidence:293`: after the single successful attempt, when profile ∈ E4_PROFILES AND `--verify-reruns` set (flag on `cmd_mint.go`, default OFF ⇒ zero behavior change), re-run the recorded command N=3 through `sandbox.Run`; exit-vector equality of stdout_hash across runs ⇒ `reruns:"3/3"`, else `reruns:"flaky n/3"` appended to the evidence item; docker-absent ⇒ `reruns:"not-applicable"` + brief warning line; the N constant `rerunAttempts = 3` package-level)
+- Fork freshness: same path, ALWAYS on (data, not judgment): read the campaign's pinned snapshot (`snapshots/<sid>/snapshot.json`: `fork_block`/`fork_timestamp`/`created_at`) vs the EXEC's `started_at`; age > 7 days OR fork_timestamp null ⇒ evidence item gains `fork_stale: "snapshot pinned <date> fork_block <n> — re-pin with snap + re-mint"`; fresh ⇒ no key. Threshold literal `forkStaleDays = 7` (const, "policy-tunable" = code const for now — campaign_state wiring is G13's budget block's job later, note in report).
+- Rendering: `brief`/report evidence lines show `reruns`/`fork_stale` when present (presence-gated); rung vocabulary UNTOUCHED (advisories ride the evidence item, no E-level changes).
+- Tests: flaky fixture via a stubbed runner seam (make `rerunExecutor func(...) (exit int, stdout []byte, err error)` a package var defaulting to the sandbox call — the existing docker-gated test pattern proves skip behavior); deterministic silent; stale warning + fresh silence; byte check with flag OFF (default path identical to today — THE law).
+- [ ] Steps → Commit `feat(G15): PoC gate at mint — 3x-rerun variance + fork age advisories, fail-open by construction`
+
+---
+
+### Task 24: G12 OWASP/SCVS aliases on taxonomy classes
+
+**Files:**
+- Create: `assets/taxonomy/aliases.json` (pack exists from Task 5): `{"schema_version":"1","standards":{"owasp-sc01..sc10 (2025 list) + scvs bands": [...]}, "classes": {"reentrancy": {"owasp":"SC03","scvs":"C-1-ish band mapping string"}, ...}, "provenance":[{"source_url":"https://owasp.org/www-project-smart-contract-top-10/","checked_date":"<run date>","primary":true}]}` — EVERY id string must come from the FETCHED page, never memory: task step 1 is `curl --cacert /etc/ssl/certs/ca-certificates.crt https://owasp.org/www-project-smart-contract-top-10/` (host curl needs that --cacert, known box quirk), save to `.scratch/owasp-sc-2025.html`, extract the id list PROGRAMMATICALLY (rg the "SC0" pattern) and paste; same for the SCVS reference the page cites (if unreachable → ship OWASP rows ONLY + provenance note "scvs pending primary source" — secondary-source figures seed nothing, G7 law).
+- Create: `assets/schema/taxonomy_aliases.schema.json` + validator test (`internal/classweights` or `internal/taxonomy` gains `Alias(class) (validation.Value, bool)` READ path — put it in `classweights` (already owns the taxonomy pack; taxonomy stays import-clean).
+- Modify: `internal/report/report.go:921` class render + `internal/briefing` class lines: `access-control [OWASP SC01]` suffix — presence-gated (class absent from aliases map ⇒ no suffix ⇒ zero byte move for unmapped; classes PRESENT in aliases WILL move the report bytes — that is the point; handle via the sanctioned path: `check-golden.py` comparison of report output — verify whether golden pins report.md bytes; if yes, regenerate ONLY those entries with the record command + KNOWN_DIVERGENCES line (tranche-1 precedent), surgical diff proof in report).
+- Tests: every alias target ∈ the committed standards id list (data file embeds the id list it was checked against — validator refuses ids not in that list); class keys ⊆ CanonicalClasses ∪ unmapped (drift, same as T5's test); byte audit of any golden regeneration limited to alias-suffix lines.
+- [ ] Steps: fetch+extract (report records the URL + sha256 of the fetched page) → failing tests → implement → golden check + sanctioned update if needed → Commit `feat(G12): OWASP/SCVS aliases as pinned data — every id traceable to a fetched primary page`
+
+---
+
+### Task 25: G18 `report --format immunefi` — export shape, zero new surface
+
+**Files:**
+- Modify: `internal/cli/cmd_report.go` (`report [-h] campaign` gains `--format {md|immunefi}`, default `md` = byte-identical path), `internal/report/report.go` (new `GenerateImmunefi(c) (path string, err error)` alongside `Generate:686`)
+- Renders (fixed order, empty-section checklist first when a section has no data — fail-open list, never blocker): `Summary` (title + program + submission_ready state from `bounty.EvaluateBountyGate:1433` output already on campaign), `Impact` (exploit_mechanism + economic_impact), `Severity` — program mapping: `bounty.SeverityFor:282` result vs policy `severity_rules` (already in bounty_policy schema) + G12 alias line `class [OWASP SCxx]` when mapped; `PoC` (evidence items type∈{fork-test,foundry-test,fuzz,unit-test,...} + EXEC links + G15 reruns/fork_stale advisories verbatim); `Recommendation` (fix field, prose fallback "not drafted" when absent); `Related areas` (out_of_scope_notes + acknowledged risks cited).
+- Tests: section presence on fixture campaign; missing-section checklist; default path bytes unchanged (assert `Generate` untouched via golden + a test comparing default render pre/post the flag add — file-hash the fixture output).
+- [ ] Steps → Commit `feat(G18): report --format immunefi — the dumbest loss reason (format rejection) gets engineered out`
+
+---
+
+### Task 26: G17 tactic batting average — planner auto-deprioritization, policy-gated OFF
+
+**Files:**
+- Modify: `internal/planner/lenses.go` (`SeedLenses:193` entries GAIN stored `id: "L-NN"` persisted (derivation exists; make it stored + stable across replans — plan-order), `internal/planner/queue.go:74 WorkQueue` ordering: when `policy.auto_tune` true AND the lens has `n_planned>=10` AND Wilson-upper(precision, n) < 0.10 ⇒ its unstarted slots demote to `park` with reason line `- lens L-NN: auto-deprioritized (0/N confirmed, 95% CI upper X.X%)`; flag OFF ⇒ zero change (THE byte law — golden campaigns never set it);
+- `internal/briefing` NextActions area (`briefing.go:1807`): per-lens row `{n_planned, n_confirmed, precision, wilson.Format line}` presence-gated on ≥1 confirmed-or-planned lens row with verdict data (reuse Task 22's attribution — SAME join function, export it from internal/costs or a new internal/yields leaf consumed by both; note to implementer: if T22 kept it private, this task promotes it — one shared source of truth, no second join).
+- bounty_policy schema: `auto_tune` boolean default false (T11 added `acceptance_priors` beside it — mirror that add exactly; policy read path `bounty.LoadPolicy:163`).
+- Tests: precision+CI pinned (use wilson package — no second impl); threshold edges (n=9 no demote; CI-upper ≥0.10 no demote); flag-off byte check; flag-on deterministic ordering (two lenses, one 0/12, one 5/12 — park line only under the zero one).
+- [ ] Steps → Commit `feat(G17): tactic batting average — a lens at 0/20 stops eating the budget (advisory render + gated demotion)`
+
+---
+
+### Task 27: tranche close-out — docs, erratum, full gates
+
+*(was Task 19 — content unchanged, plus the addendum items)*
+
+### Task 27: tranche close-out — docs, erratum, full gates
+
 
 **Files:** `assets/runbook/RUNBOOK.md` (modify), `docs/IMPROVEMENTS.md` (modify), full gates.
 
@@ -1198,7 +1322,7 @@ forge-fuzz (`fuzz.invariant.t.sol` style): same spine minus SymTest, `function f
 ## Plan Self-Review (done by the plan author; implementers re-verify against code)
 
 1. **Spec coverage:** G4→T1–4, G2→T5–6, G3→T7–12, G5→T13–15, G8→T16–18, close→T19. Every G-doc clause maps: three-weights-as-data T5; refusal-at-boundary T6; priors+Wilson+fallback T7; loaders T8–10; policy-gated wPrior T11; backtest T12; suite≥15/≥8 classes+control+variants T2; CI rendering T1/T3; soundness-vs-policy separation T13–15; scaffold+bounded rungs T16–18. No task references "later plan" except G3 graduation of defaults (explicitly OUT of tranche scope — policy flip needs real backtest data).
-2. **Known doc-vs-math conflict:** G4's illustrative `2/2 (95% CI 20–100%)` is wrong (20.8–93.9 is 2/3; 2/2 is 34.2–100.0). Plan renders EXACT Wilson and files the erratum in T19 — never tune math to a doc sentence (G7 discipline).
+2. **Known doc-vs-math conflict:** G4's illustrative `2/2 (95% CI 20–100%)` is wrong (20.8–93.9 is 2/3; 2/2 is 34.2–100.0). Plan renders EXACT Wilson and files the erratum in T27 — never tune math to a doc sentence (G7 discipline).
 3. **Byte-risk register:** T2/T5 (new embedded packs: manifest-only additions — allowed, golden compares CAMPAIGN outputs not asset bytes… VERIFY the asset manifest itself is not pinned inside campaign goldens: it isn't — check-golden sections are campaign state). T6 neutral-factor identity. T13 new schema property without enum ⇒ legend safe; mitigscan no-op on golden paths. T11/T14/T15/T18 all presence-gated additions. T12 usage-block risk on `p3_args_golden.json` flagged inline. Any move elsewhere ⇒ BLOCKED, report, never edit fixtures.
 4. **Placeholder audit:** the three `NOTE: …real name` indirections (eval-case validator entry, ValidateAssetDoc, invariants schema name) are SEARCH-AND-MIRROR instructions with the sibling to copy named — acceptable for a competent Go dev because the sibling is given; everything else has real code or a pinned table.
 5. **Type consistency:** `wilson.Interval(k,n)(lo,hi)` used by evalscore/calibration/backtest; `Prior` struct fields identical across T7/T11/T12; `validation.Value` helpers (`objAt/intAt/…`) per-package convention restated in each task header that uses them; section name `eval` used identically in T4/T19.
