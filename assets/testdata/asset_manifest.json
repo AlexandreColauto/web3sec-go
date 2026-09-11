@@ -208,12 +208,12 @@
     "size": 2818
    },
    "38_campaign_planning.md": {
-    "sha256": "5423b55bed57a79aae470201d0232200c61bbb07500448b195b0999f6214a48b",
-    "size": 3470
+    "sha256": "8d18406a6eeb5a022cb901cdcc66bbb7a1734c35a56caacf224456c2b3730863",
+    "size": 5435
    },
    "39_trajectory_dispatch.md": {
-    "sha256": "2e8cd243a7e4a502e990adbcd57a855d5388f1e1be65c899a03ea7ba5dc3287b",
-    "size": 6449
+    "sha256": "779249f558430f86d49d5bc507924d184e79e9ad9955b816a774438af18fd72b",
+    "size": 7349
    },
    "40_deployment_vs_source.md": {
     "sha256": "44afecc8ed7befd1a3a3a9db449115fcec51bd7073e32785441794080f059614",
@@ -390,12 +390,12 @@
   },
   "runbook": {
    "AGENT_BOOTSTRAP.md": {
-    "sha256": "0967a3c9d7b9db18cbc2494fecf1c15e037a6be9ab52a4ddf6f858f9ab0aa834",
-    "size": 21135
+    "sha256": "868ff4ea9787693b063ef7f0ea1ba2bb44febfd9a5e71c3436bef3561879e50f",
+    "size": 21805
    },
    "RUNBOOK.md": {
-    "sha256": "290da647056b467e751f59f2a0a6a4365b07626a302338acf72d9930bec67a7b",
-    "size": 76906
+    "sha256": "664383b5a44f3215869cbed2e77009c2d284ab5254b43da597fdedfbeda073af",
+    "size": 80951
    }
   },
   "schema": {

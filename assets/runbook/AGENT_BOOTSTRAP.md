@@ -171,7 +171,12 @@ only if the operator named a different workspace.
 6. **Discovery (stage 6).** Work the plan's priorities along the orthogonal
    trajectories (A-code, B-economic, C-state-machine, D-attacker, E-historical,
    F-integration, G-drift, H-lifecycle); each component gets ≥ 2 orthogonal
-   angles. Ingest every hypothesis with `ingest <C-id> --json-file payload.json
+   angles. Every lifecycle transition has **two polarities** and they are
+   different bugs: the permissive arm (a bad root finalizes, a double spend
+   settles — the attacker wins) and the restrictive arm (a good root never
+   finalizes, the cursor never advances — everyone behind it is stuck). Plan
+   and work both; the restrictive question must name what gets stuck. Ingest
+   every hypothesis with `ingest <C-id> --json-file payload.json
    --trajectory T --stage S` — never hand-write a finding file. `webv2 ingest
    --example` prints a schema-valid payload template; a failing payload
    reports EVERY error. Draining the queue is necessary, not sufficient: the
@@ -179,6 +184,10 @@ only if the operator named a different workspace.
    4 distinct canonical bug classes are named across the plan's priorities.
    `prove <C-id> --stage discovery` shows what is still open; a subject is
    waivable with a written justification.
+   Anything whose exploitability turns on a **deployment value** — a cap, a
+   slot map, a quorum threshold, a role granted after deploy — is an
+   assumption until you read it from the chain and quote the read (RUNBOOK
+   §4c): the snapshot proves which code runs, never what the instance holds.
 7. **Triage → dedup → review.** `dedup <C-id>` (three tiers, deterministic);
    resolve tier-3 flags with `resolve-candidate <C-id> F-xxx F-yyy --verdict
    same|distinct [--note N]`; hostile-critic review of POSSIBLE-bound

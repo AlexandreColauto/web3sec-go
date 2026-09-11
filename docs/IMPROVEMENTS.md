@@ -15,7 +15,9 @@ landed; H16 filed) — Wave I LANDED 2026-09-11 (I1–I6). **Wave J, the definit
 close-out, LANDED 2026-09-11** (plan
 `docs/superpowers/plans/2026-09-11-wave-j.md`); see "Wave J — definitive
 close-out" below. Wave K (free prover backends) is **PARKED** — post-production,
-not required for readiness.
+not required for readiness. **Wave M LANDED 2026-09-11** — the
+`morph/FRAMEWORK_EVAL_NOTES.md` slice (M1–M6, the C3 retirement, and the
+polarity/deployment rules); see "Wave M" at the end of this document.
 
 Source: the Morph L2 rollup campaign (`C-42bd211e3e`, 537 events, 52 findings,
 snapshot `22ca805e`) against the gold-standard eval with two planted bugs
@@ -3278,3 +3280,143 @@ will not be. Nothing here is waiting on capacity; each is a decision.
 
 With this table, Wave H is empty except H16, Wave K is explicitly parked, and
 every remaining ask carries a reason instead of a promise.
+
+# Wave M — the eval-notes slice (2026-09-11)
+
+**Premise.** Source: `../morph/FRAMEWORK_EVAL_NOTES.md` — the operator's
+write-up of the Morph L2 campaign (10 dislikes, 6 wishes) — plus the two gaps
+that write-up surfaced in the *discovery* loop rather than in the plumbing.
+Base: `b0f8a23` (Wave J close-out). Nothing here is exploratory: every item
+either removes a documented dead end or makes an existing obligation
+mechanical.
+
+Evidence for the whole wave: `scripts/verify-full.sh` 13/13 (including
+`-race` and the determinism double-run) and the 196-step golden. Row counts
+quoted for probe work are from the Morph tree the campaign ran against (500
+files, 8082 index entries, 14404 probe sites).
+
+| task | what shipped |
+|---|---|
+| M1 scope | `webv2 scope --example` — the policy template is reachable from the binary (it had to be dug out of `scripts/golden/policy.json`) |
+| M2 snap | `snap --dry-run`; the unbounded exclusion print is summarized; untracked working-tree files are named at pin time |
+| M3 version | `--version` names the build commit; `snapshot.pinned` records `framework_build` so a later `brief` on a different binary can warn instead of silently trusting changed probe semantics |
+| M4 ingest | `--trajectory` accepts the dispatch letters (A–H) prompt 39 teaches; the schema enum still takes full names |
+| M5 prompts | `webv2 prompts {list,show}` — the embedded stage prompts are readable without a framework checkout |
+| M6 brief | an untouched lens names its mechanical table (L-01/L-03/L-04) in `next_actions` |
+| C3 probes | never-asserted-consumption rows: **measured on Morph and retired** behind `ProbeOpts.AbsenceRows`; the near-key collapse is kept, unconditionally |
+| L4 polarity | Stage 38 requires both polarities of every lifecycle transition; Stage 39's H trajectory works both |
+| L5 deployment | runbook §4c — the facts the code cannot answer (caps, slot maps, thresholds, post-deploy roles) |
+| L6 proof | `verify-full` 13/13; golden green with `enforcement-timing` BLIND as declared |
+
+## M1–M6. The DX batch
+
+Six small holes, each one an operator paying for the same discovery twice.
+
+- **M1 `scope --example`** (dislike 4). The policy schema demands six required
+  keys and `scope --help` taught none of them; the only valid template in
+  existence lived in the framework's own test fixtures, invisible from the
+  installed binary. The emitter mirrors `ingest --example`: schema-valid JSON
+  on stdout, legend on stderr, pipeable. The template's platform is `direct`
+  so a copy-paste cannot be mistaken for program ground truth.
+- **M2 `snap --dry-run`** (dislike 8 + the untracked-file trap). One
+  `node_modules` line per entry drowned the four lines that mattered, and a
+  pin silently swept untracked operator files into the snapshot. The dry run
+  prints the ladder, the prune set (summarized: counts plus the top names) and
+  every untracked file that a real pin would capture — and records nothing,
+  which the snapshot tests pin.
+- **M3 `--version` + `framework_build`** (DEFECT-2 follow-up). A campaign
+  carries probe rows produced by the binary that ran them; when the operator
+  later runs a different build, the rows' semantics may have changed with no
+  trace in the record. `snapshot.pinned` now carries the build commit. Event
+  data is free-form (audit checks the hash chain, never the data keys), so old
+  campaigns without the key simply never warn — the grandfather rule.
+- **M4 trajectory letters** (friction, unreported but reproduced). Prompt 39
+  and the runbook teach trajectories as `A`–`H`; the schema enum wants
+  `code`…`lifecycle`; `ingest --trajectory A` failed schema validation. Single
+  letters normalize at parse time now. Junk still fails loudly, and `chain` /
+  `model` (which have no letters) pass through untouched.
+- **M5 `prompts {list,show}`**. The stage prompts shipped embedded in the
+  binary but only reachable by running a model stage or reading the repo. The
+  new verb prints the index, and accepts a full name, a stem or a stage number.
+- **M6 brief lens routing** (wish: "brief next-actions still listed the waived
+  diversity item"). The item was the symptom; the disease was that a lens
+  could be "worked" against nothing. An untouched lens now names its
+  mechanical table in `next_actions` (`enforce` for L-03, `symmetry` for L-04,
+  the liveness rows for L-01), the routing line carries the verb the operator
+  should run, and generic actions no longer stand in for it.
+
+## C3. Never-asserted-consumption rows — measured, then retired
+
+The reference `assertion-strength` probe asks "validated here (class 4),
+consumed there (class ≤ 1)?" and is *silent* when nothing asserts the concept
+at any class — the skip drops the key before a row or even a rejected-site
+blind entry exists. That silence is exactly the G-01 shape (`prevStateRoot`
+consumed at `commitBatch`, unchecked at every stage), so C3 filled it with an
+absence rule: consume a concept while writing state, and nothing in the
+closure asserts it.
+
+Two forms were built and measured on the Morph tree:
+
+| form | rows | what the emitted quota actually contained |
+|---|---|---|
+| ungated | 421 | constructors, `computeL2TokenAddress`-style pure address/hash math, `L2ERC1155GatewayTest._deployERC1155`, `msg:sender` — tier 0, `assertion_gap` 4, i.e. ranked above the rows carrying real defects |
+| hand-off gate | 276 | the same families: a concept must be written to storage, read by a stage declared below the writer, and the consumer must not be `constructor` — and the top of the list is unchanged |
+
+The row the campaign actually needed (`Rollup.commitBatch#204 … asserter
+finalizeBatch`) is emitted by the **reference** probe once the custody enum
+defect is fixed and the surface can be built at all. The enrichment bought
+noise, not coverage.
+
+**Retired**: `ProdProbeOpts` is `{StageTables, Symmetry}`; the code stays
+behind `ProbeOpts.AbsenceRows`, tested, with the measurements in its header,
+for an iteration that finds an obligation shape with a real differential. The
+zero `ProbeOpts` value remains byte-identical to the reference surface, which
+the parity goldens pin.
+
+One piece was **kept, unconditionally**: `collapseNearKeys`, the OBS-1 fix
+(near-duplicate near-key blind entries that attested the tokenizer rather than
+the lens). It was built alongside C3 but is not part of it — the eval's OBS-1
+finding stands on its own, so the collapse no longer depends on the flag.
+
+## L4–L5. The two discovery-loop gaps
+
+Neither is a CLI defect; both are cases where the framework knew a rule and
+did not require it.
+
+- **L4 polarity.** The campaign planned and answered the *permissive* arm of
+  the batch lifecycle (a fake claimed root finalizing through the challenge
+  game) and never asked the restrictive mirror — a root that is never accepted
+  stopping the batch cursor and stranding every later withdrawal. Same three
+  lines of code, different bug, different impact class. Stage 38 now carries a
+  mandatory polarity matrix (one priority per arm, the restrictive question
+  must name what gets *stuck*), Stage 39's H trajectory works both arms
+  explicitly, and the runbook says checking the second arm is part of reading
+  the plan. L-01 liveness is named as the restrictive arm's lens.
+- **L5 deployment facts.** The snapshot proves *which code* is deployed; the
+  bytecode hash says nothing about the *values* the instance holds. Caps
+  (`Staking.MAX_STAKERS`), slot maps seeded at `initialize`, relayer quorum
+  thresholds, oracle addresses and post-deploy role grants are all invisible
+  to the index, to `enforce`, to `symmetry` and to every probe. Runbook §4c is
+  the table of where each one lives and how to read it, with the rule: if
+  exploitability turns on a number you did not read from the deployment, the
+  hypothesis is an assumption — quote the read or record a coverage gap.
+
+## L6. The proof
+
+- `scripts/verify-full.sh` — **13/13 green** (vet, build, tests, `-race`,
+  determinism double-run, asset manifest, golden, crash smoke, legacy
+  cross-audit, P1/P2/P3 CLI smokes).
+- `scripts/golden.sh` — **196 steps, 177 events, chain intact**, audit surface
+  complete; step 105 reports six live axes with `enforcement-timing` BLIND on
+  the golden target, which is the declared expectation after C3's retirement.
+- `python3 scripts/sync-asset-manifest.py --check` — current (130 files,
+  9 packs); the prompt and runbook edits in this wave ride that manifest.
+
+**Declined with reasons** (so the next reader does not rebuild them):
+
+| ask | decision |
+|---|---|
+| ship the absence rows behind a `--flag` | **Declined** — an operator flag that mints 276 noise rows is a footgun with a nicer name. Opt-in for tests, off in production. |
+| a `polarity` field on `priorities[]` | **Not built** — the eval's gap was hypothesis generation, not record-keeping; a schema field no gate reads and no command sets is the "field no CLI can set" anti-pattern (dislike 2) pointed the other way. The prompt + runbook requirement is the honest home for it. |
+| a gate requiring both polarities per lifecycle family | **Not built** — the divergence gate has no model access, so "which families does this priority touch" would be inferred from free text; and the framework's own bootstrap and `--emit` priorities would trip it. Text rules belong in prompts; gates belong where the data is structured. |
+

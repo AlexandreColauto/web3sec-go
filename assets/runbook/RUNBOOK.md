@@ -332,6 +332,41 @@ A family with no disagreement prints its cells and **no question** — the matri
 is an obligation to look, never a claim. Use it before `answered L-04` so the
 quoted primitives come from the code rather than from the plan text.
 
+## 4c. Deployment facts: what the code cannot answer
+
+The snapshot answers **which code** is deployed; the bytecode hash in
+`--deployment d.json` is a claim about bytes, not about values. A fact that
+exists only in the instance is invisible to the index, to `enforce`, to
+`symmetry` and to every probe — and a hypothesis that turns on one is
+UNVERIFIED until the number is quoted in the finding.
+
+Read these before you call a lifecycle transition safe, and put the command
+you ran in the finding's evidence:
+
+| fact | where it lives | how to read it |
+| --- | --- | --- |
+| constructor arguments | deploy script / `broadcast/*.json` / verified source | `forge inspect <C> abi` for the signature, then the broadcast receipt, or the explorer's Constructor Args |
+| owner-set caps and thresholds | live storage | `cast call <addr> "MAX_STAKERS()(uint256)"` (or `storageLayout` + `cast storage`) |
+| slot maps seeded at `initialize` | initializer args, not the setter code | compare the deployed `initialize(...)` calldata with the code's assumptions |
+| relayer / oracle / messenger addresses | live storage, or an `immutable` baked into the runtime code | `cast call` the getter; an immutable has no storage slot — read the deploy calldata or `forge inspect <C> deployedBytecode` |
+| role grants made after deploy | governance txs, not `grantRole` calls in the repo | the chain's logs — a role the code never grants may still be held |
+| timelock delays, challenge windows, bonds | constructor/config, often changeable | read the getter, then read who can change it and when it last changed |
+
+The three that bite hardest in practice, because the code reads as correct:
+`Staking.sol`'s `MAX_STAKERS` (the cap decides whether the validator set can
+fill — a set that cannot fill never finalizes), a gateway's slot map (which
+slot index is authoritative for a given asset decides whether a replay lands
+in an empty cell), and a bridge's relayer threshold (the quorum number
+decides whether a challenge can ever be met). None of them is a bug in the
+source; all of them are exploitable or fatal at the deployed value.
+
+The rule: if exploitability depends on a number you did not read from the
+deployment, the hypothesis is not disproved by the code either — say which
+value you assumed, and read it. `webv2 snap --dry-run` tells you whether the
+pin covers the working tree; it says nothing about the instance. When the
+value is genuinely unreadable (unverified source, no RPC), record that as a
+coverage gap on the priority rather than closing it.
+
 ## 5. Plan, dispatch, ingest
 
 ```bash
@@ -354,6 +389,16 @@ validates schema, fingerprints dedup, and intake-checks: an unknown bug class
 returns a taxonomy advisory (closest known classes, conservative E5 floor); a
 missing `economic_impact` on an economic trajectory is warned. **Never
 hand-write a finding file** — ingest is the only path in.
+
+**Both polarities of every lifecycle transition.** A transition can accept
+what it must reject (attacker wins: fake root finalizes, double spend
+settles) or refuse what it must accept (nobody wins: the cursor never
+advances, the queue never drains, the withdrawal never lands). Stage 38 now
+requires one priority per polarity and the restrictive question has to name
+what gets stuck; the H trajectory in Stage 39 works both arms. When you read
+the plan, check that the second arm exists before you accept a lens
+attestation — L-01 liveness is the restrictive arm's lens, and "no economic
+impact, liveness only" is not a disposition the gate accepts on a live row.
 
 The detector lane (`--from slither`) is evidence, not verdict: tool findings
 enter as HYPOTHESES like any other. The accepted input is **real Slither JSON**
@@ -1115,14 +1160,15 @@ webv2 complete <C> --actor A --reason R                            close the pas
 webv2 prove <C> [--stage S]                                        completion proofs (exit 1 while a stage is not done)
 webv2 waive <C> <stage> [--subject S] --reason R --actor A         waive one completion-proof subject (default '*': the whole stage)
 
-webv2 scope <C> --policy policy.json                               load the bounty policy (program identity + gate scope)
-webv2 snap <C> <target> [--deployment F] [--chain F] [--exclude GLOB]   pin a source snapshot (+ deployment/chain pins; foundry.toml read automatically)
+webv2 scope <C> --policy policy.json | webv2 scope --example        load the bounty policy (program identity + gate scope) / print a valid template
+webv2 snap <C> <target> [--deployment F] [--chain F] [--exclude GLOB] [--dry-run]   pin a source snapshot (+ deployment/chain pins; foundry.toml read automatically); --dry-run previews ladder, prune set and untracked files, recording nothing
 webv2 index <C> --src SRC                                          rebuild the structural index for the active pin
 webv2 model <C> [file] [--json] [--facts P] [--facts-observed-at D]    load a protocol model (seeds invariants) / show the loaded one; --facts merges operator-supplied DNS/dependency facts (offline only, no lookup)
-webv2 plan <C> [file] [--rebuild] [--json]                         read-only plan view; --rebuild archives + regenerates
+webv2 plan <C> [file] [--rebuild] [--json]                         read-only plan view; --rebuild archives + regenerates (both polarities of every lifecycle transition belong in it — §4c/§5)
 webv2 answered <C> <priority|L-0X> [<priority>...] <status> [--reason R] [--reason-all R] [--ref R] [--anchor FIELD] [--families a,b,c] [--symmetry fam=prim;...] [--actor A]   # one status over ONE OR MORE rows: gates run per row all-or-nothing (first refusal names its row, zero mutations)
 webv2 probes <C> run [--emit --per-axis N --total N] | list [--axis L-0n|AXIS] [--all] [--json] | blank --axis L-0n|AXIS --anchor-blind K --reason R --actor A
 webv2 ingest <C> --json-file F (or -) [--trajectory T] [--stage S] [--answers-priority Q-xxx]   |  webv2 ingest --example
+webv2 prompts {list,show} [name]                                   print the embedded stage prompts (no framework checkout needed; show accepts full name, stem, or stage number)
 
 webv2 run <C> [--until STAGE] [--max-stages N]                     walk the pipeline; halt at the first model stage (exit 3)
 webv2 log <C> [--tail N]                                           tail the event log
@@ -1240,6 +1286,13 @@ described in ≥ 5 chars.
   string.
 - **`unknown ≠ secure`**: unswept surfaces go back on the queue, not in the
   report as clean.
+- **Plan both polarities of a lifecycle transition.** "A bad root can
+  finalize" and "a good root can never finalize" are different bugs; the plan
+  owes one priority each, and the restrictive question must name what gets
+  stuck (§5).
+- **A value you did not read from the deployment is an assumption.** Caps,
+  slot maps, quorum thresholds and post-deploy role grants live in the
+  instance, not the source — read them or record a coverage gap (§4c).
 - **One root cause per report to the program**; variants of the same bug are
   dedup work, not extra submissions.
 - **One writer per campaign.** Never run `webv2` against the same campaign

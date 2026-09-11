@@ -50,6 +50,20 @@ fires (bond too high, window too short, watchers uncompensated), a
 finalization that can be blocked or griefed. Ask of every claimed state:
 can a fake claimed root still carry a valid transition to finality?
 
+Then work the OTHER polarity of the same transition, because it is a
+different bug: not "can a bad root finalize" but "can a good root never
+finalize". Walk the same three lines backwards — what does the stage after
+the transition consume, and what happens to everything queued behind it
+when the transition can never be taken? Concretely: a cursor that only
+advances on a value the protocol can no longer produce (strands every later
+item), a `require` the honest path cannot satisfy (freezes the queue, the
+epoch, the withdrawal), a challenge window the honest side cannot fill so
+finality never lands. Permissionless liveness bugs are as reportable as
+thefts and usually cheaper to prove: no economic precondition, just a
+sequence that never completes. State which one you worked in the
+hypothesis — "attacker wins" and "everyone is stuck" are different claims
+with different impact classes.
+
 ## Output discipline
 
 - One structured hypothesis per candidate via

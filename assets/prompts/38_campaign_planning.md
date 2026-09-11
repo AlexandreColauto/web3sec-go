@@ -42,6 +42,40 @@ not three. Assign different trajectories deliberately:
 Thin-coverage components (swept by < 2 trajectories) must get a new
 trajectory this round.
 
+## Polarity matrix (mandatory, per lifecycle transition)
+
+Every lifecycle transition has TWO ways to break, and they are different
+bugs with different impact classes. A plan that names one polarity has
+planned half the transition. Write both arms:
+
+- **permissive** — the transition accepts what it must reject: an invalid
+  claimed root finalizes, a double spend settles, an unauthorized caller
+  passes. The attacker wins; value or consensus leaves the protocol.
+- **restrictive** — the transition refuses what it must accept: a check
+  that rejects a valid input, a cursor that only advances on a value the
+  protocol can no longer produce, a threshold the honest set cannot reach,
+  a challenge window that can be kept empty. Nobody wins — the state machine
+  stops and everything behind it freezes.
+
+Worked example, from the run that produced this rule: the plan carried the
+permissive arm of the batch lifecycle ("can a fake claimed root finalize
+through the challenge game?") and never asked the restrictive mirror —
+whether a root that is never accepted stops the batch cursor and strands
+every later withdrawal. Same three lines of code; the second is the liveness
+bug that actually froze the chain.
+
+The rule: for each `state_machines[]` entry and each commit→challenge→
+finalize (or propose→vote→execute) lifecycle among your priorities'
+components, write at least one priority per polarity, and make the
+restrictive question name what gets STUCK (cursor, queue, epoch, window,
+nonce). State the polarity inside the question text — "the cursor never
+advances because X, so every later Y is permanently blocked". If a
+transition genuinely has one polarity only, say so in the question
+("nothing downstream consumes this value, so rejecting it blocks no later
+stage"); silence is not coverage. L-01 liveness is the restrictive arm's
+lens: closing L-01 before any restrictive priority exists is answering a
+question the plan never asked.
+
 ## Decision rule (deterministic, mirrored in planner.py)
 
 high prior risk + cheap validation -> now
