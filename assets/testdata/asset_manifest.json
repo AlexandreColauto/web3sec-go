@@ -370,8 +370,8 @@
     "size": 8925
    },
    "campaign_state.schema.json": {
-    "sha256": "1752295324200997ba67dbb31fe79da3c981f36528931e36caa61ce7b33ec7ff",
-    "size": 8720
+    "sha256": "88dac27d9947717f19f5b719286056afed18ece28ece8344c627db64f357a82f",
+    "size": 8731
    },
    "chain.schema.json": {
     "sha256": "44542248330cb6ab54788aab820785e135f4f9462ee8b046af5fb02ca0fd1530",
@@ -430,8 +430,8 @@
     "size": 2048
    },
    "sandbox_execution.schema.json": {
-    "sha256": "75a920059c96121770469d83afd906ba0ed24b98fbd24394431cb81dcc7fc067",
-    "size": 3896
+    "sha256": "41b0ece64fc45725eb52ab4099b2bb241bf6a501f5645ca9f4ca5aa610158370",
+    "size": 3967
    },
    "sequence_poc.schema.json": {
     "sha256": "5560a3787408e1a3f1b47f0d7aa4ed675ba91a36581af50ae9889fd59019c4ec",

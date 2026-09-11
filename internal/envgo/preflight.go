@@ -44,10 +44,14 @@ func SandboxPreflight(c *state.Campaign, workdir, profile *string) (
 		}
 	}
 
-	container := profile == nil || *profile != "host-readonly"
+	container := profile == nil || !sandbox.HostProfile(*profile)
 	if !container {
+		host := "host-readonly"
+		if profile != nil {
+			host = *profile
+		}
 		check("docker", "na",
-			"host-readonly executes on the host — no container involved", nil)
+			host+" executes on the host — no container involved", nil)
 		check("image", "na", "no container image involved", nil)
 		check("solc", "na", "no container to compile in", nil)
 	} else {
