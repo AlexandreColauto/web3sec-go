@@ -46,3 +46,40 @@ func TestFormat(t *testing.T) {
 		t.Fatalf("empty n must render n/a, got %q", got)
 	}
 }
+
+// TestUpperPct pins the G17 upper-bound-only render: same rounding as
+// Format (the consistency loop proves it, not a second table), plus the
+// park-math anchors the auto-deprioritization gate stands on.
+func TestUpperPct(t *testing.T) {
+	for _, c := range []struct {
+		k, n int
+		want string
+	}{
+		{0, 40, "8.8"},  // trips: upper < 10
+		{0, 37, "9.4"},  // trips
+		{0, 20, "16.1"}, // no trip: upper >= 0.10
+		{0, 12, "24.2"}, // no trip
+		{5, 12, "68.0"}, // no trip: a hitting lens never parks
+		{1, 40, "12.9"}, // no trip: even one hit needs more trials
+		{2, 2, "100.0"}, // the 2-gold case upper
+	} {
+		if got := UpperPct(c.k, c.n); got != c.want {
+			t.Fatalf("UpperPct(%d,%d) = %q, want %q", c.k, c.n, got,
+				c.want)
+		}
+	}
+	if got := UpperPct(0, 0); got != "n/a" {
+		t.Fatalf("UpperPct(0,0) = %q, want n/a", got)
+	}
+	// Consistency: the bare upper is always Format's upper half — one
+	// rounding, not two.
+	for _, c := range [][2]int{{0, 40}, {0, 20}, {5, 12}, {2, 3}, {8, 10}} {
+		line := Format(c[0], c[1], "precision")
+		want := "–" + UpperPct(c[0], c[1]) + "%)"
+		if len(line) < len(want) ||
+			line[len(line)-len(want):] != want {
+			t.Fatalf("Format(%d,%d) = %q does not end in %q", c[0], c[1],
+				line, want)
+		}
+	}
+}

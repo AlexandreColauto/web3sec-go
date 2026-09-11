@@ -42,5 +42,23 @@ func Format(k, n int, noun string) string {
 	}
 	lo, hi := Interval(k, n)
 	return fmt.Sprintf("%s: %d/%d (95%% CI %.1f–%.1f%%)", noun, k, n,
-		math.Round(lo*1000)/10, math.Round(hi*1000)/10)
+		pctOf(lo), pctOf(hi))
+}
+
+// pctOf renders one interval bound the way Format does: tenths of a
+// percent, half away from zero (math.Round).
+func pctOf(x float64) float64 {
+	return math.Round(x*1000) / 10
+}
+
+// UpperPct renders only the interval's upper bound in Format's style
+// ("8.8") — for call sites that cite the upper bound alone (the G17
+// tactic-batting-average auto-deprioritization reason line). The bound
+// still comes from Interval: one math source, no second implementation.
+func UpperPct(k, n int) string {
+	if n <= 0 || k < 0 || k > n {
+		return "n/a"
+	}
+	_, hi := Interval(k, n)
+	return fmt.Sprintf("%.1f", pctOf(hi))
 }

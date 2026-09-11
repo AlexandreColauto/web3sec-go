@@ -134,6 +134,17 @@ func WorkQueue(campaign *state.Campaign, plan, model validation.Value,
 		}
 		return numAt(out[i], "risk") > numAt(out[j], "risk")
 	})
+	// G17 tactic batting average (policy-gated, default off): a tripped
+	// lens's unstarted slots demote to park with the reason line. Flag
+	// off (or nothing tripped, or nothing movable) returns the standing
+	// order untouched — byte law.
+	tripped, err := trippedLenses(campaign)
+	if err != nil {
+		return nil, err
+	}
+	if len(tripped) > 0 {
+		applyAutoTune(out, plan, campaign, tripped)
+	}
 	return out, nil
 }
 

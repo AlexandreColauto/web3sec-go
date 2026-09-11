@@ -40,6 +40,7 @@ import (
 	"websec/internal/state"
 	"websec/internal/structidx"
 	"websec/internal/validation"
+	"websec/internal/wilson"
 )
 
 var confirmedStatuses = map[string]bool{"CONFIRMED": true, "CHAIN": true}
@@ -2153,6 +2154,35 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		for _, a := range extra.A {
 			if a.Kind == validation.Str {
 				actions = append(actions, a.S)
+			}
+		}
+	}
+
+	// G17 tactic batting average (advisory render, policy-gated OFF plus
+	// presence-gated): one line per lens with verdict-resolved data. The
+	// rows come from the brief's own economics.lens_yield block — the
+	// same T22 join the queue gate consumes — so the gate, the table,
+	// and this line can never disagree. Presence gate: a real lens
+	// (never "unattributed") with n_planned>0 renders; anything thinner
+	// has no average to report. Appended last: advisory lines never
+	// suppress or reorder the standing actions. Renders only — gates
+	// nothing.
+	if bounty.AutoTuneForCampaign(campaign) {
+		if econ := objAt(brief, "economics"); econ.Kind == validation.Obj {
+			for _, r := range listAt(econ, "lens_yield") {
+				lens := objStr(r, "lens")
+				if lens == "" || lens == "unattributed" {
+					continue
+				}
+				planned := objInt(r, "n_planned")
+				confirmed := objInt(r, "n_confirmed")
+				if planned <= 0 {
+					continue
+				}
+				actions = append(actions, "lens "+lens+
+					" batting average — "+
+					wilson.Format(int(confirmed), int(planned),
+						"precision"))
 			}
 		}
 	}

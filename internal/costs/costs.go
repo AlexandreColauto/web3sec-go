@@ -363,16 +363,7 @@ func LensYield(c *state.Campaign) ([]validation.Value, error) {
 	plan, planOK := loadPlanLenient(c)
 	planLens := []string{}
 	if planOK {
-		seen := map[string]bool{}
-		for _, l := range listOf(plan, "lenses") {
-			id := objStr(l, "id")
-			if id == "" || seen[id] {
-				continue
-			}
-			seen[id] = true
-			planLens = append(planLens, id)
-		}
-		sort.Strings(planLens)
+		planLens = PlanLensIDs(plan)
 	}
 	if !hasLensCosts && len(planLens) == 0 {
 		return nil, nil
@@ -384,33 +375,15 @@ func LensYield(c *state.Campaign) ([]validation.Value, error) {
 		}
 		sort.Strings(ids)
 	}
-	// The probe-surface join: surface row_id -> lens (L-id). Best effort
-	// — a missing or stale surface leaves priorities unattributed rather
-	// than failing the rollup.
-	rowLens := map[string]string{}
-	if raw, err := os.ReadFile(
-		filepath.Join(c.ArtifactsDir, "probe_surface.json")); err == nil {
-		if surface, err := validation.ParseOrdered(raw); err == nil {
-			for _, r := range listOf(surface, "rows") {
-				if rid, lens := objStr(r, "row_id"), objStr(r, "lens"); rid != "" &&
-					lens != "" {
-					rowLens[rid] = lens
-				}
-			}
-		}
-	}
+	// The probe-surface join (shared with the planner's G17 gate and the
+	// briefing's batting-average render — one source, costs owns it).
+	rowLens := ProbeRowLens(c)
 	known := map[string]bool{}
 	for _, id := range ids {
 		known[id] = true
 	}
 	planned := map[string]int64{}
 	confirmed := map[string]int64{}
-	attrOf := func(lens string) string {
-		if known[lens] {
-			return lens
-		}
-		return "unattributed"
-	}
 	byFinding := map[string]validation.Value{}
 	if planOK {
 		all, err := findings.LoadAllFindings(c)
@@ -421,11 +394,7 @@ func LensYield(c *state.Campaign) ([]validation.Value, error) {
 			byFinding[objStr(f, "finding_id")] = f
 		}
 		for _, p := range listOf(plan, "priorities") {
-			lens := ""
-			if prov := objAt(p, "probe"); prov.Kind == validation.Obj {
-				lens = rowLens[objStr(prov, "row_id")]
-			}
-			bucket := attrOf(lens)
+			bucket := PrioLensBucket(p, rowLens, known)
 			planned[bucket]++
 			if objStr(p, "status") != "answered" {
 				continue
@@ -438,11 +407,7 @@ func LensYield(c *state.Campaign) ([]validation.Value, error) {
 			if !ok {
 				continue
 			}
-			if objStr(objAt(f, "verification"), "critic_verdict") !=
-				"confirmed" {
-				continue
-			}
-			if findings.EvidenceDeficit(f, "CONFIRMED", c) != nil {
+			if !LensConfirmed(f, c) {
 				continue
 			}
 			confirmed[bucket]++
