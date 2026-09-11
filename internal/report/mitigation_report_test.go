@@ -103,3 +103,80 @@ func TestScoreCellMitigationMarker(t *testing.T) {
 		t.Fatalf("marked = %q, want %q", got, "3.00 -mitigation")
 	}
 }
+
+// acceptedRiskLine extracts the policy bullet for byte comparison.
+func acceptedRiskLine(t *testing.T, section string) string {
+	t.Helper()
+	for _, line := range strings.Split(section, "\n") {
+		if strings.HasPrefix(line, "- accepted risk:") {
+			return line
+		}
+	}
+	t.Fatal("no accepted-risk bullet rendered")
+	return ""
+}
+
+// TestReportBothLayersStaySeparate is law half (a), render side: a finding
+// with BOTH mitigation_present and bounty.accepted_risk renders the
+// soundness bullet in the correctness group while the policy bullet stays
+// byte-identical to the mitigation-less render — and neither record leaks
+// the other's keys (no url/reference_url/cites in the mitigation JSON, no
+// file/line/evidence in the accepted-risk object).
+func TestReportBothLayersStaySeparate(t *testing.T) {
+	ar := kv("bounty", validation.VObj(
+		kv("accepted_risk", validation.VObj(
+			kv("pattern", validation.VStr("reentrancy")),
+			kv("kind", validation.VStr("accepted-risk")),
+		))))
+	withMit := renderMitigationSection(t, mitigationFinding(ar))
+	bare := validation.VObj(
+		kv("finding_id", validation.VStr("F-mit1")),
+		kv("title", validation.VStr("Reentrancy in withdraw")),
+		kv("status", validation.VStr("CONFIRMED")),
+		kv("trajectory", validation.VStr("code")),
+		ar)
+	withoutMit := renderMitigationSection(t, bare)
+	if got, want := acceptedRiskLine(t, withMit),
+		acceptedRiskLine(t, withoutMit); got != want {
+		t.Errorf("policy bullet moved with mitigation:\n with %q\n w/o  %q",
+			got, want)
+	}
+	if !strings.Contains(withMit,
+		"- soundness layer demotes: cei-order (src/Escrow.sol:23)") {
+		t.Errorf("soundness bullet missing:\n%s", withMit)
+	}
+	if strings.Contains(withoutMit, "soundness layer") {
+		t.Errorf("soundness bullet leaked into the bare render:\n%s",
+			withoutMit)
+	}
+}
+
+// TestReportAcceptedRiskCitesReferenceURL pins the G7-hygiene suffix: a
+// record carrying reference_url cites it; a record without one is stamped
+// "(no reference cited)" — the claim stands either way.
+func TestReportAcceptedRiskCitesReferenceURL(t *testing.T) {
+	withRef := mitigationFinding(kv("bounty", validation.VObj(
+		kv("accepted_risk", validation.VObj(
+			kv("pattern", validation.VStr("reentrancy")),
+			kv("kind", validation.VStr("accepted-risk")),
+			kv("reference_url", validation.VStr(
+				"https://immunefi.com/acme/scope#reentrancy")),
+		)))))
+	line := acceptedRiskLine(t, renderMitigationSection(t, withRef))
+	if !strings.Contains(line,
+		"— cites https://immunefi.com/acme/scope#reentrancy") {
+		t.Errorf("cites suffix missing:\n%s", line)
+	}
+	if strings.Contains(line, "no reference cited") {
+		t.Errorf("both suffixes rendered:\n%s", line)
+	}
+	withoutRef := mitigationFinding(kv("bounty", validation.VObj(
+		kv("accepted_risk", validation.VObj(
+			kv("pattern", validation.VStr("reentrancy")),
+			kv("kind", validation.VStr("accepted-risk")),
+		)))))
+	line = acceptedRiskLine(t, renderMitigationSection(t, withoutRef))
+	if !strings.Contains(line, "— no reference cited") {
+		t.Errorf("missing-reference stamp absent:\n%s", line)
+	}
+}

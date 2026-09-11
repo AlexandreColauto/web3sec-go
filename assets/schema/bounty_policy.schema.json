@@ -54,6 +54,7 @@
           "pattern":        { "type": "string", "description": "substring/keyword matched against finding class, title and description (same semantics as exclusions)" },
           "kind":           { "enum": ["known-issue", "design-decision", "mitigated", "accepted-risk"] },
           "reference":      { "type": "string", "description": "URL or note documenting the acceptance" },
+          "reference_url":  { "type": "string", "minLength": 8, "description": "the program page / scope clause the exclusion cites — G7 hygiene: a policy claim without a reference is still valid but the report stamps it (no reference cited)" },
           "note":           { "type": "string" },
           "min_severity":   { "enum": ["low", "medium", "high", "critical"], "description": "the acceptance stops applying at this severity and above — the gate then demands real handling" },
           "case_sensitive": { "type": "boolean", "default": false }

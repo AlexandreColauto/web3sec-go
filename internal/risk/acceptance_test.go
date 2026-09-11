@@ -763,3 +763,69 @@ func TestAcceptanceEntryJSONOmitsPriorWhenZero(t *testing.T) {
 		t.Fatalf("prior = %v, want the Render() line", m["prior"])
 	}
 }
+
+// TestAcceptanceMitigationAndRiskNeverShareAField is law half (a),
+// acceptance side: a finding with BOTH dedup_meta.mitigation_present AND
+// bounty.accepted_risk shows BOTH factors (score −3: −2 policy, −1
+// soundness), and the two records share no field beyond the coincidental
+// NAME "pattern" — the mitigation JSON carries no policy key, the
+// accepted-risk object carries no soundness key (file/line/evidence).
+// (The NAME "pattern" is legitimately used by both layers; the
+// separation is at the OBJECT level — dedup_meta vs bounty — which is
+// what this test pins.)
+func TestAcceptanceMitigationAndRiskNeverShareAField(t *testing.T) {
+	base := func() validation.Value {
+		return accFinding(func(v *validation.Value) {
+			setBand(v, "high")   // 2.0
+			setEvidence(v, "E4") // 2.0
+		})
+	}
+	f := base()
+	setAcceptedRisk(&f)
+	setMitigation(&f)
+	e := Acceptance(f)
+	if e.Score != 1.0 {
+		t.Fatalf("risk+mitigation = %v, want 1.0 (4.0 −2 −1)", e.Score)
+	}
+	if e.Disqualified {
+		t.Fatal("neither layer dismisses")
+	}
+	if !e.MitigationDemoted || !e.RiskDemoted {
+		t.Fatalf("both factors must show: %#v", e)
+	}
+	if e.Mitigation != "cei-order" {
+		t.Fatalf("Mitigation = %q, want cei-order", e.Mitigation)
+	}
+	// Field level: the mitigation JSON string carries no policy key.
+	var m map[string]string
+	ms := objStr(orObj(objAt(f, "dedup_meta")), "mitigation_present")
+	if err := json.Unmarshal([]byte(ms), &m); err != nil {
+		t.Fatalf("mitigation_present must decode: %v", err)
+	}
+	for _, banned := range []string{"url", "reference_url", "cites",
+		"reference", "note", "kind", "excluded_by"} {
+		if _, ok := m[banned]; ok {
+			t.Errorf("mitigation JSON carries policy key %q", banned)
+		}
+	}
+	// Field level: the accepted-risk object carries no soundness key.
+	ar := objAt(orObj(objAt(f, "bounty")), "accepted_risk")
+	for _, banned := range []string{"file", "line", "evidence",
+		"mitigation_present"} {
+		if _, ok := fieldAtR(ar, banned); ok {
+			t.Errorf("accepted_risk record carries soundness key %q",
+				banned)
+		}
+	}
+}
+
+// fieldAtR is the test-local field probe (mirrors the package's unexported
+// field lookup over a validation object).
+func fieldAtR(v validation.Value, key string) (validation.Value, bool) {
+	for _, kv := range v.O {
+		if kv.K == key {
+			return kv.V, true
+		}
+	}
+	return validation.VNull(), false
+}

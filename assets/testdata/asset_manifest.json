@@ -362,8 +362,8 @@
     "size": 2929
    },
    "bounty_policy.schema.json": {
-    "sha256": "66fcabc37be9d4b182d1f20ccfcd8fe2dae5cd462702987780a4b106ce3af016",
-    "size": 7013
+    "sha256": "ea80aa04dfb65adccd06c6b888bc111bbebc84641e31fe594749a62ea058619a",
+    "size": 7261
    },
    "campaign_plan.schema.json": {
     "sha256": "cc31e6eace6391bab2f5edf8387fb95aaee6eafe72abff84cd519d413ec3c19e",
@@ -394,8 +394,8 @@
     "size": 6494
    },
    "finding.schema.json": {
-    "sha256": "b76675725eaf44151df900b789e2def52433ae94aee920beaee665b789243ffb",
-    "size": 45401
+    "sha256": "b696730bed4d074d679aa4a788118cee45911cbbaf3aa7facb7edaa97e791be7",
+    "size": 45750
    },
    "memory.schema.json": {
     "sha256": "7ac50f7aea59519bd158cd1ad422167b00a870e9e89f6cb7b8c93b010960bb10",

@@ -760,6 +760,10 @@
             "reference": {
               "type": "string"
             },
+            "reference_url": {
+              "type": "string",
+              "description": "G7 hygiene (Task 15): the program page / scope clause the accepted-risk exclusion cites, passed through from the policy's accepted_risks entry by check13 when present; absent = the claim stands but the report stamps it (no reference cited)"
+            },
             "note": {
               "type": "string"
             }

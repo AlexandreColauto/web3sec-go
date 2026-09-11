@@ -1643,6 +1643,16 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		if note := objStr(ar, "note"); note != "" {
 			line += " — " + note
 		}
+		// G7 hygiene (Task 15): a policy claim without a reference is
+		// still valid, but the report stamps it. Golden-safe by evidence:
+		// no golden policy carries accepted_risks and no golden tree
+		// renders an accepted-risk bullet (see task-15-report.md), so the
+		// absent-branch suffix moves zero golden bytes.
+		if refURL := objStr(ar, "reference_url"); refURL != "" {
+			line += " — cites " + refURL
+		} else {
+			line += " — no reference cited"
+		}
 		line += " (documented by the program; not submittable as written)"
 		out = append(out, line)
 	}

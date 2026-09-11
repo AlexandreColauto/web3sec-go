@@ -257,3 +257,180 @@ func TestAcceptedRiskPolicyRoundTrip(t *testing.T) {
 			validation.CanonSpaced(got), validation.CanonSpaced(policy))
 	}
 }
+
+// policyWithAcceptedRiskRef is policyWithAcceptedRisk + a reference_url on
+// the entry (G7 hygiene, Task 15): the program page / scope clause the
+// exclusion cites.
+func policyWithAcceptedRiskRef() validation.Value {
+	p := testPolicy()
+	p.O = validation.SetOrAppend(p.O, "accepted_risks", validation.VArr(
+		validation.VObj(
+			kv("pattern", validation.VStr("price skew")),
+			kv("kind", validation.VStr("known-issue")),
+			kv("reference", validation.VStr(
+				"program page: known-issues#price-skew")),
+			kv("reference_url", validation.VStr(
+				"https://immunefi.com/acme/scope#price-skew"))),
+	))
+	return p
+}
+
+// TestAcceptedRiskIgnoresMitigationPresent is law half (c): AcceptedRiskHit
+// — check13's matcher — on a finding carrying dedup_meta.mitigation_present
+// matches byte-identically to the same finding without it, and the full
+// gate's stored accepted_risk record is byte-identical too (mitigation
+// NEVER influences the money check; it only demotes the acceptance score,
+// which lives outside this record).
+func TestAcceptedRiskIgnoresMitigationPresent(t *testing.T) {
+	mitigation := validation.VStr(findings.MitigRecord("cei-order",
+		"src/Escrow.sol", 23, "last write at L23 precedes call at L26"))
+	withMit := func(f validation.Value) validation.Value {
+		return withField(f, "dedup_meta", validation.VObj(
+			kv("mitigation_present", mitigation)))
+	}
+	// Matcher level: the hit is the policy entry, untouched by soundness.
+	p := policyWithAcceptedRisk()
+	plain, err := AcceptedRiskHit(p, baseFinding())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mitted, err := AcceptedRiskHit(p, withMit(baseFinding()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if validation.CanonCompact(plain) != validation.CanonCompact(mitted) {
+		t.Errorf("matcher moved with mitigation:\n %s\n %s",
+			validation.CanonCompact(plain),
+			validation.CanonCompact(mitted))
+	}
+	// Gate level: the STORED record is byte-identical with/without it.
+	c1, fid1 := bountyFixture(t)
+	c2, fid2 := bountyFixture(t)
+	stored2, err := findings.LoadFinding(c2, fid2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored2 = withField(stored2, "dedup_meta", validation.VObj(
+		kv("mitigation_present", mitigation)))
+	if err := findings.SaveFinding(c2, &stored2); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := EvaluateBountyGate(c1, fid1, policyWithAcceptedRisk(),
+		true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := EvaluateBountyGate(c2, fid2, policyWithAcceptedRisk(),
+		true); err != nil {
+		t.Fatal(err)
+	}
+	s1, err := findings.LoadFinding(c1, fid1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2, err := findings.LoadFinding(c2, fid2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec1 := validation.CanonCompact(objAt(objAt(s1, "bounty"),
+		"accepted_risk"))
+	rec2 := validation.CanonCompact(objAt(objAt(s2, "bounty"),
+		"accepted_risk"))
+	if rec1 != rec2 {
+		t.Errorf("stored record moved with mitigation:\n %s\n %s",
+			rec1, rec2)
+	}
+	// The record carries no soundness key (file/line/evidence live only
+	// in the mitigation JSON, never here).
+	for _, banned := range []string{"file", "line", "evidence",
+		"mitigation_present"} {
+		if _, ok := fieldAt(objAt(objAt(s2, "bounty"), "accepted_risk"),
+			banned); ok {
+			t.Errorf("accepted_risk record carries soundness key %q",
+				banned)
+		}
+	}
+}
+
+// TestAcceptedRiskReferenceURLRidesThrough: a reference_url on the policy
+// entry lands on the stored record; an entry without one leaves the record
+// at its old bytes exactly (no new key).
+func TestAcceptedRiskReferenceURLRidesThrough(t *testing.T) {
+	c, fid := bountyFixture(t)
+	if _, err := EvaluateBountyGate(c, fid, policyWithAcceptedRiskRef(),
+		true); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := objAt(objAt(stored, "bounty"), "accepted_risk")
+	if got := objStr(rec, "reference_url"); got !=
+		"https://immunefi.com/acme/scope#price-skew" {
+		t.Errorf("reference_url = %q, want the policy URL", got)
+	}
+	// Absent in policy => absent in record, old key set untouched.
+	c2, fid2 := bountyFixture(t)
+	if _, err := EvaluateBountyGate(c2, fid2, policyWithAcceptedRisk(),
+		true); err != nil {
+		t.Fatal(err)
+	}
+	stored2, err := findings.LoadFinding(c2, fid2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec2 := objAt(objAt(stored2, "bounty"), "accepted_risk")
+	if _, ok := fieldAt(rec2, "reference_url"); ok {
+		t.Errorf("record gained reference_url unasked: %s",
+			validation.CanonCompact(rec2))
+	}
+	var keys []string
+	for _, kv := range rec2.O {
+		keys = append(keys, kv.K)
+	}
+	if validation.CanonCompact(rec2) != validation.CanonCompact(
+		validation.VObj(
+			kv("pattern", validation.VStr("price skew")),
+			kv("kind", validation.VStr("known-issue")),
+			kv("reference", validation.VStr(
+				"program page: known-issues#price-skew")))) {
+		t.Errorf("reference-less record moved bytes: %s (%v)",
+			validation.CanonCompact(rec2), keys)
+	}
+}
+
+// TestAcceptedRiskReferenceURLSchema: the policy schema accepts a
+// reference_url (round trip preserves it) and rejects a non-string one;
+// a stub shorter than minLength 8 is rejected too.
+func TestAcceptedRiskReferenceURLSchema(t *testing.T) {
+	c := vectorCamp(t, "")
+	policy := policyWithAcceptedRiskRef()
+	path, err := SavePolicy(c, policy, nil)
+	if err != nil {
+		t.Fatalf("schema must accept reference_url: %v", err)
+	}
+	got, err := LoadPolicy(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if validation.CanonSpaced(got) != validation.CanonSpaced(policy) {
+		t.Errorf("round trip\n got %s\nwant %s",
+			validation.CanonSpaced(got), validation.CanonSpaced(policy))
+	}
+	bad := func(v validation.Value) validation.Value {
+		p := testPolicy()
+		return validation.Value{Kind: validation.Obj, O: append(
+			append([]validation.KV(nil), p.O...),
+			validation.KV{K: "accepted_risks", V: validation.VArr(
+				validation.VObj(
+					kv("pattern", validation.VStr("price skew")),
+					kv("reference_url", v)))})}
+	}
+	if _, err := SavePolicy(c, bad(validation.VInt(42)), nil); err == nil {
+		t.Error("non-string reference_url must fail policy validation")
+	}
+	if _, err := SavePolicy(c, bad(validation.VStr("short")),
+		nil); err == nil {
+		t.Error("reference_url below minLength 8 must fail validation")
+	}
+}
