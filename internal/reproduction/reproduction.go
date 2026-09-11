@@ -843,14 +843,20 @@ func sha256Hex(b []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// origStdoutHash is the cited exec's stdout hash: the recorded
+// execStdoutHash is the cited exec's stdout hash: the recorded
 // artifact_hashes entry when present (byte-identical to what the ledger
-// hashed), else the hash of the captured output.
-func origStdoutHash(rec validation.Value) string {
+// hashed), else the hash of the given bytes. Both the rerun gate and the
+// post-patch verdict share this preference.
+func execStdoutHash(rec validation.Value, raw []byte) string {
 	if h := objStr(objAt(rec, "artifact_hashes"), "stdout.log"); h != "" {
 		return h
 	}
-	return sha256Hex([]byte(sandbox.ExecOutput(rec)))
+	return sha256Hex(raw)
+}
+
+// origStdoutHash is the cited exec's stdout hash over the captured output.
+func origStdoutHash(rec validation.Value) string {
+	return execStdoutHash(rec, []byte(sandbox.ExecOutput(rec)))
 }
 
 // rerunsText renders the variance value with its audit join: the base

@@ -291,7 +291,7 @@ func TestVerifyPostPatchHelp(t *testing.T) {
 		t.Fatalf("exit %d", code)
 	}
 	for _, want := range []string{"--post-patch", "--snapshot",
-		"tree comparison"} {
+		"tree comparison", "ignored with --post-patch"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("help must mention %q:\n%s", want, out)
 		}

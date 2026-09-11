@@ -88,7 +88,7 @@ func PostPatchVerdict(c *state.Campaign, findingID,
 	}
 	newRec, err := sandbox.LoadExec(c, newExecID)
 	if err != nil {
-		if isMissingExec(err) {
+		if isMissingExec(c, newExecID) {
 			return "", "", &UnknownIDError{Kind: "exec", ID: newExecID}
 		}
 		return "", "", err
@@ -137,7 +137,7 @@ func PostPatchVerdict(c *state.Campaign, findingID,
 			"baseline %s exits 0; post-patch %s exits %d",
 			baseExecID, newExecID, newExit), nil
 	}
-	if postPatchHash(newRec, newRaw) != postPatchHash(baseRec, baseRaw) {
+	if execStdoutHash(newRec, newRaw) != execStdoutHash(baseRec, baseRaw) {
 		return PostPatchIndeterminate, fmt.Sprintf(
 			"post-patch %s exits 0 but stdout differs from baseline %s",
 			newExecID, baseExecID), nil
@@ -194,18 +194,9 @@ func postPatchStdout(c *state.Campaign, execID string,
 	return raw, nil
 }
 
-// postPatchHash is the stdout hash: the recorded artifact_hashes entry
-// when present (byte-identical to what the ledger hashed, the same hash
-// G15's rerun comparison uses), else the hash of the captured bytes.
-func postPatchHash(rec validation.Value, raw []byte) string {
-	if h := objStr(objAt(rec, "artifact_hashes"), "stdout.log"); h != "" {
-		return h
-	}
-	return sha256Hex(raw)
-}
-
-// isMissingExec reports the LoadExec file-absent error (as opposed to a
-// malformed record, which is a genuine error).
-func isMissingExec(err error) bool {
-	return strings.Contains(err.Error(), "No such file or directory")
+// isMissingExec reports whether the exec record file is absent (as opposed
+// to a malformed record, which is a genuine error).
+func isMissingExec(c *state.Campaign, execID string) bool {
+	_, err := os.Stat(filepath.Join(c.ExecsDir, execID, "exec_record.json"))
+	return os.IsNotExist(err)
 }

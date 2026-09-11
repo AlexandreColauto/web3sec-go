@@ -211,6 +211,24 @@ func TestPostPatchUnknownExec(t *testing.T) {
 	}
 }
 
+func TestPostPatchNoBaselineBeforeExecLoad(t *testing.T) {
+	// Order pin: the no-baseline check runs before the new-exec load,
+	// so an unknown --exec on a baseline-less finding is indeterminate
+	// (fail-open), not an unknown-exec error.
+	c := newCampaign(t, "Acme Program")
+	fid := ppFinding(t, c)
+	verdict, detail, err := PostPatchVerdict(c, fid, "EXEC-nope")
+	if err != nil {
+		t.Fatalf("verdict: %v (no-baseline must win over unknown exec)", err)
+	}
+	if verdict != PostPatchIndeterminate {
+		t.Fatalf("verdict = %q, want indeterminate", verdict)
+	}
+	if detail != NoBaselineDetail {
+		t.Fatalf("detail = %q, want %q", detail, NoBaselineDetail)
+	}
+}
+
 func TestPostPatchStatusUntouched(t *testing.T) {
 	c, fid, _ := ppSetup(t, "PASS: test_exploit\n", 0)
 	next := ppExec(t, c, "FAIL: test_exploit\n", 1)

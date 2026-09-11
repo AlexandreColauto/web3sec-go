@@ -57,6 +57,7 @@ options:
   --kind {halmos,forge-fuzz}
   --post-patch FINDING
                         finding to regress against the post-patch run (with --exec)
+                        (--finding/--verifier/--description are ignored with --post-patch)
   --snapshot SNAPSHOT   advisory pin recorded on the verdict (tree comparison
                         is a later step, not this command)
 `
