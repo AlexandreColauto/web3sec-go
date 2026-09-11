@@ -403,6 +403,50 @@ func TestLensYieldPresenceGate(t *testing.T) {
 	}
 }
 
+// TestLensYieldUnattributedPlannedWithoutCostRows (H1): every cost row is
+// lensed (zero bare rows) but the plan carries a priority with no
+// resolvable lens — its planned count buckets to "unattributed". The emit
+// gate is cost-row-driven (`unattributedRows > 0 || !planOK`), so without
+// the planned-count arm that row vanishes and the table silently loses a
+// planned priority.
+func TestLensYieldUnattributedPlannedWithoutCostRows(t *testing.T) {
+	c := camp(t)
+	traj := "code"
+	if _, err := RecordCost(c, RecordOpts{Kind: "model", AmountUSD: 30,
+		Trajectory: &traj, Actor: "op", Lens: "L-01"}); err != nil {
+		t.Fatal(err)
+	}
+	writeLensPlan(t, c.ArtifactsDir, []string{"L-01"},
+		[]validation.Value{
+			lensPrio("Q-001", "open", "r1", ""),
+			lensPrio("Q-002", "open", "", ""),
+		})
+	writeLensSurface(t, c.ArtifactsDir, map[string]string{"r1": "L-01"})
+	ly, err := LensYield(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]validation.Value{}
+	for _, r := range ly {
+		byID[objStr(r, "lens")] = r
+	}
+	un, ok := byID["unattributed"]
+	if !ok {
+		t.Fatalf("rows = %s, want an unattributed row (Q-002 has no lens)",
+			validation.DumpIndented(validation.VArr(ly...)))
+	}
+	if v := intField(un, "n_planned"); v != 1 {
+		t.Errorf("unattributed n_planned = %d, want 1 (Q-002)", v)
+	}
+	if v := floatField(un, "cost_usd"); v != 0 {
+		t.Errorf("unattributed cost_usd = %v, want 0 (every row is lensed)",
+			v)
+	}
+	if v := intField(byID["L-01"], "n_planned"); v != 1 {
+		t.Errorf("L-01 n_planned = %d, want 1 (Q-001 via r1)", v)
+	}
+}
+
 func hasKey(v validation.Value, key string) bool {
 	for _, kv := range v.O {
 		if kv.K == key {
