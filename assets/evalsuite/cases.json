@@ -270,5 +270,37 @@
     "deployed_at": "2026-09-11",
     "schema_version": 2,
     "notes": "G4 clean control: the protocol that must yield zero findings; confirmed-not-exploitable is the hit"
+  },
+  {
+    "case_id": "CASE-000000000012",
+    "source": {"dataset": "manual", "record_id": "evalsuite-ES18", "url": "internal://evalsuite"},
+    "partition": "dev",
+    "program": {"program": "ES18LegacyVaultReentrancy", "platform": null, "chains": []},
+    "gold": {"outcome": "confirmed-exploitable", "bug_class": "reentrancy",
+      "severity": "high",
+      "root_cause": "withdraw() pays the caller before zeroing balances, so the legacy payload re-enters and drains the vault",
+      "locations": [{"file": "assets/evalsuite/src/ES18LegacyVaultReentrancy.sol"}]},
+    "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
+      "files": ["assets/evalsuite/src/ES18LegacyVaultReentrancy.sol"], "snapshot_note": "planted fixture"},
+    "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
+    "schema_version": 2,
+    "notes": "J-diversity planted-bug fixture on pragma ^0.8.0; created_at/deployed_at copied from the G4 backfill (no real deployment — planted, disclosed per I1a); gold anchor is the finding shape a real run must produce"
+  },
+  {
+    "case_id": "CASE-000000000013",
+    "source": {"dataset": "manual", "record_id": "evalsuite-ES19", "url": "internal://evalsuite"},
+    "partition": "dev",
+    "program": {"program": "ES19LegacySplitterUnchecked", "platform": null, "chains": []},
+    "gold": {"outcome": "confirmed-exploitable", "bug_class": "unchecked-external-call",
+      "severity": "high",
+      "root_cause": "sweep() ignores the low-level send result after zeroing balances, so a reverted payout silently burns the credit",
+      "locations": [{"file": "assets/evalsuite/src/ES19LegacySplitterUnchecked.sol"}]},
+    "code": {"repo": "internal://evalsuite", "commit": "02d1ec7",
+      "files": ["assets/evalsuite/src/ES19LegacySplitterUnchecked.sol"], "snapshot_note": "planted fixture"},
+    "created_at": "2026-09-11T00:00:00Z",
+    "deployed_at": "2026-09-11",
+    "schema_version": 2,
+    "notes": "J-diversity planted-bug fixture on pragma >=0.7.0 <0.9.0; created_at/deployed_at copied from the G4 backfill (no real deployment — planted, disclosed per I1a); gold anchor is the finding shape a real run must produce"
   }
 ]

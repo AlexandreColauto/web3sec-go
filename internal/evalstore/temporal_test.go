@@ -402,7 +402,7 @@ func TestPartitionHealthLockedWrapper(t *testing.T) {
 	}
 }
 
-// TestSuiteHealthIsClean: the shipped 17-row pack carries parseable,
+// TestSuiteHealthIsClean: the shipped 19-row pack carries parseable,
 // uniform deployed_at dates and no held-out duplicate of a dev row — so
 // the discipline moves ZERO bytes on the real store (this is what keeps
 // the golden runs and the real --backtest output unchanged).

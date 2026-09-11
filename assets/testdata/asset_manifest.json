@@ -56,8 +56,8 @@
   },
   "evalsuite": {
    "cases.json": {
-    "sha256": "6fd1b4214f51106ca0d80cf2beb0acdc9cff28b195829c953ba1b2f07fccb4bd",
-    "size": 15645
+    "sha256": "c997b1db7523f9612828393140cd0a3f7945d08889338969072fa00ff117a533",
+    "size": 17826
    },
    "src/ES01VaultMissingAuth.sol": {
     "sha256": "fd19c9a38f0dbbc98c220b3b99e140a3113d8a1d27bff414b395033436c5dc7f",
@@ -126,6 +126,14 @@
    "src/ES17CleanControl.sol": {
     "sha256": "33d2c22ad3cbaeb6471fd8ebd74e0d406b658e5a84bd2edc49dec9dd053e0ac5",
     "size": 731
+   },
+   "src/ES18LegacyVaultReentrancy.sol": {
+    "sha256": "651ee3c815b10021c28f7f034e73743330ac00e9352e34a4d2fd41abe9b7299a",
+    "size": 957
+   },
+   "src/ES19LegacySplitterUnchecked.sol": {
+    "sha256": "7b09a70993e725f97b9c107ea5e7eeafa513c9fb87aef063e30e9ae2f5ec9ae2",
+    "size": 911
    }
   },
   "playbooks": {

@@ -102,14 +102,14 @@ func TestSelftestFullPlanAddsGoTest(t *testing.T) {
 }
 
 // TestSelftestEvalsuiteSelfcheck: the step proves the scorer against the
-// gold suite itself (17/17, FP 0) and prints the pinned ok line — scorer
+// gold suite itself (19/19, FP 0) and prints the pinned ok line — scorer
 // semantics, not a detector claim.
 func TestSelftestEvalsuiteSelfcheck(t *testing.T) {
 	ok, detail := checkEvalsuiteSelfcheck()
 	if !ok {
 		t.Fatalf("checkEvalsuiteSelfcheck = false (%s)", detail)
 	}
-	want := "ok: gold suite self-scores 17/17 (95% CI 81.6–100.0%) — " +
+	want := "ok: gold suite self-scores 19/19 (95% CI 83.2–100.0%) — " +
 		"scorer semantics proven, NOT a detector claim"
 	if detail != want {
 		t.Fatalf("detail = %q\nwant %q", detail, want)
