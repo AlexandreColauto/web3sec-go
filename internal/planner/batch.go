@@ -19,10 +19,9 @@ type AnsweredRow struct {
 }
 
 // MarkAnsweredBatch closes (or re-opens) several plan priorities behind the
-// SAME gates as MarkAnswered, all-or-nothing: every row's gates
-// (checkAnchorless, checkCitedRecords, resolveAnchor, checkDismissalGate)
-// run on a pre-flight pass that performs zero mutations, the first failure
-// naming its row ("answered: row 2 (Q-005): <gate message>"); the mutations
+// SAME gates as MarkAnswered, all-or-nothing: every row's gates run through
+// the shared runAnsweredGates runner on a pre-flight pass that performs zero
+// mutations, the first failure naming its row ("answered: row 2 (Q-005): <gate message>"); the mutations
 // (plan writes + one plan.priority_status event per row, in the exact
 // single-mark shape) apply only when zero rows fail.
 //
@@ -60,40 +59,14 @@ func MarkAnsweredBatch(campaign *state.Campaign, plan validation.Value,
 	return out, nil
 }
 
-// preflightAnswered is MarkAnswered's gate prefix without the mutations: the
-// priority lookup, the anchorless rule, the citation scan, the anchor
-// resolution and the dismissal gate (dry: an override is validated but not
-// recorded). Keep the gate ORDER identical to MarkAnswered so a batch
-// refusal reports the same message the single call would.
+// preflightAnswered runs one row's gates with zero mutations by delegating
+// to the shared runner (dry dismissal gate: an override is validated but not
+// recorded). There is no gate logic here by design — see runAnsweredGates.
 func preflightAnswered(campaign *state.Campaign, plan validation.Value,
 	r AnsweredRow) error {
-	closing := r.Outcome == "answered" || r.Outcome == "not-applicable" ||
-		r.Outcome == "deprioritized" || r.Outcome == "blocked"
-	if _, err := findPriority(plan, r.PriorityID); err != nil {
-		return err
-	}
-	priorities := listOf(plan, "priorities")
-	p := priorities[priorityIndex(plan, r.PriorityID)]
-	prov, hasProv := probeProvenance(p)
-	if err := checkAnchorless(r.PriorityID, r.Outcome, prov, hasProv,
-		r.Opts.Anchor); err != nil {
-		return err
-	}
-	if err := checkCitedRecords(campaign, r.PriorityID, r.Outcome,
-		r.Opts); err != nil {
-		return err
-	}
-	if r.Opts.Anchor != nil && closing {
-		if _, _, err := resolveAnchor(campaign, r.PriorityID, prov,
-			hasProv, r.Opts, r.Opts.Ref); err != nil {
-			return err
-		}
-	}
-	if err := checkDismissalGateDry(campaign, r.PriorityID, r.Outcome,
-		prov, hasProv, r.Opts); err != nil {
-		return err
-	}
-	return nil
+	_, err := runAnsweredGates(campaign, plan, r.PriorityID, r.Outcome,
+		r.Opts, true)
+	return err
 }
 
 // findPriority is MarkAnswered's priority lookup: the index of the priority

@@ -277,3 +277,90 @@ func TestMarkAnsweredBatchUnknownRow(t *testing.T) {
 		t.Fatalf("refusal must name the unknown row: %q", got)
 	}
 }
+
+// TestMarkAnsweredBatchOverrideHappyPath pins that N override rows yield N
+// probe.dismissal_overridden events: each high-risk row closed on dismissal
+// vocabulary with an explicit override records its own override event plus
+// its own plan.priority_status event.
+func TestMarkAnsweredBatchOverrideHappyPath(t *testing.T) {
+	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
+	surface, index := maSurface(t)
+	withProbes(t, probeEnv{surface: surface, index: index})
+	camp := newCampaign(t, "ma-batch-override-ok")
+	plan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
+
+	anchor := "consumer"
+	mkOpts := func() AnsweredOpts {
+		return AnsweredOpts{
+			Reason: strPtr("liveness-only, the owner can revert"),
+			Anchor: &anchor, OverrideDismissal: true,
+			OverrideReason: strPtr("the owner confirmed the " +
+				"intended behavior in the spec"),
+		}
+	}
+	got, err := MarkAnsweredBatch(camp, plan, []AnsweredRow{
+		{PriorityID: "Q-005", Outcome: "answered", Opts: mkOpts()},
+		{PriorityID: "Q-006", Outcome: "answered", Opts: mkOpts()},
+	}, "batch review of the queue")
+	if err != nil {
+		t.Fatalf("batch: %v", err)
+	}
+	for _, pid := range []string{"Q-005", "Q-006"} {
+		if s := batchStatusOf(t, got, pid); s != "answered" {
+			t.Errorf("%s status = %q, want answered", pid, s)
+		}
+	}
+	overrides := batchEventsOfType(t, camp, "probe.dismissal_overridden")
+	if len(overrides) != 2 {
+		t.Fatalf("probe.dismissal_overridden events = %d, want 2",
+			len(overrides))
+	}
+	for i, pid := range []string{"Q-005", "Q-006"} {
+		if r := objStr(overrides[i], "ref"); r != pid {
+			t.Errorf("override event %d ref = %q, want %q", i, r, pid)
+		}
+	}
+	if evts := batchEventsOfType(t, camp,
+		"plan.priority_status"); len(evts) != 2 {
+		t.Fatalf("plan.priority_status events = %d, want 2", len(evts))
+	}
+}
+
+// TestMarkAnsweredBatchAnchorOnNonProbeRow pins that a batch --anchor on a
+// non-probe row is refused naming the row: the shared anchor cannot name a
+// field on a priority that is not a probe disposition.
+func TestMarkAnsweredBatchAnchorOnNonProbeRow(t *testing.T) {
+	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
+	surface, index := maSurface(t)
+	withProbes(t, probeEnv{surface: surface, index: index})
+	camp := newCampaign(t, "ma-batch-anchor-nonprobe")
+	plan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
+	before := batchPlanFiles(t, camp, plan)
+
+	anchor := "consumer"
+	_, err := MarkAnsweredBatch(camp, plan, []AnsweredRow{
+		{PriorityID: "Q-001", Outcome: "answered",
+			Opts: AnsweredOpts{Anchor: &anchor}},
+	}, "batch review of the queue")
+	if err == nil {
+		t.Fatal("a batch anchoring a non-probe row must be refused")
+	}
+	if got := err.Error(); !strings.HasPrefix(got,
+		"answered: row 1 (Q-001):") ||
+		!strings.Contains(got, "not a probe row") {
+		t.Fatalf("refusal must name the non-probe row: %q", got)
+	}
+	raw, err := os.ReadFile(filepath.Join(camp.ArtifactsDir,
+		"campaign_plan.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != before {
+		t.Fatal("refused batch mutated the plan file")
+	}
+	if evts := batchEventsOfType(t, camp,
+		"plan.priority_status"); len(evts) != 0 {
+		t.Fatalf("refused batch logged %d plan.priority_status events",
+			len(evts))
+	}
+}
