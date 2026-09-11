@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"websec/internal/findings"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -24,6 +25,12 @@ type DivergenceOpts struct {
 	// empty hole where the campaign belongs is worse than the obvious
 	// placeholder.
 	CampaignID string
+	// CampaignClasses carries the canonical bug classes the campaign's own
+	// findings already name. The diversity clause unions them with the
+	// plan's priorities: a shape the model dispositioned by filing a finding
+	// was named whether or not the planner stamped the priority. nil (the
+	// pure function) keeps the plan-only behavior byte-identical.
+	CampaignClasses []string
 }
 
 // campaignIDForPlan is the campaign id an operator-facing repair hint names:
@@ -73,13 +80,22 @@ func DivergenceStatus(plan validation.Value, opts DivergenceOpts) validation.Val
 				"re-save it (webv2 plan C plan.json --rebuild; the outgoing "+
 				"plan is archived as plan.superseded) to seed L-01..L-04"))))
 	}
-	named := namedClasses(plan)
+	named := namedClasses(plan, opts.CampaignClasses)
 	if len(named) < MinDistinctClasses {
+		what := itoa(len(named)) + " distinct bug class(es) named (" +
+			joinOrNone(named) + "); min " + itoa(MinDistinctClasses) +
+			" — set priorities[].bug_class"
+		// The findings exit is offered only when the caller actually
+		// counted the campaign's classes: a pure DivergenceStatus call
+		// (nil/empty CampaignClasses) does not, so naming that exit would
+		// point at a command that cannot move this gate — and the
+		// pre-campaign hint stays byte-identical for those callers.
+		if len(opts.CampaignClasses) > 0 {
+			what += " or file findings naming them"
+		}
 		missing = append(missing, validation.VObj(
 			kv("subject", validation.VStr("diversity")),
-			kv("what", validation.VStr(itoa(len(named))+" distinct bug "+
-				"class(es) named ("+joinOrNone(named)+"); min "+
-				itoa(MinDistinctClasses)+" — set priorities[].bug_class"))))
+			kv("what", validation.VStr(what))))
 	}
 	return validation.VObj(
 		kv("closed", validation.VBool(len(missing) == 0)),
@@ -248,12 +264,19 @@ func symmetryStub(uncovered []string) []string {
 }
 
 // namedClasses is `sorted({p["bug_class"] for p in plan.get("priorities", [])
-// if p.get("bug_class")})`.
-func namedClasses(plan validation.Value) []string {
+// if p.get("bug_class")} | set(campaign))`: the plan's own classes unioned with
+// the canonical classes the campaign's findings name (empty strings dropped,
+// deduped, sorted).
+func namedClasses(plan validation.Value, campaign []string) []string {
 	seen := map[string]struct{}{}
 	for _, p := range listOf(plan, "priorities") {
 		if bc := objAt(p, "bug_class"); pyTruthyBigNonEmpty(bc) {
 			seen[pyStr(bc)] = struct{}{}
+		}
+	}
+	for _, c := range campaign {
+		if c != "" {
+			seen[c] = struct{}{}
 		}
 	}
 	return sortedKeys(seen)
@@ -270,6 +293,11 @@ func joinOrNone(items []string) string {
 // DivergenceStatusFor is divergence_status_for: the campaign-aware wrapper the
 // CLI/briefing/report call. A nil blanks map reads the persisted attestation
 // store (pass an empty non-nil map to assert "no attestations").
+//
+// It is also where the diversity clause learns what the campaign itself
+// already named: the classes come from the campaign's stored findings, so a
+// plan whose priorities carry no bug_class is still satisfiable when the
+// findings name four canonical classes.
 func DivergenceStatusFor(campaign *state.Campaign, plan validation.Value,
 	blanks map[string]validation.Value) (validation.Value, error) {
 	if blanks == nil {
@@ -283,9 +311,36 @@ func DivergenceStatusFor(campaign *state.Campaign, plan validation.Value,
 	if err != nil {
 		return validation.VNull(), err
 	}
+	classes, err := PB().CampaignBugClasses(campaign)
+	if err != nil {
+		return validation.VNull(), err
+	}
 	return DivergenceStatus(plan, DivergenceOpts{Surface: surface,
 		CurrentIndexSha: PB().CampaignIndexSha(campaign), Blanks: blanks,
-		CampaignID: campaign.CampaignID}), nil
+		CampaignID: campaign.CampaignID, CampaignClasses: classes}), nil
+}
+
+// campaignBugClasses is PB().CampaignBugClasses: the canonical bug classes the
+// campaign's own findings name — every stored finding's root_cause.class that
+// passes isCanonicalClass, deduped and sorted. root_cause.class is schema-free
+// form (advisory taxonomy mapping), exactly like the class copied into an
+// anchor priority, so a non-canonical value is not a class a plan could carry
+// and must not count toward the diversity clause. Findings are read in the
+// store's deterministic (created_at, finding_id) order.
+func campaignBugClasses(campaign *state.Campaign) ([]string, error) {
+	all, err := findings.LoadAllFindings(campaign)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]struct{}{}
+	for _, f := range all {
+		cls, ok := fieldAt(objAt(f, "root_cause"), "class")
+		if !ok || cls.Kind != validation.Str || !isCanonicalClass(cls.S) {
+			continue
+		}
+		seen[cls.S] = struct{}{}
+	}
+	return sortedKeys(seen), nil
 }
 
 // LensProbeClosure is lens_probe_closure: the one-line probe closure statement

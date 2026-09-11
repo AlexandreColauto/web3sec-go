@@ -1,6 +1,8 @@
 package planner
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -225,5 +227,163 @@ func TestCampaignIDForPlanFallback(t *testing.T) {
 	if got := campaignIDForPlan(plan, DivergenceOpts{
 		CampaignID: "C-opts"}); got != "C-opts" {
 		t.Fatalf("caller id = %q, want C-opts", got)
+	}
+}
+
+// noClassPlan is the recorded grandfather plan: one resolved lens and zero
+// priorities, so the diversity clause is the only clause still open.
+func noClassPlan(t *testing.T) validation.Value {
+	t.Helper()
+	for _, c := range at(t, oracles(t), "divergence").A {
+		if objStr(c, "name") == "grandfather" {
+			return deepCopy(t, objAt(c, "plan"))
+		}
+	}
+	t.Fatalf("oracle case grandfather is missing")
+	return validation.VNull()
+}
+
+// gateClosed is the gate's closed flag.
+func gateClosed(v validation.Value) bool {
+	b := objAt(v, "closed")
+	return b.Kind == validation.Bool && b.B
+}
+
+// divWhat is the missing[] what-text for one subject ("" when absent).
+func divWhat(v validation.Value, subject string) string {
+	for _, m := range listOf(v, "missing") {
+		if objStr(m, "subject") == subject {
+			return objStr(m, "what")
+		}
+	}
+	return ""
+}
+
+// TestDivergenceDiversityCountsCampaignFindings: the diversity clause stops
+// being unsatisfiable when the CAMPAIGN's own findings already named the
+// classes — the gate was demanding hand-patching even though the shapes were
+// dispositioned by filing findings. Fewer than four classes stay open and the
+// hint names both exits; four distinct canonical classes close the clause.
+func TestDivergenceDiversityCountsCampaignFindings(t *testing.T) {
+	plan := noClassPlan(t)
+	open := DivergenceStatus(plan, DivergenceOpts{
+		CampaignClasses: []string{"access-control", "reentrancy"}})
+	if gateClosed(open) {
+		t.Fatal("2 classes must stay open")
+	}
+	what := divWhat(open, "diversity")
+	if !strings.Contains(what,
+		"2 distinct bug class(es) named (access-control, reentrancy)") {
+		t.Errorf("hint must count the campaign classes: %s", what)
+	}
+	if !strings.Contains(what, "or file findings naming them") {
+		t.Errorf("hint = %s", what)
+	}
+	closedGate := DivergenceStatus(plan, DivergenceOpts{
+		CampaignClasses: []string{"reentrancy", "access-control",
+			"logic-error", "authorization", "logic-error"}})
+	if !gateClosed(closedGate) {
+		t.Fatalf("4 distinct canonical classes must close the diversity "+
+			"clause; missing = %s",
+			validation.CanonCompact(objAt(closedGate, "missing")))
+	}
+	if n := len(listOf(closedGate, "missing")); n != 0 {
+		t.Errorf("missing = %s",
+			validation.CanonCompact(objAt(closedGate, "missing")))
+	}
+	if n := len(listOf(closedGate, "named_classes")); n != 4 {
+		t.Errorf("named_classes = %s",
+			validation.CanonCompact(objAt(closedGate, "named_classes")))
+	}
+}
+
+// TestDivergenceStatusPurePathHintUnchanged is the byte-stability control: a
+// pure DivergenceStatus call (no CampaignClasses) counts nothing from the
+// campaign, so it keeps the recorded pre-campaign hint verbatim and never
+// promises a findings exit that this call cannot honor.
+func TestDivergenceStatusPurePathHintUnchanged(t *testing.T) {
+	plan := noClassPlan(t)
+	got := DivergenceStatus(plan, DivergenceOpts{})
+	const legacy = "0 distinct bug class(es) named (none); min 4 — " +
+		"set priorities[].bug_class"
+	if what := divWhat(got, "diversity"); what != legacy {
+		t.Errorf("pure hint moved: %q", what)
+	}
+	// An empty (non-nil) CampaignClasses slice is the same situation the
+	// wrapper hands over for a campaign with no findings: byte-identical too.
+	empty := DivergenceStatus(plan, DivergenceOpts{
+		CampaignClasses: []string{}})
+	requireJSON(t, "empty campaign classes", empty, got)
+}
+
+// TestNamedClassesUnionsCampaignClasses pins the union: plan priorities plus
+// the campaign's classes, deduped, empty strings dropped, sorted.
+func TestNamedClassesUnionsCampaignClasses(t *testing.T) {
+	plan := jsonValue(t, `{"priorities":[{"bug_class":"logic-error"},
+	  {"bug_class":"logic-error"},{"question":"no class"}]}`)
+	got := namedClasses(plan, []string{"reentrancy", "access-control",
+		"reentrancy", ""})
+	want := []string{"access-control", "logic-error", "reentrancy"}
+	if validation.CanonCompact(strArr(got)) != validation.CanonCompact(
+		strArr(want)) {
+		t.Errorf("namedClasses = %v, want %v", got, want)
+	}
+}
+
+// TestDivergenceStatusForCountsFindingsClasses pins the collection seam: the
+// campaign-aware wrapper reads the campaign's stored findings through
+// PB().CampaignBugClasses, keeps only classes the plan validator would accept
+// and hands them to the diversity clause. A non-canonical class never counts,
+// and losing a class re-opens the gate.
+func TestDivergenceStatusForCountsFindingsClasses(t *testing.T) {
+	withProbes(t, probeEnv{})
+	plan := noClassPlan(t)
+	camp := newCampaign(t, "cbg")
+	writeFinding := func(id, class string) {
+		t.Helper()
+		body := `{"finding_id":"` + id + `","campaign_id":"` +
+			camp.CampaignID + `","status":"HYPOTHESIS",` +
+			`"root_cause":{"class":"` + class + `"}}`
+		if err := os.WriteFile(filepath.Join(camp.FindingsDir, id+".json"),
+			[]byte(body), 0o644); err != nil {
+			t.Fatalf("write finding %s: %v", id, err)
+		}
+	}
+	divOf := func() validation.Value {
+		t.Helper()
+		got, err := DivergenceStatusFor(camp, plan,
+			map[string]validation.Value{})
+		if err != nil {
+			t.Fatalf("divergence_status_for: %v", err)
+		}
+		return got
+	}
+	writeFinding("F-0000000001", "logic-error")
+	writeFinding("F-0000000002", "vibes-based") // non-canonical: never counts
+	if div := divOf(); gateClosed(div) {
+		t.Fatal("one canonical class must not close the gate")
+	} else if n := len(listOf(div, "named_classes")); n != 1 {
+		t.Errorf("non-canonical finding class counted: %s",
+			validation.CanonCompact(objAt(div, "named_classes")))
+	}
+	writeFinding("F-0000000003", "access-control")
+	writeFinding("F-0000000004", "reentrancy")
+	writeFinding("F-0000000005", "authorization")
+	closedGate := divOf()
+	if !gateClosed(closedGate) {
+		t.Fatalf("4 canonical finding classes must close the gate; "+
+			"missing = %s",
+			validation.CanonCompact(objAt(closedGate, "missing")))
+	}
+	if what := divWhat(closedGate, "diversity"); what != "" {
+		t.Errorf("closed gate still carries a diversity entry: %s", what)
+	}
+	// negative control: drop one class and the gate re-opens.
+	if err := os.Remove(filepath.Join(camp.FindingsDir,
+		"F-0000000005.json")); err != nil {
+		t.Fatalf("remove finding: %v", err)
+	}
+	if div := divOf(); gateClosed(div) {
+		t.Fatal("3 canonical classes must re-open the diversity clause")
 	}
 }

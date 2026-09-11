@@ -55,6 +55,12 @@ type ProbesAPI struct {
 	// CampaignIndexSha is probes.campaign_index_sha(campaign): the current
 	// structural index's sha, or nil.
 	CampaignIndexSha func(c *state.Campaign) *string
+	// CampaignBugClasses is the diversity clause's view of the campaign:
+	// every canonical root_cause.class its stored findings name, deduped and
+	// sorted. Unlike the surface/blanks readers this is core findings-store
+	// data, not a probe artifact, so the feature-absent default still reads
+	// the findings directory (a campaign with no findings yields none).
+	CampaignBugClasses func(c *state.Campaign) ([]string, error)
 	// Probes is the PROBES registry: probe_id -> ProbeSpec.
 	Probes map[string]ProbeSpec
 	// AnchorAllowed is probes.anchor_allowed(probe_id, anchor).
@@ -89,7 +95,8 @@ func defaultProbesAPI() ProbesAPI {
 		CampaignSurface: func(*state.Campaign) (*validation.Value, error) {
 			return nil, nil
 		},
-		CampaignIndexSha: func(*state.Campaign) *string { return nil },
+		CampaignIndexSha:   func(*state.Campaign) *string { return nil },
+		CampaignBugClasses: campaignBugClasses,
 		RowAnchorValue: func(row validation.Value,
 			anchor string) (validation.Value, error) {
 			return validation.VNull(), errValue(
@@ -154,6 +161,9 @@ func SetProbes(p ProbesAPI) {
 	}
 	if p.CampaignIndexSha == nil {
 		p.CampaignIndexSha = d.CampaignIndexSha
+	}
+	if p.CampaignBugClasses == nil {
+		p.CampaignBugClasses = d.CampaignBugClasses
 	}
 	if p.Probes == nil {
 		p.Probes = d.Probes

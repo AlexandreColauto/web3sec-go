@@ -190,6 +190,46 @@ func TestLoadPlanReadonlyMissing(t *testing.T) {
 	}
 }
 
+// TestPlanBuilderStampsCanonicalBugClass: a priority derived from a source row
+// that names a canonical bug class carries it, so the diversity clause counts a
+// class the row actually asserted. A row that names none — or names a class the
+// plan validator would reject — leaves the key off: the builder never invents
+// and never propagates a class that would make the plan unsavable.
+func TestPlanBuilderStampsCanonicalBugClass(t *testing.T) {
+	cases := []struct {
+		label string
+		src   string
+		want  string
+	}{
+		{"canonical", `{"id":"A-1","bug_class":"logic-error"}`, "logic-error"},
+		{"absent", `{"id":"A-2"}`, ""},
+		{"null", `{"id":"A-3","bug_class":null}`, ""},
+		{"non_canonical", `{"id":"A-4","bug_class":"vibes-based"}`, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			b := &planBuilder{}
+			b.add(jsonValue(t, c.src), "is the shape exploitable?", 0.5,
+				[]string{"c"}, []string{"code"}, addOpts{})
+			if len(b.priorities) != 1 {
+				t.Fatalf("priorities = %d", len(b.priorities))
+			}
+			got, ok := fieldAt(b.priorities[0], "bug_class")
+			if c.want == "" {
+				if ok {
+					t.Fatalf("bug_class = %s; want the key absent",
+						validation.CanonCompact(got))
+				}
+				return
+			}
+			if !ok || got.Kind != validation.Str || got.S != c.want {
+				t.Fatalf("bug_class = %s; want %q",
+					validation.CanonCompact(got), c.want)
+			}
+		})
+	}
+}
+
 // TestDecisionRuleOracle pins decision_rule over the 108 recorded
 // (prior, cost, reachability) combinations, including the default tail.
 func TestDecisionRuleOracle(t *testing.T) {

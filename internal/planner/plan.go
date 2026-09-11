@@ -123,20 +123,25 @@ func SavePlan(campaign *state.Campaign, plan validation.Value,
 	return target, nil
 }
 
+// isCanonicalClass reports whether cls is in the canonical bug-class vocabulary
+// SavePlan hard-validates against (taxonomy.KnownClasses — the same set the
+// findings transitions seam wires). One classifier for the validator, the plan
+// builder and the divergence gate's findings reader, so a class one of them
+// accepts can never be one the others reject.
+func isCanonicalClass(cls string) bool {
+	_, ok := taxonomy.KnownClasses()[cls]
+	return ok
+}
+
 // nonCanonicalClasses is the bug_class hard-validation list.
 func nonCanonicalClasses(plan validation.Value) []string {
-	known := taxonomy.KnownClasses()
 	bad := []string{}
 	for _, p := range listOf(plan, "priorities") {
 		bc := objAt(p, "bug_class")
 		if !pyTruthyBigNonEmpty(bc) {
 			continue
 		}
-		canonical := false
-		if bc.Kind == validation.Str {
-			_, canonical = known[bc.S]
-		}
-		if !canonical {
+		if bc.Kind != validation.Str || !isCanonicalClass(bc.S) {
 			bad = append(bad, objStr(p, "id")+" (bug_class "+
 				validation.PyRepr(bc)+")")
 		}
@@ -159,8 +164,14 @@ type addOpts struct {
 	budget       string
 }
 
-func (b *planBuilder) add(question string, risk float64, components,
-	trajectories []string, opts addOpts) {
+// add builds one priority: one Q-%03d row per call, keys in the Python dict's
+// order. src is the source row the question was derived from (validation.VNull
+// for the static/aggregate questions); when it names a CANONICAL bug_class the
+// row is stamped onto the priority, so the diversity clause counts a class the
+// model actually asserted. A non-canonical source class is dropped rather than
+// copied — SavePlan would reject the plan the builder just produced.
+func (b *planBuilder) add(src validation.Value, question string, risk float64,
+	components, trajectories []string, opts addOpts) {
 	b.qi++
 	budget := opts.budget
 	if budget == "" {
@@ -174,7 +185,7 @@ func (b *planBuilder) add(question string, risk float64, components,
 	if stages == nil {
 		stages = []string{}
 	}
-	b.priorities = append(b.priorities, validation.VObj(
+	prio := validation.VObj(
 		kv("id", validation.VStr(qid(b.qi))),
 		kv("question", validation.VStr(question)),
 		kv("risk", validation.VFloat(risk)),
@@ -186,7 +197,12 @@ func (b *planBuilder) add(question string, risk float64, components,
 		kv("recommended_stages", strArr(stages)),
 		kv("budget_class", validation.VStr(budget)),
 		kv("status", validation.VStr("open")),
-	))
+	)
+	if bc := objAt(src, "bug_class"); bc.Kind == validation.Str &&
+		isCanonicalClass(bc.S) {
+		prio.O = validation.SetOrAppend(prio.O, "bug_class", bc)
+	}
+	b.priorities = append(b.priorities, prio)
 }
 
 // qid is f"Q-{n:03d}".
@@ -211,9 +227,9 @@ func DefaultPlanFromModel(campaign *state.Campaign,
 		return validation.VNull(), err
 	}
 	bootstrapUncovered(b, uncovered)
-	b.add("Which known exploit patterns apply to this protocol's design "+
-		"(history mining)?", 0.6, []string{}, []string{"historical"},
-		addOpts{budget: "cheap"})
+	b.add(validation.VNull(), "Which known exploit patterns apply to this "+
+		"protocol's design (history mining)?", 0.6, []string{},
+		[]string{"historical"}, addOpts{budget: "cheap"})
 	risky := protocolgraph.ExternalAssets(model)
 	if len(risky) > 0 {
 		bootstrapRisky(b, risky)
@@ -246,7 +262,8 @@ func bootstrapPrivileged(b *planBuilder, campaign *state.Campaign,
 		for _, a := range drains {
 			ids = append(ids, objStr(a, "id"))
 		}
-		b.add("Can the drain-capable roles ("+strings.Join(ids, ", ")+
+		b.add(validation.VNull(), "Can the drain-capable roles ("+
+			strings.Join(ids, ", ")+
 			") be reached or captured by an unprivileged attacker?",
 			0.9, ids, []string{"attacker", "code"}, addOpts{budget: "cheap"})
 	}
@@ -261,12 +278,12 @@ func bootstrapPrivileged(b *planBuilder, campaign *state.Campaign,
 		for _, a := range upgrades {
 			ids = append(ids, objStr(a, "id"))
 		}
-		b.add("Can upgrade authorization be captured, front-run, or "+
-			"exercised on an already-initialized contract?", 0.85, ids,
-			[]string{"code", "attacker"}, addOpts{budget: "cheap"})
+		b.add(validation.VNull(), "Can upgrade authorization be captured, "+
+			"front-run, or exercised on an already-initialized contract?", 0.85,
+			ids, []string{"code", "attacker"}, addOpts{budget: "cheap"})
 	}
 	for _, g := range protocolgraph.TrustBoundaryGaps(model) {
-		b.add("Is the unvalidated trust boundary "+objStr(g, "from")+" -> "+
+		b.add(g, "Is the unvalidated trust boundary "+objStr(g, "from")+" -> "+
 			objStr(g, "to")+" ("+objStr(g, "crossing")+") exploitable?", 0.8,
 			[]string{objStr(g, "to")}, []string{"integration", "code"},
 			addOpts{})
@@ -281,7 +298,7 @@ func bootstrapPrivileged(b *planBuilder, campaign *state.Campaign,
 		if strings.Contains(name, "oracle") {
 			budget = "expensive"
 		}
-		b.add("Economic transform "+name+": "+objStr(t, "question"), 0.75,
+		b.add(t, "Economic transform "+name+": "+objStr(t, "question"), 0.75,
 			components, []string{"economic"}, addOpts{budget: budget})
 	}
 }
@@ -293,7 +310,7 @@ func bootstrapUncovered(b *planBuilder, uncovered []validation.Value) {
 		for _, a := range listOf(u, "applies_to") {
 			components = append(components, pyStr(a))
 		}
-		b.add("Test the uncovered critical invariant: "+
+		b.add(u, "Test the uncovered critical invariant: "+
 			objStr(u, "statement"), 0.7, components,
 			[]string{"code", "state-machine"}, addOpts{
 				invariantIDs: []string{objStr(u, "invariant_id")}})
@@ -306,9 +323,9 @@ func bootstrapRisky(b *planBuilder, risky []validation.Value) {
 	for _, r := range risky {
 		assets = append(assets, objStr(r, "asset"))
 	}
-	b.add("Do nonstandard token behaviors ("+strings.Join(assets, ", ")+
-		") break accounting assumptions?", 0.65, assets,
-		[]string{"integration", "economic"}, addOpts{})
+	b.add(validation.VNull(), "Do nonstandard token behaviors ("+
+		strings.Join(assets, ", ")+") break accounting assumptions?", 0.65,
+		assets, []string{"integration", "economic"}, addOpts{})
 }
 
 // bootstrapRoles is the 3.1 D5 extension: one D-attacker question per role on
@@ -344,10 +361,10 @@ func bootstrapRoles(b *planBuilder, model validation.Value) {
 		if len(thresholds) > 0 {
 			th = maxThresholdText(entries)
 		}
-		b.add("Within its stated constraints (timelocked="+tl+", threshold="+
-			th+"), what can role `"+role+"` do via `"+strings.Join(caps,
-			"; ")+"` that violates user expectations?", 0.8, []string{role},
-			[]string{"attacker"}, addOpts{budget: "cheap"})
+		b.add(validation.VNull(), "Within its stated constraints (timelocked="+
+			tl+", threshold="+th+"), what can role `"+role+"` do via `"+
+			strings.Join(caps, "; ")+"` that violates user expectations?", 0.8,
+			[]string{role}, []string{"attacker"}, addOpts{budget: "cheap"})
 	}
 }
 
