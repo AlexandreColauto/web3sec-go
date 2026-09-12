@@ -71,7 +71,7 @@ func deferredCmd(root string, args []string, r *Runner) error {
 	if err != nil {
 		return t14ExitErr(2, "deferred failed: %s\n", err)
 	}
-	flags, err := planner.DeferredConsequenceReview(c, plan)
+	flags, skipped, err := planner.DeferredConsequenceReview(c, plan)
 	if err != nil {
 		return t14ExitErr(2, "deferred failed: %s\n", err)
 	}
@@ -79,10 +79,28 @@ func deferredCmd(root string, args []string, r *Runner) error {
 		rep := validation.VObj(
 			validation.KV{K: "flags", V: deferredFlagsVal(flags)})
 		fmt.Fprintln(r.Out, validation.DumpIndentedASCII(rep))
+		deferredPrintSkipped(r, skipped)
 		return nil
 	}
 	deferredPrint(r, flags)
+	deferredPrintSkipped(r, skipped)
 	return nil
+}
+
+// deferredPrintSkipped is the FIX-3 half of the report: closures the sweep
+// could not rank because their probe row no longer resolves against the
+// current surface are named, not dropped — the reader decides what an
+// unpriced tell on an unrankable row is worth.
+func deferredPrintSkipped(r *Runner, skipped []string) {
+	if len(skipped) == 0 {
+		return
+	}
+	fmt.Fprintf(r.Out, "deferred: skipped %d closure(s) whose probe rows "+
+		"are not in the current surface (the risk rank is the surface's, "+
+		"not the plan's):\n", len(skipped))
+	for _, s := range skipped {
+		fmt.Fprintln(r.Out, "  "+s)
+	}
 }
 
 // deferredFlagsVal renders the flags as the JSON view's array.

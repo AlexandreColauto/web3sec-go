@@ -728,3 +728,137 @@ func TestAnsweredCLIDeferredOverride(t *testing.T) {
 		}
 	}
 }
+
+// TestAnsweredCLILowRiskOverrideLogged pins FIX-8 at the CLI: an explicit
+// --override-dismissal with a justification on a NON-high-risk, non-sentinel
+// probe row is logged (exactly one probe.dismissal_overridden, announced on
+// stdout), and a bare one is refused — it used to exit 0 silently with no
+// event and no notice.
+func TestAnsweredCLILowRiskOverrideLogged(t *testing.T) {
+	// (1) bare override: refused, the priority is untouched
+	root := mkroot(t)
+	cid := initOne(t, root)
+	t14TestSeed(t, root, cid)
+	dgSeedProbeCampaign(t, root, cid)
+	dgSeedLowSurface(t, root, cid)
+	code, out, errS := run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason", "commitBatch re-derives the root itself",
+		"--anchor", "consumer", "--override-dismissal")
+	if code != 2 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if out != "" {
+		t.Fatalf("stdout = %q", out)
+	}
+	if !strings.Contains(errS,
+		"--override-dismissal needs --override-reason") {
+		t.Fatalf("stderr = %q, want the override-reason refusal", errS)
+	}
+	p := dgStoredPriority(t, root, cid, "Q-005")
+	if got := objStr(p, "status"); got != "open" {
+		t.Fatalf("refused closure changed the status to %q", got)
+	}
+
+	// (2) override with a reason: closes, announces, one event
+	code, out, errS = run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason", "commitBatch re-derives the root itself",
+		"--anchor", "consumer", "--override-dismissal", "--override-reason",
+		"the operator accepts the risk in writing for this run",
+		"--actor", "operator")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if !strings.Contains(out, "dismissal overridden: Q-005 logged as "+
+		"probe.dismissal_overridden (actor operator)") {
+		t.Fatalf("stdout = %q, want the override announcement", out)
+	}
+	evts := dgEventsOfType(t, root, cid, "probe.dismissal_overridden")
+	if len(evts) != 1 {
+		t.Fatalf("probe.dismissal_overridden events = %d, want 1", len(evts))
+	}
+	data := objAt(evts[0], "data")
+	if got := objStr(data, "row_id"); got != "81dfad6492" {
+		t.Errorf("row_id = %q", got)
+	}
+	if got := objAt(data, "tier").I; got != 2 {
+		t.Errorf("tier = %d, want 2", got)
+	}
+	if got := objAt(data, "assertion_gap").I; got != 1 {
+		t.Errorf("assertion_gap = %d, want 1", got)
+	}
+	if got := objStr(data, "actor"); got != "operator" {
+		t.Errorf("actor = %q, want operator", got)
+	}
+	if got := objStr(data, "override_reason"); got !=
+		"the operator accepts the risk in writing for this run" {
+		t.Errorf("override_reason = %q", got)
+	}
+}
+
+// TestAnsweredCLIFindingMustBeLive pins FIX-2 at the CLI: --finding is
+// validated on EVERY closure — a ghost id and a terminal finding are refused
+// even on a plain (non-probe) priority no disposition gate covers, and a
+// live finding closes as before.
+func TestAnsweredCLIFindingMustBeLive(t *testing.T) {
+	seed := func(t *testing.T) (string, string) {
+		root := mkroot(t)
+		cid := initOne(t, root)
+		t14TestSeed(t, root, cid)
+		return root, cid
+	}
+	// (1) a ghost --finding: refused
+	root, cid := seed(t)
+	code, out, errS := run(t, "--root", root, "answered", cid, "Q-001",
+		"answered", "--reason",
+		"the drain-capable role is a single multisig, not reachable",
+		"--ref", "F-1a2b3c4d5e6f", "--finding", "F-000000000000")
+	if code != 2 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if out != "" {
+		t.Fatalf("stdout = %q", out)
+	}
+	if !strings.Contains(errS, "F-000000000000") ||
+		!strings.Contains(errS, "does not exist") {
+		t.Fatalf("stderr = %q, want the ghost-finding refusal", errS)
+	}
+
+	// (2) a TERMINAL finding: refused
+	root, cid = seed(t)
+	dgSeedFinding(t, root, cid, "F-1a2b3c4d5e6f")
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(c.FindingsDir,
+		"F-bbbbbbbbbbbb.json"),
+		[]byte(`{"finding_id":"F-bbbbbbbbbbbb","status":"DISPROVED"}`),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS = run(t, "--root", root, "answered", cid, "Q-001",
+		"answered", "--reason",
+		"the drain-capable role is a single multisig, not reachable",
+		"--ref", "F-1a2b3c4d5e6f", "--finding", "F-bbbbbbbbbbbb")
+	if code != 2 || !strings.Contains(errS, "DISPROVED") {
+		t.Fatalf("terminal --finding: exit %d stderr = %q", code, errS)
+	}
+
+	// (3) a live finding: closes as before
+	root, cid = seed(t)
+	dgSeedFinding(t, root, cid, "F-1a2b3c4d5e6f")
+	code, out, errS = run(t, "--root", root, "answered", cid, "Q-001",
+		"answered", "--reason",
+		"the drain-capable role is a single multisig, not reachable",
+		"--ref", "F-1a2b3c4d5e6f", "--finding", "F-1a2b3c4d5e6f")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if !strings.Contains(out, "Q-001: status -> answered") {
+		t.Fatalf("stdout = %q", out)
+	}
+	p := dgStoredPriority(t, root, cid, "Q-001")
+	if got := objStr(p, "interim_finding"); got != "F-1a2b3c4d5e6f" {
+		t.Errorf("interim_finding = %q", got)
+	}
+}

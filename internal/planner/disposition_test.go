@@ -786,12 +786,16 @@ func TestDispositionLintSentinelRowOverrideNeedsReason(t *testing.T) {
 		t.Fatalf("blank override reason must be refused, err = %v", err)
 	}
 
-	// a bare override on the non-sentinel rows of the same surface stays a
-	// no-op: the override answers a refusal, it is not a formality
+	// FIX-8: a bare override on the non-sentinel rows of the same surface is
+	// refused too — the override answers a refusal, it is not a formality,
+	// and an unreasoned override on any row is no longer swallowed silently
+	// (it used to exit 0 with no event and no notice).
 	_, _, err = plannerMarkAnsweredForTest(t, camp, rowID, "deprioritized",
 		&AnsweredOpts{Anchor: strPtr("consumer"), OverrideDismissal: true})
-	if err != nil {
-		t.Fatalf("non-closing outcome: %v", err)
+	if err == nil || !strings.Contains(err.Error(),
+		"--override-dismissal needs --override-reason") {
+		t.Fatalf("bare override on a non-sentinel row must be refused, "+
+			"err = %v", err)
 	}
 }
 
@@ -1379,7 +1383,7 @@ func TestDeferredConsequenceReview(t *testing.T) {
 	lowSurface.O = validation.SetOrAppend(lowSurface.O, "rows", rows)
 	withProbes(t, probeEnv{surface: &lowSurface, index: nil})
 
-	flags, err := DeferredConsequenceReview(camp, plan)
+	flags, _, err := DeferredConsequenceReview(camp, plan)
 	if err != nil {
 		t.Fatalf("DeferredConsequenceReview: %v", err)
 	}
@@ -1405,18 +1409,494 @@ func TestDeferredConsequenceReview(t *testing.T) {
 
 // TestDeferredConsequenceReviewNoSurface pins the absence arm: with no probe
 // surface nothing is flagged and no error is raised — the sweep is a no-op,
-// never a failure.
+// never a failure. FIX-3: the tell-bearing closure is still NAMED, in the
+// skipped list.
 func TestDeferredConsequenceReviewNoSurface(t *testing.T) {
 	camp := newCampaign(t, "dc-nosurface")
 	plan := validation.VObj(kv("priorities", validation.VArr(
 		probePriorityVal("Q-300", "answered",
 			"unfinalizable until proven", "81dfad6492"),
 	)))
-	flags, err := DeferredConsequenceReview(camp, plan)
+	flags, skipped, err := DeferredConsequenceReview(camp, plan)
 	if err != nil {
 		t.Fatalf("DeferredConsequenceReview without surface: %v", err)
 	}
 	if len(flags) != 0 {
 		t.Fatalf("flags = %+v, want none without a surface", flags)
+	}
+	if len(skipped) != 1 || skipped[0] != "Q-300 (probe row 81dfad6492)" {
+		t.Fatalf("skipped = %+v, want the unrankable closure named", skipped)
+	}
+}
+
+// TestDeferredConsequenceVocabularyTrigger pins FIX-1: the failure-consequence
+// vocabulary is a trigger on its own — a high-risk row closed through ANY
+// anchor on a reason that describes what happens when the row's deferred
+// check never runs is refused until the window is priced, exactly as the
+// asserter anchor's own concession demands. The priced exits and the logged
+// override stay open, and neither the clean reason nor the low-risk row is
+// affected.
+func TestDeferredConsequenceVocabularyTrigger(t *testing.T) {
+	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
+	surface, index := maSurface(t)
+	withProbes(t, probeEnv{surface: surface, index: index})
+	camp := newCampaign(t, "dc-vocab")
+	plan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
+	tell := "commitBatch consumes prev:state; it stays unfinalizable"
+
+	// (a) consumer anchor + the tell: refused — the reason admits the
+	// deferred window's cost, so the closure has to price it
+	_, err := MarkAnswered(camp, deepCopy(t, plan), "Q-005", "answered",
+		AnsweredOpts{Reason: &tell, Anchor: strPtr("consumer")})
+	if err == nil {
+		t.Fatal("a consumer-anchor closure carrying the failure tell " +
+			"must be refused")
+	}
+	for _, want := range []string{"failure-consequence vocabulary",
+		"'unfinalizable'", "high-risk row", "--finding F-<id>",
+		"--interim STATEMENT", "--override-dismissal"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal missing %q: %v", want, err)
+		}
+	}
+	p := probePriority(t, deepCopy(t, plan), "Q-005")
+	if got := objStr(p, "status"); got != "open" {
+		t.Fatalf("refusal mutated the fixture plan status to %q", got)
+	}
+
+	// (b) priced with a symbol-citing interim statement: passes, and the
+	// statement is recorded on the priority
+	interim := "until finalizeBatch asserts prev:state, commitBatch " +
+		"accepts a stale root"
+	planInterim, err := MarkAnswered(camp, deepCopy(t, plan), "Q-005",
+		"answered", AnsweredOpts{Reason: &tell, Anchor: strPtr("consumer"),
+			Interim: &interim})
+	if err != nil {
+		t.Fatalf("a priced consumer-anchor closure must pass: %v", err)
+	}
+	if got := objStr(probePriority(t, planInterim, "Q-005"), "interim"); got != interim {
+		t.Errorf("interim = %q, want %q", got, interim)
+	}
+
+	// (c) priced with a filed finding: passes
+	dcSeedFinding(t, camp, "F-1a2b3c4d5e6f")
+	ref := "F-1a2b3c4d5e6f"
+	planFinding, err := MarkAnswered(camp, deepCopy(t, plan), "Q-005",
+		"answered", AnsweredOpts{Reason: &tell, Anchor: strPtr("consumer"),
+			Finding: &ref})
+	if err != nil {
+		t.Fatalf("a filed --finding must pass: %v", err)
+	}
+	if got := objStr(probePriority(t, planFinding, "Q-005"),
+		"interim_finding"); got != ref {
+		t.Errorf("interim_finding = %q, want %q", got, ref)
+	}
+
+	// (d) negative control: the same consumer-anchor closure on a clean
+	// reason is untouched
+	clean := "commitBatch re-derives the root itself"
+	if _, err := MarkAnswered(camp, deepCopy(t, plan), "Q-005", "answered",
+		AnsweredOpts{Reason: &clean, Anchor: strPtr("consumer")}); err != nil {
+		t.Fatalf("clean consumer-anchor closure must pass: %v", err)
+	}
+
+	// (e) negative control: the tell on a LOW-risk row passes — the trigger
+	// is the row's risk, not the words alone
+	lowRow := dgLowRow(t)
+	lowSurface := validation.VObj(kv("rows", validation.VArr(lowRow)))
+	withProbes(t, probeEnv{surface: &lowSurface, index: index})
+	lowCamp := newCampaign(t, "dc-vocab-low")
+	lowPlan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
+	lowPlan.O = validation.SetOrAppend(lowPlan.O, "priorities", validation.VArr(
+		append(listOf(lowPlan, "priorities"),
+			probePriorityVal("Q-100", "open", "", "0000000001"))...))
+	if _, err := MarkAnswered(lowCamp, lowPlan, "Q-100", "answered",
+		AnsweredOpts{Reason: &tell, Anchor: strPtr("consumer")}); err != nil {
+		t.Fatalf("low-risk tell closure must pass without pricing: %v", err)
+	}
+
+	// (f) the override answers the vocabulary refusal: closes with exactly
+	// one probe.dismissal_overridden
+	surface2, index2 := maSurface(t)
+	withProbes(t, probeEnv{surface: surface2, index: index2})
+	overCamp := newCampaign(t, "dc-vocab-override")
+	why := "the operator accepts the interim window in writing for this run"
+	logged := false
+	if _, err := MarkAnswered(overCamp, deepCopy(t, plan), "Q-005",
+		"answered", AnsweredOpts{Reason: &tell, Anchor: strPtr("consumer"),
+			OverrideDismissal: true, OverrideReason: &why, Actor: "operator",
+			OverrideLogged: &logged}); err != nil {
+		t.Fatalf("override with reason must pass: %v", err)
+	}
+	if !logged {
+		t.Error("OverrideLogged not set — the override went unannounced")
+	}
+	evts, err := overCamp.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, e := range evts {
+		if objStr(e, "type") == "probe.dismissal_overridden" {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("probe.dismissal_overridden events = %d, want exactly 1", n)
+	}
+}
+
+// TestConsequenceFlagsAlwaysValidated pins FIX-2: --finding and --interim are
+// validated on EVERY closure — any status, any priority, probe row or not.
+// A ghost or malformed --finding and a statement too short to be one were
+// previously inert off the deferred gate's rows: recorded verbatim or dropped
+// without a word.
+func TestConsequenceFlagsAlwaysValidated(t *testing.T) {
+	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
+	surface, index := maSurface(t)
+	withProbes(t, probeEnv{surface: surface, index: index})
+	camp := newCampaign(t, "dc-flags")
+	plan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
+	// a plain (non-probe) priority: no gate covers it — the flags must still
+	// not be inert
+	plain := validation.VObj(kv("id", validation.VStr("Q-900")),
+		kv("question", validation.VStr(
+			"the drain-capable role is a single multisig, not reachable")),
+		kv("risk", validation.VFloat(0.5)),
+		kv("trajectories", validation.VArr(validation.VStr("economic"))),
+		kv("status", validation.VStr("open")))
+	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(
+		append(listOf(plan, "priorities"), plain)...))
+	reason := "the drain-capable role is a single multisig, not reachable"
+
+	// (a) a ghost --finding on the plain priority: refused
+	ghost := "F-000000000000"
+	_, err := MarkAnswered(camp, deepCopy(t, plan), "Q-900", "answered",
+		AnsweredOpts{Reason: &reason, Finding: &ghost})
+	if err == nil || !strings.Contains(err.Error(), "F-000000000000") ||
+		!strings.Contains(err.Error(), "does not exist") {
+		t.Fatalf("ghost --finding must be refused on a plain priority, "+
+			"err = %v", err)
+	}
+
+	// (b) a malformed --finding: refused as one
+	malformed := "the big one"
+	_, err = MarkAnswered(camp, deepCopy(t, plan), "Q-900", "answered",
+		AnsweredOpts{Reason: &reason, Finding: &malformed})
+	if err == nil || !strings.Contains(err.Error(), "is not a finding id") {
+		t.Fatalf("malformed --finding must be refused, err = %v", err)
+	}
+
+	// (c) a TERMINAL finding: refused — it records nothing about a window
+	// that is still open
+	terminalID := "F-aaaaaaaaaaaa"
+	if err := os.MkdirAll(camp.FindingsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(camp.FindingsDir,
+		terminalID+".json"),
+		[]byte(`{"finding_id":"`+terminalID+`","status":"DISPROVED"}`),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err = MarkAnswered(camp, deepCopy(t, plan), "Q-900", "answered",
+		AnsweredOpts{Reason: &reason, Finding: &terminalID})
+	if err == nil || !strings.Contains(err.Error(), terminalID) ||
+		!strings.Contains(err.Error(), "terminal") {
+		t.Fatalf("terminal --finding must be refused, err = %v", err)
+	}
+
+	// (d) a live finding: passes, and is recorded
+	dcSeedFinding(t, camp, "F-1a2b3c4d5e6f")
+	live := "F-1a2b3c4d5e6f"
+	planLive, err := MarkAnswered(camp, deepCopy(t, plan), "Q-900", "answered",
+		AnsweredOpts{Reason: &reason, Finding: &live})
+	if err != nil {
+		t.Fatalf("a live --finding must pass: %v", err)
+	}
+	var liveP validation.Value
+	for _, q := range listOf(planLive, "priorities") {
+		if objStr(q, "id") == "Q-900" {
+			liveP = q
+		}
+	}
+	if got := objStr(liveP, "interim_finding"); got != live {
+		t.Errorf("interim_finding = %q, want %q", got, live)
+	}
+
+	// (e) an --interim too short to be a statement: refused
+	plan2 := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
+	plan2.O = validation.SetOrAppend(plan2.O, "priorities", validation.VArr(
+		append(listOf(plan2, "priorities"),
+			deepCopy(t, plain))...))
+	short := "no"
+	_, err = MarkAnswered(camp, deepCopy(t, plan2), "Q-900", "answered",
+		AnsweredOpts{Reason: &reason, Interim: &short})
+	if err == nil || !strings.Contains(err.Error(), "too short") {
+		t.Fatalf("short --interim must be refused, err = %v", err)
+	}
+
+	// (f) a real statement on the plain priority: passes and is recorded
+	statement := "the drain role stays single-key until the rotation lands"
+	plan3, err := MarkAnswered(camp, deepCopy(t, plan2), "Q-900", "answered",
+		AnsweredOpts{Reason: &reason, Interim: &statement})
+	if err != nil {
+		t.Fatalf("a real --interim must pass: %v", err)
+	}
+	for _, q := range listOf(plan3, "priorities") {
+		if objStr(q, "id") == "Q-900" && objStr(q, "interim") != statement {
+			t.Errorf("interim = %q, want %q", objStr(q, "interim"), statement)
+		}
+	}
+
+	// (g) always means always: a REOPEN with a ghost --finding is refused
+	// too, though no gate below would ever look at it
+	plan4 := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
+	plan4.O = validation.SetOrAppend(plan4.O, "priorities", validation.VArr(
+		append(listOf(plan4, "priorities"),
+			deepCopy(t, plain))...))
+	_, err = MarkAnswered(camp, plan4, "Q-900", "open",
+		AnsweredOpts{Finding: &ghost})
+	if err == nil || !strings.Contains(err.Error(), "does not exist") {
+		t.Fatalf("ghost --finding must be refused on a reopen, err = %v", err)
+	}
+}
+
+// TestGateSkipNotice pins FIX-3: a disposition gate that cannot resolve the
+// priority's probe row against the current surface (the surface was
+// re-emitted after the closure was written) sets SkipNotice — naming the row
+// and the gate — instead of skipping silently. resolveAnchor refuses the
+// same condition on the apply path, so these are unit-level pins of the
+// gates' stand-down contract.
+func TestGateSkipNotice(t *testing.T) {
+	surface, _ := maSurface(t)
+	withProbes(t, probeEnv{surface: surface, index: nil})
+	camp := newCampaign(t, "dc-skip-notice")
+	prov := validation.VObj(kv("row_id", validation.VStr("9999999999")))
+
+	notice := ""
+	if err := checkSentinelPassesRow(camp, "Q-005", "answered", prov, true,
+		AnsweredOpts{Anchor: strPtr("consumer"), SkipNotice: &notice},
+		false); err != nil {
+		t.Fatalf("sentinel gate must skip, not fail: %v", err)
+	}
+	for _, want := range []string{"9999999999", "Q-005",
+		"not in the current surface", "sentinel-guard gate was skipped"} {
+		if !strings.Contains(notice, want) {
+			t.Errorf("sentinel notice missing %q: %q", want, notice)
+		}
+	}
+
+	notice = ""
+	if err := checkDeferredConsequenceRow(camp, "Q-005", "answered", prov,
+		true, AnsweredOpts{Anchor: strPtr("consumer"), SkipNotice: &notice},
+		false); err != nil {
+		t.Fatalf("deferred gate must skip, not fail: %v", err)
+	}
+	for _, want := range []string{"9999999999",
+		"not in the current surface",
+		"deferred-consequence gate was skipped"} {
+		if !strings.Contains(notice, want) {
+			t.Errorf("deferred notice missing %q: %q", want, notice)
+		}
+	}
+
+	notice = ""
+	if err := checkDismissalGateInner(camp, "Q-005", "answered", prov, true,
+		AnsweredOpts{Reason: strPtr("clean reason"), SkipNotice: &notice},
+		false); err != nil {
+		t.Fatalf("dismissal gate must skip, not fail: %v", err)
+	}
+	for _, want := range []string{"9999999999",
+		"not in the current surface", "dismissal gate was skipped"} {
+		if !strings.Contains(notice, want) {
+			t.Errorf("dismissal notice missing %q: %q", want, notice)
+		}
+	}
+
+	// a RESOLVABLE row sets no notice: the skip is the unresolvable row's
+	// fact, not the gate's mood
+	row := dgRow81(t)
+	resolvable := validation.VObj(kv("row_id",
+		validation.VStr(objStr(row, "row_id"))))
+	notice = ""
+	if err := checkDismissalGateInner(camp, "Q-005", "answered", resolvable,
+		true, AnsweredOpts{Reason: strPtr("commitBatch re-derives the " +
+			"root itself"), SkipNotice: &notice},
+		false); err != nil {
+		t.Fatalf("resolvable row must pass the gate: %v", err)
+	}
+	if notice != "" {
+		t.Errorf("resolvable row set a notice: %q", notice)
+	}
+}
+
+// TestDeferredConsequenceReviewSkipsUnresolvable pins FIX-3's sweep half: a
+// closed tell-bearing row the current surface no longer ranks is returned in
+// the skipped list ("PRIORITY (probe row ROWID)"), never silently dropped.
+func TestDeferredConsequenceReviewSkipsUnresolvable(t *testing.T) {
+	surface, _ := maSurface(t)
+	withProbes(t, probeEnv{surface: surface, index: nil})
+	camp := newCampaign(t, "dc-review-skip")
+	tell := "the row stays unfinalizable until the asserter runs"
+	plan := validation.VObj(kv("priorities", validation.VArr(
+		probePriorityVal("Q-210", "answered", tell, "81dfad6492"),
+		probePriorityVal("Q-211", "answered", tell, "0000000001"),
+	)))
+	// the re-emitted surface: neither row is in it anymore
+	ghost := validation.VObj(kv("rows", validation.VArr()))
+	withProbes(t, probeEnv{surface: &ghost, index: nil})
+
+	flags, skipped, err := DeferredConsequenceReview(camp, plan)
+	if err != nil {
+		t.Fatalf("DeferredConsequenceReview: %v", err)
+	}
+	if len(flags) != 0 {
+		t.Fatalf("flags = %+v, want none (nothing is rankable)", flags)
+	}
+	if len(skipped) != 2 ||
+		skipped[0] != "Q-210 (probe row 81dfad6492)" ||
+		skipped[1] != "Q-211 (probe row 0000000001)" {
+		t.Fatalf("skipped = %+v, want both closures named", skipped)
+	}
+}
+
+// TestLowRiskOverrideRecordsEvent pins FIX-8: an explicit --override-dismissal
+// with a justification on a NON-high-risk, non-sentinel probe row is logged —
+// exactly one probe.dismissal_overridden, with the row's own provenance and
+// an empty phrase list (the dismissal vocabulary never fired). The bare
+// override is refused, the pre-flight records nothing, and a sentinel-form
+// low-risk row still carries exactly one event (the sentinel arm's).
+func TestLowRiskOverrideRecordsEvent(t *testing.T) {
+	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
+	lowRow := dgLowRow(t)
+	lowSurface := validation.VObj(kv("rows", validation.VArr(lowRow)))
+	withProbes(t, probeEnv{surface: &lowSurface, index: nil})
+	camp := newCampaign(t, "dc-low-override")
+	plan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
+	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(
+		append(listOf(plan, "priorities"),
+			probePriorityVal("Q-100", "open", "", "0000000001"))...))
+	why := "the operator accepts the risk in writing for this run"
+	reason := "commitBatch re-derives the root itself"
+
+	// (a) bare override on a low-risk non-sentinel row: refused — it used to
+	// exit 0 with no event and no notice
+	_, err := MarkAnswered(camp, deepCopy(t, plan), "Q-100", "answered",
+		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"),
+			OverrideDismissal: true})
+	if err == nil || !strings.Contains(err.Error(),
+		"--override-dismissal needs --override-reason") {
+		t.Fatalf("bare override must be refused, err = %v", err)
+	}
+
+	// (b) override with a reason: closes with exactly one event
+	logged := false
+	if _, err := MarkAnswered(camp, deepCopy(t, plan), "Q-100", "answered",
+		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"),
+			OverrideDismissal: true, OverrideReason: &why, Actor: "operator",
+			OverrideLogged: &logged}); err != nil {
+		t.Fatalf("override with reason must pass: %v", err)
+	}
+	if !logged {
+		t.Error("OverrideLogged not set — the override went unannounced")
+	}
+	evts, err := camp.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var logged1 []validation.Value
+	for _, e := range evts {
+		if objStr(e, "type") == "probe.dismissal_overridden" {
+			logged1 = append(logged1, e)
+		}
+	}
+	if len(logged1) != 1 {
+		t.Fatalf("probe.dismissal_overridden events = %d, want exactly 1",
+			len(logged1))
+	}
+	data := objAt(logged1[0], "data")
+	if got := objStr(data, "row_id"); got != "0000000001" {
+		t.Errorf("row_id = %q", got)
+	}
+	if got := objAt(data, "tier").I; got != 2 {
+		t.Errorf("tier = %d, want 2", got)
+	}
+	if got := objAt(data, "assertion_gap").I; got != 1 {
+		t.Errorf("assertion_gap = %d, want 1", got)
+	}
+	if got := objStr(data, "actor"); got != "operator" {
+		t.Errorf("actor = %q, want operator", got)
+	}
+	if got := objStr(data, "override_reason"); got != why {
+		t.Errorf("override_reason = %q", got)
+	}
+	if got := objStr(data, "closed_reason"); got != reason {
+		t.Errorf("closed_reason = %q", got)
+	}
+	if objAt(data, "phrases").Kind == validation.Arr &&
+		len(objAt(data, "phrases").A) != 0 {
+		t.Errorf("phrases = %+v, want empty (no dismissal vocabulary fired)",
+			objAt(data, "phrases").A)
+	}
+
+	// (c) the pre-flight records nothing, but the notice out-param is set
+	logged2 := false
+	if _, err := runAnsweredGates(camp, deepCopy(t, plan), "Q-100",
+		"answered", AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"),
+			OverrideDismissal: true, OverrideReason: &why,
+			OverrideLogged: &logged2}, true); err != nil {
+		t.Fatalf("dry pre-flight must pass: %v", err)
+	}
+	if !logged2 {
+		t.Error("dry pre-flight did not set OverrideLogged")
+	}
+	evts, err = camp.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, e := range evts {
+		if objStr(e, "type") == "probe.dismissal_overridden" {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("dry pre-flight logged an event: %d total, want 1", n)
+	}
+
+	// (d) sentinel-form low-risk row: the sentinel arm (which runs first)
+	// records the event, the dismissal gate's low-risk arm yields — still
+	// exactly one
+	sentLow := dgLowRow(t)
+	sentLow.O = validation.SetOrAppend(sentLow.O, "own_form",
+		validation.VStr("sentinel"))
+	sentLow.O = validation.SetOrAppend(sentLow.O, "own_guard_text",
+		validation.VStr("root != bytes32(0)"))
+	sentSurface := validation.VObj(kv("rows", validation.VArr(sentLow)))
+	withProbes(t, probeEnv{surface: &sentSurface, index: nil})
+	sentCamp := newCampaign(t, "dc-low-override-sentinel")
+	sentPlan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
+	sentPlan.O = validation.SetOrAppend(sentPlan.O, "priorities",
+		validation.VArr(append(listOf(sentPlan, "priorities"),
+			probePriorityVal("Q-100", "open", "", "0000000001"))...))
+	if _, err := MarkAnswered(sentCamp, sentPlan, "Q-100", "answered",
+		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"),
+			OverrideDismissal: true, OverrideReason: &why,
+			Actor: "operator"}); err != nil {
+		t.Fatalf("sentinel low-risk override must pass: %v", err)
+	}
+	evts, err = sentCamp.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n = 0
+	for _, e := range evts {
+		if objStr(e, "type") == "probe.dismissal_overridden" {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("sentinel low-risk override events = %d, want exactly 1", n)
 	}
 }

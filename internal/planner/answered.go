@@ -46,6 +46,14 @@ type AnsweredOpts struct {
 	// had to justify, so an override must be loud at the moment it happens
 	// and durable afterwards (the event is the durable half).
 	OverrideLogged *bool
+	// SkipNotice is an OUT parameter (FIX-3): when a disposition gate stands
+	// down because the priority's probe row no longer resolves against the
+	// current surface (the surface was re-emitted after the closure was
+	// written), it records WHY here instead of skipping silently — the CLI
+	// prints the notice on stderr so an unpriced risk stays visible. A
+	// skipped gate is not a passed gate: the closure simply outlived the
+	// row's risk rank. Callers with no interest pass nil.
+	SkipNotice *string
 }
 
 // MarkAnswered is mark_answered: close (or re-open) a plan priority.
@@ -125,6 +133,15 @@ func runAnsweredGates(campaign *state.Campaign, plan validation.Value,
 	out.idx = idx
 	p := listOf(plan, "priorities")[idx]
 	prov, hasProv := probeProvenance(p)
+	// FIX-2, before every gate (shape before policy, always): the
+	// deferred-consequence pricing flags are validated on ANY row, ANY
+	// status — a --finding that is not a filed, live finding id and an
+	// --interim too short to be a statement are refused here, so the flags
+	// can never be inert (recorded verbatim on a closure no gate covered, or
+	// dropped by closePriority's shape guards without a word).
+	if err := checkConsequenceFlags(campaign, priorityID, opts); err != nil {
+		return out, err
+	}
 	if err := checkAnchorless(priorityID, outcome, prov, hasProv,
 		opts.Anchor); err != nil {
 		return out, err

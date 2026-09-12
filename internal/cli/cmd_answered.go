@@ -81,11 +81,17 @@ options:
                         window between the row's consumer and the asserter
                         that finally applies the check. Must cite a symbol
                         from the row's own surface entry; recorded on the
-                        priority as its "interim" field
+                        priority as its "interim" field. Validated on every
+                        closure: a statement shorter than 3 non-blank
+                        characters is refused (the flag is never inert)
   --finding FINDING    the other deferred-consequence exit: the id of a filed
                         finding (F-<12 hex digits>) that records the interim
                         window; recorded on the priority as its
-                        "interim_finding" field
+                        "interim_finding" field. Validated on every closure:
+                        the id must name a filed, LIVE finding (a terminal
+                        one — DISPROVED, OUT_OF_SCOPE, INFORMATIONAL,
+                        DUPLICATE, SUPERSEDED — is refused), so the flag can
+                        never ride a ghost citation
   --actor ACTOR         who is closing it (default: cli)
   --override-dismissal
                         B4: override the dismissal gate on a high-risk row
@@ -507,14 +513,21 @@ func answeredPriority(c *state.Campaign, a *answeredArgs, closing bool,
 		actor = "cli"
 	}
 	overrideLogged := false
+	skipNotice := ""
 	updated, err := planner.MarkAnswered(c, plan, a.priority, a.status,
 		planner.AnsweredOpts{Reason: a.reason, Ref: a.ref, Actor: actor,
 			Anchor: a.anchor, PassesValue: a.passes, Interim: a.interim,
 			Finding:           a.finding,
 			OverrideDismissal: a.overrideDismissal,
-			OverrideReason:    a.overrideReason, OverrideLogged: &overrideLogged})
+			OverrideReason:    a.overrideReason, OverrideLogged: &overrideLogged,
+			SkipNotice: &skipNotice})
 	if err != nil {
 		return t14ExitErr(2, "answered failed: %s\n", err)
+	}
+	if skipNotice != "" {
+		// FIX-3: a gate that stood down says so — on stderr, so the
+		// closure's success line never quietly absorbs it.
+		fmt.Fprintln(r.Err, skipNotice)
 	}
 	if overrideLogged {
 		// The override is a decision, not a formality: say so where the
@@ -591,6 +604,7 @@ func answeredBatch(c *state.Campaign, a *answeredArgs, closing bool,
 	}
 	rows := make([]planner.AnsweredRow, len(a.priorities))
 	logged := make([]bool, len(a.priorities))
+	notices := make([]string, len(a.priorities))
 	for i, pid := range a.priorities {
 		rows[i] = planner.AnsweredRow{PriorityID: pid, Outcome: a.status,
 			Opts: planner.AnsweredOpts{Ref: a.ref, Actor: actor,
@@ -598,7 +612,7 @@ func answeredBatch(c *state.Campaign, a *answeredArgs, closing bool,
 				Finding:           a.finding,
 				OverrideDismissal: a.overrideDismissal,
 				OverrideReason:    a.overrideReason,
-				OverrideLogged:    &logged[i]}}
+				OverrideLogged:    &logged[i], SkipNotice: &notices[i]}}
 	}
 	updated, err := planner.MarkAnsweredBatch(c, plan, rows, reasonStr)
 	if err != nil {
@@ -607,6 +621,11 @@ func answeredBatch(c *state.Campaign, a *answeredArgs, closing bool,
 		return t14ExitErr(2, "%s\n", err)
 	}
 	for i, pid := range a.priorities {
+		if notices[i] != "" {
+			// FIX-3: a gate that stood down says so — on stderr, so the
+			// closure's success line never quietly absorbs it.
+			fmt.Fprintln(r.Err, notices[i])
+		}
 		if logged[i] {
 			fmt.Fprintf(r.Out, "  dismissal overridden: %s logged as "+
 				"probe.dismissal_overridden (actor %s)\n", pid, actor)
