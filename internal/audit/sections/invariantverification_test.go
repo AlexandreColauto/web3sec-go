@@ -238,6 +238,34 @@ func TestHarnessRunLineDispositions(t *testing.T) {
 			"aborted: tool-error: spec file unreadable"),
 		floor,
 	}, {
+		// The CLI stores the summary with the binding decoration appended
+		// (harnessMapBound: " (unbound: harness file hash not recorded)").
+		// End-to-end the audit line must classify the base refusal, so a
+		// decorated MAPPED reason still names its real next action.
+		"minicertora decorated bound reason names its real action",
+		harnessObj("minicertora", "inconclusive", "EXEC-9", validation.VNull(),
+			"inconclusive (loop-bound-may-be-exceeded: x) "+
+				"(unbound: harness file hash not recorded)"),
+		floor + " | next: re-run the same scaffold at --loop-bound 8, " +
+			"then 16, ceiling 32 (" + harness.EscalateBound + ")",
+	}, {
+		// …and a decorated plumbing floor renders NO advice: the
+		// decoration is transport metadata, not a disposition (before the
+		// strip, its own ": " made the floor look like an unknown reason
+		// and rendered a bogus "| next: … (unmapped)" tail).
+		"minicertora decorated floor has no suffix",
+		harnessObj("minicertora", "inconclusive", "EXEC-9", validation.VNull(),
+			"inconclusive (exit output unmapped) "+
+				"(unbound: harness file hash not recorded)"),
+		floor,
+	}, {
+		// Kind guard: the disposition branch is minicertora-only, so a
+		// non-minicertora run whose summary WOULD dispose stays plain.
+		"halmos disposing summary stays plain",
+		harnessObj("halmos", "inconclusive", "EXEC-3", validation.VNull(),
+			"inconclusive (loop-bound-may-be-exceeded: x)"),
+		"INV-1: inconclusive (halmos, EXEC-3)",
+	}, {
 		"minicertora proved-bounded int k unchanged",
 		harnessObj("minicertora", "proved-bounded", "EXEC-7",
 			validation.VInt(100), "proved bounded (k=100)"),

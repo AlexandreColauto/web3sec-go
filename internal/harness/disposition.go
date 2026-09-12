@@ -94,6 +94,21 @@ var plumbingReasons = map[string]bool{
 // (dispositionUnknown, adviceGeneric, true): still a refusal, just an
 // unrecognised one.
 func Disposition(summary string) (class, advice string, ok bool) {
+	// A stored summary may carry the CLI's binding decoration — the
+	// " (unbound: …)" suffix harnessMapBound appends in
+	// cmd_verify_harness.go. The decoration is transport metadata, not part
+	// of the reason: strip it, then classify the base refusal. (Without
+	// this, a decorated FLOOR's decoration ": " was read as the reason
+	// separator, so "inconclusive (exit output unmapped) (unbound: …)"
+	// parses reason "exit output unmapped) (unbound", falls through the
+	// plumbing checks, and renders bogus "unmapped" advice.) A decorated
+	// MAPPED reason keeps its real class; a decorated floor still floors.
+	if strings.HasSuffix(summary, ")") {
+		if head, _, decorated := strings.Cut(
+			strings.TrimSuffix(summary, ")"), " (unbound:"); decorated {
+			summary = head + ")"
+		}
+	}
 	const prefix = "inconclusive ("
 	if !strings.HasPrefix(summary, prefix) || !strings.HasSuffix(summary, ")") {
 		return "", "", false

@@ -31,6 +31,15 @@ func TestDispositionTable(t *testing.T) {
 		// on (the mapper does not build this today) must still be plumbing.
 		{"floor aborted wrapped", "inconclusive (aborted: tool-error: spec file unreadable)", "", "", false},
 		{"floor contradiction", "inconclusive (report-contradiction: exit 0 with verdict PROVEN)", "", "", false},
+		// The CLI appends the binding decoration " (unbound: …)" to
+		// whatever the mapper stored (cmd_verify_harness.harnessMapBound).
+		// A decorated FLOOR must still floor: the decoration's own ": "
+		// must not be mistaken for a reason separator (that bug rendered
+		// a bogus "unmapped" advice on a plumbing floor).
+		{"decorated floor", "inconclusive (exit output unmapped) (unbound: harness file hash not recorded)", "", "", false},
+		// …and a decorated MAPPED reason keeps its real class and advice.
+		{"decorated mapped reason", "inconclusive (loop-bound-may-be-exceeded: x) (unbound: harness file hash not recorded)", EscalateBound,
+			"re-run the same scaffold at --loop-bound 8, then 16, ceiling 32", true},
 		{"floor no line", "inconclusive (no verdict line for rule inv_1)", "", "", false},
 		{"floor duplicate", "inconclusive (duplicate verdict lines for rule)", "", "", false},
 		{"not inconclusive", "proved bounded (k=4)", "", "", false},
