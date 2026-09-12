@@ -57,10 +57,17 @@ func wCallValue(step int, fn, sender, valueJSON string) string {
 
 // wVerdict wraps call entries in the verdict line that carries them.
 func wVerdict(calls ...string) string {
+	return wVerdictStorage(`{"total":"0"}`, calls...)
+}
+
+// wVerdictStorage is wVerdict with an explicit final_storage object: the
+// channel BridgeSequenceWithLayout reads (wVerdict's own readings are the
+// tool's `total` default).
+func wVerdictStorage(storage string, calls ...string) string {
 	return `{"rule":"inv_1","verdict":"VIOLATED","confidence":"confirmed",` +
 		`"reason":"assertion-violated","failed_assertion":` +
 		`{"expression":"total >= before"},"calls":[` +
-		strings.Join(calls, ",") + `],"final_storage":{"total":"0"}}`
+		strings.Join(calls, ",") + `],"final_storage":` + storage + `}`
 }
 
 // TestBridgeSequenceHappyPath pins the bridged spec byte-for-byte: two
@@ -471,5 +478,322 @@ func TestBridgeSequenceZeroValueOmitted(t *testing.T) {
 					a, b)
 			}
 		})
+	}
+}
+
+// --- the storage-layout door (L-defer T4) ---------------------------------
+
+// wLayout is the happy-path layout: a companion entry naming the contract's
+// address (the bridge requires the target to be one of the bridged step
+// targets, and wTarget is the only step target these fixtures use), plus
+// the two variables the readings below mention.
+func wLayout() map[string]string {
+	return map[string]string{
+		"Vault":       wTarget,
+		"Vault.total": "3",
+		"Vault.owner": "0",
+	}
+}
+
+// TestBridgeSequenceWithLayoutHappyTwoSlots pins the layout door
+// byte-for-byte: two concrete readings, both grounded by the layout, ride
+// out as kind "storage" assertions in SORTED layout-key order (A1 =
+// Vault.owner, A2 = Vault.total — never the report's object order), with
+// op "==", the layout's decimal slot, the step's own target bytes, and the
+// 0x reading normalized to decimal (the schema's assertion `value` is
+// decimal-only).
+func TestBridgeSequenceWithLayoutHappyTwoSlots(t *testing.T) {
+	obj := witnessJSON(t, wVerdictStorage(`{"owner":"0x10","total":"7"}`,
+		wCall(0, "deposit", wAlice, false)))
+	got, refusal := BridgeSequenceWithLayout(obj, "SEQ-MINI-01", "F-abc123",
+		wLayout())
+	if refusal != "" {
+		t.Fatalf("refusal = %q, want none", refusal)
+	}
+	want := `{"actors":{"actor-1":"` + wAlice + `"},` +
+		`"final_assertions":[` +
+		`{"id":"A1","kind":"storage","op":"==","slot":"0","target":"` +
+		wTarget + `","value":"16"},` +
+		`{"id":"A2","kind":"storage","op":"==","slot":"3","target":"` +
+		wTarget + `","value":"7"}],` +
+		`"finding_id":"F-abc123","spec_id":"SEQ-MINI-01","steps":[` +
+		`{"actor":"actor-1","args":["1000"],"function":"deposit",` +
+		`"step":1,"target":"` + wTarget + `"}]}`
+	if gotBytes := validation.CanonCompact(got); gotBytes != want {
+		t.Fatalf("bridged spec =\n%s\nwant\n%s", gotBytes, want)
+	}
+	// The emitted assertions are a sequence_poc the shipped schema (and the
+	// loader that reads it) accepts: kind storage requires target+slot, and
+	// the value pattern is the decimal one the hex reading was normalized
+	// into.
+	assertSequencePocSchema(t, got)
+}
+
+// TestBridgeSequenceWithLayoutMixedSkipsSymbolic pins the honesty law for a
+// MIXED report: a symbolic reading ("*") grounds nothing and is skipped
+// while its concrete sibling still emits — so the document carries the
+// emitted subset only. The reading count returned by the helper is the m of
+// the "n of m" line in BridgeSequenceWithLayout's docstring: 1 of 2.
+func TestBridgeSequenceWithLayoutMixedSkipsSymbolic(t *testing.T) {
+	obj := witnessJSON(t, wVerdictStorage(`{"owner":"5","total":"*"}`,
+		wCall(0, "deposit", wAlice, false)))
+	got, refusal := BridgeSequenceWithLayout(obj, "SEQ-MINI-01", "F-abc123",
+		wLayout())
+	if refusal != "" {
+		t.Fatalf("refusal = %q, want none (a skipped reading is not a "+
+			"refusal)", refusal)
+	}
+	want := `[{"id":"A1","kind":"storage","op":"==","slot":"0","target":"` +
+		wTarget + `","value":"5"}]`
+	if fa := validation.CanonCompact(getObj(t, got, "final_assertions")); fa != want {
+		t.Fatalf("final_assertions = %s, want %s", fa, want)
+	}
+	targets := []string{wTarget}
+	assertions, readings := witnessFinalAssertions(obj, targets, wLayout())
+	if readings != 2 {
+		t.Fatalf("readings = %d, want 2 (the report's final_storage "+
+			"entries)", readings)
+	}
+	if len(assertions) != 1 {
+		t.Fatalf("assertions = %d, want 1 of 2 readings", len(assertions))
+	}
+}
+
+// TestBridgeSequenceWithLayoutAllSymbolicIsEmptyArrayNotRefusal pins the
+// fail-open-to-honest end of the lane: a report whose every reading is
+// symbolic (a solver's "*", an indexed name no layout entry matches) is NOT
+// a refusal — the bridge returns the layout-less document byte-for-byte,
+// final_assertions present and empty. A refusal would throw away the whole
+// counterexample over a field the fork wave can live without.
+func TestBridgeSequenceWithLayoutAllSymbolicIsEmptyArrayNotRefusal(t *testing.T) {
+	obj := witnessJSON(t, wVerdictStorage(
+		`{"role[?]":"2","total":"*","winner":"attacker"}`,
+		wCall(0, "deposit", wAlice, false)))
+	plain, refusal := BridgeSequence(obj, "SEQ-MINI-01", "F-abc123")
+	if refusal != "" {
+		t.Fatalf("layout-less refusal = %q", refusal)
+	}
+	got, refusal := BridgeSequenceWithLayout(obj, "SEQ-MINI-01", "F-abc123",
+		wLayout())
+	if refusal != "" {
+		t.Fatalf("refusal = %q, want none", refusal)
+	}
+	if fa := getObj(t, got, "final_assertions"); fa.Kind != validation.Arr ||
+		len(fa.A) != 0 {
+		t.Fatalf("final_assertions = %s, want []",
+			validation.CanonCompact(fa))
+	}
+	if a, b := validation.CanonCompact(got),
+		validation.CanonCompact(plain); a != b {
+		t.Fatalf("all-symbolic spec =\n%s\nwant the layout-less spec\n%s",
+			a, b)
+	}
+}
+
+// TestBridgeSequenceWithLayoutGroundingRules pins every SKIP of the
+// grounding clause list — the lanes where the honest answer is to emit no
+// assertion rather than to guess a slot or an address. Each row carries the
+// final_storage object, the layout, and the expected final_assertions bytes.
+func TestBridgeSequenceWithLayoutGroundingRules(t *testing.T) {
+	readings := `{"total":"7"}`
+	tests := []struct {
+		name   string
+		layout map[string]string
+		want   string
+	}{{
+		// The contract segment IS the address (the second derivation
+		// route): no companion entry needed.
+		"contract segment is the bridged address",
+		map[string]string{wTarget + ".total": "3"},
+		`[{"id":"A1","kind":"storage","op":"==","slot":"3","target":"` +
+			wTarget + `","value":"7"}]`,
+	}, {
+		// A companion address no bridged step calls is not derivable from
+		// the sequence.
+		"companion address is not a bridged step target",
+		map[string]string{"Vault": wBob, "Vault.total": "3"},
+		`[]`,
+	}, {
+		// "Vault" alone is not an address and has no companion: skip.
+		"no derivable address",
+		map[string]string{"Vault.total": "3"},
+		`[]`,
+	}, {
+		// The report says "total"; the layout offers no such name.
+		"layout names a different variable",
+		map[string]string{"Vault": wTarget, "Vault.balance": "3"},
+		`[]`,
+	}, {
+		// A non-decimal slot is not a slot: the driver would hand it to
+		// `cast storage` verbatim.
+		"non-decimal slot",
+		map[string]string{"Vault": wTarget, "Vault.total": "0x3"},
+		`[]`,
+	}, {
+		"empty slot",
+		map[string]string{"Vault": wTarget, "Vault.total": ""},
+		`[]`,
+	}, {
+		// Two contracts (both resolved to the bridged target) own a
+		// variable of this name: the reading's bare name does not say which
+		// storage it read, so it is ambiguous and skipped.
+		"ambiguous across two grounded contracts",
+		map[string]string{"Vault": wTarget, "Vault.total": "3",
+			"Ledger": wTarget, "Ledger.total": "9"},
+		`[]`,
+	}, {
+		// Two slots for one name: ambiguous in the same way.
+		"ambiguous across two slots of one contract",
+		map[string]string{"Vault": wTarget, "Vault.total": "3",
+			wTarget + ".total": "9"},
+		`[]`,
+	}, {
+		"nil layout",
+		nil,
+		`[]`,
+	}, {
+		"empty layout",
+		map[string]string{},
+		`[]`,
+	}}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := witnessJSON(t, wVerdictStorage(readings,
+				wCall(0, "deposit", wAlice, false)))
+			got, refusal := BridgeSequenceWithLayout(obj, "SEQ-MINI-01",
+				"F-abc123", tc.layout)
+			if refusal != "" {
+				t.Fatalf("refusal = %q, want none", refusal)
+			}
+			if fa := validation.CanonCompact(
+				getObj(t, got, "final_assertions")); fa != tc.want {
+				t.Fatalf("final_assertions = %s, want %s", fa, tc.want)
+			}
+			assertSequencePocSchema(t, got)
+		})
+	}
+}
+
+// TestBridgeSequenceWithLayoutValueLanguage pins the value lane: a decimal
+// reading passes through VERBATIM (leading zeros included — the bridge
+// translates, it never re-renders a decimal), an 0x reading of uint256
+// width is converted exactly, and everything outside that language — the
+// prover's "*", a pretty amount, an empty string, a JSON number or bool —
+// grounds nothing. (The decimal spelling of 2**256-1 is 78 digits: the
+// conversion is big.Int arithmetic, not a host integer.)
+func TestBridgeSequenceWithLayoutValueLanguage(t *testing.T) {
+	const maxUint256 = "11579208923731619542357098500868790785326998466564" +
+		"0564039457584007913129639935"
+	hexMax := `"0x` + strings.Repeat("f", 64) + `"`
+	tests := []struct {
+		name    string
+		reading string
+		want    string
+	}{{
+		"decimal verbatim (leading zeros kept)",
+		`"007"`,
+		`[{"id":"A1","kind":"storage","op":"==","slot":"3","target":"` +
+			wTarget + `","value":"007"}]`,
+	}, {
+		"hex normalized to decimal",
+		`"0x10"`,
+		`[{"id":"A1","kind":"storage","op":"==","slot":"3","target":"` +
+			wTarget + `","value":"16"}]`,
+	}, {
+		"zero, in both bases",
+		`"0x0"`,
+		`[{"id":"A1","kind":"storage","op":"==","slot":"3","target":"` +
+			wTarget + `","value":"0"}]`,
+	}, {
+		"uint256 max hex",
+		hexMax,
+		`[{"id":"A1","kind":"storage","op":"==","slot":"3","target":"` +
+			wTarget + `","value":"` + maxUint256 + `"}]`,
+	}, {
+		"symbolic asterisk",
+		`"*"`,
+		`[]`,
+	}, {
+		"symbolic question mark",
+		`"?"`,
+		`[]`,
+	}, {
+		"pretty amount is not a value",
+		`"1 ether"`,
+		`[]`,
+	}, {
+		"negative",
+		`"-1"`,
+		`[]`,
+	}, {
+		"empty string",
+		`""`,
+		`[]`,
+	}, {
+		"over-long hex (65 nibbles)",
+		`"0x` + strings.Repeat("a", 65) + `"`,
+		`[]`,
+	}, {
+		"bare JSON number",
+		`7`,
+		`[]`,
+	}, {
+		"JSON bool",
+		`true`,
+		`[]`,
+	}, {
+		"JSON null (the model evaluated nothing)",
+		`null`,
+		`[]`,
+	}}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := witnessJSON(t, wVerdictStorage(`{"total":`+tc.reading+`}`,
+				wCall(0, "deposit", wAlice, false)))
+			got, refusal := BridgeSequenceWithLayout(obj, "SEQ-MINI-01",
+				"F-abc123", wLayout())
+			if refusal != "" {
+				t.Fatalf("refusal = %q, want none", refusal)
+			}
+			if fa := validation.CanonCompact(
+				getObj(t, got, "final_assertions")); fa != tc.want {
+				t.Fatalf("final_assertions = %s, want %s", fa, tc.want)
+			}
+			assertSequencePocSchema(t, got)
+		})
+	}
+}
+
+// TestBridgeSequenceIsTheLayoutlessDoor pins the compatibility law: the
+// legacy entry point and the layout door with a nil (or empty) layout
+// produce IDENTICAL bytes — the current BridgeSequence bytes are the
+// layout-less bytes, so no existing witness bridge output moves.
+func TestBridgeSequenceIsTheLayoutlessDoor(t *testing.T) {
+	fixtures := []string{
+		wVerdict(wCall(0, "deposit", wAlice, false),
+			wCall(1, "withdraw", wBob, true)),
+		wVerdictStorage(`{"owner":"0x10","total":"7"}`,
+			wCallValue(0, "deposit", wAlice, `"1000"`)),
+		wVerdictStorage(`{"role[?]":"2","total":"*"}`,
+			wCall(0, "poke", wAlice, false)),
+	}
+	for i, fixture := range fixtures {
+		obj := witnessJSON(t, fixture)
+		legacy, refusal := BridgeSequence(obj, "SEQ-MINI-01", "F-abc123")
+		if refusal != "" {
+			t.Fatalf("fixture %d refusal = %q", i, refusal)
+		}
+		for _, layout := range []map[string]string{nil, {}} {
+			got, refusal := BridgeSequenceWithLayout(obj, "SEQ-MINI-01",
+				"F-abc123", layout)
+			if refusal != "" {
+				t.Fatalf("fixture %d layout refusal = %q", i, refusal)
+			}
+			if a, b := validation.CanonCompact(got),
+				validation.CanonCompact(legacy); a != b {
+				t.Fatalf("fixture %d layout=%v =\n%s\nwant the legacy "+
+					"bytes\n%s", i, layout, a, b)
+			}
+		}
 	}
 }

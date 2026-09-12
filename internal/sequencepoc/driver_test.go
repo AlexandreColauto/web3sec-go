@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"websec/internal/findings"
+	"websec/internal/harness"
 	"websec/internal/reproduction"
 	"websec/internal/sandbox"
 	"websec/internal/state"
@@ -763,4 +764,196 @@ func setPath(t *testing.T, v validation.Value, path []string,
 	}
 	t.Fatalf("setPath: no key %q", head)
 	return v
+}
+
+// --- L-defer T4: the assertion seam is inert without a layout --------------
+
+// dropKey returns v without key (the spec shape a pre-layout caller has).
+func dropKey(v validation.Value, key string) validation.Value {
+	out := make([]validation.KV, 0, len(v.O))
+	for _, kv := range v.O {
+		if kv.K != key {
+			out = append(out, kv)
+		}
+	}
+	return validation.VObj(out...)
+}
+
+// wBridgedVerdict is a one-call counterexample whose final_storage reading
+// ("total") a layout can ground: the fixture both the executor fact-row and
+// the actor-alias gap row below bridge through harness.BridgeSequenceWithLayout.
+func wBridgedVerdict(t *testing.T) validation.Value {
+	t.Helper()
+	return mustParse(t, `{"rule":"inv_1","verdict":"VIOLATED",`+
+		`"confidence":"confirmed","failed_assertion":`+
+		`{"expression":"total >= before"},"calls":[{"step":0,`+
+		`"function":"deposit(uint256)","target":"`+addr("cd")+`",`+
+		`"args":["1000"],"env":{"msg.sender":"`+addr("aa")+`",`+
+		`"msg.value":"0"},"reverted":false}],`+
+		`"final_storage":{"total":"7"}}`)
+}
+
+// withoutSpecHash drops the SPEC_HASH line from generated driver text: the
+// hash binds the driver to the exact spec, so it legitimately moves when
+// final_assertions moves. Comparing the text without it isolates "did the
+// RUN change" from "did the document change".
+func withoutSpecHash(cmd string) string {
+	lines := strings.Split(cmd, "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if strings.HasPrefix(line, "SPEC_HASH=") {
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
+}
+
+// withLoaderSafeActorKeys renames the bridge's `actor-N` aliases to the
+// loader's and driver's role-key spelling (`actor_N`): checkRoleKeys and
+// actorFragments both require [A-Za-z][A-Za-z0-9_]*, so the hyphenated
+// spelling the bridge emits is refused by the run path — the gap pinned by
+// TestBridgedActorAliasesAreRefusedByTheRunPath. Nothing else about the
+// bridged document is touched, so the fact-row below stays about the
+// assertion seam.
+func withLoaderSafeActorKeys(t *testing.T, doc validation.Value) validation.Value {
+	t.Helper()
+	actors := objAt(doc, "actors")
+	for i := range actors.O {
+		actors.O[i].K = strings.ReplaceAll(actors.O[i].K, "actor-", "actor_")
+	}
+	for i, s := range listOf(objAt(doc, "steps")) {
+		role := objStr(s, "actor")
+		if !strings.HasPrefix(role, "actor-") {
+			continue
+		}
+		setPath(t, doc, []string{"steps", strconv.Itoa(i), "actor"},
+			validation.VStr(strings.ReplaceAll(role, "actor-", "actor_")))
+	}
+	return doc
+}
+
+// TestBridgeAbsentLayoutLeavesTheRunUnchanged is the executor fact-row for
+// the layout door: when the witness bridge is handed an ABSENT layout (nil)
+// or one that grounds nothing the report read, it emits no assertions and
+// the run is UNAFFECTED — the document loads through LoadSequenceSpec and
+// generates driver text byte-identical to the same spec with no
+// final_assertions key at all, with no assertion block (`add_assert`,
+// `cast storage`) anywhere in it. The final sub-case is the control that
+// makes the negative rows bite: the SAME verdict with a layout that does
+// ground the reading grows the storage assertion into the driver.
+//
+// The actor keys are renamed to the loader's role-key spelling first (see
+// withLoaderSafeActorKeys): the bridge's `actor-N` spelling is refused by
+// LoadSequenceSpec and BuildCommand alike for a reason that has nothing to
+// do with assertions, and the bridge's bytes are frozen by its own
+// byte-pins. That divergence is pinned separately below and reported in
+// .scratch/t4-report.md.
+func TestBridgeAbsentLayoutLeavesTheRunUnchanged(t *testing.T) {
+	verdict := wBridgedVerdict(t)
+	bridged := func(t *testing.T, layout map[string]string) validation.Value {
+		t.Helper()
+		doc, refusal := harness.BridgeSequenceWithLayout(verdict,
+			"SEQ-MINI-01", "F-abc123", layout)
+		if refusal != "" {
+			t.Fatalf("bridge refusal = %q", refusal)
+		}
+		path := filepath.Join(t.TempDir(), "seq.json")
+		if err := os.WriteFile(path,
+			[]byte(validation.CanonCompact(
+				withLoaderSafeActorKeys(t, doc))), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		loaded, err := LoadSequenceSpec(path)
+		if err != nil {
+			t.Fatalf("bridged spec does not load: %v", err)
+		}
+		return loaded
+	}
+	for name, layout := range map[string]map[string]string{
+		"absent layout (nil)": nil,
+		"unsupported layout (names nothing the report read)": {
+			"Vault.balance": "3"},
+		"unresolvable layout (no target derivable)": {
+			"Vault.total": "3"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			loaded := bridged(t, layout)
+			cmd, err := BuildCommand(loaded, "/wd")
+			if err != nil {
+				t.Fatal(err)
+			}
+			base, err := BuildCommand(dropKey(loaded, "final_assertions"),
+				"/wd")
+			if err != nil {
+				t.Fatal(err)
+			}
+			// The ONLY line allowed to move is SPEC_HASH: the driver binds
+			// itself to the exact spec, and final_assertions is part of that
+			// spec, so the hash is supposed to change. No step and no
+			// assertion line may.
+			if a, b := withoutSpecHash(cmd), withoutSpecHash(base); a != b {
+				t.Fatalf("final_assertions moved the run:\n%s\nwant\n%s",
+					firstDiff(b, a), b)
+			}
+			// shHelpers always DEFINES add_assert(); the assertion surface
+			// is the call site plus the storage read.
+			if strings.Contains(cmd, "ASSERTS=$(add_assert") ||
+				strings.Contains(cmd, "cast storage") {
+				t.Fatalf("an assertion block was emitted:\n%s", cmd)
+			}
+		})
+	}
+	t.Run("control: a grounding layout does reach the driver", func(t *testing.T) {
+		cmd, err := BuildCommand(bridged(t, map[string]string{
+			"Vault": addr("cd"), "Vault.total": "3"}), "/wd")
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := `raw=$(cast storage --rpc-url "$FORK_RPC_URL" ` + addr("cd") +
+			` 3 2>"$WD/seq_err.txt") || raw=""`
+		if !strings.Contains(cmd, want) {
+			t.Fatalf("storage assertion missing\n got %s\nwant line %s",
+				firstDiff(want, cmd), want)
+		}
+	})
+}
+
+// TestBridgedActorAliasesAreRefusedByTheRunPath pins an integration gap this
+// task's round-trip surfaced, and no more than that: the witness bridge
+// aliases its senders `actor-1, actor-2, …` (harness.BridgeSequence,
+// byte-pinned in internal/harness/witness_test.go), while the sequence run
+// path requires role keys matching [A-Za-z][A-Za-z0-9_]* — such a key
+// becomes the shell variable A_<role> and the env var FORK_KEY_<ROLE>, and a
+// hyphen is illegal in both. So a bridged document is refused by
+// LoadSequenceSpec AND by BuildCommand today; nothing about
+// final_assertions changes that.
+//
+// The bridge's bytes are frozen this wave (its output is pinned
+// byte-for-byte, and `actor-1` is documented in
+// docs/MINICERTORA_ARCHITECTURE.md §L4), so aligning the spelling belongs
+// to the fork wave that first mints a .seq.json from the CLI. This row is
+// the evidence a reader of that wave needs; when the spellings are aligned
+// the row flips to asserting the round trip.
+func TestBridgedActorAliasesAreRefusedByTheRunPath(t *testing.T) {
+	doc, refusal := harness.BridgeSequenceWithLayout(wBridgedVerdict(t),
+		"SEQ-MINI-01", "F-abc123", map[string]string{
+			"Vault": addr("cd"), "Vault.total": "3"})
+	if refusal != "" {
+		t.Fatalf("bridge refusal = %q", refusal)
+	}
+	path := filepath.Join(t.TempDir(), "seq.json")
+	if err := os.WriteFile(path, []byte(validation.CanonCompact(doc)),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadSequenceSpec(path); err == nil ||
+		!strings.Contains(err.Error(), "role key") {
+		t.Fatalf("loader error = %v, want a role-key refusal", err)
+	}
+	if _, err := BuildCommand(doc, "/wd"); err == nil ||
+		!strings.Contains(err.Error(), "shell-safe") {
+		t.Fatalf("driver error = %v, want a shell-safe-identifier refusal",
+			err)
+	}
 }
