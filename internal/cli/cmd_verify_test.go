@@ -1,7 +1,8 @@
 package cli
 
-// Task 17 (G8) CLI tests — `verify --scaffold {halmos|forge-fuzz}
-// --invariant INV-id`: generation is a flag, not a verb.
+// Task 17 (G8) CLI tests — `verify --scaffold
+// {halmos|forge-fuzz|minicertora} --invariant INV-id`: generation is a
+// flag, not a verb.
 
 import (
 	"crypto/sha256"

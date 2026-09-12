@@ -92,8 +92,8 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	// The minicertora mapper is exit-status aware: an int exit_status is
 	// the run's own report, anything else (absent/null/big) is "unknown"
 	// (-2), and MapMinicertora's negative floor refuses it — a run that
-	// never reported a clean exit is never promoted. timedOut only covers
-	// -1, so -2 is the fail-open remainder.
+	// never reported a clean exit is never promoted. timedOut covers
+	// -1 and the 128+N signal deaths, so -2 is the fail-open remainder.
 	exitStatus := -2
 	if v := objAt(rec, "exit_status"); v.Kind == validation.Int &&
 		v.Big == "" {
@@ -118,14 +118,42 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	if _, err := c.Log("harness_run", &a.harnessResult, &data); err != nil {
 		return err
 	}
-	if rung == harness.RungProvedBounded {
+	switch {
+	case rung == harness.RungProvedBounded && boundedK != nil:
 		fmt.Fprintf(r.Out, "%s: %s (%s, k=%d, %s)\n", a.harnessResult,
 			rung, string(kind), *boundedK, a.execID)
-	} else {
+	case rung == harness.RungProvedBounded:
+		// The display k is sidecar-first: proved-bounded with a nil
+		// bounded_k is a *valid* outcome (bounds.loop_bound absent,
+		// non-int or too large for int64 — the mapper keeps its own
+		// copy in proof.bounds), so read it from there instead of
+		// dereferencing the convenience pointer. The k-less form below
+		// is the last resort: same print shape as every other rung.
+		if k, ok := proofLoopBoundText(proof); ok {
+			fmt.Fprintf(r.Out, "%s: %s (%s, k=%s, %s)\n",
+				a.harnessResult, rung, string(kind), k, a.execID)
+		} else {
+			fmt.Fprintf(r.Out, "%s: %s (%s, %s)\n", a.harnessResult,
+				rung, string(kind), a.execID)
+		}
+	default:
 		fmt.Fprintf(r.Out, "%s: %s (%s, %s)\n", a.harnessResult, rung,
 			string(kind), a.execID)
 	}
 	return nil
+}
+
+// proofLoopBoundText is the proved-bounded display k read off the proof
+// sidecar: proof.bounds.loop_bound when it is an integer (the exact
+// decimal text, so a bound beyond int64 renders verbatim rather than
+// losing digits). ok=false for a missing sidecar, a null/malformed
+// bounds object, or a non-integer loop_bound.
+func proofLoopBoundText(proof validation.Value) (string, bool) {
+	lb := objAt(objAt(proof, "bounds"), "loop_bound")
+	if lb.Kind != validation.Int {
+		return "", false
+	}
+	return validation.IntText(lb), true
 }
 
 // harnessField builds the verification.harness object in the brief's key
@@ -311,11 +339,14 @@ func harnessScaffoldBytes(c *state.Campaign, invID string,
 
 // harnessTimedOut is the MapRun timedOut bit: the sandbox records exit
 // -1 both when the timeout kills the run and when the process never
-// started. Either way the run did not complete, so its bytes map to
-// inconclusive, never to a rung.
+// started, and a signal death (128+N, the shell's convention) means the
+// process was killed rather than completed. Either way the run did not
+// complete, so its bytes map to inconclusive, never to a rung — a
+// "killed by signal" status is exactly as much a non-result as -1.
 func harnessTimedOut(rec validation.Value) bool {
-	if v := objAt(rec, "exit_status"); v.Kind == validation.Int {
-		return v.I == -1 && v.Big == ""
+	if v := objAt(rec, "exit_status"); v.Kind == validation.Int &&
+		v.Big == "" {
+		return v.I == -1 || v.I >= 128
 	}
 	return false
 }

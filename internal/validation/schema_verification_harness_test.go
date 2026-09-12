@@ -103,6 +103,30 @@ func TestVerificationHarnessProofSidecar(t *testing.T) {
 	}
 }
 
+// TestVerificationHarnessProofNullArrays pins the mcArr contract in the
+// schema: a scalar in an array slot is malformed tool input, and the Go
+// builder renders those three slots as null rather than dropping the key
+// or inventing an empty list — so the sidecar's sets must accept null.
+func TestVerificationHarnessProofNullArrays(t *testing.T) {
+	inv := `{"id":"INV-1",` +
+		`"statement":"total assets must cover all outstanding shares",` +
+		`"severity_if_broken":"critical",` +
+		`"verification":{"harness":{"kind":"minicertora",` +
+		`"rung":"proved-bounded","exec":"EXEC-7","bounded_k":null,` +
+		`"summary":"proved bounded","proof":{` +
+		`"tool_version":"0.4.2","solc_version":null,` +
+		`"spec_version":null,"evm_version":null,` +
+		`"confidence":"modeled","reason":null,` +
+		`"bounds":{"loop_bound":null,"path_cap":null,` +
+		`"solver_timeout_ms":null},` +
+		`"assumptions":null,"warnings":null,"ghosts":null}}}}`
+	v := mustParseHarness(t, harnessModelDoc(inv))
+	v2 := mustParseHarness(t, CanonCompact(v))
+	if err := Validate(v2, "protocol_model", 1); err != nil {
+		t.Fatalf("null array slots must validate: %v", err)
+	}
+}
+
 func TestVerificationHarnessRejects(t *testing.T) {
 	for _, tc := range []struct {
 		name string

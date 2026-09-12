@@ -1,9 +1,9 @@
 package cli
 
 // Task 18 (G8) CLI tests — `verify <campaign> --harness-result INV-id
-// --exec EXEC-... [--kind {halmos|forge-fuzz}]`: the rung rides the
-// verification.harness field on the invariant entry; no auto-attribution,
-// no finding-evidence writes, no learning rows.
+// --exec EXEC-... [--kind {halmos|forge-fuzz|minicertora}]`: the rung
+// rides the verification.harness field on the invariant entry; no
+// auto-attribution, no finding-evidence writes, no learning rows.
 
 import (
 	"crypto/sha256"

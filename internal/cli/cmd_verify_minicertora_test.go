@@ -461,6 +461,146 @@ func TestHarnessResultMinicertoraMissingScaffold(t *testing.T) {
 	}
 }
 
+// mcNoBoundsProvenLine is an attributed PROVEN line with NO bounds object
+// at all: MapMinicertora legitimately returns proved-bounded with a nil
+// bounded_k here (internal/harness/minicertora_test.go's
+// TestMapMinicertoraBoundsMissing pins the mapper side).
+const mcNoBoundsProvenLine = `{"rule":"inv_1","verdict":"PROVEN",` +
+	`"confidence":"modeled"}` + "\n"
+
+// mcBigBoundProvenLine is the other nil-bounded_k shape: the bound is a
+// real integer the tool reported, but it does not fit int64, so the
+// convenience pointer is nil while proof.bounds.loop_bound still carries
+// the exact decimal text.
+const mcBigBoundProvenLine = `{"rule":"inv_1","verdict":"PROVEN",` +
+	`"confidence":"modeled","bounds":{"loop_bound":99999999999999999999}}` +
+	"\n"
+
+// TestHarnessResultMinicertoraProvenNoBounds is the F1 regression pin: a
+// PROVEN line with no bounds object is a *valid* proved-bounded run whose
+// bounded_k is nil. The print path must read the display k sidecar-first
+// instead of dereferencing the nil pointer — exit 0, the k-less proved
+// line byte-exact, proof.bounds.loop_bound null on the stored links, and
+// no panic (a panic fails this test outright).
+func TestHarnessResultMinicertoraProvenNoBounds(t *testing.T) {
+	c, root := mcCamp(t, "mc-nobounds")
+	execID := "EXEC-10"
+	mcHarnessExec(t, c, execID, mcNoBoundsProvenLine,
+		"minicertora --rule inv_1",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 0)
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("exit %d out=%q err=%q", code, out, errS)
+	}
+	if out != "INV-1: proved-bounded (minicertora, EXEC-10)\n" {
+		t.Fatalf("stdout = %q, want the k-less proved line", out)
+	}
+	h := mcHarness(t, c)
+	if objStr(h, "rung") != "proved-bounded" {
+		t.Fatalf("rung = %s", validation.CanonCompact(h))
+	}
+	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+		t.Fatalf("bounded_k = %s, want null", validation.CanonCompact(bk))
+	}
+	p := objAt(h, "proof")
+	if p.Kind != validation.Obj {
+		t.Fatalf("an attributed PROVEN line keeps its sidecar: %s",
+			validation.CanonCompact(h))
+	}
+	lb := objAt(objAt(p, "bounds"), "loop_bound")
+	if lb.Kind != validation.Null {
+		t.Fatalf("proof.bounds.loop_bound = %s, want null",
+			validation.CanonCompact(lb))
+	}
+}
+
+// TestHarnessResultMinicertoraProvenBigBound pins display mode 2: the
+// k lives in proof.bounds even when the convenience pointer is nil, so a
+// bound too large for int64 still renders with its exact decimal text
+// (bounded_k itself stays null — only the mapper's int64 copy is lost).
+func TestHarnessResultMinicertoraProvenBigBound(t *testing.T) {
+	c, root := mcCamp(t, "mc-bigbound")
+	execID := "EXEC-11"
+	mcHarnessExec(t, c, execID, mcBigBoundProvenLine,
+		"minicertora --rule inv_1",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 0)
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("exit %d out=%q err=%q", code, out, errS)
+	}
+	want := "INV-1: proved-bounded (minicertora, k=99999999999999999999, " +
+		"EXEC-11)\n"
+	if out != want {
+		t.Fatalf("stdout = %q, want %q", out, want)
+	}
+	h := mcHarness(t, c)
+	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+		t.Fatalf("bounded_k = %s, want null (the pointer cannot hold it)",
+			validation.CanonCompact(bk))
+	}
+	lb := objAt(objAt(objAt(h, "proof"), "bounds"), "loop_bound")
+	if lb.Kind != validation.Int || lb.Big != "99999999999999999999" {
+		t.Fatalf("proof.bounds.loop_bound = %s, want the big int",
+			validation.CanonCompact(lb))
+	}
+}
+
+// TestHarnessResultMinicertoraKilledStatus pins the F2 gate: 128+N is the
+// shell's death-by-signal convention, so a 137 (SIGKILL) run never
+// completed — its PROVEN bytes map to the same inconclusive timeout
+// summary the -1 gate renders, and carry no proof key.
+func TestHarnessResultMinicertoraKilledStatus(t *testing.T) {
+	c, root := mcCamp(t, "mc-killed")
+	execID := "EXEC-12"
+	mcHarnessExec(t, c, execID, mcProvenLine,
+		"minicertora --rule inv_1 --loop-bound 8",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 137)
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("exit %d out=%q err=%q", code, out, errS)
+	}
+	if out != "INV-1: inconclusive (minicertora, EXEC-12)\n" {
+		t.Fatalf("stdout = %q, want the inconclusive print", out)
+	}
+	h := mcHarness(t, c)
+	if objStr(h, "rung") != "inconclusive" {
+		t.Fatalf("rung = %s", validation.CanonCompact(h))
+	}
+	if objStr(h, "summary") != "timeout after 8s" {
+		t.Fatalf("summary = %q, want the -1 gate's wording",
+			objStr(h, "summary"))
+	}
+	if objHasKey(h, "proof") {
+		t.Fatal("a killed run stores no proof key")
+	}
+}
+
+// TestVerifyKindMinicertoraChoice pins the parse-time precedence of the
+// three-kind --kind guard: a bogus choice is rejected before any campaign
+// registry or exec lookup runs — this campaign has no INV-1 and no exec,
+// yet the error is the argparse choice text, not "unknown invariant".
+func TestVerifyKindMinicertoraChoice(t *testing.T) {
+	c, root := t15Campaign(t, "mc-kindchoice")
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", "EXEC-nope",
+		"--kind", "bogus")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2", code)
+	}
+	if out != "" {
+		t.Fatalf("stdout %q, want empty", out)
+	}
+	want := t36VerifyUsage + "webv2 verify: error: argument --kind: " +
+		"invalid choice: 'bogus' (choose from 'halmos', 'forge-fuzz', " +
+		"'minicertora')\n"
+	if errS != want {
+		t.Fatalf("stderr %q, want %q", errS, want)
+	}
+}
+
 // TestInvocationBoundFlags pins the S2 regex gap: the minicertora flag
 // --loop-bound N must parse as the invocation bound (otherwise a timeout
 // summary reads "timeout after 0s"), while a lookalike flag must not.
