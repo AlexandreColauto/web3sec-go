@@ -7,8 +7,10 @@ package completion
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
+	"websec/internal/findings"
 	"websec/internal/invariants"
 	"websec/internal/planner"
 	"websec/internal/state"
@@ -199,8 +201,22 @@ func proofCampaignPlanning(c *state.Campaign) (validation.Value, error) {
 		fmt.Sprintf("%d priorities", len(priorities))), nil
 }
 
+// livenessOwedStatuses are the statuses under which a liveness finding owes
+// its adversarial_game clause at the discovery exit: the open statuses (the
+// claims discovery files and the divergence gate closes over) and
+// CONFIRMED/CHAIN (a finding confirmed before discovery closed must still
+// answer before the gate exits). Dead terminal dispositions (DISPROVED,
+// DUPLICATE, OUT_OF_SCOPE, INFORMATIONAL, SUPERSEDED) no longer claim a live
+// freeze, so they owe nothing.
+var livenessOwedStatuses = append(append([]string{}, OpenStatuses...),
+	confirmedStatuses...)
+
 // proofDiscovery is _proof_discovery: draining the work queue is necessary,
-// not sufficient — the divergence gate must close too.
+// not sufficient — the divergence gate must close too, and a live liveness
+// finding must carry its adversarial_game clause (who profits from the
+// freeze, how, and why the challenge path does not undo it) before the
+// divergence gate closes. The trigger is the recorded
+// economic_impact.kind == "liveness" alone — no prose heuristics.
 func proofDiscovery(c *state.Campaign) (validation.Value, error) {
 	plan, found, err := loadPlan(c)
 	if err != nil {
@@ -228,18 +244,73 @@ func proofDiscovery(c *state.Campaign) (validation.Value, error) {
 	for _, m := range divMissing {
 		items = append(items, proofItem{objStr(m, "subject"), objStr(m, "what")})
 	}
+	live, err := findingsWith(c, livenessOwedStatuses)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	agWaived, err := waiverMap(c, "adversarial-game")
+	if err != nil {
+		return validation.VNull(), err
+	}
+	cid := c.CampaignID
+	if cid == "" {
+		// Same metavariable rule as proofProtocolModel: no command with an
+		// empty hole where the campaign belongs.
+		cid = "<campaign>"
+	}
+	agItems := []proofItem{}
+	for _, f := range live {
+		if objStr(objAt(f, "economic_impact"), "kind") != "liveness" {
+			continue
+		}
+		deficits := findings.AdversarialGameDeficits(f)
+		if len(deficits) == 0 {
+			continue
+		}
+		agItems = append(agItems, proofItem{objStr(f, "finding_id"),
+			livenessClauseWhat(cid, objStr(f, "finding_id"), deficits)})
+	}
 	wmap, err := waiverMap(c, "discovery")
 	if err != nil {
 		return validation.VNull(), err
 	}
 	missing := unwaived(items, wmap, func(s, m string) string { return s + ": " + m })
+	clauseMissing := unwaived(agItems, agWaived,
+		func(s, m string) string { return s + ": " + m })
+	missing = append(missing, clauseMissing...)
 	note := "work queue drained; divergence gate closed"
 	if len(queue) > 0 {
 		note = fmt.Sprintf("%d queued priorities remain", len(queue))
 	} else if len(divMissing) > 0 {
 		note = "work queue drained but the divergence gate is open"
+	} else if len(clauseMissing) > 0 {
+		note = "work queue drained, divergence gate closed — a live liveness " +
+			"finding owes its adversarial_game clause"
 	}
 	return proofResult(len(missing) == 0, missing, note), nil
+}
+
+// livenessClauseWhat is the missing[] text for one liveness finding without
+// its clause: the exact deficit (bounty-gate check15's detail) and the exact
+// next step — the same command the bounty gate's remediation names, because
+// the clause is one artifact, not two.
+func livenessClauseWhat(cid, fid string, deficits []string) string {
+	var clause string
+	if len(deficits) == 1 && deficits[0] == "missing" {
+		clause = "the adversarial_game clause (who profits from the freeze)"
+	} else {
+		clause = "adversarial_game " + strings.Join(deficits, ", ") +
+			" missing or too short (each >= " +
+			strconv.Itoa(findings.AdversarialGameFieldMin) + " chars)"
+	}
+	cmd := "webv2 adversarial-game " + cid + " " + fid +
+		" --who-profit 'who profits from the freeze' --mechanism 'how the " +
+		"profit works' --interplay 'why the challenge path does not undo it'"
+	waive := "webv2 waive " + cid + " adversarial-game --subject " + fid +
+		" --reason '...' if the incentive argument lives elsewhere, e.g. the " +
+		"chain narrative"
+	return "liveness finding lacks " + clause + " — " + cmd +
+		"   (or: " + waive + ")"
 }
 
 // proofDedup is _proof_dedup (advisory): the deterministic sweep runs in the

@@ -994,9 +994,10 @@ A **liveness** finding (the freeze is the bug) additionally needs the
 adversarial game: who profits while the protocol is degraded, how the profit is
 realised, and why that interplay cannot be undone by the challenge path. All
 three flags are required and each answer must be at least 20 characters; the
-`adversarial-game` check fails on a live liveness finding without it, and is
-waivable per finding (`waive <C-xxx> adversarial-game --subject F-xxx --reason
-"..."`).
+gate refuses a live liveness finding without it — the discovery completion
+proof blocks the divergence-era exit and the bounty gate's `adversarial-game`
+check re-validates the stored clause — and it is waivable per finding (`waive
+<C-xxx> adversarial-game --subject F-xxx --reason "..."`).
 
 ## 9. Report + learning
 
