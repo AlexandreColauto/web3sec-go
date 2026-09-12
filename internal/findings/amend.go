@@ -38,7 +38,7 @@ type AmendOpts struct {
 // Amend is amend: correct a filed finding's title, bug class and/or claim
 // text in place. Every successful amend bumps claim_version by 1 (absent
 // counts as 0, so the first amend lands on 1), appends a history entry of
-// the SAME shape applyStatus writes ({at, from, to, reason, actor} with
+// the SAME shape mutateStatus writes ({at, from, to, reason, actor} with
 // from == to — the status NEVER changes here), and logs finding.amended.
 //
 // --claim edits root_cause.description: that IS the claim text (the ingest
@@ -105,7 +105,7 @@ func Amend(campaign *state.Campaign, findingID string,
 	}
 	finding.O = validation.SetOrAppend(finding.O, "claim_version",
 		validation.VInt(version))
-	// History entry in the applyStatus shape (from == to: amend never moves
+	// History entry in the mutateStatus shape (from == to: amend never moves
 	// status). No finding.status event: the status did not change, so
 	// logging one would claim a transition that never happened.
 	hist := objAt(finding, "history")

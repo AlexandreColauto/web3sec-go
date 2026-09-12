@@ -18,7 +18,10 @@ package cli
 // by the port's error shapes: findings.IllegalTransition, and the single
 // ValueError the transition itself raises (planner.ADJACENT_REQUIRED_MSG).
 // findings.DuplicateTargetRequired joins that handler class: the move cannot
-// proceed until the operator supplies the missing name.
+// proceed until the operator supplies the missing name. So does
+// findings.DuplicateTargetInvalid (FIX-1): a --of that names a ghost id, the
+// finding itself, or re-targets an existing merge cannot proceed either —
+// the operator repairs with a real target or a reopen first.
 
 import (
 	"errors"
@@ -184,7 +187,9 @@ func moveCmd(root string, args []string, r *Runner) error {
 // property guard, whose message is planner.ADJACENT_REQUIRED_MSG (the seam
 // findings' guard is wired from). findings.DuplicateTargetRequired is the
 // Go-only third member of that class (Task 7c): a targeted move that has not
-// been told its target.
+// been told its target. findings.DuplicateTargetInvalid is the fourth (FIX-1):
+// a --of target that does not exist, is the finding itself, or re-targets a
+// recorded merge.
 func moveHandlerError(err error) bool {
 	var it *findings.IllegalTransition
 	if errors.As(err, &it) {
@@ -192,6 +197,10 @@ func moveHandlerError(err error) bool {
 	}
 	var dt *findings.DuplicateTargetRequired
 	if errors.As(err, &dt) {
+		return true
+	}
+	var di *findings.DuplicateTargetInvalid
+	if errors.As(err, &di) {
 		return true
 	}
 	return err.Error() == planner.AdjacentRequiredMsg

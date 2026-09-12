@@ -269,19 +269,20 @@ func TestTerminalDuplicateFreezes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	tid := dupTargetIngest(t, c)
 	fid := objStr(f, "finding_id")
-	dup, err := MarkDuplicate(c, fid, "F-abcdef012345")
+	dup, err := MarkDuplicate(c, fid, tid)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if st := objStr(dup, "status"); st != "DUPLICATE" {
 		t.Fatalf("status = %q, want DUPLICATE", st)
 	}
-	if of := objStr(objAt(dup, "dedup"), "duplicate_of"); of != "F-abcdef012345" {
+	if of := objStr(objAt(dup, "dedup"), "duplicate_of"); of != tid {
 		t.Fatalf("duplicate_of = %q", of)
 	}
 	if reason := objStr(objAt(dup, "history").A[1], "reason"); reason !=
-		"technical/root-cause duplicate of F-abcdef012345" {
+		"technical/root-cause duplicate of "+tid {
 		t.Fatalf("history reason = %q", reason)
 	}
 	_, err = Transition(c, fid, "POSSIBLE", "un-merge", "", "", false)
@@ -292,6 +293,18 @@ func TestTerminalDuplicateFreezes(t *testing.T) {
 }
 
 // ---- Task 7c: targeted DUPLICATE + reopen --------------------------------
+
+// dupTargetIngest ingests a second finding to merge into: the --of target
+// must be a REAL finding (transition refuses a ghost id), so the fixtures
+// mint one instead of a fabricated F- id.
+func dupTargetIngest(t *testing.T, c *state.Campaign) string {
+	t.Helper()
+	tgt, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return objStr(tgt, "finding_id")
+}
 
 // eventTypesOf is the campaign's logged event types, in order (a refusal must
 // write nothing — the event log is the state).
@@ -349,18 +362,44 @@ func TestMoveToDuplicateRequiresTheTarget(t *testing.T) {
 	if after := len(eventTypesOf(t, c)); after != before {
 		t.Fatalf("refused move logged %d event(s)", after-before)
 	}
-	// The accepting path: naming the target records it.
+	// A GHOST target is refused: the old code recorded whatever string it was
+	// handed, enshrining a fabricated F- id that nothing could re-check.
+	before = len(eventTypesOf(t, c))
+	_, err = TransitionWith(c, fid, "DUPLICATE", "looks like a dup",
+		TransitionOpts{Actor: "cli", DuplicateOf: "F-000000000000"})
+	var di *DuplicateTargetInvalid
+	if !errors.As(err, &di) {
+		t.Fatalf("want DuplicateTargetInvalid, got %v", err)
+	}
+	if !strings.Contains(err.Error(),
+		"duplicate of target does not exist: no finding 'F-000000000000'") {
+		t.Fatalf("ghost-target message = %q", err.Error())
+	}
+	// ... and so is a SELF merge: a finding cannot point its merge at itself.
+	_, err = TransitionWith(c, fid, "DUPLICATE", "looks like a dup",
+		TransitionOpts{Actor: "cli", DuplicateOf: fid})
+	if !errors.As(err, &di) {
+		t.Fatalf("want DuplicateTargetInvalid, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "cannot be merged into itself") {
+		t.Fatalf("self-merge message = %q", err.Error())
+	}
+	// neither refusal wrote anything
+	if after := len(eventTypesOf(t, c)); after != before {
+		t.Fatalf("refused moves logged %d event(s)", after-before)
+	}
+	// The accepting path: naming a REAL target records it.
+	tid := dupTargetIngest(t, c)
 	moved, err := TransitionWith(c, fid, "DUPLICATE", "looks like a dup",
-		TransitionOpts{Actor: "cli", DuplicateOf: "F-abcdef012345"})
+		TransitionOpts{Actor: "cli", DuplicateOf: tid})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if st := objStr(moved, "status"); st != "DUPLICATE" {
 		t.Fatalf("status = %q, want DUPLICATE", st)
 	}
-	if of := objStr(objAt(moved, "dedup"), "duplicate_of"); of !=
-		"F-abcdef012345" {
-		t.Fatalf("duplicate_of = %q, want F-abcdef012345", of)
+	if of := objStr(objAt(moved, "dedup"), "duplicate_of"); of != tid {
+		t.Fatalf("duplicate_of = %q, want %q", of, tid)
 	}
 }
 
@@ -383,7 +422,7 @@ func TestReopenDuplicateClearsTheTarget(t *testing.T) {
 	)); err != nil {
 		t.Fatal(err)
 	}
-	dup, err := MarkDuplicate(c, fid, "F-abcdef012345")
+	dup, err := MarkDuplicate(c, fid, dupTargetIngest(t, c))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -445,6 +484,66 @@ func TestReopenDuplicateClearsTheTarget(t *testing.T) {
 		kv("description", validation.VStr("proof the roots differ")),
 	)); err != nil {
 		t.Fatalf("reopened finding refuses new evidence: %v", err)
+	}
+}
+
+// ---- FIX-1: the merge pointer is validated and lands in one save ----------
+
+// TestRetargetDuplicateIsRefused: a finding that is already DUPLICATE cannot
+// have its merge pointer swapped under the same-status short-circuit — the old
+// code exited 0 changing nothing. A DIFFERENT --of is refused (the repair is
+// reopen first), and NOTHING is written; the exact same pointer is the
+// documented accepted no-op.
+func TestRetargetDuplicateIsRefused(t *testing.T) {
+	c := ingestCamp(t)
+	f, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fid := objStr(f, "finding_id")
+	tid := dupTargetIngest(t, c)
+	if _, err := TransitionWith(c, fid, "DUPLICATE", "the merge lands",
+		TransitionOpts{Actor: "cli", DuplicateOf: tid}); err != nil {
+		t.Fatal(err)
+	}
+	other := dupTargetIngest(t, c)
+	before := len(eventTypesOf(t, c))
+	_, err = TransitionWith(c, fid, "DUPLICATE", "changed my mind",
+		TransitionOpts{Actor: "cli", DuplicateOf: other})
+	var di *DuplicateTargetInvalid
+	if !errors.As(err, &di) {
+		t.Fatalf("want DuplicateTargetInvalid, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "already merged into "+tid) ||
+		!strings.Contains(err.Error(), "reopen it first") {
+		t.Fatalf("retarget message = %q", err.Error())
+	}
+	// nothing was written: the pointer and the event log are untouched
+	got, err := LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if of := objStr(objAt(got, "dedup"), "duplicate_of"); of != tid {
+		t.Fatalf("refused retarget moved duplicate_of to %q", of)
+	}
+	if after := len(eventTypesOf(t, c)); after != before {
+		t.Fatalf("refused retarget logged %d event(s)", after-before)
+	}
+	// DOCUMENTED DECISION: re-merging with the EXACT same pointer is an
+	// accepted no-op — no new history row, no event, pointer unchanged.
+	again, err := TransitionWith(c, fid, "DUPLICATE", "re-affirm the merge",
+		TransitionOpts{Actor: "cli", DuplicateOf: tid})
+	if err != nil {
+		t.Fatalf("same-pointer no-op refused: %v", err)
+	}
+	if of := objStr(objAt(again, "dedup"), "duplicate_of"); of != tid {
+		t.Fatalf("no-op moved duplicate_of to %q", of)
+	}
+	if n := len(objAt(again, "history").A); n != 2 {
+		t.Fatalf("no-op appended history: %d rows", n)
+	}
+	if after := len(eventTypesOf(t, c)); after != before {
+		t.Fatalf("same-pointer no-op logged an event")
 	}
 }
 
@@ -510,15 +609,15 @@ func TestTier1AutoMerge(t *testing.T) {
 		t.Fatal(err)
 	}
 	fid := objStr(f, "finding_id")
-	merged, err := MarkDuplicate(c, fid, "F-abcdef012345")
+	tid := dupTargetIngest(t, c)
+	merged, err := MarkDuplicate(c, fid, tid)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if st := objStr(merged, "status"); st != "DUPLICATE" {
 		t.Fatalf("status = %q, want DUPLICATE", st)
 	}
-	if of := objStr(objAt(merged, "dedup"), "duplicate_of"); of !=
-		"F-abcdef012345" {
+	if of := objStr(objAt(merged, "dedup"), "duplicate_of"); of != tid {
 		t.Fatalf("duplicate_of = %q", of)
 	}
 	// a merged finding leaves the live set

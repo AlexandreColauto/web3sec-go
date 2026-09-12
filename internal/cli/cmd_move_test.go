@@ -609,9 +609,12 @@ func TestMoveDuplicateRequiresOf(t *testing.T) {
 		t.Fatalf("refused move left duplicate_of = %q", of)
 	}
 
+	// The accepting path names a REAL target (the transition refuses a ghost
+	// F- id): the fixture ingests a second finding to merge into.
+	tid := moveIngest(t, root, c.CampaignID, moveLadderPayload)
 	code, out, errS := run(t, "--root", root, "move", c.CampaignID, fid,
 		"DUPLICATE", "--reason", "same root cause as the sibling",
-		"--of", "F-abcdef012345")
+		"--of", tid)
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
@@ -622,8 +625,125 @@ func TestMoveDuplicateRequiresOf(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != "F-abcdef012345" {
-		t.Fatalf("duplicate_of = %q, want F-abcdef012345", of)
+	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != tid {
+		t.Fatalf("duplicate_of = %q, want %q", of, tid)
+	}
+}
+
+// FIX-1 negative controls for the ValueError class: a ghost --of and a
+// self-merge are refused as `move failed: ...` (exit 2) and write nothing.
+func TestMoveDuplicateGhostTargetRefused(t *testing.T) {
+	c, root := t15Campaign(t, "move-ghost-of")
+	fid := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	before := len(eventTypes(t, c))
+	code, out, errS := run(t, "--root", root, "move", c.CampaignID, fid,
+		"DUPLICATE", "--reason", "same root cause as the sibling",
+		"--of", "F-000000000000")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q", code, errS)
+	}
+	if out != "" {
+		t.Fatalf("stdout = %q", out)
+	}
+	want := "move failed: duplicate of target does not exist: no finding " +
+		"'F-000000000000' in " + c.CampaignID + "\n"
+	if errS != want {
+		t.Fatalf("stderr\n%q\nwant\n%q", errS, want)
+	}
+	if after := len(eventTypes(t, c)); after != before {
+		t.Fatalf("refused move wrote %d event(s)", after-before)
+	}
+	f, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st := objStr(f, "status"); st != "HYPOTHESIS" {
+		t.Fatalf("refused move left status = %q", st)
+	}
+	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != "" {
+		t.Fatalf("refused move left duplicate_of = %q", of)
+	}
+}
+
+func TestMoveDuplicateSelfMergeRefused(t *testing.T) {
+	c, root := t15Campaign(t, "move-self-of")
+	fid := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	before := len(eventTypes(t, c))
+	code, _, errS := run(t, "--root", root, "move", c.CampaignID, fid,
+		"DUPLICATE", "--reason", "same root cause as the sibling",
+		"--of", fid)
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q", code, errS)
+	}
+	want := "move failed: a finding cannot be merged into itself (--of '" +
+		fid + "' names the moving finding)\n"
+	if errS != want {
+		t.Fatalf("stderr\n%q\nwant\n%q", errS, want)
+	}
+	if after := len(eventTypes(t, c)); after != before {
+		t.Fatalf("refused move wrote %d event(s)", after-before)
+	}
+}
+
+// FIX-1 retarget guard through the verb: a different --of on an
+// already-merged finding is refused (exit 2), and the SAME --of is the
+// documented accepted no-op (exit 0, current status printed, nothing written).
+func TestMoveRetargetDuplicateAndSamePointerNoOp(t *testing.T) {
+	c, root := t15Campaign(t, "move-retarget-of")
+	fid := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	tid := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	other := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	code, _, errS := run(t, "--root", root, "move", c.CampaignID, fid,
+		"DUPLICATE", "--reason", "same root cause as the sibling", "--of", tid)
+	if code != 0 {
+		t.Fatalf("merge exit %d: %q", code, errS)
+	}
+	before := len(eventTypes(t, c))
+
+	code, out, errS := run(t, "--root", root, "move", c.CampaignID, fid,
+		"DUPLICATE", "--reason", "changed my mind", "--of", other)
+	if code != 2 {
+		t.Fatalf("retarget exit %d, want 2: %q", code, errS)
+	}
+	if out != "" {
+		t.Fatalf("stdout = %q", out)
+	}
+	want := "move failed: " + fid + " is already merged into " + tid +
+		"; reopen it first (DUPLICATE -> HYPOTHESIS) before merging into " +
+		other + "\n"
+	if errS != want {
+		t.Fatalf("stderr\n%q\nwant\n%q", errS, want)
+	}
+	if after := len(eventTypes(t, c)); after != before {
+		t.Fatalf("refused retarget wrote %d event(s)", after-before)
+	}
+	f, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != tid {
+		t.Fatalf("refused retarget moved duplicate_of to %q", of)
+	}
+
+	// the exact-same pointer is an accepted no-op: exit 0, status printed,
+	// no new history row, no event
+	code, out, errS = run(t, "--root", root, "move", c.CampaignID, fid,
+		"DUPLICATE", "--reason", "re-affirm the merge", "--of", tid)
+	if code != 0 {
+		t.Fatalf("no-op exit %d: %q", code, errS)
+	}
+	if want := fid + ": DUPLICATE (evidence level E0)\n"; out != want {
+		t.Fatalf("no-op stdout\n%q\nwant\n%q", out, want)
+	}
+	f, err = findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := len(objAt(f, "history").A); n != 2 {
+		t.Fatalf("no-op appended history: %d rows", n)
+	}
+	if after := len(eventTypes(t, c)); after != before {
+		t.Fatalf("no-op wrote %d event(s)", after-before)
 	}
 }
 
@@ -660,9 +780,11 @@ func TestMoveReopenDuplicate(t *testing.T) {
 	)); err != nil {
 		t.Fatal(err)
 	}
+	// The merge target is a REAL finding (the transition refuses a ghost id).
+	tgt := moveIngest(t, root, c.CampaignID, moveLadderPayload)
 	code, _, errS := run(t, "--root", root, "move", c.CampaignID, fid,
 		"DUPLICATE", "--reason", "looks like the sibling",
-		"--of=F-abcdef012345")
+		"--of="+tgt)
 	if code != 0 {
 		t.Fatalf("merge exit %d: %q", code, errS)
 	}

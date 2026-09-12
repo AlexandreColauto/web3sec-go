@@ -190,10 +190,35 @@ func noopHypo(t *testing.T, c *state.Campaign, title, status string) string {
 	fid := objStr(f, "finding_id")
 	if status != "" {
 		// Task 7c: a DUPLICATE must name the finding it duplicates (every
-		// other status ignores the field).
+		// other status ignores the field). The target must be a REAL finding
+		// — transition refuses a ghost id — so the fixture mints one and
+		// closes it OUT_OF_SCOPE, keeping the merged finding the junk record.
+		of := ""
+		if status == "DUPLICATE" {
+			tgt, err := findings.IngestHypothesis(c, validation.VObj(
+				kv("title", validation.VStr(title+" merge target")),
+				kv("root_cause", validation.VObj(
+					kv("class", validation.VStr("access-control")),
+					kv("description", validation.VStr("mechanism described in detail here")))),
+				kv("affected", validation.VArr(validation.VObj(
+					kv("path", validation.VStr("src/Vault.sol")),
+					kv("contract", validation.VStr("Vault")),
+					kv("function", validation.VStr("f"))))),
+				kv("attacker", validation.VObj(
+					kv("profile", validation.VStr("arbitrary EOA")),
+					kv("capabilities", validation.VArr()))),
+			), "code", "test", "")
+			if err != nil {
+				t.Fatalf("ingest merge target: %v", err)
+			}
+			if _, err := findings.Transition(c, objStr(tgt, "finding_id"),
+				"OUT_OF_SCOPE", "test fixture target", "", "", false); err != nil {
+				t.Fatalf("junk the merge target: %v", err)
+			}
+			of = objStr(tgt, "finding_id")
+		}
 		if _, err := findings.TransitionWith(c, fid, status, "test fixture",
-			findings.TransitionOpts{Actor: "test",
-				DuplicateOf: "F-abcdef012345"}); err != nil {
+			findings.TransitionOpts{Actor: "test", DuplicateOf: of}); err != nil {
 			t.Fatalf("transition %s: %v", status, err)
 		}
 	}

@@ -760,11 +760,24 @@ func hypoWithStatus(t *testing.T, camp *state.Campaign, title, class,
 	f := hypo(t, camp, class, []string{"withdraw_unbacked_assets"}, nil, title)
 	if status != "" {
 		// Task 7c: a DUPLICATE must name the finding it duplicates (every
-		// other status ignores the field).
+		// other status ignores the field). The target must be a REAL finding
+		// — transition refuses a ghost id — so the fixture mints one and
+		// closes it OUT_OF_SCOPE, keeping the junk-only shape this helper's
+		// fixtures rely on.
+		of := ""
+		if status == "DUPLICATE" {
+			tgt := hypo(t, camp, class, []string{"withdraw_unbacked_assets"},
+				nil, title+" merge target")
+			if _, err := findings.Transition(camp, objStr(tgt, "finding_id"),
+				"OUT_OF_SCOPE", "test fixture target", "", "", false); err != nil {
+				t.Fatalf("junk the merge target: %v", err)
+			}
+			of = objStr(tgt, "finding_id")
+		}
 		if _, err := findings.TransitionWith(camp, objStr(f, "finding_id"),
 			status, "test fixture", findings.TransitionOpts{
 				Actor:       "test fixture",
-				DuplicateOf: "F-abcdef012345"}); err != nil {
+				DuplicateOf: of}); err != nil {
 			t.Fatalf("transition %s: %v", status, err)
 		}
 	}
@@ -863,8 +876,10 @@ func TestBriefHasNoProblemLineWhenOnlyJunkFindingsExist(t *testing.T) {
 	camp := newCamp(t, "noop-program")
 	hypoWithStatus(t, camp, "duplicate finding", "access-control", "DUPLICATE")
 	b := build(t, camp, false)
-	if got := intField(objAt(b, "findings"), "total"); got != 1 {
-		t.Errorf("findings.total = %d, want 1", got)
+	// Two records now: the DUPLICATE and its REAL merge target (the
+	// transition refuses a ghost --of), junk-closed OUT_OF_SCOPE.
+	if got := intField(objAt(b, "findings"), "total"); got != 2 {
+		t.Errorf("findings.total = %d, want 2", got)
 	}
 	if problemsContain(t, b, "graph was never written") {
 		t.Errorf("junk-only campaign reports the unwritten-graph problem")
