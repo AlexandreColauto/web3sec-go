@@ -16,8 +16,8 @@ import (
 // exactly once per finding, and only when the caller has established the
 // finding ROSE above the E0 baseline. Bare hypotheses (HYPOTHESIS at E0 with
 // no above-baseline evidence) never reach this — suspicion is free, the
-// ceiling meters confirmed work instead. The finding carries the flag so the
-// idempotency survives snapshots and re-loads.
+// ceiling meters findings that have risen instead. The finding carries the
+// flag so the idempotency survives snapshots and re-loads.
 func ConsumeSlotOnce(campaign *state.Campaign, finding *validation.Value) error {
 	if objBool(*finding, "discovery_slot_consumed") {
 		return nil

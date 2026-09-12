@@ -43,7 +43,7 @@ func pathSegs(data Value, path []string) []pseg {
 }
 
 // compareSegs is Python list comparison on (str, int) paths. Mixed-type
-// segments are unreachable in the 27 schemas (an array index can never
+// segments are unreachable in the embedded schemas (an array index can never
 // collide with a property name at the same depth); numeric sorts first to
 // keep the order deterministic.
 func compareSegs(a, b []pseg) int {
@@ -274,7 +274,7 @@ func patternMatches(pattern, s string) bool {
 }
 
 // ifValid evaluates a draft-07 "if" condition with v6, compiling it on
-// demand (the 27 schemas' if-conditions are small and ref-free).
+// demand (the embedded schemas' if-conditions are small and ref-free).
 func ifValid(compiler *v6.Compiler, cache *map[*Value]*v6.Schema, cond *Value, inst Value) bool {
 	if sc, ok := (*cache)[cond]; ok {
 		return sc.Validate(toAny(inst)) == nil

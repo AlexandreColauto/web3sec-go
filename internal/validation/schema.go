@@ -53,7 +53,7 @@ func loadSchema(name string) (*schemaEntry, error) {
 	}
 	raw, err := ReadSchemaFile(name)
 	if err != nil {
-		// unreachable: the embedded FS is built from the same 27 files
+		// unreachable: the embedded FS is built from the same schema set
 		return nil, fmt.Errorf("schema file missing: schema/%s.schema.json", name)
 	}
 	doc, err := ParseOrdered(raw)
@@ -78,8 +78,9 @@ func loadSchema(name string) (*schemaEntry, error) {
 }
 
 // Validate is the port of webv2.validation.validate. v6 supplies the
-// validation semantics (OQ3: verdicts agree with jsonschema 4.26 on all 27
-// schemas); the error model is mapped back to jsonschema's (required
+// validation semantics (OQ3: verdicts agree with jsonschema 4.26 on the
+// embedded schema set); the error model is mapped back to jsonschema's
+// (required
 // expansion, $ref/allOf unwrapping, file-order tie-break) and messages are
 // re-rendered with the ported jsonschema templates.
 func Validate(data Value, name string, maxErrors int) error {
@@ -161,7 +162,8 @@ func toAny(v Value) any {
 	case Int:
 		if v.Big != "" {
 			// v6 cannot see *big.Int; the float64 approximation keeps the
-			// integer/number verdicts (the 27 schemas' bounds are small)
+			// integer/number verdicts (the embedded schemas' bounds are
+			// small)
 			f, err := strconv.ParseFloat(v.Big, 64)
 			if err != nil {
 				return f

@@ -223,6 +223,17 @@ func transition(campaign *state.Campaign, findingID, toStatus, reason string,
 			// accepted no-op (the pointer is what the operator asked for).
 			return finding, nil
 		}
+		if recorded == "" {
+			// A legacy row: DUPLICATE status with no recorded pointer (the
+			// retired twin wrote such rows). The merge refusal must not read
+			// "already merged into " with an empty hole — name what the row
+			// actually is.
+			return validation.VNull(), &DuplicateTargetInvalid{Msg: fmt.Sprintf(
+				"%s is a DUPLICATE with no merge target on record (a legacy "+
+					"row that predates --of); reopen it first (DUPLICATE -> "+
+					"HYPOTHESIS) before merging into %s", findingID,
+				opts.duplicateOf)}
+		}
 		return validation.VNull(), &DuplicateTargetInvalid{Msg: fmt.Sprintf(
 			"%s is already merged into %s; reopen it first (DUPLICATE -> "+
 				"HYPOTHESIS) before merging into %s", findingID, recorded,

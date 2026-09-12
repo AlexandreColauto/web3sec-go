@@ -63,10 +63,13 @@ func supersedeCmd(root string, args []string, r *Runner) error {
 			fmt.Fprint(r.Out, supersedeHelp)
 			return nil
 		case a == "--of" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			oldID, haveOld = args[i+1], true
+			// trimmed at the parse layer, the way `move --of` trims: the
+			// recorded pointer must not carry spelling whitespace
+			oldID, haveOld = strings.TrimSpace(args[i+1]), true
 			i++
 		case strings.HasPrefix(a, "--of="):
-			oldID, haveOld = strings.TrimPrefix(a, "--of="), true
+			oldID, haveOld = strings.TrimSpace(
+				strings.TrimPrefix(a, "--of=")), true
 		case a == "--of":
 			return t14ArgparseErr(supersedeUsage, "supersede",
 				"argument --of: expected one argument")

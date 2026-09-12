@@ -762,6 +762,43 @@ func TestMoveOfFlagsTheGuard(t *testing.T) {
 	}
 }
 
+// TestMoveOfTrimsTheValue: the merge pointer is trimmed at the parse layer —
+// a spelled-around id (`--of " F-… "`) lands as the bare id, and a blank
+// value is the targetless refusal (the transition layer's TrimSpace blank
+// check), never a ghost-target error about a whitespace "finding".
+func TestMoveOfTrimsTheValue(t *testing.T) {
+	c, root := t15Campaign(t, "move-of-trim")
+	fid := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	tid := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	code, _, errS := run(t, "--root", root, "move", c.CampaignID, fid,
+		"DUPLICATE", "--reason", "same root cause as the sibling",
+		"--of", "  "+tid+"  ")
+	if code != 0 {
+		t.Fatalf("trimmed merge exit %d: %q", code, errS)
+	}
+	f, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != tid {
+		t.Fatalf("duplicate_of = %q, want the trimmed %q", of, tid)
+	}
+	// negative control: a whitespace-only --of is a MISSING target, refused
+	// with the targetless message — not a ghost-target error
+	f2 := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	code, _, errS = run(t, "--root", root, "move", c.CampaignID, f2,
+		"DUPLICATE", "--reason", "same root cause as the sibling",
+		"--of", "   ")
+	if code != 2 {
+		t.Fatalf("blank --of exit %d, want 2: %q", code, errS)
+	}
+	want := "move failed: move to DUPLICATE must name the duplicate of " +
+		"(--of <finding-id>)\n"
+	if errS != want {
+		t.Fatalf("stderr\n%q\nwant\n%q", errS, want)
+	}
+}
+
 // TestMoveReopenDuplicate: DUPLICATE -> HYPOTHESIS through the verb is the
 // operator's undo — the target is cleared, the evidence and history survive,
 // and every other exit from DUPLICATE stays illegal.

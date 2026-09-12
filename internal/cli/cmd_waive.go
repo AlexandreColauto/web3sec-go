@@ -10,7 +10,9 @@ import (
 	"strings"
 
 	"websec/internal/completion"
+	"websec/internal/pipeline"
 	"websec/internal/state"
+	"websec/internal/validation"
 )
 
 func runWaive(root string, args []string, r *Runner) int {
@@ -74,11 +76,22 @@ func runWaive(root string, args []string, r *Runner) int {
 	if len(pos) > 2 {
 		return r.fail(root, usageErrf("unrecognized arguments: %s", pos[2]))
 	}
+	stage := pos[1]
+	if !waiveStageKnown(stage) {
+		// A typo'd stage records a waiver row nothing ever consults — the
+		// proof stays red while `waive` reports success. Refused at exit 2
+		// naming the valid list (round-2 contract: a value the verb cannot
+		// use is refused, never silently recorded).
+		fmt.Fprintf(r.Err, "waive: %s is not a stage the waiver system "+
+			"reads — a waiver recorded there would satisfy nothing. Valid: "+
+			"%s\n", validation.PyReprStr(stage),
+			strings.Join(waiveStages(), ", "))
+		return 2
+	}
 	c, err := state.Open(root, pos[0])
 	if err != nil {
 		return r.withErr(root, func() error { return err })
 	}
-	stage := pos[1]
 	row, err := completion.Waive(c, stage, subject, reason, actor)
 	if err != nil {
 		return r.withErr(root, func() error { return err })
@@ -92,4 +105,27 @@ func init() {
 	register(command{ord: 54, name: "waive",
 		line: "waive <campaign> <stage> --reason R --actor A",
 		run:  runWaive})
+}
+
+// waiveCheckStages are the non-stage waiver rails the gate checks read:
+// each names a check-level escape hatch, not a pipeline stage (bounty.go's
+// waived() readers and the adversarial-game clause).
+var waiveCheckStages = []string{"adversarial-game", "accepted-risk",
+	"paid-exploitability", "immunization"}
+
+// waiveStages is the full vocabulary a waiver row can land on: the pipeline
+// stage ids (the completion proofs read them) plus the check rails.
+func waiveStages() []string {
+	out := append([]string{}, pipeline.StageIDs...)
+	return append(out, waiveCheckStages...)
+}
+
+// waiveStageKnown reports whether stage is one the waiver system reads.
+func waiveStageKnown(stage string) bool {
+	for _, s := range waiveStages() {
+		if s == stage {
+			return true
+		}
+	}
+	return false
 }

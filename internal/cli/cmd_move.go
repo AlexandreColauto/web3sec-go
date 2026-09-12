@@ -12,7 +12,9 @@ package cli
 // The flag is consumed ONLY by a move whose to_status is DUPLICATE (the merge
 // writes the dedup pointer; the reopen clears it without ever reading --of),
 // so anywhere else it is refused at exit 2, never silently dropped (round-2
-// contract: flags are never inert).
+// contract: flags are never inert). The value is trimmed at the parse layer —
+// the transition layer trims it for its own blank check, so the recorded
+// pointer must not carry spelling whitespace the checks never see.
 //
 // Error contract (cli.py cmd_move): IllegalTransition and ValueError are
 // printed by the HANDLER as `move failed: {e}` on stderr with exit 2 — NOT
@@ -110,12 +112,13 @@ func moveCmd(root string, args []string, r *Runner) error {
 				"argument --adjacent-clear: ignored explicit argument %s",
 				validation.PyReprStr(strings.TrimPrefix(a, "--adjacent-clear=")))
 		case a == "--of" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			duplicateOf, haveOf = args[i+1], true
+			duplicateOf, haveOf = strings.TrimSpace(args[i+1]), true
 			i++
 		case strings.HasPrefix(a, "--of="):
 			// even an empty value counts as the flag being passed: the
 			// route refusal below keys on presence, not on the value
-			duplicateOf, haveOf = strings.TrimPrefix(a, "--of="), true
+			duplicateOf, haveOf = strings.TrimSpace(
+				strings.TrimPrefix(a, "--of=")), true
 		case a == "--of":
 			return t14ArgparseErr(moveUsage, "move",
 				"argument --of: expected one argument")

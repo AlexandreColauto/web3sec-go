@@ -15,7 +15,7 @@
 #               (the module tree is not reachable from the cwd) and prove
 #               the embedded packs are served:
 #                 * `webv2 selftest`        -> build-sweep reports the
-#                                              embedded 28 schemas / stage
+#                                              embedded schemas / stage
 #                                              prompts / playbooks /
 #                                              archetypes (no `go build`
 #                                              branch, since no go.mod)
@@ -62,8 +62,16 @@ echo "ok: $BIN"
 
 step "2/4 static + standalone"
 file "$BIN"
-if ldd "$BIN" 2>&1 | grep -qv "not a dynamic executable"; then
-  ldd "$BIN" >&2
+# Static proof, robust to ldd's own noise: on a static Go binary some ldd
+# builds print a stderr warning line BESIDE the "not a dynamic executable"
+# verdict, so `grep -qv "not a dynamic executable"` (fail on any line that
+# is not the verdict) failed a perfectly static build whenever such a
+# warning appeared. Key on the dependency instead: a shared-library line
+# (`=> /lib/...` or `... .so`) is the failure; its absence — verdict line or
+# a silent ldd — is static.
+ldd_out="$(ldd "$BIN" 2>&1 || true)"
+if printf '%s\n' "$ldd_out" | grep -qE '=>|[[:space:]]\.so'; then
+  printf '%s\n' "$ldd_out" >&2
   fail "not a static binary"
 fi
 if go version -m "$BIN" 2>/dev/null | grep -q "CGO_ENABLED=0"; then

@@ -547,6 +547,68 @@ func TestRetargetDuplicateIsRefused(t *testing.T) {
 	}
 }
 
+// TestLegacyDuplicateWithoutPointerNamesIt: a DUPLICATE-status row with NO
+// recorded pointer (a legacy row that predates --of) used to render the
+// retarget refusal as "already merged into ; reopen it first ..." — an empty
+// hole where the target belongs. The refusal now names what the row actually
+// is, and still writes nothing.
+func TestLegacyDuplicateWithoutPointerNamesIt(t *testing.T) {
+	c := ingestCamp(t)
+	f, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fid := objStr(f, "finding_id")
+	tid := dupTargetIngest(t, c)
+	if _, err := TransitionWith(c, fid, "DUPLICATE", "the merge lands",
+		TransitionOpts{Actor: "cli", DuplicateOf: tid}); err != nil {
+		t.Fatal(err)
+	}
+	// Strip the pointer to manufacture the legacy shape the twin could
+	// leave on disk: DUPLICATE status, no dedup.duplicate_of key.
+	legacy, err := LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dedup := asDict(objAt(legacy, "dedup"))
+	kept := make([]validation.KV, 0, len(dedup.O))
+	for _, kvv := range dedup.O {
+		if kvv.K != "duplicate_of" {
+			kept = append(kept, kvv)
+		}
+	}
+	dedup.O = kept
+	legacy.O = validation.SetOrAppend(legacy.O, "dedup", dedup)
+	if err := SaveFinding(c, &legacy); err != nil {
+		t.Fatal(err)
+	}
+	other := dupTargetIngest(t, c)
+	before := len(eventTypesOf(t, c))
+	_, err = TransitionWith(c, fid, "DUPLICATE", "changed my mind",
+		TransitionOpts{Actor: "cli", DuplicateOf: other})
+	var di *DuplicateTargetInvalid
+	if !errors.As(err, &di) {
+		t.Fatalf("want DuplicateTargetInvalid, got %v", err)
+	}
+	if strings.Contains(err.Error(), "already merged into ") ||
+		!strings.Contains(err.Error(), "no merge target on record") ||
+		!strings.Contains(err.Error(), "reopen it first") ||
+		!strings.Contains(err.Error(), other) {
+		t.Fatalf("legacy retarget message = %q", err.Error())
+	}
+	// nothing was written
+	got, err := LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if of := objStr(objAt(got, "dedup"), "duplicate_of"); of != "" {
+		t.Fatalf("refused legacy retarget wrote duplicate_of %q", of)
+	}
+	if after := len(eventTypesOf(t, c)); after != before {
+		t.Fatalf("refused legacy retarget logged %d event(s)", after-before)
+	}
+}
+
 // Port of test_tier3_flag_never_auto_merges — the FINDING-FACING half.
 // PORT-NOTE: tests/test_findings.py drives this through dedup.run_dedup,
 // which is unported; flag_possible_duplicate is the exact function run_dedup
