@@ -377,3 +377,114 @@ func TestHarnessRunLineBoundKFallback(t *testing.T) {
 		})
 	}
 }
+
+// witnessProof is a minicertora proof sidecar carrying the L4 witness: the
+// verdict line's calls array (the shape minicertora's `_extract` prints)
+// alongside the sidecar's own scalar keys.
+func witnessProof(calls ...validation.Value) validation.Value {
+	return validation.VObj(
+		KV("tool_version", validation.VStr("0.4.2")),
+		KV("reason", validation.VStr("assertion-violated")),
+		KV("calls", validation.VArr(calls...)),
+	)
+}
+
+// witnessCall is one call entry of a bridged witness.
+func witnessCall(step int, sender string, reverted bool) validation.Value {
+	return validation.VObj(
+		KV("step", validation.VInt(int64(step))),
+		KV("function", validation.VStr("withdraw")),
+		KV("target",
+			validation.VStr("0x1111111111111111111111111111111111111111")),
+		KV("args", validation.VArr(validation.VStr("1000"))),
+		KV("env", validation.VObj(
+			KV("msg.sender", validation.VStr(sender)),
+			KV("msg.value", validation.VStr("0")))),
+		KV("reverted", validation.VBool(reverted)),
+		KV("reentrant", validation.VBool(false)),
+		KV("overrides", validation.VObj()),
+	)
+}
+
+// TestHarnessRunLineWitnessLabel pins the L4 suffix: a minicertora
+// counterexample whose proof sidecar carries a non-empty calls array names
+// the bridged call count; every other kind, rung, and witness-less sidecar
+// keeps the historical line byte-for-byte.
+func TestHarnessRunLineWitnessLabel(t *testing.T) {
+	const (
+		hexA = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+		hexB = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	)
+	tests := []struct {
+		name string
+		h    validation.Value
+		want string
+	}{{
+		"minicertora counterexample with a witness labels the bridge",
+		harnessProofObj("minicertora", "counterexample", "EXEC-9",
+			validation.VNull(), "counterexample: total >= before",
+			witnessProof(witnessCall(0, hexA, false),
+				witnessCall(1, hexB, true))),
+		"INV-1: counterexample (minicertora, EXEC-9) | poc: 2 calls bridged",
+	}, {
+		"the label is the length alone",
+		harnessProofObj("minicertora", "counterexample", "EXEC-9",
+			validation.VNull(), "counterexample: total >= before",
+			witnessProof(witnessCall(0, hexA, false),
+				witnessCall(1, hexB, false),
+				witnessCall(2, hexA, true))),
+		"INV-1: counterexample (minicertora, EXEC-9) | poc: 3 calls bridged",
+	}, {
+		"no proof sidecar stays plain",
+		harnessObj("minicertora", "counterexample", "EXEC-9",
+			validation.VNull(), "counterexample: total >= before"),
+		"INV-1: counterexample (minicertora, EXEC-9)",
+	}, {
+		"sidecar without calls stays plain",
+		harnessProofObj("minicertora", "counterexample", "EXEC-9",
+			validation.VNull(), "counterexample: total >= before",
+			validation.VObj(KV("reason", validation.VStr("assertion-violated")))),
+		"INV-1: counterexample (minicertora, EXEC-9)",
+	}, {
+		"empty calls array stays plain",
+		harnessProofObj("minicertora", "counterexample", "EXEC-9",
+			validation.VNull(), "counterexample: total >= before",
+			witnessProof()),
+		"INV-1: counterexample (minicertora, EXEC-9)",
+	}, {
+		"non-array calls stays plain",
+		harnessProofObj("minicertora", "counterexample", "EXEC-9",
+			validation.VNull(), "counterexample: total >= before",
+			validation.VObj(KV("calls", validation.VObj()))),
+		"INV-1: counterexample (minicertora, EXEC-9)",
+	}, {
+		"halmos counterexample stays plain",
+		harnessProofObj("halmos", "counterexample", "EXEC-3",
+			validation.VNull(), "counterexample: assert failed",
+			witnessProof(witnessCall(0, hexA, true))),
+		"INV-1: counterexample (halmos, EXEC-3)",
+	}, {
+		"minicertora inconclusive stays plain",
+		harnessProofObj("minicertora", "inconclusive", "EXEC-9",
+			validation.VNull(), "inconclusive (exit output unmapped)",
+			witnessProof(witnessCall(0, hexA, true))),
+		"INV-1: inconclusive (minicertora, EXEC-9)",
+	}, {
+		"minicertora proved-bounded stays plain",
+		harnessProofObj("minicertora", "proved-bounded", "EXEC-9",
+			validation.VInt(4), "proved bounded (k=4)",
+			witnessProof(witnessCall(0, hexA, true))),
+		"INV-1: PROVEN-BOUNDED (minicertora, k=4, EXEC-9)",
+	}}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := harnessRunLine("INV-1", harnessEntry(tc.h))
+			if !ok {
+				t.Fatalf("harnessRunLine ok=false, want true")
+			}
+			if got != tc.want {
+				t.Fatalf("line = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

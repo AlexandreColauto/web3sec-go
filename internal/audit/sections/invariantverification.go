@@ -84,6 +84,13 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 // uppercase label is proved-bounded's alone; counterexample and
 // inconclusive stay lowercase. ok=false when the entry carries no
 // well-formed harness object (kind, rung and exec are all required).
+//
+// A minicertora counterexample whose proof sidecar carries a non-empty
+// calls array additionally says so: " | poc: <n> calls bridged" (L4 — the
+// witness a fork can replay). That suffix is a pure derivation from the
+// stored sidecar's length: the audit never re-derives the sequence spec
+// (harness.BridgeSequence owns that), and the label claims the witness
+// EXISTS, not that it has been replayed.
 func harnessRunLine(iid string, e validation.Value) (string, bool) {
 	h := objAt(objAt(e, "verification"), "harness")
 	if h.Kind != validation.Obj {
@@ -93,24 +100,50 @@ func harnessRunLine(iid string, e validation.Value) (string, bool) {
 	if kind == "" || rung == "" || exec == "" {
 		return "", false
 	}
-	if rung == "proved-bounded" {
+	var line string
+	switch {
+	case rung == "proved-bounded":
 		if k, ok := harnessBoundK(h); ok {
-			return fmt.Sprintf("%s: PROVEN-BOUNDED (%s, k=%s, %s)",
-				iid, kind, k, exec), true
+			line = fmt.Sprintf("%s: PROVEN-BOUNDED (%s, k=%s, %s)",
+				iid, kind, k, exec)
+		} else {
+			line = fmt.Sprintf("%s: PROVEN-BOUNDED (%s, %s)", iid, kind,
+				exec)
 		}
-		return fmt.Sprintf("%s: PROVEN-BOUNDED (%s, %s)", iid, kind,
-			exec), true
-	}
 	// A minicertora inconclusive run that actually disposed of a reason
 	// names its next action inline; the plumbing floors (no verdict line
 	// at all) and every other kind keep the historical plain line.
-	if kind == string(harness.MiniCertora) && rung == harness.RungInconclusive {
+	case kind == string(harness.MiniCertora) &&
+		rung == harness.RungInconclusive:
 		if class, advice, ok := harness.Disposition(objStr(h, "summary")); ok {
-			return fmt.Sprintf("%s: %s (%s, %s) | next: %s (%s)",
-				iid, rung, kind, exec, advice, class), true
+			line = fmt.Sprintf("%s: %s (%s, %s) | next: %s (%s)",
+				iid, rung, kind, exec, advice, class)
+		} else {
+			line = fmt.Sprintf("%s: %s (%s, %s)", iid, rung, kind, exec)
+		}
+	default:
+		line = fmt.Sprintf("%s: %s (%s, %s)", iid, rung, kind, exec)
+	}
+	if kind == string(harness.MiniCertora) &&
+		rung == harness.RungCounterexample {
+		if n, ok := proofCallCount(h); ok {
+			line += fmt.Sprintf(" | poc: %d calls bridged", n)
 		}
 	}
-	return fmt.Sprintf("%s: %s (%s, %s)", iid, rung, kind, exec), true
+	return line, true
+}
+
+// proofCallCount is the witness's call count: the proof sidecar's calls
+// array when it is a non-empty array. ok=false when the sidecar carries
+// no such array — a halmos/forge-fuzz entry has no proof sidecar at all,
+// and an unattributed or witness-less minicertora line keeps its
+// historical bytes.
+func proofCallCount(h validation.Value) (int, bool) {
+	c := objAt(objAt(h, "proof"), "calls")
+	if c.Kind != validation.Arr || len(c.A) == 0 {
+		return 0, false
+	}
+	return len(c.A), true
 }
 
 // harnessBoundK is the line's k text: bounded_k when it is an integer,
