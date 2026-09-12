@@ -427,3 +427,93 @@ func TestInitRequiresProgram(t *testing.T) {
 		t.Fatalf("exit = %d, want 2", code)
 	}
 }
+
+// ---- splitRoot: --root > WEBV2_ROOT > walk-up > "." ------------------------
+
+// TestSplitRootWalkUp (Task 7b): without --root, the default root is the
+// nearest ancestor carrying a campaigns/ directory — unless $WEBV2_ROOT names
+// one, which wins over the walk.
+func TestSplitRootWalkUp(t *testing.T) {
+	dir := t.TempDir()
+	nested := filepath.Join(dir, "a", "b", "c")
+	if err := os.MkdirAll(filepath.Join(dir, "campaigns"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WEBV2_ROOT", "")
+	if got := resolveRoot(nested); got != dir {
+		t.Errorf("walk-up = %q, want %q", got, dir)
+	}
+	t.Setenv("WEBV2_ROOT", nested)
+	if got := resolveRoot(nested); got != nested {
+		t.Errorf("env root = %q, want %q", got, nested)
+	}
+}
+
+// TestResolveRootBoundsTheWalk: at most 5 levels up are climbed, a tree with
+// no campaigns/ anywhere keeps today's "." default, and an empty
+// $WEBV2_ROOT is "unset" (it must not become a root of "").
+func TestResolveRootBoundsTheWalk(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "campaigns"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	near := filepath.Join(dir, "l1", "l2", "l3", "l4")
+	deep := filepath.Join(near, "l5", "l6")
+	if err := os.MkdirAll(deep, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WEBV2_ROOT", "")
+	if got := resolveRoot(near); got != dir {
+		t.Errorf("4 levels up = %q, want %q", got, dir)
+	}
+	if got := resolveRoot(deep); got != "." {
+		t.Errorf("6 levels up = %q, want %q (the walk is bounded)", got, ".")
+	}
+	// A tree with no campaigns/ ancestor: "." (today's behavior).
+	empty := filepath.Join(t.TempDir(), "x", "y")
+	if err := os.MkdirAll(empty, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := resolveRoot(empty); got != "." {
+		t.Errorf("no workspace = %q, want %q", got, ".")
+	}
+	t.Setenv("WEBV2_ROOT", "")
+	if got := resolveRoot(deep); got != "." {
+		t.Errorf("empty env must fall through to the walk: %q", got)
+	}
+}
+
+// TestSplitRootPrecedence: --root beats the env, the env beats the walk, and
+// the walk-up is not consulted when either is set.
+func TestSplitRootPrecedence(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "campaigns"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	env := t.TempDir()
+	t.Setenv("WEBV2_ROOT", env)
+	root, rest := splitRoot([]string{"--root", dir, "status", "C-0000000000"})
+	if root != dir {
+		t.Errorf("--root value = %q, want %q (the flag wins)", root, dir)
+	}
+	if strings.Join(rest, " ") != "status C-0000000000" {
+		t.Errorf("rest = %v", rest)
+	}
+	root, rest = splitRoot([]string{"status", "--root=" + dir, "C-0000000000"})
+	if root != dir {
+		t.Errorf("--root= value = %q, want %q", root, dir)
+	}
+	if strings.Join(rest, " ") != "status C-0000000000" {
+		t.Errorf("rest = %v", rest)
+	}
+	root, rest = splitRoot([]string{"status", "C-0000000000"})
+	if root != env {
+		t.Errorf("default root = %q, want the env %q", root, env)
+	}
+	if strings.Join(rest, " ") != "status C-0000000000" {
+		t.Errorf("rest = %v", rest)
+	}
+}

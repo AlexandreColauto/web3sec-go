@@ -209,23 +209,65 @@ func helpUsageText(cmd string) string {
 	return "usage: webv2 " + cmd + " [-h] " + rest + "\n"
 }
 
+// rootWalkUpLevels bounds the ancestor walk: at most this many parents above
+// cwd are inspected for a campaigns/ directory.
+const rootWalkUpLevels = 5
+
+// resolveRoot resolves the default root when no --root flag was given:
+// $WEBV2_ROOT wins outright, else the nearest ancestor of cwd (cwd itself
+// included) carrying a campaigns/ directory within rootWalkUpLevels levels,
+// else "." — today's behavior, the workspace is right here (or nothing is,
+// and the error handler's workspace hint does the explaining).
+//
+// The operator complaint this answers: `webv2 status` from a subdirectory of
+// the workspace said "no such campaign" (plus a hint to cd back up), when the
+// workspace was an ancestor the whole time.
+func resolveRoot(cwd string) string {
+	if env := os.Getenv("WEBV2_ROOT"); env != "" {
+		return env
+	}
+	dir := cwd
+	for i := 0; i <= rootWalkUpLevels; i++ {
+		if isDir(filepath.Join(dir, "campaigns")) {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break // filesystem root: nothing left to climb
+		}
+		dir = parent
+	}
+	return "."
+}
+
 // splitRoot pulls --root/--root=DIR out of argv (leading or trailing;
-// the trailing form is an accepted superset of cli.py). Default ".".
+// the trailing form is an accepted superset of cli.py). Default: resolveRoot
+// (--root > $WEBV2_ROOT > ancestor walk-up > ".").
 func splitRoot(argv []string) (string, []string) {
-	root := "."
+	root := ""
+	haveRoot := false
 	var rest []string
 	for i := 0; i < len(argv); i++ {
 		a := argv[i]
 		if a == "--root" && i+1 < len(argv) {
 			root = argv[i+1]
+			haveRoot = true
 			i++
 			continue
 		}
 		if strings.HasPrefix(a, "--root=") {
 			root = strings.TrimPrefix(a, "--root=")
+			haveRoot = true
 			continue
 		}
 		rest = append(rest, a)
+	}
+	if !haveRoot {
+		cwd, err := os.Getwd()
+		if err != nil {
+			cwd = "."
+		}
+		root = resolveRoot(cwd)
 	}
 	return root, rest
 }
