@@ -146,6 +146,62 @@ func TestReconGateForeignStamp(t *testing.T) {
 	}
 }
 
+// rewritePrescreenArtifact rewrites the prescreen artifact the way an
+// operator moving files between campaigns would — the artifacts directory is
+// operator-writable, and that is exactly the copy-and-hope cheat the FIX-E
+// binding must catch.
+func rewritePrescreenArtifact(t *testing.T, c *state.Campaign,
+	mutate func(validation.Value) validation.Value) {
+	t.Helper()
+	p := filepath.Join(c.ArtifactsDir, "archetype_prescreen.json")
+	rep, err := validation.ReadJson(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validation.WriteJson(p, mutate(rep), ""); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestReconGateForeignPrescreen pins the FIX-E binding symmetry: the sinks
+// half refuses a foreign-campaign stamp, so the prescreen half must too. A
+// prescreen artifact naming another campaign is refused with the rerun
+// command; a pre-binding artifact (no campaign_id) stays accepted — its
+// snapshot_id binding is its whole evidence.
+func TestReconGateForeignPrescreen(t *testing.T) {
+	c := newCampaign(t, "recon-foreign-pre")
+	reconOnRecord(t, c)
+	rewritePrescreenArtifact(t, c, func(rep validation.Value) validation.Value {
+		rep.O = validation.SetOrAppend(rep.O, "campaign_id",
+			validation.VStr("C-othercampaign"))
+		return rep
+	})
+	err := checkReconStamps(c)
+	if err == nil {
+		t.Fatal("foreign-campaign prescreen accepted")
+	}
+	msg := err.Error()
+	for _, want := range []string{
+		"C-othercampaign", c.CampaignID,
+		"webv2 prescreen " + c.CampaignID + " --src SRC",
+	} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("refusal missing %q:\n%s", want, msg)
+		}
+	}
+	if strings.Contains(msg, "webv2 sinks "+c.CampaignID) {
+		t.Errorf("refusal demands the sinks run that is on record:\n%s", msg)
+	}
+
+	// a pre-binding artifact — the fixtures every pre-FIX-E test seeds —
+	// carries no campaign_id and stays accepted
+	c2 := newCampaign(t, "recon-legacy-pre")
+	reconOnRecord(t, c2)
+	if err := checkReconStamps(c2); err != nil {
+		t.Fatalf("pre-binding prescreen refused: %v", err)
+	}
+}
+
 // TestReconGateSameTreeAssumption: when both verbs stamped their src, the
 // sinks run must have seen the tree the prescreen saw — the attestation
 // reconciles divergence rows both recon runs read together. Matching trees

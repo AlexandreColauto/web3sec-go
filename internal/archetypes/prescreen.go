@@ -64,7 +64,7 @@ func Prescreen(c *state.Campaign, snapshotRoot string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	report := prescreenReport(idx, results, matched, forcedCount, problems)
+	report := prescreenReport(c, idx, results, matched, forcedCount, problems)
 	report, err = appendCorpusSurface(c, report)
 	if err != nil {
 		return validation.VNull(), err
@@ -146,10 +146,18 @@ func runArchetypes(idx validation.Value, available []string,
 }
 
 // prescreenReport is the artifact body (before the corpus-surface section).
-func prescreenReport(idx validation.Value, results []validation.Value,
-	matched []string, forcedCount int64, problems []string) validation.Value {
+// campaign_id (FIX-E) binds the artifact to the campaign it ran under — the
+// same binding the recon stamps carry — so the L-04 divergence gate can
+// refuse a prescreen copied from another campaign's artifacts directory, not
+// only a stale one. The property is optional in every consumer that reads
+// this artifact (briefing reads matched_ids), so pre-binding artifacts stay
+// readable.
+func prescreenReport(c *state.Campaign, idx validation.Value,
+	results []validation.Value, matched []string, forcedCount int64,
+	problems []string) validation.Value {
 	return validation.VObj(
 		validation.KV{K: "generated_at", V: validation.VStr(nowIso())},
+		validation.KV{K: "campaign_id", V: validation.VStr(c.CampaignID)},
 		validation.KV{K: "snapshot_id", V: objAt(idx, "snapshot_id")},
 		validation.KV{K: "results", V: validation.VArr(results...)},
 		validation.KV{K: "matched_ids", V: strArr(matched)},

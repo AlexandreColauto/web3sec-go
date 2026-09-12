@@ -109,9 +109,10 @@ type answeredGateOut struct {
 }
 
 // runAnsweredGates is the ONE gate runner behind both MarkAnswered and the
-// batch pre-flight: lookup → checkAnchorless → checkSentinelPassesRow →
-// checkCitedRecords → resolveAnchor → the deferred-consequence gate (FIX-5) →
-// the dismissal gate. Structural sharing, not a parity
+// batch pre-flight: lookup → checkConsequenceFlags → checkAnchorless →
+// checkSentinelPassesRow → checkPassesValue (FIX-E's always-on --passes
+// floor) → checkCitedRecords → resolveAnchor → the deferred-consequence gate
+// (FIX-5) → the dismissal gate. Structural sharing, not a parity
 // comment: a new gate added here applies to both callers, so the pre-flight
 // cannot drift from apply. dry selects the recording gates' dry form —
 // checkDismissalGateInner(..., dry=true), the sentinel rule's override arm
@@ -154,6 +155,21 @@ func runAnsweredGates(campaign *state.Campaign, plan validation.Value,
 	if err := checkSentinelPassesRow(campaign, priorityID, outcome, prov,
 		hasProv, opts, dry); err != nil {
 		return out, err
+	}
+	// FIX-E, round-3 chief item 5: a supplied --passes is never inert. The
+	// sentinel gate above refuses on the rows it covers (its refusal names
+	// the row's own symbols); everywhere that gate stands down — a
+	// non-sentinel probe row, a plain priority, a non-closing status, a row
+	// the surface no longer resolves — the SAME plausibility floor still
+	// applies when the flag was supplied, so junk cannot be recorded
+	// verbatim and a short value cannot be silently dropped by
+	// closePriority. Both paths share passesPlausible, so they can never
+	// disagree about what a plausible value is.
+	if opts.PassesValue != nil {
+		if err := checkPassesValue(campaign, priorityID, prov, hasProv,
+			opts); err != nil {
+			return out, err
+		}
 	}
 	// Shape before policy: whether the citation is the RIGHT one (does this
 	// --ref really name the anchor field it claims?) is a question about what

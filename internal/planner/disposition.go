@@ -530,6 +530,49 @@ func invariantRegistered(campaign *state.Campaign, id string) bool {
 // disposition of such a row has to name the value that DOES pass the check.
 // ---------------------------------------------------------------------------
 
+// checkPassesValue is FIX-E's always-on half of the --passes rule: whenever
+// the flag is supplied — on any priority, any status, sentinel row or not —
+// the value is shape-validated through the SAME plausibility floor the
+// sentinel gate uses (passesPlausible), so the two paths cannot disagree
+// about what a plausible value is. It runs AFTER checkSentinelPassesRow, so
+// the sentinel gate's row-symbol refusal keeps firing on the rows it covers;
+// this is the backstop on every route that gate stands down. A short value
+// is a REFUSAL naming the >= 3 floor, never closePriority's silent drop;
+// junk is refused naming the legal shapes. The value is read against the row
+// the disposition points at where one resolves (the citation shape needs
+// it); elsewhere the literal shapes and the junk lexicon are still enforced.
+func checkPassesValue(campaign *state.Campaign, priorityID string,
+	prov validation.Value, hasProv bool, opts AnsweredOpts) error {
+	if opts.PassesValue == nil {
+		return nil
+	}
+	v := strings.TrimSpace(*opts.PassesValue)
+	var row validation.Value
+	if hasProv {
+		if surface, err := PB().CampaignSurface(campaign); err == nil &&
+			surface != nil {
+			row, _ = findRow(*surface, objStr(prov, "row_id"))
+		}
+	}
+	if passesPlausible(row, v) {
+		return nil
+	}
+	head := "priority " + priorityID + ": --passes " +
+		validation.PyReprStr(*opts.PassesValue) + " "
+	if len(v) < 3 {
+		return errValue(head + "is below the 3-character floor a passing " +
+			"value has to clear — a placeholder is not a value the closure " +
+			"record can re-check: name the value that passes the row's " +
+			"check, or drop --passes")
+	}
+	return errValue(head + "is not a plausible value for the check — " +
+		"either quote something the row's own surface entry names, or give " +
+		"a concrete literal the closure record can re-check (a decimal " +
+		"integer, a hex number or Ethereum-style address 0x…, " +
+		"bytes32(0x…), a boolean, or an honest quoted string) — or drop " +
+		"--passes")
+}
+
 // checkSentinelPasses is the B4 v3 rule: a closing disposition of a
 // sentinel-guarded row (own_form=sentinel) must name the value that passes
 // the check. Existence of an assertion is not correctness; the disposition
@@ -584,20 +627,38 @@ func checkSentinelPasses(row validation.Value, outcome string,
 		"--override-reason R)")
 }
 
+// junkPassesValues is the FIX-E junk lexicon, shared by both halves of the
+// --passes floor: bare junk and the quoted-string arm of the literal
+// alternation are held to the same standard, so `"TBD"` cannot smuggle the
+// value in under quotes (round-3 chief item 5, problem 1). Whole-value,
+// case-insensitive: an honest quoted literal that merely CONTAINS one of
+// these words ("3 days of unresolved withdrawals") stays legal.
+var junkPassesValues = map[string]bool{
+	"tbd": true, "n/a": true, "na": true, "none": true, "unknown": true,
+	"whatever": true, "asdf": true, "zzz": true, "xxx": true,
+	"foo": true, "bar": true, "baz": true,
+}
+
 // passesLiteralRe is the FIX-C literal half of the --passes plausibility
 // floor: the concrete, machine-checkable shapes a sentinel value may take
 // without naming a row symbol. A literal is trusted as a claimed value (see
-// checkSentinelPasses) — recorded, re-checkable, never evaluated here.
+// checkSentinelPasses) — recorded, re-checkable, never evaluated here. The
+// quoted-string arm is additionally excluded by junkPassesValues (see
+// passesPlausible): a quoted junk word is a placeholder, not a value.
 var passesLiteralRe = regexp.MustCompile(
 	`(?i)^(?:-?[0-9]+|0[xX][0-9a-fA-F]+|bytes32\(0[xX][0-9a-fA-F]{64}\)|` +
 		`true|false|"[^"]+"|'[^']+')$`)
 
-// passesPlausible is the --passes floor: a value is plausible when it names a
-// symbol on the row's own surface entry (case-insensitive substring, the
-// namesSymbol muscle) or is a concrete literal (passesLiteralRe). The >= 3
-// length floor is the caller's; a row with no symbols at all stays closable
-// through the literal shapes — an unclosable row would be worse than an
-// unverified one.
+// passesPlausible is the --passes floor, the ONE check both consumers share
+// (FIX-E problem 2): the sentinel gate's acceptance and the always-on
+// validation of a --passes supplied anywhere else must never disagree about
+// what a plausible value is. A value is plausible when it names a symbol on
+// the row's own surface entry (case-insensitive substring, the namesSymbol
+// muscle), is a concrete literal (passesLiteralRe, junk-quoted forms
+// excluded), or — on a row that names no symbols at all — is any honest
+// literal; the >= 3 length floor is the caller's. A row with no symbols at
+// all stays closable through the literal shapes — an unclosable row would be
+// worse than an unverified one.
 func passesPlausible(row validation.Value, v string) bool {
 	v = strings.TrimSpace(v)
 	if len(v) < 3 {
@@ -606,7 +667,17 @@ func passesPlausible(row validation.Value, v string) bool {
 	if namesSymbol(v, RowSymbols(row)) != "" {
 		return true
 	}
-	return passesLiteralRe.MatchString(v)
+	if !passesLiteralRe.MatchString(v) {
+		return false
+	}
+	// The quoted arms pass the regex by shape; a quoted junk word is
+	// refused with the bare forms (the lexicon is whole-value, so a quoted
+	// sentence that contains a junk word is untouched).
+	quoted := len(v) >= 2 && (v[0] == '"' || v[0] == '\'') && v[len(v)-1] == v[0]
+	if quoted && junkPassesValues[strings.ToLower(v[1:len(v)-1])] {
+		return false
+	}
+	return true
 }
 
 // checkSentinelPassesRow is the closure-seam half: it resolves the surface row

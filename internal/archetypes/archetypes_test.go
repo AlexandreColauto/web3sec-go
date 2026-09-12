@@ -555,3 +555,27 @@ func strSlice(v validation.Value) []string {
 	}
 	return out
 }
+
+// TestPrescreenArtifactCarriesCampaignID pins the FIX-E binding: the
+// prescreen artifact carries the campaign id it ran under (the same binding
+// the recon stamps carry), so the L-04 divergence gate can refuse a prescreen
+// copied from another campaign's artifacts directory — not only a stale one.
+func TestPrescreenArtifactCarriesCampaignID(t *testing.T) {
+	c, root := treeCampaign(t)
+	rep, err := Prescreen(c, root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := objStr(rep, "campaign_id"); got != c.CampaignID {
+		t.Fatalf("report campaign_id = %q, want %q", got, c.CampaignID)
+	}
+	// the on-disk artifact carries it too
+	disk, err := validation.ReadJson(filepath.Join(c.ArtifactsDir,
+		PrescreenFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := objStr(disk, "campaign_id"); got != c.CampaignID {
+		t.Fatalf("artifact campaign_id = %q, want %q", got, c.CampaignID)
+	}
+}

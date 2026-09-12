@@ -15,8 +15,13 @@ package planner
 // evidence — the prescreen's snapshot_id against the campaign's active pin,
 // each stamp's campaign id against the campaign being closed, and the two
 // verbs' src against each other (one attestation, one tree) — because a
-// stamp nobody binds is a stamp anybody can claim. The refusal names the
-// exact runnable commands; there is no escape hatch, because recon is cheap.
+// stamp nobody binds is a stamp anybody can claim. FIX-E closes the binding
+// symmetry the C round left open: the prescreen ARTIFACT now carries its
+// campaign id (the verb writes it), so a prescreen copied from another
+// campaign's artifacts directory is refused exactly the way a foreign sinks
+// stamp is — even when no snapshot pin exists to catch it. The refusal names
+// the exact runnable commands; there is no escape hatch, because recon is
+// cheap.
 
 import (
 	"path/filepath"
@@ -71,6 +76,18 @@ func checkReconStamps(campaign *state.Campaign) error {
 			"snapshot "+sid+", not the active pin "+*active+" — re-pinning "+
 			"invalidated it, and an attestation over rows a stale prescreen "+
 			"never saw is prose")
+		commands = append(commands, prescreenCmd)
+	} else if cid := prescreenCampaignOnRecord(campaign); cid != "" &&
+		cid != campaign.CampaignID {
+		// FIX-E binding symmetry: the sinks half refuses a foreign-campaign
+		// stamp; the prescreen half must do the same. The artifact carries
+		// its campaign id since FIX-E (prescreen writes it); one without it
+		// is a pre-binding artifact and stays accepted — the snapshot_id
+		// binding above is its whole evidence — a copy from another
+		// campaign's artifacts directory is not.
+		missing = append(missing, "the archetype prescreen on record names "+
+			"campaign "+cid+", not this campaign ("+campaign.CampaignID+
+			") — the artifact was not run here")
 		commands = append(commands, prescreenCmd)
 	}
 	// sinks half: the stamp must exist, name the tree and the clock it ran
@@ -129,6 +146,24 @@ func checkReconStamps(campaign *state.Campaign) error {
 		"recon is cheap by design: run the owed recon over the " +
 		"campaign's source tree, then re-attest:\n  " +
 		strings.Join(commands, "\n  "))
+}
+
+// prescreenCampaignOnRecord reads the prescreen artifact's campaign_id (the
+// FIX-E binding the verb itself writes): "" when the artifact carries none —
+// a pre-binding artifact, whose staleness binding above is its whole
+// evidence — so absence stays accepted and only a FOREIGN id refuses.
+// Comment on the limit: the artifact, like the state file, is
+// operator-writable; gates stop laziness, not forgery.
+func prescreenCampaignOnRecord(campaign *state.Campaign) string {
+	p := filepath.Join(campaign.ArtifactsDir, prescreenFile)
+	rep, err := validation.ReadJson(p)
+	if err != nil {
+		return ""
+	}
+	if cid := objAt(rep, "campaign_id"); cid.Kind == validation.Str {
+		return cid.S
+	}
+	return ""
 }
 
 // prescreenSnapshotOnRecord reads the prescreen artifact's snapshot_id: ""
