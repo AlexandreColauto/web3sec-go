@@ -203,6 +203,8 @@ that need them SKIP with a reason rather than fail without them:
 Step 9 is also daemon-free by design: the docker e2e tiers live in
 `scripts/p2-docker-e2e.sh` and are never part of the 13-step gate.
 
+
+Live runs also enforce the tool's line-shape law: verdict-bearing lines that match no real `cli.py` shape are excluded and named per line on stderr (loud partial, exit 0) — the grade can never be fabricated by a pasted or truncated line.
 ## Docs
 
 - `assets/runbook/RUNBOOK.md` — the operator runbook (a test: the D7
