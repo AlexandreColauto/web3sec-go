@@ -281,6 +281,42 @@ func TestVerifyHarnessResultBoundViolation(t *testing.T) {
 	}
 }
 
+// TestVerifyHarnessResultKilledStatus pins the cross-kind signal-death
+// gate: 128+N is the shell's death-by-signal convention, so a 137 (SIGKILL)
+// run never completed — its "Status: fail"/Counterexample bytes map to the
+// inconclusive timeout branch, never to the counterexample rung, and carry
+// no bound. The minicertora twin is
+// TestHarnessResultMinicertoraKilledStatus
+// (cmd_verify_minicertora_test.go); this row keeps the shared >=128 gate
+// from silently regressing for the prose kinds.
+func TestVerifyHarnessResultKilledStatus(t *testing.T) {
+	c, root := harnessCamp(t, "halmos", "")
+	execID := "EXEC-0000000013"
+	harnessExec(t, c, execID, harnessCounterStdout,
+		"halmos check --root . --loop 8 --match-contract Inv1InvariantHalmos",
+		map[string]string{"H.t.sol": harnessScaffoldSHA(t, c)}, 137)
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	if out != "INV-1: inconclusive (halmos, EXEC-0000000013)\n" {
+		t.Fatalf("stdout = %q, want the inconclusive print", out)
+	}
+	h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
+	if objStr(h, "rung") != "inconclusive" {
+		t.Fatalf("rung = %s, want the timeout branch (a killed run's "+
+			"bytes are partial by definition)", validation.CanonCompact(h))
+	}
+	if objStr(h, "summary") != "timeout after 8s" {
+		t.Fatalf("summary = %q, want the MapRun timeout wording",
+			objStr(h, "summary"))
+	}
+	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+		t.Fatalf("bounded_k = %s, want null", validation.CanonCompact(bk))
+	}
+}
+
 // TestVerifyHarnessResultWrongInvariant exits 2 and names the id.
 func TestVerifyHarnessResultWrongInvariant(t *testing.T) {
 	c, root := harnessCamp(t, "halmos", "")

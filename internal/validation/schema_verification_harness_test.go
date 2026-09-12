@@ -71,8 +71,9 @@ func TestVerificationHarnessRoundTrip(t *testing.T) {
 
 // TestVerificationHarnessProofSidecar pins the Task-4 schema extension:
 // verification.harness carries an OPTIONAL proof object (the minicertora
-// verdict sidecar). Every scalar is nullable, ghosts items are copied
-// verbatim (unconstrained), and additionalProperties:false still bites.
+// verdict sidecar). The key set and the promised shapes are what the
+// schema owns; every VALUE is copied verbatim from the prover's line, and
+// additionalProperties:false still bites (the rejection rows below).
 func TestVerificationHarnessProofSidecar(t *testing.T) {
 	inv := `{"id":"INV-1",` +
 		`"statement":"total assets must cover all outstanding shares",` +
@@ -91,16 +92,8 @@ func TestVerificationHarnessProofSidecar(t *testing.T) {
 	if err := Validate(v2, "protocol_model", 1); err != nil {
 		t.Fatalf("proof sidecar must validate: %v", err)
 	}
-	// A key the sidecar does not name is still rejected.
-	bad := `{"id":"INV-1",` +
-		`"statement":"s","severity_if_broken":"critical",` +
-		`"verification":{"harness":{"kind":"minicertora",` +
-		`"rung":"inconclusive","exec":"EXEC-7",` +
-		`"proof":{"bogus":1}}}}`
-	if err := Validate(mustParseHarness(t, harnessModelDoc(bad)),
-		"protocol_model", 1); err == nil {
-		t.Fatal("an unknown proof property must fail validation")
-	}
+	// The proof rejections (unknown key, fourth bounds key, scalar shape)
+	// are pinned by TestVerificationHarnessRejects below.
 }
 
 // TestVerificationHarnessProofNullArrays pins the mcArr contract in the
@@ -127,6 +120,37 @@ func TestVerificationHarnessProofNullArrays(t *testing.T) {
 	}
 }
 
+// TestVerificationHarnessProofVerbatimValues pins the final-review ruling:
+// the schema must stop contradicting the mapper's verbatim law. mcOr/
+// mcArr copy the prover's own report values as parsed
+// (internal/harness/minicertora.go; the mixed-kind assumptions row
+// [1,"two",null] is pinned by TestMapMinicertoraProofArraysVerbatim), so a
+// malformed tool value — a number in a version slot, a non-string caveat
+// item, a string where a bound integer was promised — must stay copyable
+// evidence and VALIDATE. The contract is the key set and the promised
+// shapes (arrays-or-null, bounds-or-null object), never the value types.
+func TestVerificationHarnessProofVerbatimValues(t *testing.T) {
+	inv := `{"id":"INV-1",` +
+		`"statement":"total assets must cover all outstanding shares",` +
+		`"severity_if_broken":"critical",` +
+		`"verification":{"harness":{"kind":"minicertora",` +
+		`"rung":"inconclusive","exec":"EXEC-7","bounded_k":null,` +
+		`"summary":"inconclusive (solver-timeout: x)","proof":{` +
+		`"tool_version":42,"solc_version":{"build":"0.8.36"},` +
+		`"spec_version":["v0.1"],"evm_version":false,` +
+		`"confidence":3.5,"reason":{"code":7},` +
+		`"bounds":{"loop_bound":"eight","path_cap":[1,2],` +
+		`"solver_timeout_ms":{"ms":null}},` +
+		`"assumptions":[1,"two",null],"warnings":[{"code":"w1"}],` +
+		`"ghosts":["nope",3]}}}}`
+	v := mustParseHarness(t, harnessModelDoc(inv))
+	v2 := mustParseHarness(t, CanonCompact(v))
+	if err := Validate(v2, "protocol_model", 1); err != nil {
+		t.Fatalf("verbatim (malformed-but-copyable) proof values must "+
+			"validate: %v", err)
+	}
+}
+
 func TestVerificationHarnessRejects(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -149,6 +173,35 @@ func TestVerificationHarnessRejects(t *testing.T) {
 			`,"verification":{"harness":{"kind":"halmos",` +
 				`"rung":"proved-bounded","exec":"EXEC-7","bounded_k":"100"}}`,
 			"bounded_k"},
+		// The verbatim ruling loosens VALUES, not the KEYS: an unknown
+		// proof key is still refused (additionalProperties:false).
+		{"unknown proof key",
+			`,"verification":{"harness":{"kind":"minicertora",` +
+				`"rung":"inconclusive","exec":"EXEC-7",` +
+				`"proof":{"bogus":1}}}`,
+			"bogus"},
+		// ...and so is a fourth key inside the fixed three-key bounds
+		// object, whatever its value's shape.
+		{"bounds fourth key",
+			`,"verification":{"harness":{"kind":"minicertora",` +
+				`"rung":"proved-bounded","exec":"EXEC-7",` +
+				`"proof":{"bounds":{"loop_bound":4,"path_cap":64,` +
+				`"solver_timeout_ms":30000,"loop_bound_exhaustive":true}}}}`,
+			"loop_bound_exhaustive"},
+		// The promised SHAPES still hold: an array-or-null slot may not
+		// be a scalar, and bounds may not be a scalar either. (mcArr
+		// renders such a tool value as null, so these never ship — but a
+		// hand-written sidecar is refused, not silently blessed.)
+		{"ghosts scalar",
+			`,"verification":{"harness":{"kind":"minicertora",` +
+				`"rung":"inconclusive","exec":"EXEC-7",` +
+				`"proof":{"ghosts":"not-a-list"}}}`,
+			"ghosts"},
+		{"bounds scalar",
+			`,"verification":{"harness":{"kind":"minicertora",` +
+				`"rung":"inconclusive","exec":"EXEC-7",` +
+				`"proof":{"bounds":7}}}`,
+			"bounds"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			inv := `{"id":"INV-1",` +

@@ -382,25 +382,25 @@
                   "proof": {
                     "type": "object",
                     "additionalProperties": false,
-                    "description": "minicertora verdict sidecar (an attributed JSONL line, copied verbatim); ABSENT for other kinds and for unattributed minicertora runs. Every scalar is nullable because the Go builder emits the full fixed key-set with null for absent fields (determinism over omission); the array slots are nullable too — a scalar where the tool promised a list is malformed input and the sidecar admits no schema-busting value.",
+                    "description": "minicertora verdict sidecar (an attributed JSONL line, copied verbatim); ABSENT for other kinds and for unattributed minicertora runs. The sidecar mirrors the prover's own report fields verbatim: the schema pins the key set and the shapes where promised (bounds is an object-or-null, assumptions/warnings/ghosts are arrays-or-null) but deliberately does NOT constrain value types, because a copy of malformed tool output must stay copyable evidence rather than a schema failure at write time. Verdict authority is the rung, not the sidecar.",
                     "properties": {
-                      "tool_version": { "type": ["string", "null"] },
-                      "solc_version": { "type": ["string", "null"] },
-                      "spec_version": { "type": ["string", "null"] },
-                      "evm_version": { "type": ["string", "null"] },
-                      "confidence": { "type": ["string", "null"] },
-                      "reason": { "type": ["string", "null"] },
+                      "tool_version": {},
+                      "solc_version": {},
+                      "spec_version": {},
+                      "evm_version": {},
+                      "confidence": {},
+                      "reason": {},
                       "bounds": {
                         "type": ["object", "null"],
                         "additionalProperties": false,
                         "properties": {
-                          "loop_bound": { "type": ["integer", "null"] },
-                          "path_cap": { "type": ["integer", "null"] },
-                          "solver_timeout_ms": { "type": ["integer", "null"] }
+                          "loop_bound": {},
+                          "path_cap": {},
+                          "solver_timeout_ms": {}
                         }
                       },
-                      "assumptions": { "type": ["array", "null"], "items": { "type": "string" } },
-                      "warnings": { "type": ["array", "null"], "items": { "type": "string" } },
+                      "assumptions": { "type": ["array", "null"] },
+                      "warnings": { "type": ["array", "null"] },
                       "ghosts": { "type": ["array", "null"] }
                     }
                   }

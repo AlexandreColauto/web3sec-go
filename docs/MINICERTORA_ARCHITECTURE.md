@@ -100,6 +100,36 @@ squash is nearly lossless, and the loss is recorded, not hidden.
   `Validate` re-renders the scaffold and rejects any byte outside the window
   that moved; the whole G8 law applies verbatim to a text artifact, which is
   the quiet win: no Solidity lexer needed).
+
+### Errata (post-landing, 2026-09-12)
+
+The core wave that landed MiniCertora shipped a **subset** of what L1, §2 L2,
+§3 and §8 draft, and the shipped spellings are the authoritative ones:
+
+- **Rule name.** The shipped scaffold pins `rule inv_<n>` — `snake()` of the
+  invariant id (`MspecRuleName`, `internal/harness/mspec.go:26`, rendered by
+  `scaffoldMspec` at `internal/harness/mspec.go:59`) — *not* the
+  `rule INV_<n>__<slug>` frame this section and §2 L2 ("the scaffold's
+  embedded `INV_<n>__…` name") and §3's data-contract row draft. Verdict-line
+  attribution keys on that exact snake name, and on nothing else.
+- **Artifact path and name.** The shipped artifact is
+  `artifacts/harness/INV-<n>/INV.mspec`, registered as
+  `HARNESS-INV-<n>-minicertora` (`internal/cli/cmd_verify.go:320` for the id,
+  `internal/cli/cmd_verify.go:328-330` for the filename and path) — *not* the
+  flat `artifacts/HARNESS-INV-7-minicertora.mspec` that §8's command line
+  shows.
+- **Unfilled body.** A fresh scaffold's BODY window is comment-only
+  (`DummyMspec`, `internal/harness/mspec.go:36`): a bare comment is the honest
+  "no rule body written yet" signal, not a runnable stub.
+- **Rule blocks only.** The core wave renders `rule` blocks; the
+  `invariant INV_<n>__<slug>() { assert …; }` skeleton L1 sketches above did
+  **not** land — it is deferred to the follow-on wave. Consequently §2 L2's
+  `proof.invariant_check` and §3's `invariant` object row have no shipped
+  producer yet.
+
+The design prose above is left standing: it records the intent this errata
+corrects, and the correction layer — not the prose — is the contract.
+
 - Scaffold rendering from the INV entry (`statement`, `kind`, source spans):
   - frame: `rule INV_<n>__<slug>(env e) {` + the snapshot lines the
     statement's referenced storage reads need + `BODY: require/assert pair
