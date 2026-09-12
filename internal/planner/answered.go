@@ -25,8 +25,9 @@ type AnsweredOpts struct {
 	PassesValue       *string
 	OverrideDismissal bool
 	OverrideReason    *string
-	// OverrideLogged is an OUT parameter: the dismissal gate sets it to true
-	// when it recorded a `probe.dismissal_overridden` for this closure. The
+	// OverrideLogged is an OUT parameter: the gates that record a
+	// `probe.dismissal_overridden` for this closure (the dismissal gate, and
+	// the sentinel rule's override arm) set it to true. The
 	// CLI prints that so the operator sees the override land instead of
 	// having to trust that it did; callers with no interest pass nil. See
 	// D1/B4 in docs/IMPROVEMENTS.md — G-01 was buried by a dismissal nobody
@@ -91,9 +92,10 @@ type answeredGateOut struct {
 // batch pre-flight: lookup → checkAnchorless → checkCitedRecords →
 // resolveAnchor → the dismissal gate. Structural sharing, not a parity
 // comment: a new gate added here applies to both callers, so the pre-flight
-// cannot drift from apply. dry selects the dismissal-gate form —
-// checkDismissalGateInner(..., dry=true) validates an override without
-// recording it (pre-flight), dry=false records it (apply). The single-row
+// cannot drift from apply. dry selects the recording gates' dry form —
+// checkDismissalGateInner(..., dry=true) and the sentinel rule's override arm
+// validate an override without recording it (pre-flight), dry=false records
+// it (apply). The single-row
 // event/apply semantics live in MarkAnswered, which is the only caller with
 // dry=false.
 func runAnsweredGates(campaign *state.Campaign, plan validation.Value,
@@ -118,8 +120,8 @@ func runAnsweredGates(campaign *state.Campaign, plan validation.Value,
 	// closure claims is safe; for a sentinel-guarded row that is not enough —
 	// the guard's own zero-check cannot express the truth of the value it
 	// guards, so the closure has to name the value that DOES pass it.
-	if err := checkSentinelPassesRow(campaign, outcome, prov, hasProv,
-		opts); err != nil {
+	if err := checkSentinelPassesRow(campaign, priorityID, outcome, prov,
+		hasProv, opts, dry); err != nil {
 		return out, err
 	}
 	// Shape before policy: whether the citation is the RIGHT one (does this

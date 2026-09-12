@@ -711,3 +711,262 @@ func TestDispositionLintSentinelRowOverride(t *testing.T) {
 		t.Errorf("passes = %q, want none (the override is the record)", got)
 	}
 }
+
+// lowSentinelFixture is the sentinel fixture with the row re-tuned to
+// tier 2 / gap 1 (not high-risk): the sentinel rule's override arm is
+// exercised on its own, without the dismissal gate — which records the same
+// event on a high-risk row — also firing.
+func lowSentinelFixture(t *testing.T) (*state.Campaign, string) {
+	t.Helper()
+	surface, index := maSurface(t)
+	found := false
+	for i, r := range listOf(*surface, "rows") {
+		if objStr(r, "row_id") != "81dfad6492" {
+			continue
+		}
+		found = true
+		r.O = validation.SetOrAppend(r.O, "tier", validation.VInt(2))
+		r.O = validation.SetOrAppend(r.O, "assertion_gap", validation.VInt(1))
+		r.O = validation.SetOrAppend(r.O, "own_form",
+			validation.VStr("sentinel"))
+		r.O = validation.SetOrAppend(r.O, "own_guard_text",
+			validation.VStr("root != bytes32(0)"))
+		listOf(*surface, "rows")[i] = r
+	}
+	if !found {
+		t.Fatal("fixture row 81dfad6492 is gone")
+	}
+	withProbes(t, probeEnv{surface: surface, index: index})
+	camp := newCampaign(t, "dg-sentinel-low")
+	if _, err := SavePlan(camp, deepCopy(t, maPlan(t,
+		"plan_probe_rows.json"))); err != nil {
+		t.Fatalf("seed plan: %v", err)
+	}
+	return camp, "81dfad6492"
+}
+
+// TestDispositionLintSentinelRowOverrideNeedsReason pins FIX-2: the sentinel
+// rule's escape hatch is the dismissal gate's logged override, never a bare
+// flag. A bare --override-dismissal — and one with a blank reason — is
+// refused with the row's risk shape in the head, leaving the priority
+// untouched and unpassed.
+func TestDispositionLintSentinelRowOverrideNeedsReason(t *testing.T) {
+	camp, rowID := lowSentinelFixture(t)
+
+	_, pid, err := plannerMarkAnsweredForTest(t, camp, rowID, "answered",
+		&AnsweredOpts{Anchor: strPtr("consumer"), OverrideDismissal: true})
+	if err == nil || !strings.Contains(err.Error(),
+		"--override-dismissal needs --override-reason") {
+		t.Fatalf("bare override must be refused, err = %v", err)
+	}
+	// the refusal mirrors the dismissal gate's wording: the head carries the
+	// priority, the probe row and its risk shape
+	if want := "priority " + pid + " (probe row " + rowID +
+		", tier 2, assertion_gap 1): --override-dismissal needs " +
+		"--override-reason"; !strings.Contains(err.Error(), want) {
+		t.Errorf("refusal = %q, want the head %q", err, want)
+	}
+	// the refusal is a decision that did not happen
+	prio := storedPriority(t, camp, rowID)
+	if got := objStr(prio, "status"); got != "open" {
+		t.Fatalf("refused closure changed the status to %q", got)
+	}
+	if objAt(prio, "passes").Kind != validation.Null {
+		t.Fatalf("refused closure recorded passes = %q",
+			objStr(prio, "passes"))
+	}
+
+	// negative control: a whitespace-only reason is not a justification
+	blank := "   "
+	_, _, err = plannerMarkAnsweredForTest(t, camp, rowID, "answered",
+		&AnsweredOpts{Anchor: strPtr("consumer"), OverrideDismissal: true,
+			OverrideReason: &blank})
+	if err == nil || !strings.Contains(err.Error(),
+		"--override-dismissal needs --override-reason") {
+		t.Fatalf("blank override reason must be refused, err = %v", err)
+	}
+
+	// a bare override on the non-sentinel rows of the same surface stays a
+	// no-op: the override answers a refusal, it is not a formality
+	_, _, err = plannerMarkAnsweredForTest(t, camp, rowID, "deprioritized",
+		&AnsweredOpts{Anchor: strPtr("consumer"), OverrideDismissal: true})
+	if err != nil {
+		t.Fatalf("non-closing outcome: %v", err)
+	}
+}
+
+// TestDispositionLintSentinelRowOverrideIsLogged pins the recorded half of
+// FIX-2: an override with a reason closes the row and logs exactly one
+// probe.dismissal_overridden with the same provenance the high-risk branch
+// records (row, tier, gap, actor, phrases, both reasons) — and the notice
+// out-param is set, so the CLI can announce it.
+func TestDispositionLintSentinelRowOverrideIsLogged(t *testing.T) {
+	camp, rowID := lowSentinelFixture(t)
+	why := "the owner confirmed the intended behavior in the spec"
+	reason := "no profit here"
+	logged := false
+	_, _, err := plannerMarkAnsweredForTest(t, camp, rowID, "answered",
+		&AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"),
+			OverrideDismissal: true, OverrideReason: &why,
+			Actor: "operator", OverrideLogged: &logged})
+	if err != nil {
+		t.Fatalf("override with reason must pass: %v", err)
+	}
+	if !logged {
+		t.Error("OverrideLogged not set — the override went unannounced")
+	}
+	prio := storedPriority(t, camp, rowID)
+	if got := objStr(prio, "status"); got != "answered" {
+		t.Fatalf("status = %q, want answered", got)
+	}
+	if objAt(prio, "passes").Kind != validation.Null {
+		t.Fatalf("passes = %q, want none (the override is the record)",
+			objStr(prio, "passes"))
+	}
+	evts, err := camp.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found []validation.Value
+	for _, e := range evts {
+		if objStr(e, "type") == "probe.dismissal_overridden" {
+			found = append(found, e)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("probe.dismissal_overridden events = %d, want exactly 1",
+			len(found))
+	}
+	data := objAt(found[0], "data")
+	if got := objStr(data, "row_id"); got != rowID {
+		t.Errorf("event row_id = %q, want %q", got, rowID)
+	}
+	if got := objAt(data, "tier").I; got != 2 {
+		t.Errorf("event tier = %d, want 2", got)
+	}
+	if got := objAt(data, "assertion_gap").I; got != 1 {
+		t.Errorf("event assertion_gap = %d, want 1", got)
+	}
+	if got := objStr(data, "actor"); got != "operator" {
+		t.Errorf("event actor = %q, want operator", got)
+	}
+	if got := objStr(data, "override_reason"); got != why {
+		t.Errorf("event override_reason = %q", got)
+	}
+	if got := objStr(data, "closed_reason"); got != reason {
+		t.Errorf("event closed_reason = %q", got)
+	}
+	if phrases := listOf(data, "phrases"); len(phrases) != 1 ||
+		phrases[0].S != "no profit" {
+		t.Errorf("event phrases = %v, want [no profit]", phrases)
+	}
+}
+
+// TestDispositionLintSentinelOverrideHighRiskIsOneEvent pins the one-event
+// law across the two gates: a HIGH-risk sentinel row overridden with a
+// dismissal-vocabulary reason would be recorded by BOTH the sentinel arm and
+// the dismissal gate (which runs after it with the same opts) — the closure
+// must carry exactly one probe.dismissal_overridden, in the high-risk
+// branch's shape.
+func TestDispositionLintSentinelOverrideHighRiskIsOneEvent(t *testing.T) {
+	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
+	camp, _, rowID := sentinelDispositionFixture(t)
+	reason := "liveness-only, the owner can revert"
+	why := "the owner confirmed the intended behavior in the spec"
+	logged := false
+	_, _, err := plannerMarkAnsweredForTest(t, camp, rowID, "answered",
+		&AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"),
+			OverrideDismissal: true, OverrideReason: &why,
+			Actor: "operator", OverrideLogged: &logged})
+	if err != nil {
+		t.Fatalf("override with reason must pass: %v", err)
+	}
+	if !logged {
+		t.Error("OverrideLogged not set — the override went unannounced")
+	}
+	prio := storedPriority(t, camp, rowID)
+	if got := objStr(prio, "status"); got != "answered" {
+		t.Fatalf("status = %q, want answered", got)
+	}
+	evts, err := camp.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found []validation.Value
+	for _, e := range evts {
+		if objStr(e, "type") == "probe.dismissal_overridden" {
+			found = append(found, e)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("probe.dismissal_overridden events = %d, want exactly 1",
+			len(found))
+	}
+	data := objAt(found[0], "data")
+	if got := objStr(data, "row_id"); got != rowID {
+		t.Errorf("event row_id = %q", got)
+	}
+	if got := objAt(data, "tier").I; got != 0 {
+		t.Errorf("event tier = %d, want 0", got)
+	}
+	if got := objAt(data, "assertion_gap").I; got != 4 {
+		t.Errorf("event assertion_gap = %d, want 4", got)
+	}
+	phrases := listOf(data, "phrases")
+	if len(phrases) != 2 || phrases[0].S != "liveness-only" ||
+		phrases[1].S != "owner can revert" {
+		t.Errorf("event phrases = %v, want [liveness-only owner can revert]",
+			phrases)
+	}
+	if got := objStr(data, "override_reason"); got != why {
+		t.Errorf("event override_reason = %q", got)
+	}
+}
+
+// TestDispositionLintSentinelOverrideDryRunRecordsNothing pins the pre-flight
+// half of FIX-2: the batch pre-flight validates the sentinel override but
+// records NOTHING, so a batch refused on a later row leaves the plan
+// byte-identical and zero events behind.
+func TestDispositionLintSentinelOverrideDryRunRecordsNothing(t *testing.T) {
+	camp, rowID := lowSentinelFixture(t)
+	plan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
+	before := batchPlanFiles(t, camp, plan)
+	pid := priorityIDForRow(t, plan, rowID)
+	anchor := "consumer"
+	_, err := MarkAnsweredBatch(camp, plan, []AnsweredRow{
+		{PriorityID: pid, Outcome: "answered",
+			Opts: AnsweredOpts{
+				Reason:            strPtr("no profit here"),
+				Anchor:            &anchor,
+				OverrideDismissal: true,
+				OverrideReason: strPtr("the owner confirmed the " +
+					"intended behavior in the spec"),
+			}},
+		{PriorityID: "Q-999", Outcome: "answered", Opts: AnsweredOpts{}},
+	}, "batch review of the queue")
+	if err == nil {
+		t.Fatal("a batch with an unknown trailing row must be refused")
+	}
+	if got := err.Error(); !strings.HasPrefix(got,
+		"answered: row 2 (Q-999):") {
+		t.Fatalf("refusal must name the unknown row: %q", got)
+	}
+	raw, err := os.ReadFile(filepath.Join(camp.ArtifactsDir,
+		"campaign_plan.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != before {
+		t.Fatal("refused batch mutated the plan file")
+	}
+	if evts := batchEventsOfType(t, camp,
+		"probe.dismissal_overridden"); len(evts) != 0 {
+		t.Fatalf("pre-flight must not record the override: %d events",
+			len(evts))
+	}
+	if evts := batchEventsOfType(t, camp,
+		"plan.priority_status"); len(evts) != 0 {
+		t.Fatalf("refused batch logged %d plan.priority_status events",
+			len(evts))
+	}
+}

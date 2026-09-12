@@ -375,3 +375,77 @@ func TestAnsweredDismissalGateOverride(t *testing.T) {
 		t.Fatalf("= spelling stdout = %q\nwant %q", out, want)
 	}
 }
+
+// TestAnsweredSentinelOverrideNeedsReason: the sentinel rule's escape hatch
+// is the logged override, not a bare flag. A bare --override-dismissal on a
+// sentinel-guarded row is refused with the priority untouched, and an
+// override with a reason closes it, announces itself, and records exactly
+// one probe.dismissal_overridden.
+func TestAnsweredSentinelOverrideNeedsReason(t *testing.T) {
+	// (1) bare override: refused, the priority is untouched
+	root := mkroot(t)
+	cid := initOne(t, root)
+	t14TestSeed(t, root, cid)
+	dgSeedProbeCampaign(t, root, cid)
+	dgSeedSentinelSurface(t, root, cid)
+	code, out, errS := run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason", "liveness-only", "--anchor", "consumer",
+		"--override-dismissal")
+	if code != 2 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if out != "" {
+		t.Fatalf("stdout = %q", out)
+	}
+	if !strings.Contains(errS,
+		"--override-dismissal needs --override-reason") {
+		t.Fatalf("stderr = %q, want the override-reason refusal", errS)
+	}
+	p := dgStoredPriority(t, root, cid, "Q-005")
+	if got := objStr(p, "status"); got != "open" {
+		t.Fatalf("refused closure changed the status to %q", got)
+	}
+	if objAt(p, "passes").Kind != validation.Null {
+		t.Fatalf("refused closure recorded passes = %q", objStr(p, "passes"))
+	}
+
+	// (2) override with a reason: closes, announces, one event
+	code, out, errS = run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason", "liveness-only", "--anchor", "consumer",
+		"--override-dismissal", "--override-reason",
+		"the operator accepts the risk in writing for this run",
+		"--actor", "operator")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if want := "  dismissal overridden: Q-005 logged as " +
+		"probe.dismissal_overridden (actor operator)\n" +
+		"Q-005: status -> answered (ref: Rollup.sol#L45) " +
+		"[anchor consumer]\n"; out != want {
+		t.Fatalf("stdout = %q\nwant %q", out, want)
+	}
+	evts := dgEventsOfType(t, root, cid, "probe.dismissal_overridden")
+	if len(evts) != 1 {
+		t.Fatalf("probe.dismissal_overridden events = %d, want 1", len(evts))
+	}
+	data := objAt(evts[0], "data")
+	if got := objStr(data, "row_id"); got != "81dfad6492" {
+		t.Errorf("row_id = %q", got)
+	}
+	if got := objAt(data, "tier").I; got != 0 {
+		t.Errorf("tier = %d, want 0", got)
+	}
+	if got := objAt(data, "assertion_gap").I; got != 4 {
+		t.Errorf("assertion_gap = %d, want 4", got)
+	}
+	if got := objStr(data, "actor"); got != "operator" {
+		t.Errorf("actor = %q, want operator", got)
+	}
+	if got := objStr(data, "override_reason"); got !=
+		"the operator accepts the risk in writing for this run" {
+		t.Errorf("override_reason = %q", got)
+	}
+	if got := objStr(data, "closed_reason"); got != "liveness-only" {
+		t.Errorf("closed_reason = %q", got)
+	}
+}

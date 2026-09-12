@@ -467,14 +467,14 @@ func checkSentinelPasses(row validation.Value, outcome string,
 // the disposition points at and applies the rule to it. A probe disposition
 // whose surface row cannot be resolved (no surface, or the row was re-emitted
 // away) is skipped — the anchor path reports that more usefully, and a row
-// nobody can look up must never become unclosable. An explicit dismissal
-// override passes the rule: the logged reason is the record of that decision.
-func checkSentinelPassesRow(campaign *state.Campaign, outcome string,
-	prov validation.Value, hasProv bool, opts AnsweredOpts) error {
+// nobody can look up must never become unclosable. The family escape hatch
+// (--override-dismissal) answers a refusal here under the dismissal gate's
+// own contract, never as a bare flag: the override carries its justification
+// and is recorded as probe.dismissal_overridden (see overrideSentinelPasses).
+func checkSentinelPassesRow(campaign *state.Campaign, priorityID,
+	outcome string, prov validation.Value, hasProv bool, opts AnsweredOpts,
+	dry bool) error {
 	if !hasProv || !inList(outcome, []string{"answered", "not-applicable"}) {
-		return nil
-	}
-	if opts.OverrideDismissal {
 		return nil
 	}
 	surface, err := PB().CampaignSurface(campaign)
@@ -488,5 +488,71 @@ func checkSentinelPassesRow(campaign *state.Campaign, outcome string,
 	if !ok {
 		return nil
 	}
-	return checkSentinelPasses(row, outcome, opts)
+	err = checkSentinelPasses(row, outcome, opts)
+	if err == nil || !opts.OverrideDismissal {
+		return err
+	}
+	return overrideSentinelPasses(campaign, priorityID, row,
+		objStr(prov, "row_id"), opts, dry)
+}
+
+// overrideSentinelPasses is the sentinel rule's override arm: the same
+// contract checkDismissalGateInner applies on a high-risk row — the override
+// carries its own justification, and the decision is recorded as
+// probe.dismissal_overridden with the same provenance (row, tier, gap,
+// actor, phrases, both reasons). dry (the batch pre-flight) validates the
+// justification but records nothing, so a refused batch leaves zero events
+// behind. One closure, one override event: on a HIGH-risk row the dismissal
+// gate — which runs after this gate in runAnsweredGates, with the same opts
+// — records the identical event, so the sentinel arm stays silent there and
+// lets it.
+func overrideSentinelPasses(campaign *state.Campaign, priorityID string,
+	row validation.Value, rowID string, opts AnsweredOpts, dry bool) error {
+	head := "priority " + priorityID + " (probe row " + rowID +
+		", tier " + strconv.FormatInt(rowInt(row, "tier"), 10) +
+		", assertion_gap " +
+		strconv.FormatInt(rowInt(row, "assertion_gap"), 10) + ")"
+	if opts.OverrideReason == nil ||
+		strings.TrimSpace(*opts.OverrideReason) == "" {
+		return errValue(head + ": --override-dismissal needs " +
+			"--override-reason — the justification is logged with the " +
+			"override (probe.dismissal_overridden)")
+	}
+	if HighRiskRow(row) && opts.Reason != nil {
+		// the dismissal gate records the event — see the comment above.
+		return nil
+	}
+	phrases := []string{}
+	if opts.Reason != nil {
+		phrases = DismissalHits(*opts.Reason)
+	}
+	phrasesV := validation.VArr()
+	for _, p := range phrases {
+		phrasesV.A = append(phrasesV.A, validation.VStr(p))
+	}
+	data := validation.VObj(
+		kv("row_id", validation.VStr(rowID)),
+		kv("tier", validation.VInt(rowInt(row, "tier"))),
+		kv("assertion_gap", validation.VInt(rowInt(row, "assertion_gap"))),
+		kv("actor", validation.VStr(actorOr(opts.Actor))),
+		kv("phrases", phrasesV),
+		kv("override_reason", validation.VStr(*opts.OverrideReason)),
+		kv("closed_reason", optStr(opts.Reason)),
+	)
+	if dry {
+		// Pre-flight: the override is valid, but recording it is the
+		// apply pass's job — a refused batch must leave zero events.
+		if opts.OverrideLogged != nil {
+			*opts.OverrideLogged = true
+		}
+		return nil
+	}
+	if _, err := campaign.Log("probe.dismissal_overridden", &priorityID,
+		&data); err != nil {
+		return err
+	}
+	if opts.OverrideLogged != nil {
+		*opts.OverrideLogged = true
+	}
+	return nil
 }
