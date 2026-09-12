@@ -561,3 +561,98 @@ statement syntax — and no golden campaign byte moved.
   the self-test proves the instrument and nothing about the prover, and that
   operator run is explicitly **not** a gate of this wave.
 
+## Real-run telemetry (2026-09-12)
+
+The operator's **first real evalsuite run** landed as `35b5dbb9`, raw artifacts
+under `docs/minicertora-eval/2026-09-12/` (one tool-line JSON for each of the 12
+cases that produced a tool line, `claim-sources.md`, the operator's
+`class-map.tsv`, `scorecard.json`). It is the operator half of the §L6b
+acceptance law and it is **data, not a gate move**.
+
+`scripts/minicertora-scorecard.py` over the 19 evalsuite cases (15 classes),
+joined through the operator `--class-map`, produced exactly these rows (TSV
+verbatim, reproduced from the committed `scorecard.json`):
+
+```
+class	cases	detected	proven_silence	refused	refusal_histogram
+access-control	2	0	0	1	rejected-feature=1
+authorization	1	1	0	0	-
+bridge-message	1	0	0	0	-
+cross-chain-replay	1	0	0	0	-
+donation	1	0	0	1	unsupported-feature=1
+dos-griefing	1	0	0	1	rejected-feature=1
+flash-loan	1	1	0	0	-
+liquidation-logic	1	0	0	0	-
+oracle-manipulation	1	0	0	0	-
+precision-rounding	1	0	0	1	rejected-feature=1
+reentrancy	3	0	0	0	-
+share-price-inflation	1	0	0	1	unsupported-feature=1
+signature-replay	1	0	0	0	-
+unchecked-external-call	2	0	0	1	rejected-feature=1
+upgrade-initializer	1	0	0	1	rejected-feature=1
+```
+
+Totals: **19 cases, 2 detected, 0 proven_silence, 7 refused**, 10 cases in
+neither state. The two detections are both `assertion-violated` counterexamples
+(`authorization` ES02GovernanceOwnable/`setowner_keeps_owner`,
+`flash-loan` ES13FlashLoanSpot/`flashloan_free`); the seven refusals are five
+`rejected-feature` (string-literal aborts + `unsupported-type`/`packed-storage`
+loader rejections) and two `unsupported-feature` (rules with no call). The 10
+neither-state cases are the instrument working as specified, not silent
+failures: 7 tied no tool line at all (reentrancy ×3, cross-chain-replay,
+signature-replay, liquidation-logic, unchecked-external-call ES19), one tied a
+`solver-timeout` (escalate-solver — deliberately not a refusal class), one tied
+a `malformed-spec` (spec-rewrite), and one is the ES17 clean control whose tied
+line is PROVEN (`deposit_never_wraps`), which `proven_silence` never counts. The
+operator's reading of that clean control is recorded here: the claim authored
+for it (a `total`-monotonic property, per `claim-sources.md`'s ES17 twins) is
+TRUE of that donation sink, so even the PROVEN is an honest negative about the
+*claim* rather than evidence of prover power — which is also why
+`proven_silence` is 0 rather than a false negative.
+
+Findings of record from the run:
+
+- **Tool vocabulary — no new codes.** The five reason codes the run stored
+  (`assertion-violated`, `malformed-spec`, `rejected-feature`, `solver-timeout`,
+  `unsupported-feature`) were all already rows of §L3's table, so the closed set
+  stays **25**. The two names that looked new are the tool's FEATURE half, not
+  codes: `unsupported-type:<Contract>.<field>` and the string-literal abort's
+  `rejected-feature: `-prefixed text both ride a `rejected-feature` reason
+  (`spec/parser.py` raises `SpecUnsupported(..., reason="rejected-feature")`;
+  `frontend/artifacts.py` files loader problems under LoaderError's
+  `rejected-feature` default). `internal/harness/disposition.go` carries the
+  long-form note and `disposition_test.go` pins the live shapes and a guard that
+  feature names are never reason codes.
+- **Mapping reads are call-argument-only.** `st[key]` parses in call-argument
+  position only; in a `require`/`assert` lvalue the spec is `malformed-spec` (7
+  first-round rejections in this run). Donation-style claims are expressible only
+  through post-state requirements or free-mint analogues; the ES11b
+  semantic-preserving twin probe was inconclusive and was NOT scored.
+- **String literals abort the whole document, rule-lessly.** Any Solidity string
+  literal in the contract (`require(x, "msg")`) yields
+  `rejected-feature: string literal in an expression is out of scope` on a
+  rule-less envelope, which is why the instrument joins it by file stem and why
+  a rule-keyed bucket cannot see it.
+- **`with { msg.value = x; }` works; a bare payable call binds zero value**
+  (corpus-pinned), which is the channel §L4's bridge relies on for value-bearing
+  witnesses.
+- **§L5 — the baked-identifier deferral is now evidence-backed.** The seven
+  template bodies bake state identifiers from the corpus vocabulary (`role`,
+  `nominated`, `balanceOf`, `total`); a read of the evalsuite sources shows the
+  evalsuite contracts **do not use that vocabulary at all** — none of the four
+  names is a state variable in any of the 19 contracts (`total` occurs once, in
+  a comment) — so a seeded body meets its match in the wild as a name the
+  contract does not own, and that surfaces only at run time as a loader or
+  unknown-symbol refusal. The run's own refusals are the same class of event
+  (`unsupported-type:GovernanceQueueDoS.targets`,
+  `packed-storage:ImplNoInitializer.initialized`): a name the authored claim
+  used, refused at load time rather than at authoring time. The M-1
+  runtime-surfacing deferral (IMPROVEMENTS queue item 5) is therefore no longer
+  hypothetical; this run is its citation.
+- **The operator-gate law stands, verbatim and unchanged:** *"no minicertora
+  rung moves any gate until an operator has run this scorecard on the REAL
+  evalsuite with the REAL tool"*. One 12-case local run with hand-authored claims
+  does not discharge it: gate moves still need a backtest verdict per G3. What
+  this run buys is a measured reach profile (2 detections, 7 refusals, 10
+  neither-state cases) and a verified tool vocabulary — not an acceptance.
+

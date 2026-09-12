@@ -2991,31 +2991,95 @@ moved. Landing notes in §9 of that doc.
   that run is operator-side (it needs the binary) and is not a gate of this
   wave; the self-test proves the instrument only.
 
-**Wave L-system — DEFERRALS queue (named, not forgotten).**
-1. **Wire `harness.Validate` into the run path** (I1 from the T4 review): the
-   outside-the-BODY-window byte law is enforced only *when Validate runs*, and
-   `verify --harness-result` binds by exec-record input hash today — so the
-   tamper-to-tampered-hash path is not caught at that gate (pre-existing for
-   halmos/forge frames too).
-2. **The remaining archetype templates** beyond the four landed (§L5 names
-   donation-accounting, cap-respected and privilege-escalation as further
-   members).
-3. **Value-bearing witness handling** (`env` `msg.value`) **and
-   `final_assertions` translation** in the fork wave: the bridge pins scalars
-   and env overrides only, and returns an empty `final_assertions` array by
-   design.
-4. **`model_gaps` reason histograms as planner memory** (L3 full form): the
-   audit line remains the gap surface; the tally is not built.
-5. **T2 template minors** — M-2: uppercase/underscore template names fall
-   through silently to the plain skeleton (a RUNBOOK clause, or an optional CLI
-   warning, is the cheap fix); M-1: template bodies bake state identifiers that
-   surface only at run time; M-3/M-4/M-5 (no trailing-junk row, no CLI-level
-   template pin, report +3/+4 off-by-one) stay recorded in the task-2 report.
-6. **Scorecard tier-2 defensive path**: joining on a `contract` with no `rule`
-   is exercised by construction only; also carried, the T5 N3 nit (an
-   unreachable check in `audit_lines`' ABORT branch).
-7. **Fork-wave consumption of the bridge**: `BridgeSequence` is consumed by its
-   tests only — emitting `.seq.json` from a CLI counterexample is the seam.
+**Wave L-system — DEFERRALS queue (named, not forgotten).** *Wave L-defer
+(`8b89f96d..35b5dbb9`, 2026-09-12) closed 1–4; 5–7 stand, each with its reason.*
+1. **CLOSED** (`8b89f96d`, fix round `66395b50`): `harness.Validate` now runs on
+   the `verify --harness-result` rail — inside the hash-bound branch first, then
+   (fix round) on the unbound arm too — so a filled artifact whose
+   outside-the-BODY-window bytes no longer match the CURRENT claim is refused as
+   `scaffold-degraded: <reason>` (rung inconclusive, no `proof` key, exit 0).
+   Failure order is the documented one: hash-bind first (WHICH bytes ran), then
+   Validate (those bytes vs the current claim); in-window edits still map
+   normally. Still open from the T1/T1-fix reports, none of them the deferral
+   itself: the exec-terminalize / pre-commit artifact hook (Validate rides only
+   the `--harness-result` rail), `scaffoldDegradedReason` stores only the short
+   reason class, and the unbound arm cannot tell whether the run used the file
+   at all (the exec side records no harness-file hashes).
+2. **CLOSED** (`20c5a8d7`): the library is at **seven** template names
+   (`wrap-unchecked`, `rounding-drain`, `access-control-mint`, `tx-origin-auth`,
+   `privilege-escalation`, `unchecked-callback`, `value-transfer-accounting`),
+   the three new bodies adapted from the vendored corpus specs;
+   `tx-origin-auth` ≡ `access-control-mint`, so seven names carry six distinct
+   bodies. `donation-accounting` and `cap-respected` stay out with their reasons
+   written down (no corpus ground-truth spec; an `invariant:` scaffold, not a
+   rule body) — the RUNBOOK sentence names all seven plus those two
+   dispositions. T2 also disclosed a premise repair (two more corpus targets
+   vendored to back the new bodies; corpus census eight→ten).
+3. **CLOSED, both halves** (`01e91ed9` value; `c8e2a299` `final_assertions` via
+   layout map): sequence_poc steps carry an OPTIONAL `value` (wei literal —
+   schema pattern, bridge refusal for anything unparseable, driver threads it
+   into the call), and `BridgeSequenceWithLayout` translates concrete final
+   storage into `final_assertions` through an explicit `<Contract>.<var>` → slot
+   map, with absent-name/symbolic values SKIPPED rather than guessed (the `n of
+   m` honesty line lives in the docstring). `BridgeSequence` keeps today's
+   behavior byte-for-byte (empty array; nil layout).
+4. **CLOSED** (`35c7e56a`, plus the wave's closing nit `f60a5601`): the audit
+   renders ONE derived line — `prover refusals (minicertora): <n> —
+   <class>:<count>…; top reasons: <code>×<n>` — walking the campaign's stored
+   harness records via `proof.reason`, falling back to
+   `harness.Disposition(summary)`, presence-gated so a halmos-only or
+   no-refusal campaign emits nothing. (`f60a5601` is the tail nit on the T3
+   value pattern — an uppercase `0X` prefix is refused, never silently parsed.)
+5. **OPEN — template runtime-state-identifier surfacing** (T2 M-1/M-2): the
+   bodies bake state identifiers (`role`, `nominated`, `balanceOf`, `total`)
+   that surface only at run time as a loader/unknown-symbol refusal, and an
+   uppercase/near-miss template name still falls through to the plain skeleton
+   (RUNBOOK clause + byte-pin; no CLI warning). **Now evidence-backed:** the
+   first real evalsuite run checked the other half — none of those four names is
+   a state variable in ANY of the 19 evalsuite contracts (`total` occurs once, in
+   a comment), so a seeded body meets its match in the wild as a name the
+   contract does not own — see the L-eval record below.
+6. **OPEN — scorecard tier-2 defensive path**: joining on a `contract` with no
+   `rule` is exercised by construction only (the real run joined through
+   `--class-map`, so tier 2 is still unexercised), and the T5 N3 nit (an
+   unreachable check in `audit_lines`' ABORT branch) is still carried.
+7. **OPEN — fork-wave consumption of the bridge**: `BridgeSequence` /
+   `BridgeSequenceWithLayout` are consumed by their tests only — emitting
+   `.seq.json` from a CLI counterexample (and supplying the solc layout map the
+   harness does not own) is the fork wave's seam.
+
+**Wave L-eval (operator) — first real evalsuite scorecard run, LANDED
+2026-09-12** (`35b5dbb9`; raw data `docs/minicertora-eval/2026-09-12/`).
+The operator half of the §L6b acceptance law was finally exercised: 19
+evalsuite cases across 15 classes, scored by `scripts/minicertora-scorecard.py`
+with an operator-written `--class-map` and hand-authored claims. **detected 2**
+(`authorization` ES02GovernanceOwnable/`setowner_keeps_owner` and `flash-loan`
+ES13FlashLoanSpot/`flashloan_free`, both `assertion-violated`), **refused 7**
+(5 `rejected-feature`: the string-literal aborts plus the `unsupported-type` and
+`packed-storage` loader rejections; 2 `unsupported-feature`: the `donation` and
+`share-price-inflation` rules that have no call at all), **proven_silence 0** —
+including the clean control (ES17CleanControl/`deposit_never_wraps` PROVEN),
+where the operator's own reading is that the authored claim (`total`
+monotonically non-decreasing) is simply TRUE for that donation sink, so the
+PROVEN is an honest negative about the CLAIM and not prover power. The other 10
+cases scored nothing: 7 tied no tool line at all (reentrancy ×3,
+cross-chain-replay, signature-replay, liquidation-logic, unchecked-external-call
+ES19), one tied a `solver-timeout` (escalate-solver — deliberately not a refusal
+class), one tied a `malformed-spec` (spec-rewrite), and the clean control's
+PROVEN is by construction not a count. Three tool-capability findings are now
+facts of record: **(a)** mapping reads (`st[key]`) parse ONLY in call-argument
+position — in a `require`/`assert` lvalue they are `malformed-spec` (7
+first-round rejections); **(b)** a Solidity string literal anywhere in the
+contract (`require(x, "msg")`) makes the tool abort rule-lessly as
+`rejected-feature: string literal in an expression is out of scope` (a rule-less
+envelope, so it joins by file stem and lands in the unmapped-by-rule bucket);
+**(c)** `with { msg.value = x; }` overrides work (corpus-pinned) while a bare
+payable call binds zero value. **The operator-gate law STILL stands, unchanged:**
+one 12-case local run with hand-written claims is data, not acceptance — no
+minicertora rung moves any gate until a backtest verdict exists per G3. What
+this run buys is a measured reach profile (2 detections, 7 refusals, 10 silent
+cases) and a verified tool vocabulary, not a gate verdict; the instrument
+itself (`--self-test`) is unchanged and still the only thing the wave gates on.
 
 *Rename note: parked as **Wave K** (items J1–J4 → K1–K4) because Wave J's own
 letters were spent by the close-out wave that shipped first. The rename is the
