@@ -31,6 +31,13 @@ type Kind string
 const (
 	Halmos    Kind = "halmos"
 	ForgeFuzz Kind = "forge-fuzz"
+	// MiniCertora is the G8 third kind: a bounded SMT verifier run
+	// against a .mspec rule (docs/MINICERTORA_ARCHITECTURE.md L0-L2).
+	// Its scaffold is text, not Solidity — the BODY markers are
+	// "//" comments, which the shipped .mspec grammar ignores
+	// (spec/grammar.lark COMMENT), so BodyRegion/Validate carry over
+	// unchanged.
+	MiniCertora Kind = "minicertora"
 )
 
 // BODY markers. Exact, plain ASCII, each on its own line. The model writes
@@ -177,7 +184,7 @@ func caml(s string) string {
 // the ONLY variable content is the invariant data itself (id, statement,
 // source); field emission order is fixed in the code below.
 func Scaffold(k Kind, inv validation.Value) ([]byte, error) {
-	if k != Halmos && k != ForgeFuzz {
+	if k != Halmos && k != ForgeFuzz && k != MiniCertora {
 		return nil, fmt.Errorf("harness: unknown kind %q", string(k))
 	}
 	id, err := invID(inv)
@@ -192,6 +199,13 @@ func Scaffold(k Kind, inv validation.Value) ([]byte, error) {
 	sn := snake(id)
 	if sn == "" {
 		return nil, fmt.Errorf("harness: invariant %q has no name characters", id)
+	}
+	// MiniCertora renders .mspec text, not Solidity: it owns a separate
+	// renderer so the two byte laws cannot be edited against each other.
+	// The guards above (id, statement, name characters) are shared and
+	// therefore run BEFORE this branch for every kind alike.
+	if k == MiniCertora {
+		return scaffoldMspec(sn, stmt, inv), nil
 	}
 	cn := caml(id)
 	var b strings.Builder
