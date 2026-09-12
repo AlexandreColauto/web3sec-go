@@ -1,8 +1,11 @@
-# tie_key -> case_id  (tie_key is a result line's `rule` OR its `contract`;
-# this is the join the REAL evalsuite needs, which carries no contract/rule id)
+# tie_key -> case_id.  tie_key is the ONE key a result line offers, per the
+# scorecard's three-tier join ladder: the line's `rule`, else its `contract`
+# (report lines and undecided envelopes), else — for a rule-less, contract-less
+# whole-target refusal envelope — the stem of the results file it landed in,
+# i.e. the `<Contract>.jsonl` naming convention (`results/Packed.jsonl`).
 tie_key	case_id
 add_never_wraps	CASE-000000000101
 total_monotone	CASE-000000000102
 no_overflow	CASE-000000000103
-Ownable	CASE-000000000104
-mint_guard	CASE-000000000105
+setOwner_onlyOwner	CASE-000000000104
+Packed	CASE-000000000105

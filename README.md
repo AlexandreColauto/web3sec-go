@@ -128,7 +128,7 @@ docs/LEANNESS_REVIEW.md  the port-scaffolding removal plan (wave F)
 | RUNBOOK walkthrough | `scripts/runbook-walkthrough.sh` | every runbook command, documented exit code |
 | real containers | `scripts/p2-docker-e2e.sh` | docker exec (pass+fail) + anvil sequence end to end, plus the four `WEBV2_DOCKER_TESTS=1` package e2e tiers |
 | legacy compatibility | `scripts/verify-full.sh` step 9 | Go reads a reference-written campaign, all 14 rendered sections clean (15 registered; `eval` is presence-gated) |
-| prover scorecard | `python3 scripts/minicertora-scorecard.py --self-test` | the L6b instrument parses tool lines, joins them to evalsuite cases, and reproduces its pinned fixture rows byte-for-byte |
+| prover scorecard | `python3 scripts/minicertora-scorecard.py --self-test` | the L6b instrument parses tool lines, joins them to evalsuite cases, and reproduces its pinned fixture rows byte-for-byte (plus a shape audit of every fixture line) |
 | release | `scripts/release.sh` | static binary, embedded assets, standalone |
 
 ### Prover scorecard (L6b, operator-run)
@@ -140,24 +140,34 @@ class — `class  cases  detected  proven_silence  refused  refusal_histogram`
 (`--json` for objects; exit 0 means "the scorecard ran", not "the prover is good"):
 
 ```bash
-# 1. run the sweep + verify chain, collect the report lines into a results dir
-#    (one JSON object per line, e.g. `... --format json >> results/run.jsonl`)
+# 1. run the sweep + verify chain, collect each target's report lines into the
+#    results dir as `results/<Contract>.jsonl` — one JSON object per line, in
+#    the order the tool printed it (`... --format json >> results/Packed.jsonl`).
+#    Name the file for the Solidity contract: a whole-target refusal envelope
+#    (`{"verdict","reason","details"}`, e.g. the packed-storage reject) carries
+#    no rule and no contract, so its FILE STEM is the only key that can join it
+#    to a case.  Write several targets' lines to one file only if you accept
+#    that a refusal envelope in it is unjoinable.
 # 2. score them.  The evalsuite carries no contract/rule id, so the operator
-#    supplies the join: a TSV of `tie_key<TAB>case_id`, where tie_key is a
-#    result line's rule or contract name.
+#    supplies the join: a TSV of `tie_key<TAB>case_id`, where tie_key is the one
+#    key a line offers — its rule, else its contract, else the results-file stem.
+#    A duplicate tie_key, or a case_id absent from cases.json, is a hard error.
 python3 scripts/minicertora-scorecard.py \
     --results results/ --cases assets/evalsuite/cases.json --class-map class-map.tsv
-# CI-free smoke: runs the pinned hand-made fixture and byte-compares its rows.
+# CI-free smoke: runs the pinned hand-made fixture and byte-compares its rows
+# and its line-shape audit.
 python3 scripts/minicertora-scorecard.py --self-test
 ```
 
 A case counts as **detected** when a tied line is `VIOLATED`, as
 **proven_silence** when it is a known-bad row whose tied lines are all `PROVEN`,
 and as **refused** when a tied line is `UNKNOWN` with an honest-refusal /
-tool-error / model-bug reason. **Law:** a template-seeded scaffold is starting
-content, never evidence — and no minicertora rung moves any gate until an
-operator has run this scorecard on the REAL evalsuite with the REAL tool. The
-self-test proves the instrument only; its rows are hand-made, not tool output.
+tool-error / model-bug reason — a tied whole-target refusal envelope counts as
+refused too, with its reason in the histogram. **Law:** a template-seeded
+scaffold is starting content, never evidence — and no minicertora rung moves any
+gate until an operator has run this scorecard on the REAL evalsuite with the
+REAL tool. The self-test proves the instrument only; its rows are hand-made
+(shape-audited against what `cli.py` can print), not a prover measurement.
 
 The audit registers **15** sections; the 15th, `eval` (Wave G4), is
 presence-gated — it renders only when the campaign's program matches the
