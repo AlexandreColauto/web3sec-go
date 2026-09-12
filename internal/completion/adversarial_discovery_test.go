@@ -5,8 +5,11 @@
 // through discovery with no clause and no complaint: the discovery
 // completion proof (the gate that closes the divergence era) now refuses to
 // report done until every live liveness finding carries the recorded
-// adversarial_game clause. Trigger is economic_impact.kind == "liveness"
-// alone — no prose heuristics; the waiver stage is the clause's own
+// adversarial_game clause. Trigger is findings.IsLivenessFinding — the same
+// shared predicate the bounty-gate check15 fires on (class in
+// LivenessClasses, or economic_impact.kind == "liveness", or a granted
+// liveness-terminal capability), so a chain-freeze-class finding with no
+// economic_impact object is caught too. Waiver stage is the clause's own
 // "adversarial-game", so one recorded decision covers every gate.
 package completion
 
@@ -65,11 +68,22 @@ func f7Ingest(t *testing.T, c *state.Campaign,
 }
 
 // f7IngestLiveness files a liveness-impact finding (economic_impact.kind ==
-// "liveness" — the exact FIX-7 trigger) with no adversarial_game clause.
+// "liveness") with no adversarial_game clause.
 func f7IngestLiveness(t *testing.T, c *state.Campaign) validation.Value {
 	t.Helper()
 	return f7Ingest(t, c, kv("economic_impact", validation.VObj(
 		kv("kind", validation.VStr("liveness")))))
+}
+
+// f7IngestFreeze files a chain-freeze-class finding with NO economic_impact
+// object — the shape the kind-only trigger let slip past discovery.
+func f7IngestFreeze(t *testing.T, c *state.Campaign) validation.Value {
+	t.Helper()
+	return f7Ingest(t, c, kv("root_cause", validation.VObj(
+		kv("class", validation.VStr("chain-freeze")),
+		kv("description", validation.VStr(
+			"the challenge window closes without a finalize path")),
+	)))
 }
 
 // f7ClauseMissing finds the missing[] entry that names fid.
@@ -131,6 +145,45 @@ func TestDiscoveryExitRefusesLivenessWithoutClause(t *testing.T) {
 		validation.CanonCompact(res); got != want {
 		t.Errorf("second evaluation differs (double fire?)\n got %s\nwant %s",
 			want, got)
+	}
+}
+
+// TestDiscoveryExitRefusesClassFreezeWithoutClause: a finding whose
+// root_cause.class is "chain-freeze" — with no economic_impact object at
+// all — owes the clause at the discovery exit, because IsLivenessFinding
+// (the shared check15 predicate) fires on the class. The refusal names the
+// exact same artifact and commands; it passes once the real setter records
+// the clause; a second evaluation renders identically (no double-fire).
+func TestDiscoveryExitRefusesClassFreezeWithoutClause(t *testing.T) {
+	c := f7Baseline(t)
+	f := f7IngestFreeze(t, c)
+	fid := objStr(f, "finding_id")
+	res := t35DiscoveryProof(t, c)
+	if isDone(t, res) {
+		t.Fatal("discovery exit must refuse a chain-freeze finding " +
+			"without its clause: " + validation.CanonCompact(res))
+	}
+	entry := f7Entry(t, res, fid)
+	if entry == "" {
+		t.Fatalf("missing does not name %s: %v", fid, missingOf(t, res))
+	}
+	for _, want := range []string{
+		"adversarial_game clause (who profits from the freeze)",
+		"webv2 adversarial-game " + c.CampaignID + " " + fid,
+		"webv2 waive " + c.CampaignID + " adversarial-game --subject " + fid,
+	} {
+		if !strings.Contains(entry, want) {
+			t.Errorf("entry missing %q:\n%s", want, entry)
+		}
+	}
+	if _, err := findings.SetAdversarialGame(c, fid, f7Who, f7Mech,
+		f7Inter); err != nil {
+		t.Fatal(err)
+	}
+	res = t35DiscoveryProof(t, c)
+	if !isDone(t, res) || f7Entry(t, res, fid) != "" {
+		t.Fatalf("discovery proof must pass once the clause is recorded: %s",
+			validation.CanonCompact(res))
 	}
 }
 
@@ -237,8 +290,8 @@ func TestDiscoveryExitWaiverClearsTheClause(t *testing.T) {
 
 // TestDiscoveryExitIgnoresNonLivenessAndGhosts: a finding without
 // economic_impact (the ghost/orphan shape) and one whose economic_impact
-// names no kind are both unaffected — the trigger is the recorded kind
-// alone.
+// names no kind are both unaffected — IsLivenessFinding has no other
+// trigger to fire on (no liveness class, no liveness terminal capability).
 func TestDiscoveryExitIgnoresNonLivenessAndGhosts(t *testing.T) {
 	c := f7Baseline(t)
 	f7Ingest(t, c) // no economic_impact at all

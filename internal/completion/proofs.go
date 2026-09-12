@@ -215,8 +215,11 @@ var livenessOwedStatuses = append(append([]string{}, OpenStatuses...),
 // not sufficient — the divergence gate must close too, and a live liveness
 // finding must carry its adversarial_game clause (who profits from the
 // freeze, how, and why the challenge path does not undo it) before the
-// divergence gate closes. The trigger is the recorded
-// economic_impact.kind == "liveness" alone — no prose heuristics.
+// divergence gate closes. The trigger is findings.IsLivenessFinding — the
+// same shared predicate the bounty-gate check15 fires on (a root_cause.class
+// in LivenessClasses, or economic_impact.kind == "liveness", or a granted
+// liveness-terminal capability) — no prose heuristics. It only refuses the
+// exit; recording stays the setter's job, so no event is duplicated.
 func proofDiscovery(c *state.Campaign) (validation.Value, error) {
 	plan, found, err := loadPlan(c)
 	if err != nil {
@@ -260,7 +263,7 @@ func proofDiscovery(c *state.Campaign) (validation.Value, error) {
 	}
 	agItems := []proofItem{}
 	for _, f := range live {
-		if objStr(objAt(f, "economic_impact"), "kind") != "liveness" {
+		if !findings.IsLivenessFinding(f) {
 			continue
 		}
 		deficits := findings.AdversarialGameDeficits(f)
