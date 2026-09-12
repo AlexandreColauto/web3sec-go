@@ -2,7 +2,8 @@ package harness
 
 // minicertora_test.go (Task 2): MapMinicertora's branch table — the three
 // verdict rungs, every refusal shape (abort line, no attributed line,
-// duplicate lines, report contradiction, malformed JSONL) and the proof
+// duplicate lines, report contradiction, malformed JSONL, no clean exit)
+// and the proof
 // sidecar's fixed key order. Fixtures are fabricated JSONL transcript
 // lines shaped after the documented MiniCertora verdict record; no prose
 // scraping is ever involved.
@@ -121,14 +122,24 @@ func TestMapMinicertora(t *testing.T) {
 			k: 4, hasK: true, proof: true,
 		},
 		{
-			// A negative exit_status means no process exit was
-			// recorded at all, so the contradiction rail is skipped
-			// and the line's verdict maps as usual: the timeout-wins
-			// law is the caller's (see the doc comment).
-			name: "negative exit skips contradiction", raw: mcProven,
-			exit: -1, rule: "inv_1", rung: RungProvedBounded,
-			summary: "proved bounded (k=4)", k: 4, hasK: true,
-			proof: true,
+			// No clean exit means no rung: a negative exit_status
+			// (or a missing one, which Task 4 wires as -2) refuses
+			// before the bytes are even read, so even a PROVEN
+			// line cannot promote. See the doc comment's
+			// fail-closed floor.
+			name: "PROVEN at -1 refused", raw: mcProven, exit: -1,
+			rule: "inv_1", rung: RungInconclusive,
+			summary: "inconclusive (exit output unmapped)",
+		},
+		{
+			name: "VIOLATED at -1 refused", raw: mcViolated, exit: -1,
+			rule: "inv_1", rung: RungInconclusive,
+			summary: "inconclusive (exit output unmapped)",
+		},
+		{
+			name: "PROVEN at -2 refused", raw: mcProven, exit: -2,
+			rule: "inv_1", rung: RungInconclusive,
+			summary: "inconclusive (exit output unmapped)",
 		},
 		{
 			name: "unmapped verdict",

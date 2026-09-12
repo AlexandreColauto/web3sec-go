@@ -11,15 +11,19 @@
 // exit-status/verdict disagreement and an unrecognised verdict all land
 // inconclusive. The proof sidecar is captured for the three verdict rungs
 // only (UNKNOWN included); every refusal returns a null sidecar rather
-// than a partial one.
+// than a partial one. That includes the report-contradiction refusal: an
+// attributed line that contradicts its own exit status loses the sidecar
+// too, because a prover that disagrees with itself gets zero trust and
+// its own output is not campaign evidence.
 //
-// Timeout law: it lives in the CALLER. `verify --harness-result` checks
-// harnessTimedOut and maps a killed run to inconclusive before this
-// function is ever invoked, so the timeout-wins rule is unchanged. A
-// negative exitStatus means no process exit was recorded at all, so this
-// mapper skips ONLY the contradiction check — with no exit there is
-// nothing to contradict — and still maps the attributed line's verdict.
-// That boundary is the caller contract's, not a second timeout rail.
+// Timeout law: it lives in the CALLER, but this mapper keeps its own
+// fail-closed floor. `verify --harness-result` checks harnessTimedOut and
+// maps a killed run to inconclusive before this function is ever invoked,
+// and Task 4 wires a missing/non-int exit_status as -2 straight in here.
+// A negative or absent exit status therefore maps to inconclusive
+// regardless of the output bytes — no clean exit, never a rung — and the
+// contradiction check keeps its positive-exit meaning (PROVEN 0,
+// VIOLATED 1, UNKNOWN 2).
 package harness
 
 import (
@@ -40,6 +44,10 @@ import (
 // duplicates an already attributed line decides the outcome.
 func MapMinicertora(raw []byte, exitStatus int, ruleName string) (rung,
 	summary string, proof validation.Value, boundedK *int) {
+	if exitStatus < 0 {
+		return RungInconclusive, "inconclusive (exit output unmapped)",
+			validation.VNull(), nil
+	}
 	verdict, obj, refusal, ok := mcAttributed(raw, ruleName)
 	if !ok {
 		return RungInconclusive, refusal, validation.VNull(), nil
@@ -52,8 +60,8 @@ func MapMinicertora(raw []byte, exitStatus int, ruleName string) (rung,
 	}
 	switch verdict {
 	case "PROVEN":
-		k, ok := mcIntAt(obj, "bounds", "loop_bound")
-		if !ok {
+		k, hasK := mcIntAt(obj, "bounds", "loop_bound")
+		if !hasK {
 			return RungProvedBounded, "proved bounded",
 				mcProof(obj), nil
 		}
