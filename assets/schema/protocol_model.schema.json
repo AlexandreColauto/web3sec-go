@@ -385,8 +385,9 @@
                     "required": ["tool_version", "solc_version",
                                  "spec_version", "evm_version",
                                  "confidence", "reason", "bounds",
-                                 "assumptions", "warnings", "ghosts"],
-                    "description": "minicertora verdict sidecar (an attributed JSONL line, copied verbatim); ABSENT for other kinds and for unattributed minicertora runs. The sidecar mirrors the prover's own report fields verbatim: the schema pins the key set and the shapes where promised (bounds is an object-or-null, assumptions/warnings/ghosts are arrays-or-null) but deliberately does NOT constrain value types, because a copy of malformed tool output must stay copyable evidence rather than a schema failure at write time. Verdict authority is the rung, not the sidecar.",
+                                 "assumptions", "warnings", "ghosts",
+                                 "invariant", "calls"],
+                    "description": "minicertora verdict sidecar (an attributed JSONL line, copied verbatim); ABSENT for other kinds and for unattributed minicertora runs. The sidecar mirrors the prover's own report fields verbatim: the schema pins the key set and the shapes where promised (bounds is an object-or-null, assumptions/warnings/ghosts/calls are arrays-or-null, invariant is an object-or-null) but deliberately does NOT constrain value types, because a copy of malformed tool output must stay copyable evidence rather than a schema failure at write time. The twelve-key set is fixed: a rule line carries invariant/calls as null rather than dropping them. Verdict authority is the rung, not the sidecar.",
                     "properties": {
                       "tool_version": {},
                       "solc_version": {},
@@ -405,7 +406,15 @@
                       },
                       "assumptions": { "type": ["array", "null"] },
                       "warnings": { "type": ["array", "null"] },
-                      "ghosts": { "type": ["array", "null"] }
+                      "ghosts": { "type": ["array", "null"] },
+                      "invariant": {
+                        "type": ["object", "null"],
+                        "description": "the invariant-induction roll-up (name, per_function, init, witness_function) copied verbatim from an invariant verdict line; null for rule lines. Inner values are admitted verbatim."
+                      },
+                      "calls": {
+                        "type": ["array", "null"],
+                        "description": "the counterexample's witness call sequence copied verbatim; null when the line carries none (and never an invented empty array). The audit's derived ' | poc: N calls bridged' suffix reads its length."
+                      }
                     }
                   }
                 }

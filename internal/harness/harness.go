@@ -329,6 +329,15 @@ func describeScaffoldLine(line string) string {
 		// The .mspec scaffold's header (minicertora): a renamed rule is
 		// scaffold drift on the attribution key, so name it.
 		return "rule header changed"
+	case strings.HasPrefix(t, "invariant "):
+		// The induction scaffold's declaration line: same attribution
+		// key as `rule`, different keyword (Task 4).
+		return "invariant declaration changed"
+	case strings.HasPrefix(t, "assert "):
+		// Only an induction scaffold renders an assert OUTSIDE a body
+		// window (the reviewed claim), so this line is the pinned claim
+		// drifting — the case the split exists to catch.
+		return "invariant assert line changed"
 	case strings.HasPrefix(t, "function "):
 		return "function header changed"
 	case t == StartMarker || t == EndMarker:

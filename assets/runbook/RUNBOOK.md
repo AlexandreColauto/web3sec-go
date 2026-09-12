@@ -1487,6 +1487,8 @@ described in ≥ 5 chars.
 `minicertora` note: a `--scaffold minicertora` invariant whose statement reads
 `template:<name> of <Contract>.<Function>` seeds the BODY window from the archetype library (`wrap-unchecked`, `rounding-drain`,
 `access-control-mint`, `tx-origin-auth`) — starting content the model may rewrite inside the window only; an unknown name is refused.
+A statement reading `invariant:<slug> of <Contract>.<State> <op> <expr>` (`op` ∈ `>= <= == > <`) renders an induction scaffold:
+`invariant <rule-name>()` plus the reviewed `assert <State> <op> <expr>;` pinned OUTSIDE the BODY window (extra asserts only inside).
 
 ## Environment variables
 

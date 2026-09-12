@@ -180,12 +180,24 @@ func mcUnknownSummary(obj validation.Value) string {
 
 // mcProof captures the verdict line's sidecar in the fixed key order
 // tool_version, solc_version, spec_version, evm_version, confidence,
-// reason, bounds, assumptions, warnings, ghosts. Scalars and arrays are
-// copied out of the parsed line as parsed — the tool's own caveat list is
-// the honesty layer, and webv2 neither invents nor drops caveats. The
-// counterexample witness (params, calls, final_storage) deliberately does
-// NOT ride along: it stays in the EXEC stdout artifact, which is where
-// the L4 repro plane reads it from.
+// reason, bounds, assumptions, warnings, ghosts, invariant, calls. Scalars
+// and arrays are copied out of the parsed line as parsed — the tool's own
+// caveat list is the honesty layer, and webv2 neither invents nor drops
+// caveats.
+//
+// Task 4 (RULING-12KEY) added the last two keys:
+//   - "invariant" (mcObjOr): the invariant-induction roll-up object
+//     {name, per_function, init, witness_function} verbatim for invariant
+//     verdict lines, null for rule lines.
+//   - "calls" (mcArrOr): the counterexample's witness call sequence
+//     verbatim; null when the line carries none. This is the array the
+//     audit's derived "| poc: N calls bridged" suffix and the L4 bridge
+//     read from stored state — before Task 4 the sidecar dropped it, so
+//     that rendering could never fire off a real run.
+//
+// The rest of the counterexample witness (params, final_storage) and the
+// tool's extra metadata deliberately do NOT ride along: they stay in the
+// EXEC stdout artifact.
 func mcProof(obj validation.Value) validation.Value {
 	return validation.VObj(
 		validation.KV{K: "tool_version", V: mcOr(obj, "tool_version")},
@@ -198,6 +210,8 @@ func mcProof(obj validation.Value) validation.Value {
 		validation.KV{K: "assumptions", V: mcArr(obj, "assumptions")},
 		validation.KV{K: "warnings", V: mcArr(obj, "warnings")},
 		validation.KV{K: "ghosts", V: mcArr(obj, "ghosts")},
+		validation.KV{K: "invariant", V: mcObjOr(obj, "invariant")},
+		validation.KV{K: "calls", V: mcArrOr(obj, "calls")},
 	)
 }
 
@@ -243,6 +257,32 @@ func mcArr(obj validation.Value, key string) validation.Value {
 	default:
 		return validation.VNull()
 	}
+}
+
+// mcObjOr is obj[key] verbatim when it is an object, null otherwise.
+// Unlike mcBounds (which rebuilds a fixed three-key shape) it filters
+// NOTHING inside: the invariant roll-up is the prover's own report object
+// and every inner key/array/null is admitted verbatim. Absent, null and a
+// malformed non-object all render null — the sidecar never invents an
+// object for a key that promises object-or-null (RULING-12KEY).
+func mcObjOr(obj validation.Value, key string) validation.Value {
+	if v, ok := mcField(obj, key); ok && v.Kind == validation.Obj {
+		return v
+	}
+	return validation.VNull()
+}
+
+// mcArrOr is obj[key] verbatim when it is an array, null otherwise.
+// It is deliberately NOT mcArr: for the witness `calls` slot, absent must
+// stay distinguishable from an empty witness, so an absent field renders
+// null rather than an invented empty array, and a malformed non-array value
+// becomes null without inventing content (RULING-12KEY). Downstream, the
+// audit's poc suffix keys on a NON-EMPTY array either way.
+func mcArrOr(obj validation.Value, key string) validation.Value {
+	if v, ok := mcField(obj, key); ok && v.Kind == validation.Arr {
+		return v
+	}
+	return validation.VNull()
 }
 
 // mcField is dict.get(key) over a parsed JSONL line (absent vs null kept

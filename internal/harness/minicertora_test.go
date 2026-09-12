@@ -40,10 +40,26 @@ const mcGhosts = `{"rule":"inv_1","verdict":"UNKNOWN","reason":"modeled-havoc","
 `
 
 // mcVerdictKeys is the proof sidecar's fixed key order (the determinism
-// law: downstream schemas and audits read this order).
+// law: downstream schemas and audits read this order). Task 4 extended it
+// from ten to twelve keys: "invariant" (mcObjOr) and "calls" (mcArrOr).
 var mcVerdictKeys = []string{"tool_version", "solc_version",
 	"spec_version", "evm_version", "confidence", "reason", "bounds",
-	"assumptions", "warnings", "ghosts"}
+	"assumptions", "warnings", "ghosts", "invariant", "calls"}
+
+// mcInvariantHandled is a PROVEN invariant-induction line: the report names
+// the checked entrypoints as an ARRAY of per-function checks and the init
+// check object (the shape minicertora's invariant roll-up prints). The
+// sidecar copies the whole object verbatim.
+const mcInvariantHandled = `{"tool_version":"0.4.2","solc_version":"0.8.36","spec_version":"v0.1","contract":"Capped.sol","rule":"inv_1","verdict":"PROVEN","confidence":"modeled","reason":null,"bounds":{"loop_bound":4,"loop_bound_exhaustive":true,"path_cap":64,"solver_timeout_ms":30000},"assumptions":["invariant-one-step-induction"],"invariant":{"name":"cap_respected","per_function":[{"selector":"0xd0e30db0","function":"deposit","kind":"proved","reason":null,"details":""},{"selector":"0x8da5cb5b","function":"setCap","kind":"proved","reason":null,"details":""}],"init":{"selector":"constructor","function":"constructor","kind":"proved","reason":null,"details":""},"witness_function":null}}` + "\n"
+
+// mcInvariantUninitialized is the same report shape with `init` null (the
+// contract declares no constructor): verbatim means the null rides.
+const mcInvariantUninitialized = `{"contract":"Capped.sol","rule":"inv_1","verdict":"UNKNOWN","reason":"invariant-uninitialized","bounds":{"loop_bound":4,"path_cap":64,"solver_timeout_ms":30000},"invariant":{"name":"cap_respected","per_function":[{"selector":"0xd0e30db0","function":"deposit","kind":"proved","reason":null,"details":""}],"init":null,"witness_function":null}}` + "\n"
+
+// mcCallsWitness is a counterexample whose calls array carries the bridged
+// witness (mixed trailing null on purpose: verbatim, no filtering).
+const mcCallsWitness = `{"contract":"V.sol","rule":"inv_1","verdict":"VIOLATED","confidence":"unconfirmed","reason":"assertion-violated","failed_assertion":{"expression":"total >= before"},"bounds":{"loop_bound":4,"path_cap":64,"solver_timeout_ms":30000},"calls":[{"step":1,"function":"withdraw","target":"0x1111111111111111111111111111111111111111","args":["1000"],"env":{"msg.sender":"0x2222222222222222222222222222222222222222","msg.value":"0"},"reverted":false,"reentrant":false,"overrides":{}},{"step":2,"function":"withdraw","target":"0x1111111111111111111111111111111111111111","args":["2000"],"env":{"msg.sender":"0x3333333333333333333333333333333333333333","msg.value":"0"},"reverted":true,"reentrant":false,"overrides":{}}]}
+`
 
 // TestMapMinicertora is the mapping table: each row is one raw stdout
 // byte string plus the exec record's exit_status, and pins the rung, the
@@ -226,6 +242,11 @@ func TestMapMinicertoraProofVerbatim(t *testing.T) {
 			`"entry-binding:wrapper"]`,
 		"warnings": `[]`,
 		"ghosts":   `[]`,
+		// Task 4: a rule line carries neither an invariant roll-up nor a
+		// witness — both keys ride as null (mcObjOr / mcArrOr), never
+		// dropped and never invented as an empty array.
+		"invariant": `null`,
+		"calls":     `null`,
 	}
 	for key, wantCanon := range want {
 		got := validation.CanonCompact(mcProofField(t, proof, key))
@@ -234,12 +255,133 @@ func TestMapMinicertoraProofVerbatim(t *testing.T) {
 		}
 	}
 
-	// The witness and the tool's extra metadata never ride along.
+	// The witness parameters and the tool's extra metadata never ride along
+	// (the calls array DOES — it is the 12th key, pinned below).
 	canon := validation.CanonCompact(proof)
-	for _, absent := range []string{"params", "calls", "final_storage",
+	for _, absent := range []string{"params", "final_storage",
 		"optimizer_enabled", "schema_version", "loop_bound_exhaustive"} {
 		if strings.Contains(canon, absent) {
 			t.Errorf("proof leaked %q: %s", absent, canon)
+		}
+	}
+}
+
+// TestMapMinicertoraProofInvariantVerbatim pins RULING-12KEY's 11th key:
+// mcObjOr copies the prover's invariant roll-up object whole — inner arrays,
+// inner objects and the init null included — and renders null for anything
+// that is not an object. The sidecar filters nothing inside the object (the
+// per_function entry key order below is the proof).
+func TestMapMinicertoraProofInvariantVerbatim(t *testing.T) {
+	_, _, proof, _ := MapMinicertora([]byte(mcInvariantHandled), 0, "inv_1")
+	inv := mcProofField(t, proof, "invariant")
+	if inv.Kind != validation.Obj {
+		t.Fatalf("proof.invariant = %s, want the verbatim object",
+			validation.CanonCompact(inv))
+	}
+	want := `{"init":{"details":"","function":"constructor","kind":"proved",` +
+		`"reason":null,"selector":"constructor"},"name":"cap_respected",` +
+		`"per_function":[{"details":"","function":"deposit","kind":"proved",` +
+		`"reason":null,"selector":"0xd0e30db0"},{"details":"",` +
+		`"function":"setCap","kind":"proved","reason":null,` +
+		`"selector":"0x8da5cb5b"}],"witness_function":null}`
+	if got := validation.CanonCompact(inv); got != want {
+		t.Errorf("proof.invariant = %s\nwant %s", got, want)
+	}
+	// Verbatim includes the prover's own inner key order: per_function comes
+	// before init here, and the inner check object keeps name/selector/…
+	var keys []string
+	for _, kv := range inv.O {
+		keys = append(keys, kv.K)
+	}
+	if got := strings.Join(keys, ","); got !=
+		"name,per_function,init,witness_function" {
+		t.Errorf("invariant keys = %s, want the prover's own order", got)
+	}
+}
+
+// TestMapMinicertoraProofInvariantInitNull pins the init-null case from the
+// invariant-no-constructor shape: null is a VALUE the prover printed, so it
+// must ride through as null rather than being dropped or defaulted.
+func TestMapMinicertoraProofInvariantInitNull(t *testing.T) {
+	_, _, proof, _ := MapMinicertora([]byte(mcInvariantUninitialized), 2, "inv_1")
+	inv := mcProofField(t, proof, "invariant")
+	if init, ok := mcField(inv, "init"); !ok || init.Kind != validation.Null {
+		t.Fatalf("proof.invariant.init = %s, want null",
+			validation.CanonCompact(init))
+	}
+	pf, _ := mcField(inv, "per_function")
+	if pf.Kind != validation.Arr || len(pf.A) != 1 ||
+		mcStr(pf.A[0], "function") != "deposit" {
+		t.Fatalf("proof.invariant.per_function = %s",
+			validation.CanonCompact(pf))
+	}
+}
+
+// TestMapMinicertoraProofInvariantNonObject pins the shape floor: a scalar,
+// array or absent invariant field renders null (mcObjOr) — the sidecar never
+// invents an object and never stores a malformed shape under the key.
+func TestMapMinicertoraProofInvariantNonObject(t *testing.T) {
+	for _, raw := range []string{
+		`{"rule":"inv_1","verdict":"PROVEN","confidence":"modeled","invariant":"nope"}`,
+		`{"rule":"inv_1","verdict":"PROVEN","confidence":"modeled","invariant":[1,2]}`,
+		`{"rule":"inv_1","verdict":"PROVEN","confidence":"modeled","invariant":null}`,
+	} {
+		_, _, proof, _ := MapMinicertora([]byte(raw+"\n"), 0, "inv_1")
+		if got := mcProofField(t, proof, "invariant"); got.Kind != validation.Null {
+			t.Errorf("invariant %s → %s, want null", raw,
+				validation.CanonCompact(got))
+		}
+	}
+}
+
+// TestMapMinicertoraProofCallsVerbatim pins RULING-12KEY's 12th key: the
+// counterexample's calls array rides verbatim (the L4 bridge and the audit's
+// poc suffix read it from here). An empty array is a VALUE and rides as [];
+// an absent or non-array field renders null — mcArrOr never invents an
+// empty list, which is what keeps "no witness" distinguishable from
+// "an empty witness".
+func TestMapMinicertoraProofCallsVerbatim(t *testing.T) {
+	_, _, proof, _ := MapMinicertora([]byte(mcCallsWitness), 1, "inv_1")
+	calls := mcProofField(t, proof, "calls")
+	if calls.Kind != validation.Arr || len(calls.A) != 2 {
+		t.Fatalf("proof.calls = %s, want the 2-call witness",
+			validation.CanonCompact(calls))
+	}
+	if got := mcStr(calls.A[1], "function"); got != "withdraw" {
+		t.Errorf("calls[1].function = %q", got)
+	}
+	if reverted, ok := mcField(calls.A[1], "reverted"); !ok ||
+		reverted.Kind != validation.Bool || !reverted.B {
+		t.Errorf("calls[1].reverted = %s, want true",
+			validation.CanonCompact(reverted))
+	}
+	// The verbatim law reaches inside each entry: the prover's inner key
+	// order (step, function, target, args, env, reverted, reentrant,
+	// overrides) survives.
+	var keys []string
+	for _, kv := range calls.A[0].O {
+		keys = append(keys, kv.K)
+	}
+	if got := strings.Join(keys, ","); got !=
+		"step,function,target,args,env,reverted,reentrant,overrides" {
+		t.Errorf("calls[0] keys = %s, want the prover's own order", got)
+	}
+
+	// Empty array vs null: an empty witness is a value.
+	_, _, proof, _ = MapMinicertora([]byte(mcViolated), 1, "inv_1")
+	if got := validation.CanonCompact(mcProofField(t, proof, "calls")); got != "[]" {
+		t.Errorf("proof.calls = %s, want []", got)
+	}
+	// Absent and malformed render null (ncArrOr's whole point).
+	for _, raw := range []string{
+		`{"rule":"inv_1","verdict":"VIOLATED","reason":"assertion-violated"}`,
+		`{"rule":"inv_1","verdict":"VIOLATED","reason":"assertion-violated","calls":"nope"}`,
+		`{"rule":"inv_1","verdict":"VIOLATED","reason":"assertion-violated","calls":null}`,
+	} {
+		_, _, proof, _ := MapMinicertora([]byte(raw+"\n"), 1, "inv_1")
+		if got := mcProofField(t, proof, "calls"); got.Kind != validation.Null {
+			t.Errorf("calls %s → %s, want null", raw,
+				validation.CanonCompact(got))
 		}
 	}
 }

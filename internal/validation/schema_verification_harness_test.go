@@ -86,7 +86,14 @@ func TestVerificationHarnessProofSidecar(t *testing.T) {
 		`"confidence":"modeled","reason":null,` +
 		`"bounds":{"loop_bound":4,"path_cap":64,"solver_timeout_ms":30000},` +
 		`"assumptions":["msg.value-default-zero"],"warnings":[],` +
-		`"ghosts":[{"slot":"total","expr":"x+1"}]}}}}`
+		`"ghosts":[{"slot":"total","expr":"x+1"}],` +
+		`"invariant":{"name":"cap_respected","per_function":[` +
+		`{"selector":"0xd0e30db0","function":"deposit","kind":"proved",` +
+		`"reason":null,"details":""}],` +
+		`"init":{"selector":"constructor","function":"constructor",` +
+		`"kind":"proved","reason":null,"details":""},` +
+		`"witness_function":null},` +
+		`"calls":[{"step":1,"function":"withdraw","reverted":true}]}}}}`
 	v := mustParseHarness(t, harnessModelDoc(inv))
 	v2 := mustParseHarness(t, CanonCompact(v))
 	if err := Validate(v2, "protocol_model", 1); err != nil {
@@ -112,7 +119,8 @@ func TestVerificationHarnessProofNullArrays(t *testing.T) {
 		`"confidence":"modeled","reason":null,` +
 		`"bounds":{"loop_bound":null,"path_cap":null,` +
 		`"solver_timeout_ms":null},` +
-		`"assumptions":null,"warnings":null,"ghosts":null}}}}`
+		`"assumptions":null,"warnings":null,"ghosts":null,` +
+		`"invariant":null,"calls":null}}}}`
 	v := mustParseHarness(t, harnessModelDoc(inv))
 	v2 := mustParseHarness(t, CanonCompact(v))
 	if err := Validate(v2, "protocol_model", 1); err != nil {
@@ -142,7 +150,12 @@ func TestVerificationHarnessProofVerbatimValues(t *testing.T) {
 		`"bounds":{"loop_bound":"eight","path_cap":[1,2],` +
 		`"solver_timeout_ms":{"ms":null}},` +
 		`"assumptions":[1,"two",null],"warnings":[{"code":"w1"}],` +
-		`"ghosts":["nope",3]}}}}`
+		`"ghosts":["nope",3],` +
+		// RULING-12KEY: the promised SHAPES are object-or-null and
+		// array-or-null, and the values INSIDE them are admitted
+		// verbatim — a malformed inner roll-up still validates.
+		`"invariant":{"per_function":"not-a-list"},` +
+		`"calls":[{"step":"one","args":"not-a-list"}]}}}}`
 	v := mustParseHarness(t, harnessModelDoc(inv))
 	v2 := mustParseHarness(t, CanonCompact(v))
 	if err := Validate(v2, "protocol_model", 1); err != nil {
@@ -173,18 +186,39 @@ func TestVerificationHarnessRejects(t *testing.T) {
 			`,"verification":{"harness":{"kind":"halmos",` +
 				`"rung":"proved-bounded","exec":"EXEC-7","bounded_k":"100"}}`,
 			"bounded_k"},
-		// The Task-3 required array: the ten-key sidecar set is
-		// mandatory (mcProof always emits all ten keys), so a proof
-		// object that drops one — a hand-written or drifted sidecar —
-		// is refused with the missing key named.
+		// The required array: the twelve-key sidecar set is mandatory
+		// (mcProof always emits all twelve keys), so a proof object that
+		// drops one — a hand-written or drifted sidecar — is refused with
+		// the missing key named.
 		{"proof missing warnings key",
 			`,"verification":{"harness":{"kind":"minicertora",` +
 				`"rung":"proved-bounded","exec":"EXEC-7",` +
 				`"proof":{"tool_version":"0.4.2","solc_version":null,` +
 				`"spec_version":null,"evm_version":null,` +
 				`"confidence":"modeled","reason":null,"bounds":null,` +
-				`"assumptions":[],"ghosts":[]}}}`,
+				`"assumptions":[],"ghosts":[],` +
+				`"invariant":null,"calls":null}}}`,
 			"warnings"},
+		// RULING-12KEY's two new keys are as mandatory as their ten
+		// siblings: dropping either one is refused by name.
+		{"proof missing invariant key",
+			`,"verification":{"harness":{"kind":"minicertora",` +
+				`"rung":"proved-bounded","exec":"EXEC-7",` +
+				`"proof":{"tool_version":null,"solc_version":null,` +
+				`"spec_version":null,"evm_version":null,` +
+				`"confidence":null,"reason":null,"bounds":null,` +
+				`"assumptions":[],"warnings":[],"ghosts":[],` +
+				`"calls":null}}}`,
+			"invariant"},
+		{"proof missing calls key",
+			`,"verification":{"harness":{"kind":"minicertora",` +
+				`"rung":"proved-bounded","exec":"EXEC-7",` +
+				`"proof":{"tool_version":null,"solc_version":null,` +
+				`"spec_version":null,"evm_version":null,` +
+				`"confidence":null,"reason":null,"bounds":null,` +
+				`"assumptions":[],"warnings":[],"ghosts":[],` +
+				`"invariant":null}}}`,
+			"calls"},
 		// The verbatim ruling loosens VALUES, not the KEYS: an unknown
 		// proof key is still refused (additionalProperties:false).
 		{"unknown proof key",
@@ -204,7 +238,8 @@ func TestVerificationHarnessRejects(t *testing.T) {
 				`"confidence":null,"reason":null,` +
 				`"bounds":{"loop_bound":4,"path_cap":64,` +
 				`"solver_timeout_ms":30000,"loop_bound_exhaustive":true},` +
-				`"assumptions":[],"warnings":[],"ghosts":[]}}}`,
+				`"assumptions":[],"warnings":[],"ghosts":[],` +
+				`"invariant":null,"calls":null}}}`,
 			"loop_bound_exhaustive"},
 		// The promised SHAPES still hold: an array-or-null slot may not
 		// be a scalar, and bounds may not be a scalar either. (mcArr
@@ -217,7 +252,7 @@ func TestVerificationHarnessRejects(t *testing.T) {
 				`"spec_version":null,"evm_version":null,` +
 				`"confidence":null,"reason":null,"bounds":null,` +
 				`"assumptions":[],"warnings":[],` +
-				`"ghosts":"not-a-list"}}}`,
+				`"ghosts":"not-a-list","invariant":null,"calls":null}}}`,
 			"ghosts"},
 		{"bounds scalar",
 			`,"verification":{"harness":{"kind":"minicertora",` +
@@ -225,8 +260,31 @@ func TestVerificationHarnessRejects(t *testing.T) {
 				`"proof":{"tool_version":null,"solc_version":null,` +
 				`"spec_version":null,"evm_version":null,` +
 				`"confidence":null,"reason":null,"bounds":7,` +
-				`"assumptions":[],"warnings":[],"ghosts":[]}}}`,
+				`"assumptions":[],"warnings":[],"ghosts":[],` +
+				`"invariant":null,"calls":null}}}`,
 			"bounds"},
+		// RULING-12KEY's own shape floors: invariant is
+		// object-or-null, calls is array-or-null. A scalar in either
+		// slot is refused (mcObjOr/mcArrOr would have rendered null —
+		// a hand-written sidecar may not smuggle one in).
+		{"invariant scalar",
+			`,"verification":{"harness":{"kind":"minicertora",` +
+				`"rung":"inconclusive","exec":"EXEC-7",` +
+				`"proof":{"tool_version":null,"solc_version":null,` +
+				`"spec_version":null,"evm_version":null,` +
+				`"confidence":null,"reason":null,"bounds":null,` +
+				`"assumptions":[],"warnings":[],"ghosts":[],` +
+				`"invariant":"nope","calls":null}}}`,
+			"invariant"},
+		{"calls scalar",
+			`,"verification":{"harness":{"kind":"minicertora",` +
+				`"rung":"inconclusive","exec":"EXEC-7",` +
+				`"proof":{"tool_version":null,"solc_version":null,` +
+				`"spec_version":null,"evm_version":null,` +
+				`"confidence":null,"reason":null,"bounds":null,` +
+				`"assumptions":[],"warnings":[],"ghosts":[],` +
+				`"invariant":null,"calls":"nope"}}}`,
+			"calls"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			inv := `{"id":"INV-1",` +

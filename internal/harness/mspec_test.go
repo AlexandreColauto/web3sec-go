@@ -187,7 +187,9 @@ func TestMspecNonTemplateStatementByteStable(t *testing.T) {
 		"template:wrap-unchecked of Counter",
 		"template:wrap_unchecked of Counter.deposit",
 		"template:wrap-unchecked of Counter.deposit ",
-		"invariant:cap_respected of Vault.total >= 1",
+		// Task 4's invariant form is a near-miss here: the uppercase
+		// slug does not match, so the plain skeleton stays the answer.
+		"invariant:Cap_respected of Vault.total >= 1",
 	} {
 		inv := validation.VObj(
 			validation.KV{K: "id", V: validation.VStr("INV-7")},
@@ -234,6 +236,138 @@ func TestDescribeScaffoldRuleLine(t *testing.T) {
 	if got != "rule header changed" {
 		t.Fatalf("describeScaffoldLine(rule ...) = %q, want %q", got,
 			"rule header changed")
+	}
+	// Task 4: the invariant frame is scaffold-owned too, so its two moved
+	// lines name themselves instead of falling back to the quoted generic.
+	for line, want := range map[string]string{
+		"invariant inv_7() {":      "invariant declaration changed",
+		"    assert total <= cap;": "invariant assert line changed",
+	} {
+		if got := describeScaffoldLine(line); got != want {
+			t.Errorf("describeScaffoldLine(%q) = %q, want %q", line, got, want)
+		}
+	}
+}
+
+// TestMspecInvariantScaffoldBytes pins the Task-4 invariant scaffold byte
+// for byte. The split is deliberate and disclosed in mspec.go: the
+// declaration name AND the reviewed assert claim are SCAFFOLD-OWNED (outside
+// the window), because the claim is reviewed statement data, not model
+// tuning; the BODY window is the model's (extra `assert` lines only — the
+// .mspec invariant grammar admits nothing else). That keeps Validate's
+// byte-law meaningful: weakening `<=` to `>=` is scaffold-bound drift.
+func TestMspecInvariantScaffoldBytes(t *testing.T) {
+	inv := validation.VObj(
+		validation.KV{K: "id", V: validation.VStr("INV-7")},
+		validation.KV{K: "statement", V: validation.VStr(
+			"invariant:cap_respected of Vault.total <= cap")},
+		validation.KV{K: "source", V: validation.VStr("docs/SPEC.md:12")},
+	)
+	got, err := Scaffold(MiniCertora, inv)
+	if err != nil {
+		t.Fatalf("Scaffold(minicertora, invariant): %v", err)
+	}
+	want := `// web3sec G8 harness scaffold — MiniCertora bounded verifier.
+// Deterministic bytes: the model writes ONLY the BODY window below;
+// everything outside is scaffold. Rule name is scaffold-pinned — the
+// attribution of verdict lines keys on it; do not rename.
+// @custom:invariant invariant:cap_respected of Vault.total <= cap
+// @custom:src docs/SPEC.md:12
+invariant inv_7() {
+    assert total <= cap;
+    // >>> BODY (model writes ONLY between these markers; outside is scaffold)
+    ` + DummyInvariantMspec + `
+    // <<< BODY
+}
+`
+	if string(got) != want {
+		t.Errorf("invariant scaffold bytes moved:\n got:\n%s\nwant:\n%s",
+			got, want)
+	}
+	// The pinned claim is OUTSIDE the window (before the start marker);
+	// the window itself is DummyInvariantMspec only.
+	s, e, err := BodyRegion(got)
+	if err != nil {
+		t.Fatalf("BodyRegion(invariant scaffold): %v", err)
+	}
+	if strings.Contains(string(got[s:e]), "assert total <= cap;") {
+		t.Fatalf("the reviewed claim must not live inside the window:\n%s",
+			got)
+	}
+	if !strings.Contains(string(got[:s]), "    assert total <= cap;\n") {
+		t.Fatalf("the pinned claim is not scaffold-owned:\n%s", got)
+	}
+}
+
+// TestMspecInvariantValidateRoundTrip pins the laws the split buys: the
+// scaffold validates as written, the model may rewrite the window, and both
+// a renamed declaration and a weakened claim are scaffold-bound drift.
+func TestMspecInvariantValidateRoundTrip(t *testing.T) {
+	inv := validation.VObj(
+		validation.KV{K: "id", V: validation.VStr("INV-7")},
+		validation.KV{K: "statement", V: validation.VStr(
+			"invariant:cap_respected of Vault.total <= cap")},
+	)
+	scaf, err := Scaffold(MiniCertora, inv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Validate(MiniCertora, inv, scaf); err != nil {
+		t.Fatalf("an invariant scaffold must validate as written: %v", err)
+	}
+	s, e, err := BodyRegion(scaf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	filled := append(append(append([]byte{}, scaf[:s]...),
+		[]byte("    assert total <= cap;\n")...), scaf[e:]...)
+	if err := Validate(MiniCertora, inv, filled); err != nil {
+		t.Fatalf("inside-window rewrite must validate: %v", err)
+	}
+	for _, tc := range []struct{ name, from, to, want string }{
+		{"renamed declaration", "invariant inv_7() {",
+			"invariant inv_8() {", "invariant declaration changed"},
+		{"weakened claim", "assert total <= cap;",
+			"assert total >= cap;", "invariant assert line changed"},
+	} {
+		tampered := []byte(strings.Replace(string(scaf), tc.from, tc.to, 1))
+		err := Validate(MiniCertora, inv, tampered)
+		if err == nil || !strings.Contains(err.Error(), "scaffold-bound") ||
+			!strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: Validate = %v, want scaffold-bound %q", tc.name,
+				err, tc.want)
+		}
+	}
+}
+
+// TestMspecInvariantFallThrough is the other half of the gate: an
+// invariant-shaped statement the regexp does not admit renders EXACTLY the
+// plain skeleton (DummyMspec window, `rule` frame), no error.
+func TestMspecInvariantFallThrough(t *testing.T) {
+	for _, stmt := range []string{
+		"invariant:cap_respected of Vault.total != cap",
+		"invariant:cap_respected of Vault.total >= cap extra",
+		"invariant:cap_respected of Vault total <= cap",
+		"invariant:cap-respected of Vault.total <= cap",
+		"invariant:cap_respected of Vault.total <= cap ",
+	} {
+		inv := validation.VObj(
+			validation.KV{K: "id", V: validation.VStr("INV-7")},
+			validation.KV{K: "statement", V: validation.VStr(stmt)},
+		)
+		got, err := Scaffold(MiniCertora, inv)
+		if err != nil {
+			t.Fatalf("Scaffold(%q) must fall through, got %v", stmt, err)
+		}
+		if !strings.Contains(string(got), "rule inv_7(env e) {") ||
+			!strings.Contains(string(got), DummyMspec) {
+			t.Errorf("fall-through for %q lost the plain skeleton:\n%s",
+				stmt, got)
+		}
+		if strings.Contains(string(got), "invariant inv_7() {") {
+			t.Errorf("fall-through for %q rendered the invariant "+
+				"declaration:\n%s", stmt, got)
+		}
 	}
 }
 

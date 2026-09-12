@@ -691,3 +691,222 @@ func TestInvocationBoundFlags(t *testing.T) {
 		}
 	}
 }
+
+// mcInvariantProvenLine is the Task-4 invariant-induction verdict line: the
+// report names the checked entrypoints (an ARRAY of per-function checks) and
+// the init check, so the stored proof sidecar must carry the whole object
+// verbatim under the 11th key. The rule name is the scaffold's declaration
+// name (MspecRuleName("INV-1") = "inv_1"), which is why attribution needs no
+// mapper change for invariant scaffolds.
+const mcInvariantProvenLine = `{"schema_version":"1","tool_version":"0.4.2",` +
+	`"solc_version":"0.8.36","spec_version":"v0.1","evm_version":"paris",` +
+	`"contract":"Capped.sol","rule":"inv_1","verdict":"PROVEN",` +
+	`"confidence":"modeled","reason":null,"details":"",` +
+	`"assumptions":["invariant-one-step-induction","invariant-init-checked"],` +
+	`"bounds":{"loop_bound":4,"loop_bound_exhaustive":true,"path_cap":64,` +
+	`"solver_timeout_ms":30000},"warnings":[],` +
+	`"invariant":{"name":"cap_respected","per_function":[` +
+	`{"selector":"0xd0e30db0","function":"deposit","kind":"proved",` +
+	`"reason":null,"details":""},{"selector":"0x8da5cb5b",` +
+	`"function":"setCap","kind":"proved","reason":null,"details":""}],` +
+	`"init":{"selector":"constructor","function":"constructor",` +
+	`"kind":"proved","reason":null,"details":""},"witness_function":null}}` +
+	"\n"
+
+// mcInvariantNoInitLine is the invariant-no-constructor shape: init is null
+// while the per-function array still rides. Null is a printed value, so the
+// sidecar copies it rather than defaulting an init check that never ran.
+const mcInvariantNoInitLine = `{"tool_version":"0.4.2",` +
+	`"solc_version":"0.8.36","contract":"Capped.sol","rule":"inv_1",` +
+	`"verdict":"UNKNOWN","confidence":"modeled",` +
+	`"reason":"invariant-uninitialized","details":"",` +
+	`"bounds":{"loop_bound":4,"path_cap":64,"solver_timeout_ms":30000},` +
+	`"invariant":{"name":"cap_respected","per_function":[` +
+	`{"selector":"0xd0e30db0","function":"deposit","kind":"proved",` +
+	`"reason":null,"details":""}],"init":null,"witness_function":null}}` +
+	"\n"
+
+// mcViolatedCallsLine is the Task-3/Task-4 witness line: a counterexample
+// whose calls array is the bridged sequence. Before Task 4 the sidecar
+// dropped calls, so the audit's derived poc suffix could never fire from
+// stored state; this line is the end-to-end proof that it does now.
+const mcViolatedCallsLine = `{"tool_version":"0.4.2","solc_version":"0.8.36",` +
+	`"spec_version":"v0.1","evm_version":"paris","contract":"V.sol",` +
+	`"rule":"inv_1","verdict":"VIOLATED","confidence":"unconfirmed",` +
+	`"reason":"assertion-violated","details":"",` +
+	`"bounds":{"loop_bound":4,"path_cap":64,"solver_timeout_ms":30000},` +
+	`"failed_assertion":{"expression":"total >= before"},"params":{"x":"2"},` +
+	`"calls":[{"step":1,"function":"withdraw","target":` +
+	`"0x1111111111111111111111111111111111111111","args":["1000"],` +
+	`"env":{"msg.sender":"0x2222222222222222222222222222222222222222",` +
+	`"msg.value":"0"},"reverted":false,"reentrant":false,"overrides":{}},` +
+	`{"step":2,"function":"withdraw","target":` +
+	`"0x1111111111111111111111111111111111111111","args":["2000"],` +
+	`"env":{"msg.sender":"0x3333333333333333333333333333333333333333",` +
+	`"msg.value":"0"},"reverted":true,"reentrant":false,"overrides":{}}],` +
+	`"final_storage":{"total":"0"}}` + "\n"
+
+// mcLinkField reads the campaign's invariant_links.json FROM DISK (not from
+// the in-memory campaign handle): the stored-state contract, not the wiring.
+func mcLinkField(t *testing.T, c *state.Campaign, path ...string) validation.Value {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(c.ArtifactsDir,
+		"invariant_links.json"))
+	if err != nil {
+		t.Fatalf("read invariant_links.json: %v", err)
+	}
+	v, err := validation.ParseOrdered(raw)
+	if err != nil {
+		t.Fatalf("parse invariant_links.json: %v", err)
+	}
+	for _, k := range path {
+		v = objAt(v, k)
+	}
+	return v
+}
+
+// TestHarnessResultMinicertoraInvariantProof is the RULING-12KEY 11th-key
+// row: an invariant line's roll-up object rides into the stored links file
+// verbatim (inner array, inner object, init included), and the display line
+// keeps its historical shape. The invariant decl name is the scaffold's
+// attribution name, so nothing in the mapper changed.
+func TestHarnessResultMinicertoraInvariantProof(t *testing.T) {
+	c, root := mcCamp(t, "mc-invariant")
+	execID := "EXEC-15"
+	mcHarnessExec(t, c, execID, mcInvariantProvenLine,
+		"minicertora --rule inv_1 --loop-bound 4",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 0)
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("exit %d out=%q err=%q", code, out, errS)
+	}
+	if out != "INV-1: proved-bounded (minicertora, k=4, EXEC-15)\n" {
+		t.Fatalf("stdout = %q", out)
+	}
+	proof := mcLinkField(t, c, "invariants", "INV-1", "verification",
+		"harness", "proof")
+	inv := objAt(proof, "invariant")
+	if inv.Kind != validation.Obj {
+		t.Fatalf("stored proof.invariant = %s, want the verbatim object",
+			validation.CanonCompact(inv))
+	}
+	want := `{"init":{"details":"","function":"constructor","kind":"proved",` +
+		`"reason":null,"selector":"constructor"},"name":"cap_respected",` +
+		`"per_function":[{"details":"","function":"deposit","kind":"proved",` +
+		`"reason":null,"selector":"0xd0e30db0"},{"details":"",` +
+		`"function":"setCap","kind":"proved","reason":null,` +
+		`"selector":"0x8da5cb5b"}],"witness_function":null}`
+	if got := validation.CanonCompact(inv); got != want {
+		t.Errorf("stored proof.invariant = %s\nwant %s", got, want)
+	}
+	// A PROVEN rule line carries no witness: calls rides as null.
+	if calls := objAt(proof, "calls"); calls.Kind != validation.Null {
+		t.Errorf("stored proof.calls = %s, want null",
+			validation.CanonCompact(calls))
+	}
+}
+
+// TestHarnessResultMinicertoraInvariantInitNull pins the init-null case end
+// to end: the null the prover printed survives the store byte for byte.
+func TestHarnessResultMinicertoraInvariantInitNull(t *testing.T) {
+	c, root := mcCamp(t, "mc-invariant-noinit")
+	execID := "EXEC-16"
+	mcHarnessExec(t, c, execID, mcInvariantNoInitLine,
+		"minicertora --rule inv_1",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 2)
+	code, _, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("exit %d err=%q", code, errS)
+	}
+	inv := mcLinkField(t, c, "invariants", "INV-1", "verification",
+		"harness", "proof", "invariant")
+	if init := objAt(inv, "init"); init.Kind != validation.Null {
+		t.Fatalf("stored proof.invariant.init = %s, want null",
+			validation.CanonCompact(init))
+	}
+	pf := objAt(inv, "per_function")
+	if pf.Kind != validation.Arr || len(pf.A) != 1 ||
+		objStr(pf.A[0], "function") != "deposit" {
+		t.Fatalf("stored proof.invariant.per_function = %s",
+			validation.CanonCompact(pf))
+	}
+}
+
+// TestHarnessResultMinicertoraRuleLineInvariantNull pins the other half of
+// the key contract: a plain rule verdict line (no invariant roll-up on the
+// tool's report) stores invariant: null rather than dropping the key — the
+// twelve-key set is fixed, exactly as it is for its ten siblings.
+func TestHarnessResultMinicertoraRuleLineInvariantNull(t *testing.T) {
+	c, root := mcCamp(t, "mc-ruleline-invariant")
+	execID := "EXEC-17"
+	mcHarnessExec(t, c, execID, mcProvenLine,
+		"minicertora --rule inv_1",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 0)
+	code, _, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("exit %d err=%q", code, errS)
+	}
+	proof := mcLinkField(t, c, "invariants", "INV-1", "verification",
+		"harness", "proof")
+	var keys []string
+	for _, kv := range proof.O {
+		keys = append(keys, kv.K)
+	}
+	wantKeys := "tool_version,solc_version,spec_version,evm_version," +
+		"confidence,reason,bounds,assumptions,warnings,ghosts,invariant,calls"
+	if got := strings.Join(keys, ","); got != wantKeys {
+		t.Fatalf("stored proof keys = %s\nwant %s", got, wantKeys)
+	}
+	for _, k := range []string{"invariant", "calls"} {
+		if v := objAt(proof, k); v.Kind != validation.Null {
+			t.Errorf("stored proof.%s = %s, want null", k,
+				validation.CanonCompact(v))
+		}
+	}
+}
+
+// TestHarnessResultMinicertoraCallsAuditSuffix is the RULING-12KEY e2e: a
+// counterexample line's calls array now rides in the sidecar, so the audit's
+// derived "| poc: N calls bridged" suffix fires from STORED STATE — the test
+// reads invariant_links.json from disk and renders the section through
+// `audit --json`, the CLI path an operator actually uses.
+func TestHarnessResultMinicertoraCallsAuditSuffix(t *testing.T) {
+	c, root := mcCamp(t, "mc-calls-audit")
+	execID := "EXEC-18"
+	mcHarnessExec(t, c, execID, mcViolatedCallsLine,
+		"minicertora --rule inv_1 --loop-bound 4",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 1)
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("exit %d out=%q err=%q", code, out, errS)
+	}
+	// The links FILE (not the in-memory handle) carries the verbatim calls.
+	calls := mcLinkField(t, c, "invariants", "INV-1", "verification",
+		"harness", "proof", "calls")
+	if calls.Kind != validation.Arr || len(calls.A) != 2 {
+		t.Fatalf("stored proof.calls = %s, want 2 calls",
+			validation.CanonCompact(calls))
+	}
+	// ...and the audit section renders the derived suffix from that state.
+	code, out, errS = run(t, "--root", root, "audit", c.CampaignID, "--json")
+	if code != 0 {
+		t.Fatalf("audit exit %d err=%q", code, errS)
+	}
+	rep, err := validation.ParseOrdered([]byte(out))
+	if err != nil {
+		t.Fatalf("audit --json: %v", err)
+	}
+	runs := objAt(objAt(objAt(rep, "sections"), "invariant_verification"),
+		"harness_runs")
+	if runs.Kind != validation.Arr || len(runs.A) == 0 {
+		t.Fatalf("harness_runs = %s", validation.CanonCompact(runs))
+	}
+	want := "INV-1: counterexample (minicertora, EXEC-18) | poc: 2 calls bridged"
+	if got := runs.A[0].S; got != want {
+		t.Fatalf("audit line = %q, want %q", got, want)
+	}
+}
