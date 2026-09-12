@@ -433,9 +433,27 @@ func harnessMapBound(kind harness.Kind, raw []byte, rec validation.Value,
 // untimed minicertora run through MapMinicertora (exit status + rule
 // name), everything else — including a timed-out minicertora run, which
 // must never reach the JSONL mapper — through MapRun.
+//
+// The timed-out minicertora run is the one kind whose MapRun summary would
+// lie: MapRun renders "timeout after <k>s", but the caller-passed k is the
+// loop bound, not a number of seconds. Step 0 gives it its own wording,
+// produced here BEFORE the MapRun call: "inconclusive (no clean completion;
+// loop bound was N)" when the invocation names a bound, the clause-free
+// "inconclusive (no clean completion)" otherwise. halmos/forge-fuzz keep
+// MapRun's byte-pinned "timeout after %ds".
 func harnessMappedKind(kind harness.Kind, raw []byte, timedOut bool, k,
 	exitStatus int, ruleName, suffix string) (string, string,
 	validation.Value, *int) {
+	if kind == harness.MiniCertora && timedOut {
+		summary := "inconclusive (no clean completion)"
+		if k > 0 {
+			summary = fmt.Sprintf(
+				"inconclusive (no clean completion; loop bound was %d)",
+				k)
+		}
+		return harness.RungInconclusive, summary + suffix,
+			validation.VNull(), nil
+	}
 	if kind == harness.MiniCertora && !timedOut {
 		rung, summary, proof, bk := harness.MapMinicertora(raw, exitStatus,
 			ruleName)

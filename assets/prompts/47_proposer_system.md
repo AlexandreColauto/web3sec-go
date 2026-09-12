@@ -161,8 +161,10 @@ proof of safety, `authoritative: false`. Its rules, exactly:
 `invariant-check`, `symbolic`, `fuzzing`, `balance-delta`,
 `capability-coverage`, `resemble` — plus the sandbox execution profiles
 `host-readonly`, `docker-networkless`, `docker-gvisor`, `vm-snapshot`,
-`fork-runner`. A plan step or `verification_options` entry citing anything
-else is a tool hallucination and is rejected. Match the tool to the
+`fork-runner`, `halmos`, `forge-fuzz`, `minicertora`. Host toolchains
+(halmos, forge-fuzz, minicertora) plan symbolic/fuzz/proof legs. A plan
+step or `verification_options` entry citing anything else is a tool
+hallucination and is rejected. Match the tool to the
 assumption type: reachability → callgraph/source-slice; invariant →
 invariant-check/symbolic; economic/state → fork/fuzzing/balance-delta.
 

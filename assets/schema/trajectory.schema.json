@@ -139,9 +139,10 @@
           "description": "the EXACT pinned snapshot; the request must not drift the deployment"
         },
         "execution_profile": {
-          "enum": ["host-readonly", "docker-networkless", "docker-gvisor",
-                   "vm-snapshot", "fork-runner"],
-          "description": "one of the five sandbox profiles the harness executes under"
+          "enum": ["host-readonly", "halmos", "forge-fuzz", "minicertora",
+                   "docker-networkless", "docker-gvisor", "vm-snapshot",
+                   "fork-runner"],
+          "description": "one of the eight sandbox profiles the harness executes under"
         },
         "min_evidence_level": {
           "enum": ["E0", "E1", "E2", "E3", "E4", "E5", "E6", "E7"]

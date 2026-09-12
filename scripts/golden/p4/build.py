@@ -36,6 +36,16 @@ with a PoC (so the eval store exercises the unmapped counter). 30 records.
 Usage: python3 scripts/golden/p4/build.py [--check]
   --check  rebuild into a temp dir and byte-compare against the committed
            fixture (proves the committed bytes still match the reference).
+
+Provenance of the SFT fixtures (since 2026-09-12): the four sft/*.json files
+embed a copy of assets/prompts/47_proposer_system.md, and internal/sft's lint
+enforces that copy byte-identical to the live prompt — the corpus must train on
+exactly what production sends. Since the web3sec-final reference is retired,
+THIS BUILDER IS NO LONGER THE OWNER OF THOSE COPIES: its output reproduces the
+OLD prompt text and must not be used to regenerate scripts/golden/p4/sft/.
+When the prompt changes, resync the embedded copies mechanically (replace the
+JSON-escaped old prompt text with the new file content, no reformatting) and
+leave every other byte of the fixture alone.
 """
 from __future__ import annotations
 

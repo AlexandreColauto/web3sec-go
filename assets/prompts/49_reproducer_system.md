@@ -87,10 +87,13 @@ Exactly these keys, no others (`additionalProperties: false`; `notes` and
   `deployment` history or `reproduction_state` in its place.
 - `execution_profile`: exactly one of `permitted_execution_profiles`:
   `host-readonly`, `docker-networkless`, `docker-gvisor`, `vm-snapshot`,
-  `fork-runner`. These are sandbox profiles, not conveniences. Only the
+  `fork-runner`, `halmos`, `forge-fuzz`, `minicertora`. These are sandbox
+  profiles, not conveniences. Only the
   container/VM/fork profiles (`docker-networkless`, `docker-gvisor`,
   `vm-snapshot`, `fork-runner`) produce execution evidence; `host-readonly`
   executes on the host and can only support evidence at or below E3.
+  Host toolchains (`halmos`, `forge-fuzz`, `minicertora`) are likewise
+  E3-ceilinged like `host-readonly` and require the matching tool on PATH.
   Choose the WEAKEST profile that satisfies the evidence floor: a
   `min_evidence_level` of E4 or above requires a container/VM/fork
   profile; E5 (fork reality, pinned mainnet state) requires

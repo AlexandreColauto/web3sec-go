@@ -230,8 +230,9 @@ func mcOr(obj validation.Value, key string) validation.Value {
 
 // mcArr is obj[key] verbatim when it is an array, the empty array when
 // the field is absent (the schema's nullable-by-design shape), and null
-// when the tool put some other shape there — a scalar in an array slot is
-// a tool bug, and the sidecar admits no schema-busting value.
+// when the tool put some other shape there: the sidecar mirrors tool values
+// verbatim; the schema pins the key set, not the value types (post-landing
+// contract, see IMPROVEMENTS Wave L-core).
 func mcArr(obj validation.Value, key string) validation.Value {
 	v, ok := mcField(obj, key)
 	switch {

@@ -22,6 +22,13 @@ artifact hashes.
 - `docker-gvisor` — container on gVisor, networkless. Ceiling: **E5**.
 - `vm-snapshot` — full VM, rolled back after run. Ceiling: **E5**.
 - `fork-runner` — container + allow-listed fork RPC egress only. Ceiling: **E5+**.
+- `halmos` — host toolchain (symbolic checks). Ceiling: **E3**.
+- `forge-fuzz` — host toolchain (fuzz runs). Ceiling: **E3**.
+- `minicertora` — host toolchain (bounded proofs). Ceiling: **E3**.
+
+Host toolchain profiles (halmos, forge-fuzz, minicertora) execute on the
+host with read-only source access; like `host-readonly` they support
+evidence at or below E3.
 
 Evidence at E4+ MUST reference an exec record from a container/VM profile.
 The `findings.add_evidence` gate enforces this; there is no override.

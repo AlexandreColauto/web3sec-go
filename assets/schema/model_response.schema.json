@@ -229,8 +229,9 @@
           "description": "the EXACT pinned snapshot; the request must not drift the deployment"
         },
         "execution_profile": {
-          "enum": ["host-readonly", "docker-networkless", "docker-gvisor",
-                   "vm-snapshot", "fork-runner"],
+          "enum": ["host-readonly", "halmos", "forge-fuzz", "minicertora",
+                   "docker-networkless", "docker-gvisor", "vm-snapshot",
+                   "fork-runner"],
           "description": "must be a permitted profile for the finding's evidence target (checked against the sandbox registry)"
         },
         "success_criteria": {

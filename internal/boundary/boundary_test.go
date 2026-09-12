@@ -18,6 +18,7 @@ import (
 	"websec/internal/findings"
 	"websec/internal/learning"
 	"websec/internal/roles"
+	"websec/internal/sandbox"
 	"websec/internal/sequencepoc"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -672,6 +673,44 @@ func TestReproducerRequestUnknownProfileRejected(t *testing.T) {
 	if got := objStr(last, "kind"); got != "reproducer_request" {
 		t.Errorf("kind = %s", got)
 	}
+}
+
+// TestReproducerRequestProfileRegistryParity pins boundary-layer acceptance
+// against sandbox.Profiles itself — the single source of truth. The L3 advice
+// wave grew the registry from five names to eight (the host toolchains
+// halmos, forge-fuzz and minicertora), so a fixture pinned to one profile
+// (TestReproducerRequestValidAccepted) no longer proves the others are
+// admissible. Acceptance rows mirror that test; the final row mirrors
+// TestReproducerRequestUnknownProfileRejected with the literal name 'bogus'.
+func TestReproducerRequestProfileRegistryParity(t *testing.T) {
+	for _, profile := range sandbox.Profiles {
+		profile := profile
+		t.Run(profile, func(t *testing.T) {
+			c := newCamp(t)
+			fid := reproSetup(t, c)
+			out, err := SubmitReproducerRequest(c, setKV(
+				validReproducerRequest(fid), "execution_profile",
+				validation.VStr(profile)))
+			if err != nil {
+				t.Fatalf("execution_profile %s rejected: %v", profile, err)
+			}
+			if got := objStr(out, "execution_profile"); got != profile {
+				t.Errorf("execution_profile = %s, want %s", got, profile)
+			}
+		})
+	}
+	t.Run("bogus", func(t *testing.T) {
+		c := newCamp(t)
+		fid := reproSetup(t, c)
+		r := setKV(validReproducerRequest(fid), "execution_profile",
+			validation.VStr("bogus"))
+		if _, err := SubmitReproducerRequest(c, r); err == nil {
+			t.Fatal("want rejection for execution_profile bogus")
+		}
+		if contains(sandbox.Profiles, "bogus") {
+			t.Fatal("sandbox.Profiles must not contain bogus")
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------

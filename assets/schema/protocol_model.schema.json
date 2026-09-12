@@ -382,6 +382,10 @@
                   "proof": {
                     "type": "object",
                     "additionalProperties": false,
+                    "required": ["tool_version", "solc_version",
+                                 "spec_version", "evm_version",
+                                 "confidence", "reason", "bounds",
+                                 "assumptions", "warnings", "ghosts"],
                     "description": "minicertora verdict sidecar (an attributed JSONL line, copied verbatim); ABSENT for other kinds and for unattributed minicertora runs. The sidecar mirrors the prover's own report fields verbatim: the schema pins the key set and the shapes where promised (bounds is an object-or-null, assumptions/warnings/ghosts are arrays-or-null) but deliberately does NOT constrain value types, because a copy of malformed tool output must stay copyable evidence rather than a schema failure at write time. Verdict authority is the rung, not the sidecar.",
                     "properties": {
                       "tool_version": {},

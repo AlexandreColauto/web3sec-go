@@ -173,6 +173,18 @@ func TestVerificationHarnessRejects(t *testing.T) {
 			`,"verification":{"harness":{"kind":"halmos",` +
 				`"rung":"proved-bounded","exec":"EXEC-7","bounded_k":"100"}}`,
 			"bounded_k"},
+		// The Task-3 required array: the ten-key sidecar set is
+		// mandatory (mcProof always emits all ten keys), so a proof
+		// object that drops one — a hand-written or drifted sidecar —
+		// is refused with the missing key named.
+		{"proof missing warnings key",
+			`,"verification":{"harness":{"kind":"minicertora",` +
+				`"rung":"proved-bounded","exec":"EXEC-7",` +
+				`"proof":{"tool_version":"0.4.2","solc_version":null,` +
+				`"spec_version":null,"evm_version":null,` +
+				`"confidence":"modeled","reason":null,"bounds":null,` +
+				`"assumptions":[],"ghosts":[]}}}`,
+			"warnings"},
 		// The verbatim ruling loosens VALUES, not the KEYS: an unknown
 		// proof key is still refused (additionalProperties:false).
 		{"unknown proof key",
@@ -181,12 +193,18 @@ func TestVerificationHarnessRejects(t *testing.T) {
 				`"proof":{"bogus":1}}}`,
 			"bogus"},
 		// ...and so is a fourth key inside the fixed three-key bounds
-		// object, whatever its value's shape.
+		// object, whatever its value's shape. (The required set is
+		// spelled out so the bounds violation is the error reported,
+		// not ten missing-key errors.)
 		{"bounds fourth key",
 			`,"verification":{"harness":{"kind":"minicertora",` +
 				`"rung":"proved-bounded","exec":"EXEC-7",` +
-				`"proof":{"bounds":{"loop_bound":4,"path_cap":64,` +
-				`"solver_timeout_ms":30000,"loop_bound_exhaustive":true}}}}`,
+				`"proof":{"tool_version":null,"solc_version":null,` +
+				`"spec_version":null,"evm_version":null,` +
+				`"confidence":null,"reason":null,` +
+				`"bounds":{"loop_bound":4,"path_cap":64,` +
+				`"solver_timeout_ms":30000,"loop_bound_exhaustive":true},` +
+				`"assumptions":[],"warnings":[],"ghosts":[]}}}`,
 			"loop_bound_exhaustive"},
 		// The promised SHAPES still hold: an array-or-null slot may not
 		// be a scalar, and bounds may not be a scalar either. (mcArr
@@ -195,12 +213,19 @@ func TestVerificationHarnessRejects(t *testing.T) {
 		{"ghosts scalar",
 			`,"verification":{"harness":{"kind":"minicertora",` +
 				`"rung":"inconclusive","exec":"EXEC-7",` +
-				`"proof":{"ghosts":"not-a-list"}}}`,
+				`"proof":{"tool_version":null,"solc_version":null,` +
+				`"spec_version":null,"evm_version":null,` +
+				`"confidence":null,"reason":null,"bounds":null,` +
+				`"assumptions":[],"warnings":[],` +
+				`"ghosts":"not-a-list"}}}`,
 			"ghosts"},
 		{"bounds scalar",
 			`,"verification":{"harness":{"kind":"minicertora",` +
 				`"rung":"inconclusive","exec":"EXEC-7",` +
-				`"proof":{"bounds":7}}}`,
+				`"proof":{"tool_version":null,"solc_version":null,` +
+				`"spec_version":null,"evm_version":null,` +
+				`"confidence":null,"reason":null,"bounds":7,` +
+				`"assumptions":[],"warnings":[],"ghosts":[]}}}`,
 			"bounds"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

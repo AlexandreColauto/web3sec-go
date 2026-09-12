@@ -337,8 +337,9 @@ func TestHarnessResultMinicertoraContradiction(t *testing.T) {
 }
 
 // TestHarnessResultMinicertoraTimedOut pins the S1 gate: a timed-out run
-// never reaches MapMinicertora — the MapRun timeout wording (with the
-// --loop-bound-derived k) is what lands.
+// never reaches MapMinicertora, and its summary is the Step-0 wording —
+// "no clean completion" plus the invocation bound read from --loop-bound,
+// never MapRun's "timeout after Ns" (N is k, not seconds).
 func TestHarnessResultMinicertoraTimedOut(t *testing.T) {
 	c, root := mcCamp(t, "mc-timeout")
 	execID := "EXEC-6"
@@ -357,12 +358,46 @@ func TestHarnessResultMinicertoraTimedOut(t *testing.T) {
 	if objStr(h, "rung") != "inconclusive" {
 		t.Fatalf("rung = %s", validation.CanonCompact(h))
 	}
-	if objStr(h, "summary") != "timeout after 8s" {
-		t.Fatalf("summary = %q, want the MapRun timeout wording",
-			objStr(h, "summary"))
+	want := "inconclusive (no clean completion; loop bound was 8)"
+	if objStr(h, "summary") != want {
+		t.Fatalf("summary = %q, want %q", objStr(h, "summary"), want)
 	}
 	if objHasKey(h, "proof") {
 		t.Fatal("a timed-out run stores no proof key")
+	}
+}
+
+// TestHarnessResultMinicertoraTimedOutLoopBound4 is the second row of the
+// same S1 gate with a different literal bound: the summary must echo THIS
+// run's invocation bound (4), proving the clause is read from the command
+// rather than hardcoded to the 8 pinned above.
+func TestHarnessResultMinicertoraTimedOutLoopBound4(t *testing.T) {
+	c, root := mcCamp(t, "mc-timeout-bound4")
+	execID := "EXEC-14"
+	mcHarnessExec(t, c, execID, mcProvenLine,
+		"minicertora --rule inv_1 --loop-bound 4",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, -1)
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("exit %d out=%q err=%q", code, out, errS)
+	}
+	if out != "INV-1: inconclusive (minicertora, EXEC-14)\n" {
+		t.Fatalf("stdout = %q, want the inconclusive print", out)
+	}
+	h := mcHarness(t, c)
+	if objStr(h, "rung") != "inconclusive" {
+		t.Fatalf("rung = %s", validation.CanonCompact(h))
+	}
+	want := "inconclusive (no clean completion; loop bound was 4)"
+	if objStr(h, "summary") != want {
+		t.Fatalf("summary = %q, want %q", objStr(h, "summary"), want)
+	}
+	if objHasKey(h, "proof") {
+		t.Fatal("a timed-out run stores no proof key")
+	}
+	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+		t.Fatalf("bounded_k = %s, want null", validation.CanonCompact(bk))
 	}
 }
 
@@ -549,8 +584,8 @@ func TestHarnessResultMinicertoraProvenBigBound(t *testing.T) {
 
 // TestHarnessResultMinicertoraKilledStatus pins the F2 gate: 128+N is the
 // shell's death-by-signal convention, so a 137 (SIGKILL) run never
-// completed — its PROVEN bytes map to the same inconclusive timeout
-// summary the -1 gate renders, and carry no proof key.
+// completed — its PROVEN bytes map to the same Step-0 inconclusive wording
+// the -1 gate renders, and carry no proof key.
 func TestHarnessResultMinicertoraKilledStatus(t *testing.T) {
 	c, root := mcCamp(t, "mc-killed")
 	execID := "EXEC-12"
@@ -569,12 +604,47 @@ func TestHarnessResultMinicertoraKilledStatus(t *testing.T) {
 	if objStr(h, "rung") != "inconclusive" {
 		t.Fatalf("rung = %s", validation.CanonCompact(h))
 	}
-	if objStr(h, "summary") != "timeout after 8s" {
+	want := "inconclusive (no clean completion; loop bound was 8)"
+	if objStr(h, "summary") != want {
 		t.Fatalf("summary = %q, want the -1 gate's wording",
 			objStr(h, "summary"))
 	}
 	if objHasKey(h, "proof") {
 		t.Fatal("a killed run stores no proof key")
+	}
+}
+
+// TestHarnessResultMinicertoraTimedOutNoBound pins the Step-0 fallback: a
+// timed-out minicertora run whose command names NO bound flag renders the
+// clause-free wording — never MapRun's "timeout after 0s" (which would
+// claim a 0-second budget the run never had).
+func TestHarnessResultMinicertoraTimedOutNoBound(t *testing.T) {
+	c, root := mcCamp(t, "mc-timeout-nobound")
+	execID := "EXEC-13"
+	mcHarnessExec(t, c, execID, mcProvenLine,
+		"timeout 40s minicertora --rule inv_1",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, -1)
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("exit %d out=%q err=%q", code, out, errS)
+	}
+	if out != "INV-1: inconclusive (minicertora, EXEC-13)\n" {
+		t.Fatalf("stdout = %q, want the inconclusive print", out)
+	}
+	h := mcHarness(t, c)
+	if objStr(h, "rung") != "inconclusive" {
+		t.Fatalf("rung = %s", validation.CanonCompact(h))
+	}
+	want := "inconclusive (no clean completion)"
+	if objStr(h, "summary") != want {
+		t.Fatalf("summary = %q, want %q", objStr(h, "summary"), want)
+	}
+	if objHasKey(h, "proof") {
+		t.Fatal("a timed-out run stores no proof key")
+	}
+	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+		t.Fatalf("bounded_k = %s, want null", validation.CanonCompact(bk))
 	}
 }
 
