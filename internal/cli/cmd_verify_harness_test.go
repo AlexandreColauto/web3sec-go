@@ -6,14 +6,17 @@ package cli
 // auto-attribution, no finding-evidence writes, no learning rows.
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"websec/internal/harness"
 	"websec/internal/invariants"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -409,5 +412,230 @@ func TestVerifyHarnessResultAmbiguousKind(t *testing.T) {
 		"--harness-result", "INV-1", "--exec", execID, "--kind", "halmos")
 	if code != 0 {
 		t.Fatalf("explicit kind exit %d: out=%q err=%q", code, out, errS)
+	}
+}
+
+// ---- Task 1 (wave L-defer): scaffold Validate rides the harness-result path
+
+// harnessArtifactPath is the halmos scaffold artifact T17 wrote.
+func harnessArtifactPath(c *state.Campaign) string {
+	return filepath.Join(c.ArtifactsDir, "harness", "INV-1", "H.t.sol")
+}
+
+// harnessDriftStatement rewrites the registry entry's statement AFTER the
+// scaffold artifact was rendered: the claim the bytes were rendered from
+// moved, the on-disk harness file did not (the plan's row (a)). The write
+// goes through the links store, exactly as any later claim edit would.
+func harnessDriftStatement(t *testing.T, c *state.Campaign, invID,
+	stmt string) {
+	t.Helper()
+	links, err := invariants.LoadLinks(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := objAt(links, "invariants")
+	entry := objAt(reg, invID)
+	if entry.Kind != validation.Obj {
+		t.Fatalf("no registry entry for %s", invID)
+	}
+	entry.O = validation.SetOrAppend(entry.O, "statement",
+		validation.VStr(stmt))
+	reg.O = validation.SetOrAppend(reg.O, invID, entry)
+	links.O = validation.SetOrAppend(links.O, "invariants", reg)
+	if _, err := invariants.SaveLinks(c, links); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// harnessTuneBody edits the scaffold artifact INSIDE the BODY window — the
+// model tuning the byte-law allows and Validate must never refuse (row
+// (b)). The recorded hash is read off the file afterwards, so the run
+// stays bound to the bytes it ran.
+func harnessTuneBody(t *testing.T, c *state.Campaign) {
+	t.Helper()
+	p := harnessArtifactPath(c)
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	filled := strings.Replace(string(raw), harness.DummyHalmos,
+		"uint256 tuned = 1;\n        "+harness.DummyHalmos, 1)
+	if filled == string(raw) {
+		t.Fatal("fixture must edit the BODY window (DummyHalmos not found)")
+	}
+	if err := os.WriteFile(p, []byte(filled), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// harnessDropEndMarker deletes the BODY end marker line: a degraded
+// artifact with no window at all. Validate's BodyRegion refuses it, and the
+// refusal must carry that reason verbatim (the non-lineDiffErr shape).
+func harnessDropEndMarker(t *testing.T, c *state.Campaign) {
+	t.Helper()
+	p := harnessArtifactPath(c)
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	line := "    " + harness.EndMarker + "\n"
+	if !strings.Contains(string(raw), line) {
+		t.Fatalf("fixture must drop the end marker line (%q)", line)
+	}
+	if err := os.WriteFile(p,
+		[]byte(strings.Replace(string(raw), line, "", 1)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestVerifyHarnessResultScaffoldValidate pins Task 1 (wave L-defer): once
+// the recorded hash binds a run to the stored scaffold bytes, the rail
+// re-renders the scaffold from the CURRENT claim (harness.Validate) and
+// byte-compares everything OUTSIDE the BODY window. A claim that drifted
+// away from the bytes that ran is refused by the new arm
+// "scaffold-degraded: <reason>" — inconclusive, output unused, no proof —
+// while in-window model tuning still maps byte-for-byte as before. The
+// rows also pin the ORDER: the hash check runs first, so a foreign hash
+// refuses with the hash wording even when the claim drifted too (a refusal
+// must name the reason the rail actually stopped on).
+func TestVerifyHarnessResultScaffoldValidate(t *testing.T) {
+	const degradedNatspec = "scaffold-degraded: natspec invariant line changed"
+	const hashDiffers = "scaffold-bound violation: harness file hash differs " +
+		"from stored scaffold"
+	cases := []struct {
+		name        string
+		edit        func(t *testing.T, c *state.Campaign)
+		foreignHash bool
+		wantRung    string
+		wantSummary string   // exact match when non-empty
+		wantHas     []string // summary substrings, when non-empty
+	}{
+		{
+			// (a) statement edited after the run, harness file untouched:
+			// the re-render no longer describes the file that ran.
+			name: "claim drift after the run refuses",
+			edit: func(t *testing.T, c *state.Campaign) {
+				harnessDriftStatement(t, c, "INV-1",
+					"totalAssets must cover all ISSUED shares")
+			},
+			wantRung:    "inconclusive",
+			wantSummary: degradedNatspec,
+		},
+		{
+			// (b) only the BODY window moved: Validate must not fire.
+			name:     "body-window tuning maps normally",
+			edit:     harnessTuneBody,
+			wantRung: "proved-bounded",
+			wantHas:  []string{"k=100"},
+		},
+		{
+			// (d) untampered flow: nothing moved at all.
+			name:     "untampered bound run maps normally",
+			wantRung: "proved-bounded",
+			wantHas:  []string{"k=100"},
+		},
+		{
+			// A degraded artifact with no window at all: the refusal
+			// carries BodyRegion's own wording, unparsed.
+			name:        "marker-less artifact refuses with its reason",
+			edit:        harnessDropEndMarker,
+			wantRung:    "inconclusive",
+			wantSummary: "scaffold-degraded: missing BODY end marker",
+		},
+		{
+			// Ordering: hash-bind first, Validate second. The hash arm
+			// owns the refusal here even though the claim drifted.
+			name: "foreign hash refuses before Validate",
+			edit: func(t *testing.T, c *state.Campaign) {
+				harnessDriftStatement(t, c, "INV-1",
+					"totalAssets must cover all ISSUED shares")
+			},
+			foreignHash: true,
+			wantRung:    "inconclusive",
+			wantSummary: hashDiffers,
+		},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, root := harnessCamp(t, "halmos", "")
+			if tc.edit != nil {
+				tc.edit(t, c)
+			}
+			// The artifact the run was bound to, byte-captured before the
+			// command: the harness-result path must never rewrite it.
+			pre, err := os.ReadFile(harnessArtifactPath(c))
+			if err != nil {
+				t.Fatal(err)
+			}
+			execID := fmt.Sprintf("EXEC-0000000%03d", 14+i)
+			hashes := map[string]string{
+				"H.t.sol": harnessScaffoldSHA(t, c),
+			}
+			if tc.foreignHash {
+				hashes["H.t.sol"] = strings.Repeat("0", 64)
+			}
+			harnessExec(t, c, execID, harnessProvedStdout,
+				"halmos check --root . --loop 100 "+
+					"--match-contract Inv1InvariantHalmos", hashes, 0)
+			code, out, errS := run(t, "--root", root, "verify",
+				c.CampaignID, "--harness-result", "INV-1",
+				"--exec", execID)
+			if code != 0 {
+				t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+			}
+			wantOut := fmt.Sprintf("INV-1: %s (halmos, %s)\n",
+				tc.wantRung, execID)
+			if tc.wantRung == "proved-bounded" {
+				wantOut = fmt.Sprintf("INV-1: proved-bounded (halmos, "+
+					"k=100, %s)\n", execID)
+			}
+			if out != wantOut {
+				t.Fatalf("stdout = %q, want %q", out, wantOut)
+			}
+			h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
+			if objStr(h, "rung") != tc.wantRung {
+				t.Fatalf("rung = %s, want %s", validation.CanonCompact(h),
+					tc.wantRung)
+			}
+			summary := objStr(h, "summary")
+			if tc.wantSummary != "" && summary != tc.wantSummary {
+				t.Fatalf("summary = %q, want %q", summary, tc.wantSummary)
+			}
+			for _, want := range tc.wantHas {
+				if !strings.Contains(summary, want) {
+					t.Fatalf("summary %q lacks %q", summary, want)
+				}
+			}
+			if tc.wantRung == "proved-bounded" &&
+				strings.Contains(summary, "scaffold-degraded") {
+				t.Fatalf("Validate fired on a legal run: %q", summary)
+			}
+			if tc.wantRung == "inconclusive" {
+				if objHasKey(h, "proof") {
+					t.Fatal("a refusal stores no proof key")
+				}
+				if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+					t.Fatalf("bounded_k = %s, want null",
+						validation.CanonCompact(bk))
+				}
+			}
+			// The event carries the same refusal the field does.
+			evs := harnessEventsOf(t, c, "harness_run")
+			if len(evs) != 1 {
+				t.Fatalf("harness_run events = %d, want 1", len(evs))
+			}
+			got, _ := evs[0]["data"].(map[string]any)
+			if got["rung"] != tc.wantRung || got["summary"] != summary {
+				t.Fatalf("event data = %v, want rung %q summary %q", got,
+					tc.wantRung, summary)
+			}
+			post, err := os.ReadFile(harnessArtifactPath(c))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(pre, post) {
+				t.Fatal("the run path must not rewrite the scaffold artifact")
+			}
+		})
 	}
 }

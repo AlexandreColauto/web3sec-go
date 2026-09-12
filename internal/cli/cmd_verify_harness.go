@@ -17,9 +17,12 @@ package cli
 //  3. load the scaffold ARTIFACT bytes T17 wrote (harness_scaffold event
 //     ref -> registered artifact -> file) and bind the run to them
 //     (Decision 2b): a recorded hash equal to the scaffold sha binds the
-//     run; a harness-named hash entry with a different sha is a
-//     scaffold-bound violation (rung inconclusive, the output is NOT
-//     used); no hash info maps normally with an "(unbound: ...)" suffix;
+//     run — and the bound bytes are then re-rendered from the CURRENT
+//     claim by harness.Validate, so a claim edited after the run is a
+//     scaffold-degraded refusal (rung inconclusive, the output is NOT
+//     used); a harness-named hash entry with a different sha is a
+//     scaffold-bound violation (same refusal, hash wording); no hash info
+//     maps normally with an "(unbound: ...)" suffix;
 //  4. map the stdout to a rung: an untimed minicertora run through
 //     MapMinicertora(raw, exit_status, MspecRuleName(inv)) — which also
 //     captures the proof sidecar for every attributed verdict line
@@ -101,7 +104,10 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	}
 	k := invocationBound(harnessCommand(rec), kind)
 	ruleName := harness.MspecRuleName(a.harnessResult)
-	rung, summary, proof, boundedK := harnessMapBound(kind, raw, rec,
+	// Validate renders from the same value the scaffold command rendered
+	// from, so the re-render can only differ where the bytes really moved.
+	inv := harnessInvValue(a.harnessResult, entry)
+	rung, summary, proof, boundedK := harnessMapBound(kind, inv, raw, rec,
 		scaffold, timedOut, k, exitStatus, ruleName)
 	entry.O = validation.SetOrAppend(entry.O, "verification",
 		validation.VObj(harnessField(kind, rung, a.execID, boundedK,
@@ -178,6 +184,20 @@ func harnessField(kind harness.Kind, rung, exec string,
 		kvs = append(kvs, validation.KV{K: "proof", V: proof})
 	}
 	return validation.KV{K: "harness", V: validation.VObj(kvs...)}
+}
+
+// harnessInvValue is the invariant value harness.Scaffold renders from: the
+// registry entry plus the id the registry carries as its map KEY (Scaffold
+// reads "id" off the record, so the key is passed in as that field). Both
+// the scaffold command (verifyScaffold) and the Validate arm go through
+// here on purpose: if the two inputs could drift, every bound run would be
+// refused for bytes that never moved.
+func harnessInvValue(invID string, entry validation.Value) validation.Value {
+	inv := entry
+	inv.O = validation.SetOrAppend(
+		append([]validation.KV(nil), entry.O...), "id",
+		validation.VStr(invID))
+	return inv
 }
 
 // harnessInvEntry is links["invariants"][invID] with presence.
@@ -389,12 +409,24 @@ func invocationBound(command string, kind harness.Kind) int {
 // harnessMapBound runs the Decision 2b bound check around MapRun:
 //
 //   - a recorded hash (input_hashes or artifact_hashes) equal to the
-//     stored scaffold's sha256 binds the run: MapRun normally;
+//     stored scaffold's sha256 binds the run: harness.Validate re-renders
+//     the scaffold from the CURRENT invariant claim and refuses with
+//     "scaffold-degraded: <reason>" when anything outside the body window
+//     moved — otherwise MapRun normally;
 //   - a harness-named hash entry (H.t.sol / F.t.sol, T17's filenames, or
 //     anything harness-named) with a different sha is a scaffold-bound
 //     violation: rung inconclusive, the run's output is NOT used;
 //   - no hash info at all maps normally with an "(unbound: harness file
 //     hash not recorded)" summary suffix — the honest limitation.
+//
+// The failure ORDER is deliberate and pinned: the hash check runs first,
+// then Validate. A hash proves WHICH bytes ran (a foreign hash refutes the
+// run outright); Validate proves those bound bytes still match the CURRENT
+// claim (the statement may be edited long after the run). Both are needed,
+// they refuse differently, and each refusal names the step that stopped
+// it. An UNBOUND run skips Validate on purpose: no hash proved which bytes
+// ran, so a re-render could only judge the on-disk file, never the run —
+// it keeps the honest unbound suffix instead.
 //
 // bounded_k is set only for proved-bounded (parsed k=<n> else the
 // invocation k); every other rung carries null.
@@ -405,10 +437,10 @@ func invocationBound(command string, kind harness.Kind) int {
 // untimed minicertora run goes through MapMinicertora — its exit status
 // and scaffold-pinned rule name are the mapper's business, not the
 // dispatcher's. The proof sidecar is non-null exactly when a mapper
-// attributed a verdict line; the bound-violation refusal below never maps,
-// so it never carries one.
-func harnessMapBound(kind harness.Kind, raw []byte, rec validation.Value,
-	scaffold []byte, timedOut bool, k, exitStatus int,
+// attributed a verdict line; the bound-violation and scaffold-degraded
+// refusals below never map, so they never carry one.
+func harnessMapBound(kind harness.Kind, inv validation.Value, raw []byte,
+	rec validation.Value, scaffold []byte, timedOut bool, k, exitStatus int,
 	ruleName string) (rung, summary string, proof validation.Value,
 	boundedK *int) {
 	sum := sha256.Sum256(scaffold)
@@ -416,6 +448,16 @@ func harnessMapBound(kind harness.Kind, raw []byte, rec validation.Value,
 	hashes, harnessNamed := harnessRecordedHashes(rec)
 	for _, h := range hashes {
 		if h == hexSum {
+			// The run is bound to these bytes; Validate now re-renders
+			// the scaffold from the CURRENT claim and compares everything
+			// outside the body window. A claim that drifted away from
+			// the bytes that ran must never be attributed a rung: the
+			// output proved a claim nobody is making any more.
+			if err := harness.Validate(kind, inv, scaffold); err != nil {
+				return harness.RungInconclusive,
+					"scaffold-degraded: " + scaffoldDegradedReason(err),
+					validation.VNull(), nil
+			}
 			return harnessMappedKind(kind, raw, timedOut, k, exitStatus,
 				ruleName, "")
 		}
@@ -427,6 +469,25 @@ func harnessMapBound(kind harness.Kind, raw []byte, rec validation.Value,
 	}
 	return harnessMappedKind(kind, raw, timedOut, k, exitStatus, ruleName,
 		" (unbound: harness file hash not recorded)")
+}
+
+// scaffoldDegradedReason reduces a harness.Validate error to the
+// scaffold-line reason the refusal text carries. Validate's messages have
+// two fixed shapes — lineDiffErr's "harness: scaffold-bound: <reason>
+// (<region> line <n>: want <q> got <q>)" and BodyRegion's "harness:
+// scaffold-bound: missing BODY start marker" (plus its siblings) — so the
+// drift CLASS is what sits between the prefix and the first region detail;
+// the quoted want/got bytes are diagnostics, not the refusal. Anything
+// unrecognized rides whole: a refusal must never lose its reason.
+func scaffoldDegradedReason(err error) string {
+	msg := strings.TrimPrefix(err.Error(), "harness: ")
+	msg = strings.TrimPrefix(msg, "scaffold-bound: ")
+	for _, anchor := range []string{" (pre-body line ", " (post-body line "} {
+		if i := strings.Index(msg, anchor); i >= 0 {
+			return msg[:i]
+		}
+	}
+	return msg
 }
 
 // harnessMappedKind dispatches one bound run to its kind's mapper: an

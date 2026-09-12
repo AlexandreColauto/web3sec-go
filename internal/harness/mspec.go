@@ -97,11 +97,13 @@ const DummyInvariantMspec = `// unfilled scaffold — the reviewed claim is pinn
 // — a declaration whose body is the reviewed claim. The scaffold owns the
 // declaration AND the claim, so both are rendered OUTSIDE the BODY window:
 // the claim is reviewed statement data, not model tuning. Validate re-renders
-// and byte-compares the frame, so a weakened `<=` to `>=` is a scaffold-bound
-// violation WHEN VALIDATE RUNS; today's `verify --harness-result` binds by
-// exec-record input hash rather than re-rendering, so the tamper-to-tampered-
-// hash path is not caught at that gate (pre-existing for halmos/forge frames
-// too; wiring Validate into the run path is a deferred decision). The
+// and byte-compares the frame, so a weakened `<=` to `>=` is refused as
+// "scaffold-degraded: invariant assert line changed" on the
+// `verify --harness-result` rail (Task 1, wave L-defer: Validate runs there
+// right after the exec-record hash binds the run, and the tests pin it). The
+// tamper-to-tampered-hash path is therefore closed: a model that edits the
+// pinned claim and hashes its own edit is bound by that hash and then refused
+// by the re-render. The
 // declaration name is MspecRuleName (inv_<n>) rather than the
 // statement's slug, because the mapper attributes verdict lines by that name
 // (harness.MspecRuleName) — the slug rides verbatim in the

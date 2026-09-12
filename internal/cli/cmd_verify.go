@@ -307,10 +307,9 @@ func verifyScaffold(c *state.Campaign, a *verifyArgs, r *Runner) error {
 			validation.PyReprStr(a.invariant))
 	}
 	// Scaffold reads the id off the record (registry entries carry the id
-	// as their map key, so it is passed in as "id").
-	inv := entry
-	inv.O = validation.SetOrAppend(append([]validation.KV(nil),
-		entry.O...), "id", validation.VStr(a.invariant))
+	// as their map key, so it is passed in as "id") — the same value the
+	// harness-result rail re-renders from, through one shared helper.
+	inv := harnessInvValue(a.invariant, entry)
 	kind := harness.Kind(a.scaffold)
 	body, err := harness.Scaffold(kind, inv)
 	if err != nil {
