@@ -2852,22 +2852,85 @@ Decision-2b `.mspec` binding), the envgo `e4_capable` pin, and the schema
 design). Golden GREEN throughout; existing bytes moved only in choice-list
 help/error texts.
 
-Follow-ups triaged from the final review (queue for a Wave L-next / K' plan):
-1. model_response/trajectory `execution_profile` enums + prompts 36/47/49
-   still carry the container-era five-profile list — the model-facing bundle
-   advertises a profile its schema rejects (pre-existing for halmos, widened
-   now; small honest-surface fix).
-2. Brief/audit `harnessRunLine` drops the big-int bound the CLI prints
-   (display gap for `bounded_k == null` proved runs) — one-line sidecar read.
-3. Signal death renders as "timeout after Ns" where N is the loop bound
-   (inherited MapRun wording; wrong unit for minicertora, cosmetic).
-4. `proof` has no schema `required` array — presence is producer-enforced
-   only; bind it if hand-written sidecars ever appear.
-5. Stale `mcArr` comment (minicertora.go:234) vs the verbatim-value schema
-   — one-word pass.
-6. Deferred planes stand: L3 escalation dispositions, L5 sweep templates,
-   L6 calibration fixtures, the `calls[]`→sequence_poc bridge, and
+Follow-ups triaged from the final review — **all of 1–5 CLOSED by Wave
+L-advice** (`d07385ac..f33294b9`, 2026-09-12; see the landing record below):
+1. **CLOSED** (`f33294b9`): the model_response/trajectory `execution_profile`
+   enums + prompts 36/47/49 now carry all eight `sandbox.Profiles` names in
+   declaration order (`host-readonly, halmos, forge-fuzz, minicertora,
+   docker-networkless, docker-gvisor, vm-snapshot, fork-runner`), pinned
+   three ways (`TestReproducerRequestProfileRegistryParity`, the schema
+   enum-order test, the sft corpus resync).
+2. **CLOSED** (`414ac16f`): audit's `harnessBoundK` falls back to
+   `proof.bounds.loop_bound` when `bounded_k` is null/absent — exact decimal
+   text, so a beyond-int64 bound renders verbatim, matching the CLI.
+3. **CLOSED** (`f33294b9`): signal death on a minicertora run stores
+   `inconclusive (no clean completion; loop bound was N)` (or the clause-free
+   form when no bound was found) instead of the wrong-unit
+   `timeout after Ns`; halmos/forge keep their byte-pinned wording.
+4. **CLOSED** (`f33294b9`): `proof` carries a ten-key schema `required` array
+   (values still admitted verbatim), pinned by the
+   `proof missing warnings key` reject row.
+5. **CLOSED** (`f33294b9`): the stale `mcArr` comment is reworded to the
+   post-landing contract — the schema pins the key set, tool values ride
+   verbatim.
+6. Deferred planes stand, with the L3 row now landed in advisory form:
+   **L3 escalation dispositions — advisory form LANDED**
+   (`d07385ac` + `414ac16f` + `ff3775d1`: the 25-code → 8-class disposition
+   table renders as ` | next: <advice> (<class>)` on minicertora inconclusive
+   audit lines; see the landing note in `docs/MINICERTORA_ARCHITECTURE.md`
+   §L3). Auto-spawning the escalation execs stays operator/model-driven by
+   design (surface budget); the `model_gaps` tally is **NOT built** — the
+   audit line IS the gap surface, deliberately. Still deferred: L5 sweep
+   templates, L6 calibration fixtures, the `calls[]`→sequence_poc bridge, and
    invariant-block scaffolds (architecture errata §L1).
+
+**Wave L-advice — LANDED 2026-09-12 (SDD, plan
+`docs/superpowers/plans/2026-09-12-wave-l-advice-dispositions.md`; commits
+`d07385ac..f33294b9`).** Docs/rendering wave, no new verbs and no gate moved:
+- **`internal/harness/disposition.go`** (new, `d07385ac`): the 25
+  `REASON_CODES` → eight classes (`escalate-bound`, `escalate-flag`,
+  `escalate-solver`, `spec-rewrite`, `honest-refusal`, `tool-error`,
+  `model-bug`, `witness-triage`) as pure data, plus `Disposition(summary)` →
+  `(class, advice, ok)`; unknown codes → `unmapped`, plumbing floors →
+  `ok=false` (never advice). Advisory only — nothing in it gates anything.
+- **Audit rendering** (`414ac16f` + `ff3775d1`): a minicertora inconclusive
+  line gains ` | next: <advice> (<class>)`; every other (kind, rung) pair is
+  byte-identical to before. The decoration `harnessMapBound` appends
+  (` (unbound: …)`) is stripped before classification, so a decorated floor
+  still gets no advice and a decorated mapped reason keeps its real class.
+- **Registry parity** (`f33294b9`): eight-profile `execution_profile` enums in
+  both schemas, prompts 36/47/49, pinned by the boundary registry-parity test,
+  the enum-order test and the roles pins — the model-facing bundle no longer
+  advertises a profile its schema rejects.
+- **Honest timeout wording** (`f33294b9`): minicertora signal-death/timeout
+  summaries say `no clean completion (loop bound was N)`; MapRun's
+  `timeout after %ds` stays for halmos/forge-fuzz.
+- **`proof` required-array** (`f33294b9`): the ten mapper keys are mandatory
+  in `protocol_model.schema.json`; value types stay verbatim.
+- **Corpus-resync precedent (binding).** Editing a proposer system prompt is
+  not a one-file change: every embedded copy must be resynced in the same
+  commit. In the golden fixtures that is **8 occurrences across 5 files** —
+  `scripts/golden/p4/sft/` (`examples.json` ×4, `lint-pass.json` ×1,
+  `lint-dedup.json` ×1, `lint-reject.json` ×1) and
+  `scripts/golden/sft-example.json` ×1 (the runbook-walkthrough sample SFT
+  store) — plus the committed `sft/examples.json` seed corpus ×2 and its
+  byte-identical taxonomy mirror
+  (`internal/taxonomy/testdata/seed/examples.json`) ×2. The `internal/sft`
+  lint byte-identity law (`internal/sft/lint.go`) is the tripwire: `golden.sh`
+  catches the `p4/sft/*` copies (step 175 `sft-lint-pass`) and
+  `scripts/runbook-walkthrough.sh` catches `sft-example.json` (`§cheat
+  sft-lint` / `sft-add` / `sft-list`), so **both** gates must be run after a
+  prompt edit — Task 3 ran only golden and the walkthrough went RED at
+  close-out; the missed 8th copy was resynced here with the same method.
+  Resync mechanically (escaped-text substitution, occurrence-count + round
+  trip + structural proofs; note `scripts/golden/sft-example.json` is
+  `ensure_ascii=True`, the `p4/sft/*` set is not); `scripts/golden/p4/build.py`
+  cannot regenerate the fixtures (retired Python twin) and must not be used to.
+- **Explicitly not built**: the `model_gaps` reason tally (the audit line is
+  the gap surface), automatic escalation exec spawning (operator/model `exec`
+  by design), and L3's two open sub-parts — reason histograms as planner
+  memory, and the `sequence_poc` witness bridge (deferred to the system
+  wave).
 
 *Rename note: parked as **Wave K** (items J1–J4 → K1–K4) because Wave J's own
 letters were spent by the close-out wave that shipped first. The rename is the

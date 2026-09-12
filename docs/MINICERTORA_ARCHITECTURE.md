@@ -230,6 +230,22 @@ Every escalation re-uses the scaffold bytes (hash-bound), so the EXEC chain
 for one invariant is a readable proof ladder: k=4 refused → k=8 PROVEN. The
 rung records the *winning* exec; the ladder stays in events.
 
+**Landing status — L-advice wave, 2026-09-12 (commits `d07385ac..f33294b9`).**
+The **advisory rendering is LANDED**: this table is implemented as pure data in
+`internal/harness/disposition.go` and surfaces on minicertora inconclusive
+audit lines as ` | next: <advice> (<class>)`; a plumbing floor renders plain
+advice-free, and the unbound decoration is stripped before classification, so
+a decorated refusal keeps its real class. Everything here remains advisory —
+the table classifies, the audit line names the action; the **CLI never
+auto-spawns** the escalation execs (each re-run stays the operator/model's
+`exec`, per surface budget). The `model_gaps` tally of this section is **NOT
+built** — the audit line IS the gap surface, deliberately. Two L3 sub-parts
+stay open and are honest deferrals: **reason histograms as planner memory**
+(§L6 "Reason histograms as memory") and the **`sequence_poc` witness bridge**
+(§L4 counterexample promotion; deferred to the separate system wave, together
+with the L5 sweep templates, L6 calibration fixtures and invariant-block
+scaffolds).
+
 ### L4 — Evidence plane: where verdicts may and may not go
 
 - **PROVEN-BOUNDED** renders (brief/audit/report, presence-gated) and
