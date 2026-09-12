@@ -37,7 +37,9 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  --json                emit the flags as JSON
+  --json                emit the flags and the skipped list as one JSON
+                        document ("skipped" is empty when nothing was
+                        skipped)
 `
 
 func runDeferred(root string, args []string, r *Runner) int {
@@ -76,10 +78,19 @@ func deferredCmd(root string, args []string, r *Runner) error {
 		return t14ExitErr(2, "deferred failed: %s\n", err)
 	}
 	if sp.flags[0].set {
+		// Round-3 chief item 3: --json is ONE parseable document. The
+		// skipped closures ride inside the object ("skipped": [...], empty
+		// when none) instead of being appended as human prose after the
+		// document — prose-after-JSON is exactly what made the round-2 edge
+		// case (skips present) unparseable.
+		skippedVal := validation.VArr()
+		for _, s := range skipped {
+			skippedVal.A = append(skippedVal.A, validation.VStr(s))
+		}
 		rep := validation.VObj(
-			validation.KV{K: "flags", V: deferredFlagsVal(flags)})
+			validation.KV{K: "flags", V: deferredFlagsVal(flags)},
+			validation.KV{K: "skipped", V: skippedVal})
 		fmt.Fprintln(r.Out, validation.DumpIndentedASCII(rep))
-		deferredPrintSkipped(r, skipped)
 		return nil
 	}
 	deferredPrint(r, flags)
@@ -87,10 +98,11 @@ func deferredCmd(root string, args []string, r *Runner) error {
 	return nil
 }
 
-// deferredPrintSkipped is the FIX-3 half of the report: closures the sweep
-// could not rank because their probe row no longer resolves against the
-// current surface are named, not dropped — the reader decides what an
-// unpriced tell on an unrankable row is worth.
+// deferredPrintSkipped is the FIX-3 half of the prose report (the --json view
+// carries the same list inside its "skipped" array): closures the sweep could
+// not rank because their probe row no longer resolves against the current
+// surface are named, not dropped — the reader decides what an unpriced tell
+// on an unrankable row is worth.
 func deferredPrintSkipped(r *Runner, skipped []string) {
 	if len(skipped) == 0 {
 		return

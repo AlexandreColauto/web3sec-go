@@ -63,14 +63,18 @@ options:
                         this attestation covers. VALUE is a filed finding id
                         (F-<12 hex digits>) or per-member cites
                         primitive:Symbol#L<line>|... (Symbol must appear on
-                        the row's own surface entry)
+                        the row's own surface entry). Consumed only by an L-04
+                        closure — refused on a Q-* priority and on a
+                        non-closing lens status
   --anchor ANCHOR       probe rows only: the field this disposition claims is
                         safe — one of the row's probe's own anchor enum
                         (anchors: accumulator, actor, asserter, base,
                         companion, concept, consumer, cursor, custody, guard,
                         invariant, plain, rounded, safety, sentinel, sibling,
                         stranded_entry). Required to disposition a probe row;
-                        the value recorded is the row's real anchor
+                        the value recorded is the row's real anchor. Refused
+                        on an L-* lens route (a lens entry is not a probe
+                        row)
   --passes VALUE       sentinel-guarded rows only: the value that passes the
                         check (the row's guard is a zero-check that cannot
                         express the truth of the value it guards). Required to
@@ -80,7 +84,9 @@ options:
                         symbol from the row's own surface entry, or be a
                         concrete literal (a decimal integer, a hex number or
                         Ethereum-style address 0x…, bytes32(0x…), a boolean,
-                        or a quoted string); prose like "TBD" is refused
+                        or a quoted string); prose like "TBD" is refused.
+                        Refused on an L-* lens route (a lens entry has no
+                        guard)
   --interim STATEMENT  tier-0 rows anchored on asserter only (FIX-5): the
                         deferred-consequence statement pricing the interim
                         window between the row's consumer and the asserter
@@ -88,7 +94,9 @@ options:
                         from the row's own surface entry; recorded on the
                         priority as its "interim" field. Validated on every
                         closure: a statement shorter than 3 non-blank
-                        characters is refused (the flag is never inert)
+                        characters is refused (the flag is never inert).
+                        Refused on an L-* lens route (a lens entry has no
+                        probe row to price)
   --finding FINDING    the other deferred-consequence exit: the id of a filed
                         finding (F-<12 hex digits>) that records the interim
                         window; recorded on the priority as its
@@ -96,7 +104,8 @@ options:
                         the id must name a filed, LIVE finding (a terminal
                         one — DISPROVED, OUT_OF_SCOPE, INFORMATIONAL,
                         DUPLICATE, SUPERSEDED — is refused), so the flag can
-                        never ride a ghost citation
+                        never ride a ghost citation. Refused on an L-* lens
+                        route (a lens entry has no probe row to price)
   --actor ACTOR         who is closing it (default: cli)
   --override-dismissal
                         B4: override the dismissal gate on a high-risk row
@@ -380,6 +389,32 @@ func finishAnswered(a *answeredArgs, pos []string) (*answeredArgs, error) {
 // reason enforcement, plus the family/symmetry attestations.
 func answeredLens(c *state.Campaign, a *answeredArgs, closing bool,
 	r *Runner) error {
+	// Round-3 chief item 1: the probe-row flags are inert on a lens route —
+	// a lens entry has no probe row to disposition, no guard to satisfy and
+	// no interim window to price, so any of them here would be silently
+	// dropped while the help text claims validation on every closure.
+	// Refused before the recon gate, the way the reconcile shape refusals
+	// are.
+	for _, f := range []struct {
+		flag, what, why string
+		val             *string
+	}{
+		{"--finding", "records the interim window of a Q-* probe row on " +
+			"a filed finding", "there is no probe row to price", a.finding},
+		{"--interim", "prices a Q-* probe row's interim window with a " +
+			"statement", "there is no probe row to price", a.interim},
+		{"--passes", "records the passing value of a sentinel-guarded " +
+			"Q-* probe row", "there is no guard to satisfy", a.passes},
+		{"--anchor", "dispositions a Q-* probe row by naming the field " +
+			"it claims is safe", "there is no probe row to disposition",
+			a.anchor},
+	} {
+		if f.val != nil {
+			return t14ExitErr(2, "answered: %s %s — %s is an L-* lens "+
+				"route, so %s: drop %s\n", f.flag, f.what,
+				validation.PyReprStr(a.priority), f.why, f.flag)
+		}
+	}
 	plan, err := planner.LoadPlanReadonly(c)
 	if err != nil {
 		return t14ExitErr(2, "answered failed: %s\n", err)
@@ -412,6 +447,18 @@ func answeredLens(c *state.Campaign, a *answeredArgs, closing bool,
 				"divergence rows of a primitive-symmetry lens — %s is not "+
 				"one, so there is nothing to reconcile: drop --reconcile\n",
 				validation.PyReprStr(a.priority))
+		}
+		// Round-3 chief item 2: the reconciliation is part of the closing
+		// attestation — markLensEntry consumes the spec only on a closing
+		// status, so a non-closing one would ignore it (and drop the stored
+		// reconciliation outright). Refused, naming the L-04 closing route.
+		if !closing {
+			return t14ExitErr(2, "answered: --reconcile is consumed only "+
+				"by an L-04 primitive-symmetry lens closure — %s with "+
+				"status %s is not a closure, so there is nothing to "+
+				"reconcile: drop --reconcile\n",
+				validation.PyReprStr(a.priority),
+				validation.PyReprStr(a.status))
 		}
 		parsed, err := planner.ParseReconcile(a.reconcile)
 		if err != nil {
@@ -528,6 +575,16 @@ func printAnsweredLens(c *state.Campaign, a *answeredArgs,
 // answeredPriority is the Q-* route.
 func answeredPriority(c *state.Campaign, a *answeredArgs, closing bool,
 	r *Runner) error {
+	// Round-3 chief item 2: --reconcile is consumed only by the L-04
+	// primitive-symmetry lens closure — on a Q-* priority it would exit 0
+	// silently ignoring the spec. Refused, naming the route that does
+	// consume it.
+	if a.reconcile != nil {
+		return t14ExitErr(2, "answered: --reconcile reconciles the "+
+			"divergence rows of an L-04 primitive-symmetry lens closure — "+
+			"%s is a Q-* priority, so there is nothing to reconcile: drop "+
+			"--reconcile\n", validation.PyReprStr(a.priority))
+	}
 	planPath := filepath.Join(c.ArtifactsDir, "campaign_plan.json")
 	plan, err := validation.ReadJson(planPath)
 	if err != nil {
@@ -601,6 +658,14 @@ func answeredPriority(c *state.Campaign, a *answeredArgs, closing bool,
 // its row and nothing is written. Lenses close one at a time, never here.
 func answeredBatch(c *state.Campaign, a *answeredArgs, closing bool,
 	r *Runner) error {
+	// Round-3 chief item 2: the batch is a Q-* route — --reconcile has no
+	// row to reconcile here and would be silently ignored.
+	if a.reconcile != nil {
+		return t14ExitErr(2, "answered: --reconcile reconciles the "+
+			"divergence rows of an L-04 primitive-symmetry lens closure — "+
+			"%s is a Q-* priority, so there is nothing to reconcile: drop "+
+			"--reconcile\n", validation.PyReprStr(a.priorities[0]))
+	}
 	for _, pid := range a.priorities {
 		if strings.HasPrefix(pid, "L-") {
 			return t14ExitErr(2, "answered: batch close supports Q-* "+

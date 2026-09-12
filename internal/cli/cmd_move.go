@@ -9,6 +9,10 @@ package cli
 // duplicates, and DUPLICATE -> HYPOTHESIS is the operator's undo (it clears
 // the recorded target). cli.py had no such flag — the Python `dedup` sweep was
 // the only writer of a DUPLICATE, and a wrong merge could not be undone.
+// The flag is consumed ONLY by a move whose to_status is DUPLICATE (the merge
+// writes the dedup pointer; the reopen clears it without ever reading --of),
+// so anywhere else it is refused at exit 2, never silently dropped (round-2
+// contract: flags are never inert).
 //
 // Error contract (cli.py cmd_move): IllegalTransition and ValueError are
 // printed by the HANDLER as `move failed: {e}` on stderr with exit 2 — NOT
@@ -56,6 +60,7 @@ func moveCmd(root string, args []string, r *Runner) error {
 	ensureSeams()
 	reason, actor, adjacent, duplicateOf := "", "", "", ""
 	haveReason := false
+	haveOf := false
 	adjacentClear := false
 	// unrecognized tokens are reported by the ROOT parser in ARGV order.
 	type moveUnk struct {
@@ -105,10 +110,12 @@ func moveCmd(root string, args []string, r *Runner) error {
 				"argument --adjacent-clear: ignored explicit argument %s",
 				validation.PyReprStr(strings.TrimPrefix(a, "--adjacent-clear=")))
 		case a == "--of" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			duplicateOf = args[i+1]
+			duplicateOf, haveOf = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--of="):
-			duplicateOf = strings.TrimPrefix(a, "--of=")
+			// even an empty value counts as the flag being passed: the
+			// route refusal below keys on presence, not on the value
+			duplicateOf, haveOf = strings.TrimPrefix(a, "--of="), true
 		case a == "--of":
 			return t14ArgparseErr(moveUsage, "move",
 				"argument --of: expected one argument")
@@ -155,6 +162,17 @@ func moveCmd(root string, args []string, r *Runner) error {
 			toks[i] = u.tok
 		}
 		return t14Unrecognized(strings.Join(toks, " "))
+	}
+	// Round-3 chief item 4: --of is only ever consumed by a move to
+	// DUPLICATE — the merge writes the dedup pointer, and the reopen
+	// (DUPLICATE -> HYPOTHESIS) clears that pointer without ever reading
+	// --of. On any other to_status the flag would be silently dropped at
+	// exit 0, so it is refused here, before the campaign is even opened,
+	// naming the only route that consumes it.
+	if haveOf && pos[2] != "DUPLICATE" {
+		return t14ExitErr(2, "move: --of records the duplicate-of pointer "+
+			"of a move to DUPLICATE — %s is not one, so there is no merge "+
+			"pointer to write: drop --of\n", validation.PyReprStr(pos[2]))
 	}
 	if actor == "" {
 		actor = "cli" // args.actor or "cli"

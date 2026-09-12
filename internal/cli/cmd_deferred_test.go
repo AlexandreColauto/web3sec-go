@@ -6,6 +6,7 @@ package cli
 // file and the event log are byte-for-byte untouched.
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -207,5 +208,84 @@ func TestDeferredSweepSkipsReemittedRows(t *testing.T) {
 	}
 	if strings.Contains(out, "tier 0, assertion_gap 4") {
 		t.Errorf("the unrankable closure was flagged anyway:\n%s", out)
+	}
+}
+
+// TestDeferredJSONWithSkipsIsOneDocument pins the round-3 --json contract:
+// with skips present the output is ONE parseable JSON document whose
+// "skipped" array names every unrankable closure — the human skipped lines
+// are prose mode only and never ride the JSON stream (the old shape appended
+// prose after the document, which broke every parser exactly on this edge).
+func TestDeferredJSONWithSkipsIsOneDocument(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	t14TestSeed(t, root, cid)
+	dgSeedProbeCampaign(t, root, cid)
+	// the pre-gate shape: the tell sits in the accepted reason, the closure
+	// went through the logged override, nothing prices the window
+	code, _, errS := run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason",
+		"the row stays unfinalizable, funds strand in the escrow",
+		"--anchor", "asserter", "--override-dismissal", "--override-reason",
+		"accepted as designed")
+	if code != 0 {
+		t.Fatalf("seed closure exit %d: %q", code, errS)
+	}
+	// re-emit: the row is gone from the surface (its id changed), so the
+	// sweep cannot rank the closure and must skip it
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	surfacePath := filepath.Join(c.ArtifactsDir, "probe_surface.json")
+	surface, err := validation.ReadJson(surfacePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range t14List(surface, "rows").A {
+		if objStr(r, "row_id") == "81dfad6492" {
+			r.O = validation.SetOrAppend(r.O, "row_id",
+				validation.VStr("ffffffffffff"))
+		}
+	}
+	if err := validation.WriteJson(surfacePath, surface, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	code, out, errS := run(t, "--root", root, "deferred", cid, "--json")
+	if code != 0 {
+		t.Fatalf("json sweep exit %d: %q", code, errS)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(out), &doc); err != nil {
+		t.Fatalf("--json output is not one parseable document: %v\n%s",
+			err, out)
+	}
+	skipped, ok := doc["skipped"].([]any)
+	if !ok {
+		t.Fatalf("document has no skipped array: %v", doc)
+	}
+	if len(skipped) != 1 {
+		t.Fatalf("skipped = %v, want exactly the one unrankable closure",
+			skipped)
+	}
+	if got, _ := skipped[0].(string); got != "Q-005 (probe row 81dfad6492)" {
+		t.Fatalf("skipped[0] = %q", got)
+	}
+	flags, ok := doc["flags"].([]any)
+	if !ok || len(flags) != 0 {
+		t.Fatalf("flags = %v, want an empty array (the row was unrankable)",
+			doc["flags"])
+	}
+	if strings.Contains(out, "skipped 1 closure(s)") {
+		t.Errorf("the human skipped prose rode the --json stream:\n%s", out)
+	}
+
+	// prose mode keeps the human lines (negative control the other way)
+	code, out, _ = run(t, "--root", root, "deferred", cid)
+	if code != 0 || !strings.Contains(out, "skipped 1 closure(s)") ||
+		!strings.Contains(out, "Q-005 (probe row 81dfad6492)") {
+		t.Fatalf("prose mode lost the skipped lines: exit %d out = %q",
+			code, out)
 	}
 }

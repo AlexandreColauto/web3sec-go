@@ -827,3 +827,80 @@ func TestMoveReopenDuplicate(t *testing.T) {
 			validation.CanonCompact(last))
 	}
 }
+
+// TestMoveOfRefusedOffDuplicate pins the round-3 inert-flag contract for
+// --of: the flag is consumed ONLY by a move whose to_status is DUPLICATE
+// (the merge writes the dedup pointer; the reopen clears it without ever
+// reading --of), so any other to_status refuses it at exit 2 before the
+// campaign is even opened — never silently dropped at exit 0.
+func TestMoveOfRefusedOffDuplicate(t *testing.T) {
+	c, root := t15Campaign(t, "move-of-inert")
+	fid := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	tid := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	before := len(eventTypes(t, c))
+
+	var code int
+	var out, errS string
+	for _, to := range []string{"HYPOTHESIS", "POSSIBLE", "CONFIRMED",
+		"DISPROVED"} {
+		code, out, errS = run(t, "--root", root, "move", c.CampaignID, fid,
+			to, "--reason", "wearing --of for no reason", "--of", tid)
+		if code != 2 {
+			t.Fatalf("%s: exit %d, want 2: %q", to, code, errS)
+		}
+		if out != "" {
+			t.Fatalf("%s: stdout = %q", to, out)
+		}
+		want := "move: --of records the duplicate-of pointer of a move to " +
+			"DUPLICATE — '" + to + "' is not one, so there is no merge " +
+			"pointer to write: drop --of\n"
+		if errS != want {
+			t.Fatalf("%s: stderr\n%q\nwant\n%q", to, errS, want)
+		}
+	}
+	// the = spelling with an empty value is refused the same way: the
+	// refusal keys on the flag being present, not on its value
+	code, _, errS = run(t, "--root", root, "move", c.CampaignID, fid,
+		"CONFIRMED", "--reason", "r", "--of=")
+	if code != 2 || !strings.Contains(errS, "drop --of") {
+		t.Fatalf("empty --of=: exit %d stderr = %q", code, errS)
+	}
+	// nothing logged by the refusals
+	if after := len(eventTypes(t, c)); after != before {
+		t.Fatalf("refused moves wrote %d event(s)", after-before)
+	}
+
+	// the reopen path: the merge still works, and a reopen that wears --of
+	// is refused (the reopen clears the pointer, it never reads one) —
+	// then the bare reopen still undoes the merge
+	code, _, errS = run(t, "--root", root, "move", c.CampaignID, fid,
+		"DUPLICATE", "--reason", "same root cause as the sibling",
+		"--of", tid)
+	if code != 0 {
+		t.Fatalf("merge exit %d: %q", code, errS)
+	}
+	code, _, errS = run(t, "--root", root, "move", c.CampaignID, fid,
+		"HYPOTHESIS", "--reason", "the two roots are not the same bug",
+		"--of", tid)
+	if code != 2 || !strings.Contains(errS, "drop --of") {
+		t.Fatalf("reopen with --of: exit %d stderr = %q", code, errS)
+	}
+	f, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st := objStr(f, "status"); st != "DUPLICATE" {
+		t.Fatalf("refused reopen left status = %q", st)
+	}
+	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != tid {
+		t.Fatalf("refused reopen left duplicate_of = %q", of)
+	}
+	code, out, errS = run(t, "--root", root, "move", c.CampaignID, fid,
+		"HYPOTHESIS", "--reason", "the two roots are not the same bug")
+	if code != 0 {
+		t.Fatalf("bare reopen exit %d: %q", code, errS)
+	}
+	if want := fid + ": HYPOTHESIS (evidence level E0)\n"; out != want {
+		t.Fatalf("bare reopen stdout\n%q\nwant\n%q", out, want)
+	}
+}
