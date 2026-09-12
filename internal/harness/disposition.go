@@ -10,11 +10,24 @@
 // The table is pure data: one row per code in the closed set
 // (`corpus/runner.py::REASON_CODES`, 25 names). MapRun's mapper
 // (minicertora.go) is the only producer of the summary strings this reads.
+//
+// Two floors are not reason codes and are matched on the INNER text,
+// before the `reason: details` separator:
+//   - the five plumbing floors, all ok=false — the run never produced a
+//     usable verdict line ("exit output unmapped", "output is not JSONL",
+//     "duplicate verdict lines for rule …", "no verdict line for rule …",
+//     and "report-contradiction", whose verdict line was discarded);
+//   - the one NAMED runtime floor, the killed/timed-out
+//     "no clean completion" shape, which disposes to EscalateRuntime —
+//     the run never completed, so it maps no verdict, but it still names
+//     a next action (a larger wall-clock), per §L3's law that an
+//     inconclusive rung names what to do next.
 package harness
 
 import "strings"
 
-// The eight disposition classes of docs/MINICERTORA_ARCHITECTURE.md §L3.
+// The nine disposition classes of docs/MINICERTORA_ARCHITECTURE.md §L3:
+// the eight REASON_CODES classes plus the named runtime floor.
 // Exported for tests and for consumers that route on a class rather than an
 // advice string.
 const (
@@ -25,6 +38,10 @@ const (
 	EscalateFlag = "escalate-flag"
 	// EscalateSolver re-runs once with a quadrupled solver timeout.
 	EscalateSolver = "escalate-solver"
+	// EscalateRuntime re-runs a killed/timed-out run with a larger
+	// --timeout-ms or exec wall-clock: the run never completed, so no
+	// verdict was mapped at all.
+	EscalateRuntime = "escalate-runtime"
 	// SpecRewrite routes the rule body back to the spec queue.
 	SpecRewrite = "spec-rewrite"
 	// HonestRefusal records the shape as a model gap and downgrades the
@@ -49,7 +66,8 @@ const adviceGeneric = "review the spec and the tool version; the refusal " +
 	"names no known disposition"
 
 // dispositionAdvice is the verbatim next action of each class; every class
-// in the switch below has exactly one row here.
+// the switch below emits — plus the runtime floor — has exactly one row
+// here.
 var dispositionAdvice = map[string]string{
 	EscalateBound: "re-run the same scaffold at --loop-bound 8, then 16, " +
 		"ceiling 32",
@@ -57,6 +75,9 @@ var dispositionAdvice = map[string]string{
 		"still capped, --lowering splitting",
 	EscalateSolver: "re-run once with --timeout-ms quadrupled within the " +
 		"exec wall-clock",
+	EscalateRuntime: "the run never completed — re-run with a larger " +
+		"--timeout-ms or a longer exec wall-clock; a killed or timed-out " +
+		"run maps no verdict",
 	SpecRewrite: "the rule body proves nothing about the contract — " +
 		"rewrite BODY within the same scaffold (infeasible or malformed " +
 		"spec)",
@@ -73,8 +94,8 @@ var dispositionAdvice = map[string]string{
 
 // plumbingReasons are reason-shaped keys that belong to the mapper, not to
 // the tool's spec vocabulary: a report-contradiction refusal throws its own
-// verdict line away, so it names no disposition. The other plumbing
-// refusals carry no ": " separator at all (see Disposition).
+// verdict line away, so it names no disposition. It is matched by the same
+// plumbing floor check as the separator-less floors (see Disposition).
 var plumbingReasons = map[string]bool{
 	"report-contradiction": true,
 	// "aborted" is belt-and-braces: the mapper's abort floor carries no
@@ -86,13 +107,23 @@ var plumbingReasons = map[string]bool{
 // stored (shape `inconclusive (reason: details…)`) into its §L3 class and
 // names that class's next action.
 //
-// ok=false for a summary that is not an inconclusive refusal at all (a
-// proved/counterexample rung's text, the `aborted: …` floor) and for the
-// mapper's plumbing refusals — those are not spec dispositions; the run
-// never produced a usable verdict line, so there is nothing to dispose of.
-// A reason code outside the closed set returns
-// (dispositionUnknown, adviceGeneric, true): still a refusal, just an
-// unrecognised one.
+// The five plumbing floors are matched on the inner text BEFORE the
+// `reason: details` separator, so a rule name containing ": " cannot
+// masquerade as a reason code: "exit output unmapped", "output is not
+// JSONL", "duplicate verdict lines for rule …", "no verdict line for
+// rule …", and "report-contradiction". All return ok=false — the run never
+// produced a usable verdict line, so there is nothing to dispose of.
+//
+// The named runtime floor is matched next: an inner text starting
+// "no clean completion" (both stored shapes — the bare
+// `inconclusive (no clean completion)` and the
+// `inconclusive (no clean completion; loop bound was N)` variant) is a
+// killed or timed-out run, and returns (EscalateRuntime, advice, true): no
+// verdict was mapped, but the refusal still names its next action.
+//
+// Everything else is a `reason: details` refusal. A reason code outside the
+// closed set returns (dispositionUnknown, adviceGeneric, true): still a
+// refusal, just an unrecognised one.
 func Disposition(summary string) (class, advice string, ok bool) {
 	// A stored summary may carry the CLI's binding decoration — the
 	// " (unbound: …)" suffix harnessMapBound appends in
@@ -114,12 +145,33 @@ func Disposition(summary string) (class, advice string, ok bool) {
 		return "", "", false
 	}
 	inner := summary[len(prefix) : len(summary)-1]
+	// FIRST the floors, on the inner text before any separator cut: the
+	// plumbing floors (the run never produced a usable verdict line) and
+	// the named runtime floor (the run never completed). Matching here,
+	// not on the cut reason, is what keeps a rule name containing ": "
+	// ("no verdict line for rule a: b") from sneaking past as an
+	// unknown reason and rendering bogus "unmapped" advice.
+	switch {
+	case inner == "exit output unmapped",
+		inner == "output is not JSONL",
+		strings.HasPrefix(inner, "duplicate verdict lines for rule"),
+		strings.HasPrefix(inner, "no verdict line for rule"):
+		// No verdict line ever existed: plumbing, not a spec
+		// disposition.
+		return "", "", false
+	}
+	if strings.HasPrefix(inner, "no clean completion") {
+		// The named runtime floor (a killed/timed-out run — both the
+		// bare shape and the "; loop bound was N" variant). The run
+		// never completed, so it maps no verdict, but it is a NAMED
+		// disposition: re-run with a larger wall-clock.
+		return EscalateRuntime, dispositionAdvice[EscalateRuntime], true
+	}
 	reason, _, found := strings.Cut(inner, ": ")
 	if !found || reason == "" {
-		// The mapper's separator-less plumbing floors: "exit output
-		// unmapped", "output is not JSONL", "duplicate verdict lines for
-		// rule", "no verdict line for rule <name>". None of them is a spec
-		// disposition; the run never produced a verdict line.
+		// No separator: a separator-less plumbing floor the switch
+		// above did not name, or a malformed summary. Not a
+		// disposition either way.
 		return "", "", false
 	}
 	if plumbingReasons[reason] {

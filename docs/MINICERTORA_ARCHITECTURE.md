@@ -235,7 +235,12 @@ The **advisory rendering is LANDED**: this table is implemented as pure data in
 `internal/harness/disposition.go` and surfaces on minicertora inconclusive
 audit lines as ` | next: <advice> (<class>)`; a plumbing floor renders plain
 advice-free, and the unbound decoration is stripped before classification, so
-a decorated refusal keeps its real class. Everything here remains advisory —
+a decorated refusal keeps its real class. The wave-created timeout/no-clean-exit
+floor is itself a **NAMED disposition** — `escalate-runtime`, matched before
+the reason separator (advice: "the run never completed — re-run with a larger
+--timeout-ms or a longer exec wall-clock; a killed or timed-out run maps no
+verdict") — so a run that never finished still names its next action and the
+"UNKNOWN names a next action" law holds. Everything here remains advisory —
 the table classifies, the audit line names the action; the **CLI never
 auto-spawns** the escalation execs (each re-run stays the operator/model's
 `exec`, per surface budget). The `model_gaps` tally of this section is **NOT

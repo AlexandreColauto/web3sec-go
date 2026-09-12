@@ -259,6 +259,33 @@ func TestHarnessRunLineDispositions(t *testing.T) {
 				"(unbound: harness file hash not recorded)"),
 		floor,
 	}, {
+		// The named runtime floor: a killed/timed-out minicertora run
+		// never produced a verdict, so the line names the one next
+		// action that can help — a larger wall-clock — instead of
+		// rendering a bare inconclusive. Both stored shapes are pinned
+		// byte-exact.
+		"minicertora timed-out run names the runtime escalation",
+		harnessObj("minicertora", "inconclusive", "EXEC-9", validation.VNull(),
+			"inconclusive (no clean completion; loop bound was 4)"),
+		floor + " | next: the run never completed — re-run with a larger " +
+			"--timeout-ms or a longer exec wall-clock; a killed or " +
+			"timed-out run maps no verdict (" + harness.EscalateRuntime + ")",
+	}, {
+		"minicertora timed-out run without a bound names the runtime escalation",
+		harnessObj("minicertora", "inconclusive", "EXEC-9", validation.VNull(),
+			"inconclusive (no clean completion)"),
+		floor + " | next: the run never completed — re-run with a larger " +
+			"--timeout-ms or a longer exec wall-clock; a killed or " +
+			"timed-out run maps no verdict (" + harness.EscalateRuntime + ")",
+	}, {
+		// halmos summaries are "timeout after Ns", never the
+		// inconclusive wrapper — the kind guard rejects them, so the
+		// line stays plain.
+		"halmos timeout summary stays plain",
+		harnessObj("halmos", "inconclusive", "EXEC-3", validation.VNull(),
+			"timeout after 30s"),
+		"INV-1: inconclusive (halmos, EXEC-3)",
+	}, {
 		// Kind guard: the disposition branch is minicertora-only, so a
 		// non-minicertora run whose summary WOULD dispose stays plain.
 		"halmos disposing summary stays plain",

@@ -42,6 +42,21 @@ func TestDispositionTable(t *testing.T) {
 			"re-run the same scaffold at --loop-bound 8, then 16, ceiling 32", true},
 		{"floor no line", "inconclusive (no verdict line for rule inv_1)", "", "", false},
 		{"floor duplicate", "inconclusive (duplicate verdict lines for rule)", "", "", false},
+		// M1: the plumbing floors are matched on INNER TEXT before the
+		// ": " separator, so a rule name that itself contains ": " can
+		// no longer masquerade as a reason code ("no verdict line for
+		// rule a: b" used to parse reason "no verdict line for rule a").
+		{"floor no line with colon in rule name", "inconclusive (no verdict line for rule a: b)", "", "", false},
+		// The named runtime floor: a killed or timed-out minicertora run
+		// never produced a verdict, so it disposes to escalate-runtime
+		// (one more budgeted EXEC with a larger wall-clock), not to a
+		// spec class and not to plumbing. Both wave-3 shapes classify.
+		{"runtime floor bare", "inconclusive (no clean completion)", EscalateRuntime,
+			"the run never completed — re-run with a larger --timeout-ms or a longer exec wall-clock; a killed or timed-out run maps no verdict", true},
+		{"runtime floor with bound", "inconclusive (no clean completion; loop bound was 4)", EscalateRuntime, "", true},
+		// …and the binding decoration does not change either shape.
+		{"decorated runtime floor bare", "inconclusive (no clean completion) (unbound: harness file hash not recorded)", EscalateRuntime, "", true},
+		{"decorated runtime floor with bound", "inconclusive (no clean completion; loop bound was 8) (unbound: harness file hash not recorded)", EscalateRuntime, "", true},
 		{"not inconclusive", "proved bounded (k=4)", "", "", false},
 		{"counterexample excerpt", "counterexample: total >= before [unconfirmed: crosses a havoc'd call]", "", "", false},
 		{"empty", "", "", "", false},
@@ -102,16 +117,17 @@ func TestDispositionCoversClosedSet(t *testing.T) {
 }
 
 // TestDispositionAdviceCoversEveryClass pins the map/constant coupling: all
-// eight exported class constants must carry a non-empty next action, so a
+// nine exported class constants must carry a non-empty next action, so a
 // class added to the const block without a `dispositionAdvice` row fails
-// here rather than rendering an empty "next: ()" downstream.
+// here rather than rendering an empty "next: ()" downstream. The count is
+// the completeness guard: eight REASON_CODES classes + the runtime floor.
 func TestDispositionAdviceCoversEveryClass(t *testing.T) {
 	classes := []string{
-		EscalateBound, EscalateFlag, EscalateSolver, SpecRewrite,
-		HonestRefusal, ToolError, ModelBug, WitnessTriage,
+		EscalateBound, EscalateFlag, EscalateSolver, EscalateRuntime,
+		SpecRewrite, HonestRefusal, ToolError, ModelBug, WitnessTriage,
 	}
-	if len(classes) != 8 {
-		t.Fatalf("class list has %d entries, want 8", len(classes))
+	if len(classes) != 9 {
+		t.Fatalf("class list has %d entries, want 9", len(classes))
 	}
 	for _, class := range classes {
 		if dispositionAdvice[class] == "" {

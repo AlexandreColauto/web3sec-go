@@ -2863,9 +2863,9 @@ L-advice** (`d07385ac..f33294b9`, 2026-09-12; see the landing record below):
 2. **CLOSED** (`414ac16f`): audit's `harnessBoundK` falls back to
    `proof.bounds.loop_bound` when `bounded_k` is null/absent — exact decimal
    text, so a beyond-int64 bound renders verbatim, matching the CLI.
-3. **CLOSED** (`f33294b9`): signal death on a minicertora run stores
-   `inconclusive (no clean completion; loop bound was N)` (or the clause-free
-   form when no bound was found) instead of the wrong-unit
+3. **CLOSED** (`f33294b9`): timeout or signal death on a minicertora run
+   stores `inconclusive (no clean completion; loop bound was N)` (or the
+   clause-free form when no bound was found) instead of the wrong-unit
    `timeout after Ns`; halmos/forge keep their byte-pinned wording.
 4. **CLOSED** (`f33294b9`): `proof` carries a ten-key schema `required` array
    (values still admitted verbatim), pinned by the
@@ -2892,7 +2892,9 @@ L-advice** (`d07385ac..f33294b9`, 2026-09-12; see the landing record below):
   `escalate-solver`, `spec-rewrite`, `honest-refusal`, `tool-error`,
   `model-bug`, `witness-triage`) as pure data, plus `Disposition(summary)` →
   `(class, advice, ok)`; unknown codes → `unmapped`, plumbing floors →
-  `ok=false` (never advice). Advisory only — nothing in it gates anything.
+  `ok=false` (never advice). A ninth exported class, `escalate-runtime`,
+  names the runtime floor (see the timeout-wording row below). Advisory
+  only — nothing in it gates anything.
 - **Audit rendering** (`414ac16f` + `ff3775d1`): a minicertora inconclusive
   line gains ` | next: <advice> (<class>)`; every other (kind, rung) pair is
   byte-identical to before. The decoration `harnessMapBound` appends
@@ -2902,9 +2904,18 @@ L-advice** (`d07385ac..f33294b9`, 2026-09-12; see the landing record below):
   both schemas, prompts 36/47/49, pinned by the boundary registry-parity test,
   the enum-order test and the roles pins — the model-facing bundle no longer
   advertises a profile its schema rejects.
-- **Honest timeout wording** (`f33294b9`): minicertora signal-death/timeout
-  summaries say `no clean completion (loop bound was N)`; MapRun's
-  `timeout after %ds` stays for halmos/forge-fuzz.
+- **Honest timeout wording + the named runtime floor** (`f33294b9` + the
+  final-review fix): minicertora timeout/signal-death summaries say
+  `no clean completion (loop bound was N)`; that floor is a **NAMED
+  disposition** — `Disposition` matches it on the inner text before the
+  `: ` separator and returns `escalate-runtime` (advice: "the run never
+  completed — re-run with a larger --timeout-ms or a longer exec
+  wall-clock; a killed or timed-out run maps no verdict"), so a killed or
+  timed-out run renders a next action instead of a bare inconclusive. The
+  same floors-first ordering keeps a rule name containing `: ` from
+  sneaking past into `unmapped` advice. MapRun's `timeout after %ds` stays
+  for halmos/forge-fuzz — its summary is never the inconclusive wrapper,
+  so the kind guard rejects it.
 - **`proof` required-array** (`f33294b9`): the ten mapper keys are mandatory
   in `protocol_model.schema.json`; value types stay verbatim.
 - **Corpus-resync precedent (binding).** Editing a proposer system prompt is
