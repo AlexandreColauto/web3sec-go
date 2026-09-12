@@ -398,6 +398,70 @@ func TestDoctorProfileFitMarksFloorGap(t *testing.T) {
 	}
 }
 
+// TestEnvReportPinsMinicertoraHostProfile is the Task-5 close-out pin for the
+// G8 third kind on the doctor surface the operator reads: the env report
+// enumerates `minicertora` among the harness/host profiles, and the
+// e4_capable filter EXCLUDES it — a host-side prover can never mint E4+
+// reproduction evidence (HostProfile keys that filter, exactly as for halmos
+// and forge-fuzz). The version row rides sandbox.toolVersions and is pinned
+// next door in internal/sandbox (TestToolVersionsProbesMinicertora); this
+// test pins the report's profile/e4_capable rows with a fake PATH shim in
+// place, so neither row may be forged from the binary's presence.
+func TestEnvReportPinsMinicertoraHostProfile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "minicertora"),
+		[]byte("#!/bin/sh\necho 'minicertora 0.4.2'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	t.Setenv("FORK_RPC_URL", "")
+	// docker answers, so the container profiles ARE available and the
+	// exclusion below is a real filter result, not an empty-list accident.
+	sandbox.SetDockerDaemonOK(func() bool { return true })
+	t.Cleanup(func() { sandbox.SetDockerDaemonOK(nil) })
+	prev := dockerProbe
+	dockerProbe = stubImage(true, true, true)
+	t.Cleanup(func() { dockerProbe = prev })
+
+	report, err := Doctor(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profiles := objAt(report, "profiles")
+	if !boolAt(profiles, "minicertora") {
+		t.Errorf("profiles = %s, want minicertora enumerated",
+			validation.DumpIndented(profiles))
+	}
+	if !boolAt(profiles, "halmos") {
+		t.Errorf("profiles = %s, want halmos still enumerated",
+			validation.DumpIndented(profiles))
+	}
+	e4 := objAt(report, "e4_capable")
+	for _, v := range e4.A {
+		switch v.S {
+		case "minicertora", "halmos", "forge-fuzz", "host-readonly":
+			t.Errorf("e4_capable lists host profile %q: %s", v.S,
+				validation.DumpIndented(e4))
+		}
+	}
+	got := []string{}
+	for _, v := range e4.A {
+		got = append(got, v.S)
+	}
+	for _, want := range []string{"docker-networkless", "docker-gvisor",
+		"fork-runner"} {
+		found := false
+		for _, g := range got {
+			if g == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("e4_capable = %v, want %s included", got, want)
+		}
+	}
+}
+
 // --- tests/test_doctor_preflight.py ----------------------------------------
 
 func TestPreflightOKWhenDaemonImageAndCachePresent(t *testing.T) {

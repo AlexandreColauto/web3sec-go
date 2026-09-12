@@ -2839,6 +2839,8 @@ section was written concurrently by another writer, was never one of Wave J's
 nine tasks, and is not required for production readiness. Nothing here blocks
 the shipped tree; nothing in the shipped tree blocks this except a green tree.
 
+*Update 2026-09-12: MiniCertora landed as the G8 third kind (docs/superpowers/plans/2026-09-12-minicertora-harness-backend.md; architecture docs/MINICERTORA_ARCHITECTURE.md). K1/K3/K4 re-scoped per that doc §0.*
+
 *Rename note: parked as **Wave K** (items J1–J4 → K1–K4) because Wave J's own
 letters were spent by the close-out wave that shipped first. The rename is the
 only edit to this section's content: nothing below was rewritten, re-scoped or
