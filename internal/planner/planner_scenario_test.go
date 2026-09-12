@@ -529,6 +529,9 @@ func TestDivergenceStatusClosedPlan(t *testing.T) {
 	want := at(t, scnOracle(t), "divergence_status_closed_plan")
 	scnPinNow(t)
 	camp := portCampaign(t, "Morph L2")
+	// FIX-8: the L-04 closure demands the recon stamps on record; the
+	// oracle-pinned plan bytes are unaffected by the state-side stamp.
+	reconOnRecord(t, camp)
 	plan, err := DefaultPlanFromModel(camp, portLensModel(t))
 	if err != nil {
 		t.Fatalf("default plan: %v", err)

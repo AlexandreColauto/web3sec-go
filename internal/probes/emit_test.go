@@ -174,10 +174,32 @@ func emitAnswerAll(t *testing.T, c *state.Campaign,
 	return plan
 }
 
+// reconOnRecord puts both FIX-8 recon stamps on record for one campaign.
+// The real verbs are off-limits here for two test-local reasons: the real
+// prescreen/sinks would rebuild this campaign's fixture index from the
+// shared sink tree (EnsureFreshIndex), and — in packages structidx wires —
+// importing them is an import cycle in test. So the prescreen artifact is
+// seeded as a fixture file and the sinks stamp rides the REAL
+// state.StampRecon write path; the end-to-end real-verb version of this
+// setup lives in internal/cli (cmd_recon_gate_test.go).
+func reconOnRecord(t *testing.T, c *state.Campaign) {
+	t.Helper()
+	prescreen := validation.VObj(
+		kv("snapshot_id", validation.VStr("S-0123456789abcdef")))
+	if err := validation.WriteJson(filepath.Join(c.ArtifactsDir,
+		"archetype_prescreen.json"), prescreen, ""); err != nil {
+		t.Fatalf("seed prescreen artifact: %v", err)
+	}
+	if err := c.StampRecon("sinks", "src"); err != nil {
+		t.Fatalf("stamp sinks: %v", err)
+	}
+}
+
 // emitCloseLenses is _close_lenses.
 func emitCloseLenses(t *testing.T, c *state.Campaign,
 	plan validation.Value) validation.Value {
 	t.Helper()
+	reconOnRecord(t, c)
 	for _, l := range vObjList(plan, "lenses") {
 		reason := vStr(l, "lens") + " resolved for the fixture tree"
 		ref := "Rollup.sol#L45"

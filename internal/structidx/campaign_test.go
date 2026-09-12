@@ -219,6 +219,66 @@ func TestValueFlowReportRegistersAndConverges(t *testing.T) {
 	}
 }
 
+// TestValueFlowReportStampsRecon (FIX-8): a sinks run records the light
+// recon stamp in the campaign state — verb, src, timestamp, replaced on a
+// re-run, never duplicated — and the event log carries the same facts.
+func TestValueFlowReportStampsRecon(t *testing.T) {
+	c := newCampaign(t, "flow-stamp")
+	tree := filepath.Join("testdata", "sink")
+	if _, err := ValueFlowReport(c, tree); err != nil {
+		t.Fatal(err)
+	}
+	stamp, err := c.ReconStamp("sinks")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stamp.Kind != validation.Obj {
+		t.Fatalf("no sinks stamp: %s", validation.CanonCompact(stamp))
+	}
+	if objStr(stamp, "src") != tree {
+		t.Fatalf("stamp src = %q, want %q", objStr(stamp, "src"), tree)
+	}
+	if objStr(stamp, "at") == "" {
+		t.Fatal("stamp at is empty")
+	}
+	// the audit trail mirrors the stamp: the valueflow.computed event names
+	// the verb and the src
+	evts, err := c.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, e := range evts {
+		if objStr(e, "type") != "valueflow.computed" {
+			continue
+		}
+		data := objAt(e, "data")
+		if objStr(data, "verb") == "sinks" && objStr(data, "src") == tree {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no valueflow.computed event carrying the stamp facts")
+	}
+	// idempotence: a second run REPLACES the row — one sinks key, one {src,at}
+	if _, err := ValueFlowReport(c, tree); err != nil {
+		t.Fatal(err)
+	}
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	recon := objAt(st, "recon")
+	if recon.Kind != validation.Obj || len(recon.O) != 1 ||
+		recon.O[0].K != "sinks" {
+		t.Fatalf("double run left %s", validation.CanonCompact(recon))
+	}
+	if len(objAt(recon, "sinks").O) != 2 {
+		t.Fatalf("sinks row keys = %s", validation.CanonCompact(
+			objAt(recon, "sinks")))
+	}
+}
+
 func TestIndexShaIgnoresVolatileKeys(t *testing.T) {
 	c := newCampaign(t, "sha-program")
 	idx, err := IndexSnapshot(c, filepath.Join("testdata", "v1"), DefaultBackend)

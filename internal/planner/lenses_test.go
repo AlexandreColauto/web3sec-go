@@ -196,6 +196,9 @@ func TestMarkLensOracle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("default plan: %v", err)
 	}
+	// FIX-8: the L-04 closure demands the recon stamps on record; the plan
+	// bytes the oracle pins are unaffected by the state-side stamp.
+	reconOnRecord(t, camp)
 	sym := []validation.Value{
 		jsonValue(t, `{"family":"withdraw","primitives":["burn"]}`),
 		jsonValue(t, `{"family":"mint","primitives":["mint"," "]}`)}

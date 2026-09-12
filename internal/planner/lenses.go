@@ -296,6 +296,15 @@ func MarkLens(campaign *state.Campaign, plan validation.Value, lensID,
 			if objStr(l, "id") != lensID {
 				continue
 			}
+			// FIX-8, before any mutation: the divergence-gate close demands
+			// the mechanical recon on record — a lens attestation over
+			// divergence rows the backward slice and the prescreen never
+			// saw is prose, not attestation. Unconditional: recon is cheap.
+			if closing && objStr(l, "lens") == "primitive-symmetry" {
+				if err := checkReconStamps(campaign); err != nil {
+					return validation.VNull(), err
+				}
+			}
 			// FIX-6, before any mutation: closing the primitive-symmetry lens
 			// attests a reconciliation for every divergence row in the
 			// current surface — the refusal must leave the plan untouched,

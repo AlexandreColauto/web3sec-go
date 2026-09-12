@@ -10,8 +10,10 @@ import (
 	"strings"
 	"testing"
 
+	"websec/internal/archetypes"
 	"websec/internal/planner"
 	"websec/internal/state"
+	"websec/internal/structidx"
 	"websec/internal/validation"
 )
 
@@ -33,6 +35,20 @@ func bfMorphModel() validation.Value {
 				validation.VStr("finalize")))))))
 }
 
+// reconOnRecord runs the REAL recon verbs (prescreen + sinks) over the
+// shared sink fixture tree, so the FIX-8 L-04 divergence-gate close sees
+// both recon stamps on record — the same way the CLI satisfies the gate.
+func reconOnRecord(t *testing.T, c *state.Campaign) {
+	t.Helper()
+	tree := filepath.Join("..", "structidx", "testdata", "sink")
+	if _, err := archetypes.Prescreen(c, tree, nil); err != nil {
+		t.Fatalf("prescreen: %v", err)
+	}
+	if _, err := structidx.ValueFlowReport(c, tree); err != nil {
+		t.Fatalf("sinks: %v", err)
+	}
+}
+
 // bfPlanClosedExcept is test_plan_lenses._plan_closed_except.
 func bfPlanClosedExcept(t *testing.T, skip string) *state.Campaign {
 	t.Helper()
@@ -41,6 +57,7 @@ func bfPlanClosedExcept(t *testing.T, skip string) *state.Campaign {
 	if err != nil {
 		t.Fatal(err)
 	}
+	reconOnRecord(t, c)
 	model := bfMorphModel()
 	model.O = bfSet(model.O, "state_machines", validation.VArr(
 		validation.VObj(

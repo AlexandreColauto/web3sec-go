@@ -66,8 +66,30 @@ func t35LensCampaign(t *testing.T) *state.Campaign {
 
 // t35PlanClosedExcept is _plan_closed_except: every gate item resolved except
 // `skip` (a lens id or "diversity").
+// reconOnRecord puts both FIX-8 recon stamps on record for one campaign.
+// The real verbs are off-limits here for two test-local reasons: the real
+// prescreen/sinks would rebuild this campaign's fixture index from the
+// shared sink tree (EnsureFreshIndex), and — in packages structidx wires —
+// importing them is an import cycle in test. So the prescreen artifact is
+// seeded as a fixture file and the sinks stamp rides the REAL
+// state.StampRecon write path; the end-to-end real-verb version of this
+// setup lives in internal/cli (cmd_recon_gate_test.go).
+func reconOnRecord(t *testing.T, c *state.Campaign) {
+	t.Helper()
+	prescreen := validation.VObj(
+		kv("snapshot_id", validation.VStr("S-0123456789abcdef")))
+	if err := validation.WriteJson(filepath.Join(c.ArtifactsDir,
+		"archetype_prescreen.json"), prescreen, ""); err != nil {
+		t.Fatalf("seed prescreen artifact: %v", err)
+	}
+	if err := c.StampRecon("sinks", "src"); err != nil {
+		t.Fatalf("stamp sinks: %v", err)
+	}
+}
+
 func t35PlanClosedExcept(t *testing.T, c *state.Campaign, skip string) {
 	t.Helper()
+	reconOnRecord(t, c)
 	plan, err := planner.DefaultPlanFromModel(c, t35MorphModel())
 	if err != nil {
 		t.Fatalf("default plan: %v", err)

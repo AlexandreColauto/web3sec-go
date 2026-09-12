@@ -130,6 +130,25 @@ func writeModel(t *testing.T, c *state.Campaign, model validation.Value) {
 	}
 }
 
+// reconOnRecord puts both FIX-8 recon stamps on record for one campaign.
+// The planner's test binary cannot import archetypes/structidx (structidx
+// wires the planner — an import cycle in test), so the prescreen artifact
+// is seeded as a fixture file; the sinks stamp goes through the real
+// state.StampRecon write path. The end-to-end real-verb version of this
+// setup lives in internal/cli (cmd_recon_gate_test.go), which runs
+// `webv2 prescreen` + `webv2 sinks` for truth.
+func reconOnRecord(t *testing.T, c *state.Campaign) {
+	t.Helper()
+	if err := validation.WriteJson(filepath.Join(c.ArtifactsDir,
+		"archetype_prescreen.json"), jsonValue(t,
+		`{"snapshot_id":"S-0123456789abcdef"}`), ""); err != nil {
+		t.Fatalf("seed prescreen artifact: %v", err)
+	}
+	if err := c.StampRecon("sinks", "src"); err != nil {
+		t.Fatalf("stamp sinks: %v", err)
+	}
+}
+
 // ---- the fake probes module ---------------------------------------------
 
 // probeRegistry is the subset of probes.PROBES / registered_axes() the

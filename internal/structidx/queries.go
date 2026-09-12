@@ -431,8 +431,18 @@ func ValueFlowReport(c *state.Campaign, root string) (validation.Value, error) {
 	data := validation.VObj(
 		validation.KV{K: "sinks", V: validation.VInt(int64(len(sinks)))},
 		validation.KV{K: "unguarded_paths", V: validation.VInt(int64(len(unguarded)))},
+		// FIX-8: the audit trail of the recon stamp below — the same verb,
+		// src and clock, on the hash-chained log.
+		validation.KV{K: "verb", V: validation.VStr("sinks")},
+		validation.KV{K: "src", V: validation.VStr(root)},
 	)
 	if _, err := c.Log("valueflow.computed", nil, &data); err != nil {
+		return validation.VNull(), err
+	}
+	// FIX-8: the light run-stamp the L-04 divergence-gate close reads —
+	// `webv2 sinks` ran over THIS tree at THIS time. Replaced on re-run, so
+	// a double run cannot duplicate it (see state.StampRecon).
+	if err := c.StampRecon("sinks", root); err != nil {
 		return validation.VNull(), err
 	}
 	return report, nil

@@ -338,3 +338,43 @@ func (c *Campaign) ActiveSnapshotIDOrNone() (*string, error) {
 	out := sid.S
 	return &out, nil
 }
+
+// --- recon run stamps (FIX-8) ---------------------------------------------
+
+// StampRecon records one recon run stamp: state.recon[verb] = {src, at},
+// replacing any prior row for the verb (a re-run REPLACES — the stamp is a
+// light "this recon ran over this tree at this time" fact, never a per-file
+// ledger, so a double run cannot duplicate it). Written by the recon verb
+// itself; read by the L-04 divergence-gate close (planner.checkReconStamps).
+// Campaigns written before the key existed simply lack it; the schema keeps
+// the property optional, so absence validates and reads as never-ran.
+func (c *Campaign) StampRecon(verb, src string) error {
+	st, err := c.State()
+	if err != nil {
+		return err
+	}
+	recon := objAt(st, "recon")
+	if recon.Kind != validation.Obj {
+		recon = validation.VObj()
+	}
+	recon.O = validation.SetOrAppend(recon.O, verb, validation.VObj(
+		kv("src", validation.VStr(src)),
+		kv("at", validation.VStr(nowIso())),
+	))
+	st.O = validation.SetOrAppend(st.O, "recon", recon)
+	return c.save(st)
+}
+
+// ReconStamp is the stamp row for verb: Null when the verb never ran over
+// this campaign (the key is absent, pre-stamp campaigns included).
+func (c *Campaign) ReconStamp(verb string) (validation.Value, error) {
+	st, err := c.State()
+	if err != nil {
+		return validation.VNull(), err
+	}
+	recon := objAt(st, "recon")
+	if recon.Kind != validation.Obj {
+		return validation.VNull(), nil
+	}
+	return objAt(recon, verb), nil
+}

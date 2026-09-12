@@ -91,11 +91,29 @@ func rcStoredLens(t *testing.T, root, cid, lid string) validation.Value {
 	return validation.VNull()
 }
 
+// rcRunRecon runs the REAL recon verbs (`webv2 prescreen` + `webv2 sinks`)
+// over a copy of the shared sink fixture tree, so the FIX-8 divergence-gate
+// close sees both stamps the way a real campaign earns them.
+func rcRunRecon(t *testing.T, root, cid string) string {
+	t.Helper()
+	tree := t25Tree(t, "sink")
+	code, _, errS := run(t, "--root", root, "prescreen", cid, "--src", tree)
+	if code != 0 {
+		t.Fatalf("prescreen exit %d: %q", code, errS)
+	}
+	code, _, errS = run(t, "--root", root, "sinks", cid, "--src", tree)
+	if code != 0 {
+		t.Fatalf("sinks exit %d: %q", code, errS)
+	}
+	return tree
+}
+
 func TestAnsweredLensReconcile(t *testing.T) {
 	root := mkroot(t)
 	cid := initOne(t, root)
 	t14TestSeed(t, root, cid)
 	rcSeedDivergenceSurface(t, root, cid, rcDivergenceSurfaceJSON)
+	rcRunRecon(t, root, cid)
 
 	// (1) refusal: the attestation reconciles neither divergence row
 	code, out, errS := run(t, "--root", root, "answered", cid, "L-04",
@@ -170,6 +188,7 @@ func TestAnsweredLensReconcileRefusals(t *testing.T) {
 	cid := initOne(t, root)
 	t14TestSeed(t, root, cid)
 	rcSeedDivergenceSurface(t, root, cid, rcDivergenceSurfaceJSON)
+	rcRunRecon(t, root, cid)
 	reason := "the payout is funded from the deposited balance"
 
 	// ghost finding: the id does not exist in this campaign

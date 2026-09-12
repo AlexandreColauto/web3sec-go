@@ -149,6 +149,7 @@ func TestParseReconcileShape(t *testing.T) {
 func TestLensReconciliationAccepted(t *testing.T) {
 	withProbes(t, probeEnv{surface: reconSurfacePtr(t, reconRowJSON)})
 	c := newCampaign(t, "recon-ok")
+	reconOnRecord(t, c)
 	plan, err := DefaultPlanFromModel(c, validation.VObj())
 	if err != nil {
 		t.Fatalf("default plan: %v", err)
@@ -180,6 +181,7 @@ func TestLensReconciliationAccepted(t *testing.T) {
 func TestLensReconciliationFindingExit(t *testing.T) {
 	withProbes(t, probeEnv{surface: reconSurfacePtr(t, reconRowJSON)})
 	c := newCampaign(t, "recon-ghost")
+	reconOnRecord(t, c)
 	plan, err := DefaultPlanFromModel(c, validation.VObj())
 	if err != nil {
 		t.Fatalf("default plan: %v", err)
@@ -235,6 +237,7 @@ func TestLensReconciliationRefusesUncitedRow(t *testing.T) {
 	withProbes(t, probeEnv{surface: reconSurfacePtr(t, reconRowJSON,
 		reconRow2JSON)})
 	c := newCampaign(t, "recon-refuse")
+	reconOnRecord(t, c)
 	plan, err := DefaultPlanFromModel(c, validation.VObj())
 	if err != nil {
 		t.Fatalf("default plan: %v", err)
@@ -304,6 +307,7 @@ func TestLensReconciliationRefusesUncitedRow(t *testing.T) {
 func TestLensReconciliationCiteNotOnRow(t *testing.T) {
 	withProbes(t, probeEnv{surface: reconSurfacePtr(t, reconRowJSON)})
 	c := newCampaign(t, "recon-symbol")
+	reconOnRecord(t, c)
 	plan, err := DefaultPlanFromModel(c, validation.VObj())
 	if err != nil {
 		t.Fatalf("default plan: %v", err)
@@ -327,6 +331,7 @@ func TestLensReconciliationCiteNotOnRow(t *testing.T) {
 func TestLensReconciliationMissingMember(t *testing.T) {
 	withProbes(t, probeEnv{surface: reconSurfacePtr(t, reconRowJSON)})
 	c := newCampaign(t, "recon-member")
+	reconOnRecord(t, c)
 	plan, err := DefaultPlanFromModel(c, validation.VObj())
 	if err != nil {
 		t.Fatalf("default plan: %v", err)
@@ -349,6 +354,7 @@ func TestLensReconciliationMissingMember(t *testing.T) {
 func TestLensReconciliationIdempotent(t *testing.T) {
 	withProbes(t, probeEnv{surface: reconSurfacePtr(t, reconRowJSON)})
 	c := newCampaign(t, "recon-idem")
+	reconOnRecord(t, c)
 	plan, err := DefaultPlanFromModel(c, validation.VObj())
 	if err != nil {
 		t.Fatalf("default plan: %v", err)
@@ -395,6 +401,7 @@ func TestLensReconciliationIdempotent(t *testing.T) {
 func TestLensReconciliationScoped(t *testing.T) {
 	withProbes(t, probeEnv{surface: reconSurfacePtr(t, reconRowJSON)})
 	c := newCampaign(t, "recon-scope")
+	reconOnRecord(t, c)
 	plan, err := DefaultPlanFromModel(c, validation.VObj())
 	if err != nil {
 		t.Fatalf("default plan: %v", err)
@@ -408,6 +415,7 @@ func TestLensReconciliationScoped(t *testing.T) {
 	// a surface with no divergence rows: L-04 needs no reconciliation
 	withProbes(t, probeEnv{surface: reconSurfacePtr(t, reconPlainRowJSON)})
 	c2 := newCampaign(t, "recon-plain")
+	reconOnRecord(t, c2)
 	plan2, err := DefaultPlanFromModel(c2, validation.VObj())
 	if err != nil {
 		t.Fatalf("default plan: %v", err)
@@ -426,6 +434,7 @@ func TestLensReconciliationScoped(t *testing.T) {
 // cannot check is refused with the emit command.
 func TestLensReconciliationNoSurface(t *testing.T) {
 	c := newCampaign(t, "recon-nosurface")
+	reconOnRecord(t, c)
 	plan, err := DefaultPlanFromModel(c, validation.VObj())
 	if err != nil {
 		t.Fatalf("default plan: %v", err)
@@ -456,6 +465,7 @@ func TestLensReconciliationUnknownRow(t *testing.T) {
 	withProbes(t, probeEnv{surface: reconSurfacePtr(t, reconRowJSON,
 		reconPlainRowJSON)})
 	c := newCampaign(t, "recon-unknownrow")
+	reconOnRecord(t, c)
 	plan, err := DefaultPlanFromModel(c, validation.VObj())
 	if err != nil {
 		t.Fatalf("default plan: %v", err)
@@ -483,6 +493,7 @@ func TestValidateReconcileRecordMalformed(t *testing.T) {
 	}
 	row := listOf(*surface, "rows")[0]
 	c := newCampaign(t, "recon-malformed")
+	reconOnRecord(t, c)
 	rec := jsonValue(t, `{"row_id":"divrow1","cites":[],"finding":null}`)
 	if got := validateReconcileRecord(c, row, rec); got == "" ||
 		!strings.Contains(got, "records neither a per-member cite nor a "+

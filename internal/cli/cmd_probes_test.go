@@ -312,8 +312,27 @@ func t29SaveState(t *testing.T, c *state.Campaign, st validation.Value) {
 
 // t29CloseEverything is _close_everything: close every lens and every
 // priority so the ONLY thing left open is the probe clause.
+// reconOnRecord puts both FIX-8 recon stamps on record for one campaign.
+// The real verbs would rebuild this campaign's fixture index from the shared
+// sink tree (EnsureFreshIndex), so the prescreen artifact is seeded as a
+// fixture file and the sinks stamp rides the REAL state.StampRecon write
+// path; the end-to-end real-verb version lives in cmd_recon_gate_test.go.
+func reconOnRecord(t *testing.T, c *state.Campaign) {
+	t.Helper()
+	prescreen := validation.VObj(
+		kv("snapshot_id", validation.VStr("S-0123456789abcdef")))
+	if err := validation.WriteJson(filepath.Join(c.ArtifactsDir,
+		"archetype_prescreen.json"), prescreen, ""); err != nil {
+		t.Fatalf("seed prescreen artifact: %v", err)
+	}
+	if err := c.StampRecon("sinks", "src"); err != nil {
+		t.Fatalf("stamp sinks: %v", err)
+	}
+}
+
 func t29CloseEverything(t *testing.T, c *state.Campaign) validation.Value {
 	t.Helper()
+	reconOnRecord(t, c)
 	plan := t29PlanJSON(t, c)
 	for _, lens := range t29ObjList(plan, "lenses") {
 		reason := objStr(lens, "lens") + " resolved for the fixture tree"

@@ -24,6 +24,7 @@ func siblingPlanCampaign(t *testing.T) *state.Campaign {
 	if err != nil {
 		t.Fatal(err)
 	}
+	reconOnRecord(t, c)
 	model := validation.VObj(
 		kv("protocol_id", validation.VStr("sib")),
 		kv("name", validation.VStr("Sibling Program")),

@@ -176,6 +176,15 @@ webv2 model <C-xxx> model.json --facts facts.json          # merge operator fact
 webv2 model <C-xxx> model.json --facts ./manifests --facts-observed-at 2026-01-02
 ```
 
+**Recon is not free.** A `webv2 sinks` run stamps itself into the campaign
+state (`recon.sinks`: the `--src` tree and the time — replaced on re-run,
+never per-file detail) and the `webv2 prescreen` artifact carries its
+snapshot; closing the primitive-symmetry lens (L-04, the divergence-gate
+close) refuses while either is missing, naming the exact
+`webv2 prescreen <C-xxx> --src SRC` / `webv2 sinks <C-xxx> --src SRC`
+commands to run — recon is cheap by design, so skipping it is never the
+honest exit.
+
 **Facts are operator assertions, and the framework never resolves anything.**
 `--facts` merges dated, attributed `dns`/`dependency` objects onto
 `components[]`, joined on `(kind,url)` or `(kind,path)`: a fact that matches no

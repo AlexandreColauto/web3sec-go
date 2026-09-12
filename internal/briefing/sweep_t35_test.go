@@ -16,6 +16,7 @@ import (
 
 func TestBriefSurfacesPrimitiveLessL04Family(t *testing.T) {
 	c := newCamp(t, "Morph L2")
+	reconOnRecord(t, c)
 	l1 := validation.VObj(
 		kv("name", validation.VStr("L1")),
 		kv("path", validation.VStr("a.sol")),

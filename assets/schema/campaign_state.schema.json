@@ -167,6 +167,23 @@
       }
     },
 
+    "recon": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "RECON RUN STAMPS: one light row per recon verb this campaign actually ran over a source tree ({src, at}, replaced on re-run — a stamp is a fact, not a ledger; no per-file detail). Written by the verb itself (`webv2 sinks`); read by the L-04 divergence-gate close, which refuses a lens attestation over divergence rows when the mechanical recon never ran. Absent on campaigns written before the key existed — absence reads as never-ran, which is exactly what the gate must believe.",
+      "properties": {
+        "sinks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["src", "at"],
+          "properties": {
+            "src": { "type": "string", "minLength": 1, "description": "the --src tree the verb ran over, as given on the command line" },
+            "at":  { "type": "string" }
+          }
+        }
+      }
+    },
+
     "stages": {
       "type": "object",
       "description": "per-stage execution ledger: status, attempts, last model/stage ids. Discovery-stage sweep keys may name any discovery trajectory (code, economic, state-machine, attacker, historical, integration, drift, lifecycle, chain).",
