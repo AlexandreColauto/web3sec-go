@@ -27,6 +27,9 @@ func TestDispositionTable(t *testing.T) {
 		{"floor no output", "inconclusive (exit output unmapped)", "", "", false},
 		{"floor not jsonl", "inconclusive (output is not JSONL)", "", "", false},
 		{"floor aborted", "aborted: disk full: detail", "", "", false},
+		// H1 belt-and-braces: the abort floor with the inconclusive wrapper
+		// on (the mapper does not build this today) must still be plumbing.
+		{"floor aborted wrapped", "inconclusive (aborted: tool-error: spec file unreadable)", "", "", false},
 		{"floor contradiction", "inconclusive (report-contradiction: exit 0 with verdict PROVEN)", "", "", false},
 		{"floor no line", "inconclusive (no verdict line for rule inv_1)", "", "", false},
 		{"floor duplicate", "inconclusive (duplicate verdict lines for rule)", "", "", false},
@@ -80,6 +83,30 @@ func TestDispositionCoversClosedSet(t *testing.T) {
 		class, _, ok := Disposition("inconclusive (" + code + ": x)")
 		if !ok || class != want {
 			t.Errorf("code %q -> class %q ok=%v, want %q", code, class, ok, want)
+		}
+		// The sweep doubles as the switch-drift guard: every class the
+		// switch emits must name a next action in the map.
+		if dispositionAdvice[class] == "" {
+			t.Errorf("code %q -> class %q with no advice row", code, class)
+		}
+	}
+}
+
+// TestDispositionAdviceCoversEveryClass pins the map/constant coupling: all
+// eight exported class constants must carry a non-empty next action, so a
+// class added to the const block without a `dispositionAdvice` row fails
+// here rather than rendering an empty "next: ()" downstream.
+func TestDispositionAdviceCoversEveryClass(t *testing.T) {
+	classes := []string{
+		EscalateBound, EscalateFlag, EscalateSolver, SpecRewrite,
+		HonestRefusal, ToolError, ModelBug, WitnessTriage,
+	}
+	if len(classes) != 8 {
+		t.Fatalf("class list has %d entries, want 8", len(classes))
+	}
+	for _, class := range classes {
+		if dispositionAdvice[class] == "" {
+			t.Errorf("dispositionAdvice[%q] is empty", class)
 		}
 	}
 }

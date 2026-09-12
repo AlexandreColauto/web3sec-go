@@ -8,6 +8,7 @@ package sections
 import (
 	"testing"
 
+	"websec/internal/harness"
 	"websec/internal/invariants"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -155,5 +156,169 @@ func TestInvariantVerificationHarnessSkipsMalformed(t *testing.T) {
 	if h := objAt(v, "harness_runs"); h.Kind != validation.Null {
 		t.Fatalf("malformed harness must contribute no key, got %s",
 			validation.CanonCompact(h))
+	}
+}
+
+// harnessProofObj is harnessObj plus the proof sidecar (attributed
+// minicertora lines carry one; every other kind omits the key).
+func harnessProofObj(kind, rung, exec string, bk validation.Value,
+	summary string, proof validation.Value) validation.Value {
+	return validation.VObj(
+		KV("kind", validation.VStr(kind)),
+		KV("rung", validation.VStr(rung)),
+		KV("exec", validation.VStr(exec)),
+		KV("bounded_k", bk),
+		KV("summary", validation.VStr(summary)),
+		KV("proof", proof),
+	)
+}
+
+// proofBounds is proof.bounds with the given loop_bound.
+func proofBounds(loopBound validation.Value) validation.Value {
+	return validation.VObj(KV("bounds", validation.VObj(
+		KV("loop_bound", loopBound))))
+}
+
+// harnessEntry is the invariant-entry shape harnessRunLine reads.
+func harnessEntry(h validation.Value) validation.Value {
+	return validation.VObj(
+		KV("verification", validation.VObj(KV("harness", h))))
+}
+
+// TestHarnessRunLineDispositions pins the line shapes: only a minicertora
+// inconclusive RUN (a summary that actually disposes) gains the
+// " | next: <advice> (<class>)" suffix; every other kind, rung, and
+// plumbing floor stays byte-identical to the historical line.
+func TestHarnessRunLineDispositions(t *testing.T) {
+	const floor = "INV-1: inconclusive (minicertora, EXEC-9)"
+	tests := []struct {
+		name string
+		h    validation.Value
+		want string
+	}{{
+		"halmos inconclusive unchanged",
+		harnessObj("halmos", "inconclusive", "EXEC-3", validation.VNull(),
+			"inconclusive (exit output unmapped)"),
+		"INV-1: inconclusive (halmos, EXEC-3)",
+	}, {
+		"forge-fuzz inconclusive unchanged",
+		harnessObj("forge-fuzz", "inconclusive", "EXEC-3", validation.VNull(),
+			"inconclusive (exit output unmapped)"),
+		"INV-1: inconclusive (forge-fuzz, EXEC-3)",
+	}, {
+		"minicertora counterexample unchanged",
+		harnessObj("minicertora", "counterexample", "EXEC-9",
+			validation.VNull(), "counterexample: total >= before"),
+		"INV-1: counterexample (minicertora, EXEC-9)",
+	}, {
+		"minicertora inconclusive names its next action",
+		harnessObj("minicertora", "inconclusive", "EXEC-9", validation.VNull(),
+			"inconclusive (loop-bound-may-be-exceeded: x)"),
+		floor + " | next: re-run the same scaffold at --loop-bound 8, " +
+			"then 16, ceiling 32 (" + harness.EscalateBound + ")",
+	}, {
+		"minicertora unmapped reason names the generic action",
+		harnessObj("minicertora", "inconclusive", "EXEC-9", validation.VNull(),
+			"inconclusive (quark-tunneling: x)"),
+		floor + " | next: review the spec and the tool version; the " +
+			"refusal names no known disposition (unmapped)",
+	}, {
+		"minicertora plumbing floor has no suffix",
+		harnessObj("minicertora", "inconclusive", "EXEC-9", validation.VNull(),
+			"inconclusive (exit output unmapped)"),
+		floor,
+	}, {
+		"minicertora contradiction floor has no suffix",
+		harnessObj("minicertora", "inconclusive", "EXEC-9", validation.VNull(),
+			"inconclusive (report-contradiction: exit 0 with verdict PROVEN)"),
+		floor,
+	}, {
+		"minicertora abort floor has no suffix",
+		harnessObj("minicertora", "inconclusive", "EXEC-9", validation.VNull(),
+			"aborted: tool-error: spec file unreadable"),
+		floor,
+	}, {
+		"minicertora proved-bounded int k unchanged",
+		harnessObj("minicertora", "proved-bounded", "EXEC-7",
+			validation.VInt(100), "proved bounded (k=100)"),
+		"INV-1: PROVEN-BOUNDED (minicertora, k=100, EXEC-7)",
+	}}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := harnessRunLine("INV-1", harnessEntry(tc.h))
+			if !ok {
+				t.Fatalf("harnessRunLine ok=false, want true")
+			}
+			if got != tc.want {
+				t.Fatalf("line = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestHarnessRunLineBoundKFallback pins the display k precedence on the
+// audit line: bounded_k first, then proof.bounds.loop_bound (the same
+// exact-decimal rule the CLI display uses) when bounded_k is null or
+// absent; a non-integer in either place drops k.
+func TestHarnessRunLineBoundKFallback(t *testing.T) {
+	tests := []struct {
+		name string
+		h    validation.Value
+		want string
+	}{{
+		"bounded_k wins over the sidecar",
+		harnessProofObj("minicertora", "proved-bounded", "EXEC-9",
+			validation.VInt(8), "proved bounded (k=8)",
+			proofBounds(validation.VInt(4))),
+		"INV-1: PROVEN-BOUNDED (minicertora, k=8, EXEC-9)",
+	}, {
+		"null bounded_k falls back to proof.bounds.loop_bound",
+		harnessProofObj("minicertora", "proved-bounded", "EXEC-9",
+			validation.VNull(), "proved bounded",
+			proofBounds(validation.VInt(4))),
+		"INV-1: PROVEN-BOUNDED (minicertora, k=4, EXEC-9)",
+	}, {
+		"absent bounded_k falls back to proof.bounds.loop_bound",
+		validation.VObj(
+			KV("kind", validation.VStr("minicertora")),
+			KV("rung", validation.VStr("proved-bounded")),
+			KV("exec", validation.VStr("EXEC-9")),
+			KV("summary", validation.VStr("proved bounded")),
+			KV("proof", proofBounds(validation.VInt(4)))),
+		"INV-1: PROVEN-BOUNDED (minicertora, k=4, EXEC-9)",
+	}, {
+		"beyond-int64 sidecar bound renders verbatim",
+		harnessProofObj("minicertora", "proved-bounded", "EXEC-9",
+			validation.VNull(), "proved bounded",
+			proofBounds(validation.VBigInt("99999999999999999999"))),
+		"INV-1: PROVEN-BOUNDED (minicertora, k=99999999999999999999, EXEC-9)",
+	}, {
+		"non-integer sidecar bound drops k",
+		harnessProofObj("minicertora", "proved-bounded", "EXEC-9",
+			validation.VNull(), "proved bounded",
+			proofBounds(validation.VStr("4"))),
+		"INV-1: PROVEN-BOUNDED (minicertora, EXEC-9)",
+	}, {
+		"null sidecar bound drops k",
+		harnessProofObj("minicertora", "proved-bounded", "EXEC-9",
+			validation.VNull(), "proved bounded",
+			proofBounds(validation.VNull())),
+		"INV-1: PROVEN-BOUNDED (minicertora, EXEC-9)",
+	}, {
+		"no proof sidecar drops k",
+		harnessObj("minicertora", "proved-bounded", "EXEC-9",
+			validation.VNull(), "proved bounded"),
+		"INV-1: PROVEN-BOUNDED (minicertora, EXEC-9)",
+	}}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := harnessRunLine("INV-1", harnessEntry(tc.h))
+			if !ok {
+				t.Fatalf("harnessRunLine ok=false, want true")
+			}
+			if got != tc.want {
+				t.Fatalf("line = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }

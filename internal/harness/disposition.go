@@ -77,6 +77,9 @@ var dispositionAdvice = map[string]string{
 // refusals carry no ": " separator at all (see Disposition).
 var plumbingReasons = map[string]bool{
 	"report-contradiction": true,
+	// "aborted" is belt-and-braces: the mapper's abort floor carries no
+	// "inconclusive (" wrapper today, but must stay plumbing if it ever does.
+	"aborted": true,
 }
 
 // Disposition classifies the EXACT inconclusive summary a minicertora run

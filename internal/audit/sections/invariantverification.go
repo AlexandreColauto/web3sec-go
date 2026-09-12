@@ -15,6 +15,7 @@ package sections
 import (
 	"fmt"
 
+	"websec/internal/harness"
 	"websec/internal/invariants"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -100,20 +101,31 @@ func harnessRunLine(iid string, e validation.Value) (string, bool) {
 		return fmt.Sprintf("%s: PROVEN-BOUNDED (%s, %s)", iid, kind,
 			exec), true
 	}
+	// A minicertora inconclusive run that actually disposed of a reason
+	// names its next action inline; the plumbing floors (no verdict line
+	// at all) and every other kind keep the historical plain line.
+	if kind == string(harness.MiniCertora) && rung == harness.RungInconclusive {
+		if class, advice, ok := harness.Disposition(objStr(h, "summary")); ok {
+			return fmt.Sprintf("%s: %s (%s, %s) | next: %s (%s)",
+				iid, rung, kind, exec, advice, class), true
+		}
+	}
 	return fmt.Sprintf("%s: %s (%s, %s)", iid, rung, kind, exec), true
 }
 
-// harnessBoundK is the bounded_k integer text ("100"), ok=false for null,
-// absent, or non-integer values.
+// harnessBoundK is the line's k text: bounded_k when it is an integer,
+// otherwise the proof sidecar's bounds.loop_bound — the same
+// exact-decimal-text precedence the CLI display uses
+// (cmd_verify_harness.proofLoopBoundText), so a bound beyond int64
+// renders verbatim rather than losing digits. ok=false for a null,
+// absent, or non-integer value in both places.
 func harnessBoundK(h validation.Value) (string, bool) {
-	for _, kv := range h.O {
-		if kv.K != "bounded_k" {
-			continue
-		}
-		if kv.V.Kind == validation.Int {
-			return validation.IntText(kv.V), true
-		}
-		return "", false
+	if bk := objAt(h, "bounded_k"); bk.Kind == validation.Int {
+		return validation.IntText(bk), true
+	}
+	lb := objAt(objAt(objAt(h, "proof"), "bounds"), "loop_bound")
+	if lb.Kind == validation.Int {
+		return validation.IntText(lb), true
 	}
 	return "", false
 }
