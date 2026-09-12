@@ -100,7 +100,9 @@ const DummyInvariantMspec = `// unfilled scaffold — the reviewed claim is pinn
 // and byte-compares the frame, so a weakened `<=` to `>=` is refused as
 // "scaffold-degraded: invariant assert line changed" on the
 // `verify --harness-result` rail (Task 1, wave L-defer: Validate runs there
-// right after the exec-record hash binds the run, and the tests pin it). The
+// right after the exec-record hash step — on the hash-bound arm and on the
+// unbound one alike, where the on-disk file is the only artifact left — and
+// the tests pin it). The
 // tamper-to-tampered-hash path is therefore closed: a model that edits the
 // pinned claim and hashes its own edit is bound by that hash and then refused
 // by the re-render. The

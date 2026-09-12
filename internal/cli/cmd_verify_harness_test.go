@@ -639,3 +639,124 @@ func TestVerifyHarnessResultScaffoldValidate(t *testing.T) {
 		})
 	}
 }
+
+// TestVerifyHarnessResultUnboundScaffoldValidate pins the fix-round half of
+// Task 1 (wave L-defer): the Validate arm is NOT limited to hash-bound runs.
+// An unbound run records no hash at all, so no bytes were proved to have run
+// — the harness file the scaffold event points at is the only artifact left,
+// and the rail judges exactly those on-disk bytes against the CURRENT claim.
+// Drift therefore refuses with the same "scaffold-degraded:" wording the
+// bound arm uses (no hash proof was needed for the file to be wrong), while
+// an unbound run whose file still matches the claim keeps mapping
+// byte-for-byte as before, honest limitation suffix included.
+func TestVerifyHarnessResultUnboundScaffoldValidate(t *testing.T) {
+	const unboundSuffix = " (unbound: harness file hash not recorded)"
+	cases := []struct {
+		name        string
+		edit        func(t *testing.T, c *state.Campaign)
+		wantRung    string
+		wantSummary string   // exact match when non-empty
+		wantHas     []string // summary substrings, when non-empty
+	}{
+		{
+			// (a) the claim moved after the run and nothing bound the run
+			// to the file: the file is the artifact Validate judges, and
+			// it no longer describes the claim on record.
+			name: "unbound claim drift refuses",
+			edit: func(t *testing.T, c *state.Campaign) {
+				harnessDriftStatement(t, c, "INV-1",
+					"totalAssets must cover all ISSUED shares")
+			},
+			wantRung:    "inconclusive",
+			wantSummary: "scaffold-degraded: natspec invariant line changed",
+		},
+		{
+			// The refusal judges the FILE, bound or not: a damaged frame
+			// on disk refuses with its own reason.
+			name:        "unbound marker-less artifact refuses",
+			edit:        harnessDropEndMarker,
+			wantRung:    "inconclusive",
+			wantSummary: "scaffold-degraded: missing BODY end marker",
+		},
+		{
+			// Validate passing leaves the unbound path byte-identical:
+			// the honest limitation suffix still rides the summary.
+			name:     "unbound untampered run keeps its suffix",
+			wantRung: "proved-bounded",
+			wantHas:  []string{"k=100", unboundSuffix},
+		},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, root := harnessCamp(t, "halmos", "")
+			if tc.edit != nil {
+				tc.edit(t, c)
+			}
+			pre, err := os.ReadFile(harnessArtifactPath(c))
+			if err != nil {
+				t.Fatal(err)
+			}
+			execID := fmt.Sprintf("EXEC-0000000%03d", 20+i)
+			// nil input_hashes: the unbound exec record (no hash info at
+			// all) the reviewer-confirmed gap was about.
+			harnessExec(t, c, execID, harnessProvedStdout,
+				"halmos check --root . --loop 100 "+
+					"--match-contract Inv1InvariantHalmos", nil, 0)
+			code, out, errS := run(t, "--root", root, "verify",
+				c.CampaignID, "--harness-result", "INV-1",
+				"--exec", execID)
+			if code != 0 {
+				t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+			}
+			wantOut := fmt.Sprintf("INV-1: %s (halmos, %s)\n",
+				tc.wantRung, execID)
+			if tc.wantRung == "proved-bounded" {
+				wantOut = fmt.Sprintf("INV-1: proved-bounded (halmos, "+
+					"k=100, %s)\n", execID)
+			}
+			if out != wantOut {
+				t.Fatalf("stdout = %q, want %q", out, wantOut)
+			}
+			h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
+			if objStr(h, "rung") != tc.wantRung {
+				t.Fatalf("rung = %s, want %s", validation.CanonCompact(h),
+					tc.wantRung)
+			}
+			summary := objStr(h, "summary")
+			if tc.wantSummary != "" && summary != tc.wantSummary {
+				t.Fatalf("summary = %q, want %q", summary, tc.wantSummary)
+			}
+			for _, want := range tc.wantHas {
+				if !strings.Contains(summary, want) {
+					t.Fatalf("summary %q lacks %q", summary, want)
+				}
+			}
+			if tc.wantRung == "inconclusive" {
+				if objHasKey(h, "proof") {
+					t.Fatal("a refusal stores no proof key")
+				}
+				if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+					t.Fatalf("bounded_k = %s, want null",
+						validation.CanonCompact(bk))
+				}
+			}
+			// The event carries the same refusal the field does.
+			evs := harnessEventsOf(t, c, "harness_run")
+			if len(evs) != 1 {
+				t.Fatalf("harness_run events = %d, want 1", len(evs))
+			}
+			got, _ := evs[0]["data"].(map[string]any)
+			if got["rung"] != tc.wantRung || got["summary"] != summary {
+				t.Fatalf("event data = %v, want rung %q summary %q", got,
+					tc.wantRung, summary)
+			}
+			post, err := os.ReadFile(harnessArtifactPath(c))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(pre, post) {
+				t.Fatal("the run path must not rewrite the scaffold artifact")
+			}
+		})
+	}
+}

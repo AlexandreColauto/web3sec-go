@@ -979,3 +979,71 @@ func TestHarnessResultMinicertoraCallsAuditSuffix(t *testing.T) {
 		t.Fatalf("audit line = %q, want %q", got, want)
 	}
 }
+
+// TestHarnessResultMinicertoraUnboundDegradedClaim is the third-kind twin of
+// TestVerifyHarnessResultUnboundScaffoldValidate (fix round, wave L-defer):
+// with NO hash entry at all, a weakened pinned assert in the on-disk .mspec
+// is still scaffold drift — the induction scaffold's claim rides OUTSIDE the
+// BODY window, so the unbound run refuses
+// "scaffold-degraded: invariant assert line changed" instead of mapping the
+// PROVEN line with the honest-limitation suffix.
+func TestHarnessResultMinicertoraUnboundDegradedClaim(t *testing.T) {
+	c, root := t15Campaign(t, "mc-unbound-degraded-claim")
+	t15SeedInvariant(t, c, "INV-1",
+		"invariant:cap_respected of V.total <= cap")
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--scaffold", "minicertora", "--invariant", "INV-1")
+	if code != 0 {
+		t.Fatalf("scaffold exit %d: out=%q err=%q", code, out, errS)
+	}
+	p := filepath.Join(c.ArtifactsDir, "harness", "INV-1", "INV.mspec")
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	weakened := strings.Replace(string(raw), "assert total <= cap;",
+		"assert total >= cap;", 1)
+	if weakened == string(raw) {
+		t.Fatal("fixture must weaken the pinned assert (claim not found)")
+	}
+	if err := os.WriteFile(p, []byte(weakened), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	execID := "EXEC-19"
+	// nil hashes: nothing binds this run, so the on-disk .mspec is the
+	// only artifact the rail can check — and it is degraded.
+	mcHarnessExec(t, c, execID, mcProvenLine, "minicertora --rule inv_1",
+		nil, 0)
+	code, out, errS = run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	want := "INV-1: inconclusive (minicertora, " + execID + ")\n"
+	if out != want {
+		t.Fatalf("stdout = %q, want %q", out, want)
+	}
+	h := mcHarness(t, c)
+	if objStr(h, "rung") != "inconclusive" {
+		t.Fatalf("a weakened pinned claim must never map, bound or not: %s",
+			validation.CanonCompact(h))
+	}
+	degraded := "scaffold-degraded: invariant assert line changed"
+	if summary := objStr(h, "summary"); summary != degraded {
+		t.Fatalf("summary = %q, want %q", summary, degraded)
+	}
+	if objHasKey(h, "proof") {
+		t.Fatal("a refusal stores no proof key (absent, not null)")
+	}
+	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+		t.Fatalf("bounded_k = %s, want null", validation.CanonCompact(bk))
+	}
+	evs := harnessEventsOf(t, c, "harness_run")
+	if len(evs) != 1 {
+		t.Fatalf("harness_run events = %d, want 1", len(evs))
+	}
+	got, _ := evs[0]["data"].(map[string]any)
+	if got["rung"] != "inconclusive" || got["summary"] != degraded {
+		t.Fatalf("event data = %v, want the refusal", got)
+	}
+}

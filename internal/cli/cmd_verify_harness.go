@@ -17,12 +17,16 @@ package cli
 //  3. load the scaffold ARTIFACT bytes T17 wrote (harness_scaffold event
 //     ref -> registered artifact -> file) and bind the run to them
 //     (Decision 2b): a recorded hash equal to the scaffold sha binds the
-//     run — and the bound bytes are then re-rendered from the CURRENT
-//     claim by harness.Validate, so a claim edited after the run is a
+//     run — and the bytes are then re-rendered from the CURRENT claim by
+//     harness.Validate, so a claim edited after the run is a
 //     scaffold-degraded refusal (rung inconclusive, the output is NOT
 //     used); a harness-named hash entry with a different sha is a
 //     scaffold-bound violation (same refusal, hash wording); no hash info
-//     maps normally with an "(unbound: ...)" suffix;
+//     leaves the run unbound — Validate then judges the on-disk harness
+//     file itself against the CURRENT claim (the same scaffold-degraded
+//     refusal on drift, since that file is the only artifact left), and a
+//     file that still matches maps normally with an "(unbound: ...)"
+//     suffix;
 //  4. map the stdout to a rung: an untimed minicertora run through
 //     MapMinicertora(raw, exit_status, MspecRuleName(inv)) — which also
 //     captures the proof sidecar for every attributed verdict line
@@ -416,17 +420,26 @@ func invocationBound(command string, kind harness.Kind) int {
 //   - a harness-named hash entry (H.t.sol / F.t.sol, T17's filenames, or
 //     anything harness-named) with a different sha is a scaffold-bound
 //     violation: rung inconclusive, the run's output is NOT used;
-//   - no hash info at all maps normally with an "(unbound: harness file
-//     hash not recorded)" summary suffix — the honest limitation.
+//   - no hash info at all: the run is unbound, so nothing can be bound to
+//     it — Validate still judges the ON-DISK harness file against the
+//     CURRENT claim (that file is the only artifact left) and drift
+//     refuses with the same "scaffold-degraded: <reason>" arm; a file that
+//     still matches maps normally with an "(unbound: harness file hash not
+//     recorded)" summary suffix — the honest limitation.
 //
 // The failure ORDER is deliberate and pinned: the hash check runs first,
-// then Validate. A hash proves WHICH bytes ran (a foreign hash refutes the
-// run outright); Validate proves those bound bytes still match the CURRENT
-// claim (the statement may be edited long after the run). Both are needed,
-// they refuse differently, and each refusal names the step that stopped
-// it. An UNBOUND run skips Validate on purpose: no hash proved which bytes
-// ran, so a re-render could only judge the on-disk file, never the run —
-// it keeps the honest unbound suffix instead.
+// then Validate, on BOTH arms. A hash proves WHICH bytes ran (a foreign
+// hash refutes the run outright); Validate proves the bytes still match the
+// CURRENT claim (the statement may be edited long after the run). Both are
+// needed, they refuse differently, and each refusal names the step that
+// stopped it. Unbound means no hash proved which bytes ran, so the
+// validation is a claim about the FILE, not about the run — which is
+// exactly why it must still fire: the file is the only artifact left to
+// check, and without the re-render a drifted claim or a damaged frame would
+// land a rung on bytes nobody can vouch for. Validate's input is the same
+// file harnessScaffoldBytes read before the rail, so an unreadable or
+// missing file never reaches either arm: that stays the exit-2 path it
+// always was, unchanged.
 //
 // bounded_k is set only for proved-bounded (parsed k=<n> else the
 // invocation k); every other rung carries null.
@@ -466,6 +479,21 @@ func harnessMapBound(kind harness.Kind, inv validation.Value, raw []byte,
 		return harness.RungInconclusive,
 			"scaffold-bound violation: harness file hash differs " +
 				"from stored scaffold", validation.VNull(), nil
+	}
+	// Unbound: no recorded hash proved WHICH bytes ran, so no run can be
+	// refuted on its hash — but the on-disk harness file is still an
+	// artifact this rail can judge, and here it is the ONLY one. Validate
+	// re-renders it from the CURRENT claim and refuses with the very same
+	// "scaffold-degraded:" wording the bound arm uses: a file that no
+	// longer matches the claim on record must never be attributed a rung,
+	// hash proof or not. The bytes were read by harnessScaffoldBytes
+	// before this rail runs, so an unreadable or missing file is still the
+	// exit-2 path it always was (both arms, unchanged); Validate only ever
+	// judges bytes that were read.
+	if err := harness.Validate(kind, inv, scaffold); err != nil {
+		return harness.RungInconclusive,
+			"scaffold-degraded: " + scaffoldDegradedReason(err),
+			validation.VNull(), nil
 	}
 	return harnessMappedKind(kind, raw, timedOut, k, exitStatus, ruleName,
 		" (unbound: harness file hash not recorded)")
