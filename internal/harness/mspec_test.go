@@ -159,6 +159,103 @@ func TestMspecTemplateValidateRoundTrip(t *testing.T) {
 	}
 }
 
+// mspecScaffoldFramePinned is the byte-pinned outside-window frame Scaffold
+// emits for a minicertora template statement (rule id inv_7, statement stmt),
+// with body landing inside the window. Written out by hand rather than derived
+// from mspec.go, so a frame edit trips the pins below instead of tracking them.
+func mspecScaffoldFramePinned(stmt, body string) string {
+	return "// web3sec G8 harness scaffold — MiniCertora bounded verifier.\n" +
+		"// Deterministic bytes: the model writes ONLY the BODY window below;\n" +
+		"// everything outside is scaffold. Rule name is scaffold-pinned — the\n" +
+		"// attribution of verdict lines keys on it; do not rename.\n" +
+		"// @custom:invariant " + stmt + "\n" +
+		"rule inv_7(env e) {\n" +
+		"    " + StartMarker + "\n" +
+		body + "\n" +
+		"    " + EndMarker + "\n" +
+		"}\n"
+}
+
+// TestMspecNewTemplateScaffoldBytes pins the WHOLE artifact for each template
+// landed after the original four (wave L-defer T2): the rule frame is
+// unchanged byte-for-byte and only the BODY window differs from the shipped
+// names — the corpus comment lines of privilege-escalation and the `with {
+// msg.value = 1; }` call of value-transfer-accounting included.
+func TestMspecNewTemplateScaffoldBytes(t *testing.T) {
+	cases := []struct {
+		stmt string
+		body string
+	}{
+		{
+			stmt: "template:privilege-escalation of Privileged.escalate",
+			body: "    require role(e.msg.sender) == 0;\n" +
+				"    // The attacker is not nominated *yet*: this is what forces `escalate` (call 1)\n" +
+				"    // to succeed because of `nominate` (call 0) and not because arbitrary initial\n" +
+				"    // storage handed it a nomination.  Without this line the target is still\n" +
+				"    // VIOLATED, but the sequence is not load-bearing (see meta.md).\n" +
+				"    require nominated(e.msg.sender) == false;\n" +
+				"    Privileged.nominate(e, e.msg.sender);\n" +
+				"    Privileged.escalate(e);\n" +
+				"    assert role(e.msg.sender) == 0;",
+		},
+		{
+			stmt: "template:unchecked-callback of Vault.withdraw",
+			body: "    uint256 before = balanceOf(e.msg.sender);\n" +
+				"    require before >= 1;\n" +
+				"    Vault.withdraw(e, 1);\n" +
+				"    assert balanceOf(e.msg.sender) == before - 1;",
+		},
+		{
+			stmt: "template:value-transfer-accounting of Ledger.record",
+			body: "    uint256 before = total;\n" +
+				"    Ledger.record(e) with { msg.value = 1; };\n" +
+				"    assert total == before;",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.stmt, func(t *testing.T) {
+			inv := validation.VObj(
+				validation.KV{K: "id", V: validation.VStr("INV-7")},
+				validation.KV{K: "statement", V: validation.VStr(tc.stmt)},
+			)
+			got, err := Scaffold(MiniCertora, inv)
+			if err != nil {
+				t.Fatalf("Scaffold(%q): %v", tc.stmt, err)
+			}
+			if want := mspecScaffoldFramePinned(tc.stmt, tc.body); string(got) != want {
+				t.Errorf("template scaffold bytes moved:\n got:\n%s\nwant:\n%s", got, want)
+			}
+			// The body lands INSIDE the marker window, never before it, and
+			// the artifact round-trips through the byte law as written. The
+			// window region is the body plus the scaffold's own trailing
+			// whitespace: BodyRegion ends at the end-marker SPELLING, so the
+			// line break and the marker line's indentation are inside it.
+			s, e, err := BodyRegion(got)
+			if err != nil {
+				t.Fatalf("BodyRegion(%q): %v", tc.stmt, err)
+			}
+			if want := tc.body + "\n    "; string(got[s:e]) != want {
+				t.Errorf("body window = %q, want %q", string(got[s:e]), want)
+			}
+			if err := Validate(MiniCertora, inv, got); err != nil {
+				t.Fatalf("a template scaffold must validate as written: %v", err)
+			}
+			// STARTING CONTENT: the model may rewrite the whole window.
+			rewritten := append(append(append([]byte{}, got[:s]...),
+				[]byte("    uint256 before = 0;\n")...), got[e:]...)
+			if err := Validate(MiniCertora, inv, rewritten); err != nil {
+				t.Fatalf("inside-window rewrite must validate: %v", err)
+			}
+			// Outside-window drift stays scaffold-bound.
+			tampered := []byte(strings.Replace(string(got), "rule inv_7(", "rule inv_8(", 1))
+			if err := Validate(MiniCertora, inv, tampered); err == nil ||
+				!strings.Contains(err.Error(), "scaffold-bound") {
+				t.Fatalf("renamed rule must be scaffold-bound, got %v", err)
+			}
+		})
+	}
+}
+
 // TestMspecTemplateUnknownName pins the loud refusal: a template-shaped
 // statement naming no shipped template errors out of Scaffold (and therefore
 // out of Validate) — never a silently empty body window.

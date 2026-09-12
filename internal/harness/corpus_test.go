@@ -1,7 +1,7 @@
 // corpus_test.go: the L6a tripwires over the VENDORED minicertora corpus.
 //
 // The vendored tree under testdata/minicertora-corpus/ is data, not code:
-// eight target directories copied VERBATIM from
+// ten target directories copied VERBATIM from
 // /home/xand/Projects/minicertora/minicertora/corpus/targets/, pinned by
 // VENDOR.json (upstream path + git sha + per-file sha256). These tests assert
 // SELF-CONSISTENCY only — recorded hashes equal the bytes on disk, the
@@ -28,17 +28,22 @@ import (
 
 const corpusTestdataDir = "testdata/minicertora-corpus"
 
-// corpusTargets is the pinned vendoring set: exactly these eight slugs and no
-// others. Adding a ninth target is a deliberate revendoring act (update the
-// list, VENDOR.json and the sha pin together).
+// corpusTargets is the pinned vendoring set: exactly these ten slugs and no
+// others. Adding an eleventh target is a deliberate revendoring act (update
+// the list, VENDOR.json and the sha pin together) — wave L-defer T2 did
+// exactly that for the two targets its new template bodies adapt from
+// (unchecked-callback, payable-check-missing), verbatim at the same pinned
+// upstream sha.
 var corpusTargets = []string{
 	"access-control-mint",
 	"invariant-cap",
 	"packed-storage-rejected",
+	"payable-check-missing",
 	"privilege-escalation",
 	"reentrancy-double-payout",
 	"rounding-drain",
 	"tx-origin-auth",
+	"unchecked-callback",
 	"wrap-unchecked",
 }
 
@@ -95,7 +100,7 @@ func containsString(hay []string, needle string) bool {
 // against VENDOR.json in both directions: every vendored file's bytes hash to
 // its recorded sha256, no directory or file is unlisted, and no record is
 // stale. It also pins the provenance envelope (upstream path, sha format,
-// vendoring date) and the file census (8 targets, 33 files).
+// vendoring date) and the file census (10 targets, 41 files).
 func TestCorpusVendoringSelfConsistent(t *testing.T) {
 	man := readVendorManifest(t)
 
@@ -113,8 +118,8 @@ func TestCorpusVendoringSelfConsistent(t *testing.T) {
 	} else if _, err := hex.DecodeString(man.UpstreamSHA); err != nil {
 		t.Errorf("upstream_sha %q is not hex: %v", man.UpstreamSHA, err)
 	}
-	if len(man.Targets) != 8 {
-		t.Fatalf("VENDOR.json lists %d targets, want 8", len(man.Targets))
+	if len(man.Targets) != 10 {
+		t.Fatalf("VENDOR.json lists %d targets, want 10", len(man.Targets))
 	}
 	for _, name := range corpusTargets {
 		if _, ok := man.Targets[name]; !ok {
@@ -177,8 +182,8 @@ func TestCorpusVendoringSelfConsistent(t *testing.T) {
 			t.Errorf("VENDOR.json lists target %q but the directory is missing", name)
 		}
 	}
-	if total != 33 {
-		t.Errorf("vendored corpus holds %d files, want 33", total)
+	if total != 41 {
+		t.Errorf("vendored corpus holds %d files, want 41", total)
 	}
 }
 

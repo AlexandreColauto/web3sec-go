@@ -2,11 +2,20 @@ package harness
 
 // templates_test.go: the L-system rule-template pins. Each template body is
 // adapted byte-for-byte from the vendored minicertora corpus spec of the same
-// name (internal/harness/testdata/minicertora-corpus/<name>/*.mspec): the
+// name (internal/harness/testdata/minicertora-corpus/<name>/*.mspec, where
+// <name> is the target DIRECTORY and the .mspec file name varies — the
+// value-transfer-accounting archetype lives in payable-check-missing/): the
 // `rule <id>(env e, …) {` frame is STRIPPED and the require/assert sequence
 // between the rule braces becomes the BODY-window text. The pins below are
 // written by hand from the shipped .tmpl files, so a later edit that moves a
 // body trips the byte test rather than silently changing every scaffold.
+//
+// The corpus rule's own parameters have no home in the scaffold's fixed
+// `(env e)` signature, so every body binds them the same way (the law is
+// documented on templateKnobs in templates.go): the actor param becomes
+// e.msg.sender and its binding require is DROPPED as vacuous, a scalar input
+// is pinned to the literal 1, and a pre-state param is bound to the state read
+// the corpus names it against.
 
 import (
 	"io/fs"
@@ -15,10 +24,11 @@ import (
 	"testing"
 )
 
-// TestRenderTemplateBodyBytes pins the four shipped bodies at one concrete
-// knob pair. The two state identifiers each archetype uses (`total`, `users`,
-// `totalMinted`/`owner`) are archetype-fixed, not knobs — the statement
-// syntax carries only Contract.Function — so only those two vary here.
+// TestRenderTemplateBodyBytes pins the seven shipped bodies at one concrete
+// knob pair. The state identifiers each archetype uses (`total`, `users`,
+// `totalMinted`/`owner`, `balanceOf`, `role`/`nominated`) are archetype-fixed,
+// not knobs — the statement syntax carries only Contract.Function — so only
+// those two vary here.
 func TestRenderTemplateBodyBytes(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -55,6 +65,49 @@ func TestRenderTemplateBodyBytes(t *testing.T) {
 				"    uint256 before = totalMinted;\n" +
 				"    Auth.mint(e, 1);\n" +
 				"    assert totalMinted == before;",
+		},
+		{
+			// Corpus: privilege-escalation/no_privilege_escalation.mspec.
+			// The knob names the ESCALATION call (call 1) — the transition the
+			// assert keys on; the corpus' permission-granting precondition call
+			// (`nominate`, call 0) rides the archetype, qualified with the
+			// Contract knob so the single-contract guard still names a mismatch.
+			// The corpus comment rides verbatim: it is what records that the
+			// sequence (not arbitrary initial storage) is the load-bearing part.
+			name: "privilege-escalation", contract: "Privileged", function: "escalate",
+			want: "    require role(e.msg.sender) == 0;\n" +
+				"    // The attacker is not nominated *yet*: this is what forces `escalate` (call 1)\n" +
+				"    // to succeed because of `nominate` (call 0) and not because arbitrary initial\n" +
+				"    // storage handed it a nomination.  Without this line the target is still\n" +
+				"    // VIOLATED, but the sequence is not load-bearing (see meta.md).\n" +
+				"    require nominated(e.msg.sender) == false;\n" +
+				"    Privileged.nominate(e, e.msg.sender);\n" +
+				"    Privileged.escalate(e);\n" +
+				"    assert role(e.msg.sender) == 0;",
+		},
+		{
+			// Corpus: unchecked-callback/withdraw_keeps_accounting.mspec. The
+			// corpus' `before` parameter is bound to the state read its own
+			// require names (`balanceOf(e.msg.sender)`), the binding require is
+			// dropped as vacuous, `amount` is the literal 1 and the surviving
+			// `require before >= amount;` keeps its pruning job as `>= 1`.
+			name: "unchecked-callback", contract: "Vault", function: "withdraw",
+			want: "    uint256 before = balanceOf(e.msg.sender);\n" +
+				"    require before >= 1;\n" +
+				"    Vault.withdraw(e, 1);\n" +
+				"    assert balanceOf(e.msg.sender) == before - 1;",
+		},
+		{
+			// Corpus: payable-check-missing/ledger.mspec, rule 1
+			// (`value_accepted_where_it_must_not_be`) — the VIOLATED rule; the
+			// corpus' control rule (rule 2, PROVEN) is not an archetype body.
+			// `record(e) with { msg.value = v; };` keeps the corpus' explicit
+			// value channel; `v` is the literal 1 and `require v > 0;` is
+			// dropped as vacuous under that pin.
+			name: "value-transfer-accounting", contract: "Ledger", function: "record",
+			want: "    uint256 before = total;\n" +
+				"    Ledger.record(e) with { msg.value = 1; };\n" +
+				"    assert total == before;",
 		},
 	}
 	for _, tc := range cases {

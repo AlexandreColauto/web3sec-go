@@ -1485,8 +1485,14 @@ EXEC-xxx`; `disprove`/`waive` take `--reason`; `complete`/`waive` take
 described in ≥ 5 chars.
 
 `minicertora` note: a `--scaffold minicertora` invariant whose statement reads
-`template:<name> of <Contract>.<Function>` seeds the BODY window from the archetype library (`wrap-unchecked`, `rounding-drain`,
-`access-control-mint`, `tx-origin-auth`) — starting content the model may rewrite inside the window only; an unknown name is refused.
+`template:<name> of <Contract>.<Function>` seeds the BODY window from the archetype library — the seven
+shipped names are `wrap-unchecked`, `rounding-drain`, `access-control-mint`, `tx-origin-auth`,
+`privilege-escalation`, `unchecked-callback`, `value-transfer-accounting` — starting content the model may
+rewrite inside the window only; an unknown name is refused.
+Two further names the architecture's §L5 list carries are deliberately NOT templates, for different
+reasons: `donation-accounting` has no corpus ground-truth spec to adapt a body from (nothing to be
+faithful to), and `cap-respected` is not a rule body at all — it rides the `invariant:` statement form
+below, which is the induction scaffold.
 Only exact lowercase-hyphen template names inside that pattern are honored: a
 near-miss (uppercase, underscore, extra text) silently falls through to the
 plain skeleton — check the artifact if you meant a template.

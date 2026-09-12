@@ -1,0 +1,4 @@
+    uint256 before = balanceOf(e.msg.sender);
+    require before >= 1;
+    {{.Contract}}.{{.Function}}(e, 1);
+    assert balanceOf(e.msg.sender) == before - 1;

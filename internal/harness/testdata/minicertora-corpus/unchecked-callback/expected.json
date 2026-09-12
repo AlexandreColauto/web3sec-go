@@ -1,0 +1,32 @@
+{
+  "target": "unchecked-callback",
+  "bug_class": "unchecked-callback",
+  "sol": "Vault.sol",
+  "spec": "withdraw_keeps_accounting.mspec",
+  "solc": "0.8.36",
+  "tool_flags": [
+    "--external-calls",
+    "havoc-storage",
+    "--loop-bound",
+    "4",
+    "--timeout-ms",
+    "30000"
+  ],
+  "status": "expected",
+  "rules": [
+    {
+      "rule_id": "withdraw_keeps_accounting",
+      "expected_verdict": "VIOLATED",
+      "expected_reason_code": "assertion-violated",
+      "expected_details_include": null,
+      "essential_witness": {
+        "failed_assertion": "balanceOf(e.msg.sender) == before - amount",
+        "final_storage": {
+          "balanceOf[?]": "*"
+        }
+      },
+      "expected_assumptions_include": [],
+      "replay": "none"
+    }
+  ]
+}

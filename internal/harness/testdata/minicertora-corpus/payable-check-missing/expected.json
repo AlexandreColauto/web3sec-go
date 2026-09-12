@@ -1,0 +1,68 @@
+{
+  "target": "payable-check-missing",
+  "bug_class": "missing-payable-check",
+  "sol": "Ledger.sol",
+  "spec": "ledger.mspec",
+  "solc": "0.8.36",
+  "tool_flags": [
+    "--loop-bound",
+    "4",
+    "--timeout-ms",
+    "30000"
+  ],
+  "status": "expected",
+  "proof_mode": "caveated",
+  "notes": "Task 10 flip: filed here as `unwritable`/`blocked_on: entry-binding`, now a measured row. The contract's missing `callvalue()` check is the bug (rule 1, VIOLATED); the control rule's check lives only in the `external_fun_settle_*` wrapper, so binding it makes rule 2 PROVEN with `path-infeasible-proof` + `entry-bound-via-selector-map`. Both the rule and the contract are unchanged across bindings: `--entry-binding=internal` gives rule 2 VIOLATED/assertion-violated (the corpus' only verdict difference between the two modes).",
+  "rules": [
+    {
+      "rule_id": "value_accepted_where_it_must_not_be",
+      "expected_verdict": "VIOLATED",
+      "expected_reason_code": "assertion-violated",
+      "expected_details_include": null,
+      "essential_witness": {
+        "failed_assertion": "total == before",
+        "params": {
+          "v": "*"
+        }
+      },
+      "expected_assumptions_include": [
+        "arbitrary-initial-storage",
+        "constructor-not-modeled",
+        "packed-storage-rejected",
+        "word-aligned-memory",
+        "mapping-slot-injective",
+        "external-calls=no-reentry",
+        "msg.value-default-zero",
+        "solc-0.8.36",
+        "yul-artifact-ir",
+        "env-override:s0:msg.value",
+        "msg.value-override-not-balance-checked",
+        "entry-bound-via-selector-map"
+      ],
+      "replay": "none"
+    },
+    {
+      "rule_id": "nonpayable_entry_refuses_value",
+      "expected_verdict": "PROVEN",
+      "expected_reason_code": null,
+      "expected_details_include": null,
+      "essential_witness": {},
+      "expected_assumptions_include": [
+        "arbitrary-initial-storage",
+        "constructor-not-modeled",
+        "packed-storage-rejected",
+        "word-aligned-memory",
+        "mapping-slot-injective",
+        "external-calls=no-reentry",
+        "msg.value-default-zero",
+        "solc-0.8.36",
+        "yul-artifact-ir",
+        "env-override:s0:msg.value",
+        "msg.value-override-not-balance-checked",
+        "entry-bound-via-selector-map",
+        "path-infeasible-proof"
+      ],
+      "replay": "none"
+    }
+  ]
+}

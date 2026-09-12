@@ -67,6 +67,22 @@
         "meta.md": "sha256:4a4daac3f4692aadb6f6643c97272aec5b78ec466eb429fd96fe6852df5980f2",
         "touch.mspec": "sha256:d161f23e3d9c96cec29a059840c15159f1590a838dce81d396f10a69880ce2a7"
       }
+    },
+    "unchecked-callback": {
+      "files": {
+        "Vault.sol": "sha256:f68ca57363acc49b8ec032bb09fe626f881a0e682bd23953a215634cf082bdac",
+        "expected.json": "sha256:bd0d524c50dd7f74a00826df7e7ba684970a14610901ff0a96d0e42243dedc2e",
+        "meta.md": "sha256:c05eb910b9d9402f9070b87652e9c7fc6d9d5e5cffd4df4e113db2201c346b31",
+        "withdraw_keeps_accounting.mspec": "sha256:1de768a4aecb8ce54c9cef601208f0e8a89893d41be38022f84ecdf611a86c41"
+      }
+    },
+    "payable-check-missing": {
+      "files": {
+        "Ledger.sol": "sha256:b2d60d2a6bb357200e28bea60cb8b203ea39217ca7f8e831b09692a15e4ad9f9",
+        "expected.json": "sha256:b8e1accaf739b19b11edd780380daaad3c251b7201c469480b0861819b8ffc14",
+        "ledger.mspec": "sha256:73d42ce7c2bd7a164776e017ed69b9a28d47d3523381ff3749bcde04afdb64d4",
+        "meta.md": "sha256:614e6948b03e10f4b0d3a2cf506479b8c9e9f62db086d6f9720938343034c3dd"
+      }
     }
   }
 }

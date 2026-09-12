@@ -501,12 +501,14 @@ statement syntax — and no golden campaign byte moved.
   `artifacts/invariant_links.json` from disk), not from a test-only path.
   The bridge is consumed by its tests only; emitting a `.seq.json` from the CLI
   is the fork wave's seam.
-- **§L5 four template archetypes — LANDED** (`c574605b`). Statement form
+- **§L5 template archetypes — LANDED** (`c574605b`; three more landed by
+  wave L-defer T2). Statement form
   `template:<name> of <Contract>.<Function>` seeds the BODY window from
   `internal/harness/templates/*.tmpl` through a pure renderer
   (`internal/harness/templates.go`) over an **explicit allowlist** (never a
   directory listing, so rendered bytes cannot depend on enumeration order):
-  `wrap-unchecked`, `rounding-drain`, `access-control-mint`, `tx-origin-auth`.
+  `wrap-unchecked`, `rounding-drain`, `access-control-mint`, `tx-origin-auth`,
+  `privilege-escalation`, `unchecked-callback`, `value-transfer-accounting`.
   An unknown name is an error (`harness: unknown template %q`), never a
   silently empty body; a non-matching statement — including a malformed
   `template:` prefix — falls through to the plain skeleton byte-identically.
@@ -514,19 +516,28 @@ statement syntax — and no golden campaign byte moved.
   the BODY window, the model may rewrite or delete it wholesale, and `Validate`
   judges only the bytes outside the window (same law as `DummyMspec`); the
   scorecard and every gate must not credit template seeds. Three disclosures:
-  two of the four archetypes are **byte-identical upstream**
-  (`tx-origin-auth` ≡ `access-control-mint`, one `.mspec` sha) so the sweep
-  gains **three distinct bodies**, not four; `rounding-drain` ships the
+  `tx-origin-auth` ≡ `access-control-mint` (one `.mspec` sha), so the seven
+  names carry **six distinct corpus bodies**; `rounding-drain` ships the
   corpus's own refused shape (`unsupported-feature` / `struct-member-access`, a
   measured corpus outcome rather than a bug in the body); and the two-knob
-  `(env e)` signature pins scalar inputs to the literal `1`, so a seed is
-  trivially safe until the model widens the input.
+  `(env e)` signature pins scalar inputs to the literal `1` by one uniform
+  binding law (the actor param becomes `e.msg.sender`, a pre-state param is
+  bound to the state read the corpus names it against, and the corpus
+  `require`s those bindings render vacuous are dropped), so a seed is trivially
+  safe until the model widens the input. The three L-defer additions keep that
+  discipline: the privilege-escalation body is the corpus' two-call sequence
+  and only the transition its `assert` keys on rides `{{.Function}}`; the
+  value-transfer-accounting body carries the corpus' `with { msg.value = 1; }`
+  channel; and `donation-accounting` (no corpus ground-truth spec) and
+  `cap-respected` (an `invariant:` scaffold, not a rule body) stay out.
 - **§L6a vendored corpus tripwires — LANDED** (`31e4bea1`).
-  `internal/harness/testdata/minicertora-corpus/` holds exactly eight targets —
+  `internal/harness/testdata/minicertora-corpus/` holds exactly ten targets —
   `wrap-unchecked`, `rounding-drain`, `reentrancy-double-payout`,
   `access-control-mint`, `privilege-escalation`, `tx-origin-auth`,
-  `invariant-cap`, `packed-storage-rejected` — copied verbatim from upstream
-  **`5a35567d`**, with per-file sha256 provenance in `VENDOR.json`.
+  `invariant-cap`, `packed-storage-rejected`, plus (vendored verbatim at the
+  same sha by wave L-defer T2, whose template bodies adapt from them)
+  `unchecked-callback` and `payable-check-missing` — copied verbatim from
+  upstream **`5a35567d`**, with per-file sha256 provenance in `VENDOR.json`.
   `corpus_test.go` validates **self-consistency only** (recorded sha == actual
   bytes, schema/enum conformance); it never executes the tool, so a toolchain
   drift tripwire is a test-time byte check, not a live run. The vendored
