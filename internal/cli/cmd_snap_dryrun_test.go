@@ -4,12 +4,46 @@ package cli
 // warns on untracked files inside the target.
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// TestSnapDryRunCapsPrunedPaths (Task 7a): the pruned-path dump is the snap
+// verb's path dump. A target whose prune matches run past consoleRowCap must
+// not fold every path into one unreadable line: the console prints the first
+// consoleRowCap paths and exactly one pointer line.
+func TestSnapDryRunCapsPrunedPaths(t *testing.T) {
+	const want = 45
+	root := mkroot(t)
+	cid := initOne(t, root)
+	tgt := t32Target(t)
+	// `build` is a bulk prune default; 45 nested matches = 45 pruned paths.
+	for i := 1; i <= want; i++ {
+		dir := filepath.Join(tgt, fmt.Sprintf("d%02d", i), "build")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	code, out, errS := run(t, "--root", root, "snap", cid, tgt, "--dry-run")
+	if code != 0 {
+		t.Fatalf("dry-run exit %d: %q", code, errS)
+	}
+	if !strings.Contains(out, "  pruned paths (45):") {
+		t.Fatalf("missing the pruned-path header:\n%s", out)
+	}
+	if got := strings.Count(out, "/build"); got != consoleRowCap {
+		t.Fatalf("console path lines = %d, want %d:\n%s", got, consoleRowCap,
+			out)
+	}
+	if !strings.Contains(out,
+		"  … +5 more rows — use --json for the full table\n") {
+		t.Fatalf("missing the overflow pointer:\n%s", out)
+	}
+}
 
 // gitInit makes dir a git-clean repo, skipping when git is absent.
 func gitInit(t *testing.T, dir string) {

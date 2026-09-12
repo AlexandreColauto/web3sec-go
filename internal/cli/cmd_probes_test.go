@@ -1029,6 +1029,66 @@ func TestProbesRunAndListSurfaceTheFloorOverrunWarning(t *testing.T) {
 
 // ---- probes list ----------------------------------------------------------
 
+// TestProbesListCapsConsoleRows (Task 7a): a surface longer than
+// consoleRowCap floods a terminal, so the console table prints the first
+// consoleRowCap rows and exactly one pointer line; `--json` stays complete
+// (the full table is the machine-readable answer, not the card dump).
+func TestProbesListCapsConsoleRows(t *testing.T) {
+	const want = 45
+	ws, c, _, surface := t29Setup(t, t29Ranking, false)
+	rows := t29ObjList(surface, "rows")
+	if len(rows) == 0 {
+		t.Fatal("fixture surface has no rows to clone")
+	}
+	cloned := make([]validation.Value, 0, want)
+	ids := make([]string, 0, want)
+	for i := 0; i < want; i++ {
+		row := t29DeepCopy(rows[0])
+		id := fmt.Sprintf("aaaaaaaa%02x", i+1)
+		t29Set(&row, "row_id", validation.VStr(id))
+		t29Set(&row, "rank", validation.VInt(int64(i+1)))
+		cloned = append(cloned, row)
+		ids = append(ids, id)
+	}
+	t29Set(&surface, "rows", validation.VArr(cloned...))
+	if err := validation.WriteJson(t29SurfacePath(c), surface,
+		"probe_surface"); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "list")
+	if code != 0 {
+		t.Fatalf("list exit %d: out=%q err=%q", code, out, errS)
+	}
+	if got := strings.Count(out, " rank "); got != consoleRowCap {
+		t.Fatalf("console row lines = %d, want %d:\n%s", got, consoleRowCap,
+			out)
+	}
+	if !strings.Contains(out, ids[consoleRowCap-1]) {
+		t.Fatalf("row %d missing from the console table:\n%s", consoleRowCap,
+			out)
+	}
+	if strings.Contains(out, ids[consoleRowCap]) {
+		t.Fatalf("row %d printed past the cap:\n%s", consoleRowCap+1, out)
+	}
+	if !strings.Contains(out,
+		"  … +5 more rows — use --json for the full table\n") {
+		t.Fatalf("missing the overflow pointer:\n%s", out)
+	}
+	code, out, errS = run(t, "--root", ws, "probes", t29CID, "list", "--json")
+	if code != 0 {
+		t.Fatalf("list --json exit %d: %q", code, errS)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(out), &doc); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := doc["surface_rows"].([]any)
+	if !ok || len(got) != want {
+		t.Fatalf("--json surface_rows = %d, want %d (--json must stay "+
+			"complete)", len(got), want)
+	}
+}
+
 func TestLensProbeClosureMessageCarriesTheCounts(t *testing.T) {
 	ws, c, _, surface := t29Setup(t, t29Ranking, true)
 	t29Emit(t, ws)

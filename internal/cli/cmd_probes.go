@@ -23,6 +23,12 @@ import (
 const t29ProbesUsage = `usage: webv2 probes [-h] campaign {run,list,blank} ...
 `
 
+// consoleRowCap bounds the console table; --json stays complete. It is the
+// package-wide console convention (probes rows, snap dry-run path dumps):
+// a dump longer than this prints its first consoleRowCap entries and one
+// pointer line, never the whole list.
+const consoleRowCap = 40
+
 const t29ProbesHelp = `usage: webv2 probes [-h] campaign {run,list,blank} ...
 
 positional arguments:
@@ -646,9 +652,23 @@ func probesList(a *probesArgs, c *state.Campaign, r *Runner) error {
 	for _, line := range probeWarningLines(*surface) {
 		fmt.Fprintln(r.Out, line)
 	}
+	// The console table is capped: a surface is an obligation list, not a
+	// transcript. The summary line points at the complete machine-readable
+	// table (`--json`), and the count is the number actually selected by the
+	// axis filter (not the raw artifact size).
+	selected := make([]validation.Value, 0, len(t14List(*surface, "rows").A))
 	for _, row := range t14List(*surface, "rows").A {
 		if axisFilter != nil && !t14InList(objStr(row, "axis"), axisFilter.Axes) {
 			continue
+		}
+		selected = append(selected, row)
+	}
+	for i, row := range selected {
+		if i == consoleRowCap {
+			fmt.Fprintf(r.Out,
+				"  … +%d more rows — use --json for the full table\n",
+				len(selected)-consoleRowCap)
+			break
 		}
 		d := objAt(dispositions, objStr(row, "row_id"))
 		stateStr := "open (not emitted)"

@@ -146,11 +146,25 @@ func snapDryRun(w io.Writer, target string, extra []string, deployment, chain st
 		p.Ladder, p.SnapshotID, p.FileCount, hash)
 	fmt.Fprintf(w, "  prune names (%d): %s\n", len(p.PruneNames),
 		strings.Join(p.PruneNames, ", "))
-	pruned := "none matched in target"
-	if len(p.PrunedPaths) > 0 {
-		pruned = strings.Join(p.PrunedPaths, ", ")
+	// The path dump carries the package's console cap (consoleRowCap, see
+	// cmd_probes.go): a monorepo can match hundreds of prune names, and one
+	// line of hundreds of paths is unreadable. A small dump keeps the compact
+	// one-line form; past the cap it becomes one path per row plus the
+	// pointer to the complete table.
+	switch {
+	case len(p.PrunedPaths) == 0:
+		fmt.Fprintf(w, "  pruned paths (0): none matched in target\n")
+	case len(p.PrunedPaths) <= consoleRowCap:
+		fmt.Fprintf(w, "  pruned paths (%d): %s\n", len(p.PrunedPaths),
+			strings.Join(p.PrunedPaths, ", "))
+	default:
+		fmt.Fprintf(w, "  pruned paths (%d):\n", len(p.PrunedPaths))
+		for _, path := range p.PrunedPaths[:consoleRowCap] {
+			fmt.Fprintf(w, "    %s\n", path)
+		}
+		fmt.Fprintf(w, "  … +%d more rows — use --json for the full table\n",
+			len(p.PrunedPaths)-consoleRowCap)
 	}
-	fmt.Fprintf(w, "  pruned paths (%d): %s\n", len(p.PrunedPaths), pruned)
 	if total, names := untrackedSummary(p.Untracked, p.UntrackedMore); total > 0 {
 		covered := "would be covered by this pin but are not in git"
 		if p.Ladder == "git-clean" {
