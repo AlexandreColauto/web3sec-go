@@ -38,10 +38,8 @@
     "cases": 1,
     "detected": 0,
     "proven_silence": 0,
-    "refused": 1,
-    "refusal_histogram": {
-      "unsupported-feature": 1
-    }
+    "refused": 0,
+    "refusal_histogram": {}
   },
   {
     "class": "dos-griefing",

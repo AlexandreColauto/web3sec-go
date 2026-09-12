@@ -20,3 +20,26 @@ CleanB.sol (ES17+total), EscrowB.sol (ES17+total), ES11b.sol (require->assert
 semantic-preserving twin; probe was inconclusive and was NOT scored).
 ES12 file name (SignatureReplay) is the evalsuite's own; LegacyVault mapping was
 my error and that case stayed unscored (no file).
+## Join mechanics (operator note)
+
+Both donation twins name their rule `donation_keeps_rate`; the tool prints no
+target field on rule-bearing lines, so a rule-keyed class map can tie that
+name only once. The scored map therefore ties ES06's rule-LESS abort envelope
+by file stem (VTokenDonation -> CASE-000000000006, refused=unsupported-feature)
+and MintInflation's envelope likewise (stem -> CASE-00000000000b); the
+`donation_keeps_rate` rule row maps to ES11. The single UNJOINED line
+(donation_keeps_rate from the VTokenDonation file, solver-timeout, 180 s) is
+left unjoined ON PURPOSE rather than double-tied — the instrument must not
+invent a second identity for a name collision. The scorecard stderr names it.
+
+## What the run shows (final table in scorecard.tsv)
+
+- detected 2 (ES02 authorization, ES13 flash-loan), proven_silence 0,
+  refused 7 (5x rejected-feature incl. the string-literal abort + packed
+  storage + array type; 2x unsupported-feature), unjoined 1 (name collision),
+  untied cases 9 (reentrancy x3, oracle, sig-replay, bridge x2, cross-chain,
+  liquidation — classes where no claim was authored this pass).
+- clean control ES17: PROVEN on the total-accounting claim; its scorecard row
+  shows cases=1 detected=0 refused=0 because a PROVEN line on a
+  confirmed-exploitable gold row is neither of the three measured states —
+  the instrument honestly records it as no-signal.
