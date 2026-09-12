@@ -20,11 +20,38 @@
 // ("sender") is accepted as a fallback spelling for a flattened env;
 // "msg.sender" wins when both are present.
 //
+// Env discard. Only env["msg.sender"] is consumed; env["msg.value"] is
+// DISCARDED (the same is true of every other env key, but msg.value is
+// the one that carries meaning and is therefore the one worth naming).
+// sequence_poc steps have no value slot — the step object in
+// assets/schema/sequence_poc.schema.json admits only step, actor,
+// target, function, args, mine_blocks and expect_revert under
+// "additionalProperties": false — so a value-bearing call cannot be
+// represented in this wave's spec without either silently dropping the
+// ETH the witness sent or lying about the sequence. Emitting a bridged
+// spec that omits a nonzero msg.value would be exactly the partial spec
+// the refusal law forbids, so the fork wave must decide value-bearing
+// handling explicitly: add a step-level value field (schema change plus
+// the renderer/executor to honor it), or refuse calls whose
+// env["msg.value"] is present-and-nonzero. Until then this bridge reads
+// the sender only and ignores the value entirely.
+//
 // Refusal law (fail-open-to-honest, the package's house style): the
 // bridge either returns a schema-valid sequence_poc or the null value
 // plus a refusal byte-pinned in witness_test.go — never a partial spec.
 // A symbolic sender is the interesting case: the prover's free symbols
 // do not survive a chain, so the refusal text itself is the guidance.
+//
+// Refusal precedence. Structural call validation is matched BEFORE the
+// sender/address check: witnessCallOf checks function, target, step and
+// args (in that written order, each shape-only) and only then resolves
+// the sender and matches it against witnessAddrRe. A call that is BOTH
+// malformed and symbolic therefore reports the structural refusal first
+// — "unbridgable step: call N lacks function", not the symbolic-sender
+// text — because the structural fault is decidable from the report alone
+// while the sender is only meaningful once the call is well-formed. The
+// precedence is pinned byte-exactly by the "missing function with a
+// symbolic sender" row in witness_test.go.
 //
 // Step numbering. The spec's `step` is the 1-based ordinal of a call in
 // the sequence (sequence_poc.schema.json: integer >= 1), and the array
@@ -191,6 +218,10 @@ func witnessCallOf(call validation.Value, n int) (witnessCall,
 // object, "has no msg.sender" when the env has no such key or a
 // null/empty value (the prover leaves msg.sender null when the model
 // never evaluated it) — an unknown actor is not an actor.
+//
+// Only this one env key is read: env["msg.value"] is discarded, because
+// the step object the spec keeps has no value slot (see the file comment
+// on the env discard — the fork wave owns value-bearing handling).
 func witnessSender(call validation.Value) (string, string) {
 	env, ok := mcField(call, "env")
 	if !ok || env.Kind != validation.Obj {

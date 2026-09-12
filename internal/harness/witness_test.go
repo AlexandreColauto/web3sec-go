@@ -7,7 +7,9 @@
 package harness
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -94,15 +96,26 @@ func TestBridgeSequenceHappyPath(t *testing.T) {
 }
 
 // assertSequencePocSchema validates a bridged doc against the sequence_poc
-// schema and fails with the schema error text.
+// schema and fails with the schema error text. It first pins schema
+// identity BY BYTES: validation.ReadSchemaFile exposes the raw document it
+// compiled, which must equal the shipped on-disk asset byte-for-byte (the
+// path is package-relative — go test runs with cwd internal/harness). A
+// title-substring probe would pass on a stale, truncated or
+// differently-configured copy; a byte compare cannot.
 func assertSequencePocSchema(t *testing.T, doc validation.Value) {
 	t.Helper()
 	raw, err := validation.ReadSchemaFile("sequence_poc")
 	if err != nil {
 		t.Fatalf("read sequence_poc schema: %v", err)
 	}
-	if !strings.Contains(string(raw), `"Sequence PoC spec"`) {
-		t.Fatalf("sequence_poc schema is not the shipped doc: %s", raw)
+	const diskPath = "../../assets/schema/sequence_poc.schema.json"
+	disk, err := os.ReadFile(diskPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", diskPath, err)
+	}
+	if !bytes.Equal(raw, disk) {
+		t.Fatalf("validation's sequence_poc schema is NOT the shipped %s: "+
+			"%d bytes vs %d bytes", diskPath, len(raw), len(disk))
 	}
 	if err := validation.Validate(doc, "sequence_poc", 1); err != nil {
 		t.Fatalf("bridged spec is not a sequence_poc: %v", err)
@@ -206,6 +219,15 @@ func TestBridgeSequenceRefusals(t *testing.T) {
 		"missing function",
 		`{"rule":"inv_1","calls":[{"step":0,"target":"` + wTarget +
 			`","args":[],"env":{"msg.sender":"` + wAlice + `"}}]}`,
+		"unbridgable step: call 1 lacks function",
+	}, {
+		// Precedence: structural call validation (function/target/step/
+		// args) is matched BEFORE the sender/address check, so a call
+		// that is both malformed and symbolic reports the STRUCTURAL
+		// refusal. The symbolic sender here is never reached.
+		"missing function with a symbolic sender (structural refusal wins)",
+		`{"rule":"inv_1","calls":[{"step":0,"target":"` + wTarget +
+			`","args":[],"env":{"msg.sender":"attacker"}}]}`,
 		"unbridgable step: call 1 lacks function",
 	}, {
 		"missing target",
