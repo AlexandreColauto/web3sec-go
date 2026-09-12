@@ -13,10 +13,13 @@
 //
 // Two floors are not reason codes and are matched on the INNER text,
 // before the `reason: details` separator:
-//   - the five plumbing floors, all ok=false — the run never produced a
-//     usable verdict line ("exit output unmapped", "output is not JSONL",
-//     "duplicate verdict lines for rule …", "no verdict line for rule …",
-//     and "report-contradiction", whose verdict line was discarded);
+//   - the four separator-free plumbing floors, all ok=false — the run never
+//     produced a usable verdict line ("exit output unmapped", "output is not
+//     JSONL", "duplicate verdict lines for rule …", "no verdict line for
+//     rule …") — matched pre-cut so a rule name containing ": " cannot
+//     masquerade as a reason code; the fifth plumbing refusal,
+//     "report-contradiction", carries its own separator and is matched
+//     after the cut by exact reason equality (see plumbingReasons);
 //   - the one NAMED runtime floor, the killed/timed-out
 //     "no clean completion" shape, which disposes to EscalateRuntime —
 //     the run never completed, so it maps no verdict, but it still names
@@ -94,8 +97,9 @@ var dispositionAdvice = map[string]string{
 
 // plumbingReasons are reason-shaped keys that belong to the mapper, not to
 // the tool's spec vocabulary: a report-contradiction refusal throws its own
-// verdict line away, so it names no disposition. It is matched by the same
-// plumbing floor check as the separator-less floors (see Disposition).
+// verdict line away, so it names no disposition. Unlike the separator-free
+// floors it contains its own ": ", so it is matched AFTER the separator cut
+// by exact reason equality (see Disposition).
 var plumbingReasons = map[string]bool{
 	"report-contradiction": true,
 	// "aborted" is belt-and-braces: the mapper's abort floor carries no
@@ -107,12 +111,13 @@ var plumbingReasons = map[string]bool{
 // stored (shape `inconclusive (reason: details…)`) into its §L3 class and
 // names that class's next action.
 //
-// The five plumbing floors are matched on the inner text BEFORE the
+// Four plumbing floors are matched on the inner text BEFORE the
 // `reason: details` separator, so a rule name containing ": " cannot
 // masquerade as a reason code: "exit output unmapped", "output is not
 // JSONL", "duplicate verdict lines for rule …", "no verdict line for
-// rule …", and "report-contradiction". All return ok=false — the run never
-// produced a usable verdict line, so there is nothing to dispose of.
+// rule …". "report-contradiction" is matched after the cut by exact
+// equality. All five return ok=false — the run never produced a usable
+// verdict line, so there is nothing to dispose of.
 //
 // The named runtime floor is matched next: an inner text starting
 // "no clean completion" (both stored shapes — the bare
