@@ -37,7 +37,7 @@ it changes the wave's shape in one important way:
 |---|---|
 | `INV-*` ledger (`internal/invariants`, `invariant_links.json`), `documented_invariants` / `intent_claims` extraction | a machine-checkable spec form for exactly those statements: `rule` (safety) and `invariant` (one-step induction over every entrypoint + constructor init) |
 | G8 seam: `verify --scaffold` → BODY-law scaffold → `exec` (EXEC record) → `verify --harness-result` → rung on `verification.harness` → `brief`/audit render | exit-code = worst verdict (0 PROVEN / 1 VIOLATED / 2 UNKNOWN), one JSON line per rule — structured output that beats halmos stdout scraping |
-| rung vocabulary `counterexample / proved-bounded(k) / inconclusive`, fail-open-to-inconclusive law (`internal/harness/outcome.go`) | closed 23-code `reason` vocabulary + `details` — every refusal names what was refused; the mapping is a bijection, not a heuristic |
+| rung vocabulary `counterexample / proved-bounded(k) / inconclusive`, fail-open-to-inconclusive law (`internal/harness/outcome.go`) | closed 25-code `reason` vocabulary + `details` — every refusal names what was refused; the mapping is a bijection, not a heuristic |
 | evidence ladder E0–E7; `HostProfile` rails (host profiles never back E4+); fork-PoC reproduction (`fork-runner`); `mint`/`gate`/`verdict` | `confidence: confirmed/unconfirmed/modeled`, full witness (`params`/`initial_storage`/`calls[]`/`final_storage`/`failed_assertion`) — bounded model-level counterexamples, exactly the E1–E3 artifact a host profile is allowed to carry |
 | budget/timeout mechanisms, `WEBV2_*` pinning, exec tool-version capture | declared bounds per verdict (`bounds.loop_bound`, `path_cap`, `solver_timeout_ms`, `loop_bound_exhaustive`) — bounds-as-data, our native language |
 | negative memory (disproved hypotheses), G3 backtest law, `planner`/`brief`/`deferred` | reason codes as *planner-consumable signal*: `loop-bound-may-be-exceeded` ≠ `unsupported-storage-layout` ≠ `vacuous-rule` — three different next actions |
@@ -148,7 +148,8 @@ The core wave that landed MiniCertora shipped a **subset** of what L1, §2 L2,
   "no rule body written yet" signal, not a runnable stub.
 - **Reason-code count.** The closed set is **25** codes
   (`corpus/runner.py::REASON_CODES`), not the 23 this doc's §L3 preamble
-  claims; `assertion-violated` and `expect-revert-violated` are in the set
+  claimed before it was corrected at L-advice landing; `assertion-violated`
+  and `expect-revert-violated` are in the set
   (violation verdicts), `malformed-spec` is a spec-rewrite disposition, and
   there is no `vacuous-invariant` code — vacuity spells `vacuous-rule` /
   `vacuous-block`. The §L3 table is corrected in full at L-advice landing.
@@ -209,19 +210,21 @@ branch parses lines, it never pattern-matches prose. Rules:
 
 This is the plane most single-tool designs lack: an UNKNOWN is not a dead
 end, it is a **named next action**, and the framework already has the budget
-mechanism to pay for it. Disposition table (all 23 codes — the closed set in
+mechanism to pay for it. Disposition table (all 25 codes — the closed set in
 `corpus/runner.py::REASON_CODES` — defined once as data in
-`internal/harness/disposition.go`):
+`internal/harness/disposition.go`; corrected at landing — REASON_CODES is
+25, not 23):
 
 | disposition | reason codes | automatic next action (each = one more EXEC, budgeted) |
 |---|---|---|
 | **escalate-bound** | `loop-bound-may-be-exceeded` | re-run same scaffold at `--loop-bound 8` → `16`, hard ceiling (default 32), then honest inconclusive. This is the escalation ladder K3 wanted for Kontrol, made cheap. |
 | **escalate-flag** | `path-limit-reached` | one re-run at `--path-cap 256`; still capped → `--lowering splitting` (implemented; joins→per-exit VCs); still → inconclusive |
 | **escalate-solver** | `solver-timeout` | one re-run at `--timeout-ms` × 4 within the exec wall-clock; `--solver portfolio` only on operator request (heavy, never automatic) |
-| **spec-rewrite** | `vacuous-rule`, `vacuous-block` | **not a verdict about the contract — a finding about the spec.** The precondition is infeasible: the drafted rule asserts an impossible world. Route back to the spec queue (model rewrites BODY within the same scaffold), and record the vacuity as negative memory: the campaign believed a state was reachable that the model says cannot exist. That is signal the planner keeps. |
+| **spec-rewrite** | `vacuous-rule`, `vacuous-block`, `malformed-spec` | **not a verdict about the contract — a finding about the spec.** The precondition is infeasible: the drafted rule asserts an impossible world. Route back to the spec queue (model rewrites BODY within the same scaffold), and record the vacuity as negative memory: the campaign believed a state was reachable that the model says cannot exist. That is signal the planner keeps. `malformed-spec` (added at landing) is the same disposition for the other direction: the drafted rule is not even well-formed — a user-document error, caught at spec time rather than proof time. |
 | **honest-refusal** | `unsupported-feature`, `unsupported-opcode`, `unsupported-storage-layout`, `rejected-feature`, `unrecognized-dispatcher`, `external-call-abstraction`, `summary-unverified`, `multi-call-ambiguous-call-site`, `multi-call-inner-arg-unsupported`, `multi-call-stmt-between-calls`, `invariant-uninitialized`, `invariant-unchecked-functions` | rung inconclusive + shape tag into the campaign's `model_gaps` tally (from `details`: `packed-storage:<C>.<f>`, `inline-assembly:<C>`, `immutable-variable:…`, `delegatecall-layout-compat-unverified`, `multi-contract-environment`, …). The planner downgrades prover legs on contracts whose gap profile says "unprovable here" — no repeated budget burn, no silent sweep. |
 | **tool-error** | `tool-error` | escalate to operator; empty-details `tool-error` is an upstream bug — bundle path recorded if present. Never retried automatically. |
 | **model-bug** | `unresolved-phi-source`, `unresolved-branch-cond`, `modelling-inconsistency`, `solver-disagreement` | rung inconclusive + filed as upstream issue material (by the tool's own law these are pipeline bugs — the integration harvests them, never hides them). |
+| **witness-triage** | `assertion-violated`, `expect-revert-violated` | *(row added at landing — REASON_CODES is 25, not 23)* violation verdicts, not refusals. They never arrive here through a summary — the counterexample rung's text is the excerpt form `counterexample: <expr>` — but they are reason codes in the closed set, and any consumer of `proof.reason` needs their class. The machine-checkable witness rides the report: triage it for promotion (fork-repro the call sequence against the deployment), and never gate credit on the prover's model. |
 
 Every escalation re-uses the scaffold bytes (hash-bound), so the EXEC chain
 for one invariant is a readable proof ladder: k=4 refused → k=8 PROVEN. The
