@@ -146,6 +146,12 @@ The core wave that landed MiniCertora shipped a **subset** of what L1, §2 L2,
 - **Unfilled body.** A fresh scaffold's BODY window is comment-only
   (`DummyMspec`, `internal/harness/mspec.go:36`): a bare comment is the honest
   "no rule body written yet" signal, not a runnable stub.
+- **Reason-code count.** The closed set is **25** codes
+  (`corpus/runner.py::REASON_CODES`), not the 23 this doc's §L3 preamble
+  claims; `assertion-violated` and `expect-revert-violated` are in the set
+  (violation verdicts), `malformed-spec` is a spec-rewrite disposition, and
+  there is no `vacuous-invariant` code — vacuity spells `vacuous-rule` /
+  `vacuous-block`. The §L3 table is corrected in full at L-advice landing.
 - **Rule blocks only.** The core wave renders `rule` blocks; the
   `invariant INV_<n>__<slug>() { assert …; }` skeleton L1 sketches above did
   **not** land — it is deferred to the follow-on wave. Consequently §2 L2's
