@@ -1,0 +1,1 @@
+{"verdict": "UNKNOWN", "reason": "rejected-feature", "details": "rejected-feature: string literal in an expression is out of scope"}

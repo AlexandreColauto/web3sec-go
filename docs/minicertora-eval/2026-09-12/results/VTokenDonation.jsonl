@@ -1,0 +1,1 @@
+{"verdict": "UNKNOWN", "reason": "unsupported-feature", "details": "rule donation_keeps_rate has no calls: there is no execution to verify (a rule asserts a call's effect)"}

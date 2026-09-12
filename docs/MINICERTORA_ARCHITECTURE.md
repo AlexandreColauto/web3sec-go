@@ -593,7 +593,10 @@ upgrade-initializer	1	0	0	1	rejected-feature=1
 ```
 
 Totals: **19 cases, 2 detected, 0 proven_silence, 7 refused**, 10 cases in
-neither state. The two detections are both `assertion-violated` counterexamples
+neither state — and the 2/0/7 reading holds only for the committed gold, which
+marks ES17 (contract Escrow) confirmed-exploitable: were ES17 re-labeled as a
+true clean control, its PROVEN `deposit_never_wraps` line would flip
+`proven_silence` to 1. The two detections are both `assertion-violated` counterexamples
 (`authorization` ES02GovernanceOwnable/`setowner_keeps_owner`,
 `flash-loan` ES13FlashLoanSpot/`flashloan_free`); the seven refusals are five
 `rejected-feature` (string-literal aborts + `unsupported-type`/`packed-storage`

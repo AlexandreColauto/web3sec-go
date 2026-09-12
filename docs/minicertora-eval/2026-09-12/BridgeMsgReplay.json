@@ -1,7 +1,0 @@
-[
- {
-  "details": "parse error: No terminal matches '[' in the current parser context, at line 5 col 26\n\n    require before == bal[to];\n                         ^\nExpected one of: \n\t* OVERRIDE_KEY\n\t* DOT\n\t* EQOP\n\t* CMPOP\n\t* MULOP\n\t* LPAR\n\t* RPAR\n\t* COMMA\n\t* SEMICOLON\n\t* RBRACE\n\t* ADDOP\n\nPrevious tokens: Token('IDENT', 'bal')\n",
-  "reason": "malformed-spec",
-  "verdict": "UNKNOWN"
- }
-]

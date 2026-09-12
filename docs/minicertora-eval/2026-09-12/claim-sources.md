@@ -39,7 +39,10 @@ invent a second identity for a name collision. The scorecard stderr names it.
   storage + array type; 2x unsupported-feature), unjoined 1 (name collision),
   untied cases 9 (reentrancy x3, oracle, sig-replay, bridge x2, cross-chain,
   liquidation — classes where no claim was authored this pass).
-- clean control ES17: PROVEN on the total-accounting claim; its scorecard row
-  shows cases=1 detected=0 refused=0 because a PROVEN line on a
-  confirmed-exploitable gold row is neither of the three measured states —
-  the instrument honestly records it as no-signal.
+- clean control ES17: PROVEN on the total-accounting claim. Its gold row is
+  committed as confirmed-exploitable (access-control class), so the
+  scorecard honestly records no-signal for it (a PROVEN line on a
+  known-bad gold row is neither detected nor proven_silence). As a property
+  check the claim proves nothing about the sweep's power (total is monotone
+  by construction there); as a re-labeled clean control it would score
+  proven_silence=1. That gold/fixture drift is itself evalsuite feedback.
