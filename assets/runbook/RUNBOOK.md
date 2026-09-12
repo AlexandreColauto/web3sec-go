@@ -603,7 +603,33 @@ Quote them from `webv2 symmetry <C-xxx>` (§4b) — the matrix prints every
 member's primitive per (direction, asset) and flags the disagreements, so the
 attestation is checkable against the index. A blank primitive does not count
 (exit 2 names the missing families; the gate keeps the lens OPEN until every
-seeded family has a quoted primitive). A CONFIRMED high/critical finding
+seeded family has a quoted primitive).
+
+**Narrating a divergence is not reconciling it.** When the surface carries
+funding-mismatch or member-disagreement divergence rows (the matrix flagged
+them; you are closing the lens that owns them), the attestation must
+RECONCILE every one of them — the same falsifiability law the probe rows
+obey, applied to the lens closure:
+
+```bash
+webv2 answered <C-xxx> L-04 answered --families a,b,c \
+  --symmetry "..." \
+  --reconcile "ROWID=primitive:Symbol#L<line>|primitive:Symbol#L<line>;ROWID=F-<12 hex>" \
+  --reason "..." --actor NAME
+```
+
+Per row, the two legal exits: (a) per MEMBER, a
+`primitive:Symbol#L<line>` cite — the funding primitive and the exact
+line, where the Symbol must appear on the row's own surface entry (the
+matrix row names them: contract, consumer, base, forward); or (b) the id
+of a FILED finding that records the answer. "The 42 divergences are benign
+duals" with no cite is refused: the refusal names every unreconciled row
+and both exits, and nothing is written. Citing a symbol that is not on the
+row, or a finding that was never filed, is refused as what it is. A
+re-attestation of an already-closed lens rides its stored reconciliation;
+a REOPENED lens must re-attest it.
+
+A CONFIRMED high/critical finding
 re-opens the closed lens whose family produced it (shown as REOPENED in
 `plan`) — re-attest it.
 

@@ -125,6 +125,28 @@
                 }
               }
             }
+          },
+          "reconciliation": {
+            "type": "array",
+            "description": "FIX-6: the divergence reconciliation a primitive-symmetry (L-04) closure attests — one entry per funding-mismatch / member-disagreement surface row, each a per-member funding cite or a filed finding id",
+            "items": {
+              "type": "object",
+              "required": ["row_id", "cites", "finding"],
+              "additionalProperties": false,
+              "properties": {
+                "row_id": {"type": "string", "minLength": 1},
+                "cites": {
+                  "type": "array",
+                  "items": {"type": "string", "minLength": 1},
+                  "description": "per-member funding cites: primitive:Symbol#L<line> — primitive from the matrix vocabulary (burn, mint, send-native, transfer-in, transfer-out); Symbol must appear on the row's own surface entry"
+                },
+                "finding": {
+                  "type": ["string", "null"],
+                  "pattern": "^F-[0-9a-f]{12}$",
+                  "description": "the filed finding id the divergence is attached to (the other legal exit)"
+                }
+              }
+            }
           }
         },
         "required": ["id", "lens", "surface", "question", "status"],

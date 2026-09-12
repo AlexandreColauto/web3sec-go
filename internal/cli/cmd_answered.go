@@ -22,6 +22,7 @@ import (
 
 const t14AnsweredUsage = `usage: webv2 answered [-h] [--reason REASON] [--reason-all REASON] [--ref REF]
                       [--families FAMILIES] [--symmetry SYMMETRY]
+                      [--reconcile SPEC]
                       [--anchor ANCHOR] [--passes VALUE] [--interim STATEMENT]
                       [--finding FINDING] [--actor ACTOR]
                       [--override-dismissal] [--override-reason OVERRIDE_REASON]
@@ -31,6 +32,7 @@ const t14AnsweredUsage = `usage: webv2 answered [-h] [--reason REASON] [--reason
 
 const t14AnsweredHelp = `usage: webv2 answered [-h] [--reason REASON] [--reason-all REASON] [--ref REF]
                       [--families FAMILIES] [--symmetry SYMMETRY]
+                      [--reconcile SPEC]
                       [--anchor ANCHOR] [--passes VALUE] [--interim STATEMENT]
                       [--finding FINDING] [--actor ACTOR]
                       [--override-dismissal] [--override-reason OVERRIDE_REASON]
@@ -56,6 +58,12 @@ options:
                         (required to close an L-* lens)
   --symmetry SYMMETRY   L-04 only: family=primitive[|primitive];... quoting
                         the token-movement primitive per seeded family
+  --reconcile SPEC      L-04 only (FIX-6): ROWID=VALUE;... reconciling every
+                        funding-mismatch / member-disagreement divergence row
+                        this attestation covers. VALUE is a filed finding id
+                        (F-<12 hex digits>) or per-member cites
+                        primitive:Symbol#L<line>|... (Symbol must appear on
+                        the row's own surface entry)
   --anchor ANCHOR       probe rows only: the field this disposition claims is
                         safe — one of the row's probe's own anchor enum
                         (anchors: accumulator, actor, asserter, base,
@@ -100,6 +108,7 @@ type answeredArgs struct {
 	ref               *string
 	families          *string
 	symmetry          *string
+	reconcile         *string
 	anchor            *string
 	passes            *string
 	interim           *string
@@ -248,6 +257,8 @@ func answeredDst(a *answeredArgs, arg string) (**string, string) {
 		return &a.families, "families"
 	case "--symmetry":
 		return &a.symmetry, "symmetry"
+	case "--reconcile":
+		return &a.reconcile, "reconcile"
 	case "--anchor":
 		return &a.anchor, "anchor"
 	case "--override-reason":
@@ -265,6 +276,7 @@ func answeredEq(a *answeredArgs, arg string) (bool, error) {
 		{"--reason", &a.reason}, {"--reason-all", &a.reasonAll},
 		{"--ref", &a.ref},
 		{"--families", &a.families}, {"--symmetry", &a.symmetry},
+		{"--reconcile", &a.reconcile},
 		{"--anchor", &a.anchor}, {"--passes", &a.passes},
 		{"--interim", &a.interim}, {"--finding", &a.finding},
 		{"--override-reason", &a.overrideReason},
@@ -344,13 +356,34 @@ func answeredLens(c *state.Campaign, a *answeredArgs, closing bool,
 	if err != nil {
 		return err
 	}
+	// FIX-6: the divergence reconciliation rides the attestation. A malformed
+	// spec is refused here — the gate inside mark_lens would otherwise
+	// diagnose it per-row, and the shape error is the one the operator can
+	// fix without reading the surface. The flag only means something to the
+	// lens that owns the divergence rows: anything else is refused, not
+	// silently recorded on an entry that reconciles nothing.
+	var recs *[]validation.Value
+	if a.reconcile != nil {
+		if objStr(target, "lens") != "primitive-symmetry" {
+			return t14ExitErr(2, "answered: --reconcile reconciles the "+
+				"divergence rows of a primitive-symmetry lens — %s is not "+
+				"one, so there is nothing to reconcile: drop --reconcile\n",
+				validation.PyReprStr(a.priority))
+		}
+		parsed, err := planner.ParseReconcile(a.reconcile)
+		if err != nil {
+			return t14ExitErr(2, "answered: %s\n", err)
+		}
+		recs = &parsed
+	}
 	actor := a.actor
 	if actor == "" {
 		actor = "cli"
 	}
 	updated, err := planner.MarkLens(c, plan, a.priority, a.status,
 		planner.LensOpts{Reason: a.reason, Ref: a.ref, Actor: actor,
-			FamiliesChecked: famPtr(fams, a.families), Symmetry: sym})
+			FamiliesChecked: famPtr(fams, a.families), Symmetry: sym,
+			Reconcile: recs})
 	if err != nil {
 		return t14ExitErr(2, "answered failed: %s\n", err)
 	}

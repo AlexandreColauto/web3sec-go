@@ -263,13 +263,19 @@ func LoadPlanReadonly(campaign *state.Campaign) (validation.Value, error) {
 }
 
 // LensOpts is the optional tail of mark_lens. Nil pointers are Python's None
-// (Reason/Ref and FamiliesChecked/Symmetry: `is not None`).
+// (Reason/Ref and FamiliesChecked/Symmetry/Reconcile: `is not None`).
 type LensOpts struct {
 	Reason          *string
 	Ref             *string
 	Actor           string
 	FamiliesChecked *[]string
 	Symmetry        *[]validation.Value
+	// Reconcile is FIX-6: the divergence reconciliation an L-04 closure
+	// attests — one record per funding-mismatch / member-disagreement surface
+	// row ({row_id, cites, finding}), parsed by ParseReconcile. The gate in
+	// checkLensReconciliation validates each named row; rows left uncited or
+	// unattached refuse the attestation.
+	Reconcile *[]validation.Value
 }
 
 // MarkLens is mark_lens: close or reopen a canonical lens entry. The
@@ -289,6 +295,19 @@ func MarkLens(campaign *state.Campaign, plan validation.Value, lensID,
 		for i, l := range lenses.A {
 			if objStr(l, "id") != lensID {
 				continue
+			}
+			// FIX-6, before any mutation: closing the primitive-symmetry lens
+			// attests a reconciliation for every divergence row in the
+			// current surface — the refusal must leave the plan untouched,
+			// and only records the gate actually validated land on the lens.
+			if closing && objStr(l, "lens") == "primitive-symmetry" {
+				validated, err := checkLensReconciliation(campaign, l, opts)
+				if err != nil {
+					return validation.VNull(), err
+				}
+				if opts.Reconcile != nil {
+					opts.Reconcile = &validated
+				}
 			}
 			lenses.A[i] = markLensEntry(l, outcome, closing, actor, opts)
 			found = true
@@ -321,7 +340,7 @@ func markLensEntry(l validation.Value, outcome string, closing bool,
 	l.O = validation.SetOrAppend(l.O, "status", validation.VStr(outcome))
 	if !closing {
 		for _, k := range []string{"closed_reason", "closed_ref", "closed_at",
-			"closed_by", "families_checked", "symmetry"} {
+			"closed_by", "families_checked", "symmetry", "reconciliation"} {
 			l.O = dropKey(l.O, k)
 		}
 		return l
@@ -342,6 +361,13 @@ func markLensEntry(l validation.Value, outcome string, closing bool,
 			strArr(symmetryFamilies(*opts.Symmetry)))
 	} else if opts.FamiliesChecked != nil {
 		l.O = validation.SetOrAppend(l.O, "families_checked", strArr(*opts.FamiliesChecked))
+	}
+	// FIX-6: the reconciliation is part of the attestation record, the same
+	// way symmetry is — SetOrAppend replaces, so a re-attestation cannot
+	// double-fire a row's reconciliation.
+	if opts.Reconcile != nil {
+		l.O = validation.SetOrAppend(l.O, "reconciliation",
+			validation.VArr(*opts.Reconcile...))
 	}
 	return l
 }
