@@ -1,0 +1,7 @@
+[
+ {
+  "details": "rejected-feature: string literal in an expression is out of scope",
+  "reason": "rejected-feature",
+  "verdict": "UNKNOWN"
+ }
+]

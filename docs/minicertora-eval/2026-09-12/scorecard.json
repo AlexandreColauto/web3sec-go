@@ -1,0 +1,136 @@
+[
+  {
+    "class": "access-control",
+    "cases": 2,
+    "detected": 0,
+    "proven_silence": 0,
+    "refused": 1,
+    "refusal_histogram": {
+      "rejected-feature": 1
+    }
+  },
+  {
+    "class": "authorization",
+    "cases": 1,
+    "detected": 1,
+    "proven_silence": 0,
+    "refused": 0,
+    "refusal_histogram": {}
+  },
+  {
+    "class": "bridge-message",
+    "cases": 1,
+    "detected": 0,
+    "proven_silence": 0,
+    "refused": 0,
+    "refusal_histogram": {}
+  },
+  {
+    "class": "cross-chain-replay",
+    "cases": 1,
+    "detected": 0,
+    "proven_silence": 0,
+    "refused": 0,
+    "refusal_histogram": {}
+  },
+  {
+    "class": "donation",
+    "cases": 1,
+    "detected": 0,
+    "proven_silence": 0,
+    "refused": 1,
+    "refusal_histogram": {
+      "unsupported-feature": 1
+    }
+  },
+  {
+    "class": "dos-griefing",
+    "cases": 1,
+    "detected": 0,
+    "proven_silence": 0,
+    "refused": 1,
+    "refusal_histogram": {
+      "rejected-feature": 1
+    }
+  },
+  {
+    "class": "flash-loan",
+    "cases": 1,
+    "detected": 1,
+    "proven_silence": 0,
+    "refused": 0,
+    "refusal_histogram": {}
+  },
+  {
+    "class": "liquidation-logic",
+    "cases": 1,
+    "detected": 0,
+    "proven_silence": 0,
+    "refused": 0,
+    "refusal_histogram": {}
+  },
+  {
+    "class": "oracle-manipulation",
+    "cases": 1,
+    "detected": 0,
+    "proven_silence": 0,
+    "refused": 0,
+    "refusal_histogram": {}
+  },
+  {
+    "class": "precision-rounding",
+    "cases": 1,
+    "detected": 0,
+    "proven_silence": 0,
+    "refused": 1,
+    "refusal_histogram": {
+      "rejected-feature": 1
+    }
+  },
+  {
+    "class": "reentrancy",
+    "cases": 3,
+    "detected": 0,
+    "proven_silence": 0,
+    "refused": 0,
+    "refusal_histogram": {}
+  },
+  {
+    "class": "share-price-inflation",
+    "cases": 1,
+    "detected": 0,
+    "proven_silence": 0,
+    "refused": 1,
+    "refusal_histogram": {
+      "unsupported-feature": 1
+    }
+  },
+  {
+    "class": "signature-replay",
+    "cases": 1,
+    "detected": 0,
+    "proven_silence": 0,
+    "refused": 0,
+    "refusal_histogram": {}
+  },
+  {
+    "class": "unchecked-external-call",
+    "cases": 2,
+    "detected": 0,
+    "proven_silence": 0,
+    "refused": 1,
+    "refusal_histogram": {
+      "rejected-feature": 1
+    }
+  },
+  {
+    "class": "upgrade-initializer",
+    "cases": 1,
+    "detected": 0,
+    "proven_silence": 0,
+    "refused": 1,
+    "refusal_histogram": {
+      "rejected-feature": 1
+    }
+  }
+]

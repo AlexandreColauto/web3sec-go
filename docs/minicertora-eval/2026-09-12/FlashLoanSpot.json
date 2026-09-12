@@ -1,0 +1,15 @@
+[
+ {
+  "bounds": {
+   "loop_bound": 4,
+   "loop_bound_exhaustive": false,
+   "path_cap": 64,
+   "solver_timeout_ms": 40000
+  },
+  "contract": "FlashLoanSpot",
+  "details": "",
+  "reason": "assertion-violated",
+  "rule": "flashloan_free",
+  "verdict": "VIOLATED"
+ }
+]
