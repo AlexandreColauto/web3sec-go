@@ -1,0 +1,187 @@
+[
+  {
+    "case_id": "CASE-000000000101",
+    "source": {
+      "dataset": "manual",
+      "record_id": "evalsuite-ES90Counter",
+      "url": "internal://evalsuite"
+    },
+    "partition": "dev",
+    "program": {
+      "program": "ES90Counter",
+      "platform": null,
+      "chains": []
+    },
+    "gold": {
+      "outcome": "confirmed-exploitable",
+      "bug_class": "arithmetic-overflow",
+      "severity": "high",
+      "root_cause": "fixture root cause for ES90Counter",
+      "locations": [
+        {
+          "file": "assets/evalsuite/src/ES90Counter.sol"
+        }
+      ]
+    },
+    "code": {
+      "repo": "internal://evalsuite",
+      "commit": "02d1ec7",
+      "files": [
+        "assets/evalsuite/src/ES90Counter.sol"
+      ],
+      "snapshot_note": "hand-made scorecard fixture, NOT tool output"
+    },
+    "created_at": "2026-09-12T00:00:00Z",
+    "deployed_at": "2026-09-12",
+    "schema_version": 2,
+    "notes": "L6b scorecard fixture row (hand-made; no minicertora run produced it)"
+  },
+  {
+    "case_id": "CASE-000000000102",
+    "source": {
+      "dataset": "manual",
+      "record_id": "evalsuite-ES91Monotone",
+      "url": "internal://evalsuite"
+    },
+    "partition": "dev",
+    "program": {
+      "program": "ES91Monotone",
+      "platform": null,
+      "chains": []
+    },
+    "gold": {
+      "outcome": "confirmed-exploitable",
+      "bug_class": "arithmetic-overflow",
+      "severity": "high",
+      "root_cause": "fixture root cause for ES91Monotone",
+      "locations": [
+        {
+          "file": "assets/evalsuite/src/ES91Monotone.sol"
+        }
+      ]
+    },
+    "code": {
+      "repo": "internal://evalsuite",
+      "commit": "02d1ec7",
+      "files": [
+        "assets/evalsuite/src/ES91Monotone.sol"
+      ],
+      "snapshot_note": "hand-made scorecard fixture, NOT tool output"
+    },
+    "created_at": "2026-09-12T00:00:00Z",
+    "deployed_at": "2026-09-12",
+    "schema_version": 2,
+    "notes": "L6b scorecard fixture row (hand-made; no minicertora run produced it)"
+  },
+  {
+    "case_id": "CASE-000000000103",
+    "source": {
+      "dataset": "manual",
+      "record_id": "evalsuite-ES92CleanControl",
+      "url": "internal://evalsuite"
+    },
+    "partition": "dev",
+    "program": {
+      "program": "ES92CleanControl",
+      "platform": null,
+      "chains": []
+    },
+    "gold": {
+      "outcome": "confirmed-not-exploitable",
+      "bug_class": "arithmetic-overflow",
+      "severity": "high",
+      "root_cause": "fixture root cause for ES92CleanControl",
+      "locations": [
+        {
+          "file": "assets/evalsuite/src/ES92CleanControl.sol"
+        }
+      ]
+    },
+    "code": {
+      "repo": "internal://evalsuite",
+      "commit": "02d1ec7",
+      "files": [
+        "assets/evalsuite/src/ES92CleanControl.sol"
+      ],
+      "snapshot_note": "hand-made scorecard fixture, NOT tool output"
+    },
+    "created_at": "2026-09-12T00:00:00Z",
+    "deployed_at": "2026-09-12",
+    "schema_version": 2,
+    "notes": "L6b scorecard fixture row (hand-made; no minicertora run produced it)"
+  },
+  {
+    "case_id": "CASE-000000000104",
+    "source": {
+      "dataset": "manual",
+      "record_id": "evalsuite-ES93Ownable",
+      "url": "internal://evalsuite"
+    },
+    "partition": "dev",
+    "program": {
+      "program": "ES93Ownable",
+      "platform": null,
+      "chains": []
+    },
+    "gold": {
+      "outcome": "confirmed-exploitable",
+      "bug_class": "access-control",
+      "severity": "high",
+      "root_cause": "fixture root cause for ES93Ownable",
+      "locations": [
+        {
+          "file": "assets/evalsuite/src/ES93Ownable.sol"
+        }
+      ]
+    },
+    "code": {
+      "repo": "internal://evalsuite",
+      "commit": "02d1ec7",
+      "files": [
+        "assets/evalsuite/src/ES93Ownable.sol"
+      ],
+      "snapshot_note": "hand-made scorecard fixture, NOT tool output"
+    },
+    "created_at": "2026-09-12T00:00:00Z",
+    "deployed_at": "2026-09-12",
+    "schema_version": 2,
+    "notes": "L6b scorecard fixture row (hand-made; no minicertora run produced it)"
+  },
+  {
+    "case_id": "CASE-000000000105",
+    "source": {
+      "dataset": "manual",
+      "record_id": "evalsuite-ES94Packed",
+      "url": "internal://evalsuite"
+    },
+    "partition": "dev",
+    "program": {
+      "program": "ES94Packed",
+      "platform": null,
+      "chains": []
+    },
+    "gold": {
+      "outcome": "confirmed-exploitable",
+      "bug_class": "access-control",
+      "severity": "high",
+      "root_cause": "fixture root cause for ES94Packed",
+      "locations": [
+        {
+          "file": "assets/evalsuite/src/ES94Packed.sol"
+        }
+      ]
+    },
+    "code": {
+      "repo": "internal://evalsuite",
+      "commit": "02d1ec7",
+      "files": [
+        "assets/evalsuite/src/ES94Packed.sol"
+      ],
+      "snapshot_note": "hand-made scorecard fixture, NOT tool output"
+    },
+    "created_at": "2026-09-12T00:00:00Z",
+    "deployed_at": "2026-09-12",
+    "schema_version": 2,
+    "notes": "L6b scorecard fixture row (hand-made; no minicertora run produced it)"
+  }
+]

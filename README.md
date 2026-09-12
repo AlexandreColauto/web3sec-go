@@ -108,6 +108,8 @@ sft/                the live SFT example store — committed on purpose:
                     VCS is its integrity layer (internal/sft)
 scripts/            release.sh, runbook-walkthrough.sh, golden.sh,
                     verify-full.sh, p2-docker-e2e.sh, sync-asset-manifest.py,
+                    minicertora-scorecard.py (prover scorecard over the
+                    evalsuite; fixture under golden/scorecard-fixture/),
                     legacy/ (reader-compatibility fixture), archive/
 docs/gates/         per-phase gate reports (P0-P4)
 docs/archive/       frozen port-era records: the divergence ledger, the
@@ -126,7 +128,36 @@ docs/LEANNESS_REVIEW.md  the port-scaffolding removal plan (wave F)
 | RUNBOOK walkthrough | `scripts/runbook-walkthrough.sh` | every runbook command, documented exit code |
 | real containers | `scripts/p2-docker-e2e.sh` | docker exec (pass+fail) + anvil sequence end to end, plus the four `WEBV2_DOCKER_TESTS=1` package e2e tiers |
 | legacy compatibility | `scripts/verify-full.sh` step 9 | Go reads a reference-written campaign, all 14 rendered sections clean (15 registered; `eval` is presence-gated) |
+| prover scorecard | `python3 scripts/minicertora-scorecard.py --self-test` | the L6b instrument parses tool lines, joins them to evalsuite cases, and reproduces its pinned fixture rows byte-for-byte |
 | release | `scripts/release.sh` | static binary, embedded assets, standalone |
+
+### Prover scorecard (L6b, operator-run)
+
+`scripts/minicertora-scorecard.py` grades minicertora on the evalsuite: point it
+at a directory of raw tool report lines (one JSON object per line, exactly what
+`cli.py` prints) plus `assets/evalsuite/cases.json`, and it prints one row per bug
+class — `class  cases  detected  proven_silence  refused  refusal_histogram`
+(`--json` for objects; exit 0 means "the scorecard ran", not "the prover is good"):
+
+```bash
+# 1. run the sweep + verify chain, collect the report lines into a results dir
+#    (one JSON object per line, e.g. `... --format json >> results/run.jsonl`)
+# 2. score them.  The evalsuite carries no contract/rule id, so the operator
+#    supplies the join: a TSV of `tie_key<TAB>case_id`, where tie_key is a
+#    result line's rule or contract name.
+python3 scripts/minicertora-scorecard.py \
+    --results results/ --cases assets/evalsuite/cases.json --class-map class-map.tsv
+# CI-free smoke: runs the pinned hand-made fixture and byte-compares its rows.
+python3 scripts/minicertora-scorecard.py --self-test
+```
+
+A case counts as **detected** when a tied line is `VIOLATED`, as
+**proven_silence** when it is a known-bad row whose tied lines are all `PROVEN`,
+and as **refused** when a tied line is `UNKNOWN` with an honest-refusal /
+tool-error / model-bug reason. **Law:** a template-seeded scaffold is starting
+content, never evidence — and no minicertora rung moves any gate until an
+operator has run this scorecard on the REAL evalsuite with the REAL tool. The
+self-test proves the instrument only; its rows are hand-made, not tool output.
 
 The audit registers **15** sections; the 15th, `eval` (Wave G4), is
 presence-gated — it renders only when the campaign's program matches the

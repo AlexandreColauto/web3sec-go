@@ -1,0 +1,8 @@
+# tie_key -> case_id  (tie_key is a result line's `rule` OR its `contract`;
+# this is the join the REAL evalsuite needs, which carries no contract/rule id)
+tie_key	case_id
+add_never_wraps	CASE-000000000101
+total_monotone	CASE-000000000102
+no_overflow	CASE-000000000103
+Ownable	CASE-000000000104
+mint_guard	CASE-000000000105
