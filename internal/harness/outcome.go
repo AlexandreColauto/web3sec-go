@@ -1,6 +1,9 @@
 // outcome.go: G8 outcome mapping (Task 18) — MapRun turns raw runner
 // stdout into a rung (counterexample | proved-bounded | inconclusive) plus
 // a one-line summary. Pure: no I/O, no attribution, no registry writes.
+// The third kind, MiniCertora, emits JSON-lines verdicts instead of
+// prose: MapMinicertora (minicertora.go) maps those under the same rung
+// vocabulary and inherits both laws below.
 //
 // Fail-open-to-inconclusive law: a run that proves nothing must never
 // promote OR demote, so every unmapped shape — empty output, mixed/noisy
