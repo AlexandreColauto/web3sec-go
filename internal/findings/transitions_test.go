@@ -212,9 +212,16 @@ func TestEvidenceRejectedOnTerminalFinding(t *testing.T) {
 }
 
 // Port of test_terminal_states_are_absorbing.
+//
+// DIVERGENCE (Task 7c): DUPLICATE is no longer ABSORBING. It is still a
+// terminal junk state for every reader (LoadLiveFindings, the evidence floor,
+// the metrics export), but the state machine now carries DUPLICATE ->
+// HYPOTHESIS as the operator's undo — a merge that turns out to be wrong must
+// be recoverable without hand-editing the finding. The reopen clears the
+// recorded duplicate target: see TestReopenDuplicateClearsTheTarget.
 func TestTerminalStatesAreAbsorbing(t *testing.T) {
 	for _, terminal := range []string{"DISPROVED", "OUT_OF_SCOPE",
-		"INFORMATIONAL", "DUPLICATE", "SUPERSEDED"} {
+		"INFORMATIONAL", "SUPERSEDED"} {
 		c := ingestCamp(t)
 		f, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
 		if err != nil {
@@ -240,6 +247,17 @@ func TestTerminalStatesAreAbsorbing(t *testing.T) {
 		}
 		if st := objStr(got, "status"); st != terminal {
 			t.Errorf("status = %q, want %q", st, terminal)
+		}
+	}
+	// DUPLICATE is the one junk state with an outgoing edge, and only one:
+	// HYPOTHESIS. Every other target stays illegal.
+	if !TransitionAllowed("DUPLICATE", "HYPOTHESIS") {
+		t.Error("DUPLICATE -> HYPOTHESIS must be legal (the operator's undo)")
+	}
+	for _, to := range []string{"POSSIBLE", "CONFIRMED", "CHAIN",
+		"NEEDS_RESEARCH", "PROVISIONALLY_VALID", "SUPERSEDED"} {
+		if TransitionAllowed("DUPLICATE", to) {
+			t.Errorf("DUPLICATE -> %s must stay refused", to)
 		}
 	}
 }
@@ -270,6 +288,163 @@ func TestTerminalDuplicateFreezes(t *testing.T) {
 	var it *IllegalTransition
 	if !errors.As(err, &it) {
 		t.Fatalf("want IllegalTransition, got %v", err)
+	}
+}
+
+// ---- Task 7c: targeted DUPLICATE + reopen --------------------------------
+
+// eventTypesOf is the campaign's logged event types, in order (a refusal must
+// write nothing — the event log is the state).
+func eventTypesOf(t *testing.T, c *state.Campaign) []string {
+	t.Helper()
+	raw, err := os.ReadFile(c.EventsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := []string{}
+	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+		if line == "" {
+			continue
+		}
+		v, err := validation.ParseOrdered([]byte(line))
+		if err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, objStr(v, "type"))
+	}
+	return out
+}
+
+// TestMoveToDuplicateRequiresTheTarget: a DUPLICATE that names nothing is a
+// dead end — nothing to re-check it against, and (before the reopen edge) no
+// way back. The move refuses, and it refuses BEFORE writing anything.
+func TestMoveToDuplicateRequiresTheTarget(t *testing.T) {
+	c := ingestCamp(t)
+	f, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fid := objStr(f, "finding_id")
+	before := len(eventTypesOf(t, c))
+	_, err = TransitionWith(c, fid, "DUPLICATE", "looks like a dup",
+		TransitionOpts{Actor: "cli"})
+	var dt *DuplicateTargetRequired
+	if !errors.As(err, &dt) {
+		t.Fatalf("want DuplicateTargetRequired, got %v", err)
+	}
+	if err.Error() != DuplicateTargetRequiredMsg {
+		t.Fatalf("message = %q, want %q", err.Error(),
+			DuplicateTargetRequiredMsg)
+	}
+	got, err := LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st := objStr(got, "status"); st != "HYPOTHESIS" {
+		t.Fatalf("refused move wrote status %q", st)
+	}
+	if of := objStr(objAt(got, "dedup"), "duplicate_of"); of != "" {
+		t.Fatalf("refused move wrote duplicate_of %q", of)
+	}
+	if after := len(eventTypesOf(t, c)); after != before {
+		t.Fatalf("refused move logged %d event(s)", after-before)
+	}
+	// The accepting path: naming the target records it.
+	moved, err := TransitionWith(c, fid, "DUPLICATE", "looks like a dup",
+		TransitionOpts{Actor: "cli", DuplicateOf: "F-abcdef012345"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st := objStr(moved, "status"); st != "DUPLICATE" {
+		t.Fatalf("status = %q, want DUPLICATE", st)
+	}
+	if of := objStr(objAt(moved, "dedup"), "duplicate_of"); of !=
+		"F-abcdef012345" {
+		t.Fatalf("duplicate_of = %q, want F-abcdef012345", of)
+	}
+}
+
+// TestReopenDuplicateClearsTheTarget: DUPLICATE -> HYPOTHESIS is the operator's
+// undo. It must clear the recorded duplicate target (a stale pointer would keep
+// the merge alive for every reader of dedup.duplicate_of) while keeping the
+// evidence and history attached — losing the evidence was the complaint.
+func TestReopenDuplicateClearsTheTarget(t *testing.T) {
+	c := ingestCamp(t)
+	f, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fid := objStr(f, "finding_id")
+	if _, err := AddEvidence(c, fid, validation.VObj(
+		kv("evidence_id", validation.VStr("EV-unmerge")),
+		kv("level", validation.VStr("E1")),
+		kv("type", validation.VStr("static-analysis")),
+		kv("description", validation.VStr("the receipt that mattered")),
+	)); err != nil {
+		t.Fatal(err)
+	}
+	dup, err := MarkDuplicate(c, fid, "F-abcdef012345")
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidenceBefore := len(objAt(dup, "evidence").A)
+	historyBefore := len(objAt(dup, "history").A)
+	// A merged finding leaves the live set …
+	live, err := LoadLiveFindings(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range live {
+		if objStr(l, "finding_id") == fid {
+			t.Fatal("a DUPLICATE must not stay live")
+		}
+	}
+	back, err := TransitionWith(c, fid, "HYPOTHESIS",
+		"reopened: the two roots are not the same bug",
+		TransitionOpts{Actor: "cli"})
+	if err != nil {
+		t.Fatalf("reopen refused: %v", err)
+	}
+	if st := objStr(back, "status"); st != "HYPOTHESIS" {
+		t.Fatalf("status = %q, want HYPOTHESIS", st)
+	}
+	got, err := LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if of := objStr(objAt(got, "dedup"), "duplicate_of"); of != "" {
+		t.Fatalf("reopen left duplicate_of = %q", of)
+	}
+	if n := len(objAt(got, "evidence").A); n != evidenceBefore {
+		t.Fatalf("evidence = %d, want %d (a reopen must not drop evidence)",
+			n, evidenceBefore)
+	}
+	if n := len(objAt(got, "history").A); n != historyBefore+1 {
+		t.Fatalf("history = %d, want %d (the reopen is one more row)",
+			n, historyBefore+1)
+	}
+	// … and it is live again: the evidence floor sees it, and it can take
+	// more evidence (AddEvidence refuses terminal findings).
+	live, err = LoadLiveFindings(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, l := range live {
+		if objStr(l, "finding_id") == fid {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("a reopened finding must be live again")
+	}
+	if _, err := AddEvidence(c, fid, validation.VObj(
+		kv("evidence_id", validation.VStr("EV-after-reopen")),
+		kv("level", validation.VStr("E1")),
+		kv("type", validation.VStr("static-analysis")),
+		kv("description", validation.VStr("proof the roots differ")),
+	)); err != nil {
+		t.Fatalf("reopened finding refuses new evidence: %v", err)
 	}
 }
 

@@ -122,21 +122,62 @@ func SetTaxonomyKnownClasses(f func() map[string]struct{}) {
 }
 
 // transitionOpts is the optional tail of transition (Python's
-// actor="orchestrator", adjacent=None, adjacent_clear=False).
+// actor="orchestrator", adjacent=None, adjacent_clear=False) plus the
+// targeted-move field (Task 7c): duplicateOf is the `--of` finding a
+// DUPLICATE names.
 type transitionOpts struct {
 	actor         string
 	adjacent      string
 	adjacentClear bool
+	duplicateOf   string
+}
+
+// DuplicateTargetRequiredMsg is the refusal for a move to DUPLICATE that does
+// not name the duplicate of. A DUPLICATE that names nothing can never be
+// re-checked, and it is the operator's only handle on what the merge claimed.
+const DuplicateTargetRequiredMsg = "move to DUPLICATE must name the duplicate of (--of <finding-id>)"
+
+// DuplicateTargetRequired is the refusal type for a targetless DUPLICATE
+// move. cmd_move prints it in the handler class (`move failed: {e}`, exit 2),
+// like the adjacent-property guard: the move cannot proceed until the
+// operator supplies the missing name.
+type DuplicateTargetRequired struct{}
+
+func (*DuplicateTargetRequired) Error() string { return DuplicateTargetRequiredMsg }
+
+// TransitionOpts is the optional tail of Transition plus the targeted-move
+// fields:
+//
+//	actor         — "orchestrator" when empty (Python's default)
+//	adjacent      — the adjacent unchecked property (DISPROVED on a lifecycle
+//	                finding)
+//	adjacentClear — attest that there is no adjacent property
+//	duplicateOf   — the `--of` finding; REQUIRED when toStatus is DUPLICATE
+type TransitionOpts struct {
+	Actor         string
+	Adjacent      string
+	AdjacentClear bool
+	DuplicateOf   string
 }
 
 // Transition is transition: the ONLY way a finding's status changes. It
 // enforces the transition table, the evidence floor, and the CONFIRMED gate
 // bundle. An empty actor is Python's default "orchestrator"; an empty
-// adjacent is Python's None.
+// adjacent is Python's None. A move to DUPLICATE through this entry point has
+// no target and is therefore refused — use TransitionWith with DuplicateOf.
 func Transition(campaign *state.Campaign, findingID, toStatus, reason,
 	actor, adjacent string, adjacentClear bool) (validation.Value, error) {
 	return transition(campaign, findingID, toStatus, reason, transitionOpts{
 		actor: actor, adjacent: adjacent, adjacentClear: adjacentClear})
+}
+
+// TransitionWith is Transition carrying the targeted-move fields (the CLI's
+// `--of`). Same table, same floors, same gate bundle.
+func TransitionWith(campaign *state.Campaign, findingID, toStatus, reason string,
+	opts TransitionOpts) (validation.Value, error) {
+	return transition(campaign, findingID, toStatus, reason, transitionOpts{
+		actor: opts.Actor, adjacent: opts.Adjacent,
+		adjacentClear: opts.AdjacentClear, duplicateOf: opts.DuplicateOf})
 }
 
 func transition(campaign *state.Campaign, findingID, toStatus, reason string,
@@ -158,6 +199,11 @@ func transition(campaign *state.Campaign, findingID, toStatus, reason string,
 		return validation.VNull(), &IllegalTransition{Msg: fmt.Sprintf(
 			"%s -> %s is not a legal transition (legal: %s)", fromStatus,
 			toStatus, listRepr(legal))}
+	}
+	// A targeted move: DUPLICATE must name the duplicate of, or the record is
+	// a dead end (nothing to re-check, nothing to reopen from).
+	if toStatus == "DUPLICATE" && strings.TrimSpace(opts.duplicateOf) == "" {
+		return validation.VNull(), &DuplicateTargetRequired{}
 	}
 	if toStatus == "CONFIRMED" {
 		clauses, err := ConfirmationGateClauses(campaign, finding)
@@ -212,6 +258,21 @@ func transition(campaign *state.Campaign, findingID, toStatus, reason string,
 	if err := applyStatus(campaign, &finding, fromStatus, toStatus, reason,
 		actor); err != nil {
 		return validation.VNull(), err
+	}
+	if toStatus == "DUPLICATE" {
+		if err := recordDuplicateOf(campaign, &finding,
+			opts.duplicateOf); err != nil {
+			return validation.VNull(), err
+		}
+	}
+	// The operator's undo (Task 7c): reopening a DUPLICATE clears the recorded
+	// merge target — a stale duplicate_of would keep the merge alive for every
+	// reader of the dedup block, and the finding is a hypothesis again.
+	// Evidence and history stay attached; only the merge pointer goes.
+	if fromStatus == "DUPLICATE" && toStatus == "HYPOTHESIS" {
+		if err := clearDuplicateOf(campaign, &finding); err != nil {
+			return validation.VNull(), err
+		}
 	}
 	if toStatus == "CONFIRMED" {
 		if err := anchorRescan(campaign, finding); err != nil {
@@ -742,23 +803,45 @@ func FoldIntoLineage(campaign *state.Campaign, findingID,
 }
 
 // MarkDuplicate is mark_duplicate: transition to DUPLICATE and record which
-// finding it duplicates.
+// finding it duplicates. The recording is transition's targeted-move half, so
+// the dedup sweep and `move --of` cannot drift apart.
 func MarkDuplicate(campaign *state.Campaign, findingID,
 	ofFindingID string) (validation.Value, error) {
-	finding, err := transition(campaign, findingID, "DUPLICATE",
+	return transition(campaign, findingID, "DUPLICATE",
 		"technical/root-cause duplicate of "+ofFindingID,
-		transitionOpts{actor: "dedup"})
-	if err != nil {
-		return validation.VNull(), err
-	}
-	dedup := asDict(objAt(finding, "dedup"))
+		transitionOpts{actor: "dedup", duplicateOf: ofFindingID})
+}
+
+// recordDuplicateOf writes dedup.duplicate_of on the finding that just became
+// a DUPLICATE. It is the only writer of that field.
+func recordDuplicateOf(campaign *state.Campaign, finding *validation.Value,
+	ofFindingID string) error {
+	dedup := asDict(objAt(*finding, "dedup"))
 	dedup.O = validation.SetOrAppend(dedup.O, "duplicate_of",
 		validation.VStr(ofFindingID))
 	finding.O = validation.SetOrAppend(finding.O, "dedup", dedup)
-	if err := SaveFinding(campaign, &finding); err != nil {
-		return validation.VNull(), err
+	return SaveFinding(campaign, finding)
+}
+
+// clearDuplicateOf drops dedup.duplicate_of when a DUPLICATE is reopened. The
+// dedup block itself stays (the schema requires it and the signatures in it
+// are still true); only the merge pointer is cleared. A finding with nothing
+// recorded is left untouched — not even an updated_at stamp.
+func clearDuplicateOf(campaign *state.Campaign,
+	finding *validation.Value) error {
+	dedup := asDict(objAt(*finding, "dedup"))
+	kept := make([]validation.KV, 0, len(dedup.O))
+	for _, kv := range dedup.O {
+		if kv.K != "duplicate_of" {
+			kept = append(kept, kv)
+		}
 	}
-	return finding, nil
+	if len(kept) == len(dedup.O) {
+		return nil
+	}
+	dedup.O = kept
+	finding.O = validation.SetOrAppend(finding.O, "dedup", dedup)
+	return SaveFinding(campaign, finding)
 }
 
 // FlagPossibleDuplicate is flag_possible_duplicate: tier-3 (economic-effect)

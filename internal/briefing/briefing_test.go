@@ -759,8 +759,12 @@ func hypoWithStatus(t *testing.T, camp *state.Campaign, title, class,
 	t.Helper()
 	f := hypo(t, camp, class, []string{"withdraw_unbacked_assets"}, nil, title)
 	if status != "" {
-		if _, err := findings.Transition(camp, objStr(f, "finding_id"),
-			status, "test fixture", "test fixture", "", false); err != nil {
+		// Task 7c: a DUPLICATE must name the finding it duplicates (every
+		// other status ignores the field).
+		if _, err := findings.TransitionWith(camp, objStr(f, "finding_id"),
+			status, "test fixture", findings.TransitionOpts{
+				Actor:       "test fixture",
+				DuplicateOf: "F-abcdef012345"}); err != nil {
 			t.Fatalf("transition %s: %v", status, err)
 		}
 	}

@@ -29,7 +29,11 @@ var (
 	// EVIDENCE_LEVELS is EVIDENCE_LEVELS = set(EVIDENCE_ORDER).
 	EVIDENCE_LEVELS = setOf(EVIDENCE_ORDER...)
 
-	// TERMINAL is TERMINAL: statuses that absorb (no outgoing transition).
+	// TERMINAL is TERMINAL: statuses that absorb — no outgoing transition
+	// except the one operator undo (Task 7c): DUPLICATE -> HYPOTHESIS, for a
+	// merge that turns out to be wrong. Every READER of TERMINAL (the live
+	// set, the evidence floor, the metrics export) still treats a DUPLICATE
+	// as a junk state: reopening is the only way out, and it is explicit.
 	TERMINAL = setOf("DISPROVED", "OUT_OF_SCOPE", "INFORMATIONAL", "DUPLICATE",
 		"SUPERSEDED")
 
@@ -80,7 +84,9 @@ var (
 	CROSS_CHAIN_E6_CLASSES = setOf("bridge-message", "cross-chain-replay")
 
 	// ALLOWED_TRANSITIONS is ALLOWED_TRANSITIONS: the status state machine
-	// edges. A terminal status has no outgoing edges.
+	// edges. A terminal status has no outgoing edges — except DUPLICATE,
+	// which carries the single reopen edge to HYPOTHESIS (Task 7c; the merge
+	// is a judgement, and a wrong judgement must be undoable).
 	ALLOWED_TRANSITIONS = map[string]map[string]struct{}{
 		"HYPOTHESIS": setOf("NEEDS_RESEARCH", "PROVISIONALLY_VALID", "POSSIBLE",
 			"DISPROVED", "OUT_OF_SCOPE", "DUPLICATE", "INFORMATIONAL",
@@ -95,7 +101,7 @@ var (
 			"INFORMATIONAL", "SUPERSEDED"),
 		"CHAIN":         setOf("CONFIRMED", "DISPROVED", "SUPERSEDED"),
 		"DISPROVED":     setOf(),
-		"DUPLICATE":     setOf(),
+		"DUPLICATE":     setOf("HYPOTHESIS"),
 		"OUT_OF_SCOPE":  setOf(),
 		"INFORMATIONAL": setOf(),
 		"SUPERSEDED":    setOf(),

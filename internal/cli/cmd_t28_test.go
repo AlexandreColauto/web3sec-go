@@ -189,8 +189,11 @@ func noopHypo(t *testing.T, c *state.Campaign, title, status string) string {
 	}
 	fid := objStr(f, "finding_id")
 	if status != "" {
-		if _, err := findings.Transition(c, fid, status, "test fixture", "",
-			"", false); err != nil {
+		// Task 7c: a DUPLICATE must name the finding it duplicates (every
+		// other status ignores the field).
+		if _, err := findings.TransitionWith(c, fid, status, "test fixture",
+			findings.TransitionOpts{Actor: "test",
+				DuplicateOf: "F-abcdef012345"}); err != nil {
 			t.Fatalf("transition %s: %v", status, err)
 		}
 	}

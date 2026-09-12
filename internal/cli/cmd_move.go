@@ -1,9 +1,14 @@
 package cli
 
 // cmd_move: `webv2 move <campaign> <finding> TO_STATUS --reason R
-// [--actor A] [--adjacent NAME] [--adjacent-clear]` — the ONLY way a
-// finding's status changes: the same transition table, evidence floor and
-// CONFIRMED gate bundle the API enforces (cli.py cmd_move verbatim).
+// [--actor A] [--adjacent NAME] [--adjacent-clear] [--of FINDING]` — the ONLY
+// way a finding's status changes: the same transition table, evidence floor
+// and CONFIRMED gate bundle the API enforces (cli.py cmd_move verbatim).
+//
+// --of is additive (Task 7c): moving to DUPLICATE must name the finding it
+// duplicates, and DUPLICATE -> HYPOTHESIS is the operator's undo (it clears
+// the recorded target). cli.py had no such flag — the Python `dedup` sweep was
+// the only writer of a DUPLICATE, and a wrong merge could not be undone.
 //
 // Error contract (cli.py cmd_move): IllegalTransition and ValueError are
 // printed by the HANDLER as `move failed: {e}` on stderr with exit 2 — NOT
@@ -12,6 +17,8 @@ package cli
 // carries that bespoke shape; the two Python exception classes are matched
 // by the port's error shapes: findings.IllegalTransition, and the single
 // ValueError the transition itself raises (planner.ADJACENT_REQUIRED_MSG).
+// findings.DuplicateTargetRequired joins that handler class: the move cannot
+// proceed until the operator supplies the missing name.
 
 import (
 	"errors"
@@ -26,9 +33,11 @@ import (
 )
 
 // moveUsage is argparse's `move` usage block, pinned byte-for-byte from the
-// live Python CLI (COLUMNS=80).
+// live Python CLI (COLUMNS=80) plus the additive `--of` (Task 7c; cli.py has
+// no such flag — the DUPLICATE target used to be the dedup sweep's private
+// business).
 const moveUsage = `usage: webv2 move [-h] --reason REASON [--actor ACTOR] [--adjacent ADJACENT]
-                  [--adjacent-clear]
+                  [--adjacent-clear] [--of OF]
                   campaign finding to_status
 `
 
@@ -42,7 +51,7 @@ func moveCmd(root string, args []string, r *Runner) error {
 	}
 
 	ensureSeams()
-	reason, actor, adjacent := "", "", ""
+	reason, actor, adjacent, duplicateOf := "", "", "", ""
 	haveReason := false
 	adjacentClear := false
 	// unrecognized tokens are reported by the ROOT parser in ARGV order.
@@ -92,6 +101,14 @@ func moveCmd(root string, args []string, r *Runner) error {
 			return t14ArgparseErr(moveUsage, "move",
 				"argument --adjacent-clear: ignored explicit argument %s",
 				validation.PyReprStr(strings.TrimPrefix(a, "--adjacent-clear=")))
+		case a == "--of" && i+1 < len(args) && !looksLikeOption(args[i+1]):
+			duplicateOf = args[i+1]
+			i++
+		case strings.HasPrefix(a, "--of="):
+			duplicateOf = strings.TrimPrefix(a, "--of=")
+		case a == "--of":
+			return t14ArgparseErr(moveUsage, "move",
+				"argument --of: expected one argument")
 		case strings.HasPrefix(a, "-"):
 			unknown = append(unknown, moveUnk{i, a})
 		default:
@@ -143,8 +160,9 @@ func moveCmd(root string, args []string, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	f, err := findings.Transition(c, pos[1], pos[2], reason, actor, adjacent,
-		adjacentClear)
+	f, err := findings.TransitionWith(c, pos[1], pos[2], reason,
+		findings.TransitionOpts{Actor: actor, Adjacent: adjacent,
+			AdjacentClear: adjacentClear, DuplicateOf: duplicateOf})
 	if err != nil {
 		if moveHandlerError(err) {
 			return t14ExitErr(2, "move failed: %s\n", err)
@@ -160,14 +178,20 @@ func moveCmd(root string, args []string, r *Runner) error {
 	return nil
 }
 
-// moveHandlerError reports whether transition's error is one of the two
-// Python exception classes cmd_move prints itself (exit 2): IllegalTransition
-// and ValueError. The only ValueError transition raises is the adjacent-
+// moveHandlerError reports whether transition's error is one of the Python
+// exception classes cmd_move prints itself (exit 2): IllegalTransition and
+// ValueError. The only ValueError transition raises is the adjacent-
 // property guard, whose message is planner.ADJACENT_REQUIRED_MSG (the seam
-// findings' guard is wired from).
+// findings' guard is wired from). findings.DuplicateTargetRequired is the
+// Go-only third member of that class (Task 7c): a targeted move that has not
+// been told its target.
 func moveHandlerError(err error) bool {
 	var it *findings.IllegalTransition
 	if errors.As(err, &it) {
+		return true
+	}
+	var dt *findings.DuplicateTargetRequired
+	if errors.As(err, &dt) {
 		return true
 	}
 	return err.Error() == planner.AdjacentRequiredMsg

@@ -574,3 +574,134 @@ func TestMoveSameStatusIsANoOp(t *testing.T) {
 		t.Fatalf("stdout\n%q\nwant\n%q", out, want)
 	}
 }
+
+// ---- Task 7c: --of (targeted DUPLICATE) + the reopen ----------------------
+
+// TestMoveDuplicateRequiresOf: a DUPLICATE that names nothing can never be
+// re-checked. The verb refuses with the repairing flag named, writes nothing,
+// and the accepting path records the target on the finding.
+func TestMoveDuplicateRequiresOf(t *testing.T) {
+	c, root := t15Campaign(t, "move-duplicate")
+	fid := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	before := len(eventTypes(t, c))
+
+	code, _, errS := run(t, "--root", root, "move", c.CampaignID, fid,
+		"DUPLICATE", "--reason", "same root cause as the sibling")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q", code, errS)
+	}
+	want := "move failed: move to DUPLICATE must name the duplicate of " +
+		"(--of <finding-id>)\n"
+	if errS != want {
+		t.Fatalf("stderr\n%q\nwant\n%q", errS, want)
+	}
+	if after := len(eventTypes(t, c)); after != before {
+		t.Fatalf("refused move wrote %d event(s)", after-before)
+	}
+	f, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st := objStr(f, "status"); st != "HYPOTHESIS" {
+		t.Fatalf("refused move left status = %q", st)
+	}
+	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != "" {
+		t.Fatalf("refused move left duplicate_of = %q", of)
+	}
+
+	code, out, errS := run(t, "--root", root, "move", c.CampaignID, fid,
+		"DUPLICATE", "--reason", "same root cause as the sibling",
+		"--of", "F-abcdef012345")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if want := fid + ": DUPLICATE (evidence level E0)\n"; out != want {
+		t.Fatalf("stdout\n%q\nwant\n%q", out, want)
+	}
+	f, err = findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != "F-abcdef012345" {
+		t.Fatalf("duplicate_of = %q, want F-abcdef012345", of)
+	}
+}
+
+// TestMoveOfFlagsTheGuard: `--of` never swallows an option-shaped token (the
+// 2026-09-10 flag-swallow fix, applied to the new flag).
+func TestMoveOfFlagsTheGuard(t *testing.T) {
+	code, _, errS := run(t, "move", "C-x", "F-y", "DUPLICATE", "--reason", "r",
+		"--of", "--reason")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q", code, errS)
+	}
+	want := moveUsage + "webv2 move: error: argument --of: expected one " +
+		"argument\n"
+	if errS != want {
+		t.Fatalf("stderr\n%q\nwant\n%q", errS, want)
+	}
+}
+
+// TestMoveReopenDuplicate: DUPLICATE -> HYPOTHESIS through the verb is the
+// operator's undo — the target is cleared, the evidence and history survive,
+// and every other exit from DUPLICATE stays illegal.
+func TestMoveReopenDuplicate(t *testing.T) {
+	c, root := t15Campaign(t, "move-reopen")
+	fid := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	// Evidence on the finding BEFORE the merge: the reopen must not drop it
+	// (and a terminal status refuses AddEvidence — the merge froze the record).
+	if _, err := findings.AddEvidence(c, fid, validation.VObj(
+		kv("evidence_id", validation.VStr("EV-move-reopen")),
+		// E0: the floor of a HYPOTHESIS — no level rise, so the invariant
+		// guard (which the CLI harness wires) stays out of this test.
+		kv("level", validation.VStr("E0")),
+		kv("type", validation.VStr("static-analysis")),
+		kv("description", validation.VStr("the receipt that mattered")),
+	)); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := run(t, "--root", root, "move", c.CampaignID, fid,
+		"DUPLICATE", "--reason", "looks like the sibling",
+		"--of=F-abcdef012345")
+	if code != 0 {
+		t.Fatalf("merge exit %d: %q", code, errS)
+	}
+	// Only HYPOTHESIS is a legal target from DUPLICATE.
+	code, _, errS = run(t, "--root", root, "move", c.CampaignID, fid,
+		"POSSIBLE", "--reason", "straight back up")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q", code, errS)
+	}
+	if want := "move failed: DUPLICATE -> POSSIBLE is not a legal transition " +
+		"(legal: ['HYPOTHESIS'])\n"; errS != want {
+		t.Fatalf("stderr\n%q\nwant\n%q", errS, want)
+	}
+
+	code, out, errS := run(t, "--root", root, "move", c.CampaignID, fid,
+		"HYPOTHESIS", "--reason", "the two roots are not the same bug")
+	if code != 0 {
+		t.Fatalf("reopen exit %d: %q", code, errS)
+	}
+	if want := fid + ": HYPOTHESIS (evidence level E0)\n"; out != want {
+		t.Fatalf("stdout\n%q\nwant\n%q", out, want)
+	}
+	f, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st := objStr(f, "status"); st != "HYPOTHESIS" {
+		t.Fatalf("status = %q, want HYPOTHESIS", st)
+	}
+	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != "" {
+		t.Fatalf("reopen left duplicate_of = %q", of)
+	}
+	if n := len(objAt(f, "evidence").A); n == 0 {
+		t.Fatal("the reopen dropped the finding's evidence")
+	}
+	hist := objAt(f, "history").A
+	last := hist[len(hist)-1]
+	if objStr(last, "from") != "DUPLICATE" || objStr(last, "to") != "HYPOTHESIS" {
+		t.Fatalf("last history row = %v, want DUPLICATE -> HYPOTHESIS",
+			validation.CanonCompact(last))
+	}
+}
