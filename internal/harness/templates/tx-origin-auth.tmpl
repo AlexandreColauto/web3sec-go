@@ -1,0 +1,4 @@
+    require e.msg.sender != owner;
+    uint256 before = totalMinted;
+    {{.Contract}}.{{.Function}}(e, 1);
+    assert totalMinted == before;

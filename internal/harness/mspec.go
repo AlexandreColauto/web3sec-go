@@ -42,7 +42,21 @@ const DummyMspec = `// unfilled scaffold — replace with: snapshot lines, exact
 // screened here: this renderer stays a pure template, and the duplicate
 // marker such a statement produces makes BodyRegion — and therefore
 // Validate — refuse the result rather than mis-attribute it.
-func scaffoldMspec(sn, stmt string, inv validation.Value) []byte {
+//
+// A statement matching mspecTemplateRe seeds the BODY window with the
+// rendered template instead of DummyMspec; every byte outside the window is
+// identical either way, and an unknown template name is an error (never a
+// silently empty body). A statement that does not match the regexp — including
+// a malformed `template:` prefix — takes the plain skeleton path unchanged.
+func scaffoldMspec(sn, stmt string, inv validation.Value) ([]byte, error) {
+	body := "    " + DummyMspec
+	if m := mspecTemplateRe.FindStringSubmatch(stmt); m != nil {
+		rendered, err := renderTemplateBody(m[1], m[2], m[3])
+		if err != nil {
+			return nil, err
+		}
+		body = rendered
+	}
 	var b strings.Builder
 	b.WriteString("// web3sec G8 harness scaffold — MiniCertora bounded verifier.\n")
 	b.WriteString("// Deterministic bytes: the model writes ONLY the BODY window below;\n")
@@ -58,8 +72,8 @@ func scaffoldMspec(sn, stmt string, inv validation.Value) []byte {
 	}
 	b.WriteString("rule " + sn + "(env e) {\n")
 	b.WriteString("    " + StartMarker + "\n")
-	b.WriteString("    " + DummyMspec + "\n")
+	b.WriteString(body + "\n")
 	b.WriteString("    " + EndMarker + "\n")
 	b.WriteString("}\n")
-	return []byte(b.String())
+	return []byte(b.String()), nil
 }

@@ -8,6 +8,12 @@
 // in a fixed order by the template code below, so identical input yields
 // byte-identical output on every machine.
 //
+// Template statements (minicertora only): a
+// `template:<name> of <Contract>.<Function>` statement seeds the BODY window
+// from internal/harness/templates/*.tmpl. A template body is STARTING
+// CONTENT, not reviewed frame — it lands inside the marker window, the model
+// may rewrite it wholesale, and Validate judges only the bytes outside.
+//
 // Lexer-naive limit: BodyRegion matches the marker SPELLINGS as raw byte
 // substrings with no Solidity lexing. A marker spelling inside a string
 // literal, a comment, or any other non-marker position still counts as a
@@ -205,7 +211,11 @@ func Scaffold(k Kind, inv validation.Value) ([]byte, error) {
 	// The guards above (id, statement, name characters) are shared and
 	// therefore run BEFORE this branch for every kind alike.
 	if k == MiniCertora {
-		return scaffoldMspec(sn, stmt, inv), nil
+		// A `template:<name> of <Contract>.<Function>` statement seeds the
+		// BODY window from the template library; everything else about the
+		// scaffold is unchanged. An unknown template name is a scaffold
+		// error, not an empty body.
+		return scaffoldMspec(sn, stmt, inv)
 	}
 	cn := caml(id)
 	var b strings.Builder

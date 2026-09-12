@@ -1484,6 +1484,10 @@ EXEC-xxx`; `disprove`/`waive` take `--reason`; `complete`/`waive` take
 `--actor`. `immunize` takes **exactly three** boundary mutations, each
 described in ≥ 5 chars.
 
+`minicertora` note: a `--scaffold minicertora` invariant whose statement reads
+`template:<name> of <Contract>.<Function>` seeds the BODY window from the archetype library (`wrap-unchecked`, `rounding-drain`,
+`access-control-mint`, `tx-origin-auth`) — starting content the model may rewrite inside the window only; an unknown name is refused.
+
 ## Environment variables
 
 | var | meaning |

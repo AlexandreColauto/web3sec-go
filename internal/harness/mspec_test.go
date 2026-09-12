@@ -84,6 +84,138 @@ func TestMspecValidateRoundTrip(t *testing.T) {
 	}
 }
 
+// TestMspecTemplateScaffoldBytes pins the whole template scaffold: the rule
+// FRAME is byte-for-byte the plain skeleton (same header, same marker lines),
+// and the BODY window carries the rendered template instead of DummyMspec.
+func TestMspecTemplateScaffoldBytes(t *testing.T) {
+	inv := validation.VObj(
+		validation.KV{K: "id", V: validation.VStr("INV-7")},
+		validation.KV{K: "statement", V: validation.VStr(
+			"template:wrap-unchecked of Counter.deposit")},
+	)
+	got, err := Scaffold(MiniCertora, inv)
+	if err != nil {
+		t.Fatalf("Scaffold(minicertora, template): %v", err)
+	}
+	want := `// web3sec G8 harness scaffold — MiniCertora bounded verifier.
+// Deterministic bytes: the model writes ONLY the BODY window below;
+// everything outside is scaffold. Rule name is scaffold-pinned — the
+// attribution of verdict lines keys on it; do not rename.
+// @custom:invariant template:wrap-unchecked of Counter.deposit
+rule inv_7(env e) {
+    // >>> BODY (model writes ONLY between these markers; outside is scaffold)
+    uint256 before = total;
+    Counter.deposit(e, 1);
+    assert total >= before;
+    // <<< BODY
+}
+`
+	if string(got) != want {
+		t.Errorf("template scaffold bytes moved:\n got:\n%s\nwant:\n%s", got, want)
+	}
+	// The template body lands INSIDE the marker window, never before it.
+	s, e, err := BodyRegion(got)
+	if err != nil {
+		t.Fatalf("BodyRegion(template scaffold): %v", err)
+	}
+	if !strings.Contains(string(got[s:e]), "Counter.deposit(e, 1);") {
+		t.Fatalf("template body is not inside the BODY window:\n%s", got)
+	}
+}
+
+// TestMspecTemplateValidateRoundTrip pins the laws that make a template a
+// scaffold rather than a reviewed frame: the template scaffold validates as
+// written, a model may still replace the whole window, and outside-window
+// drift stays scaffold-bound.
+func TestMspecTemplateValidateRoundTrip(t *testing.T) {
+	inv := validation.VObj(
+		validation.KV{K: "id", V: validation.VStr("INV-7")},
+		validation.KV{K: "statement", V: validation.VStr(
+			"template:access-control-mint of Minting.mint")},
+	)
+	scaf, err := Scaffold(MiniCertora, inv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Validate(MiniCertora, inv, scaf); err != nil {
+		t.Fatalf("a template scaffold must validate as written: %v", err)
+	}
+	s, e, err := BodyRegion(scaf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The template body is STARTING CONTENT: the model may rewrite the whole
+	// window, including deleting every template line.
+	filled := append(append(append([]byte{}, scaf[:s]...),
+		[]byte("    uint256 before = totalMinted;\n    Minting.mint(e, 2);\n    assert totalMinted >= before;\n")...),
+		scaf[e:]...)
+	if err := Validate(MiniCertora, inv, filled); err != nil {
+		t.Fatalf("inside-window rewrite must validate: %v", err)
+	}
+	tampered := []byte(strings.Replace(string(scaf), "rule inv_7(", "rule inv_8(", 1))
+	if err := Validate(MiniCertora, inv, tampered); err == nil ||
+		!strings.Contains(err.Error(), "scaffold-bound") {
+		t.Fatalf("renamed rule must be scaffold-bound, got %v", err)
+	}
+}
+
+// TestMspecTemplateUnknownName pins the loud refusal: a template-shaped
+// statement naming no shipped template errors out of Scaffold (and therefore
+// out of Validate) — never a silently empty body window.
+func TestMspecTemplateUnknownName(t *testing.T) {
+	inv := validation.VObj(
+		validation.KV{K: "id", V: validation.VStr("INV-7")},
+		validation.KV{K: "statement", V: validation.VStr(
+			"template:nope of Counter.deposit")},
+	)
+	_, err := Scaffold(MiniCertora, inv)
+	if err == nil {
+		t.Fatal("unknown template name must be refused")
+	}
+	if want := `unknown template "nope"`; !strings.Contains(err.Error(), want) {
+		t.Fatalf("error = %q, want it to contain %q", err.Error(), want)
+	}
+}
+
+// TestMspecNonTemplateStatementByteStable pins the fall-through: a statement
+// that merely LOOKS like a template (malformed prefix, missing dot, a name
+// with an underscore the regexp does not admit) renders EXACTLY today's plain
+// skeleton — DummyMspec inside the window, no error.
+func TestMspecNonTemplateStatementByteStable(t *testing.T) {
+	for _, stmt := range []string{
+		"template:x",
+		"template:wrap-unchecked of Counter",
+		"template:wrap_unchecked of Counter.deposit",
+		"template:wrap-unchecked of Counter.deposit ",
+		"invariant:cap_respected of Vault.total >= 1",
+	} {
+		inv := validation.VObj(
+			validation.KV{K: "id", V: validation.VStr("INV-7")},
+			validation.KV{K: "statement", V: validation.VStr(stmt)},
+		)
+		got, err := Scaffold(MiniCertora, inv)
+		if err != nil {
+			t.Fatalf("Scaffold(%q) must fall through to the plain "+
+				"skeleton, got error %v", stmt, err)
+		}
+		want := `// web3sec G8 harness scaffold — MiniCertora bounded verifier.
+// Deterministic bytes: the model writes ONLY the BODY window below;
+// everything outside is scaffold. Rule name is scaffold-pinned — the
+// attribution of verdict lines keys on it; do not rename.
+// @custom:invariant ` + stmt + `
+rule inv_7(env e) {
+    // >>> BODY (model writes ONLY between these markers; outside is scaffold)
+    ` + DummyMspec + `
+    // <<< BODY
+}
+`
+		if string(got) != want {
+			t.Errorf("fall-through bytes moved for %q:\n got:\n%s\nwant:\n%s",
+				stmt, got, want)
+		}
+	}
+}
+
 func TestMspecRuleName(t *testing.T) {
 	for id, want := range map[string]string{"INV-7": "inv_7",
 		"INV-007a": "inv_007a", "INV-1": "inv_1"} {
