@@ -1487,6 +1487,9 @@ described in ≥ 5 chars.
 `minicertora` note: a `--scaffold minicertora` invariant whose statement reads
 `template:<name> of <Contract>.<Function>` seeds the BODY window from the archetype library (`wrap-unchecked`, `rounding-drain`,
 `access-control-mint`, `tx-origin-auth`) — starting content the model may rewrite inside the window only; an unknown name is refused.
+Only exact lowercase-hyphen template names inside that pattern are honored: a
+near-miss (uppercase, underscore, extra text) silently falls through to the
+plain skeleton — check the artifact if you meant a template.
 A statement reading `invariant:<slug> of <Contract>.<State> <op> <expr>` (`op` ∈ `>= <= == > <`) renders an induction scaffold:
 `invariant <rule-name>()` plus the reviewed `assert <State> <op> <expr>;` pinned OUTSIDE the BODY window (extra asserts only inside).
 

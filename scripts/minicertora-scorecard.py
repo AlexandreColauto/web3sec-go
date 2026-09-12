@@ -25,6 +25,25 @@ It joins those lines to the evalsuite cases and prints one row per bug class:
 `--json` emits the same rows as JSON objects, sorted by class.  Exit 0 means
 "the scorecard ran"; it does NOT mean the prover is good — read the numbers.
 
+THE SHAPE LAW (final review, F1)
+--------------------------------
+Those three shapes are the input contract on the LIVE path too, not only inside
+`--self-test`.  Every line read from `--results` is classified BEFORE it can
+offer a join key; a line that is none of the three is not tool output and is
+EXCLUDED from scoring, named on stderr per line as `<file>:<line>: why`, and the
+run CONTINUES as a loud partial — exactly like the unjoined-line accounting.  A
+hard error was the alternative; it was rejected because one stray line should
+not throw away a whole prover run (the unreadable input — not JSON, not an
+object, a broken class map — keeps its hard error).
+
+Why this is load-bearing: a verdict-bearing line that matches no shape still
+carries a `verdict`, and the tier-3 stem join below needs no shape at all — so a
+hand-made `{"verdict": "PROVEN"}` dropped into `results/<Contract>.jsonl` used to
+join on the file stem and manufacture `proven_silence` out of nothing, with no
+record on stderr and no trace in the numbers.  Excluded lines now never enter
+`detected`/`proven_silence`/`refused`/the histogram; they are counted in the
+stderr summary and each is named with its reason.
+
 LAW (Wave L-system, L6b)
 ------------------------
 A template-seeded scaffold is starting content, never evidence.  And no
@@ -131,9 +150,14 @@ fixture line against the three shapes `cli.py` can actually print (23-key
 report, 24-key invariant report, 3-key whole-target abort, 4-key undecided) and
 against the `_extract` reality that a PROVEN line carries no model — so a
 fixture line the tool could never print fails the self-test instead of quietly
-redefining the instrument's input contract.
+redefining the instrument's input contract.  Three further checks pin THE SHAPE
+LAW on the live path: a verdict-bearing 1-key probe line (the F1 review's
+`{"verdict": "PROVEN"}`, plus a `VIOLATED` sibling that would move `detected`)
+is excluded, named on stderr, and leaves the pinned rows byte-identical; and a
+lone 1-key PROVEN probe cannot manufacture `proven_silence` on a bad case.
 """
 import argparse
+import io
 import json
 import pathlib
 import sys
@@ -197,6 +221,72 @@ CALL_ENV_KEYS = frozenset({"msg.sender", "msg.value"})
 
 HERE = pathlib.Path(__file__).resolve().parent
 FIXTURE = HERE / "golden" / "scorecard-fixture"
+
+
+def shape_of(line):
+    """THE SHAPE LAW's one classifier: is this line a shape `cli.py` prints?
+
+    Returns `(kind, why)`: `kind` is `"report"`, `"abort"`, `"undecided"` or
+    None; `why` is the human-readable reason when `kind` is None.  Both the
+    fixture audit (`audit_lines`, via `--self-test`) and the live score path
+    (`screen_lines`) call THIS function, so the instrument can never grade a
+    line it would refuse to accept as tool output.
+
+    The shapes, exactly (extra keys are NOT admitted: a 25-key line is not the
+    23/24-key report shape, it is a line from some other tool or version):
+    the report line (`REPORT_KEYS`, + `invariant`), the 3-key whole-target
+    abort envelope, the 4-key undecided envelope — the two envelopes only with
+    `verdict == "UNKNOWN"`, because that is the only verdict those emitters
+    print."""
+    keys = set(line)
+    if keys == ABORT_KEYS:
+        if line.get("verdict") != UNKNOWN:
+            return None, ("3-key whole-target abort envelope carries verdict %r, "
+                          "not %r" % (line.get("verdict"), UNKNOWN))
+        return "abort", None
+    if keys == UNDECIDED_KEYS:
+        if line.get("verdict") != UNKNOWN:
+            return None, ("4-key undecided envelope carries verdict %r, not %r"
+                          % (line.get("verdict"), UNKNOWN))
+        return "undecided", None
+    if REPORT_KEYS <= keys:
+        extra = keys - REPORT_KEYS
+        if extra - {"invariant"}:
+            return None, ("report-shaped line carries unexpected extra key(s) "
+                          "%s; the shape is the 23-key report, or 24 with "
+                          "`invariant`" % sorted(extra))
+        return "report", None
+    return None, ("%d key(s) %s: not the 23-key report, the 24-key `invariant` "
+                  "report, the 3-key whole-target abort or the 4-key undecided "
+                  "envelope" % (len(keys), sorted(keys)))
+
+
+def screen_lines(lines):
+    """THE SHAPE LAW on the live path: keep only real tool lines.
+
+    Returns `(kept, excluded)`, where `excluded` holds one `origin: why`
+    string per dropped line — the operator sees which file:line was thrown
+    away and for what reason, and the run continues.  No count in `score` can
+    ever include a dropped line: nothing downstream re-reads the raw list."""
+    kept, excluded = [], []
+    for line in lines:
+        kind, why = shape_of(line)
+        if kind is None:
+            excluded.append("%s: %s" % (getattr(line, "origin", "<line>"), why))
+            continue
+        kept.append(line)
+    return kept, excluded
+
+
+def emit_shape_problems(problems, stream=None):
+    """Write THE SHAPE LAW's per-line exclusions; returns how many.
+
+    One line per dropped line, prefixed so the warning is greppable, and used
+    by both `main` and `--self-test` (the self-test pins these bytes)."""
+    out = sys.stderr if stream is None else stream
+    for p in problems:
+        out.write("scorecard: excluded by the shape law: %s\n" % p)
+    return len(problems)
 
 
 def load_cases(path):
@@ -330,8 +420,14 @@ def case_keys(case, by_case):
 def score(cases, lines, class_map=None):
     """Join `lines` to `cases` and roll up one row per bug_class (sorted).
 
-    Returns (rows, stats); rows are dicts keyed by HEADER, with
-    refusal_histogram as {reason: count}."""
+    THE SHAPE LAW runs FIRST (`screen_lines`): a line matching none of the
+    three printed shapes is dropped and named in `stats["shape_problems"]`
+    before any join key is computed, so it cannot reach
+    `detected`/`proven_silence`/`refused`.  Returns (rows, stats); rows are
+    dicts keyed by HEADER, with refusal_histogram as {reason: count}.  `stats`
+    counts `lines` (everything read: scored + excluded), `scored_lines`,
+    `tied`, `unjoined`, `refusal_lines`, `excluded` and `shape_problems`."""
+    lines, shape_problems = screen_lines(lines)
     by_case = {}
     for key, cid in (class_map or {}).items():
         by_case.setdefault(cid, set()).add(key)
@@ -369,8 +465,10 @@ def score(cases, lines, class_map=None):
             row["refusal_histogram"][reason] = \
                 row["refusal_histogram"].get(reason, 0) + 1
     ordered = sorted(rows.values(), key=lambda r: r["class"])
-    stats = {"lines": len(lines), "tied": len(tied_ids), "unjoined": unjoined,
-             "refusal_lines": refusing}
+    stats = {"lines": len(lines) + len(shape_problems), "tied": len(tied_ids),
+             "unjoined": unjoined, "refusal_lines": refusing,
+             "scored_lines": len(lines), "excluded": len(shape_problems),
+             "shape_problems": shape_problems}
     return ordered, stats
 
 
@@ -406,7 +504,9 @@ def audit_lines(lines):
 
       * the key set is exactly one of the three printed shapes — a report line
         (23 keys, + `invariant` = 24 on an invariant line), a whole-target
-        abort (3 keys), an undecided envelope (4 keys);
+        abort (3 keys), an undecided envelope (4 keys), and the two envelopes
+        only with `verdict == "UNKNOWN"` (this is `shape_of`, the same
+        classifier the live score path enforces);
       * every call row carries `cli.py::_extract`'s call keys — notably
         `revert_paths_excluded`, not its pre-round-32 name `reverted`;
       * a PROVEN line's `params`/`initial_storage`/`final_storage`/
@@ -423,25 +523,16 @@ def audit_lines(lines):
         problems.append("%s: %s" % (getattr(line, "origin", "<line>"), fmt % a))
 
     for line in lines:
-        keys = set(line)
-        if keys == ABORT_KEYS or keys == UNDECIDED_KEYS:
-            if line.get("verdict") != UNKNOWN:
-                bad("refusal envelope has verdict %r, not UNKNOWN",
-                    line.get("verdict"))
-            if keys == ABORT_KEYS:
-                if line.get("rule") is not None or line.get("contract") is not None:
-                    bad("whole-target envelope names a rule/contract")
-                if not getattr(line, "stem", None):
-                    bad("whole-target envelope has no results-file stem to join on")
+        kind, why = shape_of(line)
+        if kind is None:
+            bad("%s", why)
             continue
-        if not REPORT_KEYS <= keys:
-            bad("key set is not a report line, abort envelope or undecided "
-                "envelope (missing %s, extra %s)",
-                sorted(REPORT_KEYS - keys), sorted(keys - REPORT_KEYS))
+        if kind == "abort":
+            if not getattr(line, "stem", None):
+                bad("whole-target envelope has no results-file stem to join on")
             continue
-        extra = keys - REPORT_KEYS
-        if extra - {"invariant"}:
-            bad("report line has unexpected extra keys %s", sorted(extra))
+        if kind == "undecided":
+            continue
         inv = line.get("invariant")
         if inv is not None and (not isinstance(inv, dict)
                                 or set(inv) != {"name", "per_function", "init",
@@ -484,6 +575,31 @@ PINNED_NOJOIN_TSV = 'class\tcases\tdetected\tproven_silence\trefused\trefusal_hi
 # them an invariant line) and 1 whole-target refusal envelope.
 PINNED_SHAPES = ('shapes OK: 5 lines = 4 report (1 with `invariant`) '
                  '+ 1 whole-target refusal envelope\n')
+# THE SHAPE LAW on the live path (final review, F1).  The probes are the
+# review's 1-key `{"verdict": "PROVEN"}` plus a `VIOLATED` sibling, appended by
+# hand to `results/Packed.jsonl` — whose stem IS the tier-3 join key for the bad
+# `ES94Packed` case (CASE-000000000105, access-control).  Two pins, because the
+# two failure modes differ: the PROVEN probe used to manufacture
+# `proven_silence` when it was a case's ONLY tied line (the `lone` fixture
+# below), while on the pinned fixture only the VIOLATED sibling moves a number,
+# which is what makes the "rows unchanged" pin non-vacuous.
+PROBE_LINES = (("Packed.jsonl:2", {"verdict": PROVEN}),
+               ("Packed.jsonl:3", {"verdict": VIOLATED}))
+PINNED_PROBE_STDERR = (
+    'scorecard: excluded by the shape law: Packed.jsonl:2: 1 key(s) '
+    "['verdict']: not the 23-key report, the 24-key `invariant` report, the "
+    '3-key whole-target abort or the 4-key undecided envelope\n'
+    'scorecard: excluded by the shape law: Packed.jsonl:3: 1 key(s) '
+    "['verdict']: not the 23-key report, the 24-key `invariant` report, the "
+    '3-key whole-target abort or the 4-key undecided envelope\n')
+# A results dir holding ONLY the 1-key PROVEN probe in `Packed.jsonl`: the pre-F1
+# code tied it to the bad ES94Packed case and reported proven_silence=1 out of
+# nothing; now it is excluded and scores nothing (every count 0, exactly the
+# all-zero rows the no-class-map control shows).  The check appends the
+# `excluded=` count so the drop is pinned too, not just the empty rows.
+PINNED_PROBE_ONLY_TSV = ('class\tcases\tdetected\tproven_silence\trefused'
+                         '\trefusal_histogram\naccess-control\t2\t0\t0\t0\t-\n'
+                         'arithmetic-overflow\t3\t0\t0\t0\t-\n')
 
 
 def fixture_inputs():
@@ -509,20 +625,46 @@ def shape_summary(lines):
                " + %d undecided" % len(undecided)))
 
 
+def probe_lines(origins):
+    """Synthesize live-path probe lines: 1-key objects as `Packed.jsonl` lines.
+
+    They are built here rather than shipped in the fixture directory so the
+    pinned fixture stays exactly five legal lines — a probe in the fixture
+    would (correctly) fail the line-shape audit."""
+    out = []
+    for origin, obj in origins:
+        line = ResultLine(obj)
+        line.stem, line.origin = "Packed", origin
+        out.append(line)
+    return out
+
+
 def self_test():
     """Run the fixture and byte-compare against the pins above."""
     cases, lines, class_map = fixture_inputs()
+    probes = probe_lines(PROBE_LINES)
+    probe_rows, probe_stats = score(cases, lines + probes, class_map)
+    probe_err = io.StringIO()
+    emit_shape_problems(probe_stats["shape_problems"], probe_err)
+    lone_rows, lone_stats = score(cases, probe_lines(PROBE_LINES[:1]), class_map)
     checked = [
         ("TSV rows", render_tsv(score(cases, lines, class_map)[0]), PINNED_TSV),
         ("JSON rows", render_json(score(cases, lines, class_map)[0]), PINNED_JSON),
         ("TSV rows, no class map", render_tsv(score(cases, lines, {})[0]),
          PINNED_NOJOIN_TSV),
         ("fixture line shapes", shape_summary(lines), PINNED_SHAPES),
+        ("live shape law: probe lines excluded, rows unchanged",
+         render_tsv(probe_rows), PINNED_TSV),
+        ("live shape law: probe exclusions named on stderr",
+         probe_err.getvalue(), PINNED_PROBE_STDERR),
+        ("live shape law: lone 1-key PROVEN probe manufactures nothing",
+         "%sexcluded=%d\n" % (render_tsv(lone_rows), lone_stats["excluded"]),
+         PINNED_PROBE_ONLY_TSV + "excluded=1\n"),
     ]
     bad = 0
     for label, got, want in checked:
         if got == want:
-            print("self-test: %s match pinned fixture (%d bytes)"
+            print("self-test: %s match pinned bytes (%d bytes)"
                   % (label, len(got)))
             continue
         bad += 1
@@ -564,6 +706,10 @@ def main(argv=None):
     lines = load_results(args.results)
     class_map = load_join(args.class_map, cases) if args.class_map else {}
     rows, stats = score(cases, lines, class_map)
+    emit_shape_problems(stats["shape_problems"])
+    if stats["excluded"]:
+        sys.stderr.write("scorecard: %d line(s) excluded by the shape law "
+                         "(named above; not scored)\n" % stats["excluded"])
     sys.stderr.write(
         "scorecard: %d result lines, %d tied to a case, %d unjoined\n"
         % (stats["lines"], stats["tied"], stats["unjoined"]))

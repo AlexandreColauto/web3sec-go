@@ -387,7 +387,7 @@
                                  "confidence", "reason", "bounds",
                                  "assumptions", "warnings", "ghosts",
                                  "invariant", "calls"],
-                    "description": "a rule line carries invariant as null; calls is null when the line carries no witness; both values ride verbatim from the tool report",
+                    "description": "minicertora verdict sidecar (an attributed JSONL line, copied verbatim); ABSENT for other kinds and for unattributed minicertora runs. A rule line carries invariant as null; calls is null when the line carries no witness; both values ride verbatim from the tool report. Verdict authority is the rung, not the sidecar.",
                     "properties": {
                       "tool_version": {},
                       "solc_version": {},
