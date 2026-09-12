@@ -10,8 +10,8 @@
     "exec_id":     { "type": "string", "pattern": "^EXEC-[0-9a-zA-Z_-]{1,48}$" },
     "campaign_id": { "type": "string" },
     "profile": {
-      "enum": ["host-readonly", "halmos", "forge-fuzz", "docker-networkless", "docker-gvisor", "vm-snapshot", "fork-runner"],
-      "description": "host-readonly, halmos and forge-fuzz execute on the host and may only host evidence at or below E3; E4+ requires a container/VM profile"
+      "enum": ["host-readonly", "halmos", "forge-fuzz", "minicertora", "docker-networkless", "docker-gvisor", "vm-snapshot", "fork-runner"],
+      "description": "host-readonly, halmos, forge-fuzz and minicertora execute on the host and may only host evidence at or below E3; E4+ requires a container/VM profile"
     },
     "finding_id":  { "type": ["string", "null"] },
     "artifact_id": { "type": ["string", "null"] },

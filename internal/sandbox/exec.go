@@ -561,13 +561,13 @@ func hashDir(d *string) validation.Value {
 }
 
 // toolVersions is _tool_versions: the host toolchain, probed once per exec.
-// halmos rides the same host LookPath + `--version` first-line probe as
-// slither/aderyn (fail-open: a missing binary is omitted, a failed probe
-// records "present (version probe failed)").
+// halmos and minicertora ride the same host LookPath + `--version`
+// first-line probe as slither/aderyn (fail-open: a missing binary is
+// omitted, a failed probe records "present (version probe failed)").
 func toolVersions() validation.Value {
 	out := []validation.KV{}
 	for _, tool := range []string{"forge", "cast", "slither", "aderyn",
-		"halmos", "python3", "docker"} {
+		"halmos", "minicertora", "python3", "docker"} {
 		if _, err := exec.LookPath(tool); err != nil {
 			continue
 		}

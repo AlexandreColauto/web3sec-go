@@ -149,3 +149,83 @@ func TestToolVersionsProbesHalmos(t *testing.T) {
 			validation.CanonCompact(v))
 	}
 }
+
+// TestMinicertoraProfilePolicy pins the G8 third kind's profile entries:
+// host-side, network none, readonly fs, E3-capped exactly like halmos.
+func TestMinicertoraProfilePolicy(t *testing.T) {
+	v, err := PolicyCheck("minicertora target/src/V.sol "+
+		"artifacts/harness/INV-1/INV.mspec --solc-path /usr/local/bin/solc "+
+		"--loop-bound 4 --timeout-ms 30000", "minicertora")
+	if err != nil {
+		t.Fatalf("PolicyCheck: %v", err)
+	}
+	if !boolAt(v, "allowed") {
+		t.Errorf("allowed = false (violations %s), want true",
+			validation.CanonCompact(objAt(v, "violations")))
+	}
+	if network := profileNetwork["minicertora"]; network != "none" {
+		t.Errorf("minicertora network = %q, want none", network)
+	}
+	if fs := profileFilesystem["minicertora"]; fs != "readonly" {
+		t.Errorf("minicertora filesystem = %q, want readonly", fs)
+	}
+	if !HostProfile("minicertora") {
+		t.Error("minicertora must be a host profile (E3 cap)")
+	}
+	if !ProfileAvailable("minicertora") {
+		t.Error("minicertora availability is the host toolchain, like halmos")
+	}
+	if _, ok := E4_PROFILES["minicertora"]; ok {
+		t.Error("minicertora must not be E4-capable")
+	}
+	if _, err := NewSandbox(newCampaign(t, "Acme Program"), "minicertora"); err != nil {
+		t.Errorf("NewSandbox(minicertora): %v", err)
+	}
+}
+
+// TestMinicertoraProfileRejectsSmuggledDestructive is the tripwire half: a
+// minicertora argv smuggling `rm -rf /` is still refused, exactly like the
+// halmos profile.
+func TestMinicertoraProfileRejectsSmuggledDestructive(t *testing.T) {
+	v, err := PolicyCheck("minicertora x; rm -rf /", "minicertora")
+	if err != nil {
+		t.Fatalf("PolicyCheck: %v", err)
+	}
+	if boolAt(v, "allowed") {
+		t.Error("allowed = true, want false")
+	}
+	if !containsStrValue(objAt(v, "violations"), "destructive-path") {
+		t.Errorf("violations = %s, want destructive-path",
+			validation.CanonCompact(objAt(v, "violations")))
+	}
+}
+
+// TestToolVersionsProbesMinicertora mirrors TestToolVersionsProbesHalmos: a
+// 'minicertora' shim on PATH reports its first `--version` line; an absent
+// shim is honestly omitted (no forged row).
+func TestToolVersionsProbesMinicertora(t *testing.T) {
+	dir := t.TempDir()
+	script := "#!/bin/sh\necho 'minicertora 0.4.2'\n"
+	if err := os.WriteFile(filepath.Join(dir, "minicertora"), []byte(script),
+		0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	withProc(t, func(argv []string, _ string, _ []string,
+		_ time.Duration) (ProcResult, error) {
+		if len(argv) == 2 && argv[0] == "minicertora" && argv[1] == "--version" {
+			return ProcResult{ReturnCode: 0, Stdout: "minicertora 0.4.2\n"}, nil
+		}
+		return ProcResult{ReturnCode: 1}, nil
+	})
+	if got := strAt(toolVersions(), "minicertora"); got != "minicertora 0.4.2" {
+		t.Errorf("minicertora version = %q, want %q", got, "minicertora 0.4.2")
+	}
+
+	empty := t.TempDir()
+	t.Setenv("PATH", empty)
+	if v := objAt(toolVersions(), "minicertora"); v.Kind != validation.Null {
+		t.Errorf("absent minicertora must be omitted, got %s",
+			validation.CanonCompact(v))
+	}
+}
