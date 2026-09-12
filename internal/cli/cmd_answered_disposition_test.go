@@ -449,3 +449,282 @@ func TestAnsweredSentinelOverrideNeedsReason(t *testing.T) {
 		t.Errorf("closed_reason = %q", got)
 	}
 }
+
+// dgSeedFinding writes one filed finding so a --finding ref resolves.
+func dgSeedFinding(t *testing.T, root, cid, id string) {
+	t.Helper()
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(c.FindingsDir, id+".json"),
+		[]byte(`{"finding_id":"`+id+`"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// dgSeedLowSurface rewrites the seeded probe surface's fixture row to
+// tier 2 / gap 1 (not high-risk), so a CLI closing of Q-005 exercises the
+// gate's negative control on the same anchor.
+func dgSeedLowSurface(t *testing.T, root, cid string) {
+	t.Helper()
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(c.ArtifactsDir, "probe_surface.json")
+	surface, err := validation.ReadJson(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	rows := t14List(surface, "rows").A
+	for i, r := range rows {
+		if objStr(r, "row_id") != "81dfad6492" {
+			continue
+		}
+		found = true
+		r.O = validation.SetOrAppend(r.O, "tier", validation.VInt(2))
+		r.O = validation.SetOrAppend(r.O, "assertion_gap", validation.VInt(1))
+		rows[i] = r
+	}
+	if !found {
+		t.Fatal("fixture row 81dfad6492 is gone")
+	}
+	if err := validation.WriteJson(p, surface, ""); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestAnsweredCLIDeferredConsequenceGate: a tier-0 row anchored on asserter
+// must price the interim window — the CLI refuses without --interim or
+// --finding, accepts a symbol-citing statement and a filed finding ref, and
+// refuses ghost ids and prose that names nothing from the row.
+func TestAnsweredCLIDeferredConsequenceGate(t *testing.T) {
+	const reason = "commitBatch consumes prev:state before the assertion runs"
+
+	// (1) refusal: asserter anchor, no pricing
+	root := mkroot(t)
+	cid := initOne(t, root)
+	t14TestSeed(t, root, cid)
+	dgSeedProbeCampaign(t, root, cid)
+	code, out, errS := run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason", reason, "--anchor", "asserter")
+	if code != 2 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if out != "" {
+		t.Fatalf("stdout = %q", out)
+	}
+	for _, want := range []string{"anchors on asserter", "finalizeBatch",
+		"commitBatch", "--finding F-<id>", "--interim STATEMENT",
+		"--override-dismissal"} {
+		if !strings.Contains(errS, want) {
+			t.Errorf("stderr missing %q:\n%s", want, errS)
+		}
+	}
+	// the refusal is a decision that did not happen
+	p := dgStoredPriority(t, root, cid, "Q-005")
+	if got := objStr(p, "status"); got != "open" {
+		t.Fatalf("refused closure changed the status to %q", got)
+	}
+
+	// (2) accept: the consequence priced in prose that cites the row's own
+	// entry — recorded on the priority as its interim field
+	interim := "until finalizeBatch asserts prev:state, commitBatch " +
+		"accepts a stale root"
+	code, out, errS = run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason", reason, "--anchor", "asserter",
+		"--interim", interim)
+	if code != 0 {
+		t.Fatalf("interim exit %d: %q", code, errS)
+	}
+	if !strings.Contains(out, "Q-005: status -> answered") ||
+		!strings.Contains(out, "[anchor asserter]") {
+		t.Fatalf("interim stdout = %q", out)
+	}
+	p = dgStoredPriority(t, root, cid, "Q-005")
+	if got := objStr(p, "interim"); got != interim {
+		t.Errorf("interim = %q, want %q", got, interim)
+	}
+
+	// (3) accept: the other exit — a filed finding id, recorded as
+	// interim_finding
+	root2 := mkroot(t)
+	cid2 := initOne(t, root2)
+	t14TestSeed(t, root2, cid2)
+	dgSeedProbeCampaign(t, root2, cid2)
+	dgSeedFinding(t, root2, cid2, "F-1a2b3c4d5e6f")
+	code, _, errS = run(t, "--root", root2, "answered", cid2, "Q-005",
+		"answered", "--reason", reason, "--anchor", "asserter",
+		"--finding", "F-1a2b3c4d5e6f")
+	if code != 0 {
+		t.Fatalf("finding exit %d: %q", code, errS)
+	}
+	p = dgStoredPriority(t, root2, cid2, "Q-005")
+	if got := objStr(p, "interim_finding"); got != "F-1a2b3c4d5e6f" {
+		t.Errorf("interim_finding = %q", got)
+	}
+
+	// (4) a ghost finding id is refused as fabricated
+	root3 := mkroot(t)
+	cid3 := initOne(t, root3)
+	t14TestSeed(t, root3, cid3)
+	dgSeedProbeCampaign(t, root3, cid3)
+	code, _, errS = run(t, "--root", root3, "answered", cid3, "Q-005",
+		"answered", "--reason", reason, "--anchor", "asserter",
+		"--finding", "F-000000000000")
+	if code != 2 || !strings.Contains(errS, "F-000000000000") ||
+		!strings.Contains(errS, "does not exist") {
+		t.Fatalf("ghost finding: exit %d stderr = %q", code, errS)
+	}
+
+	// (5) prose that names nothing from the row is refused — the citation
+	// muscle applies to the interim statement too
+	root4 := mkroot(t)
+	cid4 := initOne(t, root4)
+	t14TestSeed(t, root4, cid4)
+	dgSeedProbeCampaign(t, root4, cid4)
+	code, _, errS = run(t, "--root", root4, "answered", cid4, "Q-005",
+		"answered", "--reason", reason, "--anchor", "asserter",
+		"--interim", "we looked at it carefully and it holds")
+	if code != 2 || !strings.Contains(errS, "names nothing from the "+
+		"row's own surface entry") {
+		t.Fatalf("uncited interim: exit %d stderr = %q", code, errS)
+	}
+
+	// (6) negative control: the rule is row-scoped — a low-risk row anchored
+	// on asserter needs no pricing
+	root5 := mkroot(t)
+	cid5 := initOne(t, root5)
+	t14TestSeed(t, root5, cid5)
+	dgSeedProbeCampaign(t, root5, cid5)
+	dgSeedLowSurface(t, root5, cid5)
+	code, _, errS = run(t, "--root", root5, "answered", cid5, "Q-005",
+		"answered", "--reason", reason, "--anchor", "asserter")
+	if code != 0 {
+		t.Fatalf("low-risk row: exit %d: %q", code, errS)
+	}
+	if strings.Contains(errS, "anchors on asserter") {
+		t.Fatalf("row-scoped rule fired on a low-risk row: %q", errS)
+	}
+}
+
+// TestAnsweredCLIDeferredFlagsArgparse: the FIX-5 flags parse like --passes —
+// a bare flag is an argparse error, an option-shaped token is never a value,
+// and the = spelling parses identically.
+func TestAnsweredCLIDeferredFlagsArgparse(t *testing.T) {
+	// a bare --interim / --finding is an argparse error, exit 2
+	code, out, errS := run(t, "answered", "C-x", "Q-005", "answered",
+		"--reason", "r", "--interim")
+	if code != 2 || out != "" ||
+		!strings.Contains(errS, "argument --interim: expected one argument") {
+		t.Fatalf("bare --interim: exit %d stderr = %q", code, errS)
+	}
+	code, _, errS = run(t, "answered", "C-x", "Q-005", "answered",
+		"--reason", "r", "--finding")
+	if code != 2 ||
+		!strings.Contains(errS, "argument --finding: expected one argument") {
+		t.Fatalf("bare --finding: exit %d stderr = %q", code, errS)
+	}
+	// an option token after the flag is a missing value, never a value
+	code, _, errS = run(t, "answered", "C-x", "Q-005", "answered",
+		"--reason", "r", "--interim", "--actor")
+	if code != 2 ||
+		!strings.Contains(errS, "argument --interim: expected one argument") {
+		t.Fatalf("option-shaped value: exit %d stderr = %q", code, errS)
+	}
+	// the = spelling parses identically (exercised end-to-end on a seeded
+	// campaign so the value actually lands)
+	root := mkroot(t)
+	cid := initOne(t, root)
+	t14TestSeed(t, root, cid)
+	dgSeedProbeCampaign(t, root, cid)
+	code, _, errS = run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason",
+		"commitBatch consumes prev:state before the assertion runs",
+		"--anchor", "asserter",
+		"--interim=until finalizeBatch asserts prev:state, commitBatch "+
+			"accepts a stale root")
+	if code != 0 {
+		t.Fatalf("= spelling exit %d: %q", code, errS)
+	}
+	p := dgStoredPriority(t, root, cid, "Q-005")
+	if got := objStr(p, "interim"); got != "until finalizeBatch asserts "+
+		"prev:state, commitBatch accepts a stale root" {
+		t.Errorf("interim = %q", got)
+	}
+}
+
+// TestAnsweredCLIDeferredOverride: the deferred rule's escape hatch is the
+// logged override, not a bare flag. A bare --override-dismissal on an
+// asserter-anchored tier-0 row is refused; an override with a reason closes
+// it and records exactly ONE probe.dismissal_overridden — even when the
+// reason also carries dismissal vocabulary (the deferred arm defers to the
+// dismissal gate, which runs after it with the same opts).
+func TestAnsweredCLIDeferredOverride(t *testing.T) {
+	// (1) bare override: refused, the priority is untouched
+	root := mkroot(t)
+	cid := initOne(t, root)
+	t14TestSeed(t, root, cid)
+	dgSeedProbeCampaign(t, root, cid)
+	code, out, errS := run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason",
+		"commitBatch consumes prev:state before the assertion runs",
+		"--anchor", "asserter", "--override-dismissal")
+	if code != 2 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if out != "" {
+		t.Fatalf("stdout = %q", out)
+	}
+	if !strings.Contains(errS,
+		"--override-dismissal needs --override-reason") {
+		t.Fatalf("stderr = %q, want the override-reason refusal", errS)
+	}
+	p := dgStoredPriority(t, root, cid, "Q-005")
+	if got := objStr(p, "status"); got != "open" {
+		t.Fatalf("refused closure changed the status to %q", got)
+	}
+
+	// (2) override with a reason: closes, announces, exactly one event —
+	// with a clean reason AND with a dismissal-vocabulary reason (no double)
+	for i, reason := range []string{
+		"commitBatch consumes prev:state before the assertion runs",
+		"liveness-only, the owner can revert",
+	} {
+		rroot := mkroot(t)
+		rcid := initOne(t, rroot)
+		t14TestSeed(t, rroot, rcid)
+		dgSeedProbeCampaign(t, rroot, rcid)
+		code, out, errS = run(t, "--root", rroot, "answered", rcid, "Q-005",
+			"answered", "--reason", reason, "--anchor", "asserter",
+			"--override-dismissal", "--override-reason",
+			"the operator accepts the interim window in writing for this run",
+			"--actor", "operator")
+		if code != 0 {
+			t.Fatalf("case %d: exit %d: %q", i, code, errS)
+		}
+		if want := "  dismissal overridden: Q-005 logged as " +
+			"probe.dismissal_overridden (actor operator)\n"; !strings.
+			Contains(out, want) {
+			t.Fatalf("case %d: stdout = %q, want the override notice", i, out)
+		}
+		evts := dgEventsOfType(t, rroot, rcid, "probe.dismissal_overridden")
+		if len(evts) != 1 {
+			t.Fatalf("case %d: probe.dismissal_overridden events = %d, "+
+				"want exactly 1", i, len(evts))
+		}
+		data := objAt(evts[0], "data")
+		if got := objStr(data, "row_id"); got != "81dfad6492" {
+			t.Errorf("case %d: row_id = %q", i, got)
+		}
+		if got := objStr(data, "actor"); got != "operator" {
+			t.Errorf("case %d: actor = %q", i, got)
+		}
+		if got := objStr(data, "override_reason"); got !=
+			"the operator accepts the interim window in writing for this run" {
+			t.Errorf("case %d: override_reason = %q", i, got)
+		}
+	}
+}

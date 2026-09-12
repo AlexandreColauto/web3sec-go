@@ -299,6 +299,25 @@ that passes the check, recorded on the priority as its `passes` field. The
 escape hatch is the same signature as above — `--override-dismissal
 --override-reason` closes a sentinel row without a value, logged and
 reviewed exactly like any other override.
+
+**"The check lives elsewhere" is a concession — price the window it opens.**
+The fourth rule in this family runs on a tier-0 row anchored on `asserter`
+(`--anchor asserter`): that anchor concedes the row's own consumer does not
+enforce the check — it is asserted at a later lifecycle stage, and the interim
+window between the two is exactly what the row asks about. Closing such a row
+demands the consequence be priced: `--finding F-xxx` (a filed finding that
+records the window) or `--interim STATEMENT` — a consequence statement that
+cites a symbol from the row's own surface entry ("until `finalizeBatch` runs,
+`prev:state` stays stale in `commitBatch`"); prose that names nothing from the
+row is refused. The statement is recorded on the priority as its `interim`
+field, the finding id as `interim_finding`. The escape hatch is the same
+signature as above — `--override-dismissal --override-reason` — logged and
+reviewed exactly like any other override. Closures recorded before this gate
+existed are swept by `webv2 deferred <C-xxx>`: it lists every tier-0 closure
+whose reason vocabulary implies a failure consequence (`unfinalizable`,
+`stranded`, `frozen`, `revert-forever`, `owner clears`, ...) and prices none
+of it. The sweep reports; it never mutates — the fix is a re-answer.
+
 A separate, unglamorous rule runs on EVERY closure at any tier: a reason or
 `--ref` that names a finding, exec record or invariant must name one that
 exists — `F-1a2b3c4d5e6f` that was never written is refused as fabricated, by
@@ -385,6 +404,7 @@ webv2 plan <C-xxx>                          # READ-ONLY view of the existing pla
 webv2 plan <C-xxx> --rebuild                # archive the outgoing plan to superseded/campaign_plan.NNNN.json, regenerate
 webv2 answered <C-xxx> Q-xxx answered --reason "..." --ref EXEC-xxx   # close a plan priority
 webv2 answered <C-xxx> Q-xxx not-applicable --reason "considered, doesn't apply"
+webv2 deferred <C-xxx> [--json]              # sweep: tier-0 closures that defer the check (anchor asserter / consequence vocabulary) without pricing it — report only
 webv2 ingest <C-xxx> --json-file payload.json [--trajectory T] [--stage S] [--answers-priority Q-xxx]
 webv2 ingest <C-xxx> --from slither --json-file slither.json   # detector lane: every Medium/High/Critical check becomes a HYPOTHESIS with provenance.sast_tools
 webv2 ingest <C-xxx> --from aderyn --json-file aderyn.json     # detector lane (aderyn): every high_issues row becomes a HYPOTHESIS with provenance.sast_tools

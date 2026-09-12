@@ -2,7 +2,8 @@ package cli
 
 // cmd_answered: `webv2 answered <campaign> <priority> [priority ...] <status>
 // [--reason R] [--reason-all R] [--ref R] [--families F] [--symmetry S]
-// [--anchor A] [--actor A]` — set plan priorities' (Q-*) or one lens entry's
+// [--anchor A] [--passes V] [--interim S] [--finding F] [--actor A]` — set
+// plan priorities' (Q-*) or one lens entry's
 // (L-*) status WITH closure provenance. cli.py cmd_answered verbatim for the
 // single-priority shape: closing statuses REQUIRE --reason, L-* ids route to
 // planner.mark_lens, and a probe row's disposition must name its anchor. The
@@ -21,7 +22,8 @@ import (
 
 const t14AnsweredUsage = `usage: webv2 answered [-h] [--reason REASON] [--reason-all REASON] [--ref REF]
                       [--families FAMILIES] [--symmetry SYMMETRY]
-                      [--anchor ANCHOR] [--passes VALUE] [--actor ACTOR]
+                      [--anchor ANCHOR] [--passes VALUE] [--interim STATEMENT]
+                      [--finding FINDING] [--actor ACTOR]
                       [--override-dismissal] [--override-reason OVERRIDE_REASON]
                       campaign priority [priority ...]
                       {open,assigned,answered,not-applicable,deprioritized,blocked}
@@ -29,7 +31,8 @@ const t14AnsweredUsage = `usage: webv2 answered [-h] [--reason REASON] [--reason
 
 const t14AnsweredHelp = `usage: webv2 answered [-h] [--reason REASON] [--reason-all REASON] [--ref REF]
                       [--families FAMILIES] [--symmetry SYMMETRY]
-                      [--anchor ANCHOR] [--passes VALUE] [--actor ACTOR]
+                      [--anchor ANCHOR] [--passes VALUE] [--interim STATEMENT]
+                      [--finding FINDING] [--actor ACTOR]
                       [--override-dismissal] [--override-reason OVERRIDE_REASON]
                       campaign priority [priority ...]
                       {open,assigned,answered,not-applicable,deprioritized,blocked}
@@ -65,6 +68,16 @@ options:
                         express the truth of the value it guards). Required to
                         close a sentinel-form row without an override; recorded
                         on the priority as its "passes" field
+  --interim STATEMENT  tier-0 rows anchored on asserter only (FIX-5): the
+                        deferred-consequence statement pricing the interim
+                        window between the row's consumer and the asserter
+                        that finally applies the check. Must cite a symbol
+                        from the row's own surface entry; recorded on the
+                        priority as its "interim" field
+  --finding FINDING    the other deferred-consequence exit: the id of a filed
+                        finding (F-<12 hex digits>) that records the interim
+                        window; recorded on the priority as its
+                        "interim_finding" field
   --actor ACTOR         who is closing it (default: cli)
   --override-dismissal
                         B4: override the dismissal gate on a high-risk row
@@ -89,6 +102,8 @@ type answeredArgs struct {
 	symmetry          *string
 	anchor            *string
 	passes            *string
+	interim           *string
+	finding           *string
 	actor             string
 	overrideDismissal bool
 	overrideReason    *string
@@ -173,10 +188,21 @@ func answeredFlag(args []string, i int, a *answeredArgs,
 	}
 	// --passes takes a VALUE, so it carries the house looksLikeOption guard
 	// inline: `--passes --anchor consumer` is a missing value, never a value
-	// named "--anchor".
+	// named "--anchor". --interim and --finding (FIX-5) take values the same
+	// way — a statement and a finding id are never spelled like options.
 	if arg == "--passes" && i+1 < len(args) && !looksLikeOption(args[i+1]) {
 		v := args[i+1]
 		a.passes = &v
+		return 1, false, true, nil
+	}
+	if arg == "--interim" && i+1 < len(args) && !looksLikeOption(args[i+1]) {
+		v := args[i+1]
+		a.interim = &v
+		return 1, false, true, nil
+	}
+	if arg == "--finding" && i+1 < len(args) && !looksLikeOption(args[i+1]) {
+		v := args[i+1]
+		a.finding = &v
 		return 1, false, true, nil
 	}
 	if dst, name := answeredDst(a, arg); dst != nil {
@@ -194,6 +220,14 @@ func answeredFlag(args []string, i int, a *answeredArgs,
 	if arg == "--passes" {
 		return 0, false, true, t14ArgparseErr(t14AnsweredUsage,
 			"answered", "argument --passes: expected one argument")
+	}
+	if arg == "--interim" {
+		return 0, false, true, t14ArgparseErr(t14AnsweredUsage,
+			"answered", "argument --interim: expected one argument")
+	}
+	if arg == "--finding" {
+		return 0, false, true, t14ArgparseErr(t14AnsweredUsage,
+			"answered", "argument --finding: expected one argument")
 	}
 	if strings.HasPrefix(arg, "-") {
 		return 0, false, true, t14Unrecognized(arg)
@@ -232,6 +266,7 @@ func answeredEq(a *answeredArgs, arg string) (bool, error) {
 		{"--ref", &a.ref},
 		{"--families", &a.families}, {"--symmetry", &a.symmetry},
 		{"--anchor", &a.anchor}, {"--passes", &a.passes},
+		{"--interim", &a.interim}, {"--finding", &a.finding},
 		{"--override-reason", &a.overrideReason},
 	} {
 		if strings.HasPrefix(arg, f.name+"=") {
@@ -441,7 +476,8 @@ func answeredPriority(c *state.Campaign, a *answeredArgs, closing bool,
 	overrideLogged := false
 	updated, err := planner.MarkAnswered(c, plan, a.priority, a.status,
 		planner.AnsweredOpts{Reason: a.reason, Ref: a.ref, Actor: actor,
-			Anchor: a.anchor, PassesValue: a.passes,
+			Anchor: a.anchor, PassesValue: a.passes, Interim: a.interim,
+			Finding:           a.finding,
 			OverrideDismissal: a.overrideDismissal,
 			OverrideReason:    a.overrideReason, OverrideLogged: &overrideLogged})
 	if err != nil {
@@ -525,7 +561,8 @@ func answeredBatch(c *state.Campaign, a *answeredArgs, closing bool,
 	for i, pid := range a.priorities {
 		rows[i] = planner.AnsweredRow{PriorityID: pid, Outcome: a.status,
 			Opts: planner.AnsweredOpts{Ref: a.ref, Actor: actor,
-				Anchor: a.anchor, PassesValue: a.passes,
+				Anchor: a.anchor, PassesValue: a.passes, Interim: a.interim,
+				Finding:           a.finding,
 				OverrideDismissal: a.overrideDismissal,
 				OverrideReason:    a.overrideReason,
 				OverrideLogged:    &logged[i]}}

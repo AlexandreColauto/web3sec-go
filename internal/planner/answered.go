@@ -22,7 +22,19 @@ type AnsweredOpts struct {
 	// the root). Closing such a row without naming it is refused unless the
 	// disposition takes the explicit, logged override. Nil when --passes was
 	// not given; the value is recorded on the priority as `passes`.
-	PassesValue       *string
+	PassesValue *string
+	// Interim is FIX-5: for a high-risk probe row anchored on asserter (the
+	// v1 deferred-consequence trigger — the closure concedes the row's check
+	// is asserted elsewhere), the consequence statement that prices the
+	// interim window. It must cite a symbol from the row's own surface entry
+	// (the v3 citation rule). Nil when --interim was not given; the statement
+	// is recorded on the priority as `interim`.
+	Interim *string
+	// Finding is FIX-5: the other deferred-consequence exit — the id of a
+	// filed finding (F-<12 hex>) that records the interim window. Nil when
+	// --finding was not given; the id is recorded on the priority as
+	// `interim_finding`.
+	Finding           *string
 	OverrideDismissal bool
 	OverrideReason    *string
 	// OverrideLogged is an OUT parameter: the gates that record a
@@ -89,11 +101,13 @@ type answeredGateOut struct {
 }
 
 // runAnsweredGates is the ONE gate runner behind both MarkAnswered and the
-// batch pre-flight: lookup → checkAnchorless → checkCitedRecords →
-// resolveAnchor → the dismissal gate. Structural sharing, not a parity
+// batch pre-flight: lookup → checkAnchorless → checkSentinelPassesRow →
+// checkCitedRecords → resolveAnchor → the deferred-consequence gate (FIX-5) →
+// the dismissal gate. Structural sharing, not a parity
 // comment: a new gate added here applies to both callers, so the pre-flight
 // cannot drift from apply. dry selects the recording gates' dry form —
-// checkDismissalGateInner(..., dry=true) and the sentinel rule's override arm
+// checkDismissalGateInner(..., dry=true), the sentinel rule's override arm
+// and the deferred-consequence rule's override arm
 // validate an override without recording it (pre-flight), dry=false records
 // it (apply). The single-row
 // event/apply semantics live in MarkAnswered, which is the only caller with
@@ -152,6 +166,18 @@ func runAnsweredGates(campaign *state.Campaign, plan validation.Value,
 		out.anchorSet = true
 	}
 	out.ref = ref
+	// FIX-5, next to the dismissal gate and from the same operator feedback:
+	// a high-risk row anchored on asserter has conceded that the row's check
+	// lives elsewhere — the closure has to price the interim window (a filed
+	// finding or a consequence statement citing the row's own entry) or take
+	// the logged override. It runs after resolveAnchor so a malformed anchor
+	// is answered as one, and before the dismissal gate so the override
+	// dedupe points the same way the sentinel arm's does: the LATER gate
+	// records the shared event.
+	if err := checkDeferredConsequenceRow(campaign, priorityID, outcome,
+		prov, hasProv, opts, dry); err != nil {
+		return out, err
+	}
 	if err := checkDismissalGateInner(campaign, priorityID, outcome, prov,
 		hasProv, opts, dry); err != nil {
 		return out, err
@@ -180,6 +206,21 @@ func closePriority(p validation.Value, opts AnsweredOpts, ref *string,
 		p.O = validation.SetOrAppend(p.O, "passes",
 			validation.VStr(*opts.PassesValue))
 	}
+	// The deferred-consequence pricing is part of the closure record, the
+	// same way passes is: the interim statement, and the finding id that
+	// records the window. A statement too short to be one, or a value that is
+	// not a finding id, is not recorded (the rule refuses it where it
+	// matters, and the schema pins the shape for the plan).
+	if opts.Interim != nil &&
+		len(strings.TrimSpace(*opts.Interim)) >= 3 {
+		p.O = validation.SetOrAppend(p.O, "interim",
+			validation.VStr(*opts.Interim))
+	}
+	if opts.Finding != nil &&
+		findingRefPattern.MatchString(strings.TrimSpace(*opts.Finding)) {
+		p.O = validation.SetOrAppend(p.O, "interim_finding",
+			validation.VStr(strings.TrimSpace(*opts.Finding)))
+	}
 	if anchorSet {
 		prov, _ := probeProvenance(p)
 		prov.O = validation.SetOrAppend(prov.O, "anchor", anchorRec)
@@ -191,7 +232,7 @@ func closePriority(p validation.Value, opts AnsweredOpts, ref *string,
 // reopenPriority drops the closure provenance and any recorded probe anchor.
 func reopenPriority(p validation.Value) validation.Value {
 	for _, k := range []string{"closed_reason", "closed_ref", "closed_at",
-		"closed_by", "passes"} {
+		"closed_by", "passes", "interim", "interim_finding"} {
 		p.O = dropKey(p.O, k)
 	}
 	if prov, ok := probeProvenance(p); ok {
@@ -212,6 +253,16 @@ func statusData(outcome string, opts AnsweredOpts, ref *string, anchorSet bool,
 	)
 	if anchorSet {
 		data.O = validation.SetOrAppend(data.O, "anchor", anchorRec)
+	}
+	// FIX-5: the deferred-consequence pricing rides the event when it was
+	// given, so the log carries what the closure rested on.
+	if opts.Interim != nil {
+		data.O = validation.SetOrAppend(data.O, "interim",
+			validation.VStr(*opts.Interim))
+	}
+	if opts.Finding != nil {
+		data.O = validation.SetOrAppend(data.O, "interim_finding",
+			validation.VStr(*opts.Finding))
 	}
 	return data
 }

@@ -556,3 +556,325 @@ func overrideSentinelPasses(campaign *state.Campaign, priorityID string,
 	}
 	return nil
 }
+
+// ---------------------------------------------------------------------------
+// FIX-5: the deferred-consequence gate. The operator's G-01 post-mortem: the
+// probe asked whether commitBatch verifies prev:state itself and offered
+// asserter as a legal anchor — so "the check lives elsewhere" became a
+// sanctioned answer shape. But the gold bug lived INSIDE that shape: the
+// check exists, it is asserted at the wrong lifecycle stage, and the interim
+// window is exploitable. The framework accepted the disposition while it
+// contained the tell (the words "unfinalizable") and never asked the operator
+// to price that consequence.
+//
+// The gate: a high-risk row (tier 0 / assertion_gap >= 3 — the dismissal
+// gate's own predicate) closed on the asserter anchor — the v1 trigger, the
+// one anchor whose value is "asserted elsewhere" by construction — must price
+// the window: --finding F-<id> (a filed finding that records it) or --interim
+// STATEMENT, a consequence statement that cites the row's own surface entry
+// (the v3 citation muscle: prose that names nothing from the row is refused).
+// The family escape hatch (--override-dismissal + --override-reason, logged
+// as probe.dismissal_overridden) stays the only way around it.
+//
+// The second half is the reverse sweep: closures recorded BEFORE this gate
+// existed whose reason vocabulary implies a failure consequence are flagged
+// by `webv2 deferred` — a report, never a mutation.
+// ---------------------------------------------------------------------------
+
+// deferredAnchor is the v1 trigger value: --anchor asserter. The anchor enum
+// resolves it to the row's asserter (the function that DOES carry the
+// assertion), so a closure anchored on it has, by construction, conceded that
+// the row's own consumer does not enforce the check.
+const deferredAnchor = "asserter"
+
+// findingRefPattern is the exact shape --finding accepts: one finding id,
+// nothing else. ghostCitation extracts ids from prose; --finding IS the
+// citation, so it must be the id itself.
+var findingRefPattern = regexp.MustCompile(`^F-[0-9a-f]{12}$`)
+
+// checkDeferredConsequence is the FIX-5 row rule: a closing disposition of a
+// high-risk row anchored on asserter must price the interim window — the
+// stage gap between the row's consumer (which runs without the check) and the
+// asserter (which finally applies it). Either a filed finding that records
+// the window, or a consequence statement citing the row's own surface entry.
+// The family escape hatch (--override-dismissal with --override-reason) stays
+// the only way around it — see overrideDeferredConsequence.
+func checkDeferredConsequence(campaign *state.Campaign, head string,
+	row validation.Value, opts AnsweredOpts) error {
+	syms := RowSymbols(row)
+	// (b) first: a filed finding that records the window. A malformed or
+	// ghost --finding is answered AS one — the ghost-citation duty outranks
+	// the acceptance it rides in on.
+	if opts.Finding != nil {
+		ref := strings.TrimSpace(*opts.Finding)
+		if !findingRefPattern.MatchString(ref) {
+			return errValue(head + ": --finding " +
+				validation.PyReprStr(*opts.Finding) + " is not a finding id " +
+				"(F-<12 hex digits>) — pass the id of a filed finding, or " +
+				"--interim STATEMENT, or override explicitly: " +
+				"--override-dismissal --override-reason R")
+		}
+		if _, err := os.Stat(filepath.Join(campaign.FindingsDir,
+			ref+".json")); err != nil {
+			return errValue(head + ": --finding " + ref + " does not exist " +
+				"in this campaign — a disposition may rest on a real filed " +
+				"finding, never on a citation that was invented or mistyped. " +
+				"File it first, or pass --interim STATEMENT, or override " +
+				"explicitly: --override-dismissal --override-reason R")
+		}
+		return nil
+	}
+	// (a) the interim statement: the consequence priced in prose, citing the
+	// row's own surface entry (the v3 citation muscle). A row that carries no
+	// symbols at all is exempt from the citation demand by construction (see
+	// RowSymbols) — the rule exists to make the window checkable, not to make
+	// the row unclosable; --finding and the logged override stay open either
+	// way.
+	if opts.Interim != nil {
+		if namesSymbol(*opts.Interim, syms) != "" || len(syms) == 0 {
+			return nil
+		}
+		return errValue(head + ": --interim names nothing from the row's own " +
+			"surface entry, so the consequence it describes cannot be checked " +
+			"against the code. Quote the code the interim window lives in (" +
+			strings.Join(syms, ", ") + "), or pass --finding F-<id> " +
+			"(a filed finding that records the window), or override " +
+			"explicitly: --override-dismissal --override-reason R")
+	}
+	// neither exit was taken: the consequence goes unpriced
+	where := objStr(row, "asserter")
+	if where == "" {
+		where = "a later lifecycle stage"
+	}
+	consumer := objStr(row, "consumer")
+	consumerPhrase := ""
+	if consumer != "" {
+		consumerPhrase = ", not enforced by the row's own consumer (" +
+			consumer + ")"
+	}
+	symbolsPhrase := ""
+	if len(syms) > 0 {
+		symbolsPhrase = " — a consequence statement citing the row's own " +
+			"surface entry (" + strings.Join(syms, ", ") + ")"
+	}
+	return errValue(head + ": the closure anchors on asserter — the row's " +
+		"check is asserted at " + where + consumerPhrase + ", so the " +
+		"enforcement is DEFERRED to a later lifecycle stage and the interim " +
+		"window between the two is exactly what the row asks about. Price " +
+		"the consequence: --finding F-<id> (a filed finding that records the " +
+		"window) or --interim STATEMENT" + symbolsPhrase +
+		" — or override explicitly: --override-dismissal --override-reason R")
+}
+
+// checkDeferredConsequenceRow is the closure-seam half of FIX-5, shaped like
+// checkSentinelPassesRow: it resolves the surface row the disposition points
+// at and applies the rule to it. A probe disposition whose surface row cannot
+// be resolved (no surface, or the row was re-emitted away) is skipped — a row
+// nobody can look up must never become unclosable, and the anchor path above
+// already reports a missing surface more usefully. The family escape hatch
+// (--override-dismissal) answers a refusal here under the dismissal gate's
+// own contract, never as a bare flag: the override carries its justification
+// and is recorded as probe.dismissal_overridden (see
+// overrideDeferredConsequence).
+func checkDeferredConsequenceRow(campaign *state.Campaign, priorityID,
+	outcome string, prov validation.Value, hasProv bool, opts AnsweredOpts,
+	dry bool) error {
+	if !hasProv || !inList(outcome, ProbeRowDispositioned) {
+		return nil
+	}
+	if opts.Anchor == nil || *opts.Anchor != deferredAnchor {
+		// the v1 trigger: only the asserter anchor defers the check
+		return nil
+	}
+	surface, err := PB().CampaignSurface(campaign)
+	if err != nil {
+		return err
+	}
+	if surface == nil {
+		return nil
+	}
+	row, ok := findRow(*surface, objStr(prov, "row_id"))
+	if !ok || !HighRiskRow(row) {
+		return nil
+	}
+	head := "priority " + priorityID + " (probe row " + objStr(prov, "row_id") +
+		", tier " + strconv.FormatInt(rowInt(row, "tier"), 10) +
+		", assertion_gap " +
+		strconv.FormatInt(rowInt(row, "assertion_gap"), 10) + ")"
+	err = checkDeferredConsequence(campaign, head, row, opts)
+	if err == nil || !opts.OverrideDismissal {
+		return err
+	}
+	return overrideDeferredConsequence(campaign, priorityID, row,
+		objStr(prov, "row_id"), outcome, opts, dry)
+}
+
+// overrideDeferredConsequence is the deferred-consequence rule's override
+// arm: the same contract checkDismissalGateInner applies on a high-risk row —
+// the override carries its own justification, and the decision is recorded as
+// probe.dismissal_overridden with the same provenance (row, tier, gap, actor,
+// phrases, both reasons). dry (the batch pre-flight) validates the
+// justification but records nothing, so a refused batch leaves zero events
+// behind. One closure, one override event: on a high-risk row with a closure
+// reason the dismissal gate — which runs after this gate in runAnsweredGates,
+// with the same opts — records the identical event, so this arm stays silent
+// there and lets it (the dedupe the sentinel rule's override arm uses); on a
+// sentinel-form row closed as answered/not-applicable the sentinel arm has
+// ALREADY recorded the event (it runs first), so this arm stays silent there
+// too.
+func overrideDeferredConsequence(campaign *state.Campaign, priorityID string,
+	row validation.Value, rowID, outcome string, opts AnsweredOpts,
+	dry bool) error {
+	head := "priority " + priorityID + " (probe row " + rowID +
+		", tier " + strconv.FormatInt(rowInt(row, "tier"), 10) +
+		", assertion_gap " +
+		strconv.FormatInt(rowInt(row, "assertion_gap"), 10) + ")"
+	if opts.OverrideReason == nil ||
+		strings.TrimSpace(*opts.OverrideReason) == "" {
+		return errValue(head + ": --override-dismissal needs " +
+			"--override-reason — the justification is logged with the " +
+			"override (probe.dismissal_overridden)")
+	}
+	if opts.Reason != nil {
+		// the dismissal gate records the event — see the comment above.
+		return nil
+	}
+	if objStr(row, "own_form") == "sentinel" &&
+		inList(outcome, []string{"answered", "not-applicable"}) {
+		// the sentinel rule's override arm already recorded this closure's
+		// override — see the comment above.
+		return nil
+	}
+	phrasesV := validation.VArr()
+	data := validation.VObj(
+		kv("row_id", validation.VStr(rowID)),
+		kv("tier", validation.VInt(rowInt(row, "tier"))),
+		kv("assertion_gap", validation.VInt(rowInt(row, "assertion_gap"))),
+		kv("actor", validation.VStr(actorOr(opts.Actor))),
+		kv("phrases", phrasesV),
+		kv("override_reason", validation.VStr(*opts.OverrideReason)),
+		kv("closed_reason", optStr(opts.Reason)),
+	)
+	if dry {
+		// Pre-flight: the override is valid, but recording it is the
+		// apply pass's job — a refused batch must leave zero events.
+		if opts.OverrideLogged != nil {
+			*opts.OverrideLogged = true
+		}
+		return nil
+	}
+	if _, err := campaign.Log("probe.dismissal_overridden", &priorityID,
+		&data); err != nil {
+		return err
+	}
+	if opts.OverrideLogged != nil {
+		*opts.OverrideLogged = true
+	}
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// FIX-5, second half: the reverse sweep. Closures recorded before the gate
+// existed (or through its override) can still carry the tell: a tier-0
+// closure whose reason vocabulary implies a failure consequence — the row
+// stays unfinalizable, funds strand, the pool freezes — priced as if the
+// consequence were someone else's problem. The sweep lists them and demands
+// the re-answer (a finding ref or an --interim statement); it REPORTS, it
+// never mutates.
+// ---------------------------------------------------------------------------
+
+// DeferredConsequenceTokens is the sweep vocabulary: whole-word tokens that,
+// in a high-risk closure's reason, describe what happens if the deferred
+// check never runs — the exact tell the G-01 disposition carried.
+var DeferredConsequenceTokens = []string{
+	"unfinalizable", "strand", "stranded", "freeze", "frozen",
+	"revert-forever", "permanently revert", "owner-clears", "owner clears",
+}
+
+// deferredTokenRes compiles the vocabulary once: whole-word (a token inside a
+// larger word is prose, not the tell), case-insensitive, in table order.
+var deferredTokenRes = func() []*regexp.Regexp {
+	out := make([]*regexp.Regexp, len(DeferredConsequenceTokens))
+	for i, tok := range DeferredConsequenceTokens {
+		out[i] = regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(tok) + `\b`)
+	}
+	return out
+}()
+
+// DeferredHits scans a reason for the sweep vocabulary (whole-word,
+// case-insensitive) and returns the tokens that hit, in table order
+// ([] when clean).
+func DeferredHits(reason string) []string {
+	hits := []string{}
+	for i, re := range deferredTokenRes {
+		if re.MatchString(reason) {
+			hits = append(hits, DeferredConsequenceTokens[i])
+		}
+	}
+	return hits
+}
+
+// DeferredFlag is one flagged closure of the reverse sweep: a high-risk row
+// dispositioned on failure-consequence vocabulary with no interim pricing.
+type DeferredFlag struct {
+	Priority string
+	RowID    string
+	Tier     int64
+	Gap      int64
+	Reason   string
+	Tokens   []string
+}
+
+// DeferredConsequenceReview is the FIX-5 reverse sweep: every dispositioned
+// probe row whose closure reason uses the failure-consequence vocabulary on a
+// high-risk row and that records no interim pricing (no interim statement, no
+// interim_finding — the two exits the gate now demands). It REPORTS — it
+// never mutates: the closures it lists were recorded before the gate existed,
+// and the fix is a re-answer, which only the operator can make. Rows that
+// cannot be resolved against the current surface (the surface was re-emitted
+// after the closure) are skipped — the risk rank is the surface's, not the
+// plan's.
+func DeferredConsequenceReview(campaign *state.Campaign,
+	plan validation.Value) ([]DeferredFlag, error) {
+	surface, err := PB().CampaignSurface(campaign)
+	if err != nil {
+		return nil, err
+	}
+	flags := []DeferredFlag{}
+	for _, p := range listOf(plan, "priorities") {
+		prov, hasProv := probeProvenance(p)
+		if !hasProv ||
+			!inList(objStr(p, "status"), ProbeRowDispositioned) {
+			continue
+		}
+		reason := objStr(p, "closed_reason")
+		if reason == "" {
+			continue
+		}
+		// already priced: an interim statement or a finding ref recorded on
+		// the priority is the fix this sweep asks for
+		if hasKey(p, "interim") || hasKey(p, "interim_finding") {
+			continue
+		}
+		tokens := DeferredHits(reason)
+		if len(tokens) == 0 {
+			continue
+		}
+		if surface == nil {
+			continue
+		}
+		row, ok := findRow(*surface, objStr(prov, "row_id"))
+		if !ok || !HighRiskRow(row) {
+			continue
+		}
+		flags = append(flags, DeferredFlag{
+			Priority: objStr(p, "id"),
+			RowID:    objStr(prov, "row_id"),
+			Tier:     rowInt(row, "tier"),
+			Gap:      rowInt(row, "assertion_gap"),
+			Reason:   reason,
+			Tokens:   tokens,
+		})
+	}
+	return flags, nil
+}

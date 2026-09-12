@@ -394,8 +394,8 @@
     "size": 21805
    },
    "RUNBOOK.md": {
-    "sha256": "047e6de4ff0a6eccdaf525f5bea299982f05a81f24b0101a07600b630520a3e8",
-    "size": 89572
+    "sha256": "2e02af6ce28ff1df6dc07ea1e9c6c7223861e6c589bdac9ae8a725d0791d7ccb",
+    "size": 91043
    }
   },
   "schema": {
@@ -412,8 +412,8 @@
     "size": 7642
    },
    "campaign_plan.schema.json": {
-    "sha256": "25128d82edfc2cbf6148bccb280333ab7449fa1736379908c70ee58dd63f7eba",
-    "size": 8983
+    "sha256": "ecbb86c501344464dc3d807d3233b2183721bf2948a03b1ed17bc43b4310b886",
+    "size": 9419
    },
    "campaign_state.schema.json": {
     "sha256": "31629599835d792d3f8fd8c7481dc883891fe53a87e457d1e9e69cd7203f79f2",

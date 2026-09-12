@@ -130,8 +130,13 @@ func TestReportRendersTheMechanicalCandidateSurface(t *testing.T) {
 	}
 	reason := "the asserter is not authoritative for batch:index in commitBatch"
 	anchor := "asserter"
+	// FIX-5: an asserter-anchored tier-0 closure prices the interim window —
+	// the statement cites the row's own surface entry
+	interim := "until finalizeBatch asserts batch:index, commitBatch " +
+		"accepts a stale root"
 	plan, err = planner.MarkAnswered(c, plan, pid, "not-applicable",
-		planner.AnsweredOpts{Reason: &reason, Anchor: &anchor, Actor: "pytest"})
+		planner.AnsweredOpts{Reason: &reason, Anchor: &anchor,
+			Interim: &interim, Actor: "pytest"})
 	if err != nil {
 		t.Fatal(err)
 	}
