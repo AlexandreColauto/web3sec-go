@@ -177,8 +177,9 @@ func TestSinksStampIsIdempotent(t *testing.T) {
 		t.Fatalf("recon keys = %s", validation.CanonCompact(recon))
 	}
 	stamp := objAt(recon, "sinks")
-	if len(stamp.O) != 2 || objStr(stamp, "src") != tree ||
-		objStr(stamp, "at") == "" {
+	if len(stamp.O) != 3 || objStr(stamp, "src") != tree ||
+		objStr(stamp, "at") == "" ||
+		objStr(stamp, "campaign_id") != cid {
 		t.Fatalf("sinks stamp = %s", validation.CanonCompact(stamp))
 	}
 	// and the gate helper reads the same row

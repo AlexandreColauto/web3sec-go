@@ -315,7 +315,19 @@ func MarkLens(campaign *state.Campaign, plan validation.Value, lensID,
 					return validation.VNull(), err
 				}
 				if opts.Reconcile != nil {
-					opts.Reconcile = &validated
+					// FIX-C: only a fresh spec that validated to >0 records
+					// overwrites the stored reconciliation. A fresh spec
+					// that validates to nothing (a blank --reconcile the CLI
+					// now refuses, or a library caller passing an empty
+					// list) passed coverage ON the stored records — recording
+					// it would then wipe them for zero records. The stored
+					// reconciliation stays until a fresh, validated
+					// attestation replaces it.
+					if len(validated) > 0 {
+						opts.Reconcile = &validated
+					} else {
+						opts.Reconcile = nil
+					}
 				}
 			}
 			lenses.A[i] = markLensEntry(l, outcome, closing, actor, opts)

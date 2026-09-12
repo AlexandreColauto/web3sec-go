@@ -501,3 +501,98 @@ func TestValidateReconcileRecordMalformed(t *testing.T) {
 		t.Fatalf("malformed record reason = %q", got)
 	}
 }
+
+// TestLensReconciliationTerminalFinding pins FIX-C: the finding exit
+// attaches a divergence to a LIVE finding, the same rule --finding applies.
+// A terminal finding (its recorded status named in the refusal) reconciles
+// nothing; a live one is accepted and recorded.
+func TestLensReconciliationTerminalFinding(t *testing.T) {
+	withProbes(t, probeEnv{surface: reconSurfacePtr(t, reconRowJSON)})
+	c := newCampaign(t, "recon-terminal")
+	reconOnRecord(t, c)
+	plan, err := DefaultPlanFromModel(c, validation.VObj())
+	if err != nil {
+		t.Fatalf("default plan: %v", err)
+	}
+	if err := os.MkdirAll(c.FindingsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	terminal := "F-222222222222"
+	if err := os.WriteFile(filepath.Join(c.FindingsDir, terminal+".json"),
+		[]byte(`{"finding_id":"`+terminal+`","status":"DISPROVED"}`),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err = MarkLens(c, plan, "L-04", "answered", LensOpts{
+		Reason:    strPtr("the mismatch is filed as a finding"),
+		Actor:     "operator",
+		Reconcile: reconSpec(t, "divrow1="+terminal)})
+	if err == nil || !strings.Contains(err.Error(), terminal) ||
+		!strings.Contains(err.Error(), "DISPROVED") {
+		t.Fatalf("terminal finding must be refused with its status: %v", err)
+	}
+	// negative control: the refusal is a decision that did not happen
+	l := reconLens(t, plan, "L-04")
+	if got := objStr(l, "status"); got != "open" {
+		t.Fatalf("refused attestation changed the status to %q", got)
+	}
+	if hasKey(l, "reconciliation") {
+		t.Fatalf("refused attestation recorded a reconciliation")
+	}
+
+	// a live finding with the same shape passes and is recorded
+	live := "F-333333333333"
+	if err := os.WriteFile(filepath.Join(c.FindingsDir, live+".json"),
+		[]byte(`{"finding_id":"`+live+`","status":"TRIAGED"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	plan, err = MarkLens(c, plan, "L-04", "answered", LensOpts{
+		Reason:    strPtr("the mismatch is filed as a finding"),
+		Actor:     "operator",
+		Reconcile: reconSpec(t, "divrow1="+live)})
+	if err != nil {
+		t.Fatalf("live finding refused: %v", err)
+	}
+	recs := listOf(reconLens(t, plan, "L-04"), "reconciliation")
+	if len(recs) != 1 || objStr(recs[0], "finding") != live {
+		t.Fatalf("recorded finding = %s", validation.CanonCompact(
+			objAt(reconLens(t, plan, "L-04"), "reconciliation")))
+	}
+}
+
+// TestLensReconciliationEmptySpecKeepsStored pins FIX-C: a fresh spec that
+// validates to zero records never overwrites the stored reconciliation. The
+// CLI refuses a blank --reconcile at the parse layer; this pins the
+// library-level guard in mark_lens (a caller passing an empty list).
+func TestLensReconciliationEmptySpecKeepsStored(t *testing.T) {
+	withProbes(t, probeEnv{surface: reconSurfacePtr(t, reconRowJSON)})
+	c := newCampaign(t, "recon-empty-spec")
+	reconOnRecord(t, c)
+	plan, err := DefaultPlanFromModel(c, validation.VObj())
+	if err != nil {
+		t.Fatalf("default plan: %v", err)
+	}
+	reason := strPtr("the drop path's payout is funded by the burned deposits")
+	plan, err = MarkLens(c, plan, "L-04", "answered", LensOpts{Reason: reason,
+		Actor: "operator", Reconcile: reconSpec(t, reconGoodSpec)})
+	if err != nil {
+		t.Fatalf("first attestation: %v", err)
+	}
+	// the L-04 attestation is RE-ATTESTED with an empty fresh spec: it passes
+	// coverage on the stored record — and must leave the stored record alone
+	empty := ""
+	plan, err = MarkLens(c, plan, "L-04", "answered", LensOpts{Reason: reason,
+		Actor: "operator", Reconcile: reconSpec(t, empty)})
+	if err != nil {
+		t.Fatalf("empty-spec re-attestation refused: %v", err)
+	}
+	recs := listOf(reconLens(t, plan, "L-04"), "reconciliation")
+	if len(recs) != 1 {
+		t.Fatalf("empty spec wiped the stored reconciliation: %d records left",
+			len(recs))
+	}
+	if got := objStr(recs[0], "row_id"); got != "divrow1" {
+		t.Fatalf("stored record changed: %s",
+			validation.CanonCompact(recs[0]))
+	}
+}

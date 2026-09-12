@@ -11,8 +11,12 @@ package planner
 // mechanical recon be ON RECORD first. Two stamps, both cheap by design:
 // the prescreen artifact (which already carries its snapshot_id — reused,
 // not duplicated) and the sinks run stamp the verb itself writes into the
-// campaign state (state.recon.sinks). The refusal names the exact runnable
-// commands; there is no escape hatch, because recon is cheap.
+// campaign state (state.recon.sinks). FIX-C binds the stamps to their
+// evidence — the prescreen's snapshot_id against the campaign's active pin,
+// each stamp's campaign id against the campaign being closed, and the two
+// verbs' src against each other (one attestation, one tree) — because a
+// stamp nobody binds is a stamp anybody can claim. The refusal names the
+// exact runnable commands; there is no escape hatch, because recon is cheap.
 
 import (
 	"path/filepath"
@@ -33,27 +37,87 @@ const prescreenFile = "archetype_prescreen.json"
 // attestation. It refuses — before any mutation — when the campaign has no
 // prescreen snapshot (artifacts/archetype_prescreen.json carrying a
 // snapshot_id) or no recorded sinks run (state.recon.sinks), naming the
-// runnable command for each missing stamp. The demand is unconditional:
-// recon is cheap by design, so skipping it is never the honest exit.
+// runnable command for each missing stamp. FIX-C binds the stamps to their
+// evidence: a prescreen whose snapshot_id is not the campaign's active pin
+// (the same staleness comparison runPrescreen itself makes) is refused — a
+// stale prescreen is rows the current pin never screened; a sinks stamp that
+// names a different campaign (the state file is operator-writable — these
+// gates stop laziness, not forgery) or that predates the campaign binding is
+// refused; and when both verbs stamped their src, the two recon runs must
+// have seen the SAME tree — the attestation reconciles divergence rows the
+// backward slice and the prescreen read together, so a sinks run over a
+// different tree than the prescreen's is not the recon this attestation
+// covers. The demand is unconditional: recon is cheap by design, so skipping
+// it is never the honest exit.
 func checkReconStamps(campaign *state.Campaign) error {
 	var missing, commands []string
-	if !prescreenSnapshotOnRecord(campaign) {
+	prescreenCmd := "webv2 prescreen " + campaign.CampaignID + " --src SRC"
+	sinksCmd := "webv2 sinks " + campaign.CampaignID + " --src SRC"
+	// prescreen half: the artifact must exist, carry its snapshot_id, and
+	// that id must be the campaign's active pin (when one is pinned) — the
+	// staleness check runPrescreen itself applies.
+	sid, sidOK := prescreenSnapshotOnRecord(campaign)
+	active, err := campaign.ActiveSnapshotIDOrNone()
+	if err != nil {
+		return err
+	}
+	if !sidOK {
 		missing = append(missing, "no archetype prescreen on record "+
 			"(artifacts/"+prescreenFile+" is missing, unreadable or "+
 			"carries no snapshot_id)")
-		commands = append(commands,
-			"webv2 prescreen "+campaign.CampaignID+" --src SRC")
+		commands = append(commands, prescreenCmd)
+	} else if active != nil && sid != *active {
+		missing = append(missing, "the archetype prescreen on record is from "+
+			"snapshot "+sid+", not the active pin "+*active+" — re-pinning "+
+			"invalidated it, and an attestation over rows a stale prescreen "+
+			"never saw is prose")
+		commands = append(commands, prescreenCmd)
 	}
+	// sinks half: the stamp must exist, name the tree and the clock it ran
+	// under, and name THIS campaign — a stamp without a campaign binding (a
+	// pre-FIX-C stamp) or copied from another campaign's state is not this
+	// campaign's recon.
 	sinks, err := campaign.ReconStamp("sinks")
 	if err != nil {
 		return err
 	}
-	if sinks.Kind != validation.Obj || objStr(sinks, "src") == "" ||
-		objStr(sinks, "at") == "" {
+	sinksOK := false
+	switch {
+	case sinks.Kind != validation.Obj || objStr(sinks, "src") == "" ||
+		objStr(sinks, "at") == "":
 		missing = append(missing, "no `webv2 sinks` run on record "+
 			"(the campaign state carries no recon.sinks stamp)")
-		commands = append(commands,
-			"webv2 sinks "+campaign.CampaignID+" --src SRC")
+		commands = append(commands, sinksCmd)
+	case objStr(sinks, "campaign_id") == "":
+		missing = append(missing, "the `webv2 sinks` stamp on record does "+
+			"not name the campaign it ran under, so it cannot be bound to "+
+			"this campaign (a stamp written before the campaign binding "+
+			"existed)")
+		commands = append(commands, sinksCmd)
+	case objStr(sinks, "campaign_id") != campaign.CampaignID:
+		missing = append(missing, "the `webv2 sinks` stamp on record names "+
+			"campaign "+objStr(sinks, "campaign_id")+", not this campaign ("+
+			campaign.CampaignID+") — the stamp was not run here")
+		commands = append(commands, sinksCmd)
+	default:
+		sinksOK = true
+	}
+	// same-tree assumption: when a prescreen snapshot exists and the
+	// prescreen verb stamped its src, the sinks run must have seen the same
+	// tree — one attestation, one tree.
+	if sidOK && sinksOK {
+		pre, err := campaign.ReconStamp("prescreen")
+		if err != nil {
+			return err
+		}
+		if preSrc := objStr(pre, "src"); preSrc != "" &&
+			preSrc != objStr(sinks, "src") {
+			missing = append(missing, "the recon runs disagree about the "+
+				"tree: `webv2 sinks` ran over "+objStr(sinks, "src")+
+				", the prescreen over "+preSrc+" — the L-04 attestation "+
+				"reconciles divergence rows both recon runs read together")
+			commands = append(commands, prescreenCmd, sinksCmd)
+		}
 	}
 	if len(missing) == 0 {
 		return nil
@@ -62,22 +126,25 @@ func checkReconStamps(campaign *state.Campaign) error {
 		"divergence rows, but this campaign has no recorded recon to " +
 		"attest over — " + strings.Join(missing, "; ") + ". The gate " +
 		"reads the mechanical recon, never the operator's memory, and " +
-		"recon is cheap by design: run the missing recon over the " +
+		"recon is cheap by design: run the owed recon over the " +
 		"campaign's source tree, then re-attest:\n  " +
 		strings.Join(commands, "\n  "))
 }
 
-// prescreenSnapshotOnRecord reports whether the prescreen artifact exists
-// and carries the snapshot_id it was built from (prescreen stamps its
-// snapshot in the report — reused here, never duplicated).
-func prescreenSnapshotOnRecord(campaign *state.Campaign) bool {
+// prescreenSnapshotOnRecord reads the prescreen artifact's snapshot_id: ""
+// when the artifact is missing, unreadable or carries no snapshot_id —
+// absence is exactly the state the gate must refuse on. The id itself is the
+// staleness binding (prescreen stamps its snapshot in the report — reused
+// here, never duplicated).
+func prescreenSnapshotOnRecord(campaign *state.Campaign) (string, bool) {
 	p := filepath.Join(campaign.ArtifactsDir, prescreenFile)
-	// A missing or corrupt prescreen is not a prescreen: absence is exactly
-	// the state the gate must refuse on.
 	rep, err := validation.ReadJson(p)
 	if err != nil {
-		return false
+		return "", false
 	}
 	sid := objAt(rep, "snapshot_id")
-	return sid.Kind == validation.Str && sid.S != ""
+	if sid.Kind != validation.Str || sid.S == "" {
+		return "", false
+	}
+	return sid.S, true
 }

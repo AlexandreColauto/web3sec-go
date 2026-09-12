@@ -69,7 +69,7 @@ func Prescreen(c *state.Campaign, snapshotRoot string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if err := persistPrescreen(c, report, matched, forcedIDs); err != nil {
+	if err := persistPrescreen(c, report, snapshotRoot, matched, forcedIDs); err != nil {
 		return validation.VNull(), err
 	}
 	return report, nil
@@ -185,7 +185,7 @@ func appendCorpusSurface(c *state.Campaign,
 
 // persistPrescreen writes the artifact, registers it and logs completion.
 func persistPrescreen(c *state.Campaign, report validation.Value,
-	matched []string, forcedIDs map[string]bool) error {
+	snapshotRoot string, matched []string, forcedIDs map[string]bool) error {
 	out := filepath.Join(c.ArtifactsDir, PrescreenFile)
 	if err := validation.WriteJson(out, report, ""); err != nil {
 		return err
@@ -193,6 +193,14 @@ func persistPrescreen(c *state.Campaign, report validation.Value,
 	reason := itoa(int64(len(matched))) + " matched"
 	if _, err := c.RegisterOrRefresh("archetype-prescreen", out, "", nil,
 		reason); err != nil {
+		return err
+	}
+	// FIX-C: the prescreen stamps itself the way the sinks verb does
+	// (state.recon.prescreen = {campaign_id, src, at}) — the L-04
+	// divergence-gate close binds the sinks run to the tree the prescreen saw
+	// (planner.checkReconStamps); the artifact's snapshot_id stays the
+	// staleness binding (reused, never duplicated).
+	if err := c.StampRecon("prescreen", snapshotRoot); err != nil {
 		return err
 	}
 	data := validation.VObj(

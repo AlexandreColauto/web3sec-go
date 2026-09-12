@@ -341,13 +341,17 @@ func (c *Campaign) ActiveSnapshotIDOrNone() (*string, error) {
 
 // --- recon run stamps (FIX-8) ---------------------------------------------
 
-// StampRecon records one recon run stamp: state.recon[verb] = {src, at},
-// replacing any prior row for the verb (a re-run REPLACES — the stamp is a
-// light "this recon ran over this tree at this time" fact, never a per-file
-// ledger, so a double run cannot duplicate it). Written by the recon verb
-// itself; read by the L-04 divergence-gate close (planner.checkReconStamps).
-// Campaigns written before the key existed simply lack it; the schema keeps
-// the property optional, so absence validates and reads as never-ran.
+// StampRecon records one recon run stamp: state.recon[verb] =
+// {campaign_id, src, at}, replacing any prior row for the verb (a re-run
+// REPLACES — the stamp is a light "this recon ran over this tree at this
+// time" fact, never a per-file ledger, so a double run cannot duplicate it).
+// Written by the recon verb itself; read by the L-04 divergence-gate close
+// (planner.checkReconStamps). campaign_id (FIX-C) binds the stamp to the
+// campaign it ran under — the state file is operator-writable, so a stamp
+// copied from another campaign's state is refused by the gate, not by this
+// writer: gates stop laziness, not forgery. Campaigns written before the key
+// existed simply lack it; the schema keeps the property optional, so absence
+// validates and reads as never-ran.
 func (c *Campaign) StampRecon(verb, src string) error {
 	st, err := c.State()
 	if err != nil {
@@ -358,6 +362,7 @@ func (c *Campaign) StampRecon(verb, src string) error {
 		recon = validation.VObj()
 	}
 	recon.O = validation.SetOrAppend(recon.O, verb, validation.VObj(
+		kv("campaign_id", validation.VStr(c.CampaignID)),
 		kv("src", validation.VStr(src)),
 		kv("at", validation.VStr(nowIso())),
 	))

@@ -170,13 +170,24 @@
     "recon": {
       "type": "object",
       "additionalProperties": false,
-      "description": "RECON RUN STAMPS: one light row per recon verb this campaign actually ran over a source tree ({src, at}, replaced on re-run — a stamp is a fact, not a ledger; no per-file detail). Written by the verb itself (`webv2 sinks`); read by the L-04 divergence-gate close, which refuses a lens attestation over divergence rows when the mechanical recon never ran. Absent on campaigns written before the key existed — absence reads as never-ran, which is exactly what the gate must believe.",
+      "description": "RECON RUN STAMPS: one light row per recon verb this campaign actually ran over a source tree ({campaign_id, src, at}, replaced on re-run — a stamp is a fact, not a ledger; no per-file detail). Written by the verb itself (`webv2 sinks`, `webv2 prescreen`); read by the L-04 divergence-gate close, which refuses a lens attestation over divergence rows when the mechanical recon never ran, ran stale, ran for another campaign, or ran over a different tree than the prescreen. Absent on campaigns written before the key existed — absence reads as never-ran, which is exactly what the gate must believe. The state file is operator-writable: the gate stops laziness, not forgery.",
       "properties": {
         "sinks": {
           "type": "object",
           "additionalProperties": false,
           "required": ["src", "at"],
           "properties": {
+            "campaign_id": { "type": "string", "description": "the campaign the verb ran under (FIX-C: the L-04 gate refuses a stamp copied from another campaign's state; optional only on stamps written before the key existed, which the gate refuses as unverifiable)" },
+            "src": { "type": "string", "minLength": 1, "description": "the --src tree the verb ran over, as given on the command line" },
+            "at":  { "type": "string" }
+          }
+        },
+        "prescreen": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["src", "at"],
+          "properties": {
+            "campaign_id": { "type": "string", "description": "the campaign the verb ran under (FIX-C: the L-04 gate binds the sinks run to the tree the prescreen saw)" },
             "src": { "type": "string", "minLength": 1, "description": "the --src tree the verb ran over, as given on the command line" },
             "at":  { "type": "string" }
           }

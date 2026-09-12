@@ -248,3 +248,87 @@ func TestAnsweredLensReconcileRefusals(t *testing.T) {
 			code, errS)
 	}
 }
+
+// TestAnsweredLensReconcileEmptySpecAndTerminalFinding pins FIX-C at the
+// CLI: a blank --reconcile is refused at the parse layer (both spellings,
+// the missing-argument shape) because a zero-record re-attestation would
+// wipe the stored reconciliation; and a finding exit that names a TERMINAL
+// finding is refused with its recorded status named.
+func TestAnsweredLensReconcileEmptySpecAndTerminalFinding(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	t14TestSeed(t, root, cid)
+	rcSeedDivergenceSurface(t, root, cid, rcDivergenceSurfaceJSON)
+	rcRunRecon(t, root, cid)
+	reason := "the divergences are benign duals of the same custody model"
+
+	// attestation one: the good spec records two reconciliations
+	code, _, errS := run(t, "--root", root, "answered", cid, "L-04",
+		"answered", "--families", "protocol", "--reason", reason,
+		"--reconcile", rcGoodSpec, "--actor", "operator")
+	if code != 0 {
+		t.Fatalf("first attestation exit %d: %q", code, errS)
+	}
+
+	// (1) empty --reconcile, space spelling: refused at the parse layer
+	code, _, errS = run(t, "--root", root, "answered", cid, "L-04",
+		"answered", "--families", "protocol", "--reason", reason,
+		"--reconcile", "")
+	if code != 2 || !strings.Contains(errS, "argument --reconcile") ||
+		!strings.Contains(errS, "empty SPEC") {
+		t.Fatalf("empty --reconcile: exit %d stderr = %q", code, errS)
+	}
+	// negative control: the stored reconciliation survived the refusal
+	l := rcStoredLens(t, root, cid, "L-04")
+	if got := len(objAt(l, "reconciliation").A); got != 2 {
+		t.Fatalf("stored reconciliation has %d records, want 2", got)
+	}
+
+	// (2) the = spelling is refused the same way
+	code, _, errS = run(t, "--root", root, "answered", cid, "L-04",
+		"answered", "--families", "protocol", "--reason", reason,
+		"--reconcile=   ")
+	if code != 2 || !strings.Contains(errS, "empty SPEC") {
+		t.Fatalf("whitespace --reconcile=: exit %d stderr = %q", code, errS)
+	}
+
+	// (3) the attestation itself still works after both refusals
+	code, _, errS = run(t, "--root", root, "answered", cid, "L-04",
+		"answered", "--families", "protocol", "--reason", reason,
+		"--reconcile", rcGoodSpec, "--actor", "operator")
+	if code != 0 {
+		t.Fatalf("re-attestation exit %d: %q", code, errS)
+	}
+	if got := len(objAt(rcStoredLens(t, root, cid, "L-04"),
+		"reconciliation").A); got != 2 {
+		t.Fatalf("re-attestation recorded %d records, want 2", got)
+	}
+
+	// (4) a TERMINAL finding exit is refused, its recorded status named
+	terminal := "F-222222222222"
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(c.FindingsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(c.FindingsDir, terminal+".json"),
+		[]byte(`{"finding_id":"`+terminal+`","status":"DISPROVED"}`),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	// a fresh lens state: reopen, then try the terminal finding exit
+	code, _, errS = run(t, "--root", root, "answered", cid, "L-04", "open",
+		"--actor", "operator")
+	if code != 0 {
+		t.Fatalf("reopen exit %d: %q", code, errS)
+	}
+	code, _, errS = run(t, "--root", root, "answered", cid, "L-04",
+		"answered", "--families", "protocol", "--reason", reason,
+		"--reconcile", "divrow1="+terminal+";divrow2="+terminal)
+	if code != 2 || !strings.Contains(errS, terminal) ||
+		!strings.Contains(errS, "DISPROVED") {
+		t.Fatalf("terminal finding exit: code %d stderr = %q", code, errS)
+	}
+}

@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"strings"
 
+	"websec/internal/findings"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -284,6 +285,27 @@ func validateReconcileRecord(campaign *state.Campaign, row,
 			return "--reconcile " + finding + " does not exist in this " +
 				"campaign — a divergence may be attached to a real filed " +
 				"finding, never to a citation that was invented or mistyped"
+		}
+		// FIX-C: the finding exit attaches a live divergence to a LIVE
+		// finding — the same rule checkConsequenceFlags applies to --finding.
+		// A terminal finding (DISPROVED, OUT_OF_SCOPE, INFORMATIONAL,
+		// DUPLICATE, SUPERSEDED) records a question that is already answered;
+		// attaching an unresolved row to it reconciles nothing.
+		f, err := findings.LoadFinding(campaign, finding)
+		if err != nil {
+			return "--reconcile " + finding + " cannot be loaded (" +
+				err.Error() + ") — a divergence may be attached to a real " +
+				"filed finding only"
+		}
+		if status := objStr(f, "status"); status != "" {
+			if _, terminal := findings.TERMINAL[status]; terminal {
+				return "--reconcile " + finding + " names a " + status +
+					" finding — a terminal finding records nothing about a " +
+					"divergence that is still unresolved. Attach a live " +
+					"finding (one that is not DISPROVED, OUT_OF_SCOPE, " +
+					"INFORMATIONAL, DUPLICATE or SUPERSEDED), or cite the " +
+					"funding primitive per member"
+			}
 		}
 		return ""
 	}

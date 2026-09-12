@@ -75,7 +75,12 @@ options:
                         check (the row's guard is a zero-check that cannot
                         express the truth of the value it guards). Required to
                         close a sentinel-form row without an override; recorded
-                        on the priority as its "passes" field
+                        on the priority as its "passes" field. The value is
+                        accepted only when it is checkable: it must name a
+                        symbol from the row's own surface entry, or be a
+                        concrete literal (a decimal integer, a hex number or
+                        Ethereum-style address 0x…, bytes32(0x…), a boolean,
+                        or a quoted string); prose like "TBD" is refused
   --interim STATEMENT  tier-0 rows anchored on asserter only (FIX-5): the
                         deferred-consequence statement pricing the interim
                         window between the row's consumer and the asserter
@@ -189,6 +194,19 @@ func answeredFlag(args []string, i int, a *answeredArgs,
 		fmt.Fprint(r.Out, t14AnsweredHelp)
 		return 0, true, true, nil
 	}
+	// FIX-C: an empty or whitespace-only --reconcile value is refused at the
+	// parse layer, the way a missing argument is — the same
+	// `argument --reconcile: ...` argparse shape --of uses for a missing
+	// value. The blank spec parses to zero records, which would pass the
+	// coverage half of the FIX-6 gate on the stored reconciliation and then
+	// overwrite it with nothing (the data-loss wart this refuses).
+	if v, ok := answeredValue(args, i, "--reconcile"); ok &&
+		strings.TrimSpace(v) == "" {
+		return 0, false, true, t14ArgparseErr(t14AnsweredUsage,
+			"answered", "argument --reconcile: an empty SPEC would "+
+				"overwrite the stored reconciliation with zero records — "+
+				"pass 'ROWID=VALUE;...' or drop --reconcile")
+	}
 	if arg == "--actor" {
 		if i+1 >= len(args) {
 			return 0, false, true, t14ArgparseErr(t14AnsweredUsage,
@@ -248,6 +266,25 @@ func answeredFlag(args []string, i int, a *answeredArgs,
 		return 0, false, true, t14Unrecognized(arg)
 	}
 	return 0, false, false, nil
+}
+
+// answeredValue reports the value a value-taking flag would consume at
+// position i: the next token for the space-separated form, the text after
+// '=' for the --flag= form. ok is false when the argument is not that flag
+// in either spelling, or when the space-separated form carries no value at
+// all (the missing-argument error answers that shape, not this one).
+func answeredValue(args []string, i int, name string) (string, bool) {
+	arg := args[i]
+	if arg == name {
+		if i+1 < len(args) {
+			return args[i+1], true
+		}
+		return "", false
+	}
+	if strings.HasPrefix(arg, name+"=") {
+		return strings.TrimPrefix(arg, name+"="), true
+	}
+	return "", false
 }
 
 // answeredDst maps a value-taking flag (space-separated form) to its field.

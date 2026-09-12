@@ -196,6 +196,35 @@ func TestAnsweredCLISentinelPassesFlag(t *testing.T) {
 		t.Errorf("passes = %q, want %q", got, passes)
 	}
 
+	// (2b) FIX-C: a value that clears the length floor but is neither a row
+	// citation nor a concrete literal is refused, both legal shapes named
+	junk := "zzz"
+	code, _, errS = run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason", reason, "--anchor", "consumer",
+		"--passes", junk)
+	if code != 2 || !strings.Contains(errS,
+		"is not a plausible value for the check") ||
+		!strings.Contains(errS, "row's own surface entry") ||
+		!strings.Contains(errS, "concrete literal") {
+		t.Fatalf("junk --passes: exit %d stderr = %q", code, errS)
+	}
+	// negative control: the refusal is a decision that did not happen
+	p = dgStoredPriority(t, root, cid, "Q-005")
+	if got := objStr(p, "passes"); got != passes {
+		t.Fatalf("junk refusal changed passes to %q, want %q", got, passes)
+	}
+	// the literal shape rides the same flag through the CLI and is recorded
+	passes = "0xdeadbeef"
+	code, _, errS = run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason", reason, "--anchor", "consumer",
+		"--passes", passes)
+	if code != 0 {
+		t.Fatalf("literal --passes exit %d: %q", code, errS)
+	}
+	if got := objStr(dgStoredPriority(t, root, cid, "Q-005"), "passes"); got != passes {
+		t.Errorf("passes = %q, want %q", got, passes)
+	}
+
 	// (3) negative control: the rule is row-scoped — with no own_form on the
 	// surface row the very same closure needs no --passes.
 	root2 := mkroot(t)

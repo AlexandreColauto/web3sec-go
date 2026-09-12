@@ -533,9 +533,20 @@ func invariantRegistered(campaign *state.Campaign, id string) bool {
 // checkSentinelPasses is the B4 v3 rule: a closing disposition of a
 // sentinel-guarded row (own_form=sentinel) must name the value that passes
 // the check. Existence of an assertion is not correctness; the disposition
-// has to be falsifiable. The family escape hatch (--override-dismissal with
-// --override-reason) stays the only way around it — see
-// checkSentinelPassesRow.
+// has to be falsifiable. FIX-C adds the plausibility floor the flag needed:
+// a >= 3-character string is not yet a value — "zzz", "TBD", "n/a" pass the
+// length floor and record nothing checkable. The supplied value must either
+// (a) name a symbol that exists on the row's own surface entry (the same
+// citation muscle the v3 citation rule uses — RowSymbols/namesSymbol), or
+// (b) be a concrete, machine-checkable literal: a decimal integer, a hex
+// number or Ethereum-style address (0x…), a bytes32(0x…) literal, a boolean,
+// or a quoted string literal. A hex literal is trusted as a CLAIMED value:
+// the falsifiability comes from it being recorded on the closure and
+// re-checkable by any reader, matching the framework's record-not-answer
+// philosophy — the gate forces the question onto the record, it never
+// pretends to evaluate the answer. The family escape hatch
+// (--override-dismissal with --override-reason) stays the only way around
+// the rule — see checkSentinelPassesRow.
 func checkSentinelPasses(row validation.Value, outcome string,
 	opts AnsweredOpts) error {
 	if outcome != "answered" && outcome != "not-applicable" {
@@ -544,14 +555,58 @@ func checkSentinelPasses(row validation.Value, outcome string,
 	if objStr(row, "own_form") != "sentinel" {
 		return nil
 	}
-	if opts.PassesValue != nil &&
-		len(strings.TrimSpace(*opts.PassesValue)) >= 3 {
+	given := opts.PassesValue != nil
+	if given && passesPlausible(row, *opts.PassesValue) {
 		return nil
 	}
+	if !given || len(strings.TrimSpace(*opts.PassesValue)) < 3 {
+		return errValue("sentinel-guarded probe row " + objStr(row, "row_id") +
+			": a closing disposition must name the value that passes its check " +
+			"(--passes VALUE) — or override explicitly (--override-dismissal " +
+			"--override-reason R)")
+	}
+	// A value was given and cleared the length floor but is neither a row
+	// citation nor a concrete literal: refused, naming both legal shapes.
+	syms := RowSymbols(row)
+	shape := "either quote something the row's own surface entry names"
+	if len(syms) > 0 {
+		shape += " (" + strings.Join(syms, ", ") + ")"
+	} else {
+		shape += " — this row names no symbols, so a citation shape is not " +
+			"available here"
+	}
 	return errValue("sentinel-guarded probe row " + objStr(row, "row_id") +
-		": a closing disposition must name the value that passes its check " +
-		"(--passes VALUE) — or override explicitly (--override-dismissal " +
+		": --passes " + validation.PyReprStr(*opts.PassesValue) + " is not a " +
+		"plausible value for the check — " + shape + ", or give a concrete " +
+		"literal the closure record can re-check (a decimal integer, a hex " +
+		"number or Ethereum-style address 0x…, bytes32(0x…), a boolean, or " +
+		"a quoted string) — or override explicitly (--override-dismissal " +
 		"--override-reason R)")
+}
+
+// passesLiteralRe is the FIX-C literal half of the --passes plausibility
+// floor: the concrete, machine-checkable shapes a sentinel value may take
+// without naming a row symbol. A literal is trusted as a claimed value (see
+// checkSentinelPasses) — recorded, re-checkable, never evaluated here.
+var passesLiteralRe = regexp.MustCompile(
+	`(?i)^(?:-?[0-9]+|0[xX][0-9a-fA-F]+|bytes32\(0[xX][0-9a-fA-F]{64}\)|` +
+		`true|false|"[^"]+"|'[^']+')$`)
+
+// passesPlausible is the --passes floor: a value is plausible when it names a
+// symbol on the row's own surface entry (case-insensitive substring, the
+// namesSymbol muscle) or is a concrete literal (passesLiteralRe). The >= 3
+// length floor is the caller's; a row with no symbols at all stays closable
+// through the literal shapes — an unclosable row would be worse than an
+// unverified one.
+func passesPlausible(row validation.Value, v string) bool {
+	v = strings.TrimSpace(v)
+	if len(v) < 3 {
+		return false
+	}
+	if namesSymbol(v, RowSymbols(row)) != "" {
+		return true
+	}
+	return passesLiteralRe.MatchString(v)
 }
 
 // checkSentinelPassesRow is the closure-seam half: it resolves the surface row

@@ -241,6 +241,9 @@ func TestValueFlowReportStampsRecon(t *testing.T) {
 	if objStr(stamp, "at") == "" {
 		t.Fatal("stamp at is empty")
 	}
+	if got := objStr(stamp, "campaign_id"); got != c.CampaignID {
+		t.Fatalf("stamp campaign_id = %q, want %q", got, c.CampaignID)
+	}
 	// the audit trail mirrors the stamp: the valueflow.computed event names
 	// the verb and the src
 	evts, err := c.Events()
@@ -260,7 +263,8 @@ func TestValueFlowReportStampsRecon(t *testing.T) {
 	if !found {
 		t.Fatalf("no valueflow.computed event carrying the stamp facts")
 	}
-	// idempotence: a second run REPLACES the row — one sinks key, one {src,at}
+	// idempotence: a second run REPLACES the row — one sinks key, one
+	// {campaign_id, src, at}
 	if _, err := ValueFlowReport(c, tree); err != nil {
 		t.Fatal(err)
 	}
@@ -273,9 +277,13 @@ func TestValueFlowReportStampsRecon(t *testing.T) {
 		recon.O[0].K != "sinks" {
 		t.Fatalf("double run left %s", validation.CanonCompact(recon))
 	}
-	if len(objAt(recon, "sinks").O) != 2 {
+	if len(objAt(recon, "sinks").O) != 3 {
 		t.Fatalf("sinks row keys = %s", validation.CanonCompact(
 			objAt(recon, "sinks")))
+	}
+	// FIX-C: the stamp names the campaign it ran under
+	if got := objStr(objAt(recon, "sinks"), "campaign_id"); got != c.CampaignID {
+		t.Fatalf("sinks campaign_id = %q, want %q", got, c.CampaignID)
 	}
 }
 

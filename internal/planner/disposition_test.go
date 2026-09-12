@@ -1900,3 +1900,64 @@ func TestLowRiskOverrideRecordsEvent(t *testing.T) {
 		t.Fatalf("sentinel low-risk override events = %d, want exactly 1", n)
 	}
 }
+
+// TestSentinelPassesPlausibilityFloor pins FIX-C: --passes is not a rubber
+// stamp. A value that clears the 3-character floor but is neither a row
+// citation nor a concrete machine-checkable literal ("zzz", "TBD", "n/a")
+// is refused with BOTH legal shapes named; either legal shape is accepted
+// and recorded. The refusal is a decision that did not happen.
+func TestSentinelPassesPlausibilityFloor(t *testing.T) {
+	camp, _, rowID := sentinelDispositionFixture(t)
+
+	// (a) junk: neither shape, refused with both shapes named
+	for _, junk := range []string{"zzz", "TBD", "n/a", "maybe"} {
+		_, _, err := plannerMarkAnsweredForTest(t, camp, rowID, "answered",
+			&AnsweredOpts{Anchor: strPtr("consumer"), PassesValue: &junk})
+		if err == nil || !strings.Contains(err.Error(),
+			"is not a plausible value for the check") {
+			t.Fatalf("junk --passes %q must be refused: %v", junk, err)
+		}
+		if !strings.Contains(err.Error(), "row's own surface entry") ||
+			!strings.Contains(err.Error(), "concrete literal") {
+			t.Errorf("refusal does not name both legal shapes for %q:\n%v",
+				junk, err)
+		}
+		// negative control: the refusal is a decision that did not happen
+		prio := storedPriority(t, camp, rowID)
+		if got := objStr(prio, "status"); got != "open" {
+			t.Fatalf("junk %q refusal changed the status to %q", junk, got)
+		}
+		if objAt(prio, "passes").Kind != validation.Null {
+			t.Fatalf("junk %q refusal recorded passes = %q", junk,
+				objStr(prio, "passes"))
+		}
+	}
+
+	// (b) legal shape 1: the value names a symbol on the row's own surface
+	// entry (the citation muscle)
+	cite := "asserted at finalizeBatch"
+	_, _, err := plannerMarkAnsweredForTest(t, camp, rowID, "answered",
+		&AnsweredOpts{Anchor: strPtr("consumer"), PassesValue: &cite})
+	if err != nil {
+		t.Fatalf("row-citation --passes must pass: %v", err)
+	}
+	if got := objStr(storedPriority(t, camp, rowID), "passes"); got != cite {
+		t.Errorf("passes = %q, want %q", got, cite)
+	}
+
+	// (c) legal shape 2: a concrete machine-checkable literal — recorded
+	// verbatim and re-checkable by any reader (a hex literal is trusted as
+	// a claimed value; that is the record-not-answer contract)
+	for _, literal := range []string{"0xdeadbeef", "1000", "bytes32(0x" +
+		"0000000000000000000000000000000000000000000000000000000000000001)",
+		"true", `"finalized"`} {
+		_, _, err := plannerMarkAnsweredForTest(t, camp, rowID, "answered",
+			&AnsweredOpts{Anchor: strPtr("consumer"), PassesValue: &literal})
+		if err != nil {
+			t.Fatalf("literal --passes %q must pass: %v", literal, err)
+		}
+		if got := objStr(storedPriority(t, camp, rowID), "passes"); got != literal {
+			t.Errorf("passes = %q, want %q", got, literal)
+		}
+	}
+}
