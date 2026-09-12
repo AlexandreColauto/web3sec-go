@@ -468,7 +468,7 @@ p1_ok invariant-verify 0 invariant-verify "$CID" INV-1 --artifact "$REP"
 p1_ok invariant-contradict 0 invariant-contradict "$CID" INV-2 --evidence "$REP"
 p1_ok "gate dry-run" 1 gate "$CID" "$F1"
 p1_ok prove 0 prove "$CID"
-p1_ok waive 0 waive "$CID" code --reason "no code artifact" --actor operator
+p1_ok waive 0 waive "$CID" learning --reason "no learning artifact owed" --actor operator
 echo "ok: 21 P1 commands exercised, exit codes as documented"
 
 # 11. P2 CLI smoke ---------------------------------------------------------
