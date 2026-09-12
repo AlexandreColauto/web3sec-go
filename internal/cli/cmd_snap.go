@@ -24,11 +24,14 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 	var deployment, chain string
 	var excludes []string
 	dryRun := false
+	asJSON := false
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
 		case a == "--dry-run":
 			dryRun = true
+		case a == "--json":
+			asJSON = true
 		case a == "--deployment" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			deployment = args[i+1]
 			i++
@@ -53,6 +56,12 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 	if len(pos) != 2 {
 		return usageErrf("snap requires <campaign> <target> arguments")
 	}
+	// --json is the machine-readable dry-run table (see snapDryRun);
+	// a mutating pin keeps its human summary, so the flag refuses there
+	// rather than being silently ignored.
+	if asJSON && !dryRun {
+		return usageErrf("--json applies to snap --dry-run only")
+	}
 	c, err := state.Open(root, pos[0])
 	if err != nil {
 		return err
@@ -69,7 +78,7 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 	// reports the preview — recording nothing (no snapshot dir, no
 	// manifest, no events).
 	if dryRun {
-		return snapDryRun(stdout, pos[1], extra, deployment, chain)
+		return snapDryRun(stdout, pos[1], extra, deployment, chain, asJSON)
 	}
 	snap, err := snapshot.PinSourceSnapshot(c, pos[1], nil, extra)
 	if err != nil {
@@ -131,11 +140,35 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 // snapDryRun renders the M2 preview: ladder, would-be id, prune set,
 // matched paths, and untracked entries — with nothing recorded.
 // Deployment/chain attaches are post-pin steps; the dry run names them
-// as skipped rather than silently ignoring the flags.
-func snapDryRun(w io.Writer, target string, extra []string, deployment, chain string) error {
+// as skipped rather than silently ignoring the flags. With --json the
+// same preview is emitted as one machine-readable JSON object (the full
+// pruned-paths table, no console cap) and nothing else.
+func snapDryRun(w io.Writer, target string, extra []string, deployment, chain string, asJSON bool) error {
 	p, err := snapshot.DryRunPin(target, extra)
 	if err != nil {
 		return err
+	}
+	if asJSON {
+		skipped := []string{}
+		if deployment != "" {
+			skipped = append(skipped, "--deployment")
+		}
+		if chain != "" {
+			skipped = append(skipped, "--chain")
+		}
+		t14PrintJSON(w, validation.VObj(
+			validation.KV{K: "dry_run", V: validation.VBool(true)},
+			validation.KV{K: "target", V: validation.VStr(p.Target)},
+			validation.KV{K: "ladder", V: validation.VStr(p.Ladder)},
+			validation.KV{K: "snapshot_id", V: validation.VStr(p.SnapshotID)},
+			validation.KV{K: "file_count", V: validation.VInt(int64(p.FileCount))},
+			validation.KV{K: "content_hash", V: validation.VStr(p.ContentHash)},
+			validation.KV{K: "prune_names", V: strListValue(p.PruneNames)},
+			validation.KV{K: "pruned_paths", V: strListValue(p.PrunedPaths)},
+			validation.KV{K: "untracked", V: strListValue(p.Untracked)},
+			validation.KV{K: "untracked_more", V: validation.VInt(int64(p.UntrackedMore))},
+			validation.KV{K: "skipped_attaches", V: strListValue(skipped)}))
+		return nil
 	}
 	hash := p.ContentHash
 	if len(hash) > 12 {
