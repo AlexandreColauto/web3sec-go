@@ -339,6 +339,17 @@ func TestBridgeSequenceRefusals(t *testing.T) {
 		"unbridgable step: call 1 value '0x" + strings.Repeat("a", 65) +
 			"' not a wei literal",
 	}, {
+		// The wei pattern's prefix is lowercase `0x` ONLY (the schema's
+		// spelling, copied verbatim): `0X10` is not a literal this
+		// language admits even though its digits are hex, so it grounds
+		// nothing. Nothing downstream re-parses it either — the bridge
+		// never hands a value to a cast-style parser, it either matches
+		// the pattern or refuses — so the uppercase prefix cannot slip
+		// through as 16 wei.
+		"uppercase hex prefix msg.value (0X10)",
+		wVerdict(wCallValue(0, "deposit", wAlice, `"0X10"`)),
+		"unbridgable step: call 1 value '0X10' not a wei literal",
+	}, {
 		// Precedence: the value is the LAST field checked. An actor the
 		// fork cannot address refuses for the actor's reason (the value
 		// is meaningless until the step is replayable at all).
