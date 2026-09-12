@@ -72,7 +72,10 @@ maps `Packed` that way).
     makes the join explicit and auditable instead of a guess.  A duplicate
     `tie_key`, or a `case_id` that is absent from `cases.json`, is a hard error
     (a join table that silently overwrites or drops a row is a wrong scorecard,
-    and a silently-wrong scorecard is worse than no scorecard).
+    and a silently-wrong scorecard is worse than no scorecard).  Key that table
+    by **rule id** for report lines — a rule id is what ties a verdict, and a
+    **contract-name row matters only for that target's rule-less abort
+    envelope**, which joins on the results-file stem.
   * Without `--class-map` the join is exact-string equality against the
     case-derived keys `{case_id, program.program, source.record_id}` plus the
     stem of every `gold.locations[].file` / `code.files[]` path.  That is the

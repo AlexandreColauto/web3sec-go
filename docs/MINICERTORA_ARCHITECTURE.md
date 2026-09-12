@@ -153,11 +153,15 @@ The core wave that landed MiniCertora shipped a **subset** of what L1, §2 L2,
   (violation verdicts), `malformed-spec` is a spec-rewrite disposition, and
   there is no `vacuous-invariant` code — vacuity spells `vacuous-rule` /
   `vacuous-block`. The §L3 table is corrected in full at L-advice landing.
-- **Rule blocks only.** The core wave renders `rule` blocks; the
-  `invariant INV_<n>__<slug>() { assert …; }` skeleton L1 sketches above did
-  **not** land — it is deferred to the follow-on wave. Consequently §2 L2's
-  `proof.invariant_check` and §3's `invariant` object row have no shipped
-  producer yet.
+- **Rule blocks only — superseded 2026-09-12 (Wave L-system).** The core wave
+  rendered `rule` blocks and deferred the induction skeleton. It **landed** in
+  Wave L-system (`af516726`): statements `invariant:<slug> of
+  <Contract>.<State> <op> <expr>` render a declaration `invariant inv_<n>()`
+  whose reviewed `assert` is scaffold-owned **outside** the BODY window. Two
+  spellings differ from the sketch above: the declaration name is
+  `inv_<n>` (not `INV_<n>__<slug>`, same law as the rule frame), and the
+  shipped proof key is `invariant` (with `calls`) — not
+  `proof.invariant_check`. See §9 for the landing notes.
 
 The design prose above is left standing: it records the intent this errata
 corrects, and the correction layer — not the prose — is the contract.
@@ -436,4 +440,113 @@ implies* (dispositions), whether a witness is *money-real* (fork repro),
 what the campaign should *remember* (ladders), and — the part neither side
 has today — a *scorecard* of the prover itself on the bug distribution you
 actually get paid for.
+
+## 9. Landing notes — Wave L-system (2026-09-12)
+
+Close-out of the **system half** (plan
+`docs/superpowers/plans/2026-09-12-wave-l-system-sweep-calibration.md`, commits
+`31e4bea1..92de6d70`). The design prose above is unchanged; these notes record
+what shipped, in the shipped spellings. The wave added **zero new event types,
+zero new verbs and no new `verify` flags** — template/invariant modes are
+statement syntax — and no golden campaign byte moved.
+
+- **§L1 `invariant:` form — LANDED** (`af516726`). Statement form
+  `invariant:<slug> of <Contract>.<State> <op> <expr>`
+  (`mspecInvariantRe`, `internal/harness/mspec.go`; every capture is
+  identifier-safe, so a matching statement can never smuggle a marker spelling
+  into the scaffold-owned region). It renders the induction scaffold: the
+  declaration `invariant inv_<n>()` (`MspecRuleName`) with the reviewed `assert`
+  **outside** the BODY window — the claim is reviewed statement data, not model
+  tuning, and the split is what keeps `Validate`'s byte-law meaningful (the
+  header lines are byte-identical to the rule frame; only the declaration
+  keyword, the pinned assert and the window placeholder differ) — and
+  `DummyInvariantMspec` inside the window as the model's optional strengthening
+  slot. Two disclosures: the shipped grammar has **no** `foralls`/`init`
+  clauses (init is a synthetic check in `vcgen/invariants.py`, not written
+  syntax), so nothing was kept verbatim from a clause that does not exist; and
+  the regexp admits a single-token state/expr only, so richer claims fall
+  through to the plain rule skeleton unchanged. **Caveat, queued rather than
+  papered over:** `Validate` is still not wired into the run path — `verify
+  --harness-result` binds by exec-record input hash, so a weakened assert is
+  caught only *when Validate runs* (pre-existing for the halmos/forge frames
+  too).
+- **§L2 proof sidecar — LANDED at 12 keys** (`af516726`, RULING-12KEY). Fixed
+  order, and `required[]` pins all twelve: `tool_version, solc_version,
+  spec_version, evm_version, confidence, reason, bounds, assumptions, warnings,
+  ghosts, invariant, calls`. `invariant` is verbatim-object-or-null with **no
+  inner filtering**; `calls` is verbatim-array-or-null (an empty `[]` is a value
+  and rides as `[]`, so "no witness" stays distinguishable from "an empty
+  witness") — which is what makes the §L4 poc label live end to end. The
+  design prose's ten-key list in §L2 rule 4 is superseded by this order.
+  **Clarifying clause (`per_function`):** the tool's real invariant report
+  carries `per_function` as an **ARRAY of dicts**
+  (`{selector, function, kind, reason, details}`, `cli.py::_invariant_report`);
+  the vendored `invariant-cap/expected.json` condensed object
+  (`{"deposit": "proved"}`, `init: "proved"`) is a **curated corpus summary,
+  not tool output**. The sidecar filters nothing, so either shape stores and
+  validates; the scorecard fixtures and consumers take the array form.
+- **§L4 witness bridge + poc rendering — LANDED** (`a89909df`, comment round
+  `5e27bf66`). `harness.BridgeSequence(obj, specID, findingID)` maps a
+  counterexample's `calls[]` to a `sequence_poc`-shaped candidate: distinct
+  sender values alias to `actor-1, actor-2, …` by first appearance
+  (`env["msg.sender"]` is the treated key; a flattened `sender` is a
+  fallback-only spelling), `reverted` becomes `expect_revert: true`, and
+  `mine_blocks` is never emitted. Refusals are byte-pinned and are themselves
+  the guidance: `no calls to bridge`, `unbridgable step: <why>`, `symbolic
+  senders cannot be fork-repro'd` (a free symbol does not survive a chain).
+  `final_assertions` is deliberately empty this wave — storage-assert
+  translation is the fork wave's. The audit suffix ` | poc: <n> calls bridged`
+  renders on minicertora counterexample lines and is **live from stored state**
+  (`TestHarnessResultMinicertoraCallsAuditSuffix` re-reads
+  `artifacts/invariant_links.json` from disk), not from a test-only path.
+  The bridge is consumed by its tests only; emitting a `.seq.json` from the CLI
+  is the fork wave's seam.
+- **§L5 four template archetypes — LANDED** (`c574605b`). Statement form
+  `template:<name> of <Contract>.<Function>` seeds the BODY window from
+  `internal/harness/templates/*.tmpl` through a pure renderer
+  (`internal/harness/templates.go`) over an **explicit allowlist** (never a
+  directory listing, so rendered bytes cannot depend on enumeration order):
+  `wrap-unchecked`, `rounding-drain`, `access-control-mint`, `tx-origin-auth`.
+  An unknown name is an error (`harness: unknown template %q`), never a
+  silently empty body; a non-matching statement — including a malformed
+  `template:` prefix — falls through to the plain skeleton byte-identically.
+  **Law: a seeded body is STARTING CONTENT, never evidence.** It lands inside
+  the BODY window, the model may rewrite or delete it wholesale, and `Validate`
+  judges only the bytes outside the window (same law as `DummyMspec`); the
+  scorecard and every gate must not credit template seeds. Three disclosures:
+  two of the four archetypes are **byte-identical upstream**
+  (`tx-origin-auth` ≡ `access-control-mint`, one `.mspec` sha) so the sweep
+  gains **three distinct bodies**, not four; `rounding-drain` ships the
+  corpus's own refused shape (`unsupported-feature` / `struct-member-access`, a
+  measured corpus outcome rather than a bug in the body); and the two-knob
+  `(env e)` signature pins scalar inputs to the literal `1`, so a seed is
+  trivially safe until the model widens the input.
+- **§L6a vendored corpus tripwires — LANDED** (`31e4bea1`).
+  `internal/harness/testdata/minicertora-corpus/` holds exactly eight targets —
+  `wrap-unchecked`, `rounding-drain`, `reentrancy-double-payout`,
+  `access-control-mint`, `privilege-escalation`, `tx-origin-auth`,
+  `invariant-cap`, `packed-storage-rejected` — copied verbatim from upstream
+  **`5a35567d`**, with per-file sha256 provenance in `VENDOR.json`.
+  `corpus_test.go` validates **self-consistency only** (recorded sha == actual
+  bytes, schema/enum conformance); it never executes the tool, so a toolchain
+  drift tripwire is a test-time byte check, not a live run. The vendored
+  `expected.json` files carry `essential_witness` only — the corpus has no
+  `calls`/`env`/`sender` anywhere, which is why the bridge's sender key was
+  taken from the tool source. `internal/harness/disposition.go` exports the
+  closed reason set as data (`dispositionOf` + `harness.IsReasonCode`) as the
+  single source the disposition table and the corpus tripwires share.
+- **§L6b scorecard instrument — LANDED** (`35215e86`, fix `92de6d70`).
+  `scripts/minicertora-scorecard.py` (plus the fixture
+  `scripts/golden/scorecard-fixture/` and its README section) grades the prover
+  on `assets/evalsuite/cases.json`: one row per bug class, three-tier join
+  (rule → contract → results-file stem; exactly one offered key per line, never
+  a blend), hard errors on a duplicate `tie_key` or a `case_id` absent from
+  `cases.json`, and `--self-test` reproduces the pinned fixture rows
+  byte-for-byte plus a line-shape audit. Tier 2 (`contract` with no `rule`) is
+  defensive — no `cli.py` path prints such a line — and is exercised by
+  construction only. The script is not embedded, so it rides no asset manifest.
+  **Operator-gate law, quoted:** *"no minicertora rung moves any gate until an
+  operator has run this scorecard on the REAL evalsuite with the REAL tool"* —
+  the self-test proves the instrument and nothing about the prover, and that
+  operator run is explicitly **not** a gate of this wave.
 

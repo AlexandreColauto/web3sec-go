@@ -2943,6 +2943,80 @@ L-advice** (`d07385ac..f33294b9`, 2026-09-12; see the landing record below):
   memory, and the `sequence_poc` witness bridge (deferred to the system
   wave).
 
+**Wave L-system — LANDED 2026-09-12 (SDD, plan
+`2026-09-12-wave-l-system-sweep-calibration.md`; commits `31e4bea1..HEAD`).**
+The system half of `docs/MINICERTORA_ARCHITECTURE.md` (§L1–§L6). Docs, data and
+one instrument: **zero new event types, zero new verbs, no new `verify` flags**
+(template and invariant modes are statement syntax), and no golden campaign byte
+moved. Landing notes in §9 of that doc.
+- **L6a vendored corpus tripwires** (`31e4bea1`): eight upstream targets
+  (`wrap-unchecked`, `rounding-drain`, `reentrancy-double-payout`,
+  `access-control-mint`, `privilege-escalation`, `tx-origin-auth`,
+  `invariant-cap`, `packed-storage-rejected`) committed verbatim at upstream
+  `5a35567d` with per-file sha256 provenance in `VENDOR.json`; `corpus_test.go`
+  checks self-consistency only (recorded sha == bytes, schema/enum conformance)
+  and never runs the tool; the closed reason set is now exported as data
+  (`dispositionOf` + `harness.IsReasonCode`) as the one source the tripwires and
+  the disposition table share.
+- **L5 four archetype templates** (`c574605b`): statements
+  `template:<name> of <Contract>.<Function>` seed the BODY window from
+  `internal/harness/templates/*.tmpl` behind an explicit allowlist; the seeds
+  are STARTING CONTENT, never evidence (scorecard and gates must not credit
+  them); three of the four bodies are distinct (`tx-origin-auth` ≡
+  `access-control-mint` upstream — disclosed), and `rounding-drain` ships the
+  corpus's own refusal shape.
+- **L4 witness bridge + poc rendering** (`a89909df`, `5e27bf66`):
+  `harness.BridgeSequence` maps a counterexample's `calls[]` to a
+  `sequence_poc`-shaped candidate (actors aliased from `env["msg.sender"]` by
+  first appearance, `reverted` → `expect_revert`, `mine_blocks` never emitted;
+  refusals `no calls to bridge` / `unbridgable step: <why>` / `symbolic senders
+  cannot be fork-repro'd`), and the audit line carries
+  ` | poc: <n> calls bridged`, live end to end from stored state.
+- **L1 + L2 invariant form and the 12-key sidecar** (`af516726`,
+  RULING-12KEY): `invariant:<slug> of <Contract>.<State> <op> <expr>` renders
+  the induction scaffold (declaration `invariant inv_<n>()`, reviewed assert
+  scaffold-owned OUTSIDE the BODY window — the grammar has no `foralls`/`init`
+  clauses, disclosed), and `proof` is 12 keys with `required[]` = the same 12;
+  `invariant` rides verbatim as an object, `calls` verbatim as an array (`[]` is
+  a value). The tool's real `per_function` is an ARRAY of dicts
+  (`cli.py::_invariant_report`); the vendored `expected.json` condensed objects
+  are curated summaries, not tool output.
+- **L6b scorecard instrument** (`35215e86`, fix `92de6d70`):
+  `scripts/minicertora-scorecard.py` grades the prover over
+  `assets/evalsuite/cases.json` from raw tool lines (three-tier join rule →
+  contract → results-file stem, one key per line, never a blend; duplicate
+  `tie_key` or unknown `case_id` are hard errors) with a byte-pinned fixture
+  self-test. **Acceptance law: no minicertora rung moves any gate until an
+  operator has run this scorecard on the REAL evalsuite with the REAL tool** —
+  that run is operator-side (it needs the binary) and is not a gate of this
+  wave; the self-test proves the instrument only.
+
+**Wave L-system — DEFERRALS queue (named, not forgotten).**
+1. **Wire `harness.Validate` into the run path** (I1 from the T4 review): the
+   outside-the-BODY-window byte law is enforced only *when Validate runs*, and
+   `verify --harness-result` binds by exec-record input hash today — so the
+   tamper-to-tampered-hash path is not caught at that gate (pre-existing for
+   halmos/forge frames too).
+2. **The remaining archetype templates** beyond the four landed (§L5 names
+   donation-accounting, cap-respected and privilege-escalation as further
+   members).
+3. **Value-bearing witness handling** (`env` `msg.value`) **and
+   `final_assertions` translation** in the fork wave: the bridge pins scalars
+   and env overrides only, and returns an empty `final_assertions` array by
+   design.
+4. **`model_gaps` reason histograms as planner memory** (L3 full form): the
+   audit line remains the gap surface; the tally is not built.
+5. **T2 template minors** — M-2: uppercase/underscore template names fall
+   through silently to the plain skeleton (a RUNBOOK clause, or an optional CLI
+   warning, is the cheap fix); M-1: template bodies bake state identifiers that
+   surface only at run time; M-3/M-4/M-5 (no trailing-junk row, no CLI-level
+   template pin, report +3/+4 off-by-one) stay recorded in the task-2 report.
+6. **Scorecard tier-2 defensive path**: joining on a `contract` with no `rule`
+   is exercised by construction only; also carried, the T5 N3 nit (an
+   unreachable check in `audit_lines`' ABORT branch).
+7. **Fork-wave consumption of the bridge**: `BridgeSequence` is consumed by its
+   tests only — emitting `.seq.json` from a CLI counterexample is the seam.
+
 *Rename note: parked as **Wave K** (items J1–J4 → K1–K4) because Wave J's own
 letters were spent by the close-out wave that shipped first. The rename is the
 only edit to this section's content: nothing below was rewritten, re-scoped or

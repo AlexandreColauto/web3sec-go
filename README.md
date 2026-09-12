@@ -159,7 +159,10 @@ python3 scripts/minicertora-scorecard.py \
 python3 scripts/minicertora-scorecard.py --self-test
 ```
 
-A case counts as **detected** when a tied line is `VIOLATED`, as
+**Key that table by rule id:** a rule id is what ties a report line to a case,
+and a **contract-name row matters only for that target's rule-less abort
+envelope**, which joins on the results-file stem. A case counts as
+**detected** when a tied line is `VIOLATED`, as
 **proven_silence** when it is a known-bad row whose tied lines are all `PROVEN`,
 and as **refused** when a tied line is `UNKNOWN` with an honest-refusal /
 tool-error / model-bug reason — a tied whole-target refusal envelope counts as
