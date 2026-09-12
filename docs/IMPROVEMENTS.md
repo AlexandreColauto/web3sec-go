@@ -3420,3 +3420,41 @@ did not require it.
 | a `polarity` field on `priorities[]` | **Not built** — the eval's gap was hypothesis generation, not record-keeping; a schema field no gate reads and no command sets is the "field no CLI can set" anti-pattern (dislike 2) pointed the other way. The prompt + runbook requirement is the honest home for it. |
 | a gate requiring both polarities per lifecycle family | **Not built** — the divergence gate has no model access, so "which families does this priority touch" would be inferred from free text; and the framework's own bootstrap and `--emit` priorities would trip it. Text rules belong in prompts; gates belong where the data is structured. |
 
+# Wave R — the recall wave, closed out (2026-09-12)
+
+The operator post-mortem (implementation plan in commit `d7d270a`) became
+eight tasks; all landed. What changed, in the shape a reviewer can check:
+
+- **Sentinel-form rows** (`e76031c`): a zero-check guard (`stateRoot !=
+  bytes32(0)` and its kin) cannot assert the truth of the value it guards —
+  every non-zero value passes it. Such rows now carry `own_form="sentinel"`,
+  the guard's own text, and an adversarial `why` prompt.
+- **The `--passes` gate** (`1a433d3`): closing a sentinel-guarded row
+  (`answered` / `not-applicable`) demands `--passes VALUE` — the concrete
+  value that passes the check, recorded on the priority as its `passes`
+  field. The escape hatch stays the dismissal override
+  (`--override-dismissal --override-reason`), logged as
+  `probe.dismissal_overridden` with actor and both reasons.
+- **The discovery-slot reform** (`b95ec56`): bare HYPOTHESIS ingest is
+  free; a finding's slot is charged exactly once, at its FIRST rise above
+  the E0 baseline — an evidence item above E0 or the first promotion whose
+  floor is above E0. The counter and its ceiling are the pre-reform ones;
+  only the charge point moved, and `budget` now reports "findings risen so
+  far".
+- **The payout-funding question** (`84ee0ce`): funding-mismatch symmetry
+  rows force the question the framework cannot answer from source — who
+  funds the payout path, read from the deployment — instead of letting the
+  row close on structure alone.
+- **The diversity union** (`ddc9b61`): the plan diversity gate unions the
+  campaign's own bug classes with the findings', and the builder stamps the
+  canonical class onto each priority so the clause counts what the campaign
+  actually names, not a free-text echo.
+- **`plan --json`** (`ef795be`): the machine-readable plan carries the real
+  work queue and priorities count instead of a stub.
+- **CLI hygiene** (`43ff52b`, `9b2bfb6`, `b1cc5ff`): console row/path
+  dumps cap at 40 entries with one `--json` pointer line; `register` prints
+  its immutability notice; the default root resolves as
+  `--root` > `$WEBV2_ROOT` > ancestor walk-up (≤ 5 levels, cwd included) >
+  `.`. Targeted DUPLICATE + reopen (`653ff3d`, `c45359b`) and the sentinel
+  override arm (`a6faf36`) round the wave out.
+

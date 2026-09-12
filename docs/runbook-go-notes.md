@@ -19,10 +19,12 @@ current requirement — it is why the current text reads the way it does. It was
 *Python* runbook, kept for the record, **not re-run by any gate** (release.sh
 has its own mini walkthrough; `selftest` runs the small Go one).
 
-Current status (2026-09-10, HEAD `243c0e6`): **76/76 registered verbs are
-documented in the runbook**, pinned by `TestRunbookDocumentsEveryRegisteredVerb`
-and `TestRunbookCommandsAreRegistered` (`internal/cli/runbook_test.go`) — that
-test, not this file, is what keeps the doc honest now. See §7.
+Current status: **every registered verb is documented in the runbook**, pinned
+by `TestRunbookDocumentsEveryRegisteredVerb` and
+`TestRunbookCommandsAreRegistered` (`internal/cli/runbook_test.go`) — that
+test, not this file, is what keeps the doc honest now; `webv2 selftest`
+prints the live command count, so no hard number is pinned here (the F4
+doctrine: counts in prose are self-rotting contracts). See §7.
 
 ## 1. One binary at a time
 

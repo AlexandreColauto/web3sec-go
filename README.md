@@ -88,6 +88,13 @@ artifacts; `WEBV2_GLOBAL_MEMORY_DIR`, `WEBV2_EVAL_DIR`, `WEBV2_POC_ROOT`,
 `WEBV2_DOCKER_TESTS` repoint the external stores and the sandbox. The full
 list is in `docs/runbook-go-notes.md`.
 
+`WEBV2_ROOT` sets the default workspace root — the directory that holds
+`campaigns/`. It is consulted whenever `--root` is absent, with this
+precedence: `--root` flag > `$WEBV2_ROOT` > the nearest ancestor of the
+working directory carrying a `campaigns/` directory (up to five levels up,
+cwd included) > the working directory itself. The walk-up is what lets
+`webv2 status` work from a subdirectory of the workspace.
+
 ## Repository layout
 
 ```

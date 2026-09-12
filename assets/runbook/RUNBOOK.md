@@ -288,6 +288,17 @@ signature, not a synonym: `--override-dismissal --override-reason "<why it is
 safe>"` closes the row, logs `probe.dismissal_overridden` with your actor and
 the written reason, and the report's **Disposition review** section keeps the
 dismissal AND the override in front of every later reader.
+
+**A sentinel guard is not an answer — the value that passes it is.** The
+third rule in this family runs on a row whose own guard is a zero-check
+(`own_form=sentinel`: `stateRoot != bytes32(0)` and its kin). A zero-check
+cannot express the truth of the value it guards — every non-zero value
+passes it — so "the assertion exists" is not a closure. Closing such a row
+`answered` or `not-applicable` demands `--passes VALUE`: the concrete value
+that passes the check, recorded on the priority as its `passes` field. The
+escape hatch is the same signature as above — `--override-dismissal
+--override-reason` closes a sentinel row without a value, logged and
+reviewed exactly like any other override.
 A separate, unglamorous rule runs on EVERY closure at any tier: a reason or
 `--ref` that names a finding, exec record or invariant must name one that
 exists — `F-1a2b3c4d5e6f` that was never written is refused as fabricated, by
@@ -604,9 +615,15 @@ webv2 budget <C-xxx> --set-discovery N --actor NAME     # set max_discovery_find
 Unset means unbounded (the brief says so); set means the pipeline **HALTS**
 the moment recorded spend crosses the ceiling — an overrun becomes an explicit
 operator decision (raise the ceiling or stop), never a silent one.
-`budget <C-xxx>` also reports the discovery position (findings recorded vs the
-deterministic discovery ceiling); hitting that ceiling halts ingest with an
-error naming the command that raises it.
+`budget <C-xxx>` also reports the discovery position (findings risen vs the
+deterministic discovery ceiling). Since the slot reform the ceiling meters
+**risen** findings, not hypotheses: bare HYPOTHESIS ingest is free —
+suspicion costs nothing — and a finding's slot is charged exactly ONCE, at
+its FIRST rise above the E0 baseline, whether that rise is an evidence item
+above E0 (`mint`/`add`) or the first status promotion whose floor is above
+E0. Hitting the ceiling refuses that rise with an error naming the command
+that raises it (`budget <C-xxx> --set-discovery N`); every later add to an
+already-risen finding is free.
 
 ## 6. Triage → dedup → review
 
@@ -622,6 +639,7 @@ webv2 verdict <C-xxx> F-xxx --verdict confirmed --reason "no compensating contro
 webv2 recall <C-xxx> --finding F-xxx --mode negative   # recorded graph-memory consult (gate REQUIRES negative/comparative)
 webv2 move <C-xxx> F-xxx POSSIBLE --reason "triage: the mechanism is falsifiable"
 webv2 move <C-xxx> F-xxx CONFIRMED --reason "gates passed"
+webv2 move <C-xxx> F-xxx DUPLICATE --of F-other --reason "same root cause, same site"   # a DUPLICATE must name its target (--of; see the state machine below)
 webv2 amend <C-xxx> F-xxx --title "corrected title" --note "why"   # correct a filed finding in place (bumps claim_version, never moves status)
 webv2 supersede <C-xxx> F-new --of F-old   # retire F-old to SUPERSEDED; its evidence is COPIED into F-new, never moved
 webv2 gate <C-xxx> F-xxx                              # read-only per-finding CONFIRMED dry-run (exit 1 while checks fail)
@@ -670,8 +688,22 @@ PROVISIONALLY_VALID -> POSSIBLE | NEEDS_RESEARCH | DISPROVED | OUT_OF_SCOPE | DU
 POSSIBLE    -> CONFIRMED | NEEDS_RESEARCH | DISPROVED | OUT_OF_SCOPE | DUPLICATE | INFORMATIONAL
 CONFIRMED   -> DISPROVED | DUPLICATE | CHAIN | OUT_OF_SCOPE | INFORMATIONAL
 CHAIN       -> CONFIRMED | DISPROVED
-DISPROVED / DUPLICATE / OUT_OF_SCOPE / INFORMATIONAL  -> (terminal)
+DISPROVED / OUT_OF_SCOPE / INFORMATIONAL  -> (terminal)
+DUPLICATE   -> HYPOTHESIS   (the one reopen edge — see below)
 ```
+
+**A move TO `DUPLICATE` must name its target**: `--of F-yyy` (the same flag
+`supersede` uses). The target has to exist and must not be the finding
+itself — a ghost id, a self-merge and a re-target of an already-recorded
+merge are all refused before anything is written. The pointer is recorded
+on the finding as `duplicate_of`.
+
+**`DUPLICATE` is terminal for every reader but the operator's undo.** The
+dedup block, the report and the queue treat it as closed; the one legal way
+out is `move <C-xxx> F-xxx HYPOTHESIS --reason "wrong merge"`, which clears
+the recorded `duplicate_of` pointer (a stale one would keep the merge alive
+for every reader) and leaves the finding a hypothesis again — evidence and
+history stay attached, only the merge pointer goes.
 
 A `HYPOTHESIS -> CONFIRMED` jump is refused (exit 2) — walk it through
 `POSSIBLE` first. A DISPROVED on a **lifecycle** finding must name the
@@ -1280,7 +1312,7 @@ webv2 audit <C> [--json]                                           full integrit
 webv2 brief <C> [--json] [--deep]                                  operator cockpit (where it is + decisions waiting; pure view)
 webv2 scorecard <C> [--json] [--no-surface]                        one read-only view: surface, findings, process, eval
 
-webv2 move <C> <finding> TO_STATUS --reason R [--actor A] [--adjacent SIBLING] [--adjacent-clear]   # the ONLY status-transition path
+webv2 move <C> <finding> TO_STATUS --reason R [--actor A] [--adjacent SIBLING] [--adjacent-clear] [--of FINDING]   # the ONLY status-transition path; --of REQUIRED for DUPLICATE (target exists, != self)
 webv2 amend <C> <finding> [--title T] [--class C] [--claim K] [--note N] [--actor A]   # correct a filed finding (bumps claim_version; status never moves)
 webv2 supersede <C> <new> --of <old> [--actor A]   # old -> SUPERSEDED; evidence COPIED into new (re_parented_from), old array untouched
 webv2 mint <C> <finding> --exec E --description D [--tier T1|T2|T3|T4] [--type TYPE] [--verify-reruns]   # record+mint evidence (idempotent per exec); --verify-reruns re-runs the PoC 3x (flaky advisories ride the evidence, fail-open)
