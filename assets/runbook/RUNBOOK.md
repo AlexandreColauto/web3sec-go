@@ -303,9 +303,15 @@ third rule in this family runs on a row whose own guard is a zero-check
 (`own_form=sentinel`: `stateRoot != bytes32(0)` and its kin). A zero-check
 cannot express the truth of the value it guards — every non-zero value
 passes it — so "the assertion exists" is not a closure. Closing such a row
-`answered` or `not-applicable` demands `--passes VALUE`: the concrete value
-that passes the check, recorded on the priority as its `passes` field. The
-escape hatch is the same signature as above — `--override-dismissal
+`answered` or `not-applicable` demands `--passes VALUE`: the value that
+passes the check, recorded on the priority as its `passes` field. The value
+must be checkable: it names a symbol from the row's own surface entry, or
+it is a concrete literal (a decimal integer, a hex number or
+Ethereum-style address 0x…, `bytes32(0x…)`, a boolean, or a quoted string).
+Junk (`TBD`, `zzz`, `n/a` — bare or quoted) and sub-3-character values are
+refused, and the SAME floor is applied to a supplied `--passes` on every
+closure, any route — a flag is never inert. The escape hatch is the same
+signature as above — `--override-dismissal
 --override-reason` closes a sentinel row without a value, logged and
 reviewed exactly like any other override.
 
@@ -330,9 +336,16 @@ of it. The sweep reports; it never mutates — the fix is a re-answer.
 A separate, unglamorous rule runs on EVERY closure at any tier: a reason or
 `--ref` that names a finding, exec record or invariant must name one that
 exists — `F-1a2b3c4d5e6f` that was never written is refused as fabricated, by
-typo or by invention. That is the difference the gate buys: not "do not
-dismiss", but "a dismissal this close to the money is a decision someone
-signs".
+typo or by invention. The pricing flags are held to the same discipline on
+every closure, any route: `--finding` must be a filed, LIVE finding (a
+terminal one — DISPROVED, OUT_OF_SCOPE, INFORMATIONAL, DUPLICATE,
+SUPERSEDED — records nothing about a window that is still open) and
+`--interim` a statement of at least 3 characters; a ghost or terminal ref is
+refused before anything is written. And a disposition gate that stands down
+because the priority's probe row no longer resolves against the current
+surface says so on stderr — a skipped gate is not a passed gate. That is
+the difference the gate buys: not "do not dismiss", but "a dismissal this
+close to the money is a decision someone signs".
 
 **A stale surface keeps the lens open.** The gate compares `surface.index_sha`
 with the current index's content hash. A **mismatch** names the re-emit
@@ -631,9 +644,18 @@ Per row, the two legal exits: (a) per MEMBER, a
 `primitive:Symbol#L<line>` cite — the funding primitive and the exact
 line, where the Symbol must appear on the row's own surface entry (the
 matrix row names them: contract, consumer, base, forward); or (b) the id
-of a FILED finding that records the answer. "The 42 divergences are benign
-duals" with no cite is refused: the refusal names every unreconciled row
-and both exits, and nothing is written. Citing a symbol that is not on the
+of a FILED, LIVE finding that records the answer. The L-04 close refuses an
+attestation that doesn't reconcile the divergence rows it covers: "The 42
+divergences are benign duals" with no cite is refused: the refusal names
+every unreconciled row and both exits, and nothing is written. An empty or
+blank `--reconcile` spec is refused at the parse layer (it would overwrite
+the stored reconciliation with zero records), and the flag is consumed by
+one route only — an L-04 primitive-symmetry CLOSURE: on a `Q-*` priority,
+or a lens status that is not a closure, it is refused and the stored
+reconciliation survives untouched. The probe-row flags are never inert on
+a lens route either: `--anchor`, `--passes`, `--interim` and `--finding`
+price a probe row, so they are refused on an L-* closure (exit 2 names the
+route). Citing a symbol that is not on the
 row, or a finding that was never filed, is refused as what it is. A
 re-attestation of an already-closed lens rides its stored reconciliation;
 a REOPENED lens must re-attest it.
@@ -751,7 +773,10 @@ DUPLICATE   -> HYPOTHESIS   (the one reopen edge — see below)
 `supersede` uses). The target has to exist and must not be the finding
 itself — a ghost id, a self-merge and a re-target of an already-recorded
 merge are all refused before anything is written. The pointer is recorded
-on the finding as `duplicate_of`.
+on the finding as `duplicate_of`. `--of` is consumed by the merge route
+only, and a flag is never inert: on any non-DUPLICATE move it is refused at
+exit 2 naming DUPLICATE as the route that reads it (the reopen clears the
+pointer without ever looking at `--of`).
 
 **`DUPLICATE` is terminal for every reader but the operator's undo.** The
 dedup block, the report and the queue treat it as closed; the one legal way
@@ -999,11 +1024,18 @@ an existing CHAIN) on one shared source pin and the result is a CHAIN.
 allowed, each capability link stamped with its member's evidence level, and
 **no** super-finding — so the result never inflates the confirmed count.
 
-A **liveness** finding (the freeze is the bug) additionally needs the
-adversarial game: who profits while the protocol is degraded, how the profit is
+A **liveness** finding — the trigger is one shared predicate,
+`IsLivenessFinding`, so no prose heuristic gets to disagree with the gate:
+a `root_cause.class` in {`chain-freeze`, `sequencer-halt`, `liveness`} (a
+class-typed freeze owes the clause even when no `economic_impact` object
+exists), an `economic_impact.kind == "liveness"`, or a granted capability
+whose terminal is liveness loss — additionally needs the adversarial game:
+who profits while the protocol is degraded, how the profit is
 realised, and why that interplay cannot be undone by the challenge path. All
 three flags are required and each answer must be at least 20 characters; the
-gate refuses a live liveness finding without it — the discovery completion
+gate refuses a live liveness finding without it (live = the open statuses
+plus CONFIRMED/CHAIN — a dead terminal disposition owes nothing) — the
+discovery completion
 proof blocks the divergence-era exit and the bounty gate's `adversarial-game`
 check re-validates the stored clause — and it is waivable per finding (`waive
 <C-xxx> adversarial-game --subject F-xxx --reason "..."`).
@@ -1140,6 +1172,12 @@ webv2 prove <C-xxx> [--stage S]  # completion proofs: is a stage DONE because it
 webv2 complete <C-xxx> --actor NAME --reason R    # close the pass: phase COMPLETE; the cockpit stops suggesting work
 webv2 waive <C-xxx> discovery --subject L-02 --reason "..." --actor NAME   # waive one completion-proof subject (default '*': the whole stage)
 ```
+
+The `<stage>` on a waiver is validated: a typo'd stage would record a row
+nothing ever consults (the proof stays red while `waive` reports success),
+so it is refused at exit 2 naming the valid vocabulary — the pipeline stage
+ids plus the check rails `adversarial-game`, `accepted-risk`,
+`paid-exploitability`, `immunization`.
 
 `audit` re-checks the event-log hash chain, re-hashes every registered
 artifact and exec output, re-validates every finding, cross-checks the state

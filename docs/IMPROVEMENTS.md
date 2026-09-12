@@ -3458,3 +3458,114 @@ eight tasks; all landed. What changed, in the shape a reviewer can check:
   `.`. Targeted DUPLICATE + reopen (`653ff3d`, `c45359b`) and the sentinel
   override arm (`a6faf36`) round the wave out.
 
+## Round 2–3 close-out: the never-inert falsifiability batch (2026-09-12)
+
+Three adversarial review rounds graded the closure surface and named the gaps
+to 9. The batch that closes them is one contract — **a flag the verb cannot
+use is refused at exit 2 with the reason named, never silently dropped; a
+closure that can be checked is checked** — applied everywhere the gates had
+quiet edges. The items below are the review's must/major list, all landed;
+each ships negative controls at the API and CLI layers.
+
+### The closure gates (round 2: FIX-A/B/C, round 3: FIX-E)
+
+- **Sentinel override arm needs its reason** (`a6faf36`). The
+  `--override-dismissal` escape hatch on a sentinel-row closure refused the
+  bare flag: it demands `--override-reason`, and the override lands as a
+  logged `probe.dismissal_overridden` event, printed to the operator at the
+  moment it happens. An override without a justification is no longer a
+  syntax quirk of the flag parser — it is refused like any other unpriced
+  closure.
+- **The deferred-consequence vocabulary is a trigger, not a hint**
+  (`2b421aeb`, FIX-A/round-2 chief item 1). The v1 trigger was the asserter
+  anchor alone; a tier-0 closure whose REASON uses the failure-consequence
+  vocabulary (`unfinalizable`, `stranded`, `frozen`, `revert-forever`, …)
+  now demands the same pricing (`--finding F-<id>` or `--interim` citing the
+  row's own surface entry) or the logged override — and the refusal names
+  which trigger it is answering. The vocabulary lives in the rejection
+  layer, where `webv2 deferred` (§5) sweeps it later, so the gate and the
+  sweep cannot disagree about what counts.
+- **The discovery exit fires on `IsLivenessFinding`** (`41c5c93a`, FIX-B).
+  `proofDiscovery` gated the adversarial_game clause demand on
+  `economic_impact.kind == "liveness"` alone, while the bounty gate's
+  check15 fires on the shared predicate (`root_cause.class` in
+  {`chain-freeze`, `sequencer-halt`, `liveness`}, or the recorded kind, or a
+  granted liveness-terminal capability). A class-typed freeze with no
+  `economic_impact` object used to exit discovery clause-less while the
+  bounty gate still demanded the clause — one question, two disagreeing
+  gates. Both now call `findings.IsLivenessFinding`; dead terminal
+  dispositions stay exempt (`livenessOwedStatuses`).
+- **The `--passes` plausibility floor** (`d7d980c9` 3a, `e542f709` FIX-E).
+  The sentinel gate accepts a value only when it is checkable: it names a
+  symbol from the row's own surface entry, or it is a concrete literal
+  (decimal integer, hex number / Ethereum address `0x…`, `bytes32(0x…)`,
+  boolean, quoted string) — junk (`TBD`, `zzz`, `n/a`, …) is refused naming
+  both legal shapes, the ≥ 3-character floor stays, and the quoted-string
+  arm no longer admits quoted junk (the shared junk lexicon excludes it
+  whole-value, case-insensitive; an honest quoted literal that merely
+  contains a junk word stays legal).
+- **The floor is always on** (`e542f709` FIX-E, round-3 chief item 5).
+  `checkPassesValue` backstops every route the sentinel gate stands down on:
+  whenever `--passes` is supplied — any priority, any status — the value
+  goes through the SAME `passesPlausible` floor, so the two paths cannot
+  disagree. A sub-floor value is a refusal naming the floor, never
+  `closePriority`'s silent drop.
+- **Live-finding exits** (`2b421aeb` + `d7d980c9` 3b). `--finding` refuses a
+  ghost id and a TERMINAL finding (DISPROVED, OUT_OF_SCOPE,
+  INFORMATIONAL, DUPLICATE, SUPERSEDED — a dead record prices nothing about
+  a window still open); the `--reconcile` finding exit refuses a terminal
+  finding the same way, with its recorded status named. Verified as landed
+  by the FIX-C round; the runbook states it.
+- **Recon evidence is bound to the campaign** (`d7d980c9` 3c, `e542f709`
+  FIX-E 3). `state.StampRecon` stamps `campaign_id` beside `src`/`at`; the
+  L-04 gate refuses a prescreen whose `snapshot_id` is not the campaign's
+  active pin, a sinks stamp naming another campaign (or none), and — when
+  both verbs stamped their src — a sinks run over a different tree than the
+  prescreen's. Pre-binding artifacts without the field stay accepted (their
+  snapshot binding is their whole evidence); state files stay
+  operator-writable — the gates stop laziness, not forgery.
+- **An empty `--reconcile` is refused, not a wipe** (`d7d980c9` 3d). A blank
+  spec parses to zero records, which would overwrite the stored
+  reconciliation with "nothing to reconcile"; the parse layer refuses it and
+  the record survives.
+
+### The never-inert contract (round 3: FIX-D, `85659ad0`)
+
+- **`answered` L-* routes**: `--finding`/`--interim`/`--passes`/`--anchor`
+  were dropped silently on a lens closure while the help claimed validation
+  on every closure. All four are refused before the recon gate, with the
+  route and the drop named — a ghost `--finding` can no longer ride a lens
+  closure.
+- **`answered --reconcile` off-route**: a Q-* closure ignored the spec at
+  exit 0, and a non-closing lens status ignored it AND dropped the stored
+  reconciliation. Both refused, naming the only consuming route (the L-04
+  primitive-symmetry closure); the stored record survives.
+- **`deferred --json`** is ONE parseable document: the skipped list rides
+  inside the object (`"skipped": [...]`) instead of human lines appended
+  after the JSON — prose-after-JSON broke every parser exactly when skips
+  existed.
+- **`move --of` off-route** was silently dropped on any non-DUPLICATE move;
+  it is refused at exit 2 before the campaign opens, naming DUPLICATE as the
+  route that consumes the flag.
+
+### The remaining two named items
+
+- **`snap --dry-run --json`** (`bda634fd`): the machine view emits the FULL
+  pruned-paths table the prose view shows, so a script can predict what a
+  real pin would capture without parsing human lines.
+- **The `--of` refusals themselves** (`653ff3d`, `c45359b`, reviewed
+  2026-09-12): targetless, ghost, self and retarget merges are refused with
+  the pointer written in the same single save as the status — a durable
+  targetless DUPLICATE is unrepresentable.
+
+### Also in this batch (round-3 polish sweep)
+
+- A waiver stage the system never reads used to record silently; the CLI now
+  validates the stage against the vocabulary the proofs and gate checks read
+  (2026-09-12, round-3 polish — `webv2 waive` refuses a typo'd stage naming
+  the valid list). The library keeps Python-replay parity; the refusal is
+  the verb's.
+- The schema-count prose (27/28 vs the current 32) is now count-free in the
+  live comments and release script; generated and frozen historical
+  documents keep their counts as dated records.
+

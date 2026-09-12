@@ -492,6 +492,21 @@ check answered-priority ok "answered" §5 -- "$WEBV2" --root . answered "$CID" Q
   --reason "the model covers this in the scope entry" --ref "$FID"
 check waive ok "waived" §cheat -- "$WEBV2" --root . waive "$CID" discovery \
   --reason "walkthrough waiver: the diversity floor is advisory" --actor operator
+# Round-3 walkthrough coverage: the §4b enforcement table, the §5 reverse
+# sweep and the §8 adversarial-game setter — Go-only verbs the reviewer named
+# as unwalked. All three have clean happy paths on this campaign (the plan,
+# index and CONFIRMED finding already exist); no verb was skipped for
+# exotic fixtures — the docker/fork-dependent verbs stay covered by S9 and
+# scripts/p2-docker-e2e.sh as before.
+check enforce ok "enforce: totalDeposited" §4b -- "$WEBV2" --root . enforce "$CID" totalDeposited
+check enforce-json ok "sites" §4b -- "$WEBV2" --root . enforce "$CID" totalDeposited --json
+check deferred ok "deferred:" §5 -- "$WEBV2" --root . deferred "$CID"
+check deferred-json ok "skipped" §5 -- "$WEBV2" --root . deferred "$CID" --json
+check adversarial-game ok "adversarial-game clause recorded" §8 -- "$WEBV2" --root . adversarial-game \
+  "$CID" "$FID" \
+  --who-profit "the operator who reopened the withdrawals window" \
+  --mechanism "sealing a stale state root lets them collect exit fees" \
+  --interplay "the challenge path cannot unseal the batch once it is final"
 check doctor ok "state:" §0 -- "$WEBV2" --root . doctor "$CID"
 check doctor-json ok '"' §0 -- "$WEBV2" --root . doctor "$CID" --json
 check env-doctor 0or1 "docker:" §0 -- "$WEBV2" --root . env doctor
