@@ -73,6 +73,12 @@ func runArtifactRegister(root string, args []string, r *Runner) int {
 		return r.withErr(root, func() error { return err })
 	}
 	fmt.Fprintf(r.Out, "%s: kind=%s path=%s\n", aid, kind, path)
+	// The artifact id is immutable (Task 7d): the store copied the bytes, so
+	// overwriting the file at `path` afterwards does not revise the artifact.
+	// Say so once, at the moment the operator learns the id — the alternative
+	// is finding out when the recorded hash no longer matches the file.
+	fmt.Fprintln(r.Out, "note: registered artifacts are immutable — to revise, "+
+		"register a new artifact (the old one stays for provenance)")
 	return 0
 }
 
