@@ -7,7 +7,10 @@
 //
 // G8 harness runs (Task 18) ride along informationally: every invariant
 // carrying verification.harness contributes one line to the presence-gated
-// "harness_runs" key (uppercase rung label only for proved-bounded).
+// "harness_runs" key (uppercase rung label only for proved-bounded), and —
+// L-defer T5 — the campaign's stored MiniCertora refusals contribute ONE
+// further derived line after those per-invariant lines (the L3 full form:
+// a class histogram plus the top reason codes, see proverrefusals.go).
 // Campaigns without the field — every golden campaign — serialize
 // byte-identically to before (the key is omitted, not emptied).
 package sections
@@ -22,7 +25,10 @@ import (
 )
 
 // InvariantVerification is audit.py section 11: {checked, problems, ok}
-// plus the presence-gated harness_runs lines.
+// plus the presence-gated harness_runs lines: one per invariant carrying a
+// well-formed verification.harness object, then — when the campaign stores
+// at least one inconclusive MiniCertora record — the one derived refusal
+// histogram line (L-defer T5, proverrefusals.go).
 func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 	links, err := invariants.LoadLinks(c)
 	if err != nil {
@@ -35,6 +41,7 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 	}
 	var problems []validation.Value
 	var runs []validation.Value
+	tally := newRefusalTally()
 	for _, iid := range sortedObjKeys(reg) {
 		e := objAt(reg, iid)
 		if e.Kind != validation.Obj {
@@ -43,6 +50,7 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 		if line, ok := harnessRunLine(iid, e); ok {
 			runs = append(runs, validation.VStr(line))
 		}
+		tally.add(e)
 		if objStr(e, "status") != "CHECKED_AGAINST_CODE" {
 			continue
 		}
@@ -70,6 +78,13 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 		KV("checked", validation.VInt(int64(len(reg.O)))),
 		KV("problems", validation.VArr(problems...)),
 		KV("ok", validation.VBool(len(problems) == 0)),
+	}
+	// The derived refusal histogram closes the run lines: appended AFTER
+	// every per-invariant line (one line per invariant, then the tally) and
+	// only when an eligible record exists — the per-invariant lines and the
+	// key's presence gate are otherwise untouched.
+	if line, ok := tally.line(); ok {
+		runs = append(runs, validation.VStr(line))
 	}
 	// Presence-gated: campaigns without a single verification.harness
 	// field (every golden campaign) keep the exact historical bytes.
