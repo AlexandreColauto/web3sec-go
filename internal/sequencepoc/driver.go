@@ -180,7 +180,9 @@ func hasObjKey(v validation.Value, key string) bool {
 
 // BuildCommand is build_command: the full POSIX-sh driver for a validated
 // spec. PURE in the spec — replayable from the EXEC ledger's recorded
-// command string.
+// command string. A step's optional `value` (wei, decimal or 0x-hex)
+// becomes `cast send --value <literal>`; a step without the key emits no
+// flag, so the pre-value driver text is unchanged (see valueFragment).
 func BuildCommand(spec validation.Value, workdir string) (string, error) {
 	wd := strings.TrimRight(workdir, "/")
 	if wd == "" {
@@ -254,8 +256,8 @@ func buildStep(spec, s validation.Value) ([]string, error) {
 	args := joinArgs(objAt(s, "args"))
 	send := `out=$(cast send --rpc-url "$FORK_RPC_URL" ` +
 		shlexQuote(objStr(s, "target")) + " " +
-		shlexQuote(objStr(s, "function")) + args + " " + flag +
-		` 2>"$WD/seq_err.txt")`
+		shlexQuote(objStr(s, "function")) + args + valueFragment(s) + " " +
+		flag + ` 2>"$WD/seq_err.txt")`
 	out = append(out, send, "rc=$?")
 	// s["actor"] is a shell-safe identifier (the field rule above), so it
 	// is safe to embed verbatim in the JSON template.
@@ -298,6 +300,24 @@ func joinArgs(v validation.Value) string {
 		parts[i] = shlexQuote(pyStr(a))
 	}
 	return " " + strings.Join(parts, " ")
+}
+
+// valueFragment is the step's optional wei `value` as a `cast send
+// --value` fragment, "" when the step carries none — so every spec
+// written before the key existed produces byte-identical driver text.
+// The literal is passed through VERBATIM (cast parses a decimal wei
+// integer, and the schema's other admitted spelling, hex): the loader's
+// schema check is the gate that refuses anything human-formatted, and
+// this builder never reinterprets a number — a driver that "helpfully"
+// converted "1 ether" would replay a transaction the witness never ran.
+// The fragment rides before the actor flag, right after the calldata it
+// pays for, because the value is a field of the CALL, not of the sender.
+func valueFragment(s validation.Value) string {
+	v := objAt(s, "value")
+	if v.Kind != validation.Str || v.S == "" {
+		return ""
+	}
+	return " --value " + shlexQuote(v.S)
 }
 
 // buildAssertion is build_command's per-assertion block.

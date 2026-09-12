@@ -353,6 +353,150 @@ func TestDriverRevertWithoutReasonStillRecords(t *testing.T) {
 	}
 }
 
+// --- step value threading (L-defer T3) ------------------------------------
+
+// valuedSpec is a two-step spec whose FIRST step carries the optional wei
+// `value` the witness bridge now emits; the second step carries none, so
+// one driver covers both halves of the law (present -> `cast send --value`,
+// absent -> no flag at all).
+func valuedSpec(t *testing.T) validation.Value {
+	t.Helper()
+	return mustParse(t, `{
+  "spec_id": "SEQ-TEST-07", "finding_id": "F-val1",
+  "actors": {"attacker": "anvil:0", "victim": "`+addr("bb")+`"},
+  "steps": [
+    {"step": 1, "actor": "attacker", "target": "`+addr("cd")+`",
+     "function": "deposit(uint256)", "args": ["1000"],
+     "value": "1000000000000000000"},
+    {"step": 2, "actor": "victim", "target": "`+addr("cd")+`",
+     "function": "claim()"}
+  ],
+  "final_assertions": []
+}`)
+}
+
+// TestBuildCommandThreadsStepValue pins the generated send line: a step's
+// `value` rides as `cast send --value <literal>` (the wei amount is a tx
+// field of the CALL, so it belongs on the send line, before the actor
+// flag), and a spec without the key is byte-unchanged — no flag, no
+// empty `--value`.
+func TestBuildCommandThreadsStepValue(t *testing.T) {
+	got, err := BuildCommand(valuedSpec(t), "/wd")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantSend := `out=$(cast send --rpc-url "$FORK_RPC_URL" ` + addr("cd") +
+		` 'deposit(uint256)' 1000 --value 1000000000000000000 ` +
+		`--from "${A_attacker}" --unlocked 2>"$WD/seq_err.txt")`
+	if !strings.Contains(got, wantSend) {
+		t.Fatalf("valued send line missing\n got %s\nwant line %s",
+			firstDiff(wantSend, got), wantSend)
+	}
+	// The value-less step never grows a flag.
+	claim := `out=$(cast send --rpc-url "$FORK_RPC_URL" ` + addr("cd") +
+		` 'claim()' --private-key "${FORK_KEY_VICTIM:-}"` +
+		` 2>"$WD/seq_err.txt")`
+	if !strings.Contains(got, claim) {
+		t.Fatalf("value-less send line wrong:\n%s",
+			firstDiff(claim, got))
+	}
+	// And the pre-T3 fixtures produce no `--value` anywhere: the flag is
+	// the valued step's, not a new constant in every driver.
+	plain, err := BuildCommand(runnerSpec(t), "/wd")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(plain, "--value") {
+		t.Error("a spec without a value must not emit --value")
+	}
+}
+
+// stubCastRecordArgv is a stub `cast` that records every `send` argv it
+// receives (one line per call, in call order) so the test can read what the
+// generated driver ACTUALLY passed, not just what it was built from.
+const stubCastRecordArgv = `#!/bin/sh
+case "$1" in
+  rpc)
+    case "$*" in
+      *eth_accounts*) printf '%s\n' '["0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","0x70997970c51812dc3a010c7d01b50e0d17dc79c8"]' ;;
+      *) exit 0 ;;
+    esac ;;
+  send)
+    printf '%s\n' "$*" >> cast_argv.txt
+    printf '%s\n' "blockNumber 20000001" "transactionHash 0xdeadbeef0000000000000000000000000000000000000000000000000000cafe"
+    exit 0 ;;
+  *) exit 0 ;;
+esac
+`
+
+// TestDriverStepValueReachesCastArgv is the executor's end-to-end row: run
+// the generated shell against a `cast` that records its argv and prove the
+// value the spec declares is the value the fork call carries — present on
+// the valued step, absent on the value-less one.
+func TestDriverStepValueReachesCastArgv(t *testing.T) {
+	t.Parallel()
+	code, _, stderr, wd := driverRun(t, valuedSpec(t), stubCastRecordArgv, "wd")
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	raw, err := os.ReadFile(filepath.Join(wd, "cast_argv.txt"))
+	if err != nil {
+		t.Fatalf("read recorded argv: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(string(raw), "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("recorded %d send calls, want 2: %q", len(lines), lines)
+	}
+	if !strings.Contains(lines[0], "deposit(uint256)") ||
+		!strings.Contains(lines[0], "--value 1000000000000000000") {
+		t.Fatalf("step 1 argv = %q, want the declared value on the call",
+			lines[0])
+	}
+	if !strings.Contains(lines[1], "claim()") ||
+		strings.Contains(lines[1], "--value") {
+		t.Fatalf("step 2 argv = %q, want no value flag", lines[1])
+	}
+	// The executed spec still binds to its own hash (the value is part of
+	// the spec bytes, so a result minted from a valued spec cannot be
+	// confused with a value-less one).
+	res := readResult(t, wd)
+	if got, want := objStr(res, "spec_hash"), SpecHash(valuedSpec(t)); got != want {
+		t.Fatalf("spec_hash = %s, want %s", got, want)
+	}
+}
+
+// TestStepValueLoadLaw pins the loader half of the same law: the key is
+// optional (the pre-T3 spec loads untouched), a wei literal loads and
+// survives verbatim, and a non-literal is refused at LOAD time with the
+// field named — never silently dropped on the way to the fork.
+func TestStepValueLoadLaw(t *testing.T) {
+	if _, err := LoadSequenceSpec(writeSpec(t, t.TempDir(),
+		valuedSpec(t))); err != nil {
+		t.Fatalf("valued spec must load: %v", err)
+	}
+	loaded, err := LoadSequenceSpec(writeSpec(t, t.TempDir(), valuedSpec(t)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	step := listOf(objAt(loaded, "steps"))[0]
+	if got := objStr(step, "value"); got != "1000000000000000000" {
+		t.Fatalf("loaded value = %q, want it verbatim", got)
+	}
+	bad := mustParse(t, `{
+  "spec_id": "SEQ-TEST-08", "finding_id": "F-val2",
+  "actors": {"attacker": "anvil:0"},
+  "steps": [{"step": 1, "actor": "attacker", "target": "`+addr("cd")+`",
+             "function": "deposit(uint256)", "value": "1 ether"}],
+  "final_assertions": []
+}`)
+	got := loadErr(t, bad)
+	if !strings.Contains(got, "value") ||
+		!strings.Contains(got, "does not match") {
+		t.Fatalf("pretty value error = %q, want a schema pattern refusal "+
+			"naming value", got)
+	}
+}
+
 func TestResultSchemaRegistered(t *testing.T) {
 	minimal := mustParse(t, `{"spec_hash": "sha256:`+strings.Repeat("0", 64)+
 		`", "steps": [], "final_assertions": [], "overall": "pass",`+

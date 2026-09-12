@@ -45,6 +45,16 @@ func wCall(step int, fn, sender string, reverted bool) string {
 		`"reentrant":false,"overrides":{}}`, step, fn, wTarget, sender, rev)
 }
 
+// wCallValue is wCall with an explicit msg.value payload, written as the
+// report writes it (a JSON scalar — `"0"`/`"1000"` decimal, `null` when
+// the model never evaluated the field, and so on).
+func wCallValue(step int, fn, sender, valueJSON string) string {
+	return fmt.Sprintf(`{"step":%d,"function":%q,"target":%q,"args":["1000"],`+
+		`"env":{"msg.sender":%q,"msg.value":%s},"reverted":false,`+
+		`"reentrant":false,"overrides":{}}`, step, fn, wTarget, sender,
+		valueJSON)
+}
+
 // wVerdict wraps call entries in the verdict line that carries them.
 func wVerdict(calls ...string) string {
 	return `{"rule":"inv_1","verdict":"VIOLATED","confidence":"confirmed",` +
@@ -283,6 +293,51 @@ func TestBridgeSequenceRefusals(t *testing.T) {
 			`{"step":1,"target":"`+wTarget+`","args":[],`+
 				`"env":{"msg.sender":"`+wBob+`"}}`),
 		"unbridgable step: call 2 lacks function",
+	}, {
+		// The refusal text carries the RAW value, Python-repr'd, so an
+		// operator sees exactly what the report said and judges it. The
+		// pinned tool cannot emit this form — `_call_env` stringifies an
+		// int, and its pretty-renderer is `str()` too — so the lane
+		// guards a hand-edited or differently-produced witness: a pretty
+		// amount is never rounded into wei.
+		"msg.value is a pretty amount, not a wei literal",
+		wVerdict(wCallValue(0, "deposit", wAlice, `"1 ether"`)),
+		"unbridgable step: call 1 value '1 ether' not a wei literal",
+	}, {
+		// `_call_env` writes null when the model never evaluated the
+		// field: an unstated value is NOT zero, so it refuses rather
+		// than silently replaying with 0 wei.
+		"msg.value null (the model did not evaluate it)",
+		wVerdict(wCallValue(0, "deposit", wAlice, `null`)),
+		"unbridgable step: call 1 value None not a wei literal",
+	}, {
+		// The tool stringifies every int (`str(v)`); a bare JSON number
+		// is not the report's shape, so it is refused rather than
+		// coerced.
+		"msg.value is a JSON number, not the report's string",
+		wVerdict(wCallValue(0, "deposit", wAlice, `1000`)),
+		"unbridgable step: call 1 value 1000 not a wei literal",
+	}, {
+		"negative msg.value",
+		wVerdict(wCallValue(0, "deposit", wAlice, `"-1"`)),
+		"unbridgable step: call 1 value '-1' not a wei literal",
+	}, {
+		"empty msg.value",
+		wVerdict(wCallValue(0, "deposit", wAlice, `""`)),
+		"unbridgable step: call 1 value '' not a wei literal",
+	}, {
+		"over-long hex msg.value (65 nibbles)",
+		wVerdict(wCallValue(0, "deposit", wAlice,
+			`"0x`+strings.Repeat("a", 65)+`"`)),
+		"unbridgable step: call 1 value '0x" + strings.Repeat("a", 65) +
+			"' not a wei literal",
+	}, {
+		// Precedence: the value is the LAST field checked. An actor the
+		// fork cannot address refuses for the actor's reason (the value
+		// is meaningless until the step is replayable at all).
+		"symbolic sender refuses before the value is read",
+		wVerdict(wCallValue(0, "deposit", "attacker", `"1 ether"`)),
+		"symbolic senders cannot be fork-repro'd",
 	}}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -351,5 +406,70 @@ func TestBridgeSequenceOptionalFields(t *testing.T) {
 	if args := getObj(t, step, "args"); args.Kind != validation.Arr ||
 		len(args.A) != 0 {
 		t.Fatalf("args = %s, want []", validation.CanonCompact(args))
+	}
+}
+
+// TestBridgeSequenceCarriesMsgValue pins the value channel byte-for-byte:
+// env["msg.value"] — the decimal wei literal minicertora's `_call_env`
+// emits (`str(model.eval_bitvec(...))`, with "0" as the default) — rides
+// into the step as its own `value` key, and a hex literal (the schema's
+// other admitted spelling) passes through UNREFORMATTED: the bridge
+// translates, it never re-renders.
+func TestBridgeSequenceCarriesMsgValue(t *testing.T) {
+	obj := witnessJSON(t, wVerdict(
+		wCallValue(0, "deposit", wAlice, `"1000000000000000000"`),
+		wCallValue(1, "poke", wBob, `"0x10"`),
+	))
+	got, refusal := BridgeSequence(obj, "SEQ-MINI-01", "F-abc123")
+	if refusal != "" {
+		t.Fatalf("refusal = %q, want none", refusal)
+	}
+	want := `{"actors":{"actor-1":"` + wAlice + `","actor-2":"` + wBob +
+		`"},"final_assertions":[],"finding_id":"F-abc123",` +
+		`"spec_id":"SEQ-MINI-01","steps":[` +
+		`{"actor":"actor-1","args":["1000"],"function":"deposit",` +
+		`"step":1,"target":"` + wTarget + `","value":"1000000000000000000"},` +
+		`{"actor":"actor-2","args":["1000"],"function":"poke",` +
+		`"step":2,"target":"` + wTarget + `","value":"0x10"}]}`
+	if gotBytes := validation.CanonCompact(got); gotBytes != want {
+		t.Fatalf("bridged spec =\n%s\nwant\n%s", gotBytes, want)
+	}
+	// The emitted value is a schema-legal wei literal (the whole point of
+	// the pattern: a carried value must not make the spec unloadable).
+	assertSequencePocSchema(t, got)
+}
+
+// TestBridgeSequenceZeroValueOmitted pins the schema-legal half of the
+// value rule: a zero value is written by OMITTING the key (the schema's
+// absent = zero, so no campaign byte moves and no older spec breaks), and
+// every spelling of zero the tool can emit — the literal "0" default,
+// plus the hex and leading-zero forms a hand-written report may carry —
+// omits too. The bridged bytes must equal the no-value bridge exactly.
+func TestBridgeSequenceZeroValueOmitted(t *testing.T) {
+	plain := wVerdict(wCall(0, "deposit", wAlice, false))
+	baseline, refusal := BridgeSequence(witnessJSON(t, plain),
+		"SEQ-MINI-01", "F-abc123")
+	if refusal != "" {
+		t.Fatalf("baseline refusal = %q", refusal)
+	}
+	for _, valueJSON := range []string{`"0"`, `"00"`, `"0x0"`, `"0x00"`} {
+		t.Run(valueJSON, func(t *testing.T) {
+			got, refusal := BridgeSequence(witnessJSON(t, wVerdict(
+				wCallValue(0, "deposit", wAlice, valueJSON))),
+				"SEQ-MINI-01", "F-abc123")
+			if refusal != "" {
+				t.Fatalf("refusal = %q, want none", refusal)
+			}
+			step := getObj(t, got, "steps").A[0]
+			if hasKey(step, "value") {
+				t.Fatalf("zero msg.value %s emitted a value key: %s",
+					valueJSON, validation.CanonCompact(step))
+			}
+			if a, b := validation.CanonCompact(got),
+				validation.CanonCompact(baseline); a != b {
+				t.Fatalf("zero-value spec =\n%s\nwant the no-value spec\n%s",
+					a, b)
+			}
+		})
 	}
 }

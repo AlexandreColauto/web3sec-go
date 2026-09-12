@@ -20,21 +20,32 @@
 // ("sender") is accepted as a fallback spelling for a flattened env;
 // "msg.sender" wins when both are present.
 //
-// Env discard. Only env["msg.sender"] is consumed; env["msg.value"] is
-// DISCARDED (the same is true of every other env key, but msg.value is
-// the one that carries meaning and is therefore the one worth naming).
-// sequence_poc steps have no value slot — the step object in
-// assets/schema/sequence_poc.schema.json admits only step, actor,
-// target, function, args, mine_blocks and expect_revert under
-// "additionalProperties": false — so a value-bearing call cannot be
-// represented in this wave's spec without either silently dropping the
-// ETH the witness sent or lying about the sequence. Emitting a bridged
-// spec that omits a nonzero msg.value would be exactly the partial spec
-// the refusal law forbids, so the fork wave must decide value-bearing
-// handling explicitly: add a step-level value field (schema change plus
-// the renderer/executor to honor it), or refuse calls whose
-// env["msg.value"] is present-and-nonzero. Until then this bridge reads
-// the sender only and ignores the value entirely.
+// Value channel. env["msg.value"] is the second env key this bridge
+// consumes, and it rides into the step's own `value` key (a schema change
+// this wave; the key is OPTIONAL, so every spec written before it stays
+// valid). minicertora's `_call_env` writes that field as
+// `str(model.eval_bitvec(expr))` — a DECIMAL wei literal, with "0" as the
+// default when the rule never pinned it and `null` when the model never
+// evaluated it — so the decimal spelling is the one form the tool can
+// actually emit, and it is passed through VERBATIM (the bridge translates,
+// it never re-renders a number). A hex literal is admitted too, because
+// the schema's pattern is the shared value language and `cast send
+// --value` parses both; refusing it would make the bridge stricter than
+// the schema for no gain. Zero ("0", "00", "0x0") and an absent key are
+// written by OMITTING `value`: absent = zero in the schema, so a
+// zero-value step bridges to exactly the bytes it bridged before.
+//
+// A value that is not a wei literal is a REFUSAL, never a round. The
+// pinned tool cannot produce one — `_call_env` stringifies an int and its
+// pretty-renderer is `str()` too, and a grep of the tool's Python finds no
+// unit formatting anywhere — so the refusal lane is the guard for
+// everything else that could hand this bridge a report: a future tool
+// version, a hand-edited witness, a different producer. "1 ether" refuses
+// with the raw value quoted, because a bridge that parsed it would be
+// guessing a number and replaying a different transaction than the
+// counterexample describes. The same applies to `null` — an unstated
+// value is not zero, and replaying it as zero would resume a different
+// transaction than the one the prover found.
 //
 // Refusal law (fail-open-to-honest, the package's house style): the
 // bridge either returns a schema-valid sequence_poc or the null value
@@ -51,7 +62,10 @@
 // text — because the structural fault is decidable from the report alone
 // while the sender is only meaningful once the call is well-formed. The
 // precedence is pinned byte-exactly by the "missing function with a
-// symbolic sender" row in witness_test.go.
+// symbolic sender" row in witness_test.go. The value is checked LAST, for
+// the same reason: what a call sends cannot make an unaddressable actor
+// replayable, so a step that is both symbolic and value-malformed refuses
+// for the actor.
 //
 // Step numbering. The spec's `step` is the 1-based ordinal of a call in
 // the sequence (sequence_poc.schema.json: integer >= 1), and the array
@@ -64,6 +78,7 @@ package harness
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"websec/internal/validation"
 )
@@ -71,14 +86,25 @@ import (
 // witnessSenderKey is the env field this bridge reads as the step's
 // sender: minicertora's `_call_env` spelling. witnessSenderAlias is the
 // fallback spelling for a flattened env (documented above).
+// witnessValueKey is the env field read as the step's wei value (see the
+// file comment on the value channel).
 const (
 	witnessSenderKey   = "msg.sender"
 	witnessSenderAlias = "sender"
+	witnessValueKey    = "msg.value"
 )
 
 // witnessAddrRe is the schema's address pattern: an actor must be a real
 // 20-byte address for a fork to replay it.
 var witnessAddrRe = regexp.MustCompile(`^0x[0-9a-fA-F]{40}$`)
+
+// witnessWeiRe is the schema's step `value` pattern, copied verbatim from
+// assets/schema/sequence_poc.schema.json: a decimal integer, or an
+// 0x-prefixed hex literal of at most 64 nibbles (the width of a uint256).
+// Keeping the bridge's accepted language equal to the schema's is what
+// makes the carried value incapable of rendering the bridged spec
+// unloadable, and nothing beyond it is guessed.
+var witnessWeiRe = regexp.MustCompile(`^(0x[0-9a-fA-F]{1,64}|[0-9]+)$`)
 
 // BridgeSequence compiles a counterexample verdict line into a
 // sequence_poc document: (spec, "") when the witness is fork-reproducible,
@@ -88,7 +114,8 @@ var witnessAddrRe = regexp.MustCompile(`^0x[0-9a-fA-F]{40}$`)
 // Mapping:
 //   - actors: each distinct sender aliases actor-1, actor-2, … by first
 //     appearance, the alias keyed to the sender it names;
-//   - steps: {step, actor, target, function, args}, in witness order,
+//   - steps: {step, actor, target, function, args}, in witness order, plus
+//     `value` when the call sent a nonzero, schema-legal wei amount, plus
 //     expect_revert present-and-true only when the call reverted;
 //   - mine_blocks is never emitted (the witness records no block mining);
 //   - final_assertions is ALWAYS the empty array this wave: translating
@@ -124,6 +151,10 @@ func BridgeSequence(obj validation.Value, specID,
 			{K: "function", V: validation.VStr(call1.function)},
 			{K: "args", V: validation.VArr(call1.args...)},
 		}
+		if call1.value != "" {
+			kvs = append(kvs, validation.KV{K: "value",
+				V: validation.VStr(call1.value)})
+		}
 		if call1.reverted {
 			kvs = append(kvs, validation.KV{K: "expect_revert",
 				V: validation.VBool(true)})
@@ -145,11 +176,14 @@ func BridgeSequence(obj validation.Value, specID,
 }
 
 // witnessCall is one validated call entry: the fields the spec keeps.
+// value is the step's wei literal, "" when the call sent nothing (or
+// nothing the report states) — the schema's absent-is-zero shape.
 type witnessCall struct {
 	function string
 	target   string
 	args     []validation.Value
 	sender   string
+	value    string
 	reverted bool
 }
 
@@ -202,14 +236,67 @@ func witnessCallOf(call validation.Value, n int) (witnessCall,
 		// the honest answer is the refusal, not a guessed actor.
 		return witnessCall{}, "symbolic senders cannot be fork-repro'd"
 	}
+	value, valueRefusal := witnessValue(call, n)
+	if valueRefusal != "" {
+		return witnessCall{}, valueRefusal
+	}
 	out.function = fn.S
 	out.target = target.S
 	out.args = argsOut
 	out.sender = sender
+	out.value = value
 	if rv, ok := mcField(call, "reverted"); ok && rv.Kind == validation.Bool {
 		out.reverted = rv.B
 	}
 	return out, ""
+}
+
+// witnessValue is the step's wei value as the spec carries it: "" when the
+// step sends nothing (the key is absent, or the literal is zero — the
+// schema reads an absent key as zero, so both shapes bridge identically),
+// the literal VERBATIM when it is schema-legal, and the refusal text
+// `unbridgable step: call <n> value <raw> not a wei literal` otherwise.
+// The raw value is rendered with Python repr so an operator can see
+// exactly what the report said (`'1 ether'` is a string, `None` an
+// unevaluated field) and judge it; nothing is parsed, approximated or
+// rounded on the way through.
+//
+// The env object is guaranteed present-and-object here: witnessCallOf
+// refuses a call without one before reaching this function. The check is
+// repeated anyway because this helper is total on its own — a total read
+// cannot turn a malformed report into a panic.
+func witnessValue(call validation.Value, n int) (string, string) {
+	env, ok := mcField(call, "env")
+	if !ok || env.Kind != validation.Obj {
+		return "", ""
+	}
+	raw, ok := mcField(env, witnessValueKey)
+	if !ok {
+		return "", ""
+	}
+	if raw.Kind == validation.Str && witnessWeiRe.MatchString(raw.S) {
+		if witnessWeiIsZero(raw.S) {
+			return "", ""
+		}
+		return raw.S, ""
+	}
+	return "", fmt.Sprintf(
+		"unbridgable step: call %d value %s not a wei literal", n,
+		validation.PyRepr(raw))
+}
+
+// witnessWeiIsZero reports whether a schema-legal literal names zero in
+// either admitted base: every digit is '0' ("0", "00", "0x0", "0x000").
+// The literal is known non-empty (witnessWeiRe requires at least one
+// nibble), so an all-zero spelling is a value, not a blank.
+func witnessWeiIsZero(s string) bool {
+	s = strings.TrimPrefix(s, "0x")
+	for i := 0; i < len(s); i++ {
+		if s[i] != '0' {
+			return false
+		}
+	}
+	return true
 }
 
 // witnessSender is the step's sender: env["msg.sender"], else the
@@ -219,9 +306,10 @@ func witnessCallOf(call validation.Value, n int) (witnessCall,
 // null/empty value (the prover leaves msg.sender null when the model
 // never evaluated it) — an unknown actor is not an actor.
 //
-// Only this one env key is read: env["msg.value"] is discarded, because
-// the step object the spec keeps has no value slot (see the file comment
-// on the env discard — the fork wave owns value-bearing handling).
+// Only this one env key is read here; env["msg.value"] is read separately
+// by witnessValue, which runs AFTER this check — an actor the fork cannot
+// address makes the step unreplayable whatever it sends (see the file
+// comment on refusal precedence).
 func witnessSender(call validation.Value) (string, string) {
 	env, ok := mcField(call, "env")
 	if !ok || env.Kind != validation.Obj {
