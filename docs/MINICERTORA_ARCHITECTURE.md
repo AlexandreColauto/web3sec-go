@@ -101,6 +101,31 @@ squash is nearly lossless, and the loss is recorded, not hidden.
   that moved; the whole G8 law applies verbatim to a text artifact, which is
   the quiet win: no Solidity lexer needed).
 
+- Scaffold rendering from the INV entry (`statement`, `kind`, source spans):
+  - frame: `rule INV_<n>__<slug>(env e) {` + the snapshot lines the
+    statement's referenced storage reads need + `BODY: require/assert pair
+    slots` + `}` — the rule NAME is scaffold-owned and embeds the invariant
+    id, which is how L2 attributes lines without guesswork (one rule per
+    scaffold; multi-rule files stay out of scope for the seam, mirroring the
+    "no auto-detect" rail);
+  - `statement` verbs that match the induction shape ("always",
+    "never … after construction") render an `invariant INV_<n>__<slug>() {
+    assert …; }` skeleton instead — the ledger's `kind` axis (security /
+    liveness) plus a deterministic shape heuristic picks which; a
+    misclassification comes back as `vacuous-*`/`invariant-unchecked-functions`
+    and routes through L3, not through a manual re-spec.
+- Artifact id: `HARNESS-INV-<n>-minicertora`, registered exactly like the
+  halmos scaffolds (same `harness_scaffold` event, same sha binding at
+  `verify --harness-result` — the Decision-2b bind-a-run-to-scaffold-by-hash
+  law carries over unchanged and is what keeps a proof honest about *which*
+  spec it proved).
+- Scaffold-owned fields the model may NOT touch (reviewed data, not
+  model freeform): the env binding (`e.tx.origin` stays a free symbol —
+  `--assume-direct-calls` never appears in generated commands), `msg.value`
+  posture (every rule body that moves value must use `with { msg.value = v
+  }`; the tool's `msg.value-default-zero` assumption renders in the proof
+  object, so a zero-value "proof" about a payable path is visible as such).
+
 ### Errata (post-landing, 2026-09-12)
 
 The core wave that landed MiniCertora shipped a **subset** of what L1, §2 L2,
@@ -129,31 +154,6 @@ The core wave that landed MiniCertora shipped a **subset** of what L1, §2 L2,
 
 The design prose above is left standing: it records the intent this errata
 corrects, and the correction layer — not the prose — is the contract.
-
-- Scaffold rendering from the INV entry (`statement`, `kind`, source spans):
-  - frame: `rule INV_<n>__<slug>(env e) {` + the snapshot lines the
-    statement's referenced storage reads need + `BODY: require/assert pair
-    slots` + `}` — the rule NAME is scaffold-owned and embeds the invariant
-    id, which is how L2 attributes lines without guesswork (one rule per
-    scaffold; multi-rule files stay out of scope for the seam, mirroring the
-    "no auto-detect" rail);
-  - `statement` verbs that match the induction shape ("always",
-    "never … after construction") render an `invariant INV_<n>__<slug>() {
-    assert …; }` skeleton instead — the ledger's `kind` axis (security /
-    liveness) plus a deterministic shape heuristic picks which; a
-    misclassification comes back as `vacuous-*`/`invariant-unchecked-functions`
-    and routes through L3, not through a manual re-spec.
-- Artifact id: `HARNESS-INV-<n>-minicertora`, registered exactly like the
-  halmos scaffolds (same `harness_scaffold` event, same sha binding at
-  `verify --harness-result` — the Decision-2b bind-a-run-to-scaffold-by-hash
-  law carries over unchanged and is what keeps a proof honest about *which*
-  spec it proved).
-- Scaffold-owned fields the model may NOT touch (reviewed data, not
-  model freeform): the env binding (`e.tx.origin` stays a free symbol —
-  `--assume-direct-calls` never appears in generated commands), `msg.value`
-  posture (every rule body that moves value must use `with { msg.value = v
-  }`; the tool's `msg.value-default-zero` assumption renders in the proof
-  object, so a zero-value "proof" about a payable path is visible as such).
 
 ### L2 — Verdict plane: `mapMiniCertora` (the only real mapping code in the wave)
 

@@ -2841,6 +2841,34 @@ the shipped tree; nothing in the shipped tree blocks this except a green tree.
 
 *Update 2026-09-12: MiniCertora landed as the G8 third kind (docs/superpowers/plans/2026-09-12-minicertora-harness-backend.md; architecture docs/MINICERTORA_ARCHITECTURE.md). K1/K3/K4 re-scoped per that doc §0.*
 
+**Wave L-core — LANDED 2026-09-12 (SDD, plan above; commits `60663100..d87f3c5f`).**
+Shipped: the `minicertora` scaffold kind (`.mspec` under the BODY law, rule
+name `inv_<n>`), `MapMinicertora` (JSONL → rung + verbatim `proof` sidecar,
+negative-exit floor), the host profile `minicertora` (E3-capped,
+version-probed), CLI wiring (three-kind `--scaffold`/`--kind` choices,
+`INV.mspec`, exit-status plumbing, three-mode proved-bounded display,
+Decision-2b `.mspec` binding), the envgo `e4_capable` pin, and the schema
+`proof` contract (key set is the contract; values admitted verbatim by
+design). Golden GREEN throughout; existing bytes moved only in choice-list
+help/error texts.
+
+Follow-ups triaged from the final review (queue for a Wave L-next / K' plan):
+1. model_response/trajectory `execution_profile` enums + prompts 36/47/49
+   still carry the container-era five-profile list — the model-facing bundle
+   advertises a profile its schema rejects (pre-existing for halmos, widened
+   now; small honest-surface fix).
+2. Brief/audit `harnessRunLine` drops the big-int bound the CLI prints
+   (display gap for `bounded_k == null` proved runs) — one-line sidecar read.
+3. Signal death renders as "timeout after Ns" where N is the loop bound
+   (inherited MapRun wording; wrong unit for minicertora, cosmetic).
+4. `proof` has no schema `required` array — presence is producer-enforced
+   only; bind it if hand-written sidecars ever appear.
+5. Stale `mcArr` comment (minicertora.go:234) vs the verbatim-value schema
+   — one-word pass.
+6. Deferred planes stand: L3 escalation dispositions, L5 sweep templates,
+   L6 calibration fixtures, the `calls[]`→sequence_poc bridge, and
+   invariant-block scaffolds (architecture errata §L1).
+
 *Rename note: parked as **Wave K** (items J1–J4 → K1–K4) because Wave J's own
 letters were spent by the close-out wave that shipped first. The rename is the
 only edit to this section's content: nothing below was rewritten, re-scoped or
