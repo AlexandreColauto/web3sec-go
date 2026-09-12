@@ -96,10 +96,13 @@ const DummyInvariantMspec = `// unfilled scaffold — the reviewed claim is pinn
 //
 // — a declaration whose body is the reviewed claim. The scaffold owns the
 // declaration AND the claim, so both are rendered OUTSIDE the BODY window:
-// the claim is reviewed statement data, not model tuning, and Validate
-// re-renders and byte-compares it, which makes "the model weakened `<=` to
-// `>=`" a scaffold-bound violation instead of a silent re-scoping of the
-// proof. The declaration name is MspecRuleName (inv_<n>) rather than the
+// the claim is reviewed statement data, not model tuning. Validate re-renders
+// and byte-compares the frame, so a weakened `<=` to `>=` is a scaffold-bound
+// violation WHEN VALIDATE RUNS; today's `verify --harness-result` binds by
+// exec-record input hash rather than re-rendering, so the tamper-to-tampered-
+// hash path is not caught at that gate (pre-existing for halmos/forge frames
+// too; wiring Validate into the run path is a deferred decision). The
+// declaration name is MspecRuleName (inv_<n>) rather than the
 // statement's slug, because the mapper attributes verdict lines by that name
 // (harness.MspecRuleName) — the slug rides verbatim in the
 // `// @custom:invariant` natspec line. The window itself holds

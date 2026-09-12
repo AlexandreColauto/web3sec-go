@@ -387,7 +387,7 @@
                                  "confidence", "reason", "bounds",
                                  "assumptions", "warnings", "ghosts",
                                  "invariant", "calls"],
-                    "description": "minicertora verdict sidecar (an attributed JSONL line, copied verbatim); ABSENT for other kinds and for unattributed minicertora runs. The sidecar mirrors the prover's own report fields verbatim: the schema pins the key set and the shapes where promised (bounds is an object-or-null, assumptions/warnings/ghosts/calls are arrays-or-null, invariant is an object-or-null) but deliberately does NOT constrain value types, because a copy of malformed tool output must stay copyable evidence rather than a schema failure at write time. The twelve-key set is fixed: a rule line carries invariant/calls as null rather than dropping them. Verdict authority is the rung, not the sidecar.",
+                    "description": "a rule line carries invariant as null; calls is null when the line carries no witness; both values ride verbatim from the tool report",
                     "properties": {
                       "tool_version": {},
                       "solc_version": {},
