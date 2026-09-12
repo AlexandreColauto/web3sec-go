@@ -1,0 +1,35 @@
+{
+  "target": "privilege-escalation",
+  "bug_class": "privilege",
+  "sol": "Privileged.sol",
+  "spec": "no_privilege_escalation.mspec",
+  "solc": "0.8.36",
+  "tool_flags": [
+    "--multi-call",
+    "sequential",
+    "--loop-bound",
+    "4",
+    "--timeout-ms",
+    "30000"
+  ],
+  "status": "expected",
+  "notes": "Stage 2 flip (Task 6 Step 6): the attack sequence is one spliced transaction. The rule requires `nominated(e.msg.sender) == false` up front, which makes the sequence load-bearing — escalate (call 1) succeeds only because nominate (call 0) ran first — with both steps running as the same actor value. Witness: nominated[?] 0 -> 1, role[?] 0 -> 2, failed_assertion `role(e.msg.sender) == 0`. The same rule without that require is also VIOLATED, but then arbitrary initial storage supplies the nomination (see meta.md). Task 10 re-measurement: the `escalate(e)` step is the corpus' second zero-argument call, so the wrapper default binds its dispatcher entry and the report additionally declares `entry-bound-via-selector-map` (the `nominate(e, e.msg.sender)` step still binds internally — the wrapper takes no decoded parameters — and keeps declaring `entry-bound-at-internal-implementation`). Verdict, reason and witness are unchanged, in both bindings.",
+  "rules": [
+    {
+      "rule_id": "no_privilege_escalation",
+      "expected_verdict": "VIOLATED",
+      "expected_reason_code": "assertion-violated",
+      "expected_details_include": null,
+      "expected_assumptions_include": [
+        "multi-call-sequential"
+      ],
+      "essential_witness": {
+        "failed_assertion": "role(e.msg.sender) == 0",
+        "final_storage": {
+          "role[?]": "2"
+        }
+      },
+      "replay": "none"
+    }
+  ]
+}

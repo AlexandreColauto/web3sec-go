@@ -1,0 +1,72 @@
+{
+  "upstream": "/home/xand/Projects/minicertora",
+  "upstream_sha": "5a35567d0aaa79005006825a7a10b964f6fe4e4e",
+  "vendored": "2026-09-12",
+  "targets": {
+    "wrap-unchecked": {
+      "files": {
+        "Counter.sol": "sha256:f1368f580fbb5e52143cf73e755fd112c25196afe8918e556ecc0b84d6c52f72",
+        "expected.json": "sha256:49a833c95335b7a1496a22dc1d4aed651a986e87d75573f947c7201213b9094b",
+        "meta.md": "sha256:53e228c1392f7dd9150116a7cb942782a43f079c9a9583af74e7dac30b05525d",
+        "wrap.mspec": "sha256:474875244f2c2a11f2f48f69b318f479bc9758b476041e06305d1d3cf10b5cc3"
+      }
+    },
+    "rounding-drain": {
+      "files": {
+        "YieldDrain.sol": "sha256:ac5671b4e40d143037a56587f5b3a449daa5a6a44b1c2ae17d9eea78f4111f43",
+        "expected.json": "sha256:a735a1efe3ff94b27fcaa321b34916e658cda61aa28238810fe27f38438f9e8b",
+        "harvest_pays_at_most_accrued.mspec": "sha256:a34f2c4fbe6c83bd92c7e7306e45dbf01c23003c98760cd0bd29e2b6ef27ae69",
+        "meta.md": "sha256:9b96ca18e98e427aa2104773a5e61095b96d7eea0e71e94b40f72ec81bb61013"
+      }
+    },
+    "reentrancy-double-payout": {
+      "files": {
+        "Attacker.sol": "sha256:41a0154d9237aa6ea3726bdd52c8b13b324905b71090590c2aef8505698074ce",
+        "Vault.sol": "sha256:77fe69995367761b3bf27cba29867dec38e71eec7fe236d080566c8b6313586a",
+        "expected.json": "sha256:597b6a33b4e93c31ccd050dc420acc18e817fc136d621767642c82d534f9590b",
+        "meta.md": "sha256:1b2377987c9f760037884a4dba39bb03bb901af3dfe4b866f2bf207fd2b79c28",
+        "reentrancy.mspec": "sha256:6db1aeaa158a75d0c0c0d312202103bff4c8c9ca398f2c1cbc2df4f1a7b4c4e6"
+      }
+    },
+    "access-control-mint": {
+      "files": {
+        "Minting.sol": "sha256:28b52ac2eafc4637c6b00943e9f9cff26af1e04f68434f9369e5d3b2f74463e1",
+        "expected.json": "sha256:a804570347efd138ea01130a07186954694d343f693cd03f3966e7b89f533656",
+        "meta.md": "sha256:077c69f7fa6db3f399a366a9df104c96813473db61459c26e1562c6b2a6c3f57",
+        "mint_owner_only.mspec": "sha256:7a155c8336532bd5ee14dfe2a97e9f7a90e006b7f3ac23218ff175776161da3d"
+      }
+    },
+    "privilege-escalation": {
+      "files": {
+        "Privileged.sol": "sha256:124b07c209507d1d4d598b5e5bad63755591fb75bcc89f02b80f5e91b694faea",
+        "expected.json": "sha256:7c02c53f5310df7d0a112ba326277ce4aef66d5f65b6c98157e77b74358d747d",
+        "meta.md": "sha256:7f4ba8c6f7a5eb21a70b111393466621e2d0f01e67b60adc8f55f295c38678d2",
+        "no_privilege_escalation.mspec": "sha256:06a8ea4cea8f6732b8e038ca63c7b274dbe1121f8bbf975d7d13d9df08bcdc4e"
+      }
+    },
+    "tx-origin-auth": {
+      "files": {
+        "Auth.sol": "sha256:8b98a23480343c5691270cd00e6780ed9ce8fbfd695ebb2d9171b01cf0dddbcc",
+        "expected.json": "sha256:ee39f1413287781ce0ce059e9662c6ffc388766c49a1e180a9144902ea667ff7",
+        "meta.md": "sha256:9f9b78332780ba5e5e118a56275ef265251e6d737bb7e7de5f1884c0469d7492",
+        "mint_owner_only.mspec": "sha256:7a155c8336532bd5ee14dfe2a97e9f7a90e006b7f3ac23218ff175776161da3d"
+      }
+    },
+    "invariant-cap": {
+      "files": {
+        "Capped.sol": "sha256:f9110462264b11273fdafa00f3801cd38826ee9dfbaff26db44aeb5df17c2da4",
+        "cap.mspec": "sha256:f5d9e0a26a1bc69e6af9a43496e108d7e603c33cd6137d6256b61d1a9f9eeb1d",
+        "expected.json": "sha256:ad6e5c4ef72e5ecda03a35c4c95f549e32fb01072f9e213dd15c97f8f277e7de",
+        "meta.md": "sha256:fa2590422193e114c57aa8e58759944309ea05112d738a1adb034e369a425527"
+      }
+    },
+    "packed-storage-rejected": {
+      "files": {
+        "Packed.sol": "sha256:65a8d32ae78985b140f89fc3c17ea5e5b4fd4f45344e22905e89a0eb328a955f",
+        "expected.json": "sha256:ef0ee45eb557c1f4d5e2716e534b6fe8f588595a6fc87a8332614da9b63b744e",
+        "meta.md": "sha256:4a4daac3f4692aadb6f6643c97272aec5b78ec466eb429fd96fe6852df5980f2",
+        "touch.mspec": "sha256:d161f23e3d9c96cec29a059840c15159f1590a838dce81d396f10a69880ce2a7"
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "target": "wrap-unchecked",
+  "bug_class": "arithmetic-overflow",
+  "sol": "Counter.sol",
+  "spec": "wrap.mspec",
+  "solc": "0.8.36",
+  "tool_flags": [
+    "--loop-bound",
+    "4",
+    "--timeout-ms",
+    "30000"
+  ],
+  "status": "expected",
+  "rules": [
+    {
+      "rule_id": "add_never_wraps",
+      "expected_verdict": "VIOLATED",
+      "expected_reason_code": "assertion-violated",
+      "expected_details_include": null,
+      "essential_witness": {
+        "failed_assertion": "total >= before",
+        "final_storage": {
+          "total": "*"
+        }
+      },
+      "expected_assumptions_include": [],
+      "replay": "required"
+    }
+  ]
+}

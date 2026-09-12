@@ -95,6 +95,64 @@ var dispositionAdvice = map[string]string{
 		"on the prover's model",
 }
 
+// dispositionOf is the closed set as DATA: one row per reason code in
+// `corpus/runner.py::REASON_CODES` (25 names), mapping the code to its §L3
+// class. It replaces the old `switch reason` — behavior is identical, but the
+// set is now inspectable, which is what makes IsReasonCode possible and lets
+// the vendored-corpus tripwires (corpus_test.go) assert that every
+// expected.json reason code names a code the router knows.
+//
+// A code absent from this map is not a code in the tool's vocabulary:
+// Disposition still calls it a refusal (ok=true) with the unknown class.
+var dispositionOf = map[string]string{
+	// --- escalate-bound: the unrolling could not prove its own bound ---
+	"loop-bound-may-be-exceeded": EscalateBound,
+	// --- escalate-flag: the exploration hit its path cap ---
+	"path-limit-reached": EscalateFlag,
+	// --- escalate-solver: the VC outlived its budget ---
+	"solver-timeout": EscalateSolver,
+	// --- spec-rewrite: a finding about the spec, not the contract ---
+	"vacuous-rule":   SpecRewrite,
+	"vacuous-block":  SpecRewrite,
+	"malformed-spec": SpecRewrite,
+	// --- honest-refusal: a shape this tool cannot express or check ---
+	"unsupported-feature":              HonestRefusal,
+	"unsupported-opcode":               HonestRefusal,
+	"unsupported-storage-layout":       HonestRefusal,
+	"rejected-feature":                 HonestRefusal,
+	"unrecognized-dispatcher":          HonestRefusal,
+	"external-call-abstraction":        HonestRefusal,
+	"summary-unverified":               HonestRefusal,
+	"multi-call-ambiguous-call-site":   HonestRefusal,
+	"multi-call-inner-arg-unsupported": HonestRefusal,
+	"multi-call-stmt-between-calls":    HonestRefusal,
+	"invariant-uninitialized":          HonestRefusal,
+	"invariant-unchecked-functions":    HonestRefusal,
+	// --- tool-error: genuine breakage ---
+	"tool-error": ToolError,
+	// --- model-bug: the pipeline disagreed with itself ---
+	"unresolved-phi-source":   ModelBug,
+	"unresolved-branch-cond":  ModelBug,
+	"modelling-inconsistency": ModelBug,
+	"solver-disagreement":     ModelBug,
+	// --- witness-triage: violation verdicts; consumers of proof.reason
+	// need their class even though the counterexample summary is an
+	// excerpt form ("counterexample: <expr>") that never reaches here ---
+	"assertion-violated":     WitnessTriage,
+	"expect-revert-violated": WitnessTriage,
+}
+
+// IsReasonCode reports whether code is a member of the closed reason-code set
+// (`corpus/runner.py::REASON_CODES`, 25 names) — the single source of that
+// membership test now lives here in Go. It is the same set Disposition routes
+// on: a code is a reason code iff it has a disposition row. Only the exact
+// bytes match (no trimming, no case folding): the codes are tool vocabulary,
+// not user input.
+func IsReasonCode(code string) bool {
+	_, ok := dispositionOf[code]
+	return ok
+}
+
 // plumbingReasons are reason-shaped keys that belong to the mapper, not to
 // the tool's spec vocabulary: a report-contradiction refusal throws its own
 // verdict line away, so it names no disposition. Unlike the separator-free
@@ -184,41 +242,11 @@ func Disposition(summary string) (class, advice string, ok bool) {
 		// as untrustworthy, so it is plumbing too, not a disposition.
 		return "", "", false
 	}
-	switch reason {
-	// --- escalate-bound: the unrolling could not prove its own bound ---
-	case "loop-bound-may-be-exceeded":
-		class = EscalateBound
-	// --- escalate-flag: the exploration hit its path cap ---
-	case "path-limit-reached":
-		class = EscalateFlag
-	// --- escalate-solver: the VC outlived its budget ---
-	case "solver-timeout":
-		class = EscalateSolver
-	// --- spec-rewrite: a finding about the spec, not the contract ---
-	case "vacuous-rule", "vacuous-block", "malformed-spec":
-		class = SpecRewrite
-	// --- honest-refusal: a shape this tool cannot express or check ---
-	case "unsupported-feature", "unsupported-opcode",
-		"unsupported-storage-layout", "rejected-feature",
-		"unrecognized-dispatcher", "external-call-abstraction",
-		"summary-unverified", "multi-call-ambiguous-call-site",
-		"multi-call-inner-arg-unsupported", "multi-call-stmt-between-calls",
-		"invariant-uninitialized", "invariant-unchecked-functions":
-		class = HonestRefusal
-	// --- tool-error: genuine breakage ---
-	case "tool-error":
-		class = ToolError
-	// --- model-bug: the pipeline disagreed with itself ---
-	case "unresolved-phi-source", "unresolved-branch-cond",
-		"modelling-inconsistency", "solver-disagreement":
-		class = ModelBug
-	// --- witness-triage: violation verdicts; consumers of proof.reason
-	// need their class even though the counterexample summary is an
-	// excerpt form ("counterexample: <expr>") that never reaches here ---
-	case "assertion-violated", "expect-revert-violated":
-		class = WitnessTriage
-	default:
+	cls, known := dispositionOf[reason]
+	if !known {
+		// A code outside the closed set: still a refusal, just an
+		// unrecognised one.
 		return dispositionUnknown, adviceGeneric, true
 	}
-	return class, dispositionAdvice[class], true
+	return cls, dispositionAdvice[cls], true
 }

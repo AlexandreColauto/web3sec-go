@@ -1,0 +1,18 @@
+{
+  "target": "rounding-drain",
+  "bug_class": "math-rounding",
+  "sol": "YieldDrain.sol",
+  "spec": "harvest_pays_at_most_accrued.mspec",
+  "solc": "0.8.36",
+  "tool_flags": [
+    "--loop-bound",
+    "4",
+    "--timeout-ms",
+    "30000"
+  ],
+  "status": "unwritable",
+  "blocked_on": "struct-member-access",
+  "expected_error_code": "unsupported-feature",
+  "expected_details_include": "struct-member-access",
+  "notes": "honest rule reads users(caller).accrued/.claimed -> the .mspec grammar cannot express member access on a mapping value; the spec layer rejects it loudly (unsupported-feature / struct-member-access) instead of tool-error with raw parser text (4k Step 2). Task 9 implemented struct member reads for top-level struct variables (`IDENT \".\" IDENT`, see corpus/targets/struct-position-read) but this shape stays refused: the brief's must-reject list keeps a struct inside a mapping unmodelled, and the layout gate refuses the contract anyway (unsupported-storage-layout: struct inside a mapping). The non-flip is ruled in meta.md."
+}

@@ -1,0 +1,20 @@
+{
+  "target": "reentrancy-double-payout",
+  "bug_class": "reentrancy",
+  "sol": "Vault.sol",
+  "spec": "reentrancy.mspec",
+  "solc": "0.8.36",
+  "tool_flags": [
+    "--multi-call",
+    "reentrant",
+    "--loop-bound",
+    "4",
+    "--timeout-ms",
+    "30000"
+  ],
+  "status": "unwritable",
+  "blocked_on": "returndata-copy-bounds",
+  "expected_error_code": "external-call-abstraction",
+  "notes": "Task 9 re-measurement: the ABI decoder's free-memory-pointer offset is no longer the blocker (the concrete free-memory model now encodes `mstore(mload(64), \u2026)`), so the refusal moved one gate deeper, to the returndata copy solc emits for `(bool ok, ) = msg.sender.call{value: amount}(\"\")`: `returndatacopy(<symbolic dest>, 0, returndatasize())` has symbolic bounds, which the model cannot enumerate and must refuse. Still design Stage 2d's `extract_returndata` class (external-call summaries, not the splice machinery), still UNKNOWN/exit 2, never a wrong verdict. `replay.sh` shows the double payout (payouts=2). See meta.md and docs/superpowers/specs/2026-09-12-minicertora-multicall-semantics.md.",
+  "expected_details_include": "symbolic returndata copy bounds"
+}

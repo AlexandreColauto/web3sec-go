@@ -1,0 +1,18 @@
+{
+  "target": "packed-storage-rejected",
+  "bug_class": "unsupported-layout",
+  "sol": "Packed.sol",
+  "spec": "touch.mspec",
+  "solc": "0.8.36",
+  "tool_flags": [
+    "--loop-bound",
+    "4",
+    "--timeout-ms",
+    "30000"
+  ],
+  "status": "unwritable",
+  "blocked_on": "packed-storage",
+  "expected_error_code": "rejected-feature",
+  "expected_details_include": "packed-storage:",
+  "notes": "loader rejection carries LoaderError.reason/detail; 4g routed LoaderError through the taxonomy-carrying CLI handler"
+}

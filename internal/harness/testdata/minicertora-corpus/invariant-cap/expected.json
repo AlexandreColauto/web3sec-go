@@ -1,0 +1,41 @@
+{
+  "target": "invariant-cap",
+  "bug_class": "invariant-induction",
+  "sol": "Capped.sol",
+  "spec": "cap.mspec",
+  "solc": "0.8.36",
+  "tool_flags": [
+    "--loop-bound",
+    "4",
+    "--timeout-ms",
+    "30000"
+  ],
+  "status": "expected",
+  "proof_mode": "caveated",
+  "notes": "Task 12: the first invariant target, and the one that must be PROVEN. Both external functions preserve `total <= cap` and the constructor's state (from zeroed deploy storage) satisfies it, so `invariant.per_function` names two proved steps and `invariant.init` a proved initialization. Every assumption the verdict stands on is declared: the induction itself, the zeroed-storage starting point the init check uses, and the entrypoints deliberately left out of the step set (`total()`/`cap()` are getters, so they cannot write).",
+  "rules": [
+    {
+      "rule_id": "cap_respected",
+      "expected_verdict": "PROVEN",
+      "expected_reason_code": null,
+      "expected_details_include": null,
+      "essential_witness": {},
+      "expected_assumptions_include": [
+        "entry-bound-at-internal-implementation",
+        "invariant-init-checked",
+        "invariant-init-from-zeroed-storage",
+        "invariant-one-step-induction",
+        "invariant-state-getters-not-checked"
+      ],
+      "expected_invariant": {
+        "per_function": {
+          "deposit": "proved",
+          "setCap": "proved"
+        },
+        "init": "proved",
+        "witness_function": null
+      },
+      "replay": "none"
+    }
+  ]
+}
