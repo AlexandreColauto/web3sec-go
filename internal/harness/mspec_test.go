@@ -93,6 +93,18 @@ func TestMspecRuleName(t *testing.T) {
 	}
 }
 
+// TestDescribeScaffoldRuleLine pins the minicertora drift descriptor: the
+// .mspec scaffold's `rule <slug>(env e) {` header is outside the BODY
+// window, so a rename must be reported as the rule header, not as an
+// anonymous "scaffold line changed".
+func TestDescribeScaffoldRuleLine(t *testing.T) {
+	got := describeScaffoldLine("rule inv_7(env e) {")
+	if got != "rule header changed" {
+		t.Fatalf("describeScaffoldLine(rule ...) = %q, want %q", got,
+			"rule header changed")
+	}
+}
+
 // TestMspecMarkerSpellingInStatementFailsSafe pins the injection rail:
 // a statement carrying a BODY marker spelling (sanitizeStatement keeps
 // it as single-line text) renders a scaffold whose BodyRegion sees

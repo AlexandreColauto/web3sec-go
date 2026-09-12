@@ -341,7 +341,8 @@ func TestVerifyHarnessResultBogusKind(t *testing.T) {
 		t.Fatalf("stdout %q, want empty", out)
 	}
 	want := t36VerifyUsage + "webv2 verify: error: argument --kind: " +
-		"invalid choice: 'bogus' (choose from 'halmos', 'forge-fuzz')\n"
+		"invalid choice: 'bogus' (choose from 'halmos', 'forge-fuzz', " +
+		"'minicertora')\n"
 	if errS != want {
 		t.Fatalf("stderr %q, want %q", errS, want)
 	}

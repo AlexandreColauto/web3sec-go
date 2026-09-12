@@ -188,7 +188,8 @@ func TestVerifyScaffoldBogusKind(t *testing.T) {
 		t.Fatalf("stdout %q, want empty", out)
 	}
 	want := t36VerifyUsage + "webv2 verify: error: argument --scaffold: " +
-		"invalid choice: 'bogus' (choose from 'halmos', 'forge-fuzz')\n"
+		"invalid choice: 'bogus' (choose from 'halmos', 'forge-fuzz', " +
+		"'minicertora')\n"
 	if errS != want {
 		t.Fatalf("stderr %q, want %q", errS, want)
 	}
@@ -205,7 +206,7 @@ func TestVerifyScaffoldNeedsBothFlags(t *testing.T) {
 	code, _, errS = run(t, "--root", root, "verify", c.CampaignID,
 		"--invariant", "INV-1")
 	if code != 2 || errS !=
-		"verify --invariant needs --scaffold {halmos|forge-fuzz}\n" {
+		"verify --invariant needs --scaffold {halmos|forge-fuzz|minicertora}\n" {
 		t.Fatalf("invariant-only: exit %d err %q", code, errS)
 	}
 	// A missing value is argparse's error, not the handler's.

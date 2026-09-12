@@ -1399,8 +1399,8 @@ webv2 prompts {list,show} [name]                                   print the emb
 webv2 run <C> [--until STAGE] [--max-stages N]                     walk the pipeline; halt at the first model stage (exit 3)
 webv2 log <C> [--tail N]                                           tail the event log
 webv2 verify <C> [--queue] [--exec E --finding F --verifier V --description D]   # log integrity / E6 queue / record an independent verification
-webv2 verify <C> --scaffold halmos|forge-fuzz --invariant INV-xxx   # write the harness scaffold artifact (the model fills the BODY region only; outside it is scaffold)
-webv2 verify <C> --harness-result INV-xxx --exec EXEC-xxx [--kind halmos|forge-fuzz]   # map a harness run to its rung: counterexample / PROVEN-BOUNDED / inconclusive (bounded — never an unbounded proof)
+webv2 verify <C> --scaffold halmos|forge-fuzz|minicertora --invariant INV-xxx   # write the harness scaffold artifact (the model fills the BODY region only; outside it is scaffold)
+webv2 verify <C> --harness-result INV-xxx --exec EXEC-xxx [--kind halmos|forge-fuzz|minicertora]   # map a harness run to its rung: counterexample / PROVEN-BOUNDED / inconclusive (bounded — never an unbounded proof)
 webv2 verify <C> --post-patch F-xxx --exec EXEC-xxx [--snapshot SNAP-xxx]   # regress a finding against a post-patch run: still_reproducible / fixed / indeterminate (fail-open; status never moves; --finding/--verifier/--description are ignored)
 webv2 audit <C> [--json]                                           full integrity audit
 webv2 brief <C> [--json] [--deep]                                  operator cockpit (where it is + decisions waiting; pure view)

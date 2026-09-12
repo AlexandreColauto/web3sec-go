@@ -394,8 +394,8 @@
     "size": 21805
    },
    "RUNBOOK.md": {
-    "sha256": "6cf1bf8fde93736a38e2b4fe7101a0811f5207c6f40af191babc3862d7a77431",
-    "size": 95489
+    "sha256": "2701f2b7e988c519dce82e6cc34cf776637685859ae2d9bc18dd9d5220ec89e2",
+    "size": 95513
    }
   },
   "schema": {
@@ -476,8 +476,8 @@
     "size": 15003
    },
    "protocol_model.schema.json": {
-    "sha256": "8b1d398b125007a819bafa6ccd4c00f76ee506b918e7e9a306d9970cd357da3a",
-    "size": 16810
+    "sha256": "560490f9f42d83a767d0644b60ffec3a3a44950f34b0a5121008b13e8147013c",
+    "size": 18421
    },
    "relation.schema.json": {
     "sha256": "8f0d93d05c73be0ee3abc35a5732869bdffb3bc3db84eea0d0e1a129ce3af5fa",

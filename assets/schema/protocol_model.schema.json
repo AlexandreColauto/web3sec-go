@@ -374,11 +374,36 @@
                 "additionalProperties": false,
                 "required": ["kind", "rung", "exec"],
                 "properties": {
-                  "kind": { "type": "string", "description": "harness skeleton kind (halmos | forge-fuzz)" },
+                  "kind": { "type": "string", "description": "harness skeleton kind (halmos | forge-fuzz | minicertora)" },
                   "rung": { "type": "string", "enum": ["counterexample", "proved-bounded", "inconclusive"] },
                   "exec": { "type": "string", "description": "EXEC id whose stdout mapped to the rung" },
                   "bounded_k": { "type": ["integer", "null"], "description": "bound for proved-bounded (parsed k=<n> or the invocation k); null otherwise" },
-                  "summary": { "type": "string" }
+                  "summary": { "type": "string" },
+                  "proof": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "minicertora verdict sidecar (an attributed JSONL line, copied verbatim); ABSENT for other kinds and for unattributed minicertora runs. Every scalar is nullable because the Go builder emits the full fixed key-set with null for absent fields (determinism over omission).",
+                    "properties": {
+                      "tool_version": { "type": ["string", "null"] },
+                      "solc_version": { "type": ["string", "null"] },
+                      "spec_version": { "type": ["string", "null"] },
+                      "evm_version": { "type": ["string", "null"] },
+                      "confidence": { "type": ["string", "null"] },
+                      "reason": { "type": ["string", "null"] },
+                      "bounds": {
+                        "type": ["object", "null"],
+                        "additionalProperties": false,
+                        "properties": {
+                          "loop_bound": { "type": ["integer", "null"] },
+                          "path_cap": { "type": ["integer", "null"] },
+                          "solver_timeout_ms": { "type": ["integer", "null"] }
+                        }
+                      },
+                      "assumptions": { "type": "array", "items": { "type": "string" } },
+                      "warnings": { "type": "array", "items": { "type": "string" } },
+                      "ghosts": { "type": "array" }
+                    }
+                  }
                 }
               }
             }

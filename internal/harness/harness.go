@@ -315,6 +315,10 @@ func describeScaffoldLine(line string) string {
 		return "natspec src line changed"
 	case strings.HasPrefix(t, "contract "):
 		return "contract header changed"
+	case strings.HasPrefix(t, "rule "):
+		// The .mspec scaffold's header (minicertora): a renamed rule is
+		// scaffold drift on the attribution key, so name it.
+		return "rule header changed"
 	case strings.HasPrefix(t, "function "):
 		return "function header changed"
 	case t == StartMarker || t == EndMarker:

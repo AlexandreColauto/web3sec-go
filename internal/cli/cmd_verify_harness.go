@@ -1,8 +1,8 @@
 package cli
 
 // cmd_verify_harness: `webv2 verify <campaign> --harness-result INV-id
-// --exec EXEC-... [--kind halmos|forge-fuzz]` (Task 18, G8) — land one
-// harness run's rung on its invariant as verification.harness.
+// --exec EXEC-... [--kind halmos|forge-fuzz|minicertora]` (Task 18, G8) —
+// land one harness run's rung on its invariant as verification.harness.
 //
 // There is deliberately NO auto-detect hook: a stray halmos run must never
 // be attributed to an invariant by guesswork, so attribution is always an
@@ -20,11 +20,14 @@ package cli
 //     run; a harness-named hash entry with a different sha is a
 //     scaffold-bound violation (rung inconclusive, the output is NOT
 //     used); no hash info maps normally with an "(unbound: ...)" suffix;
-//  4. MapRun(kind, stdout, timedOut, k) -> (rung, summary); write
-//     verification.harness {kind, rung, exec, bounded_k, summary} onto
-//     the invariant entry (the existing invariant_links.json store — no
-//     parallel store) and log a harness_run {rung, exec, invariant,
-//     summary} audit event.
+//  4. map the stdout to a rung: an untimed minicertora run through
+//     MapMinicertora(raw, exit_status, MspecRuleName(inv)) — which also
+//     captures the proof sidecar for every attributed verdict line
+//     (UNKNOWN included) — and every other run through
+//     MapRun(kind, stdout, timedOut, k). Write verification.harness
+//     {kind, rung, exec, bounded_k, summary[, proof]} onto the invariant
+//     entry (the existing invariant_links.json store — no parallel store)
+//     and log a harness_run {rung, exec, invariant, summary} audit event.
 //
 // What this path does NOT do (rails): it appends no evidence items to
 // findings (mint's E4 gate does not accept host profiles — promotion
@@ -86,12 +89,23 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		return err
 	}
 	timedOut := harnessTimedOut(rec)
+	// The minicertora mapper is exit-status aware: an int exit_status is
+	// the run's own report, anything else (absent/null/big) is "unknown"
+	// (-2), and MapMinicertora's negative floor refuses it — a run that
+	// never reported a clean exit is never promoted. timedOut only covers
+	// -1, so -2 is the fail-open remainder.
+	exitStatus := -2
+	if v := objAt(rec, "exit_status"); v.Kind == validation.Int &&
+		v.Big == "" {
+		exitStatus = int(v.I)
+	}
 	k := invocationBound(harnessCommand(rec), kind)
-	rung, summary, boundedK := harnessMapBound(kind, raw, rec, scaffold,
-		timedOut, k)
+	ruleName := harness.MspecRuleName(a.harnessResult)
+	rung, summary, proof, boundedK := harnessMapBound(kind, raw, rec,
+		scaffold, timedOut, k, exitStatus, ruleName)
 	entry.O = validation.SetOrAppend(entry.O, "verification",
 		validation.VObj(harnessField(kind, rung, a.execID, boundedK,
-			summary)))
+			summary, proof)))
 	if err := harnessSaveEntry(c, links, a.harnessResult, entry); err != nil {
 		return err
 	}
@@ -115,20 +129,27 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 }
 
 // harnessField builds the verification.harness object in the brief's key
-// order (kind, rung, exec, bounded_k int-or-null, summary).
+// order (kind, rung, exec, bounded_k int-or-null, summary, proof). The
+// proof key rides ONLY when a sidecar object exists (an attributed
+// minicertora line): every other kind — and every unattributed minicertora
+// refusal — omits the key entirely rather than writing null.
 func harnessField(kind harness.Kind, rung, exec string,
-	boundedK *int, summary string) validation.KV {
+	boundedK *int, summary string, proof validation.Value) validation.KV {
 	var bk validation.Value = validation.VNull()
 	if boundedK != nil {
 		bk = validation.VInt(int64(*boundedK))
 	}
-	return validation.KV{K: "harness", V: validation.VObj(
-		validation.KV{K: "kind", V: validation.VStr(string(kind))},
-		validation.KV{K: "rung", V: validation.VStr(rung)},
-		validation.KV{K: "exec", V: validation.VStr(exec)},
-		validation.KV{K: "bounded_k", V: bk},
-		validation.KV{K: "summary", V: validation.VStr(summary)},
-	)}
+	kvs := []validation.KV{
+		{K: "kind", V: validation.VStr(string(kind))},
+		{K: "rung", V: validation.VStr(rung)},
+		{K: "exec", V: validation.VStr(exec)},
+		{K: "bounded_k", V: bk},
+		{K: "summary", V: validation.VStr(summary)},
+	}
+	if proof.Kind == validation.Obj {
+		kvs = append(kvs, validation.KV{K: "proof", V: proof})
+	}
+	return validation.KV{K: "harness", V: validation.VObj(kvs...)}
 }
 
 // harnessInvEntry is links["invariants"][invID] with presence.
@@ -180,7 +201,8 @@ func harnessKindFor(c *state.Campaign, invID, flag string) (harness.Kind,
 		}
 		suffix := strings.TrimPrefix(aid, prefix)
 		if (suffix == string(harness.Halmos) ||
-			suffix == string(harness.ForgeFuzz)) &&
+			suffix == string(harness.ForgeFuzz) ||
+			suffix == string(harness.MiniCertora)) &&
 			!containsStrCLI(kinds, suffix) {
 			kinds = append(kinds, suffix)
 		}
@@ -190,12 +212,13 @@ func harnessKindFor(c *state.Campaign, invID, flag string) (harness.Kind,
 		return harness.Kind(kinds[0]), nil
 	case 0:
 		return "", t14ExitErr(2, "verify: no harness scaffold for %s "+
-			"(scaffold it first with verify --scaffold {halmos|forge-fuzz} "+
-			"--invariant %s, or pass --kind)\n",
+			"(scaffold it first with verify --scaffold "+
+			"{halmos|forge-fuzz|minicertora} --invariant %s, or pass "+
+			"--kind)\n",
 			validation.PyReprStr(invID), validation.PyReprStr(invID))
 	default:
-		return "", t14ExitErr(2, "verify: %s has halmos and forge-fuzz "+
-			"scaffolds; pass --kind {halmos|forge-fuzz}\n",
+		return "", t14ExitErr(2, "verify: %s has multiple harness "+
+			"scaffolds; pass --kind {halmos|forge-fuzz|minicertora}\n",
 			validation.PyReprStr(invID))
 	}
 }
@@ -304,11 +327,15 @@ func harnessCommand(rec validation.Value) string {
 
 // boundFlagRe parses the invocation bound out of an exec command:
 // halmos's --loop N, forge's --fuzz-runs N (both `--flag N` and
-// `--flag=N`). Absent flags mean 0 ("unstated"): the number only feeds
-// display summaries and forge's bounded_k fallback — the rung never
-// depends on it, so a missed parse degrades to inconclusive-safe text,
-// never to a wrong verdict.
-var boundFlagRe = regexp.MustCompile(`--(?:loop|fuzz-runs)[= ](\d+)`)
+// `--flag=N`) and minicertora's --loop-bound N. Absent flags mean 0
+// ("unstated"): the number only feeds display summaries, a minicertora
+// timeout summary and forge's bounded_k fallback — the rung never depends
+// on it, so a missed parse degrades to inconclusive-safe text, never to a
+// wrong verdict. The boundary classes matter: `--loop` alone must not
+// swallow `--loop-bound`'s digits as a separate flag, and `--loopx` must
+// not parse at all.
+var boundFlagRe = regexp.MustCompile(
+	`--(?:loop(?:-bound)?|fuzz-runs)[= ](\d+)`)
 
 // invocationBound is the MapRun k: the bound flag from the exec command,
 // or 0 when the command names none.
@@ -340,24 +367,51 @@ func invocationBound(command string, kind harness.Kind) int {
 //
 // bounded_k is set only for proved-bounded (parsed k=<n> else the
 // invocation k); every other rung carries null.
+//
+// The three G8 kinds share the bound check above the mapping seam. Below
+// it the decision belongs to the kind: halmos/forge-fuzz go through
+// MapRun (minicertora included, for the timedOut branch only), while an
+// untimed minicertora run goes through MapMinicertora — its exit status
+// and scaffold-pinned rule name are the mapper's business, not the
+// dispatcher's. The proof sidecar is non-null exactly when a mapper
+// attributed a verdict line; the bound-violation refusal below never maps,
+// so it never carries one.
 func harnessMapBound(kind harness.Kind, raw []byte, rec validation.Value,
-	scaffold []byte, timedOut bool, k int) (rung, summary string,
+	scaffold []byte, timedOut bool, k, exitStatus int,
+	ruleName string) (rung, summary string, proof validation.Value,
 	boundedK *int) {
 	sum := sha256.Sum256(scaffold)
 	hexSum := hex.EncodeToString(sum[:])
 	hashes, harnessNamed := harnessRecordedHashes(rec)
 	for _, h := range hashes {
 		if h == hexSum {
-			return harnessMapped(kind, raw, timedOut, k, "")
+			return harnessMappedKind(kind, raw, timedOut, k, exitStatus,
+				ruleName, "")
 		}
 	}
 	if harnessNamed {
 		return harness.RungInconclusive,
 			"scaffold-bound violation: harness file hash differs " +
-				"from stored scaffold", nil
+				"from stored scaffold", validation.VNull(), nil
 	}
-	return harnessMapped(kind, raw, timedOut, k,
+	return harnessMappedKind(kind, raw, timedOut, k, exitStatus, ruleName,
 		" (unbound: harness file hash not recorded)")
+}
+
+// harnessMappedKind dispatches one bound run to its kind's mapper: an
+// untimed minicertora run through MapMinicertora (exit status + rule
+// name), everything else — including a timed-out minicertora run, which
+// must never reach the JSONL mapper — through MapRun.
+func harnessMappedKind(kind harness.Kind, raw []byte, timedOut bool, k,
+	exitStatus int, ruleName, suffix string) (string, string,
+	validation.Value, *int) {
+	if kind == harness.MiniCertora && !timedOut {
+		rung, summary, proof, bk := harness.MapMinicertora(raw, exitStatus,
+			ruleName)
+		return rung, summary + suffix, proof, bk
+	}
+	rung, summary, bk := harnessMapped(kind, raw, timedOut, k, suffix)
+	return rung, summary, validation.VNull(), bk
 }
 
 // harnessMapped runs MapRun and attaches bounded_k for proved-bounded.
@@ -374,8 +428,11 @@ func harnessMapped(kind harness.Kind, raw []byte, timedOut bool, k int,
 
 // harnessRecordedHashes collects every recorded file hash from the exec
 // record (input_hashes plus artifact_hashes values) and whether any key
-// names the harness file (T17's H.t.sol / F.t.sol, or anything
-// harness-named — the runs that hashed the file they actually executed).
+// names the harness file (T17's H.t.sol / F.t.sol, the third kind's
+// INV.mspec, or anything harness-named — the runs that hashed the file
+// they actually executed). The .mspec suffix matters: without it a
+// minicertora run that hashed a foreign spec file would read as "no hash
+// info" and map normally, which is exactly the bind Decision 2b refuses.
 func harnessRecordedHashes(rec validation.Value) (hashes []string,
 	harnessNamed bool) {
 	for _, key := range []string{"input_hashes", "artifact_hashes"} {
@@ -389,6 +446,7 @@ func harnessRecordedHashes(rec validation.Value) (hashes []string,
 			}
 			base := strings.ToLower(filepath.Base(kv.K))
 			if base == "h.t.sol" || base == "f.t.sol" ||
+				strings.HasSuffix(base, ".mspec") ||
 				strings.Contains(base, "harness") {
 				harnessNamed = true
 			}

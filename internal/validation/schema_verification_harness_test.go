@@ -69,6 +69,40 @@ func TestVerificationHarnessRoundTrip(t *testing.T) {
 	}
 }
 
+// TestVerificationHarnessProofSidecar pins the Task-4 schema extension:
+// verification.harness carries an OPTIONAL proof object (the minicertora
+// verdict sidecar). Every scalar is nullable, ghosts items are copied
+// verbatim (unconstrained), and additionalProperties:false still bites.
+func TestVerificationHarnessProofSidecar(t *testing.T) {
+	inv := `{"id":"INV-1",` +
+		`"statement":"total assets must cover all outstanding shares",` +
+		`"severity_if_broken":"critical",` +
+		`"verification":{"harness":{"kind":"minicertora",` +
+		`"rung":"proved-bounded","exec":"EXEC-7","bounded_k":4,` +
+		`"summary":"proved bounded (k=4)","proof":{` +
+		`"tool_version":"0.4.2","solc_version":"0.8.36",` +
+		`"spec_version":"v0.1","evm_version":"paris",` +
+		`"confidence":"modeled","reason":null,` +
+		`"bounds":{"loop_bound":4,"path_cap":64,"solver_timeout_ms":30000},` +
+		`"assumptions":["msg.value-default-zero"],"warnings":[],` +
+		`"ghosts":[{"slot":"total","expr":"x+1"}]}}}}`
+	v := mustParseHarness(t, harnessModelDoc(inv))
+	v2 := mustParseHarness(t, CanonCompact(v))
+	if err := Validate(v2, "protocol_model", 1); err != nil {
+		t.Fatalf("proof sidecar must validate: %v", err)
+	}
+	// A key the sidecar does not name is still rejected.
+	bad := `{"id":"INV-1",` +
+		`"statement":"s","severity_if_broken":"critical",` +
+		`"verification":{"harness":{"kind":"minicertora",` +
+		`"rung":"inconclusive","exec":"EXEC-7",` +
+		`"proof":{"bogus":1}}}}`
+	if err := Validate(mustParseHarness(t, harnessModelDoc(bad)),
+		"protocol_model", 1); err == nil {
+		t.Fatal("an unknown proof property must fail validation")
+	}
+}
+
 func TestVerificationHarnessRejects(t *testing.T) {
 	for _, tc := range []struct {
 		name string
