@@ -104,6 +104,36 @@ var dispositionAdvice = map[string]string{
 //
 // A code absent from this map is not a code in the tool's vocabulary:
 // Disposition still calls it a refusal (ok=true) with the unknown class.
+//
+// RUN-VERIFIED (2026-09-12, the operator's first real evalsuite run;
+// docs/minicertora-eval/2026-09-12/): the live tool stored five codes —
+// assertion-violated, malformed-spec, rejected-feature, solver-timeout and
+// unsupported-feature — and every one of them was already a row here, so the
+// run added NO code to the closed set (still 25). The names reported as
+// apparently-new resolve as follows:
+//   - unsupported-feature: already a row (honest-refusal); the run stored it
+//     twice (a rule with no call), so this one is run-observed;
+//   - unrecognized-dispatcher: already a row (honest-refusal). It is raisable
+//     in the live tool (vcgen/invariants.py binds it for unbindable dispatcher
+//     targets) but did NOT appear among this run's stored lines; the row needed
+//     no change either way;
+//   - solver-timeout: already a row (escalate-solver, NOT escalate-bound — a
+//     solver that gave up on the VC is re-run with a quadrupled timeout, not
+//     with more unrolling); run-observed on LPOracleSpot with EMPTY details,
+//     where the mapper's "reason: details" template still leaves the ": "
+//     separator that the cut below needs;
+//   - `unsupported-type:<Contract>.<field>`: NOT a reason code. It is the
+//     tool's FEATURE half, emitted with reason `rejected-feature`
+//     (spec/parser.py raises SpecUnsupported("unsupported-type:int256",
+//     reason="rejected-feature"); frontend/artifacts.py files the loader
+//     refusal as feature `unsupported-type:<Contract>.<field>` under
+//     LoaderError's `rejected-feature` default), and the run stored it exactly
+//     that way. Deliberately absent: a row here would make IsReasonCode accept
+//     a name the tool never puts in its `reason` field, breaking the
+//     single-source law this table exists for.
+//     Same for the string-literal abort, whose stored details open with their
+//     own `rejected-feature: ` prefix while the line's reason stays
+//     `rejected-feature` — the first ": " cut already names the real code.
 var dispositionOf = map[string]string{
 	// --- escalate-bound: the unrolling could not prove its own bound ---
 	"loop-bound-may-be-exceeded": EscalateBound,

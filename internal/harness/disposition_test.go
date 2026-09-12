@@ -18,6 +18,34 @@ func TestDispositionTable(t *testing.T) {
 		{"vacuous block", "inconclusive (vacuous-block: unreachable branch body)", SpecRewrite, "", true},
 		{"malformed spec", "inconclusive (malformed-spec: expected ';')", SpecRewrite, "", true},
 		{"unsupported feature", "inconclusive (unsupported-feature: CREATE2 at C.f)", HonestRefusal, "", true},
+		// The first real evalsuite run (2026-09-12) stored these five shapes
+		// verbatim (docs/minicertora-eval/2026-09-12/*.json, through
+		// mcUnknownSummary's "inconclusive (reason: details)" template). They
+		// are the run evidence that the closed set needed no new row: each
+		// line's `reason` is one of the 25 and the class lands where it should.
+		// (1) cli.py's no-call refusal: a per-rule unsupported-feature whose
+		// details carry their own ": " — the first cut still names the code.
+		{"live unsupported-feature no-call", "inconclusive (unsupported-feature: rule donation_keeps_rate has no calls: there is no execution to verify (a rule asserts a call's effect))",
+			HonestRefusal, "", true},
+		// (2) the string-literal abort: an explicit rejected-feature whose
+		// details repeat the prefix (VaultMissingAuth/Lender/FeeMathFloor).
+		{"live rejected-feature string-literal", "inconclusive (rejected-feature: rejected-feature: string literal in an expression is out of scope)",
+			HonestRefusal, "", true},
+		// (3) `unsupported-type:<Contract>.<field>` rides rejected-feature's
+		// DETAILS — the name is a feature, never a code (GovernanceQueueDoS).
+		{"live rejected-feature unsupported-type detail", "inconclusive (rejected-feature: unsupported-type:GovernanceQueueDoS.targets)",
+			HonestRefusal, "", true},
+		// (4) same for the loader's packed-storage feature (ImplNoInitializer).
+		{"live rejected-feature packed-storage detail", "inconclusive (rejected-feature: packed-storage:ImplNoInitializer.initialized)",
+			HonestRefusal, "", true},
+		// (5) LPOracleSpot: solver-timeout with EMPTY details — the mapper's
+		// template still emits the separator, so the code survives the cut
+		// (this is the shape a "reason alone, nothing else" summary takes).
+		{"live solver-timeout empty details", "inconclusive (solver-timeout: )", EscalateSolver, "", true},
+		// (6) BridgeMsgReplay: malformed-spec whose details ARE a parse error
+		// containing ": " — again the first cut names the code.
+		{"live malformed-spec parse error", "inconclusive (malformed-spec: parse error: No terminal matches '[' in the current parser context)",
+			SpecRewrite, "", true},
 		{"multi-call class", "inconclusive (multi-call-ambiguous-call-site: two calls)", HonestRefusal, "", true},
 		{"tool error", "inconclusive (tool-error: bundle path /tmp/x)", ToolError, "", true},
 		{"model bug", "inconclusive (unresolved-phi-source: line 44)", ModelBug, "", true},
@@ -112,6 +140,40 @@ func TestDispositionCoversClosedSet(t *testing.T) {
 		// switch emits must name a next action in the map.
 		if dispositionAdvice[class] == "" {
 			t.Errorf("code %q -> class %q with no advice row", code, class)
+		}
+	}
+}
+
+// TestDetailPrefixesAreNotReasonCodes pins the first real evalsuite run's
+// second finding (2026-09-12): the tool's `details` half may open with a
+// hyphenated name shaped exactly like a reason code — the live run stored
+// `unsupported-type:GovernanceQueueDoS.targets` and a `rejected-feature: `-
+// prefixed string-literal abort — while the line's `reason` field stays
+// `rejected-feature`. Those prefixes are FEATURES (the tool's own refusal
+// taxonomy), not vocabulary: a row for one in dispositionOf would make
+// IsReasonCode accept a name the tool never emits in `reason` and break the
+// single-source law (corpus/runner.py::REASON_CODES) the corpus tripwires
+// rely on. Every name below is a real feature string raised by the live tool
+// (spec/parser.py SpecUnsupported, cli.py UnsupportedFeature,
+// vcgen/summaries.py UNSUPPORTED_CALL_SITES, frontend/artifacts.py
+// storage-layout problems) and none of them is a reason code.
+func TestDetailPrefixesAreNotReasonCodes(t *testing.T) {
+	features := []string{
+		"unsupported-type",              // parser.py: reason rejected-feature
+		"packed-storage",                // loader: reason rejected-feature
+		"struct-member-access",          // parser.py: reason unsupported-feature
+		"multi-call-sequence",           // cli.py UnsupportedFeature: reason unsupported-feature
+		"summary-unsupported-call-site", // summaries.py: reason rejected-feature
+		"unsupported-env-override",      // env override the model cannot pin
+	}
+	for _, feature := range features {
+		if IsReasonCode(feature) {
+			t.Errorf("IsReasonCode(%q) = true: a feature string is not a reason code", feature)
+		}
+		// The refusal the feature rides is still classified: the prefix never
+		// becomes the reason, the line's own reason does.
+		if class, _, ok := Disposition("inconclusive (rejected-feature: " + feature + ":Contract.field)"); !ok || class != HonestRefusal {
+			t.Errorf("prefix %q: class=%q ok=%v, want %q/true", feature, class, ok, HonestRefusal)
 		}
 	}
 }
