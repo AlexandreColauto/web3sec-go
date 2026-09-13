@@ -340,7 +340,7 @@ func inStringList(list validation.Value, needle string) bool {
 // <campaign> entries with the campaign in hand (findings.NameCampaign), so a
 // printed fix line names the campaign.
 var BountyRemediation = map[string]string{
-	"security-confirmed":   "webv2 verdict <fid> confirmed ... + webv2 recall <campaign> --finding <fid> + webv2 mint <fid> --exec <EXEC>  (see `webv2 gate explain` for the full CONFIRMED checklist)",
+	"security-confirmed":   "webv2 verdict <campaign> <fid> --verdict confirmed --reason '<reasoning>' + webv2 recall <campaign> --finding <fid> + webv2 mint <fid> --exec <EXEC>  (see `webv2 gate explain` for the full CONFIRMED checklist)",
 	"snapshot-pinned":      "webv2 snap   (re-pin, then re-run the gate)",
 	"in-scope":             "re-check the target against the program scope; if it is a different component, re-aim the hypothesis",
 	"known-issue-check":    "read the matched exclusion on the program page \u2014 if it truly does not apply, record the reasoning in the report; if it does, drop the finding (webv2 status <fid> OUT_OF_SCOPE ...)",

@@ -135,7 +135,7 @@ func TestGateExplain(t *testing.T) {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
 	if !strings.Contains(out, "check:      critic-verdict  (gate: confirmed)") ||
-		!strings.Contains(out, "remediation: webv2 verdict <fid> confirmed") {
+		!strings.Contains(out, "remediation: webv2 verdict <campaign> <fid> --verdict confirmed") {
 		t.Fatalf("output %q", out)
 	}
 }

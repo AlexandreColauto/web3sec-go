@@ -45,7 +45,8 @@ func NameCampaign(entry, campaignID string) string {
 // remediation names it; the campaign-less `webv2 gate --explain` shows the
 // template).
 var GATE_REMEDIATION = map[string]string{
-	"critic-verdict": "webv2 verdict <fid> confirmed '<reasoning>' --actor <you>",
+	"critic-verdict": "webv2 verdict <campaign> <fid> --verdict confirmed " +
+		"--reason '<reasoning>'",
 	"memory-check": "webv2 recall <campaign> --finding <fid>   (records a " +
 		"graph-memory consultation)",
 	"reproduction-reproduced": "webv2 mint <fid> --exec <EXEC-ID>   (a " +

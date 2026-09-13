@@ -23,7 +23,8 @@ func TestConfirmationGateDetailExactVector(t *testing.T) {
 	want := []GateFailure{
 		{"critic-verdict",
 			"hostile critic verdict is None, need 'confirmed'",
-			"webv2 verdict <fid> confirmed '<reasoning>' --actor <you>"},
+			"webv2 verdict " + c.CampaignID + " <fid> --verdict confirmed " +
+				"--reason '<reasoning>'"},
 		{"memory-check",
 			"no verified graph-memory recall recorded — none recorded, or " +
 				"every recorded check is stale (a referenced row changed or " +

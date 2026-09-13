@@ -85,6 +85,19 @@ func commandByName(name string) (command, bool) {
 	return command{}, false
 }
 
+// CommandNames returns the dispatch registry — every registered subcommand
+// name, in registration order. It is the read side of register(): callers
+// outside this package (the remediation guard in internal/findings) assert a
+// printed fix line names a verb the dispatcher really has, so the check reads
+// the registry instead of grepping the sources for a verb spelling.
+func CommandNames() []string {
+	out := make([]string, 0, len(registered))
+	for _, c := range registered {
+		out = append(out, c.name)
+	}
+	return out
+}
+
 // usageText renders the usage block: the implemented commands in
 // cli.py registration order, then help. (Go lists only the implemented
 // commands; cli.py's argparse usage lists every registered command —

@@ -98,7 +98,8 @@ func TestConfirmationGateFailuresAreEnumerated(t *testing.T) {
 		t.Errorf("critic message = %q", detail[0].Message)
 	}
 	if detail[0].Remediation !=
-		"webv2 verdict <fid> confirmed '<reasoning>' --actor <you>" {
+		"webv2 verdict "+c.CampaignID+" <fid> --verdict confirmed "+
+			"--reason '<reasoning>'" {
 		t.Errorf("critic remediation = %q", detail[0].Remediation)
 	}
 	if detail[3].Message != "evidence level E0 < required E5 for CONFIRMED" {
