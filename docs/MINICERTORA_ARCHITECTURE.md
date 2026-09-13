@@ -510,8 +510,13 @@ statement syntax — and no golden campaign byte moved.
   renders on minicertora counterexample lines and is **live from stored state**
   (`TestHarnessResultMinicertoraCallsAuditSuffix` re-reads
   `artifacts/invariant_links.json` from disk), not from a test-only path.
-  The bridge is consumed by its tests only; emitting a `.seq.json` from the CLI
-  is the fork wave's seam.
+  The bridge is **no longer consumed by its tests only**: wave M T3
+  (`96d7e282`) made `verify` write the runnable
+  `artifacts/harness/<INV>/poc-<INV>.json` (with the optional operator
+  `layout.json` sidecar that grounds its `final_storage`) for a mapped
+  minicertora counterexample, presence-gated and overwrite-deterministic. What
+  remains of the fork wave is the RUN itself (RPC) and the layout map's
+  correctness.
 - **§L5 template archetypes — LANDED** (`c574605b`; three more landed by
   wave L-defer T2). Statement form
   `template:<name> of <Contract>.<Function>` seeds the BODY window from
@@ -585,44 +590,55 @@ joined through the operator `--class-map`, produced exactly these rows (TSV
 verbatim, reproduced from the committed `scorecard.json`):
 
 ```
-class	cases	detected	proven_silence	refused	refusal_histogram
-access-control	2	0	0	1	rejected-feature=1
-authorization	1	1	0	0	-
-bridge-message	1	0	0	0	-
-cross-chain-replay	1	0	0	0	-
-donation	1	0	0	1	unsupported-feature=1
-dos-griefing	1	0	0	1	rejected-feature=1
-flash-loan	1	1	0	0	-
-liquidation-logic	1	0	0	0	-
-oracle-manipulation	1	0	0	0	-
-precision-rounding	1	0	0	1	rejected-feature=1
-reentrancy	3	0	0	0	-
-share-price-inflation	1	0	0	1	unsupported-feature=1
-signature-replay	1	0	0	0	-
-unchecked-external-call	2	0	0	1	rejected-feature=1
-upgrade-initializer	1	0	0	1	rejected-feature=1
+class	cases	detected	proven_silence	refused	clean_agreed	refusal_histogram
+access-control	2	0	0	1	1	rejected-feature=1
+authorization	1	1	0	0	0	-
+bridge-message	1	0	0	0	0	-
+cross-chain-replay	1	0	0	0	0	-
+donation	1	0	0	1	0	unsupported-feature=1
+dos-griefing	1	0	0	1	0	rejected-feature=1
+flash-loan	1	1	0	0	0	-
+liquidation-logic	1	0	0	0	0	-
+oracle-manipulation	1	0	0	0	0	-
+precision-rounding	1	0	0	1	0	rejected-feature=1
+reentrancy	3	0	0	0	0	-
+share-price-inflation	1	0	0	1	0	unsupported-feature=1
+signature-replay	1	0	0	0	0	-
+unchecked-external-call	2	0	0	1	0	rejected-feature=1
+upgrade-initializer	1	0	0	1	0	rejected-feature=1
 ```
 
-Totals: **19 cases, 2 detected, 0 proven_silence, 7 refused**, 10 cases in
-neither state — and the 2/0/7 reading holds only for the committed gold, which
-marks ES17 (contract Escrow) confirmed-exploitable: were ES17 re-labeled as a
-true clean control, its PROVEN `deposit_never_wraps` line would flip
-`proven_silence` to 1. The two detections are both `assertion-violated` counterexamples
-(`authorization` ES02GovernanceOwnable/`setowner_keeps_owner`,
-`flash-loan` ES13FlashLoanSpot/`flashloan_free`); the seven refusals are five
+Totals: **19 cases, 2 detected, 0 proven_silence, 7 refused, clean_agreed 1**,
+9 cases in neither state. Wave M's rescore (`814a2021`) regenerated the table
+above with the seventh column; the only cell it added to this run is
+`access-control clean_agreed = 1`, which rides the restored class-map row
+binding `deposit_never_wraps` → ES17. The two detections are both
+`assertion-violated` counterexamples (`authorization`
+ES02GovernanceOwnable/`setowner_keeps_owner`, `flash-loan`
+ES13FlashLoanSpot/`flashloan_free`); the seven refusals are five
 `rejected-feature` (string-literal aborts + `unsupported-type`/`packed-storage`
-loader rejections) and two `unsupported-feature` (rules with no call). The 10
+loader rejections) and two `unsupported-feature` (rules with no call). The 9
 neither-state cases are the instrument working as specified, not silent
 failures: 7 tied no tool line at all (reentrancy ×3, cross-chain-replay,
 signature-replay, liquidation-logic, unchecked-external-call ES19), one tied a
-`solver-timeout` (escalate-solver — deliberately not a refusal class), one tied
-a `malformed-spec` (spec-rewrite), and one is the ES17 clean control whose tied
-line is PROVEN (`deposit_never_wraps`), which `proven_silence` never counts. The
-operator's reading of that clean control is recorded here: the claim authored
-for it (a `total`-monotonic property, per `claim-sources.md`'s ES17 twins) is
-TRUE of that donation sink, so even the PROVEN is an honest negative about the
-*claim* rather than evidence of prover power — which is also why
-`proven_silence` is 0 rather than a false negative.
+`solver-timeout` (escalate-solver — deliberately not a refusal class), and one
+tied a `malformed-spec` (spec-rewrite).
+
+**Retraction (wave M, `814a2021`).** The paragraph that stood here read the gold
+backwards: it called ES17 (contract Escrow) `confirmed-exploitable` and said that
+re-labeling it as a clean control "would flip `proven_silence` to 1". `cases.json`
+says otherwise — **ES16 (ES16AckDecoyVault) and ES17 (ES17CleanControl) are BOTH
+`confirmed-not-exploitable`** — and a clean row can never score `proven_silence`
+(that column is the prover proving a KNOWN-BAD row clean). ES17's PROVEN
+`deposit_never_wraps` line is the clean control, counted by the new column as
+`clean_agreed 1` (access-control `2/0/0/1/1`); run 1's reported "1 honest unjoin"
+was this very line, not a name collision. ES16 has no tied line today, so its
+`clean_agreed` is correctly 0, and any future line tying it lands on the same
+clean branch. No gold-label drift ever existed: the drift was in the reading. The
+operator's reading of the claim itself stands — the `total`-monotonic property
+authored for the control is TRUE of that donation sink, so the PROVEN is an
+honest negative about the *claim* rather than evidence of prover power, which is
+also why `proven_silence` is 0 rather than a false negative.
 
 Findings of record from the run:
 
@@ -667,6 +683,75 @@ Findings of record from the run:
   rung moves any gate until an operator has run this scorecard on the REAL
   evalsuite with the REAL tool"*. One 12-case local run with hand-authored claims
   does not discharge it: gate moves still need a backtest verdict per G3. What
-  this run buys is a measured reach profile (2 detections, 7 refusals, 10
-  neither-state cases) and a verified tool vocabulary — not an acceptance.
+  this run buys is a measured reach profile (2 detections, 7 refusals, 9
+  neither-state cases + 1 clean control) and a verified tool vocabulary — not an
+  acceptance.
 
+### Real-run telemetry, run 2 (2026-09-12, `814a2021`)
+
+The second real evalsuite sweep kept the same tool/env (`.scratch/mcvenv`, solc
+0.8.36, `--loop-bound 4 --timeout-ms 60000`) and landed raw artifacts under
+`docs/minicertora-eval/2026-09-12-run2/` (19 cases / 15 classes, 9 tool lines).
+TSV verbatim from the committed `scorecard.json`:
+
+```
+class	cases	detected	proven_silence	refused	clean_agreed	refusal_histogram
+access-control	2	0	0	0	0	-
+authorization	1	0	0	0	0	-
+bridge-message	1	0	0	0	0	-
+cross-chain-replay	1	0	0	1	0	unsupported-opcode=2
+donation	1	0	0	0	0	-
+dos-griefing	1	0	0	0	0	-
+flash-loan	1	0	0	0	0	-
+liquidation-logic	1	0	1	0	0	-
+oracle-manipulation	1	0	0	0	0	-
+precision-rounding	1	0	0	0	0	-
+reentrancy	3	0	0	1	0	external-call-abstraction=2
+share-price-inflation	1	1	0	0	0	-
+signature-replay	1	0	0	0	0	-
+unchecked-external-call	2	0	0	1	0	external-call-abstraction=1
+upgrade-initializer	1	0	0	0	0	-
+```
+
+Totals: **19 cases, detected 1, proven_silence 1, refused 3 cases / 5 lines,
+clean_agreed 0**; stderr `scorecard: 9 result lines, 9 tied to a case, 0
+unjoined`. What moved since run 1:
+
+- **`share-price-inflation` DETECTED, on the real contract.** ES06's
+  `small_deposit_gets_at_least_pro_rata` returns `VIOLATED` /
+  `assertion-violated` with a witness (`calls: [deposit]`, `failed_assertion:
+  shares * a0 >= v * s0`, concrete `params`/`initial_storage`/`final_storage`) —
+  the class run 1 could only refuse is now a direct counterexample.
+- **`proven_silence` 1, honestly.** ES14's semantics-preserving liquidation twin
+  (`liquidate_reduces_debt`, PROVEN): sequential `liquidate` cannot increase
+  debt — a TRUE bounded fact about a contract whose REAL bug (health computed
+  off spot, not TWAP) is out of the model's reach. Recorded as data, not as a
+  false negative.
+- **The reentrancy family is honestly blind.** `external-call-abstraction` ×3
+  (BankT, LegacyVaultT, LenderT — symbolic returndata copy bounds are not
+  modelled) and ES09 is `unsupported-opcode` ×2 (keccak256 outside storage-slot
+  paths). Three of the four string-literal-stripped twins (BankT, LegacyVaultT,
+  LenderT) are PROBE shapes, not proof-grade claims; only ES14's `LiquidationT`
+  twin preserves semantics, and `MintFreeC` is a free-mint analogue rather than a
+  stripped twin. All four are disclosed in `mechanics.md`.
+- **The tie-collision law did NOT fire live** (correction, verified at
+  close-out). The run-2 class-map comment as committed claimed LegacyVaultT's
+  `withdraw_decreases_balance` line is excluded (rule → ES03, stem → ES18), but
+  the committed map carries no `LegacyVaultT` key, so the stem ties nothing, the
+  law takes its documented silent branch, and BOTH lines joined ES03
+  (`external-call-abstraction=2` for one case) while ES18 scored nothing — the
+  double-tie fabrication mode the law exists to stop, on real data. Re-running
+  the scorecard over the committed results + map reproduces the committed
+  `scorecard.{tsv,json}` exactly (no exclusion line on stderr). First live
+  firing is still pending: the run-3 map must bind the twin stem
+  (`LegacyVaultT → CASE-000000000012`).
+
+**Two reason codes sighted in the wild for the first time** —
+`unsupported-opcode` and `external-call-abstraction`. Both were already rows of
+§L3's closed set (`internal/harness/disposition.go`, class `HonestRefusal`), so
+the closed set stays **25**: a vocabulary written from the corpus survived its
+first contact with production with no addition, rename or reclassification.
+
+The operator-gate law is unchanged and run 2 is data, not a gate move: two local
+sweeps with hand-authored claims still move no minicertora rung — that needs a
+G3 backtest verdict.

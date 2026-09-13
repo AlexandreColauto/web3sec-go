@@ -20,12 +20,20 @@ Same tool/env as run 1 (`.scratch/mcvenv`: z3 5.1.0, click/lark/networkx; solc
   proven_silence candidate once the gold row ties; recorded as data.
 - **ES09 cross-chain-replay: unsupported-opcode** (keccak256 outside
   storage-slot paths) — first sighting of that code in the wild; it is IN the
-  closed 25-set (`rejected-feature` family row exists; unsupported-opcode is
-  its own row — verified against disposition map at run time).
-- **Collision law live evidence**: BankT and LegacyVaultT share the rule name
-  `withdraw_decreases_balance`; the map ties the rule to BankT's case only, so
-  LegacyVaultT's line is EXCLUDED with a named stderr collision note. Run 2 is
-  the first real data where the M2 law fires on non-fixture input.
+  closed 25-set as its own row (`internal/harness/disposition.go`,
+  `HonestRefusal` — not a `rejected-feature` family member). The other
+  first-in-the-wild code is `external-call-abstraction`, likewise already a row.
+- **Collision law did NOT fire (corrected at close-out, verified)**: BankT and
+  LegacyVaultT share the rule name `withdraw_decreases_balance`. The class-map
+  comment claimed LegacyVaultT's line would be EXCLUDED (rule → ES03, stem →
+  ES18), but the committed map carries NO `LegacyVaultT` key, so the stem ties
+  nothing, the law takes its documented silent branch, and BOTH lines joined ES03
+  (`external-call-abstraction=2` for one case) while ES18 scored nothing.
+  Re-running the scorecard on these committed results + map reproduces the
+  committed `scorecard.{tsv,json}` with no exclusion line on stderr
+  (`9 result lines, 9 tied to a case, 0 unjoined`). First live firing is still
+  pending: the run-3 map must bind the twin stem (e.g.
+  `LegacyVaultT → CASE-000000000012`).
 
 ## Twins (named, disclosed)
 
@@ -46,5 +54,6 @@ Reproduce from repo root:
       --cases assets/evalsuite/cases.json \
       --class-map docs/minicertora-eval/2026-09-12-run2/class-map.tsv
 
-Totals: 9 lines, 9 tied, 0 unjoined; detected 1, proven_silence 1, refused 3,
+Totals: 9 lines, 9 tied, 0 unjoined; detected 1, proven_silence 1, refused 3
+CASES / 5 refusal lines (external-call-abstraction ×3, unsupported-opcode ×2),
 clean_agreed 0 (no clean-control line authored this pass).

@@ -17,7 +17,10 @@ close-out, LANDED 2026-09-11** (plan
 close-out" below. Wave K (free prover backends) is **PARKED** — post-production,
 not required for readiness. **Wave M LANDED 2026-09-11** — the
 `morph/FRAMEWORK_EVAL_NOTES.md` slice (M1–M6, the C3 retirement, and the
-polarity/deployment rules); see "Wave M" at the end of this document.
+polarity/deployment rules); see "Wave M — the eval-notes slice" at the end of
+this document. (A later, distinct **Wave M** — the SDD minicertora
+fork-consumption + run-2 plan — landed 2026-09-12; see "Wave M — LANDED
+2026-09-12" in the minicertora queue section.)
 
 Source: the Morph L2 rollup campaign (`C-42bd211e3e`, 537 events, 52 findings,
 snapshot `22ca805e`) against the gold-standard eval with two planted bugs
@@ -3043,10 +3046,13 @@ moved. Landing notes in §9 of that doc.
    `rule` is exercised by construction only (the real run joined through
    `--class-map`, so tier 2 is still unexercised), and the T5 N3 nit (an
    unreachable check in `audit_lines`' ABORT branch) is still carried.
-7. **OPEN — fork-wave consumption of the bridge**: `BridgeSequence` /
-   `BridgeSequenceWithLayout` are consumed by their tests only — emitting
-   `.seq.json` from a CLI counterexample (and supplying the solc layout map the
-   harness does not own) is the fork wave's seam.
+7. **CLOSED** (`96d7e282`, wave M T3): `verify` now writes the runnable bridged
+   PoC `artifacts/harness/<INV>/poc-<INV>.json` — a `sequence_poc` a real
+   `webv2 sequence run <C> <path> --finding <INV>` consumes — plus the optional
+   operator `layout.json` sidecar that grounds its `final_storage` (the solc
+   layout map the harness does not own stays the operator's). The bridge is no
+   longer consumed by its tests only; what remains is the fork RUN itself (RPC)
+   and the layout map's correctness — see the wave M record below.
 
 **Wave L-eval (operator) — first real evalsuite scorecard run, LANDED
 2026-09-12** (`35b5dbb9`; raw data `docs/minicertora-eval/2026-09-12/`).
@@ -3080,6 +3086,87 @@ minicertora rung moves any gate until a backtest verdict exists per G3. What
 this run buys is a measured reach profile (2 detections, 7 refusals, 10 silent
 cases) and a verified tool vocabulary, not a gate verdict; the instrument
 itself (`--self-test`) is unchanged and still the only thing the wave gates on.
+
+**Wave M — LANDED 2026-09-12** (SDD, plan
+`docs/superpowers/plans/2026-09-12-wave-m-fork-consumption-run2.md`; commits
+`65036078..814a2021`, one fresh subagent per task, every rung verified on the
+committed tree). **Fork consumption is LIVE end-to-end minus the RPC**, and the
+minicertora eval has a second real sweep.
+
+- **T1 `65036078` — bridged actor keys are run-path legal.** The bridge spells
+  aliases `actor_N` (was `actor-N`). A role key becomes the shell variable
+  `A_<role>` and the env var `FORK_KEY_<ROLE>`, and the run path admits only
+  `[A-Za-z][A-Za-z0-9_]*` (`sequencepoc.roleKeyRe`; `driver.go::actorFragments`),
+  so every hyphenated bridged document was refused by `LoadSequenceSpec` **and**
+  `BuildCommand` for a reason unrelated to what it said. §L4's refusal pin
+  (`c8e2a299`) is inverted into the POSITIVE round-trip pin
+  `TestBridgedActorAliasesAreRunPathLegal` (two senders; the document written to
+  disk exactly as bridged; loaded actor keys byte-compared to the bridged ones;
+  `FORK_KEY_ACTOR_1/2` asserted in the driver text), while the hyphen-refusal
+  *rule* stays covered by a hand-written illegal spec. A bridged PoC is now legal
+  **as emitted** — no rename sits between bridge and loader.
+- **T2 `0a9dbfee` — scorecard specificity + tie-collision law.** New seventh
+  column `clean_agreed`: a clean control (gold in `CLEAN_OUTCOMES`) whose every
+  tied line is PROVEN — the exact mirror of `proven_silence`, and the two can
+  never both be 1 for one case. The tie-collision law drops a rule-bearing line
+  whose rule and results-file stem tie DISJOINT cases, naming both on stderr
+  before any count sees it. Live on run 1 it moved `access-control` to
+  `2/0/0/1/1` (the ES17 control) and closed the run's "1 honest unjoin".
+  **The T2 reviewer's condition — rescore the run-1 record with the 7-column
+  instrument and retract the inverted gold note — is discharged by `814a2021`**:
+  run-1 `scorecard.{tsv,json}` regenerated 7-column (`12 tied, 0 unjoined`) and
+  `claim-sources.md`'s "gold-label drift" paragraph retracted (no drift existed —
+  ES17 IS `confirmed-not-exploitable`; the drift was in the reading).
+  **Correction at close-out (verified, not assumed): the collision law did NOT
+  fire live in run 2 either.** The run-2 class-map comment claimed LegacyVaultT's
+  `withdraw_decreases_balance` line was excluded (rule → ES03, stem → ES18), but
+  the committed map carries no `LegacyVaultT` key, so the stem ties nothing, the
+  law takes its documented silent branch, and both lines joined ES03
+  (`external-call-abstraction=2` for one case) while ES18 scored nothing. The
+  committed `scorecard.{tsv,json}` reproduce exactly, with no exclusion line on
+  stderr; the wrong prose is corrected in place. Its **first live firing is still
+  pending** — deferral (d).
+- **T3 `96d7e282` — `verify` emits the runnable PoC artifact + layout sidecar.**
+  A mapped minicertora `counterexample` writes
+  `artifacts/harness/<INV>/poc-<INV>.json` through the SAME path/write/commit
+  seam `verify --scaffold` uses (no parallel bespoke writer), presence-gated (no
+  `calls` → nothing written, stderr names why), overwrite-deterministic (changed
+  witness refreshes the file; identical bytes are a no-op). The emitted bytes
+  validate against the real `sequence_poc` schema and pass `LoadSequenceSpec` +
+  `BuildCommand`, i.e. a real `sequence run` consumes them — the T3 review built
+  the actual argv from the emitted file. The operator sidecar
+  `artifacts/harness/<INV>/layout.json` grounds `final_storage` (malformed shape
+  → stderr note + layoutless bytes; well-shaped but grounding nothing → silently
+  a layoutless PoC). Queue item 7 and §L4's "consumed by its tests only" are
+  closed by this commit.
+- **T4 `814a2021` — second real evalsuite sweep** (raw data
+  `docs/minicertora-eval/2026-09-12-run2/`). 19 cases / 15 classes, 9 tool lines,
+  9 tied / 0 unjoined: **detected 1** (`share-price-inflation` — ES06's REAL
+  contract violates the pro-rata inequality, witness present; the class run 1
+  could only refuse), **proven_silence 1** (ES14's semantics-preserving twin
+  PROVEN on a gold-bad row — honest: the real bug is spot-vs-TWAP and out of the
+  model's reach), **refused 3 cases / 5 lines** (`external-call-abstraction` ×3 —
+  BankT, LegacyVaultT, LenderT: symbolic returndata copy bounds are not modelled;
+  `unsupported-opcode` ×2 — ES09 keccak256 outside storage-slot paths),
+  **clean_agreed 0** (no clean-control line authored this pass). Both codes were
+  sighted in the wild for the first time and both were already rows of the closed
+  25-code set (`internal/harness/disposition.go`): the vocabulary survived its
+  first contact with production unchanged.
+
+**Wave M deferrals** (recorded, none blocking): **(a) `finding_id` binding** —
+T3's PoC carries the invariant id as `finding_id` (the harness-result path has no
+finding in scope), so `sequence run --finding F-x` is refused loudly rather than
+mis-attributed; the real binding lands when a fork campaign needs it (**T3-M2,
+ACCEPTED as-is**). **(b) audit-suffix-vs-file gap** — `| poc: N calls bridged`
+renders from `proof.calls` even when the bridge refuses, so a counterexample with
+calls but no artifact signals that gap only on stderr. **(c) stale-PoC history is
+single-view** — one file per invariant; a second witness overwrites it
+(`artifact.refreshed`) and the history lives only in the exec stdout the bridge
+read. **(d) third run, then any gate move** — a run that surfaces the template
+state identifiers plus a **G3 backtest** verdict are prerequisites before ANY
+minicertora rung moves a gate (the operator-gate law is unchanged), and the run-3
+class-map must bind the twin stems (e.g. `LegacyVaultT → ES18`) for the collision
+law to fire live.
 
 *Rename note: parked as **Wave K** (items J1–J4 → K1–K4) because Wave J's own
 letters were spent by the close-out wave that shipped first. The rename is the
