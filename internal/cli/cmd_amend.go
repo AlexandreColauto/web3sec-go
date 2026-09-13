@@ -159,6 +159,14 @@ func amendCmd(root string, args []string, r *Runner) error {
 	if err != nil {
 		return err
 	}
+	// R3 (critic): a class amend that RAISES a filed finding's floor is the
+	// conversion path the T6 advisory recommends — legal, but never silent:
+	// name the new bar and the work it creates.
+	oldClass, oldStatus := "", ""
+	if pre, perr := findings.LoadFinding(c, pos[1]); perr == nil {
+		oldClass = objStr(objAt(pre, "root_cause"), "class")
+		oldStatus = objStr(pre, "status")
+	}
 	f, err := findings.Amend(c, pos[1], opts)
 	if err != nil {
 		var rej *findings.RejectedError
@@ -169,6 +177,17 @@ func amendCmd(root string, args []string, r *Runner) error {
 	}
 	fmt.Fprintf(r.Out, "amended %s: claim_version %s (%s)\n", pos[1],
 		validation.IntText(objAt(f, "claim_version")), amendKeysText(opts))
+	if opts.HasClass && oldStatus == "CONFIRMED" {
+		newClass := objStr(objAt(f, "root_cause"), "class")
+		was := findings.RequiredLevelForCampaign(c, "CONFIRMED", oldClass)
+		now := findings.RequiredLevelForCampaign(c, "CONFIRMED", newClass)
+		if was != now {
+			fmt.Fprintf(r.Err, "note: the CONFIRMED floor for this finding "+
+				"moved %s -> %s with the class (status stands; the gate now "+
+				"treats verification below %s as MANDATORY work — brief and "+
+				"rank will show it)\n", was, now, now)
+		}
+	}
 	return nil
 }
 

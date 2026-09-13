@@ -722,3 +722,56 @@ func TestClockAndSaveSeams(t *testing.T) {
 		t.Errorf("persisted override = %v, %v; want the pre-seam E5", ov, err)
 	}
 }
+
+// TestFloorRaiseAfterConfirmIsAllowedAndConvertsToWork pins the law the
+// critic r3 proposal would have broken: raising a class floor after a
+// finding is CONFIRMED is a legitimate, attributed policy act — it does NOT
+// invalidate the status and must NOT be refused; the raised bar converts the
+// finding into mandatory independent-verification work downstream (pinned
+// end-to-end by the briefing work-order test this replaces at the CLI level).
+func TestFloorRaiseAfterConfirmIsAllowed(t *testing.T) {
+	c := camp(t)
+	if _, err := SetFloorPolicy(c, "reentrancy", "E6", "op",
+		"fork infrastructure exists for this target class"); err != nil {
+		t.Fatalf("raising a floor is a decision, not a regret: %v", err)
+	}
+	if got := EffectiveFloor(c, "CONFIRMED", "reentrancy"); got != "E6" {
+		t.Fatalf("effective floor after raise = %q, want E6", got)
+	}
+	if err := ClearFloorPolicy(c, "reentrancy", "op",
+		"reverting to the shared policy for review"); err != nil {
+		t.Fatalf("clearing after a raise must also pass: %v", err)
+	}
+}
+
+// TestOverrideOnlyClassIsVisibleInTable pins critic r3 (M4, resolved by the
+// open-vocabulary law): an override on a non-canonical class remains legal
+// (planner scenario) — what the fix guarantees is VISIBILITY: the row must
+// appear in FloorTableReport, not haunt EffectiveFloor unseen.
+func TestOverrideOnlyClassIsVisibleInTable(t *testing.T) {
+	c := camp(t)
+	if _, err := SetFloorPolicy(c, "price-oracle-stale", "E4", "op",
+		"impact fully determined by code semantics here"); err != nil {
+		t.Fatalf("open-vocabulary override is legal: %v", err)
+	}
+	rep, err := FloorTableReport(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	rows := objAt(rep, "rows")
+	for _, r := range rows.A {
+		if objStr(r, "class") == "price-oracle-stale" {
+			found = true
+			eff := objStr(r, "effective_floor")
+			ov := objAt(r, "override")
+			if eff != "E4" || ov.Kind == validation.Null {
+				t.Fatalf("override-only row malformed: eff %q ov %v",
+					eff, ov.Kind)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("override on an open-vocabulary class invisible in the table")
+	}
+}

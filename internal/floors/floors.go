@@ -136,6 +136,11 @@ func SetFloorPolicy(campaign *state.Campaign, bugClass, floor, actor,
 		return validation.VNull(), errors.New("floor overrides require a " +
 			"written reason (>= 10 chars) — an unnamed preference is not a policy")
 	}
+	// R3 (critic, resolved by the scenario law): an out-of-taxonomy class
+	// override is LEGAL — the pinned planner scenario confirms a finding
+	// under a non-canonical class with a campaign floor (bug classes are
+	// open vocabulary). What the law forbids is INVISIBILITY, so
+	// FloorTableReport surfaces override-only classes as visible rows.
 	entry := validation.VObj(
 		kv("class", validation.VStr(bugClass)),
 		kv("floor", validation.VStr(floor)),
@@ -202,6 +207,11 @@ func ClearFloorPolicy(campaign *state.Campaign, bugClass, actor, reason string) 
 			"no floor override for class %s in this campaign",
 			validation.PyReprStr(bugClass))}
 	}
+	// R3 note (critic): clearing/raising a floor under a CONFIRMED finding
+	// is DELIBERATELY allowed, matching the ported work-order law: the
+	// raised bar converts that finding into mandatory verification queue
+	// work (briefing/rank show it), it does not silently invalidate the
+	// recorded status. Silent is exactly what the gate refuses to be.
 	st.O = validation.SetOrAppend(st.O, "floor_policy", validation.VArr(remaining...))
 	if err := saveStateFunc(campaign, st); err != nil {
 		return err
@@ -277,6 +287,13 @@ func FloorTableReport(campaign *state.Campaign) (validation.Value, error) {
 		classes[cls] = struct{}{}
 	}
 	for cls := range findings.CLASS_CONFIRM_FLOOR {
+		classes[cls] = struct{}{}
+	}
+	// R3 (critic): an override on an open-vocabulary class must not be an
+	// INVISIBLE policy — it governs EffectiveFloor for exactly that class,
+	// so the table shows it too (an "(override-only)" row; the vector
+	// report's key discipline otherwise unchanged).
+	for cls := range overrides {
 		classes[cls] = struct{}{}
 	}
 	rows := make([]validation.Value, 0, len(classes))
