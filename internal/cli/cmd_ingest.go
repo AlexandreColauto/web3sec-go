@@ -300,9 +300,15 @@ func printIngestFailure(r *Runner, err error) {
 		fmt.Fprintf(r.Err, "hint: %s\n", hint)
 		return
 	}
-	fmt.Fprint(r.Err, "hint: the `webv2 ingest --example` payload is the "+
-		"shape contract — diff yours against it (fields, nesting, value "+
-		"types); the message above names the offending path\n")
+	// R2-4 (critic): the shape-contract hint is a SCHEMA hint. Budget,
+	// ledger (exec_ref), gate and lie-detection refusals are not shape
+	// problems — sending the operator to diff a payload that is fine is
+	// its own kind of misleading hint.
+	if strings.Contains(err.Error(), " validation failed at ") {
+		fmt.Fprint(r.Err, "hint: the `webv2 ingest --example` payload is the "+
+			"shape contract — diff yours against it (fields, nesting, value "+
+			"types); the message above names the offending path\n")
+	}
 }
 
 // printIngestResult is the accepted-payload output: the taxonomy advisory and

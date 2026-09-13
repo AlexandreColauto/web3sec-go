@@ -148,6 +148,13 @@ func (r *Runner) run(argv []string) int {
 		// with the other); a bare help prints the root catalog; an unknown
 		// command is named, not ignored (critic I-11).
 		if cmd == "help" && len(args) > 0 {
+			if args[0] == "help" {
+				// `help help` is asking about itself: it has no command
+				// entry, so explain the routing (critic r2).
+				fmt.Fprint(r.Out, "usage: webv2 help [<command>] — print "+
+					"this catalog, or one command's own help\n")
+				return 0
+			}
 			target, ok := commandByName(args[0])
 			if !ok {
 				fmt.Fprintf(r.Err, "error: unknown command %q\n%s",

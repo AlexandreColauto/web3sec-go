@@ -351,3 +351,49 @@ func TestHelpSubcommandRouting(t *testing.T) {
 		t.Fatalf("surplus args must be refused, got exit %d: %q", code3, errS3)
 	}
 }
+
+// TestShapeContractHintOnlyForSchemaErrors pins critic r2 (R2-4): the
+// shape-contract hint is a SCHEMA hint — a budget refusal must not send the
+// operator to diff a payload that is fine.
+func TestShapeContractHintOnlyForSchemaErrors(t *testing.T) {
+	c, root, cid := t2Campaign(t)
+	if code, _, errS := run(t, "--root", root, "budget", cid,
+		"--set-discovery", "1", "--actor", "r2"); code != 0 {
+		t.Fatalf("budget exit %d: %q", code, errS)
+	}
+	// schema-bad payload: hint YES
+	_, _, errS := run(t, "--root", root, "ingest", cid, "--json-file",
+		t2Write(t, root, "bad.json", `{"nope":1}`))
+	if !strings.Contains(errS, "shape contract") {
+		t.Fatalf("schema error must carry the shape hint: %q", errS)
+	}
+	// valid payload claiming the last slot (t2 flow), then a second valid
+	// one that hits the budget wall: hint NO on the budget refusal.
+	used := t2Write(t, root, "u1.json",
+		t4Payload("Reentrancy in withdraw() drains the pool", t4E1))
+	if code, _, errS := run(t, "--root", root, "ingest", cid,
+		"--json-file", used); code != 0 {
+		t.Fatalf("first ingest must charge the slot: %q", errS)
+	}
+	spent := t2Write(t, root, "u2.json",
+		t4Payload("A second rescue hypothesis wants the same slot", t4E1))
+	_, _, errS2 := run(t, "--root", root, "ingest", cid,
+		"--json-file", spent)
+	if !strings.Contains(errS2, "budget exhausted") {
+		t.Fatalf("want the budget refusal, got %q", errS2)
+	}
+	if strings.Contains(errS2, "shape contract") {
+		t.Fatalf("non-schema refusal must not print the shape hint: %q", errS2)
+	}
+	_ = c
+}
+
+// TestHelpHelpExplainsItself pins critic r2 (R2-6): `help help` names its
+// own routing instead of an unknown-command error.
+func TestHelpHelpExplainsItself(t *testing.T) {
+	_, root, _ := t2Campaign(t)
+	code, out, errS := run(t, "--root", root, "help", "help")
+	if code != 0 || !strings.Contains(out, "webv2 help") || errS != "" {
+		t.Fatalf(`help help: exit %d out %q err %q`, code, out, errS)
+	}
+}
