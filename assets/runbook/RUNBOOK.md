@@ -440,7 +440,12 @@ fill it in, then `webv2 ingest <C-xxx> --json-file payload.json`. A payload
 that fails validation reports **every** error, not just the first. Ingest
 validates schema, fingerprints dedup, and intake-checks: an unknown bug class
 returns a taxonomy advisory (closest known classes, conservative E5 floor); a
-missing `economic_impact` on an economic trajectory is warned. **Never
+missing `economic_impact` on an economic trajectory is warned. The accepted
+line names the floor the class pins — `ingested F-xxx [HYPOTHESIS] (class
+bridge-message, CONFIRMED floor E6)` — read through the same lookup the
+CONFIRMED gate runs (instance `floors set` overrides included), and a class
+stricter than the loosest known class also prints the class-floor advisory, so
+a taxonomy choice is never a silent evidence wall. **Never
 hand-write a finding file** — ingest is the only path in.
 
 **Both polarities of every lifecycle transition.** A transition can accept
@@ -728,6 +733,11 @@ via `resolve-candidate`. Then the hostile critic reviews POSSIBLE-bound
 candidates (`verdict`) and a negative/comparative graph-memory consult is
 recorded (`recall --mode negative` — the CONFIRMED gate requires it).
 
+A finding filed under the wrong class is corrected with `amend --class`: re-file
+by *true root cause* and attest the match in `--note`; the floor is recomputed
+from the new class on the next gate read (never retroactively promoted, and
+re-filing to a stricter class raises the bar with the evidence untouched).
+
 **Tier-2/3 signatures are never hand-written hex.** `dedup-signature` takes the
 target-agnostic sentence ("attacker-controlled exchange rate creates unbacked
 withdrawal value", not a file or function name) and hashes it; exactly one of
@@ -737,6 +747,12 @@ through different syntax, which is the point — but a matching signature does n
 merge anything. Pairs the sweep cannot auto-merge (different code sites, same
 signature) are **flagged on both sides**, so `resolve-candidate --verdict
 same|distinct` adjudicates them; the same-spot auto-merge path is untouched.
+
+A manual self-duplicate — the same root-cause class on the same affected path,
+filed twice — is retired with `webv2 supersede <C-xxx> F-new --of F-old`: the
+retired copy leaves the live and precision views WITH its evidence copied
+forward. Adjudicating it false-positive is not that op — it calls a real bug
+wrong and moves the precision line (§6b below).
 
 `ack` scans the pinned source for an in-code acknowledgement (stub, TODO,
 known-issue comment) in the code that would have to change for the finding to
@@ -865,6 +881,11 @@ webv2 adjudicate <C-xxx>                              # list the recorded rows
 - **assumption-gated** — the finding is real only if the named `--assumption`
   holds; `--assumption` is required with this verdict and meaningful only
   there.
+
+An FP says the BUG is wrong; a second copy of a live finding (same class, same
+affected path) is not wrong, it is double-booked — `webv2 supersede <C-xxx>
+F-new --of F-old` retires it WITH its evidence copied forward, and `adjudicate`
+nudges the twin's id on stderr rather than let the FP move the precision line.
 
 `--verdict`, `--basis`, `--actor` and `--reason` (≥ 10 written characters) are
 required to record a row; `--severity` defaults to `tbd`, `--exec` cites the

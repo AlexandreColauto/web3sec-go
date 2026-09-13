@@ -59,6 +59,14 @@ func runDedup(root string, args []string, r *Runner) int {
 		return r.withErr(root, func() error { return err })
 	}
 	fmt.Fprintln(r.Out, validation.DumpIndentedASCII(report))
+	// T5 (wave N): a sweep that touched nothing is exactly when the operator
+	// needs to hear that the row they are about to adjudicate away may be a
+	// manual self-duplicate for `supersede`. stdout stays the JSON report
+	// (cli.py parity, pinned by TestDedupReportsSweep); the hint is stderr,
+	// like every other advisory this CLI prints.
+	if hint := dedupDiscoveryHint(report); hint != "" {
+		fmt.Fprintln(r.Err, hint)
+	}
 	return 0
 }
 

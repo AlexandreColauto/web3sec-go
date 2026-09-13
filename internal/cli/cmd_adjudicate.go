@@ -216,6 +216,12 @@ func adjudicateRecord(c *state.Campaign, r *Runner, a *adjudicateArgs) error {
 	if err != nil {
 		return err
 	}
+	// T5 (wave N): the row is already written — the nudge below is pure
+	// advice on stderr, never a refusal and never a change to the verdict or
+	// to any output stream the tally/--json projection uses.
+	if nudge := selfDuplicateNudge(c, rec); nudge != "" {
+		fmt.Fprintln(r.Err, nudge)
+	}
 	led, err := loadAdjudicateLedger(c, a.gold)
 	if err != nil {
 		return err
