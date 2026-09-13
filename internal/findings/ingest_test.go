@@ -420,12 +420,12 @@ func TestClaimDriftAcceptsAnyMatchingFigure(t *testing.T) {
 // ---- intake checkpoint (warnings, not rejections) ----
 
 func TestIntakeCheckpointEconomicWithoutImpact(t *testing.T) {
-	w := IntakeCheckpoint(hypoE4Payload(), "economic", "")
+	w := IntakeCheckpoint(hypoE4Payload(), "economic", "", nil)
 	if len(w) != 1 || !strings.Contains(w[0], "trajectory 'economic'") {
 		t.Fatalf("warnings = %v", w)
 	}
 	// The campaign in hand is named in the repair hint, not the metavariable.
-	named := IntakeCheckpoint(hypoE4Payload(), "economic", "C-deadbeef")
+	named := IntakeCheckpoint(hypoE4Payload(), "economic", "C-deadbeef", nil)
 	if len(named) != 1 ||
 		!strings.Contains(named[0], "webv2 impact C-deadbeef <finding>") {
 		t.Fatalf("named warnings = %v", named)
@@ -433,7 +433,7 @@ func TestIntakeCheckpointEconomicWithoutImpact(t *testing.T) {
 	with := hypoE4Payload(kv("risk", validation.VObj(
 		kv("economic", validation.VObj(
 			kv("extractable_usd", validation.VInt(2100000)))))))
-	if got := IntakeCheckpoint(with, "economic", ""); len(got) != 0 {
+	if got := IntakeCheckpoint(with, "economic", "", nil); len(got) != 0 {
 		t.Fatalf("warnings = %v", got)
 	}
 }
@@ -657,11 +657,11 @@ func ingestWithEvidenceRaw(c *state.Campaign,
 
 func TestIntakeCheckpointSeamAdvisory(t *testing.T) {
 	prev := classAdvisoryFunc
-	classAdvisoryFunc = func(bugClass *string) string {
+	classAdvisoryFunc = func(bugClass *string, campaign *state.Campaign) string {
 		return "unknown class (test)"
 	}
 	defer func() { classAdvisoryFunc = prev }()
-	w := IntakeCheckpoint(hypoPayload(), "code", "")
+	w := IntakeCheckpoint(hypoPayload(), "code", "", nil)
 	if len(w) != 1 || w[0] != "unknown class (test)" {
 		t.Fatalf("warnings = %v", w)
 	}

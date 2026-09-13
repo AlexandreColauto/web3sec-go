@@ -38,6 +38,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"websec/internal/findings"
+	"websec/internal/state"
 	"websec/internal/validation"
 )
 
@@ -208,12 +209,23 @@ func ClassReport(bugClass *string) validation.Value {
 // loosest floor still returns "" (nothing to say), and unknown classes keep
 // the legacy message byte-for-byte.
 //
+// I-6 split the known-class half by WHY the class is strict. A class with a
+// floor-table entry says "class X pins a CONFIRMED floor of E6" because the
+// table really pins it, and the re-file advice is honest: the author chose a
+// class whose table entry is expensive. A class WITHOUT an entry (donation,
+// centralization-risk, precision-rounding, unchecked-external-call today)
+// pins nothing — it inherits the CONFIRMED status default — so it says that
+// instead, and gets NO re-file advice: there is no cheaper table class to
+// file this class's content under, and the class choice is the author's.
+//
 // This is the findings.SetClassAdvisory seam target: it must keep the
-// func(bugClass *string) string signature.
-func ClassAdvisory(bugClass *string) string {
+// func(bugClass *string, campaign *state.Campaign) string signature (critic
+// I-2: a campaign makes the warning floor-AWARE via the same lookup the
+// gate reads; nil campaign = the built-in table).
+func ClassAdvisory(bugClass *string, campaign *state.Campaign) string {
 	rep := ClassReport(bugClass)
 	if objAt(rep, "known").B {
-		return classFloorWarning(*bugClass)
+		return classFloorWarning(*bugClass, campaign)
 	}
 	msg := fmt.Sprintf("unknown class %s; known classes: %s; "+
 		"no floor-table entry -> CONFIRMED defaults to %s "+
@@ -235,17 +247,22 @@ func ClassAdvisory(bugClass *string) string {
 // classFloorWarning is class_advisory's known-class half (wave N, T6): the
 // warning that this class's CONFIRMED floor is stricter than the loosest floor
 // any known class pins, or "" when the class is already at that loosest floor.
+// I-6 splits it by whether the floor table actually carries the class — see
+// ClassAdvisory's comment.
 //
-// The count and the examples describe the SAME set — the known classes pinned
-// strictly above the loosest floor — so the examples' (floor, name) ordering is
-// load-bearing: the set spans floors (E5 and E6, today), and a different order
-// would make the advisory unstable across runs. The class itself is never
-// offered as its own example.
-func classFloorWarning(bugClass string) string {
-	loosest := loosestKnownFloor()
-	floor := DefaultFloor(&bugClass)
+// The count and the examples of the with-entry warning describe the SAME set —
+// the known classes pinned strictly above the loosest floor — so the examples'
+// (floor, name) ordering is load-bearing: the set spans floors (E5 and E6,
+// today), and a different order would make the advisory unstable across runs.
+// The class itself is never offered as its own example.
+func classFloorWarning(bugClass string, campaign *state.Campaign) string {
+	loosest := loosestKnownFloorCampaign(campaign)
+	floor := effectiveFloorCampaign(campaign, bugClass)
 	if floorRank(floor) <= floorRank(loosest) {
 		return ""
+	}
+	if _, ok := findings.CLASS_CONFIRM_FLOOR[bugClass]; !ok {
+		return noFloorEntryWarning(bugClass, floor)
 	}
 	type row struct{ name, floor string }
 	stricter := make([]row, 0, len(knownRaw()))
@@ -283,6 +300,55 @@ func classFloorWarning(bugClass string) string {
 		"floor recomputes on the next gate read."
 }
 
+// noFloorEntryWarning is class_advisory's wording for a KNOWN class the floor
+// table does not carry (I-6): the class is in the taxonomy (the compat
+// vocabulary), but findings.CLASS_CONFIRM_FLOOR has no entry for it, so its
+// CONFIRMED floor is the STATUS_FLOOR default and NOTHING about the class pins
+// it. Claiming "class 'donation' PINS a CONFIRMED floor of E5" was false, and
+// the re-file advice was worse than false: "re-file by true root cause" tells
+// the author to switch classes, but every cheaper floor belongs to a DIFFERENT
+// class's content — there is no cheaper table class to file THIS bug under, so
+// the choice is the author's and no command is suggested.
+//
+// The pool named here is the mirror image of the with-entry warning's: the
+// known classes whose floor is LOOSER (strictly lower rank) than the inherited
+// default, counted and exemplified in the same deterministic (floor, name)
+// order. floor is the inherited default the caller already computed.
+func noFloorEntryWarning(bugClass, floor string) string {
+	type row struct{ name, floor string }
+	looser := make([]row, 0, len(knownRaw()))
+	for cls := range knownRaw() {
+		f := DefaultFloor(&cls)
+		if floorRank(f) < floorRank(floor) {
+			looser = append(looser, row{cls, f})
+		}
+	}
+	sort.Slice(looser, func(i, j int) bool {
+		if a, b := floorRank(looser[i].floor), floorRank(looser[j].floor); a != b {
+			return a < b
+		}
+		return looser[i].name < looser[j].name
+	})
+	examples := make([]string, 0, 2)
+	for _, r := range looser {
+		if r.name == bugClass {
+			continue // defensive: an entry-less class is never in this pool
+		}
+		examples = append(examples, r.name+" ("+r.floor+")")
+		if len(examples) == 2 {
+			break
+		}
+	}
+	msg := fmt.Sprintf("class %s has no floor-table entry — it inherits the "+
+		"CONFIRMED default %s; %d known classes pin looser floors",
+		validation.PyReprStr(bugClass), floor, len(looser))
+	if len(examples) > 0 {
+		msg += " (e.g. " + strings.Join(examples, ", ") + ")"
+	}
+	return msg + ". The class choice is the author's — no cheaper table class " +
+		"exists for this class's content."
+}
+
 // loosestKnownFloor is the cheapest CONFIRMED floor any known class pins: the
 // bar to compare a chosen class against. Unknown classes do not participate —
 // they have no floor-table entry, and the ingest line already reports their
@@ -297,6 +363,36 @@ func loosestKnownFloor() string {
 		}
 	}
 	return loosest
+}
+
+// effectiveFloorCampaign is the campaign-aware floor (nil campaign = the
+// built-in table): findings.RequiredLevelForCampaign — the same call the
+// acceptance line and the gate run, so an instance floor override can never
+// leave the advisory recommending a re-file the override made pointless.
+func effectiveFloorCampaign(campaign *state.Campaign, bugClass string) string {
+	if campaign == nil {
+		return DefaultFloor(&bugClass)
+	}
+	return findings.RequiredLevelForCampaign(campaign, "CONFIRMED", bugClass)
+}
+
+// loosestKnownFloorCampaign is loosestKnownFloor over the campaign's
+// effective floors.
+func loosestKnownFloorCampaign(campaign *state.Campaign) string {
+	if campaign == nil {
+		return loosestKnownFloor()
+	}
+	best := ""
+	for cls := range knownRaw() {
+		f := findings.RequiredLevelForCampaign(campaign, "CONFIRMED", cls)
+		if best == "" || floorRank(f) < floorRank(best) {
+			best = f
+		}
+	}
+	if best == "" {
+		return loosestKnownFloor()
+	}
+	return best
 }
 
 // floorRank is a floor's ladder position (E0=0 .. E7=7), or -1 for a name the

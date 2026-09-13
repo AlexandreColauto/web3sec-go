@@ -24,12 +24,19 @@ import (
 // ---- wired with Set* once the module exists.
 
 // classAdvisoryFunc is the taxonomy.class_advisory seam: one-line advisory
-// for ingest output/logs, or "" when the class is known. Nil bugClass is
-// Python's None (the message text for unknown classes shows it as such).
-var classAdvisoryFunc = func(bugClass *string) string { return "" }
+// for ingest output/logs, or "" when the class is known and at the loosest
+// floor. Nil bugClass is Python's None (the message text for unknown classes
+// shows it as such); nil campaign asks with the built-in table (tests, and
+// any caller that has no campaign) — a non-nil campaign makes the advisory
+// floor-aware, so it can never contradict the campaign-aware line the CLI
+// prints one line above it (critic I-2).
+var classAdvisoryFunc = func(bugClass *string, campaign *state.Campaign) string {
+	return ""
+}
 
-// SetClassAdvisory wires the real taxonomy.class_advisory (Task 3).
-func SetClassAdvisory(f func(bugClass *string) string) {
+// SetClassAdvisory wires the real taxonomy.class_advisory (Task 3; the
+// campaign parameter arrived with critic fix I-2).
+func SetClassAdvisory(f func(bugClass *string, campaign *state.Campaign) string) {
 	if f == nil {
 		panic("findings: nil class advisory")
 	}
@@ -392,8 +399,8 @@ func ingestHypothesis(campaign *state.Campaign, payload validation.Value,
 	if err := SaveFinding(campaign, &p); err != nil {
 		return validation.VNull(), err
 	}
-	advisory := classAdvisoryFunc(rootClass)
-	warnings := IntakeCheckpoint(p, trajectory, campaign.CampaignID)
+	advisory := classAdvisoryFunc(rootClass, campaign)
+	warnings := IntakeCheckpoint(p, trajectory, campaign.CampaignID, campaign)
 	if _, err := campaign.Log("finding.ingested", &fid,
 		ingestLogData(trajectory, stage, model, rootClass, advisory,
 			warnings)); err != nil {
@@ -597,12 +604,12 @@ func AddEvidence(campaign *state.Campaign, findingID string,
 // an empty id (a direct call with no campaign in hand) keeps the documented
 // metavariable rather than an empty hole.
 func IntakeCheckpoint(payload validation.Value, trajectory,
-	campaignID string) []string {
+	campaignID string, campaign *state.Campaign) []string {
 	if campaignID == "" {
 		campaignID = "<campaign>"
 	}
 	var warnings []string
-	if adv := classAdvisoryFunc(rootClassPtr(payload)); adv != "" {
+	if adv := classAdvisoryFunc(rootClassPtr(payload), campaign); adv != "" {
 		warnings = append(warnings, adv)
 	}
 	if trajectory == "economic" &&

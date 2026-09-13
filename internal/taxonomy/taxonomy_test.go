@@ -136,7 +136,7 @@ func TestClassReportForUnknownSuggestsMatches(t *testing.T) {
 }
 
 func TestClassAdvisoryUnknownNamesConservativeFloor(t *testing.T) {
-	a := ClassAdvisory(ptr("quantum-decoherence"))
+	a := ClassAdvisory(ptr("quantum-decoherence"), nil)
 	for _, want := range []string{"unknown class", "E5", "reentrancy"} {
 		if !strings.Contains(a, want) {
 			t.Errorf("advisory %q is missing %q", a, want)
@@ -155,7 +155,7 @@ func TestClassAdvisoryUnknownNamesConservativeFloor(t *testing.T) {
 // ingest — the G-02 failure was an ingest-time taxonomy choice (bridge-message,
 // E6) that pinned a floor the finding's evidence could never reach, silently.
 func TestClassAdvisoryKnownStricterFloorWarns(t *testing.T) {
-	a := ClassAdvisory(ptr("bridge-message"))
+	a := ClassAdvisory(ptr("bridge-message"), nil)
 	for _, want := range []string{
 		"CONFIRMED floor of E6",                           // the class's own floor
 		"loosest known-class floor E4",                    // what a cheap class costs
@@ -171,12 +171,12 @@ func TestClassAdvisoryKnownStricterFloorWarns(t *testing.T) {
 	// The same class, the same bytes — the pool and its (floor, name) order are
 	// not map-iteration order.
 	for i := 0; i < 5; i++ {
-		if got := ClassAdvisory(ptr("bridge-message")); got != a {
+		if got := ClassAdvisory(ptr("bridge-message"), nil); got != a {
 			t.Fatalf("advisory is not deterministic:\n%q\n%q", got, a)
 		}
 	}
 	// An E5 class warns too (stricter than the E4 loosest), naming its floor.
-	if got := ClassAdvisory(ptr("oracle-manipulation")); !strings.Contains(got,
+	if got := ClassAdvisory(ptr("oracle-manipulation"), nil); !strings.Contains(got,
 		"CONFIRMED floor of E5, stricter than the loosest known-class floor E4") {
 		t.Errorf("E5 class advisory = %q", got)
 	}
@@ -184,18 +184,80 @@ func TestClassAdvisoryKnownStricterFloorWarns(t *testing.T) {
 	for _, cls := range []string{"access-control", "reentrancy", "logic-error",
 		"authorization", "signature-replay", "upgrade-initializer",
 		"dos-griefing", "token-integration", "share-price-accounting"} {
-		if got := ClassAdvisory(ptr(cls)); got != "" {
+		if got := ClassAdvisory(ptr(cls), nil); got != "" {
 			t.Errorf("class_advisory(%q) = %q, want \"\" (already the "+
 				"loosest known-class floor)", cls, got)
 		}
 	}
-	// The class is never offered as its own example.
-	ex := ClassAdvisory(ptr("donation"))
-	if strings.Contains(ex, "donation (E5)") {
+	// The class is never offered as its own example (an E5 class WITH a table
+	// entry shows the E5 entries around it, never itself).
+	ex := ClassAdvisory(ptr("oracle-manipulation"), nil)
+	if strings.Contains(ex, "oracle-manipulation (E5)") {
 		t.Errorf("advisory names the class as its own example: %q", ex)
 	}
-	if !strings.Contains(ex, "e.g. centralization-risk (E5), flash-loan (E5)") {
-		t.Errorf("donation examples = %q, want the next two by (floor, name)", ex)
+	if !strings.Contains(ex, "e.g. centralization-risk (E5), donation (E5)") {
+		t.Errorf("oracle-manipulation examples = %q, want the next two by "+
+			"(floor, name)", ex)
+	}
+}
+
+// TestClassAdvisoryNoFloorEntryIsHonestAboutInheritance pins I-6: a KNOWN
+// class the floor table does not carry does not "PIN" anything — it inherits
+// the CONFIRMED status default — and the with-entry re-file advice would be
+// wrong for it, because every cheaper floor belongs to a DIFFERENT class's
+// content. Before the fix these classes were told they pinned a floor and to
+// re-file by true root cause, which is advice with no cheaper class to file
+// under.
+func TestClassAdvisoryNoFloorEntryIsHonestAboutInheritance(t *testing.T) {
+	entryless := []string{"donation", "centralization-risk",
+		"precision-rounding", "unchecked-external-call"}
+	for _, cls := range entryless {
+		if _, ok := findings.CLASS_CONFIRM_FLOOR[cls]; ok {
+			t.Fatalf("%q grew a floor-table entry — this test's premise moved",
+				cls)
+		}
+		a := ClassAdvisory(ptr(cls), nil)
+		for _, want := range []string{
+			"class '" + cls + "' has no floor-table entry",
+			"it inherits the CONFIRMED default E5",
+			"9 known classes pin looser floors",
+			"(e.g. access-control (E4), authorization (E4))",
+			"The class choice is the author's",
+		} {
+			if !strings.Contains(a, want) {
+				t.Errorf("entry-less advisory %q is missing %q", a, want)
+			}
+		}
+		// No false pin claim, and no re-file advice: `webv2 amend` would send
+		// the author to a class that is not cheaper FOR THIS CONTENT.
+		for _, bad := range []string{"pins a CONFIRMED floor of", "re-file",
+			"webv2 amend"} {
+			if strings.Contains(a, bad) {
+				t.Errorf("entry-less advisory %q carries %q", a, bad)
+			}
+		}
+		// Deterministic bytes: the looser pool and its (floor, name) order are
+		// not map-iteration order.
+		for i := 0; i < 5; i++ {
+			if got := ClassAdvisory(ptr(cls), nil); got != a {
+				t.Fatalf("advisory is not deterministic:\n%q\n%q", got, a)
+			}
+		}
+	}
+	// The with-entry spelling is UNCHANGED: it still says PINS and still names
+	// the amend command (I-6 only split the entry-less half).
+	withEntry := ClassAdvisory(ptr("bridge-message"), nil)
+	for _, want := range []string{"pins a CONFIRMED floor of E6",
+		"`webv2 amend <campaign> <finding> --class <cls>`"} {
+		if !strings.Contains(withEntry, want) {
+			t.Errorf("with-entry advisory %q lost %q", withEntry, want)
+		}
+	}
+	// An entry-less class has no floor to compare only when the default is not
+	// stricter than the loosest table floor — guard the emptiness itself
+	// rather than assuming: reentrancy (E4 entry) stays silent as before.
+	if got := ClassAdvisory(ptr("reentrancy"), nil); got != "" {
+		t.Errorf("class at the loosest floor = %q, want \"\"", got)
 	}
 }
 
@@ -587,10 +649,10 @@ func TestExampleIngestRoundTripsWithoutAdvisory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if warnings := findings.IntakeCheckpoint(payload, "discovery", ""); len(warnings) != 1 {
+	if warnings := findings.IntakeCheckpoint(payload, "discovery", "", nil); len(warnings) != 1 {
 		t.Errorf("ingesting the framework's own example produced warnings: %v",
 			warnings)
-	} else if want := ClassAdvisory(ptr("share-price-inflation")); warnings[0] != want {
+	} else if want := ClassAdvisory(ptr("share-price-inflation"), nil); warnings[0] != want {
 		t.Errorf("example advisory = %q, want %q", warnings[0], want)
 	} else if !strings.Contains(want, "floor of E6") {
 		// Wave N, T6: the example's own class is a KNOWN E6-floor class, so the
@@ -601,8 +663,8 @@ func TestExampleIngestRoundTripsWithoutAdvisory(t *testing.T) {
 	// the seam is live: an unknown class does produce the advisory
 	bad := validation.VObj(kv("root_cause",
 		validation.VObj(kv("class", validation.VStr("quantum-decoherence")))))
-	warnings := findings.IntakeCheckpoint(bad, "discovery", "")
-	want := ClassAdvisory(ptr("quantum-decoherence"))
+	warnings := findings.IntakeCheckpoint(bad, "discovery", "", nil)
+	want := ClassAdvisory(ptr("quantum-decoherence"), nil)
 	if len(warnings) != 1 || warnings[0] != want {
 		t.Errorf("intake warnings = %v, want [%s]", warnings, want)
 	}
@@ -708,7 +770,7 @@ func TestClassAdvisoryVectors(t *testing.T) {
 		if v.Advisory != nil {
 			want = *v.Advisory
 		}
-		if got := ClassAdvisory(v.Label); got != want {
+		if got := ClassAdvisory(v.Label, nil); got != want {
 			t.Errorf("class_advisory(%s):\n got %q\nwant %q",
 				pyReprPtr(v.Label), got, want)
 		}

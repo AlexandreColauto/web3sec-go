@@ -228,6 +228,22 @@
   "advisory": null
  },
  {
+  "label": "donation",
+  "advisory": "class 'donation' has no floor-table entry — it inherits the CONFIRMED default E5; 9 known classes pin looser floors (e.g. access-control (E4), authorization (E4)). The class choice is the author's — no cheaper table class exists for this class's content."
+ },
+ {
+  "label": "centralization-risk",
+  "advisory": "class 'centralization-risk' has no floor-table entry — it inherits the CONFIRMED default E5; 9 known classes pin looser floors (e.g. access-control (E4), authorization (E4)). The class choice is the author's — no cheaper table class exists for this class's content."
+ },
+ {
+  "label": "precision-rounding",
+  "advisory": "class 'precision-rounding' has no floor-table entry — it inherits the CONFIRMED default E5; 9 known classes pin looser floors (e.g. access-control (E4), authorization (E4)). The class choice is the author's — no cheaper table class exists for this class's content."
+ },
+ {
+  "label": "unchecked-external-call",
+  "advisory": "class 'unchecked-external-call' has no floor-table entry — it inherits the CONFIRMED default E5; 9 known classes pin looser floors (e.g. access-control (E4), authorization (E4)). The class choice is the author's — no cheaper table class exists for this class's content."
+ },
+ {
   "label": "oracle-manipulation",
   "advisory": "class 'oracle-manipulation' pins a CONFIRMED floor of E5, stricter than the loosest known-class floor E4 — 13 of the 22 known classes pin a stricter floor (e.g. centralization-risk (E5), donation (E5)). If the reachable evidence is local, re-file by true root cause with `webv2 amend <campaign> <finding> --class <cls>` — the floor recomputes on the next gate read."
  },
