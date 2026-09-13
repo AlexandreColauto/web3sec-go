@@ -1,5 +1,21 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-13 — wave N: operator friction (FRAMEWORK_EVAL) — LANDED (14e78426..2465c4ca, 6/6)
+All six triaged items landed: real-shape remediation hints + registry-read guard
+(T1), ingest exec_ref with single-source mint validation and
+schema->ledger->gate ordering (T2), reconcile model-vs-ledger drift report,
+ledger governs (T3), ingest --lint zero-write validation (T4), supersede
+discoverability without a basis-vocabulary hole (T5, ruling: double exclusion
+paths would hide bookkeeping from precision), known-class floor advisory +
+CONFIRMED floor on both acceptance surfaces + re-file parity (T6). Golden
+oracles regenerated for the advisory cascade (authorized controller edit;
+Python twin absent from this environment). NOT taken: adjudication basis
+`duplicate`, --extra-bind (single-bind is a reproducibility law). Still open
+from the same review: chains grammar/manual editor, known-issues register
+for stubs, same-run `exec && mint` composition (exec_ref covers the existing-
+EXEC case), doctor --check-selfcontained naming the first escaping import.
+All gated behind the next fork/RPC wave or a documented small pass.
+
 ## 2026-09-12 — gold mechanism gate (near-miss inflation closed) — LANDED (283cd3fd, 4ccade32)
 External model feedback (previous-version run, rollup target): a
 same-outcome-different-mechanism liveness finding (timeout-latch freeze vs
