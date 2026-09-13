@@ -254,8 +254,28 @@ func TestAnchorMechanismGate(t *testing.T) {
 			kvE("program", validation.VObj(kvE("program", validation.VStr("p1")))),
 			kvE("gold", g), kvE("partition", validation.VStr("dev")))
 	}
-	if anchor(findingMech("reentrancy", "src/Rollup.sol", "x"), obj(empty, "gold")) {
+	if anchor(findingMech("denial-of-service", "src/Rollup.sol", "anything"), obj(empty, "gold")) {
 		t.Fatal("an empty match_mechanisms array must fail closed")
+	}
+	// Mixed well-formed + junk: per-entry fail-closed — the valid phrase
+	// still anchors, the junk entry never creates one.
+	mixed := goldCase("CASE-X", "p1", "confirmed-exploitable", "reentrancy", "gold/Rollup.sol")
+	{
+		g := validation.VObj(obj(mixed, "gold").O...)
+		g.O = append(g.O, kvE("match_mechanisms", validation.VArr(
+			validation.VStr("mint function unauthenticated"), validation.VStr("  "))))
+		mixed = validation.VObj(kvE("case_id", validation.VStr("CASE-X")),
+			kvE("program", validation.VObj(kvE("program", validation.VStr("p1")))),
+			kvE("gold", g), kvE("partition", validation.VStr("dev")))
+	}
+	mg := obj(mixed, "gold")
+	if !anchor(findingMech("reentrancy", "src/Rollup.sol",
+		"the mint function is unauthenticated"), mg) {
+		t.Fatal("the valid phrase in a mixed list must still anchor")
+	}
+	if anchor(findingMech("reentrancy", "src/Rollup.sol",
+		"unauthenticated entirely"), mg) {
+		t.Fatal("a junk whitespace entry must never create an anchor of its own")
 	}
 
 	// The gate moves HIT counts, not only the predicate: the near-miss

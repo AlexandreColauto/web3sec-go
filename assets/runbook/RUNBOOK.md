@@ -1155,7 +1155,7 @@ refused, exit 1 — a mis-typed gold row must never quietly shrink the answer
 key. The same flag and the same provenance line serve `adjudicate`, whose
 tally is computed from the same suite. **The pack is an ANSWER KEY:
 grading-time input, never part of a campaign run, and a campaign agent must
-never be handed it**. A held-out row may additionally
+never be handed it** — exactly the leakage rule the held-out split enforces. A held-out row may additionally
 carry `gold.match_mechanisms`: when present, class+location are NOT enough —
 the finding's `root_cause.mechanism` sentence must contain the phrase's full
 vocabulary (identifier-folded, stop-words exempt; `root:<class>` pins
@@ -1167,7 +1167,7 @@ historical join, so every pre-existing pack — including the embedded dev
 suite — is bit-identical in behavior; malformed lists fail CLOSED (anchor
 nothing). Phrasing note: containment is exact-word after folding, so gold
 phrases should name load-bearing identifiers (prevStateRoot), not inflected
-verbs (commit/committed do not match). — exactly the leakage rule the held-out split enforces.
+verbs (commit/committed do not match). A malformed entry anchors nothing by itself (fail-closed per entry; an empty or non-array list anchors no finding at all).
 
 The **containment** section has exactly one trigger, and the pin decides it:
 the campaign directory sitting inside the target being pinned, so the

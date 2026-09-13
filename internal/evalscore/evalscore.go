@@ -168,10 +168,13 @@ func goldAcceptsClass(gold validation.Value, class string) bool {
 // the gold row: when the row carries no match_mechanisms the leg is the
 // historical always-pass (embedded dev cases and every pre-mechanism held-out
 // pack are byte-identical in behavior). When the list exists it must be a
-// non-empty array of non-empty strings — a malformed list FAILS CLOSED, a
-// gold row that cannot state its mechanisms gets no anchor, not a free one —
-// and the finding's root_cause.mechanism sentence (or its root_cause.class,
-// for the 'root:<class>' control entry) must match at least one phrase.
+// non-empty array whose ENTRIES must each be a non-empty string — malformed
+// entries fail CLOSED per entry (they can never create an anchor; a list
+// mixing one valid phrase with junk anchors via the valid phrase only), and
+// an empty or non-array list anchors nothing at all. A gold row that cannot
+// state any mechanism therefore gets no anchor, not a free one. The finding's
+// root_cause.mechanism sentence (or its root_cause.class for a
+// 'root:<class>' entry) must match at least one well-formed phrase.
 //
 // Phrase matching is mechanical, not semantic — semantic adjudication stays
 // where it belongs, in the non-gold adjudication layer: a multi-word phrase
