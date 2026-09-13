@@ -302,3 +302,32 @@ func TestAdvisoryFollowsFloorOverride(t *testing.T) {
 		t.Fatalf("no stricter-floor advisory may survive an override: %q", out2)
 	}
 }
+
+// TestAdvisoryAttributesOverrideToItsSource pins critic r2 (R2-3): when a
+// campaign floor policy RAISES a class, the advisory says so and offers the
+// undo — never "the class pins" for the operator's own recorded floor.
+func TestAdvisoryAttributesOverrideToItsSource(t *testing.T) {
+	_, root, cid := t2Campaign(t)
+	code, _, errS := run(t, "--root", root, "floors", cid, "set",
+		"reentrancy", "E6", "--actor", "operator",
+		"--reason", "this target's reentrancy bar is a fork")
+	if code != 0 {
+		t.Fatalf("floors set: %q", errS)
+	}
+	code, out, errS := run(t, "--root", root, "ingest", cid, "--json-file",
+		t2Write(t, root, "ov.json",
+			`{"title":"Reentrancy in withdraw() drains the pool",`+
+				`"root_cause":{"class":"reentrancy",`+
+				`"description":"external call precedes the balance update"},`+
+				`"affected":[{"path":"A.sol"}],`+
+				`"attacker":{"profile":"any EOA","capabilities":[]}}`))
+	if code != 0 {
+		t.Fatalf("ingest: %q", errS)
+	}
+	_ = out
+	if !strings.Contains(out, "in THIS campaign") ||
+		!strings.Contains(out, "floors <campaign> unset reentrancy") ||
+		strings.Contains(out, "class 'reentrancy' pins a CONFIRMED floor of E6") {
+		t.Fatalf("override must be attributed to the policy, not the class: %q", out)
+	}
+}

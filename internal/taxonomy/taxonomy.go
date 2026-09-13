@@ -261,6 +261,21 @@ func classFloorWarning(bugClass string, campaign *state.Campaign) string {
 	if floorRank(floor) <= floorRank(loosest) {
 		return ""
 	}
+	// Attribution honesty (critic r2): when a CAMPAIGN floor policy raised
+	// this class above the table value, saying "the class pins" is a lie of
+	// omission — name the override and its own undo hatch instead of the
+	// re-file advice (which the override made moot anyway).
+	table := DefaultFloor(&bugClass)
+	if campaign != nil && floorRank(floor) > floorRank(table) {
+		if _, ok := findings.CLASS_CONFIRM_FLOOR[bugClass]; !ok {
+			table = findings.STATUS_FLOOR["CONFIRMED"]
+		}
+		return fmt.Sprintf("class %s carries a CONFIRMED floor of %s in THIS "+
+			"campaign — its built-in floor is %s; a recorded floor policy "+
+			"raised it. If the policy is not what you want: `webv2 floors "+
+			"<campaign> unset %s`.", validation.PyReprStr(bugClass), floor,
+			table, bugClass)
+	}
 	if _, ok := findings.CLASS_CONFIRM_FLOOR[bugClass]; !ok {
 		return noFloorEntryWarning(bugClass, floor)
 	}
