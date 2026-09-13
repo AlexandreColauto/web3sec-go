@@ -61,6 +61,22 @@ func hypoPayload(over ...validation.KV) validation.Value {
 	return base
 }
 
+// hypoE4Payload is hypoPayload under an E4-floor class. Wave N, T6 gave every
+// KNOWN class whose CONFIRMED floor is stricter than the loosest known-class
+// floor a class-floor advisory of its own, so a test that counts intake
+// warnings for the fixture's default class (precision-rounding — known, but
+// with no floor-table entry, so the gate charges the conservative E5) would be
+// measuring the T6 advisory rather than its own warning. The advisory has
+// dedicated tests in internal/taxonomy and internal/cli.
+func hypoE4Payload(over ...validation.KV) validation.Value {
+	return hypoPayload(append([]validation.KV{kv("root_cause",
+		validation.VObj(
+			kv("class", validation.VStr("logic-error")),
+			kv("description", validation.VStr(
+				"share calculation rounds in the attacker's favor"))))},
+		over...)...)
+}
+
 var execSeq int
 
 // testExec is the conftest `sandboxed_exec` equivalent: it writes the EXEC
@@ -404,17 +420,17 @@ func TestClaimDriftAcceptsAnyMatchingFigure(t *testing.T) {
 // ---- intake checkpoint (warnings, not rejections) ----
 
 func TestIntakeCheckpointEconomicWithoutImpact(t *testing.T) {
-	w := IntakeCheckpoint(hypoPayload(), "economic", "")
+	w := IntakeCheckpoint(hypoE4Payload(), "economic", "")
 	if len(w) != 1 || !strings.Contains(w[0], "trajectory 'economic'") {
 		t.Fatalf("warnings = %v", w)
 	}
 	// The campaign in hand is named in the repair hint, not the metavariable.
-	named := IntakeCheckpoint(hypoPayload(), "economic", "C-deadbeef")
+	named := IntakeCheckpoint(hypoE4Payload(), "economic", "C-deadbeef")
 	if len(named) != 1 ||
 		!strings.Contains(named[0], "webv2 impact C-deadbeef <finding>") {
 		t.Fatalf("named warnings = %v", named)
 	}
-	with := hypoPayload(kv("risk", validation.VObj(
+	with := hypoE4Payload(kv("risk", validation.VObj(
 		kv("economic", validation.VObj(
 			kv("extractable_usd", validation.VInt(2100000)))))))
 	if got := IntakeCheckpoint(with, "economic", ""); len(got) != 0 {

@@ -142,6 +142,61 @@ func TestClassAdvisoryUnknownNamesConservativeFloor(t *testing.T) {
 			t.Errorf("advisory %q is missing %q", a, want)
 		}
 	}
+	// Wave N, T6 kept this message byte-identical: an unknown class has no
+	// floor to compare, so the known-class wall warning must never leak into it.
+	// (The vector table pins the exact bytes.)
+	if strings.Contains(a, "stricter") || strings.Contains(a, "loosest") {
+		t.Errorf("unknown-class advisory carries the known-class warning: %q", a)
+	}
+}
+
+// TestClassAdvisoryKnownStricterFloorWarns is wave N, T6: a KNOWN class whose
+// CONFIRMED floor is stricter than the loosest known-class floor says so at
+// ingest — the G-02 failure was an ingest-time taxonomy choice (bridge-message,
+// E6) that pinned a floor the finding's evidence could never reach, silently.
+func TestClassAdvisoryKnownStricterFloorWarns(t *testing.T) {
+	a := ClassAdvisory(ptr("bridge-message"))
+	for _, want := range []string{
+		"CONFIRMED floor of E6",                           // the class's own floor
+		"loosest known-class floor E4",                    // what a cheap class costs
+		"13 of the 22 known classes pin a stricter floor", // the count
+		// two examples of that stricter pool, sorted by (floor, name)
+		"(e.g. centralization-risk (E5), donation (E5))",
+		"`webv2 amend <campaign> <finding> --class <cls>`", // how to re-file
+	} {
+		if !strings.Contains(a, want) {
+			t.Errorf("bridge-message advisory %q is missing %q", a, want)
+		}
+	}
+	// The same class, the same bytes — the pool and its (floor, name) order are
+	// not map-iteration order.
+	for i := 0; i < 5; i++ {
+		if got := ClassAdvisory(ptr("bridge-message")); got != a {
+			t.Fatalf("advisory is not deterministic:\n%q\n%q", got, a)
+		}
+	}
+	// An E5 class warns too (stricter than the E4 loosest), naming its floor.
+	if got := ClassAdvisory(ptr("oracle-manipulation")); !strings.Contains(got,
+		"CONFIRMED floor of E5, stricter than the loosest known-class floor E4") {
+		t.Errorf("E5 class advisory = %q", got)
+	}
+	// A class AT the loosest known-class floor has nothing to say.
+	for _, cls := range []string{"access-control", "reentrancy", "logic-error",
+		"authorization", "signature-replay", "upgrade-initializer",
+		"dos-griefing", "token-integration", "share-price-accounting"} {
+		if got := ClassAdvisory(ptr(cls)); got != "" {
+			t.Errorf("class_advisory(%q) = %q, want \"\" (already the "+
+				"loosest known-class floor)", cls, got)
+		}
+	}
+	// The class is never offered as its own example.
+	ex := ClassAdvisory(ptr("donation"))
+	if strings.Contains(ex, "donation (E5)") {
+		t.Errorf("advisory names the class as its own example: %q", ex)
+	}
+	if !strings.Contains(ex, "e.g. centralization-risk (E5), flash-loan (E5)") {
+		t.Errorf("donation examples = %q, want the next two by (floor, name)", ex)
+	}
 }
 
 // ---- label-alias map layer ----------------------------------------------
@@ -532,9 +587,16 @@ func TestExampleIngestRoundTripsWithoutAdvisory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if warnings := findings.IntakeCheckpoint(payload, "discovery", ""); len(warnings) != 0 {
+	if warnings := findings.IntakeCheckpoint(payload, "discovery", ""); len(warnings) != 1 {
 		t.Errorf("ingesting the framework's own example produced warnings: %v",
 			warnings)
+	} else if want := ClassAdvisory(ptr("share-price-inflation")); warnings[0] != want {
+		t.Errorf("example advisory = %q, want %q", warnings[0], want)
+	} else if !strings.Contains(want, "floor of E6") {
+		// Wave N, T6: the example's own class is a KNOWN E6-floor class, so the
+		// round trip is no longer silent — and saying so is the point (G-02 sat
+		// evidence-saturated at an E6 floor nobody had been told about).
+		t.Errorf("example advisory = %q, want the E6 floor named", want)
 	}
 	// the seam is live: an unknown class does produce the advisory
 	bad := validation.VObj(kv("root_cause",

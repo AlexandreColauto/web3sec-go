@@ -151,7 +151,8 @@ func TestIngestLintWritesNothing(t *testing.T) {
 		t.Fatalf("lint exit %d: %q", code, errS)
 	}
 	if !strings.HasPrefix(out, "ingested F-") ||
-		!strings.Contains(out, "[HYPOTHESIS] (class access-control)") {
+		!strings.Contains(out,
+			"[HYPOTHESIS] (class access-control, CONFIRMED floor E4)") {
 		t.Fatalf("lint acceptance output = %q", out)
 	}
 	if after := t4Digest(t, c.Dir); after != before {

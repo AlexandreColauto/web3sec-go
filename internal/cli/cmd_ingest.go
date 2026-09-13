@@ -227,7 +227,7 @@ func runIngest(root string, args []string, r *Runner) error {
 		printIngestFailure(r, err)
 		return t14ExitErr(2, "")
 	}
-	printIngestResult(r, f, a.asJSON)
+	printIngestResult(r, c, f, a.asJSON)
 	return nil
 }
 
@@ -307,7 +307,15 @@ func printIngestFailure(r *Runner, err error) {
 
 // printIngestResult is the accepted-payload output: the taxonomy advisory and
 // intake warnings are part of the record, so they are printed with the id.
-func printIngestResult(r *Runner, f validation.Value, asJSON bool) {
+//
+// Wave N, T6: the accepted line names the CONFIRMED floor the chosen class
+// pins, because an ingest-time taxonomy choice silently sets it (G-02 filed an
+// E4-reachable bug under an E6 class and sat evidence-saturated). The floor
+// comes from findings.RequiredLevelForCampaign — the SAME lookup the CONFIRMED
+// gate runs (findings.gateRun.evidenceFloor) — so the line can never disagree
+// with the gate about what the class costs, instance floor overrides included.
+func printIngestResult(r *Runner, campaign *state.Campaign, f validation.Value,
+	asJSON bool) {
 	cls := objStr(objAt(f, "root_cause"), "class")
 	advisory := taxonomy.ClassAdvisory(&cls)
 	warnings := findings.IntakeCheckpoint(f,
@@ -315,6 +323,9 @@ func printIngestResult(r *Runner, f validation.Value, asJSON bool) {
 	if asJSON {
 		t14PrintJSON(r.Out, validation.VObj(
 			validation.KV{K: "finding", V: f},
+			validation.KV{K: "confirmed_floor",
+				V: validation.VStr(findings.RequiredLevelForCampaign(
+					campaign, "CONFIRMED", cls))},
 			validation.KV{K: "class_advisory", V: t14OrNull(advisory)},
 			validation.KV{K: "intake_warnings", V: t14StrArr(warnings)},
 		))
@@ -324,8 +335,9 @@ func printIngestResult(r *Runner, f validation.Value, asJSON bool) {
 	if shown == "" {
 		shown = "?"
 	}
-	fmt.Fprintf(r.Out, "ingested %s [%s] (class %s)\n",
-		objStr(f, "finding_id"), objStr(f, "status"), shown)
+	fmt.Fprintf(r.Out, "ingested %s [%s] (class %s, CONFIRMED floor %s)\n",
+		objStr(f, "finding_id"), objStr(f, "status"), shown,
+		findings.RequiredLevelForCampaign(campaign, "CONFIRMED", cls))
 	if advisory != "" {
 		fmt.Fprintf(r.Out, "  ADVISORY: %s\n", advisory)
 	}

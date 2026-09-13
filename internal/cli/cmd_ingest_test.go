@@ -202,7 +202,8 @@ func TestIngestExamplePipeRoundTrip(t *testing.T) {
 		t.Fatalf("ingest exit %d: %q", code, errS)
 	}
 	if !strings.HasPrefix(out, "ingested F-") ||
-		!strings.Contains(out, "[HYPOTHESIS] (class share-price-inflation)") {
+		!strings.Contains(out,
+			"[HYPOTHESIS] (class share-price-inflation, CONFIRMED floor E6)") {
 		t.Fatalf("ingest output = %q", out)
 	}
 	if errS != "" {

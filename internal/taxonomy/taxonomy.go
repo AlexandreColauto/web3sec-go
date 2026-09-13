@@ -197,12 +197,23 @@ func ClassReport(bugClass *string) validation.Value {
 // unambiguous one — Python returns None). A nil bugClass is Python's None and
 // renders as such in the message text.
 //
+// Wave N, T6: a KNOWN class is no longer silent when its CONFIRMED floor is
+// STRICTER than the loosest known-class floor. The G-02 failure was exactly
+// that silence — an ingest-time taxonomy choice (bridge-message, E6) pinned a
+// floor the finding's evidence could never reach, and nothing said so. The
+// warning names the class floor, the loosest known-class floor, the number of
+// known classes pinned above it and two examples of that stricter pool,
+// sorted deterministically by (floor, name); the floor table read here is the
+// same one findings.RequiredLevelFor consults (DefaultFloor). A class AT the
+// loosest floor still returns "" (nothing to say), and unknown classes keep
+// the legacy message byte-for-byte.
+//
 // This is the findings.SetClassAdvisory seam target: it must keep the
 // func(bugClass *string) string signature.
 func ClassAdvisory(bugClass *string) string {
 	rep := ClassReport(bugClass)
 	if objAt(rep, "known").B {
-		return ""
+		return classFloorWarning(*bugClass)
 	}
 	msg := fmt.Sprintf("unknown class %s; known classes: %s; "+
 		"no floor-table entry -> CONFIRMED defaults to %s "+
@@ -219,6 +230,84 @@ func ClassAdvisory(bugClass *string) string {
 			"canonical name (it changes the CONFIRMED gate)."
 	}
 	return msg
+}
+
+// classFloorWarning is class_advisory's known-class half (wave N, T6): the
+// warning that this class's CONFIRMED floor is stricter than the loosest floor
+// any known class pins, or "" when the class is already at that loosest floor.
+//
+// The count and the examples describe the SAME set — the known classes pinned
+// strictly above the loosest floor — so the examples' (floor, name) ordering is
+// load-bearing: the set spans floors (E5 and E6, today), and a different order
+// would make the advisory unstable across runs. The class itself is never
+// offered as its own example.
+func classFloorWarning(bugClass string) string {
+	loosest := loosestKnownFloor()
+	floor := DefaultFloor(&bugClass)
+	if floorRank(floor) <= floorRank(loosest) {
+		return ""
+	}
+	type row struct{ name, floor string }
+	stricter := make([]row, 0, len(knownRaw()))
+	for cls := range knownRaw() {
+		f := DefaultFloor(&cls)
+		if floorRank(f) > floorRank(loosest) {
+			stricter = append(stricter, row{cls, f})
+		}
+	}
+	sort.Slice(stricter, func(i, j int) bool {
+		if a, b := floorRank(stricter[i].floor), floorRank(stricter[j].floor); a != b {
+			return a < b
+		}
+		return stricter[i].name < stricter[j].name
+	})
+	examples := make([]string, 0, 2)
+	for _, r := range stricter {
+		if r.name == bugClass {
+			continue
+		}
+		examples = append(examples, r.name+" ("+r.floor+")")
+		if len(examples) == 2 {
+			break
+		}
+	}
+	msg := fmt.Sprintf("class %s pins a CONFIRMED floor of %s, stricter than "+
+		"the loosest known-class floor %s — %d of the %d known classes pin a "+
+		"stricter floor", validation.PyReprStr(bugClass), floor, loosest, len(stricter),
+		len(knownRaw()))
+	if len(examples) > 0 {
+		msg += " (e.g. " + strings.Join(examples, ", ") + ")"
+	}
+	return msg + ". If the reachable evidence is local, re-file by true root " +
+		"cause with `webv2 amend <campaign> <finding> --class <cls>` — the " +
+		"floor recomputes on the next gate read."
+}
+
+// loosestKnownFloor is the cheapest CONFIRMED floor any known class pins: the
+// bar to compare a chosen class against. Unknown classes do not participate —
+// they have no floor-table entry, and the ingest line already reports their
+// conservative default.
+func loosestKnownFloor() string {
+	loosest := DefaultFloor(nil)
+	rank := floorRank(loosest)
+	for cls := range knownRaw() {
+		f := DefaultFloor(&cls)
+		if r := floorRank(f); r >= 0 && r < rank {
+			loosest, rank = f, r
+		}
+	}
+	return loosest
+}
+
+// floorRank is a floor's ladder position (E0=0 .. E7=7), or -1 for a name the
+// ladder does not carry. DefaultFloor never produces the latter; the sentinel
+// keeps an unknown floor from ordering as the loosest one.
+func floorRank(floor string) int {
+	i, err := findings.LevelIndex(floor)
+	if err != nil {
+		return -1
+	}
+	return i
 }
 
 // init wires the findings advisory seam. findings cannot import taxonomy
