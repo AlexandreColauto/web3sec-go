@@ -5,6 +5,7 @@ package findings
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"websec/internal/state"
@@ -367,5 +368,75 @@ func TestSupersedeSelfRefused(t *testing.T) {
 	var rej *RejectedError
 	if !errors.As(err, &rej) {
 		t.Fatalf("self-supersede: want RejectedError, got %v", err)
+	}
+}
+
+// TestAmendClassRaiseConvertsNotRefuses pins the r3 law: an E4 finding
+// re-classed to a stricter-floor class AMENDS freely (the advisory's own
+// advice) — the status stands and the gate now owes mandatory verification
+// work (deficit visible on every read, never silent).
+func TestAmendClassRaiseConvertsNotRefuses(t *testing.T) {
+	withKnownClasses(t, "precision-rounding", "oracle-manipulation",
+		"access-control")
+	c, fid := amendCamp(t)
+	f, err := LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.O = validation.SetOrAppend(f.O, "status", validation.VStr("CONFIRMED"))
+	f.O = validation.SetOrAppend(f.O, "evidence", validation.VArr(
+		validation.VObj(
+			kv("evidence_id", validation.VStr("EV-f3")),
+			kv("level", validation.VStr("E4")),
+			kv("type", validation.VStr("foundry-test")),
+			kv("description", validation.VStr("local PoC drained it")),
+		)))
+	if err := SaveFinding(c, &f); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Amend(c, fid, AmendOpts{Class: "oracle-manipulation",
+		HasClass: true}); err != nil {
+		t.Fatalf("the advisory tells operators to re-file by true class: %v", err)
+	}
+	after, _ := LoadFinding(c, fid)
+	if st := objStr(after, "status"); st != "CONFIRMED" {
+		t.Fatalf("status must stand (conversion, not invalidation): %q", st)
+	}
+	if d := EvidenceDeficit(after, "CONFIRMED", c); d == nil {
+		t.Fatal("the raised E5 floor must be a VISIBLE deficit after the amend")
+	}
+}
+
+// TestSupersedeTwoCycleRefused pins critic r3: after A supersedes B, B is
+// SUPERSEDED — and a terminal finding cannot adopt anything, so B -> A is
+// refused. The pair can never retire onto each other into zero live rows.
+func TestSupersedeTwoCycleRefused(t *testing.T) {
+	withKnownClasses(t, "precision-rounding")
+	c := ingestCamp(t)
+	fa, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fb, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	idA, idB := objStr(fa, "finding_id"), objStr(fb, "finding_id")
+	if _, err := Supersede(c, idA, idB, "model"); err != nil {
+		t.Fatalf("first supersede A-of-B: %v", err)
+	}
+	_, err = Supersede(c, idB, idA, "model")
+	var rej *RejectedError
+	if !errors.As(err, &rej) {
+		t.Fatalf("the cycle-back must be refused, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "terminal finding") ||
+		!strings.Contains(err.Error(), "cycle") {
+		t.Fatalf("refusal must name terminality and the cycle: %v", err)
+	}
+	// A is still live and holds the family.
+	a, _ := LoadFinding(c, idA)
+	if st := objStr(a, "status"); st != "HYPOTHESIS" {
+		t.Fatalf("successor status after refusal = %q", st)
 	}
 }

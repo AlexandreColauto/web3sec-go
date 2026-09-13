@@ -290,7 +290,16 @@ func (s *Sandbox) execute(containerArgv []string, command string,
 		res, err = runProc([]string{"/bin/sh", "-c", command}, dir, full, timeout)
 	}
 	if err == errTimeout {
-		return -1, res.Stdout, res.Stderr
+		// The never-ran path below appends its reason "so the exec record
+		// explains itself"; a TIMEOUT must be no different (critic r3):
+		// -1 alone cannot tell a killed sleeper from a wedged test suite.
+		stderr := res.Stderr
+		if stderr != "" && !strings.HasSuffix(stderr, "\n") {
+			stderr += "\n"
+		}
+		return -1, res.Stdout, stderr +
+			fmt.Sprintf("sandbox: timed out after %gs and was killed\n",
+				timeout.Seconds())
 	}
 	if err != nil {
 		// The process never ran — a missing workdir, no docker on PATH, an

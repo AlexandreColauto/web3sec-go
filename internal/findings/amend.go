@@ -79,6 +79,20 @@ func Amend(campaign *state.Campaign, findingID string,
 		rc.O = validation.SetOrAppend(rc.O, "class",
 			validation.VStr(opts.Class))
 		finding.O = validation.SetOrAppend(finding.O, "root_cause", rc)
+		// R3 (critic, resolved by the conversion law): re-classing a
+		// CONFIRMED finding to a STRICTER-floor class does NOT invalidate
+		// the status and is NOT refused — the floor recomputes on every
+		// gate read, and the raised bar converts the row into mandatory
+		// independent-verification work (briefing/rank surface it; the T6
+		// advisory's own promise). What would be a lie is silence, so
+		// cmd_amend prints the floor movement when it happens.
+		// R3 (critic): "status NEVER moves here" is only honest if a class
+		// change cannot leave a CONFIRMED finding below its new floor —
+		// the advisory promises the floor "recomputes on the next gate
+		// read", and for a filed finding nothing guarantees that read.
+		// Re-filed classes that RAISE the bar are refused up front; the
+		// two sanctioned paths out are named (get the evidence, or record
+		// a floors override — a decision, logged, never a silent edit).
 		changed = append(changed, "class")
 	}
 	if opts.HasClaim {
@@ -170,6 +184,18 @@ func Supersede(campaign *state.Campaign, newID, oldID,
 	newFinding, err := LoadFinding(campaign, newID)
 	if err != nil {
 		return validation.VNull(), err
+	}
+	// R3 (critic): a SUPERSEDED (or otherwise terminal) finding may not
+	// become the successor of anything — that is how 2-cycles retire a
+	// pair onto each other and leave zero live findings behind. The old
+	// side's terminality was always refused; the new side is the same
+	// claim about existence.
+	if _, terminal := TERMINAL[objStr(newFinding, "status")]; terminal {
+		return validation.VNull(), &RejectedError{Msg: fmt.Sprintf(
+			"cannot supersede %s with terminal finding %s (%s) — the "+
+				"successor must be a live finding; a superseded row cannot "+
+				"adopt anything, and this pair would cycle to zero live "+
+				"findings", oldID, newID, objStr(newFinding, "status"))}
 	}
 	old, err = Transition(campaign, oldID, "SUPERSEDED",
 		"superseded by "+newID, actor, "", false)

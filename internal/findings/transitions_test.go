@@ -1270,3 +1270,22 @@ func TestAnchorRescanSmoke(t *testing.T) {
 		t.Fatalf("low severity added an anchor: %d priorities", n)
 	}
 }
+
+// TestCriticVerdictOnTerminalRowRefused pins critic r3: a verdict is a claim
+// about a finding that exists — SUPERSEDED rows answer to the successor.
+func TestCriticVerdictOnTerminalRowRefused(t *testing.T) {
+	c := ingestCamp(t)
+	f, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fid := objStr(f, "finding_id")
+	if _, err := Transition(c, fid, "DISPROVED", "no reachable path",
+		"critic", "", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SetCriticVerdict(c, fid, "pending", "second thought"); err == nil ||
+		!strings.Contains(err.Error(), "terminal finding") {
+		t.Fatalf("verdict on a terminal row must be refused: %v", err)
+	}
+}

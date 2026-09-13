@@ -293,3 +293,50 @@ func TestVerifyArgparse(t *testing.T) {
 		t.Fatalf("--exec=ID: exit %d err %q", code, errS)
 	}
 }
+
+// TestAmendNoticeOnConfirmedFloorMove pins critic r3: converting a live
+// CONFIRMED row to a stricter-floor class is legal (the T6 advisory's own
+// advice) but never silent — amend prints the movement and the mandatory
+// work it creates.
+func TestAmendNoticeOnConfirmedFloorMove(t *testing.T) {
+	root, c, fid := t36SetupLadder(t)
+	cid := c.CampaignID
+	code, _, errS := run(t, "--root", root, "move", cid, fid, "POSSIBLE",
+		"--reason", "triage")
+	if code != 0 {
+		t.Fatalf("move POSSIBLE: %q", errS)
+	}
+	rec := t36Exec(t, c, fid, "docker-networkless",
+		"forge test --match-test test_exploit", "PASS: test_exploit\n",
+		"harness")
+	if code, _, errS := run(t, "--root", root, "mint", cid, fid,
+		"--exec", rec, "--description", "unit PoC drains", "--tier", "T2",
+		"--type", "foundry-test"); code != 0 {
+		t.Fatalf("mint: %q", errS)
+	}
+	seedGlobalMemoryRow(t)
+	if code, _, errS := run(t, "--root", root, "recall", cid,
+		"--finding", fid); code != 0 {
+		t.Fatalf("recall: %q", errS)
+	}
+	if code, _, errS := run(t, "--root", root, "verdict", cid, fid,
+		"--verdict", "confirmed", "--reason",
+		"no compensating control on the re-entry"); code != 0 {
+		t.Fatalf("verdict: %q", errS)
+	}
+	if code, out, errS := run(t, "--root", root, "move", cid, fid,
+		"CONFIRMED", "--reason", "all gates passed"); code != 0 {
+		t.Fatalf("move CONFIRMED: %q %q", out, errS)
+	}
+	code, _, errS = run(t, "--root", root, "amend", cid, fid,
+		"--class", "bridge-message",
+		"--note", "the failure crosses a bridge message, not a role check")
+	if code != 0 {
+		t.Fatalf("stricter re-class of a CONFIRMED row must be legal: %q",
+			errS)
+	}
+	if !strings.Contains(errS, "CONFIRMED floor for this finding moved E4 -> E6") ||
+		!strings.Contains(errS, "MANDATORY work") {
+		t.Fatalf("amend must announce the movement: %q", errS)
+	}
+}

@@ -1347,3 +1347,23 @@ func TestRunDedupTier3PairOrderIsMemberOrder(t *testing.T) {
 		t.Fatalf("tier3 flags = %d, want 2", got)
 	}
 }
+
+// TestSignatureOnDeadRowRefused pins critic r3: dedup-signature on a row the
+// sweep will skip is inert bookkeeping — refused like adjudicate refuses it.
+func TestSignatureOnDeadRowRefused(t *testing.T) {
+	c := dedupCamp(t)
+	fv := hypo(t, c, "Reentrancy in withdraw() drains the vault pool")
+	f := objStr(fv, "finding_id")
+	if _, err := findings.Transition(c, f, "DISPROVED", "no reachable path",
+		"critic", "", false); err != nil {
+		t.Fatalf("disprove: %v", err)
+	}
+	if _, err := SetRootCauseSignature(c, f,
+		"external call before state update enables reentrant drain", nil); err == nil ||
+		!strings.Contains(err.Error(), "sweep only ever compares live rows") {
+		t.Fatalf("dead-row signature must be refused: %v", err)
+	}
+	if _, err := SetEconomicSignature(c, f, "attacker extracts pool value"); err == nil {
+		t.Fatal("economic signature on a dead row must be refused")
+	}
+}

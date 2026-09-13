@@ -700,6 +700,17 @@ func SetCriticVerdict(campaign *state.Campaign, findingID, verdict,
 	if err != nil {
 		return validation.VNull(), err
 	}
+	// R3 (critic): a verdict is a claim about a finding that EXISTS —
+	// adjudicate already refuses dead rows for exactly this reason, and
+	// verdict must not be the exception that pollutes a SUPERSEDED or
+	// DUPLICATE row's verification block with fresh opinions.
+	if _, dead := TERMINAL[objStr(finding, "status")]; dead {
+		return validation.VNull(), fmt.Errorf(
+			"cannot record a critic verdict on terminal finding %s (%s) — "+
+				"a verdict is a claim about a finding that exists; the "+
+				"successor row carries its own verdict",
+			findingID, objStr(finding, "status"))
+	}
 	ver := asDict(objAt(finding, "verification"))
 	ver.O = validation.SetOrAppend(ver.O, "critic_verdict", validation.VStr(verdict))
 	finding.O = validation.SetOrAppend(finding.O, "verification", ver)

@@ -7,10 +7,10 @@ package cli
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"websec/internal/completion"
-	"websec/internal/pipeline"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -113,11 +113,24 @@ func init() {
 var waiveCheckStages = []string{"adversarial-game", "accepted-risk",
 	"paid-exploitability", "immunization"}
 
-// waiveStages is the full vocabulary a waiver row can land on: the pipeline
-// stage ids (the completion proofs read them) plus the check rails.
+// waiveStages is the full vocabulary a waiver row can land on. R3 (critic):
+// it is NOT every pipeline stage — a waiver on a stage whose completion
+// proof never calls waiverMap (scope, snapshot, structural-index,
+// protocol-model, campaign-planning, chaining, report) satisfies nothing,
+// and the typo guard's own sentence ("a waiver recorded there would satisfy
+// nothing") makes accepting it a lie. The set below is exactly the stages
+// internal/completion/proofs*.go read (discovery, dedup, hostile-review,
+// reproduction, maximal-exploitation, independent-verification,
+// risk-calibration, mainnet-fork-poc, bounty-gate, learning) plus the gate
+// check rails; TestWaiveVocabularyIsReadByProofs pins the pairing against
+// the proof source, so the two lists cannot drift.
 func waiveStages() []string {
-	out := append([]string{}, pipeline.StageIDs...)
-	return append(out, waiveCheckStages...)
+	out := []string{"discovery", "dedup", "hostile-review", "reproduction",
+		"maximal-exploitation", "independent-verification", "risk-calibration",
+		"mainnet-fork-poc", "bounty-gate", "learning"}
+	out = append(out, waiveCheckStages...)
+	sort.Strings(out)
+	return out
 }
 
 // waiveStageKnown reports whether stage is one the waiver system reads.

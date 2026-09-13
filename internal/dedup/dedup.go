@@ -148,10 +148,27 @@ func SetFoldIntoLineage(fn dedupHelperFn) {
 // LLM normalization pass. The sentence must be target-agnostic
 // ('attacker-controlled exchange rate creates unbacked withdrawal value'),
 // not a restatement of the file name. cwe nil/"" is Python's falsy check.
+// sigLiveGuard refuses a signature on a row the sweep itself will skip:
+// recording one is inert bookkeeping that LOOKS like coverage (critic r3).
+// The predicate mirrors the sweep's liveness law exactly.
+func sigLiveGuard(f validation.Value, findingID string) error {
+	switch objStr(f, "status") {
+	case "SUPERSEDED", "DUPLICATE", "OUT_OF_SCOPE", "DISPROVED",
+		"INFORMATIONAL":
+		return fmt.Errorf("cannot record a dedup signature on %s (%s): the "+
+			"sweep only ever compares live rows — this would satisfy "+
+			"nothing", findingID, objStr(f, "status"))
+	}
+	return nil
+}
+
 func SetRootCauseSignature(campaign *state.Campaign, findingID, normalizedSentence string,
 	cwe *string) (validation.Value, error) {
 	f, err := findings.LoadFinding(campaign, findingID)
 	if err != nil {
+		return validation.VNull(), err
+	}
+	if err := sigLiveGuard(f, findingID); err != nil {
 		return validation.VNull(), err
 	}
 	sig := findings.TextSignature(normalizedSentence)
@@ -175,6 +192,9 @@ func SetEconomicSignature(campaign *state.Campaign, findingID,
 	normalizedEffect string) (validation.Value, error) {
 	f, err := findings.LoadFinding(campaign, findingID)
 	if err != nil {
+		return validation.VNull(), err
+	}
+	if err := sigLiveGuard(f, findingID); err != nil {
 		return validation.VNull(), err
 	}
 	sig := findings.TextSignature(normalizedEffect)

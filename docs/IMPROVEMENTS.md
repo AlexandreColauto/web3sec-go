@@ -1,5 +1,18 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-13 — critic round 3: the conversion law, stated once
+A probe asked whether re-classing a CONFIRMED finding below its new class
+floor should be REFUSED. Ruling: no — the system's own law (pinned by the
+ported work-order test) is CONVERSION, not invalidation: a raised bar keeps
+the status and turns the row into mandatory verification work the gate reads
+on the spot. What is refused is SILENCE: amend --class now prints the floor
+movement on stderr, floors changes are attributed decisions. Refused by the
+same rounds: supersede 2-cycles, verdicts and dedup-signatures on terminal
+rows (the sweep/adjudicate laws extended, not invented), zero-file pins
+(refused BEFORE mutating), timeout execs whose records do not explain the
+-1, floor overrides on classes no finding can carry. Mechanism-gate control
+rows with dead match_mechanisms are refused at pack load.
+
 ## 2026-09-13 — wave N: operator friction (FRAMEWORK_EVAL) — LANDED (14e78426..2465c4ca, 6/6)
 All six triaged items landed: real-shape remediation hints + registry-read guard
 (T1), ingest exec_ref with single-source mint validation and

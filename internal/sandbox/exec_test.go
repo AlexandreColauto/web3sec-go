@@ -11,6 +11,7 @@ package sandbox
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -227,5 +228,54 @@ func TestToolVersionsProbesMinicertora(t *testing.T) {
 	if v := objAt(toolVersions(), "minicertora"); v.Kind != validation.Null {
 		t.Errorf("absent minicertora must be omitted, got %s",
 			validation.CanonCompact(v))
+	}
+}
+
+// TestTimeoutMarkerExplainsTheRecord pins critic r3: a -1 from a timeout is
+// no longer indistinguishable from a kill — the recorded stderr carries the
+// reason, like the never-ran path already does.
+func TestTimeoutMarkerExplainsTheRecord(t *testing.T) {
+	c := newCampaign(t, "TimeoutProbe")
+	sb, err := NewSandbox(c, "host-readonly")
+	if err != nil {
+		t.Fatal(err)
+	}
+	withProc(t, func(argv []string, dir string, env []string,
+		timeout time.Duration) (ProcResult, error) {
+		return ProcResult{ReturnCode: -1, Stdout: "partial",
+			Stderr: "already streaming"}, errTimeout
+	})
+	rec, err := sb.Run("sleep 100", RunOpts{Timeout: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, rerr := os.ReadFile(filepath.Join(c.ExecsDir,
+		objStr(rec, "exec_id"), "stderr.log"))
+	if rerr != nil {
+		t.Fatal(rerr)
+	}
+	stderr := string(raw)
+	if !strings.Contains(stderr, "sandbox: timed out after 3s") {
+		t.Fatalf("timeout must explain the record: %q", stderr)
+	}
+	if !strings.Contains(stderr, "already streaming") {
+		t.Fatalf("captured stderr must survive the marker: %q", stderr)
+	}
+	withProc(t, func(argv []string, dir string, env []string,
+		timeout time.Duration) (ProcResult, error) {
+		return ProcResult{ReturnCode: -1}, errTimeout
+	})
+	rec2, err := sb.Run("sleep 101", RunOpts{Timeout: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw2, rerr := os.ReadFile(filepath.Join(c.ExecsDir,
+		objStr(rec2, "exec_id"), "stderr.log"))
+	if rerr != nil {
+		t.Fatal(rerr)
+	}
+	if !strings.HasSuffix(string(raw2), "killed\n") ||
+		!strings.Contains(string(raw2), "timed out") {
+		t.Fatalf("bare timeout record: %q", string(raw2))
 	}
 }
