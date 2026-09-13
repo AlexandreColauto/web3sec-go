@@ -20,7 +20,7 @@ shapes, and all three are scored:
 
 It joins those lines to the evalsuite cases and prints one row per bug class:
 
-    class	cases	detected	proven_silence	refused	refusal_histogram
+    class	cases	detected	proven_silence	refused	clean_agreed	refusal_histogram
 
 `--json` emits the same rows as JSON objects, sorted by class.  Exit 0 means
 "the scorecard ran"; it does NOT mean the prover is good — read the numbers.
@@ -43,6 +43,30 @@ join on the file stem and manufacture `proven_silence` out of nothing, with no
 record on stderr and no trace in the numbers.  Excluded lines now never enter
 `detected`/`proven_silence`/`refused`/the histogram; they are counted in the
 stderr summary and each is named with its reason.
+
+THE TIE-COLLISION LAW (wave M, T2)
+-----------------------------------
+The tier-3 stem join has one failure mode the shape law cannot see: a results
+file is allowed to hold a rule-bearing line whose rule belongs to case X while
+the FILE STEM belongs to a different case Y.  Both keys are inside the
+instrument's input contract (the rule is the line's tier-1 key, the stem is the
+key tier 3 would use on a rule-less envelope), so the same line would join
+twice — once per side — and whichever side won would silently decide the
+numbers.  The real instance: two donation twins that both name their rule
+`donation_keeps_rate`, each filed as `<Contract>.jsonl` for a DIFFERENT target,
+so a rule-keyed class map can tie that rule only once and the file name says
+the opposite.
+
+So a rule-bearing line whose rule ties case(s) X while its results-file stem
+ties case(s) Y, with both sides non-empty and DISJOINT, is EXCLUDED: the line
+and the file it landed in disagree about which target it came from, and there
+is no honest single case for it.  Picking either side invents a tie.  The line
+is named on stderr (`<file>:<line>: rule '...' ties <X> but the results-file
+stem '...' ties <Y>`), never scored, and the run CONTINUES as a loud partial —
+the same philosophy and the same excluded-line accounting as THE SHAPE LAW.
+The law stays silent when either side ties nothing (an unknown stem is not
+evidence of disagreement: that is the ordinary unjoined line) or when the two
+sides share at least one case.
 
 LAW (Wave L-system, L6b)
 ------------------------
@@ -102,10 +126,12 @@ maps `Packed` that way).
     evalsuite it ties nothing, which is why the operator passes `--class-map`.
 
 A line is TIED to a case when its offered key is one of that case's keys.  Lines
-that tie to no case are counted on stderr and otherwise ignored.
+that tie to no case are counted on stderr and otherwise ignored.  A rule-bearing
+line whose rule and whose file stem tie different cases is not joined at all —
+see THE TIE-COLLISION LAW above.
 
-THE THREE STATES (per case)
----------------------------
+THE THREE STATES (per case), PLUS THE SPECIFICITY COLUMN
+--------------------------------------------------------
   * `detected`       — some tied line shows `verdict == "VIOLATED"`.
   * `proven_silence` — the case is a known-bad row (gold.outcome is not in the
                        clean set below) and it has >=1 tied line, ALL of which
@@ -117,10 +143,26 @@ THE THREE STATES (per case)
                        refusal ENVELOPE counts exactly like a report line: the
                        3-key whole-target abort and the 4-key undecided line
                        both land here, with their reason in the histogram.
+  * `clean_agreed`   — NOT a fourth verdict state but the specificity column:
+                       the case is a CLEAN row (gold.outcome is in the clean set
+                       below — on the real evalsuite `confirmed-not-exploitable`)
+                       and it has >=1 tied line, ALL of them `PROVEN`.  It is
+                       the exact mirror of `proven_silence`, and the two can
+                       never both be 1 for one case: `proven_silence` counts the
+                       prover proving a KNOWN-BAD row clean (a miss, i.e. a
+                       false negative), `clean_agreed` counts it proving the
+                       CONTROL row clean with specificity.  The difference from
+                       "no signal" is why the column exists: a clean control
+                       whose tied lines are `UNKNOWN` (a refusal) is `refused`
+                       and NOT `clean_agreed`, and a clean control with no tied
+                       line is neither — so the column separates "the prover
+                       proved this clean" from "the prover never reached it",
+                       which the three states above could not distinguish (run
+                       1's ES17 clean control scored nothing at all).
 
-`class/cases/detected/proven_silence/refused` are CASE counts; the refusal
-histogram counts the refusing LINES by reason (`reason=count,...`, sorted,
-`-` when empty; a JSON object in `--json` mode).
+`class/cases/detected/proven_silence/refused/clean_agreed` are CASE counts; the
+refusal histogram counts the refusing LINES by reason (`reason=count,...`,
+sorted, `-` when empty; a JSON object in `--json` mode).
 
 REFUSAL REASON CODES (hardcoded set, kept as a constant)
 --------------------------------------------------------
@@ -154,7 +196,15 @@ redefining the instrument's input contract.  Three further checks pin THE SHAPE
 LAW on the live path: a verdict-bearing 1-key probe line (the F1 review's
 `{"verdict": "PROVEN"}`, plus a `VIOLATED` sibling that would move `detected`)
 is excluded, named on stderr, and leaves the pinned rows byte-identical; and a
-lone 1-key PROVEN probe cannot manufacture `proven_silence` on a bad case.
+lone 1-key PROVEN probe cannot manufacture `proven_silence` on a bad case.  THE
+TIE-COLLISION LAW is pinned so that the exclusion is proved load-bearing rather
+than merely observed, and from both sides: the fixture itself ships exactly one
+colliding line (a legal undecided envelope whose rule ties the clean
+`arithmetic-overflow` case while its `Packed.jsonl` stem ties the
+`access-control` one), whose exclusion is what keeps that clean control
+`clean_agreed` and not `refused`; and the SAME line re-stemmed so that it ties
+nothing is then scored, showing exactly the `refused` + histogram bytes the
+collision would have fabricated.
 """
 import argparse
 import io
@@ -195,7 +245,7 @@ CLEAN_OUTCOMES = frozenset({
 })
 
 HEADER = ("class", "cases", "detected", "proven_silence", "refused",
-          "refusal_histogram")
+          "clean_agreed", "refusal_histogram")
 
 # --- the three line shapes cli.py can print (shape audit + join ladder) ------
 # build_report's key set: `report/reconstruct.py::build_report`, 23 keys.
@@ -286,6 +336,18 @@ def emit_shape_problems(problems, stream=None):
     out = sys.stderr if stream is None else stream
     for p in problems:
         out.write("scorecard: excluded by the shape law: %s\n" % p)
+    return len(problems)
+
+
+def emit_tie_collisions(problems, stream=None):
+    """Write THE TIE-COLLISION LAW's per-line exclusions; returns how many.
+
+    Same shape and same contract as `emit_shape_problems`: one greppable line
+    per dropped line (naming the line AND both cases it disagreed with itself
+    about), so an operator can see what the run refused to score and why."""
+    out = sys.stderr if stream is None else stream
+    for p in problems:
+        out.write("scorecard: excluded by the tie-collision law: %s\n" % p)
     return len(problems)
 
 
@@ -417,20 +479,88 @@ def case_keys(case, by_case):
     return {k for k in keys if k}
 
 
+def case_index(cases, by_case):
+    """`key -> {case_id, ...}`: the join read from the cases' side.
+
+    Built once per `score` so THE TIE-COLLISION LAW asks exactly the question
+    the join asks — "which case(s) does this ONE key tie?" — instead of
+    re-deriving the ladder for the rule and the stem separately."""
+    index = {}
+    for case in cases:
+        for key in case_keys(case, by_case):
+            index.setdefault(key, set()).add(case["case_id"])
+    return index
+
+
+def tie_collision(line, index):
+    """THE TIE-COLLISION LAW for one line: `(rule_cases, stem_cases)` or None.
+
+    A rule-bearing line offers its rule (tier 1); its results-file stem is the
+    tier-3 key, and the operator convention is that the stem names the same
+    target.  When the rule ties case(s) X and the stem ties case(s) Y, both
+    non-empty and DISJOINT, the line and the file disagree about the target and
+    there is no honest single case: the caller excludes it loudly.  Either side
+    tying nothing means no evidence of disagreement (the ordinary unjoined
+    line), and a shared case means both sides already agree."""
+    rule = line.get("rule")
+    stem = getattr(line, "stem", None)
+    if not rule or not stem:
+        return None
+    rule_cases, stem_cases = index.get(rule), index.get(stem)
+    if not rule_cases or not stem_cases or (rule_cases & stem_cases):
+        return None
+    return rule_cases, stem_cases
+
+
+def case_ids(ids):
+    """`CASE-a, CASE-b`: the sorted, printable spelling used in messages."""
+    return ", ".join(sorted(ids))
+
+
+def screen_tie_collisions(lines, index):
+    """THE TIE-COLLISION LAW on the live path: drop lines that tie twice.
+
+    Returns `(kept, problems)`, where `problems` holds one `origin: why` string
+    per dropped line — the same contract as `screen_lines`, and (like it) no
+    count downstream can include a dropped line, because nothing re-reads the
+    pre-screen list."""
+    kept, problems = [], []
+    for line in lines:
+        hit = tie_collision(line, index)
+        if hit is None:
+            kept.append(line)
+            continue
+        rule_cases, stem_cases = hit
+        problems.append(
+            "%s: rule %r ties %s but the results-file stem %r ties %s"
+            % (getattr(line, "origin", "<line>"), line["rule"],
+               case_ids(rule_cases), getattr(line, "stem", None),
+               case_ids(stem_cases)))
+    return kept, problems
+
+
 def score(cases, lines, class_map=None):
     """Join `lines` to `cases` and roll up one row per bug_class (sorted).
 
     THE SHAPE LAW runs FIRST (`screen_lines`): a line matching none of the
     three printed shapes is dropped and named in `stats["shape_problems"]`
     before any join key is computed, so it cannot reach
-    `detected`/`proven_silence`/`refused`.  Returns (rows, stats); rows are
-    dicts keyed by HEADER, with refusal_histogram as {reason: count}.  `stats`
-    counts `lines` (everything read: scored + excluded), `scored_lines`,
-    `tied`, `unjoined`, `refusal_lines`, `excluded` and `shape_problems`."""
+    `detected`/`proven_silence`/`refused`/`clean_agreed`.  THE TIE-COLLISION
+    LAW runs second, on the survivors: a rule-bearing line whose rule and whose
+    results-file stem tie disjoint cases is dropped and named in
+    `stats["tie_collisions"]`.  Returns (rows, stats); rows are dicts keyed by
+    HEADER, with refusal_histogram as {reason: count}.  `stats` counts `lines`
+    (everything read: scored + excluded by either law), `scored_lines` (what
+    actually reached the join), `tied`, `unjoined`, `refusal_lines`,
+    `excluded` + `shape_problems`, and `collision_excluded` +
+    `tie_collisions`."""
     lines, shape_problems = screen_lines(lines)
     by_case = {}
     for key, cid in (class_map or {}).items():
         by_case.setdefault(cid, set()).add(key)
+    read_lines = len(lines) + len(shape_problems)
+    lines, tie_collisions = screen_tie_collisions(
+        lines, case_index(cases, by_case))
     per_case = []
     tied_ids, unjoined, refusing = set(), 0, 0
     for i, case in enumerate(cases):
@@ -450,6 +580,8 @@ def score(cases, lines, class_map=None):
             "detected": int(VIOLATED in verdicts),
             "proven_silence": int(bool(tied) and bad
                                   and all(v == PROVEN for v in verdicts)),
+            "clean_agreed": int(bool(tied) and not bad
+                                and all(v == PROVEN for v in verdicts)),
             "refused": int(bool(refusals)),
             "hist": [l.get("reason") for l in refusals],
         })
@@ -458,17 +590,21 @@ def score(cases, lines, class_map=None):
     for c in per_case:
         row = rows.setdefault(c["class"], {
             "class": c["class"], "cases": 0, "detected": 0,
-            "proven_silence": 0, "refused": 0, "refusal_histogram": {}})
-        for k in ("cases", "detected", "proven_silence", "refused"):
+            "proven_silence": 0, "refused": 0, "clean_agreed": 0,
+            "refusal_histogram": {}})
+        for k in ("cases", "detected", "proven_silence", "refused",
+                  "clean_agreed"):
             row[k] += c[k]
         for reason in c["hist"]:
             row["refusal_histogram"][reason] = \
                 row["refusal_histogram"].get(reason, 0) + 1
     ordered = sorted(rows.values(), key=lambda r: r["class"])
-    stats = {"lines": len(lines) + len(shape_problems), "tied": len(tied_ids),
+    stats = {"lines": read_lines, "tied": len(tied_ids),
              "unjoined": unjoined, "refusal_lines": refusing,
              "scored_lines": len(lines), "excluded": len(shape_problems),
-             "shape_problems": shape_problems}
+             "shape_problems": shape_problems,
+             "collision_excluded": len(tie_collisions),
+             "tie_collisions": tie_collisions}
     return ordered, stats
 
 
@@ -484,6 +620,7 @@ def render_tsv(rows):
         out.append("\t".join([
             r["class"], str(r["cases"]), str(r["detected"]),
             str(r["proven_silence"]), str(r["refused"]),
+            str(r["clean_agreed"]),
             histogram_text(r["refusal_histogram"])]))
     return "\n".join(out) + "\n"
 
@@ -564,17 +701,36 @@ def audit_lines(lines):
 
 
 # --- pinned fixture expectations (--self-test) ------------------------------
-# The pinned fixture is the spec: hand-made cases, five result lines across the
+# The pinned fixture is the spec: hand-made cases, six result lines across the
 # five `<Contract>.jsonl` files, and the exact expected stdout of the runs
 # self-test performs (rows + the line-shape audit). The no-class-map pin is
-# deliberate: it asserts the join is explicit, not accidental.
-PINNED_TSV = 'class\tcases\tdetected\tproven_silence\trefused\trefusal_histogram\naccess-control\t2\t1\t0\t1\trejected-feature=1\narithmetic-overflow\t3\t1\t1\t0\t-\n'
-PINNED_JSON = '[\n  {\n    "class": "access-control",\n    "cases": 2,\n    "detected": 1,\n    "proven_silence": 0,\n    "refused": 1,\n    "refusal_histogram": {\n      "rejected-feature": 1\n    }\n  },\n  {\n    "class": "arithmetic-overflow",\n    "cases": 3,\n    "detected": 1,\n    "proven_silence": 1,\n    "refused": 0,\n    "refusal_histogram": {}\n  }\n]\n'
-PINNED_NOJOIN_TSV = 'class\tcases\tdetected\tproven_silence\trefused\trefusal_histogram\naccess-control\t2\t0\t0\t0\t-\narithmetic-overflow\t3\t0\t0\t0\t-\n'
-# The shape audit's pinned summary: 5 fixture lines, 4 report lines (one of
-# them an invariant line) and 1 whole-target refusal envelope.
-PINNED_SHAPES = ('shapes OK: 5 lines = 4 report (1 with `invariant`) '
-                 '+ 1 whole-target refusal envelope\n')
+# deliberate: it asserts the join is explicit, not accidental. `Packed.jsonl`
+# line 2 is THE TIE-COLLISION LAW's specimen: a legal undecided envelope whose
+# rule (`no_overflow`) ties the CLEAN arithmetic-overflow case while its file
+# stem (`Packed`) ties the access-control case — the row below keeps
+# `clean_agreed 1` and `refused 0` for arithmetic-overflow, which is only true
+# because the line is excluded (see the counterfactual pin further down).
+PINNED_TSV = 'class\tcases\tdetected\tproven_silence\trefused\tclean_agreed\trefusal_histogram\naccess-control\t2\t1\t0\t1\t0\trejected-feature=1\narithmetic-overflow\t3\t1\t1\t0\t1\t-\n'
+PINNED_JSON = '[\n  {\n    "class": "access-control",\n    "cases": 2,\n    "detected": 1,\n    "proven_silence": 0,\n    "refused": 1,\n    "clean_agreed": 0,\n    "refusal_histogram": {\n      "rejected-feature": 1\n    }\n  },\n  {\n    "class": "arithmetic-overflow",\n    "cases": 3,\n    "detected": 1,\n    "proven_silence": 1,\n    "refused": 0,\n    "clean_agreed": 1,\n    "refusal_histogram": {}\n  }\n]\n'
+PINNED_NOJOIN_TSV = 'class\tcases\tdetected\tproven_silence\trefused\tclean_agreed\trefusal_histogram\naccess-control\t2\t0\t0\t0\t0\t-\narithmetic-overflow\t3\t0\t0\t0\t0\t-\n'
+# The shape audit's pinned summary: 6 fixture lines, 4 report lines (one of
+# them an invariant line), 1 whole-target refusal envelope and 1 undecided
+# envelope (the tie-collision specimen).
+PINNED_SHAPES = ('shapes OK: 6 lines = 4 report (1 with `invariant`) '
+                 '+ 1 whole-target refusal envelope + 1 undecided\n')
+# THE TIE-COLLISION LAW's pinned stderr: the colliding fixture line, named with
+# the line AND the two cases it disagreed with itself about.
+PINNED_COLLISION_STDERR = (
+    'scorecard: excluded by the tie-collision law: Packed.jsonl:2: rule '
+    "'no_overflow' ties CASE-000000000103 but the results-file stem 'Packed' "
+    'ties CASE-000000000105\n')
+# ...and its NON-VACUITY pin: the SAME line re-stemmed to a file that ties
+# nothing is no longer a collision, so it scores — and it lands in exactly the
+# place the exclusion kept it out of: arithmetic-overflow `refused 1` with
+# `unsupported-feature=1` in the histogram, and the clean control's
+# `clean_agreed` 1 -> 0 (an UNKNOWN line is not specificity).  Ties 103 by its
+# rule, which is what makes the difference the exclusion and nothing else.
+PINNED_COLLISION_COUNTERFACTUAL_TSV = 'class\tcases\tdetected\tproven_silence\trefused\tclean_agreed\trefusal_histogram\naccess-control\t2\t1\t0\t1\t0\trejected-feature=1\narithmetic-overflow\t3\t1\t1\t1\t0\tunsupported-feature=1\n'
 # THE SHAPE LAW on the live path (final review, F1).  The probes are the
 # review's 1-key `{"verdict": "PROVEN"}` plus a `VIOLATED` sibling, appended by
 # hand to `results/Packed.jsonl` — whose stem IS the tier-3 join key for the bad
@@ -598,8 +754,9 @@ PINNED_PROBE_STDERR = (
 # all-zero rows the no-class-map control shows).  The check appends the
 # `excluded=` count so the drop is pinned too, not just the empty rows.
 PINNED_PROBE_ONLY_TSV = ('class\tcases\tdetected\tproven_silence\trefused'
-                         '\trefusal_histogram\naccess-control\t2\t0\t0\t0\t-\n'
-                         'arithmetic-overflow\t3\t0\t0\t0\t-\n')
+                         '\tclean_agreed\trefusal_histogram\n'
+                         'access-control\t2\t0\t0\t0\t0\t-\n'
+                         'arithmetic-overflow\t3\t0\t0\t0\t0\t-\n')
 
 
 def fixture_inputs():
@@ -629,8 +786,8 @@ def probe_lines(origins):
     """Synthesize live-path probe lines: 1-key objects as `Packed.jsonl` lines.
 
     They are built here rather than shipped in the fixture directory so the
-    pinned fixture stays exactly five legal lines — a probe in the fixture
-    would (correctly) fail the line-shape audit."""
+    pinned fixture's lines are all legal ones — a probe in the fixture would
+    (correctly) fail the line-shape audit."""
     out = []
     for origin, obj in origins:
         line = ResultLine(obj)
@@ -647,9 +804,23 @@ def self_test():
     probe_err = io.StringIO()
     emit_shape_problems(probe_stats["shape_problems"], probe_err)
     lone_rows, lone_stats = score(cases, probe_lines(PROBE_LINES[:1]), class_map)
+    fix_rows, fix_stats = score(cases, lines, class_map)
+    collision_err = io.StringIO()
+    emit_tie_collisions(fix_stats["tie_collisions"], collision_err)
+    # THE TIE-COLLISION LAW's non-vacuity control: the fixture's colliding line
+    # re-stemmed to a file that ties no case.  It is the SAME object (same rule,
+    # same verdict, same reason) — only the disagreement with the file name is
+    # gone — so if it scores where the original did not, the exclusion is what
+    # moved the number and nothing else about the line.
+    colliding = [l for l in lines
+                 if l.get("rule") == "no_overflow" and l.stem == "Packed"]
+    neutral = [ResultLine(dict(l)) for l in colliding]
+    for l in neutral:
+        l.stem, l.origin = "Unrelated", "Unrelated.jsonl:1"
+    neutral_rows = score(cases, lines + neutral, class_map)[0]
     checked = [
-        ("TSV rows", render_tsv(score(cases, lines, class_map)[0]), PINNED_TSV),
-        ("JSON rows", render_json(score(cases, lines, class_map)[0]), PINNED_JSON),
+        ("TSV rows", render_tsv(fix_rows), PINNED_TSV),
+        ("JSON rows", render_json(fix_rows), PINNED_JSON),
         ("TSV rows, no class map", render_tsv(score(cases, lines, {})[0]),
          PINNED_NOJOIN_TSV),
         ("fixture line shapes", shape_summary(lines), PINNED_SHAPES),
@@ -660,6 +831,13 @@ def self_test():
         ("live shape law: lone 1-key PROVEN probe manufactures nothing",
          "%sexcluded=%d\n" % (render_tsv(lone_rows), lone_stats["excluded"]),
          PINNED_PROBE_ONLY_TSV + "excluded=1\n"),
+        ("tie-collision law: the fixture ships exactly one colliding line",
+         str(len(colliding)), "1"),
+        ("tie-collision law: colliding line excluded, both cases named",
+         collision_err.getvalue(), PINNED_COLLISION_STDERR),
+        ("tie-collision law: the exclusion is load-bearing (same line, "
+         "neutral stem, scores)", render_tsv(neutral_rows),
+         PINNED_COLLISION_COUNTERFACTUAL_TSV),
     ]
     bad = 0
     for label, got, want in checked:
@@ -710,6 +888,11 @@ def main(argv=None):
     if stats["excluded"]:
         sys.stderr.write("scorecard: %d line(s) excluded by the shape law "
                          "(named above; not scored)\n" % stats["excluded"])
+    emit_tie_collisions(stats["tie_collisions"])
+    if stats["collision_excluded"]:
+        sys.stderr.write("scorecard: %d line(s) excluded by the tie-collision "
+                         "law (named above; not scored)\n"
+                         % stats["collision_excluded"])
     sys.stderr.write(
         "scorecard: %d result lines, %d tied to a case, %d unjoined\n"
         % (stats["lines"], stats["tied"], stats["unjoined"]))

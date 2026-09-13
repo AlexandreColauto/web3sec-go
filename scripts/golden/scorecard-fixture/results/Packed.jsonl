@@ -1,1 +1,2 @@
 {"verdict": "UNKNOWN", "reason": "rejected-feature", "details": "packed-storage:Packed.b"}
+{"verdict": "UNKNOWN", "rule": "no_overflow", "reason": "unsupported-feature", "details": "cross-file collision probe (hand-made): this rule ties CASE-000000000103 (arithmetic-overflow) while the results-file stem ties CASE-000000000105 (access-control)"}

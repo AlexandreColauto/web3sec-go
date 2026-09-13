@@ -136,7 +136,7 @@ docs/LEANNESS_REVIEW.md  the port-scaffolding removal plan (wave F)
 `scripts/minicertora-scorecard.py` grades minicertora on the evalsuite: point it
 at a directory of raw tool report lines (one JSON object per line, exactly what
 `cli.py` prints) plus `assets/evalsuite/cases.json`, and it prints one row per bug
-class — `class  cases  detected  proven_silence  refused  refusal_histogram`
+class — `class  cases  detected  proven_silence  refused  clean_agreed  refusal_histogram`
 (`--json` for objects; exit 0 means "the scorecard ran", not "the prover is good"):
 
 ```bash
@@ -164,9 +164,20 @@ and a **contract-name row matters only for that target's rule-less abort
 envelope**, which joins on the results-file stem. A case counts as
 **detected** when a tied line is `VIOLATED`, as
 **proven_silence** when it is a known-bad row whose tied lines are all `PROVEN`,
-and as **refused** when a tied line is `UNKNOWN` with an honest-refusal /
+as **refused** when a tied line is `UNKNOWN` with an honest-refusal /
 tool-error / model-bug reason — a tied whole-target refusal envelope counts as
-refused too, with its reason in the histogram. **Law:** a template-seeded
+refused too, with its reason in the histogram — and as **clean_agreed** when it
+is a CLEAN gold row (the same clean set `proven_silence` excludes —
+`confirmed-not-exploitable` on the evalsuite) whose tied lines are all `PROVEN`:
+the exact mirror of `proven_silence`, which is the specificity signal the three
+other columns cannot show — a control the prover proved clean scores, while one
+it only reached as `UNKNOWN` (a refusal) or never reached at all does not.
+**Tie-collision law:** a rule-bearing line whose rule ties case X while its
+results-file stem ties a different case Y is **excluded** and named on stderr
+with the line and both cases (`<file>:<line>: rule '...' ties ... but the
+results-file stem '...' ties ...`), never scored — the file and the line
+disagree about the target, so neither side is picked silently (the same
+loud-partial accounting as the shape law). **Law:** a template-seeded
 scaffold is starting content, never evidence — and no minicertora rung moves any
 gate until an operator has run this scorecard on the REAL evalsuite with the
 REAL tool. The self-test proves the instrument only; its rows are hand-made
