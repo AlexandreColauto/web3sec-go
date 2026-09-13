@@ -728,40 +728,43 @@ func goldPackSidecar(path string) (string, bool) {
 	return "", false
 }
 
-// anchorKey is the canonical identity of a gold row's ANCHOR: what a
-// finding is matched against (bug_class, sorted location path basenames,
-// gold outcome, sorted match_mechanisms). Two rows with equal keys are
-// indistinguishable to the scorer.
+// anchorKey is the canonical identity of a gold row's ANCHOR: everything
+// the scorer's anchor() joins a finding against — the ACCEPTED class SET
+// (bug_class plus bug_class_accept, sorted: a finding carries exactly one
+// class, so rows collide only when the class leg can be satisfied by the
+// same single class), the sorted location BASENAMES (anchor() matches on
+// basename suffixes), the outcome, and the sorted match_mechanisms (plain
+// strings in the schema). Two rows with equal keys are indistinguishable
+// to the scorer for EVERY finding; anything else stays legal (r7 lesson:
+// reading .path instead of .file collapsed the location leg and refused
+// the project's own shipped pack).
 func anchorKey(row validation.Value) string {
 	g := obj(row, "gold")
-	parts := []string{
-		field(g, "bug_class"),
-		field(g, "outcome"),
+	classes := []string{field(g, "bug_class")}
+	for _, a := range obj(g, "bug_class_accept").A {
+		if a.Kind == validation.Str {
+			classes = append(classes, a.S)
+		}
 	}
+	sort.Strings(classes)
 	var locs []string
-	if ls := g.O; true {
-		for _, kv := range ls {
-			if kv.K != "locations" {
-				continue
-			}
-			for _, l := range kv.V.A {
-				locs = append(locs,
-					filepath.Base(field(l, "path")))
-			}
+	for _, l := range obj(g, "locations").A {
+		if b := base(field(l, "file")); b != "" {
+			locs = append(locs, b)
 		}
 	}
 	sort.Strings(locs)
-	parts = append(parts, strings.Join(locs, ","))
 	var mech []string
-	for _, kv := range g.O {
-		if kv.K != "match_mechanisms" {
-			continue
-		}
-		for _, m := range kv.V.A {
-			mech = append(mech, field(m, "phrase"))
+	for _, m := range obj(g, "match_mechanisms").A {
+		if m.Kind == validation.Str {
+			mech = append(mech, m.S)
 		}
 	}
 	sort.Strings(mech)
-	parts = append(parts, strings.Join(mech, "|"))
-	return strings.Join(parts, "\x00")
+	return strings.Join([]string{
+		strings.Join(classes, ","),
+		strings.Join(locs, ","),
+		field(g, "outcome"),
+		strings.Join(mech, "\u0000"),
+	}, "\x00")
 }
