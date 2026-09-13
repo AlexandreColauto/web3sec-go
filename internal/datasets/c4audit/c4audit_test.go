@@ -99,7 +99,7 @@ func TestC4JudgeTableDrift(t *testing.T) {
 		"High": "confirmed-exploitable", "Medium": "confirmed-exploitable",
 		"QA": "out-of-scope", "Invalid": "disproved",
 		"Informational": "out-of-scope", "Gas": "out-of-scope",
-		"Duplicate":     "duplicate",
+		"Duplicate": "duplicate",
 	}
 	if len(judgeToOutcome) != len(want) {
 		t.Fatalf("judgeToOutcome has %d entries, want %d", len(judgeToOutcome), len(want))

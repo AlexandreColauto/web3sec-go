@@ -30,24 +30,24 @@ const (
 )
 
 var (
-	VNull           = jval.VNull
-	VBool           = jval.VBool
-	VInt            = jval.VInt
-	VBigInt         = jval.VBigInt
-	VFloat          = jval.VFloat
-	VStr            = jval.VStr
-	VArr            = jval.VArr
-	VObj            = jval.VObj
-	IntText         = jval.IntText
-	FromAny         = jval.FromAny
-	Canon           = jval.Canon
-	CanonSpaced     = jval.CanonSpaced
-	CanonCompact    = jval.CanonCompact
-	DumpsOrdered    = jval.DumpsOrdered
-	DumpIndented    = jval.DumpIndented
+	VNull             = jval.VNull
+	VBool             = jval.VBool
+	VInt              = jval.VInt
+	VBigInt           = jval.VBigInt
+	VFloat            = jval.VFloat
+	VStr              = jval.VStr
+	VArr              = jval.VArr
+	VObj              = jval.VObj
+	IntText           = jval.IntText
+	FromAny           = jval.FromAny
+	Canon             = jval.Canon
+	CanonSpaced       = jval.CanonSpaced
+	CanonCompact      = jval.CanonCompact
+	DumpsOrdered      = jval.DumpsOrdered
+	DumpIndented      = jval.DumpIndented
 	DumpIndentedASCII = jval.DumpIndentedASCII
-	WriteU4         = jval.WriteU4
-	PythonFloat     = jval.PythonFloat
+	WriteU4           = jval.WriteU4
+	PythonFloat       = jval.PythonFloat
 )
 
 // Ordered-parser alias (internal/jval/parse.go).

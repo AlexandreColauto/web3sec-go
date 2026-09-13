@@ -17,24 +17,24 @@
 //
 // Pattern law (first match wins, ordered list, stable id strings):
 //
-//	1. "guard-modifier" — the flagged function signature contains
-//	   nonReentrant|nonReentrantBefore|nonReentrantAfter|lockRequired|
-//	   onlyWhenUnlocked, or the body opens with a lock check
-//	   (if (locked) revert / assert(!locked)) while the same file
-//	   declares a lock boolean written true and false.
-//	2. "cei-order" — in the function body, the LAST storage write
-//	   (\w+(\[...\])?\s*(=|+=|-=) on a non-local line) occurs BEFORE the
-//	   first external interaction
-//	   (.call{| .call(| .send(| .transfer(| delegatecall| staticcall),
-//	   with BOTH sides present (no interaction, no credit) and no
-//	   for(/while( loop in the region (loops disqualify regex-level
-//	   proof).
-//	3. "eip712-binding" — the file contains DOMAIN_SEPARATOR|
-//	   _hashTypedDataV4|typehash|0x1901 (case-insensitive for the hex).
-//	4. "pull-pattern" — the file declares a claim-style function
-//	   (function (claim|withdraw|redeem|sweep)\w*\() AND the flagged flow
-//	   writes a user-scoped balance (balances?[...]=|owed[...])
-//	   rather than pushing funds.
+//  1. "guard-modifier" — the flagged function signature contains
+//     nonReentrant|nonReentrantBefore|nonReentrantAfter|lockRequired|
+//     onlyWhenUnlocked, or the body opens with a lock check
+//     (if (locked) revert / assert(!locked)) while the same file
+//     declares a lock boolean written true and false.
+//  2. "cei-order" — in the function body, the LAST storage write
+//     (\w+(\[...\])?\s*(=|+=|-=) on a non-local line) occurs BEFORE the
+//     first external interaction
+//     (.call{| .call(| .send(| .transfer(| delegatecall| staticcall),
+//     with BOTH sides present (no interaction, no credit) and no
+//     for(/while( loop in the region (loops disqualify regex-level
+//     proof).
+//  3. "eip712-binding" — the file contains DOMAIN_SEPARATOR|
+//     _hashTypedDataV4|typehash|0x1901 (case-insensitive for the hex).
+//  4. "pull-pattern" — the file declares a claim-style function
+//     (function (claim|withdraw|redeem|sweep)\w*\() AND the flagged flow
+//     writes a user-scoped balance (balances?[...]=|owed[...])
+//     rather than pushing funds.
 //
 // A clean no-hit is a successful scan (hit=false): RecordMitigationScan
 // then CLEARS a previously stored record, so a re-scan is idempotent. A

@@ -111,9 +111,9 @@ type AcceptanceEntry struct {
 	// moves when the term is absent.
 	MitigationDemoted bool   `json:"mitigation_demoted,omitempty"`
 	Mitigation        string `json:"mitigation,omitempty"`
-	Corroborated bool
-	PriorFactor  float64 `json:"prior_factor,omitempty"`
-	Prior        string  `json:"prior,omitempty"`
+	Corroborated      bool
+	PriorFactor       float64 `json:"prior_factor,omitempty"`
+	Prior             string  `json:"prior,omitempty"`
 }
 
 // Acceptance computes the full entry. Every component is optional: an
