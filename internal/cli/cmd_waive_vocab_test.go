@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -14,8 +15,12 @@ import (
 // against the proof source itself, so neither list can drift silently.
 func TestWaiveVocabularyIsReadByProofs(t *testing.T) {
 	read := map[string]bool{}
-	for _, f := range []string{
-		"../completion/proofs.go", "../completion/proofs2.go"} {
+	files, gerr := filepath.Glob("../completion/proofs*.go")
+	if gerr != nil || len(files) == 0 {
+		t.Fatalf("no proof sources found to pair against (%v, %d)", gerr,
+			len(files))
+	}
+	for _, f := range files {
 		raw, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)

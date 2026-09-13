@@ -38,4 +38,7 @@ func RegisterAll(register func(name string, fn SectionFunc)) {
 	register("probe_surface", ProbeSurface)
 	register("unpriceable", Unpriceable)
 	register("eval", Eval)
+	// r4: the price-table reconciliation. Registered LAST: the ported
+	// audit.py sections keep their relative order, and PRICING is new.
+	register("price_table", PriceTable)
 }

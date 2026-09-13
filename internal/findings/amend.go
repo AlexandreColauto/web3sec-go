@@ -85,14 +85,9 @@ func Amend(campaign *state.Campaign, findingID string,
 		// gate read, and the raised bar converts the row into mandatory
 		// independent-verification work (briefing/rank surface it; the T6
 		// advisory's own promise). What would be a lie is silence, so
-		// cmd_amend prints the floor movement when it happens.
-		// R3 (critic): "status NEVER moves here" is only honest if a class
-		// change cannot leave a CONFIRMED finding below its new floor —
-		// the advisory promises the floor "recomputes on the next gate
-		// read", and for a filed finding nothing guarantees that read.
-		// Re-filed classes that RAISE the bar are refused up front; the
-		// two sanctioned paths out are named (get the evidence, or record
-		// a floors override — a decision, logged, never a silent edit).
+		// cmd_amend prints the floor movement when it happens (the round-3
+		// ruling: conversion, never invalidation — an earlier refusal here
+		// contradicted the pinned work-order law and was removed).
 		changed = append(changed, "class")
 	}
 	if opts.HasClaim {

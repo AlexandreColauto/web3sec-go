@@ -199,3 +199,54 @@ func t15ExecRecordFor(t *testing.T, c *state.Campaign, execID,
 	}
 	return rec
 }
+
+// TestGateAllPassNamesTheMissingHop pins r4 issue 5: a clause-clean finding
+// whose status cannot legally HOLD CONFIRMED is told the hop, not just the
+// pass — the two authorities (gate math, status machine) are disclosed
+// together.
+func TestGateAllPassNamesTheMissingHop(t *testing.T) {
+	root, c, fid := t36SetupLadder(t)
+	cid := c.CampaignID
+	rec := t36Exec(t, c, fid, "docker-networkless",
+		"forge test --match-test test_exploit", "PASS: test_exploit\n",
+		"harness")
+	if code, _, errS := run(t, "--root", root, "mint", cid, fid,
+		"--exec", rec, "--description", "unit PoC drains", "--tier", "T2",
+		"--type", "foundry-test"); code != 0 {
+		t.Fatalf("mint: %q", errS)
+	}
+	seedGlobalMemoryRow(t)
+	if code, _, errS := run(t, "--root", root, "recall", cid,
+		"--finding", fid); code != 0 {
+		t.Fatalf("recall: %q", errS)
+	}
+	if code, _, errS := run(t, "--root", root, "verdict", cid, fid,
+		"--verdict", "confirmed", "--reason",
+		"no compensating control on the re-entry"); code != 0 {
+		t.Fatalf("verdict: %q", errS)
+	}
+	if code, _, errS := run(t, "--root", root, "move", cid, fid,
+		"PROVISIONALLY_VALID", "--reason", "critic probe status"); code != 0 {
+		t.Fatalf("move PROVISIONALLY_VALID: %q", errS)
+	}
+	code, out, errS := run(t, "--root", root, "gate", cid, fid)
+	if code != 0 {
+		t.Fatalf("gate exit %d out %q err %q", code, out, errS)
+	}
+	if !strings.Contains(out, "all checks pass") {
+		t.Fatalf("fixture must reach the all-pass line: %q", out)
+	}
+	if !strings.Contains(out, "cannot move to CONFIRMED directly") ||
+		!strings.Contains(out, "POSSIBLE") {
+		t.Fatalf("the missing hop must be named: %q", out)
+	}
+	if code, _, errS := run(t, "--root", root, "move", cid, fid, "POSSIBLE",
+		"--reason", "triage hop"); code != 0 {
+		t.Fatalf("move POSSIBLE: %q", errS)
+	}
+	code, out, errS = run(t, "--root", root, "gate", cid, fid)
+	if code != 0 || strings.Contains(out, "cannot move to CONFIRMED") {
+		t.Fatalf("legal holder must not see the note: exit %d %q %q",
+			code, out, errS)
+	}
+}

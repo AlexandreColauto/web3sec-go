@@ -262,8 +262,12 @@ func TestEvalSkipsWhenNothingMatched(t *testing.T) {
 func TestEvalRegisteredLast(t *testing.T) {
 	var names []string
 	RegisterAll(func(name string, _ SectionFunc) { names = append(names, name) })
-	if len(names) == 0 || names[len(names)-1] != "eval" {
-		t.Fatalf("eval not registered last: %v", names)
+	// eval keeps its slot past all fourteen ported sections; the r4
+	// presence-gated price_table was appended after it (audit_test pins
+	// the full order). eval must stay immediately before price_table.
+	if len(names) < 2 || names[len(names)-1] != "price_table" ||
+		names[len(names)-2] != "eval" {
+		t.Fatalf("eval/price_table tail order wrong: %v", names)
 	}
 }
 

@@ -224,6 +224,14 @@ func copyTree(src, dst string, excludes map[string]struct{}) error {
 	if err := os.MkdirAll(dst, 0o755); err != nil {
 		return err
 	}
+	// shutil.copystat parity for the ROOT: the tree's own mode governs the
+	// staged copy (a 0700 source must not gain a world-listable root;
+	// modes never reach the hashes, but listing is disclosure too).
+	if info, serr := os.Stat(src); serr == nil {
+		if err := os.Chmod(dst, info.Mode().Perm()); err != nil {
+			return err
+		}
+	}
 	return filepath.WalkDir(src, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err

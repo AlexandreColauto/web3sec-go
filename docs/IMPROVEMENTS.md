@@ -1,5 +1,16 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-13 — critic round 4: the money path gets a watchdog
+PRICING joined the audit surface as a presence-gated section (eval-law:
+unpriced campaigns render nothing, the golden surface is unchanged):
+prices.json reconciles against the last logged price.set per id — hand-edited
+figures, ghost rows and lost rows each name themselves. Same round: exec
+--finding refuses ghost and terminal bindings (the row is forever), the
+snapshots section fails when the projection names a directory the store
+doesn't hold (disclose loudly, don't block ingest — the r3 conversion law),
+gate all-pass now names the missing state-machine hop, the waive guard globs
+proofs*.go, and copytree stages the source root's own mode bits.
+
 ## 2026-09-13 — critic round 3: the conversion law, stated once
 A probe asked whether re-classing a CONFIRMED finding below its new class
 floor should be REFUSED. Ruling: no — the system's own law (pinned by the

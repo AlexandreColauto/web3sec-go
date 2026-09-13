@@ -7,8 +7,10 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
+	"websec/internal/findings"
 
 	"websec/internal/sandbox"
 	"websec/internal/state"
@@ -494,5 +496,52 @@ func copyTree(t *testing.T, src, dst string) {
 	})
 	if err != nil {
 		t.Fatalf("copy tree: %v", err)
+	}
+}
+
+// TestExecRefusesDeadAndGhostFindings pins r4 issue 2: the ledger row is
+// forever; binding it to a nonexistent or terminal finding is refused like
+// mint/adjudicate/verdict refuse dead rows.
+func TestExecRefusesDeadAndGhostFindings(t *testing.T) {
+	root, c, fid := t36SetupLadder(t)
+	cid := c.CampaignID
+	if code, _, errS := run(t, "--root", root, "exec", cid, "--command",
+		"echo x", "--finding", "F-ffffffffffff"); code != 2 ||
+		!strings.Contains(errS, "not in this campaign") {
+		t.Fatalf("ghost binding must be refused: exit %d %q", code, errS)
+	}
+	if code, _, errS := run(t, "--root", root, "supersede", cid, fid,
+		"--of", func() string { // file a twin and retire it
+			_, out, _ := run(t, "--root", root, "ingest", cid,
+				"--json-file", t2Write(t, root, "twin.json",
+					`{"title":"Twin reentrancy drain of the same vault",`+
+						`"root_cause":{"class":"reentrancy",`+
+						`"description":"external call precedes state update"},`+
+						`"affected":[{"path":"V.sol"}],`+
+						`"attacker":{"profile":"any EOA","capabilities":[]}}`))
+			m := regexp.MustCompile(`F-[0-9a-f]{12}`).FindString(out)
+			if m == "" {
+				t.Fatalf("twin ingest: %q", out)
+			}
+			return m
+		}()); code != 0 {
+		t.Fatalf("seed supersede: exit %d %q", code, errS)
+	}
+	// find the SUPERSEDED twin id
+	twin := ""
+	if all, err := findings.LoadAllFindings(c); err == nil {
+		for _, f := range all {
+			if objStr(f, "status") == "SUPERSEDED" {
+				twin = objStr(f, "finding_id")
+			}
+		}
+	}
+	if twin == "" {
+		t.Fatal("no SUPERSEDED twin found")
+	}
+	if code, _, errS := run(t, "--root", root, "exec", cid, "--command",
+		"echo x", "--finding", twin); code != 2 ||
+		!strings.Contains(errS, "bound to a dead row") {
+		t.Fatalf("dead-row binding must be refused: exit %d %q", code, errS)
 	}
 }

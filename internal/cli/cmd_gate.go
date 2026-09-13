@@ -161,6 +161,18 @@ func runGateDryrun(c *state.Campaign, findingID string, r *Runner) int {
 	} else {
 		fmt.Fprintf(r.Out, "%s (status %s): CONFIRMED gate — all checks "+
 			"pass (%d clause(s))\n", findingID, status, len(clauses))
+		// r4 (critic): passing every clause is necessary, not sufficient —
+		// the status machine decides who may HOLD the status. Saying "all
+		// checks pass" without naming the missing hop sends the operator
+		// to a move that is refused.
+		if status != "CONFIRMED" && !findings.TransitionAllowed(status,
+			"CONFIRMED") {
+			fmt.Fprintf(r.Out, "  note: status %s cannot move to CONFIRMED "+
+				"directly — the gate's pass is valid for the clause set; "+
+				"CONFIRMED is held from POSSIBLE (or CHAIN), so move there "+
+				"first (webv2 move %s %s POSSIBLE --reason '…')\n",
+				status, c.CampaignID, findingID)
+		}
 	}
 	if err := printEconomicDecision(c, f, findingID, r.Out); err != nil {
 		return r.withErr(c.Root, func() error { return err })

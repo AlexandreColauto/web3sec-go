@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"websec/internal/findings"
 
 	"websec/internal/sandbox"
 	"websec/internal/state"
@@ -292,6 +293,24 @@ func execRun(c *state.Campaign, campaignID, profile, command, workdir,
 	}
 	if finding != "" {
 		opts.FindingID = &finding
+		// r4 (critic): a ledger row is forever; binding one to a finding
+		// that does not exist — or is dead (mint would then refuse it,
+		// leaving inert bookkeeping that looks like coverage) — is the
+		// same lie the terminal-row law refuses everywhere else.
+		f, ferr := findings.LoadFinding(c, finding)
+		if ferr != nil {
+			fmt.Fprintf(r.Err, "exec refused: --finding %s is not in "+
+				"this campaign (%s)\n", finding, ferr)
+			return 2
+		}
+		if st := objStr(f, "status"); st == "SUPERSEDED" ||
+			st == "DUPLICATE" || st == "OUT_OF_SCOPE" ||
+			st == "DISPROVED" || st == "INFORMATIONAL" {
+			fmt.Fprintf(r.Err, "exec refused: --finding %s is %s — an exec "+
+				"bound to a dead row can never mint against it; run "+
+				"against the live successor\n", finding, st)
+			return 2
+		}
 	}
 	if len(env) > 0 {
 		opts.Env = env

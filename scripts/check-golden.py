@@ -11,7 +11,7 @@ golden-run.py captured:
      events.jsonl parse, and the event hash chain is intact: first
      prev_hash is the genesis hash, each next prev_hash is the prior
      event_hash);
-  3. every `audit --json` step reports all 14 rendered sections and a
+  3. every `audit --json` step reports all 15 rendered sections and a
      boolean ok (the audit surface is complete for these campaigns).
 
 Exit 0 = GOLDEN GREEN; exit 1 = a validation failure is reported per
@@ -28,18 +28,21 @@ from probe_axes import EXPECTED_PROBE_AXES
 
 WORK = Path(__file__).resolve().parent.parent / ".scratch" / "golden"
 
-# The 14 audit sections these campaigns RENDER, in report (registration)
-# order. The registry (internal/audit/sections/register.go) carries 15: the
+# The 15 audit sections these campaigns RENDER, in report (registration)
+# order. The registry (internal/audit/sections/register.go) carries 16: the
 # `eval` section is PRESENCE-GATED since G4 and renders only for a campaign
 # whose program matches the gold-eval suite. No golden campaign matches, so
-# the golden surface is the other 14 — this list is NOT a copy of the
-# registry and must not be "completed" to 15. A section missing here is a
-# hard failure in either direction.
+# eval stays off this list — but price_table (r4) DOES render here, because
+# the P4 recipe sets a price and pins a price-basis: the money path of the
+# golden campaign is exactly what the section exists to watch, so its output
+# is part of the golden surface. A section missing here is a hard failure in
+# either direction; this list is not a copy of the registry and must not be
+# "completed" to 16.
 EXPECTED_SECTIONS: list[str] = [
     "event_log", "artifacts", "execs", "findings", "projection",
     "snapshots", "relations", "floor_policy", "stage_completions",
     "baselines", "invariant_verification", "sequence_coverage",
-    "probe_surface", "unpriceable",
+    "probe_surface", "unpriceable", "price_table",
 ]
 
 # Every registered probe axis, pinned to the Go registry
@@ -165,7 +168,7 @@ def check_steps(spec: dict) -> None:
 
 
 def check_audit(spec: dict, step: int, name: str) -> None:
-    """An `audit --json` report must carry all 14 rendered sections + ok."""
+    """An `audit --json` report must carry all 15 rendered sections + ok."""
     f = WORK / "captures" / "go" / f"{step:02d}-{name}.out"
     try:
         doc = json.loads(f.read_text())
@@ -184,17 +187,30 @@ def check_audit(spec: dict, step: int, name: str) -> None:
         fails.append(f"step {step:02d} {name}: audit sections missing/not an "
                      f"object")
         return
-    have = set(sections)
-    want = set(EXPECTED_SECTIONS)
-    missing = sorted(want - have)
-    extra = sorted(have - want)
+    have = list(sections)  # report order
+    # The rendered surface is EXPECTED_SECTIONS, optionally TRUNCATED after
+    # its 14 unconditional members: presence-gated sections (price_table
+    # since r4, eval since G4) render exactly when their precondition
+    # holds — the s2 campaign prices nothing and must not fake the row.
+    # What stays hard-failed: any unexpected name, and the ORDER of what
+    # does render.
+    want = EXPECTED_SECTIONS
+    core = want[:len(want) - 1]          # everything but the optional tail
+    tail = want[len(want) - 1:]
+    missing = sorted(set(core) - set(have))
+    extra = sorted(set(have) - set(core) - set(tail))
     if missing:
         fails.append(f"step {step:02d} {name}: missing audit section(s): "
                      + ", ".join(missing))
     if extra:
         fails.append(f"step {step:02d} {name}: unexpected audit section(s): "
                      + ", ".join(extra))
-    if not missing and not extra:
+    # order: the rendered names must equal the registry-order projection
+    proj = [n for n in want if n in have]
+    if have != proj:
+        fails.append(f"step {step:02d} {name}: audit sections out of "
+                     f"registration order: {have} vs {proj}")
+    if not missing and not extra and have == proj:
         print(f"step {step:02d} {name}: {len(have)} audit sections + ok "
               f"(ok={ok}) present")
 

@@ -88,11 +88,45 @@ func Snapshots(c *state.Campaign) (validation.Value, error) {
 			}
 		}
 	}
+	// r4 (critic): an active_snapshot the projection names but the store
+	// does not hold is a ghost pin — every later integrity read trusts it.
+	// Corrupt CONTENT was caught; a missing DIRECTORY was not. The
+	// round-3 law applies: disclose loudly (audit goes RED; doctor
+	// already says exists:false), do not block ingest over a deleted dir
+	// the operator may be mid-recovery from.
+	if st, serr := c.State(); serr == nil {
+		for _, name := range referencedSnapshotIDs(st) {
+			if _, derr := os.Stat(filepath.Join(snapsRoot, name)); os.IsNotExist(derr) {
+				problems = append(problems, validation.VStr(
+					name+": the campaign names this snapshot active but "+
+						"snapshots/"+name+" does not exist — re-pin (`webv2 "+
+						"snap`) or the ledger pins are ghosts"))
+			}
+		}
+	}
 	return validation.VObj(
 		KV("checked", validation.VInt(int64(checked))),
 		KV("problems", validation.VArr(problems...)),
 		KV("ok", validation.VBool(len(problems) == 0)),
 	), nil
+}
+
+// referencedSnapshotIDs is the set of snapshot ids the campaign's
+// projection actively trusts right now: state.active_snapshot plus every
+// finding's snapshot_ids.source that is not the "unpinned" sentinel.
+func referencedSnapshotIDs(st validation.Value) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(s string) {
+		if s == "" || s == "unpinned" || seen[s] {
+			return
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	add(objStr(st, "active_snapshot_id"))
+	sort.Strings(out)
+	return out
 }
 
 // withoutKey returns a copy of an object value without the named key

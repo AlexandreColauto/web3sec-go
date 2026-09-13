@@ -1211,7 +1211,7 @@ sees the target again.
 ## 10. End of round
 
 ```bash
-webv2 audit <C-xxx> [--json]     # full integrity audit (event-log chain, artifacts, execs, findings, projection, relations)
+webv2 audit <C-xxx> [--json]     # full integrity audit (event-log chain, artifacts, execs, findings, projection, relations, floor policy, snapshots — including a named active pin whose directory is gone — plus, once the campaign prices anything, the price_table reconciliation of prices.json against the logged price.set decisions; a hand-edited USD figure is drift)
 webv2 prove <C-xxx> [--stage S]  # completion proofs: is a stage DONE because its artifacts prove it? (exit 1 while not done)
 webv2 complete <C-xxx> --actor NAME --reason R    # close the pass: phase COMPLETE; the cockpit stops suggesting work
 webv2 waive <C-xxx> discovery --subject L-02 --reason "..." --actor NAME   # waive one completion-proof subject (default '*': the whole stage)
