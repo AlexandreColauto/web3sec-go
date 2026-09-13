@@ -505,8 +505,9 @@ statement syntax — and no golden campaign byte moved.
   `FORK_KEY_ACTOR_<N>`. Refusals are byte-pinned and are themselves
   the guidance: `no calls to bridge`, `unbridgable step: <why>`, `symbolic
   senders cannot be fork-repro'd` (a free symbol does not survive a chain).
-  `final_assertions` is deliberately empty this wave — storage-assert
-  translation is the fork wave's. The audit suffix ` | poc: <n> calls bridged`
+  `final_assertions` is empty by default — non-empty only when an
+  operator `layout.json` sidecar grounds a `final_storage` reading (wave M T3 landed
+  the translation; the slot vocabulary comes from the sidecar, never the harness). The audit suffix ` | poc: <n> calls bridged`
   renders on minicertora counterexample lines and is **live from stored state**
   (`TestHarnessResultMinicertoraCallsAuditSuffix` re-reads
   `artifacts/invariant_links.json` from disk), not from a test-only path.

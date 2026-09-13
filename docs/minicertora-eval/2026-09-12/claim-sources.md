@@ -20,17 +20,14 @@ CleanB.sol (ES17+total), EscrowB.sol (ES17+total), ES11b.sol (require->assert
 semantic-preserving twin; probe was inconclusive and was NOT scored).
 ES12 file name (SignatureReplay) is the evalsuite's own; LegacyVault mapping was
 my error and that case stayed unscored (no file).
-## Join mechanics (operator note)
+## Join mechanics (ORIGINAL PRE-RESCORE READING — superseded; see the retraction below and scorecard.tsv for the current 7-column table)
 
 Both donation twins name their rule `donation_keeps_rate`; the tool prints no
 target field on rule-bearing lines, so a rule-keyed class map can tie that
 name only once. The scored map therefore ties ES06's rule-LESS abort envelope
 by file stem (VTokenDonation -> CASE-000000000006, refused=unsupported-feature)
 and MintInflation's envelope likewise (stem -> CASE-00000000000b); the
-`donation_keeps_rate` rule row maps to ES11. The single UNJOINED line
-(donation_keeps_rate from the VTokenDonation file, solver-timeout, 180 s) is
-left unjoined ON PURPOSE rather than double-tied — the instrument must not
-invent a second identity for a name collision. The scorecard stderr names it.
+`donation_keeps_rate` rule row maps to ES11. (Historical note: at authoring time the donation line appeared unjoined; the committed rescore ties all 12 lines and the unjoin narrative belongs to the pre-M instrument — kept for provenance, corrected by the retraction below.)
 
 ## What the run shows (final table in scorecard.tsv)
 
