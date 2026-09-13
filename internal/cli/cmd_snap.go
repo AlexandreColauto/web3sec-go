@@ -80,6 +80,20 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 	if dryRun {
 		return snapDryRun(stdout, pos[1], extra, deployment, chain, asJSON)
 	}
+	// R3 (critic): the zero-file refusal must PRECEDE the pin — a refused
+	// operation may not leave snapshot dirs, events, or an active_snapshot
+	// projection behind. The pre-scan is a conservative lower bound on the
+	// on-disk tree (exact on the no-vcs/git-dirty copytree ladder; a
+	// git-clean pin stages from tracked files and may legitimately hold
+	// more than the working tree shows, so a matching tracked file cannot
+	// be disproved here — the post-pin check below stays as the backstop
+	// and prints the honest "refused after staging" line instead of a
+	// silent success if the lower bound was wrong).
+	if pre, perr := snapshot.PinWillBeEmpty(pos[1], extra); perr == nil && pre {
+		return fmt.Errorf("target pins 0 files — empty tree or every entry " +
+			"matched --exclude (excludes are exact base names, not globs); " +
+			"nothing was recorded")
+	}
 	snap, err := snapshot.PinSourceSnapshot(c, pos[1], nil, extra)
 	if err != nil {
 		return err
@@ -107,8 +121,12 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 	// empty snapshot; this CLI refuses it (divergence is a refusal, never
 	// a silent success).
 	if objInt(src, "file_count") == 0 {
-		return usageErrf("target pins 0 files — empty tree or every entry " +
-			"matched --exclude (excludes are exact base names, not globs)")
+		// The lower bound missed it (git-clean ladder staging from tracked
+		// files that the walk could not see): fail CLOSED, and say so —
+		// the residue is disclosed, never hidden behind a usage error.
+		return fmt.Errorf("target pinned 0 files — empty tree or every " +
+			"entry matched --exclude; the snapshot was staged and recorded, " +
+			"delete it with `webv2 doctor` review before re-pinning")
 	}
 	fmt.Fprintf(stdout, "pinned %s (%s, %d files)\n",
 		objStr(snap, "snapshot_id"), objStr(src, "ladder"), objInt(src, "file_count"))

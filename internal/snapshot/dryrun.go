@@ -231,3 +231,44 @@ func UntrackedFiles(targetAbs string, skip map[string]struct{}) ([]string, int) 
 	}
 	return listed, more
 }
+
+// PinWillBeEmpty is the pre-flight lower bound the CLI refuses on BEFORE the
+// pin mutates anything (critic r3): it answers "could this target possibly
+// pin zero files" by walking the working tree with the pin's own exclude set
+// (bulk defaults + extras). It returns false (never refuse) for a git-clean
+// tree — the real pin stages from the tracked tree via worktree, which the
+// working-tree walk cannot see — and for any walk error: it is a bound, not
+// a verdict; the post-pin backstop in cmd_snap owns the rest.
+func PinWillBeEmpty(target string, extraExcludes []string) (bool, error) {
+	targetAbs := resolveSnap(target)
+	ladder, _, _, err := DetectLadder(targetAbs)
+	if err != nil || ladder == "git-clean" {
+		return false, err
+	}
+	excludes := excludeSet(extraExcludes)
+	found := false
+	err = filepath.WalkDir(targetAbs, func(p string, d os.DirEntry, werr error) error {
+		if werr != nil || p == targetAbs {
+			return nil // unreadable subtree: bound stays conservative
+		}
+		if _, bad := excludes[d.Name()]; bad {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.IsDir() {
+			return nil
+		}
+		info, ierr := d.Info()
+		if ierr == nil && info.Mode().IsRegular() {
+			found = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+	return !found, nil
+}

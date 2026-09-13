@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"websec/internal/state"
 )
 
 // r2SnapTarget writes a throwaway tree with the given file names.
@@ -51,7 +52,20 @@ func TestSnapEmptyTargetFailsCleanly(t *testing.T) {
 	if code == 0 {
 		t.Fatal("pinning an empty target must not succeed silently")
 	}
-	if strings.Contains(errS, "staging-") {
-		t.Fatalf("internal path leaked to the operator: %q", errS)
+	if !strings.Contains(errS, "pins 0 files") || strings.Contains(errS, "staging-") {
+		t.Fatalf("honest refusal expected: %q", errS)
+	}
+	// R3 (critic): a REFUSED operation must not have mutated anything —
+	// no snapshot store, no events, no active_snapshot projection.
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, statErr := os.Stat(filepath.Join(c.Dir, "snapshots")); !os.IsNotExist(statErr) {
+		t.Fatalf("refused pin left a snapshot dir: %v", statErr)
+	}
+	if raw, rerr := os.ReadFile(filepath.Join(c.Dir, "events.jsonl")); rerr == nil &&
+		strings.Contains(string(raw), "snapshot.pinned") {
+		t.Fatal("refused pin logged snapshot.pinned")
 	}
 }
