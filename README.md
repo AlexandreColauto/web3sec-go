@@ -127,7 +127,7 @@ docs/LEANNESS_REVIEW.md  the port-scaffolding removal plan (wave F)
 | golden suite | `scripts/golden.sh` | the deterministic recipe: exit codes, tree + event chain, 15-section audit surface |
 | RUNBOOK walkthrough | `scripts/runbook-walkthrough.sh` | every runbook command, documented exit code |
 | real containers | `scripts/p2-docker-e2e.sh` | docker exec (pass+fail) + anvil sequence end to end, plus the four `WEBV2_DOCKER_TESTS=1` package e2e tiers |
-| legacy compatibility | `scripts/verify-full.sh` step 9 | Go reads a reference-written campaign, all 14 rendered sections clean (15 registered; `eval` is presence-gated) |
+| legacy compatibility | `scripts/verify-full.sh` step 9 | Go reads a reference-written campaign, all 14 rendered sections clean (16 registered; `eval` and `price_table` are presence-gated) |
 | prover scorecard | `python3 scripts/minicertora-scorecard.py --self-test` | the L6b instrument parses tool lines, joins them to evalsuite cases, and reproduces its pinned fixture rows byte-for-byte (plus a shape audit of every fixture line) |
 | release | `scripts/release.sh` | static binary, embedded assets, standalone |
 
@@ -183,11 +183,15 @@ gate until an operator has run this scorecard on the REAL evalsuite with the
 REAL tool. The self-test proves the instrument only; its rows are hand-made
 (shape-audited against what `cli.py` can print), not a prover measurement.
 
-The audit registers **15** sections; the 15th, `eval` (Wave G4), is
-presence-gated — it renders only when the campaign's program matches the
-gold-eval suite. Every other campaign's audit therefore shows the original
-**14**, which is why `scripts/check-golden.py` pins 14 and the golden /
-legacy fixtures carry no `eval` row.
+The audit registers **16** sections. Two are presence-gated: `eval` (Wave
+G4) renders only when the campaign's program matches the gold-eval suite,
+and `price_table` (critic r4) renders only once the campaign has priced
+anything — it reconciles `prices.json` against the logged `price.set`
+decisions, so a hand-edited USD figure is audit-visible drift. An unpriced,
+unmatched campaign therefore shows the original **14**; the golden's P4
+campaign prices, so its pinned surface is those 14 plus `price_table`.
+`scripts/check-golden.py` pins exactly that and knows the conditional tail
+is conditional.
 
 `scripts/verify-full.sh` runs every gate above except the release build in
 one fail-fast sequence — a clone of this repo alone runs it green (the two

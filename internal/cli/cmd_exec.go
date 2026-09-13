@@ -262,6 +262,16 @@ var newExecSandbox = func(c *state.Campaign,
 // execRun is the preflight + Sandbox.run + result block.
 func execRun(c *state.Campaign, campaignID, profile, command, workdir,
 	finding string, timeout int, env []sandbox.EnvVar, r *Runner) int {
+	// r4 (critic) / r5 issue 4: the binding check FIRST — it is a cheap
+	// findings-dir read, and a dead binding must not be discovered only
+	// after the operator fixes an unrelated environment problem. A ledger
+	// row is forever; binding one to a finding that does not exist — or is
+	// dead (mint would then refuse it, leaving inert bookkeeping that looks
+	// like coverage) — is the lie the terminal-row law refuses everywhere.
+	if code, msg := execFindingBindingRefused(c, finding); code != 0 {
+		fmt.Fprint(r.Err, msg)
+		return code
+	}
 	var wd *string
 	if workdir != "" {
 		wd = &workdir
@@ -293,24 +303,6 @@ func execRun(c *state.Campaign, campaignID, profile, command, workdir,
 	}
 	if finding != "" {
 		opts.FindingID = &finding
-		// r4 (critic): a ledger row is forever; binding one to a finding
-		// that does not exist — or is dead (mint would then refuse it,
-		// leaving inert bookkeeping that looks like coverage) — is the
-		// same lie the terminal-row law refuses everywhere else.
-		f, ferr := findings.LoadFinding(c, finding)
-		if ferr != nil {
-			fmt.Fprintf(r.Err, "exec refused: --finding %s is not in "+
-				"this campaign (%s)\n", finding, ferr)
-			return 2
-		}
-		if st := objStr(f, "status"); st == "SUPERSEDED" ||
-			st == "DUPLICATE" || st == "OUT_OF_SCOPE" ||
-			st == "DISPROVED" || st == "INFORMATIONAL" {
-			fmt.Fprintf(r.Err, "exec refused: --finding %s is %s — an exec "+
-				"bound to a dead row can never mint against it; run "+
-				"against the live successor\n", finding, st)
-			return 2
-		}
 	}
 	if len(env) > 0 {
 		opts.Env = env
@@ -387,4 +379,24 @@ func init() {
 	register(command{ord: 40, name: "exec",
 		line: "exec <campaign> --command CMD [--profile P] [--dry-run]",
 		run:  runExec})
+}
+
+// execFindingBindingRefused is the hoisted guard: (0,"") when the binding
+// is legal or absent; (2, message) when --finding names a ghost or a dead
+// row.
+func execFindingBindingRefused(c *state.Campaign, finding string) (int, string) {
+	if finding == "" {
+		return 0, ""
+	}
+	f, ferr := findings.LoadFinding(c, finding)
+	if ferr != nil {
+		return 2, "exec refused: --finding " + finding + " is not in " +
+			"this campaign (" + ferr.Error() + ")\n"
+	}
+	if findings.IsTerminal(objStr(f, "status")) {
+		return 2, "exec refused: --finding " + finding + " is " +
+			objStr(f, "status") + " — an exec bound to a dead row can " +
+			"never mint against it; run against the live successor\n"
+	}
+	return 0, ""
 }

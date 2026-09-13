@@ -12,6 +12,7 @@ package sections
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -74,9 +75,19 @@ func PriceTable(c *state.Campaign) (validation.Value, error) {
 					"PRICING: %s: %s is %s in prices.json but the last "+
 						"price.set logged %s — the table was edited "+
 						"outside the ledger", id, field,
-					validation.PyRepr(got),
-					validation.PyRepr(want))))
+					validation.PyRepr(got), validation.PyRepr(want))))
 			}
+		}
+		// set_by: the log keeps the RAW actor, the row the stripped one
+		// (pricing's own asymmetry) — stripped-vs-stripped, so ordinary
+		// whitespace never false-positives but "Mallory" does (r5).
+		rowBy, logBy := objStr(row, "set_by"), objStr(lg.data, "actor")
+		if pyStripStr(rowBy) != pyStripStr(logBy) {
+			problems = append(problems, validation.VStr(fmt.Sprintf(
+				"PRICING: %s: set_by is %s in prices.json but the last "+
+					"price.set logged %s — the table was edited outside "+
+					"the ledger", id, validation.PyRepr(validation.VStr(rowBy)),
+				validation.PyRepr(validation.VStr(logBy)))))
 		}
 	}
 	for _, id := range order {
@@ -106,3 +117,6 @@ func readPriceRows(path string) ([]validation.Value, bool) {
 	}
 	return listOf(objAt(doc, "prices")), true
 }
+
+// pyStripStr is Python str.strip() on a CLI-visible string.
+func pyStripStr(s string) string { return strings.TrimSpace(s) }

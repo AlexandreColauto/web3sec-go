@@ -217,22 +217,17 @@ func sortedKeys(m map[string]struct{}) []string {
 // NAME is in excludes (pruning matched dirs whole), copy symlinks as
 // symlinks, create directories with their mode bits.
 func copyTree(src, dst string, excludes map[string]struct{}) error {
-	// Python's copytree creates the destination root even when the source
-	// is empty; the walk below returns at p==src without touching dst, so
-	// the root must be made here or an empty-after-prune tree leaves no
-	// staging at all and hashing fails with a raw lstat error (critic r2).
+	// shutil.copystat ORDER, not just semantics: content first, directory
+	// mode bits applied LAST (r5 critic: a 0500 source root must not make
+	// the walk fail where the twin succeeds — and a read-only staged
+	// directory can never receive its own children). Every directory is
+	// staged writable and sealed to the source mode at the end.
 	if err := os.MkdirAll(dst, 0o755); err != nil {
 		return err
 	}
-	// shutil.copystat parity for the ROOT: the tree's own mode governs the
-	// staged copy (a 0700 source must not gain a world-listable root;
-	// modes never reach the hashes, but listing is disclosure too).
-	if info, serr := os.Stat(src); serr == nil {
-		if err := os.Chmod(dst, info.Mode().Perm()); err != nil {
-			return err
-		}
-	}
-	return filepath.WalkDir(src, func(p string, d os.DirEntry, err error) error {
+	var pending []pendingMode
+
+	werr := filepath.WalkDir(src, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -263,7 +258,11 @@ func copyTree(src, dst string, excludes map[string]struct{}) error {
 			_ = os.Remove(q)
 			return os.Symlink(link, q)
 		case info.IsDir():
-			return os.MkdirAll(q, info.Mode().Perm())
+			if err := os.MkdirAll(q, 0o755); err != nil {
+				return err
+			}
+			pending = append(pending, pendingMode{q, info.Mode().Perm()})
+			return nil
 		case info.Mode().IsRegular():
 			raw, err := os.ReadFile(p)
 			if err != nil {
@@ -278,6 +277,33 @@ func copyTree(src, dst string, excludes map[string]struct{}) error {
 			return nil // fifos/sockets: nothing to hash, not copied
 		}
 	})
+	if werr != nil {
+		return werr
+	}
+	// Seal the root, then every staged directory, to the source's modes —
+	// the copystat-last order the twin guarantees. Deeper dirs first is
+	// irrelevant (chmod needs no child access); the ROOT goes last so a
+	// failure mid-seal never leaves an unreadable tree we cannot walk.
+	sort.Slice(pending, func(i, j int) bool {
+		return len(pending[i].path) > len(pending[j].path)
+	})
+	for _, pm := range pending {
+		if err := os.Chmod(pm.path, pm.perm); err != nil {
+			return err
+		}
+	}
+	if info, serr := os.Stat(src); serr == nil {
+		if err := os.Chmod(dst, info.Mode().Perm()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// pendingMode is a staged directory awaiting its source mode bits.
+type pendingMode struct {
+	path string
+	perm os.FileMode
 }
 
 // --- the pin ----------------------------------------------------------------

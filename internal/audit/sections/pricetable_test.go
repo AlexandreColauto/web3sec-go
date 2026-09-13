@@ -81,3 +81,42 @@ func TestPriceTableSection(t *testing.T) {
 			validation.DumpsOrdered(rep, false))
 	}
 }
+
+// TestPriceTableWatchesModule pins r5 issue 8: set_by is log-catchable, so
+// a hand-edited attribution must drift too — while the twin's raw-vs-stripped
+// actor asymmetry never false-positives.
+func TestPriceTableWatchesModule(t *testing.T) {
+	c := ptCamp(t)
+	if _, err := pricing.SetPrice(c, "ETH", 1500.0,
+		"coingecko snapshot", "2026-09-13", "  Ada Lovelace  "); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := PriceTable(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !objAt(rep, "ok").B {
+		t.Fatalf("raw-vs-stripped actor is the DESIGN, not drift: %s",
+			validation.DumpsOrdered(rep, false))
+	}
+	p := filepath.Join(c.Dir, "prices.json")
+	raw, _ := os.ReadFile(p)
+	doc, _ := validation.ParseOrdered(raw)
+	rows := objAt(doc, "prices")
+	rows.A[0].O = validation.SetOrAppend(rows.A[0].O, "set_by",
+		validation.VStr("Mallory"))
+	doc.O = validation.SetOrAppend(doc.O, "prices", rows)
+	if err := os.WriteFile(p,
+		[]byte(validation.DumpsOrdered(doc, true)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rep, err = PriceTable(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := validation.DumpsOrdered(rep, false)
+	if objAt(rep, "ok").B || !strings.Contains(body, "set_by") ||
+		!strings.Contains(body, "Mallory") {
+		t.Fatalf("attribution edit must drift: %s", body)
+	}
+}

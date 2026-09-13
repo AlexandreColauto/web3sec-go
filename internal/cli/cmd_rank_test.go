@@ -239,3 +239,42 @@ func TestRankArgparse(t *testing.T) {
 		t.Fatalf("stderr %q", errS)
 	}
 }
+
+// TestRankHoldsBackOutcomes pins r5 issue 2: a DISPROVED row is a ledger
+// OUTCOME (the scorecard and calibration still count it — the twin's
+// fabrication law) but not a rank CANDIDATE. The one-row disproved campaign
+// must not read as "1 finding matters".
+func TestRankHoldsBackOutcomes(t *testing.T) {
+	root := t.TempDir()
+	cid := initOne(t, root)
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fid := rankCliFinding(t, c, "vault drains on reentry", "", "")
+	if code, _, errS := run(t, "--root", root, "move", cid, fid,
+		"DISPROVED", "--adjacent", "the oracle staleness window was never "+
+			"checked against the TWAP fallback", "--reason",
+		"controlled repro shows the guard rejects the payload"); code != 0 {
+		t.Fatalf("move DISPROVED: exit %d %q", code, errS)
+	}
+	code, out, errS := run(t, "--root", root, "rank", cid)
+	if code != 0 {
+		t.Fatalf("rank exit %d %q", code, errS)
+	}
+	if strings.Contains(out, "1 live finding(s)") ||
+		!strings.Contains(out, "no candidate findings to rank") {
+		t.Fatalf("a lone disproof must not present as a candidate: %q",
+			out)
+	}
+	if !strings.Contains(out, "scorecard still counts them") {
+		t.Fatalf("the outcome's continuing home must be named: %q", out)
+	}
+	// The scorecard keeps the row visible as a live OUTCOME (unchanged
+	// law: calibration counts disproofs):
+	code, out, errS = run(t, "--root", root, "scorecard", cid)
+	if code != 0 || !strings.Contains(out, "DISPROVED") {
+		t.Fatalf("scorecard keeps disproof accounting: exit %d %q %q",
+			code, out, errS)
+	}
+}

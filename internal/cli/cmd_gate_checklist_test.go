@@ -789,3 +789,54 @@ func cliGateReadyEconomic(t *testing.T, c *state.Campaign) validation.Value {
 	}
 	return out
 }
+
+// TestNamedDecisionUntrustedWhenChainContradictsIt pins r5 issue 3: the
+// gate clause is credited by the LOG, not by whatever the projection file
+// currently claims. Record unpriceable, retract it with a priced impact,
+// then hand-edit the file back to priceable=false (exactly the critic's
+// probe): the clause must fail and the render must say UNTRUSTED, never
+// "satisfied by NAMED DECISION" with a mixed-source figure.
+func TestNamedDecisionUntrustedWhenChainContradictsIt(t *testing.T) {
+	c, root := t15Campaign(t, "economic")
+	f := cliGateReadyEconomic(t, c)
+	fid := objStr(f, "finding_id")
+	if _, err := risk.RecordUnpriceable(c, fid, cliCeiling,
+		"the sink is a test fixture, so any USD figure would be invented "+
+			"precision, not a measurement", "operator"); err != nil {
+		t.Fatal(err)
+	}
+	// The decision is retracted the sanctioned way: a priced impact.
+	if _, err := risk.RecordEconomicImpact(c, fid,
+		validation.VFloat(1000.0), validation.VNull(),
+		validation.VNull()); err != nil {
+		t.Fatalf("priced retraction: %v", err)
+	}
+	// … and the file is then hand-edited back to the retracted shape —
+	// the state audit section 14 calls drift.
+	p := filepath.Join(c.FindingsDir, fid+".json")
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := validation.ParseOrdered(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	imp := validation.VObj(
+		kvT("priceable", validation.VBool(false)),
+		kvT("ceiling", validation.VStr("999")),
+	)
+	doc.O = validation.SetOrAppend(doc.O, "economic_impact", imp)
+	if err := os.WriteFile(p,
+		[]byte(validation.DumpsOrdered(doc, true)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", root, "gate", c.CampaignID, fid)
+	if code == 0 || !strings.Contains(out, "UNTRUSTED") {
+		t.Fatalf("a drifted projection must not satisfy the clause: exit "+
+			"%d out %q err %q", code, out, errS)
+	}
+	if strings.Contains(out, "satisfied by NAMED DECISION") {
+		t.Fatalf("the renderer must not advertise the file's lie: %q", out)
+	}
+}

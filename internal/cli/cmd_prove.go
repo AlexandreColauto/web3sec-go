@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"websec/internal/pipeline"
 
 	"websec/internal/completion"
 	"websec/internal/state"
@@ -48,6 +49,16 @@ func runProve(root string, args []string, r *Runner) int {
 		return r.withErr(root, func() error { return err })
 	}
 	if haveStage {
+		// r5 (critic issue 5): "no proof declared" is a statement about a
+		// REAL stage; for a typo it is indistinguishable from silence.
+		// Membership costs a loop over the canonical table — refuse a
+		// non-stage and list what IS a stage.
+		if !isKnownStage(stage) {
+			fmt.Fprintf(r.Err, "prove refused: %q is not a campaign stage; "+
+				"stages are: %s\n", stage,
+				strings.Join(knownStageIDs(), ", "))
+			return 2
+		}
 		pr, err := completion.ProofStatus(c, stage)
 		if err != nil {
 			return r.withErr(root, func() error { return err })
@@ -132,4 +143,23 @@ func init() {
 	register(command{ord: 55, name: "prove",
 		line: "prove <campaign> [--stage S]       completion proofs",
 		run:  runProve})
+}
+
+// isKnownStage / knownStageIDs read the canonical pipeline table — the
+// one authority on what a stage is.
+func isKnownStage(id string) bool {
+	for _, s := range pipeline.Stages {
+		if s.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func knownStageIDs() []string {
+	out := make([]string, 0, len(pipeline.Stages))
+	for _, s := range pipeline.Stages {
+		out = append(out, s.ID)
+	}
+	return out
 }

@@ -86,16 +86,23 @@ func TestProveStageHumanSummaryAndExitCode(t *testing.T) {
 	}
 }
 
+// TestProveUnknownStageIsDeterministic — r5 issue 5 REVERSED the old
+// determinism: a stage-name typo now REFUSES (exit 2) instead of echoing
+// the proofless-stage sentence it was ported to imitate. The membership
+// list is the fix; a real proofless stage keeps the original line.
 func TestProveUnknownStageIsDeterministic(t *testing.T) {
 	c, root := t15Campaign(t, "prove")
-	code, out, errS := run(t, "--root", root, "prove", c.CampaignID,
+	code, _, errS := run(t, "--root", root, "prove", c.CampaignID,
 		"--stage", "no-such-stage")
-	if code != 0 {
-		t.Fatalf("exit %d, want 0: %q", code, errS)
+	if code != 2 || !strings.Contains(errS, "not a campaign stage") {
+		t.Fatalf("typo must refuse: exit %d %q", code, errS)
 	}
-	if out != "no-such-stage: no completion proof declared "+
+	code, out, errS := run(t, "--root", root, "prove", c.CampaignID,
+		"--stage", "scope")
+	if code != 0 || out != "scope: no completion proof declared "+
 		"(deterministic stage without an advisory proof)\n" {
-		t.Fatalf("output %q", out)
+		t.Fatalf("real proofless stage changed: exit %d %q %q", code, out,
+			errS)
 	}
 }
 
@@ -119,5 +126,26 @@ func TestProveMissingCampaignIsArgparse(t *testing.T) {
 		"webv2 prove: error: the following arguments are required: campaign\n"
 	if errS != want {
 		t.Fatalf("stderr\n%q\nwant\n%q", errS, want)
+	}
+}
+
+// TestProveUnknownStageRefused pins r5 issue 5: a typo must not wear the
+// face of a legitimate "stage has no proof".
+func TestProveUnknownStageRefused(t *testing.T) {
+	root := t.TempDir()
+	cid := initOne(t, root)
+	code, out, errS := run(t, "--root", root, "prove", cid,
+		"--stage", "bogus-stage")
+	if code != 2 || !strings.Contains(errS, "not a campaign stage") ||
+		!strings.Contains(errS, "planning") {
+		t.Fatalf("typo stage must refuse + list: exit %d out %q err %q",
+			code, out, errS)
+	}
+	// A real proofless stage keeps its old answer:
+	code, out, errS = run(t, "--root", root, "prove", cid,
+		"--stage", "snapshot")
+	if code != 0 || !strings.Contains(out, "no completion proof") {
+		t.Fatalf("real stage behavior changed: exit %d %q %q", code, out,
+			errS)
 	}
 }

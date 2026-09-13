@@ -1,5 +1,21 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-13 — critic round 5: readers must agree with the law they cite
+copyTree now seals directory modes AFTER the content walk (shutil's
+copystat order): a read-only source tree pinned like the twin instead of
+failing where Python succeeds — and a FAILED pin discards its staging dir,
+so no `staging-*` ghost burns the r4 audit red forever. rank answers
+"which findings MATTER": DISPROVED/INFORMATIONAL rows are outcomes the
+scorecard and calibration still count, not candidates — said explicitly,
+never silently dropped. The gate no longer trusts a hand-edited
+economic_impact projection: a NAMED DECISION counts while the CHAIN agrees
+with it (audit section 14's rule, enforced at the clause, drift renders
+UNTRUSTED). exec's binding guard runs before preflight; sequence run refuses
+to invent a typed --workdir; prove refuses a stage that is not a stage;
+prices.json set_by reconciles against the logged raw-vs-stripped actor; one
+IsTerminal predicate replaces the five hand-copied dead-row lists; the
+README's section arithmetic is current.
+
 ## 2026-09-13 — critic round 4: the money path gets a watchdog
 PRICING joined the audit surface as a presence-gated section (eval-law:
 unpriced campaigns render nothing, the golden surface is unchanged):

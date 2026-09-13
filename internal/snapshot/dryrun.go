@@ -85,6 +85,21 @@ func stageTree(targetAbs, snapRoot string, extraExcludes []string) (*stagedTree,
 		dirty: dirty, excludes: excludes, pruneSet: pruneSet,
 		prunedPaths: prunedPaths, staging: staging}
 
+	// r5 (critic issue 1): every path below that can fail has ALREADY
+	// created the staging dir (or asked git to). Python's finally block
+	// removes it whatever happened; leaking `staging-*` into the snapshot
+	// store makes even the r4 ghost check burn a red audit forever for a
+	// failed pin. discard-on-error is the twin law, not a courtesy.
+	discard := func() {
+		if st.worktreeAdded {
+			_ = os.RemoveAll(staging)
+			Git(targetAbs, "worktree", "prune")
+			return
+		}
+		if dirExists(staging) {
+			_ = os.RemoveAll(staging)
+		}
+	}
 	if ladder == "git-clean" && commit != nil {
 		Git(targetAbs, "worktree", "add", "--detach", staging, *commit)
 		if dirExists(staging) {
@@ -92,11 +107,13 @@ func stageTree(targetAbs, snapRoot string, extraExcludes []string) (*stagedTree,
 		} else {
 			// git missing/raced: fall back to a copy.
 			if err := copyTree(targetAbs, staging, excludes); err != nil {
+				discard()
 				return nil, err
 			}
 		}
 	} else {
 		if err := copyTree(targetAbs, staging, excludes); err != nil {
+			discard()
 			return nil, err
 		}
 	}
@@ -107,6 +124,7 @@ func stageTree(targetAbs, snapRoot string, extraExcludes []string) (*stagedTree,
 
 	contentHash, fileCount, err := ContentHash(staging)
 	if err != nil {
+		discard()
 		return nil, err
 	}
 	st.contentHash, st.fileCount = contentHash, fileCount

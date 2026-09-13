@@ -100,12 +100,24 @@ func RunSequence(c *state.Campaign, specPath string,
 func sequenceWorkdir(c *state.Campaign, spec validation.Value,
 	opts RunSequenceOpts) (string, error) {
 	wd := ""
-	if opts.Workdir != nil {
+	explicit := opts.Workdir != nil
+	if explicit {
 		wd = *opts.Workdir
 	} else {
 		wd = filepath.Join(c.ExecsDir, "seqwork-"+objStr(spec, "spec_id"))
 	}
-	if err := os.MkdirAll(wd, 0o755); err != nil {
+	// r5 (critic issue 7): a workdir the OPERATOR named is a promise about
+	// an existing place — MkdirAll'ing a typo invents a directory, hides
+	// the mistake, and runs the PoC somewhere unexpected. The campaign's
+	// OWN default path keeps creating itself (it is derived, not typed).
+	if explicit {
+		if st, err := os.Stat(wd); err != nil || !st.IsDir() {
+			return "", fmt.Errorf(
+				"workdir %s does not exist — create it or drop the flag; "+
+					"sequence run will not invent a directory the operator "+
+					"typed", wd)
+		}
+	} else if err := os.MkdirAll(wd, 0o755); err != nil {
 		return "", err
 	}
 	// provenance: input_hashes

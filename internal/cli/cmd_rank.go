@@ -108,19 +108,45 @@ func rankCmd(root string, args []string, r *Runner) error {
 				", submission budget %d", mf.I)
 		}
 	}
-	entries := risk.AcceptanceRanking(live, rankBy)
+	// r5 (critic): rank answers "which findings MATTER". A DISPROVED or
+	// INFORMATIONAL row stays in the ledger (the calibration law counts
+	// disproofs as outcomes) but is not a candidate — a disproved row is
+	// an ANSWER, not a question. Say what was held back, never silently.
+	actionable := make([]validation.Value, 0, len(live))
+	heldBack := 0
+	for _, f := range live {
+		if st := objStr(f, "status"); st == "DISPROVED" ||
+			st == "INFORMATIONAL" {
+			heldBack++
+			continue
+		}
+		actionable = append(actionable, f)
+	}
+	entries := risk.AcceptanceRanking(actionable, rankBy)
 	if bounty.PriorsEnabled(policy) {
 		// G3 wPrior, policy-gated OFF by default: a store failure
 		// resolves to nil priors, which rank bit-identically to the
 		// plain path above — the flag degrades to today's order, never
 		// to an error.
 		priors, global, _ := risk.AcceptancePriors(risk.DefaultMinN)
-		entries = risk.AcceptanceRankingWithPriors(live, rankBy,
+		entries = risk.AcceptanceRankingWithPriors(actionable, rankBy,
 			priors, global)
 	}
 	if len(entries) == 0 {
+		if heldBack > 0 {
+			fmt.Fprintf(r.Out, "no candidate findings to rank (%d "+
+				"disproof/informational row(s): outcomes, not "+
+				"candidates — the scorecard still counts them)\n",
+				heldBack)
+			return nil
+		}
 		fmt.Fprintln(r.Out, "no live findings to rank")
 		return nil
+	}
+	if heldBack > 0 {
+		fmt.Fprintf(r.Out, "held back: %d disproof/informational row(s) "+
+			"— outcomes, not candidates (scorecard still counts them)\n",
+			heldBack)
 	}
 	keyName := "acceptance"
 	if rankBy == "severity" {

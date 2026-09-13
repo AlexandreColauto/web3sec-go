@@ -218,6 +218,16 @@ func printEconomicDecision(c *state.Campaign, f validation.Value,
 	if decision == nil || !findings.EconomicClausePresent(c, f) {
 		return nil
 	}
+	if !findings.UnpriceableAgreesWithLog(c, f) {
+		// r5 (critic issue 3): the FILE claims a decision the CHAIN
+		// contradicts — say the true thing; the clause renders failed
+		// above and the audit names the drift.
+		fmt.Fprintf(w, "  economic clause: UNTRUSTED — the finding file "+
+			"claims an UNPRICEABLE decision the event log contradicts "+
+			"(latest impact event disagrees); `webv2 audit %s` shows the "+
+			"exact drift\n", c.CampaignID)
+		return nil
+	}
 	events, err := c.Events()
 	if err != nil {
 		return err

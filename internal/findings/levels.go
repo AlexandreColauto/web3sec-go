@@ -365,9 +365,27 @@ func EvidenceDeficit(finding validation.Value, status string, campaign *state.Ca
 		return &out
 	}
 	var missing []string
+	// r5 (critic issue 3): the NAMED DECISION is a LOGGED choice, so the
+	// gate honors the projection only while it still AGREES with the
+	// chain. A hand-edited priceable=false (or an edited ceiling) is the
+	// state the audit section would call drift — the gate must not credit
+	// a clause the ledger says was retracted. Verified ONCE per call (the
+	// events read is one pass); a campaign-less library caller keeps the
+	// cheap projection trust, same as before.
+	decisionLive := (*bool)(nil)
 	for _, cl := range clauses {
-		if ClauseMet(finding, cl) {
-			continue
+		if cl.Decision != "unpriceable" || UnpriceableDecision(finding) == nil {
+			if ClauseMet(finding, cl) {
+				continue
+			}
+		} else {
+			if decisionLive == nil {
+				live := unpriceableAgreesWithLog(campaign, finding)
+				decisionLive = &live
+			}
+			if *decisionLive && ClauseMet(finding, cl) {
+				continue
+			}
 		}
 		types := "(any)"
 		if cl.Types != nil {
@@ -475,4 +493,67 @@ func objStr(v validation.Value, key string) string {
 		}
 	}
 	return ""
+}
+
+// IsTerminal reports the absorbing lifecycle states: rows that can no
+// longer be worked (the state machine's TERMINAL set). The ONE predicate
+// every dead-row reader shares — exec binding, verdict, signature,
+// supersede, rank candidacy — five refusals, one law (critic r5: the
+// lists were hand-copied and drifting).
+func IsTerminal(status string) bool {
+	_, ok := TERMINAL[status]
+	return ok
+}
+
+// UnpriceableAgreesWithLog is the exported form of the gate's projection
+// trust check (the renderer must not advertise a decision the clause
+// builder no longer credits — r5 issue 3).
+func UnpriceableAgreesWithLog(campaign *state.Campaign,
+	finding validation.Value) bool {
+	return unpriceableAgreesWithLog(campaign, finding)
+}
+
+// unpriceableAgreesWithLog is the gate's own copy of the audit section 14
+// reconciliation (one rule, two readers — the audit text stays the
+// authority on WHAT is wrong; this answers only trusted/untrusted): the
+// log's latest impact decision for this finding must be a
+// finding.unpriceable whose ceiling equals the projection's. Missing
+// campaign (library caller) trusts the projection; an unreadable log does
+// not (fail closed).
+func unpriceableAgreesWithLog(campaign *state.Campaign,
+	finding validation.Value) bool {
+	if campaign == nil {
+		return true
+	}
+	events, err := campaign.Events()
+	if err != nil {
+		return false
+	}
+	fid := objStr(finding, "finding_id")
+	var last *validation.Value
+	for i, e := range events {
+		switch objStr(e, "type") {
+		case "finding.unpriceable", "finding.impact_recorded":
+			if objStr(e, "ref") == fid {
+				last = &events[i]
+			}
+		}
+	}
+	if last == nil {
+		// The projection says unpriceable but the chain never recorded
+		// it: the audit calls it a hand-edit; the gate calls it not a
+		// decision. Same law.
+		return false
+	}
+	if objStr(*last, "type") != "finding.unpriceable" {
+		return false // retracted by a later priced impact
+	}
+	recorded := objAt(objAt(*last, "data"), "ceiling")
+	proj := objAt(asDict(objAt(finding, "economic_impact")), "ceiling")
+	// Both sides are strings by law (UnpriceableDecision only trusts a
+	// non-blank string ceiling; RecordUnpriceable logs the same value).
+	if recorded.Kind != validation.Str || proj.Kind != validation.Str {
+		return false
+	}
+	return recorded.S == proj.S
 }
