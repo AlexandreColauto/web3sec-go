@@ -1,5 +1,29 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-12 — gold mechanism gate (near-miss inflation closed) — LANDED (283cd3fd, 4ccade32)
+External model feedback (previous-version run, rollup target): a
+same-outcome-different-mechanism liveness finding (timeout-latch freeze vs
+the gold fake-prevStateRoot freeze) would have scored as a HIT under the
+class+location join. Landed: optional `gold.match_mechanisms` on the
+evaluation_case pack — full-vocabulary containment (identifier-folded,
+stop-words exempt), `root:<class>` equality pin, absent = historical join
+bit-identical, malformed entries fail CLOSED per entry. Deny-lists
+deliberately NOT expressible (they age badly and fail open). Near-miss now
+scores miss + unanchored-true-positive, adjudicable honestly.
+
+**Deliberately NOT landed:** the feedback's "mandatory multi-vector
+enumeration before the first liveness PoC" — current main already carries
+three overlapping untested mechanisms for it (Agent H lifecycle-game
+question, ANCHOR lifecycle re-scan, disproof-sibling rule); adding a fourth
+gate before measuring those three is tuning on vibes, and unbounded
+enumeration buys filler rows. Condition: if the re-run of this same target
+on current main still anchors-then-stops (F-5ba35-confirmed, G-01-shaped
+vector never dispositioned), the EARNED change is narrow — ANCHOR closure
+requires per-stage unchecked-assertion rows (L-03 `consumer/asserter`), not
+a new machine. Re-run under way at review time; check its event log before
+building anything here.
+
+
 Date: 2026-09-10 · Status: waves A–D + C0 + E5 LANDED; E1/E2 LANDED via G14,
 E3/E4 deferred by principle 6; D8 LANDED 2026-09-10; the port-scaffolding cleanup is wave F
 (`docs/LEANNESS_REVIEW.md`). **Wave G tranche 1 LANDED 2026-09-10 (G1, G6, G7;
