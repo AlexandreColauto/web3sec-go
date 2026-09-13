@@ -1431,7 +1431,7 @@ webv2 prove <C> [--stage S]                                        completion pr
 webv2 waive <C> <stage> [--subject S] --reason R --actor A         waive one completion-proof subject (default '*': the whole stage)
 
 webv2 scope <C> --policy policy.json | webv2 scope --example        load the bounty policy (program identity + gate scope) / print a valid template
-webv2 snap <C> <target> [--deployment F] [--chain F] [--exclude GLOB] [--dry-run]   pin a source snapshot (+ deployment/chain pins; foundry.toml read automatically); --dry-run previews ladder, prune set and untracked files, recording nothing
+webv2 snap <C> <target> [--deployment F] [--chain F] [--exclude NAME] [--dry-run]   pin a source snapshot (+ deployment/chain pins; foundry.toml read automatically); --dry-run previews ladder, prune set and untracked files, recording nothing; --exclude matches EXACT base names (no globs) and a pattern that matched nothing is named on stdout
 webv2 index <C> --src SRC                                          rebuild the structural index for the active pin
 webv2 model <C> [file] [--json] [--facts P] [--facts-observed-at D]    load a protocol model (seeds invariants) / show the loaded one; --facts merges operator-supplied DNS/dependency facts (offline only, no lookup)
 webv2 plan <C> [file] [--rebuild] [--json]                         read-only plan view; --rebuild archives + regenerates (both polarities of every lifecycle transition belong in it — §4c/§5)

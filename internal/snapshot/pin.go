@@ -175,6 +175,31 @@ func excludedNamesIn(target string, names map[string]struct{}) []string {
 	return sortedKeys(paths)
 }
 
+// MatchedExcludes reports, for each requested exclude NAME, whether the
+// target tree carries an entry with that base name at any depth (exact base
+// names — the ported ignore-pattern law is not glob). Exposed for the CLI's
+// "matched nothing" note (critic r2).
+func MatchedExcludes(target string, names []string) map[string]bool {
+	set := map[string]struct{}{}
+	for _, n := range names {
+		set[n] = struct{}{}
+	}
+	found := map[string]bool{}
+	for _, n := range names {
+		found[n] = false
+	}
+	_ = filepath.WalkDir(resolveSnap(target), func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // unreadable subtree: conservative (not matched)
+		}
+		if _, bad := set[d.Name()]; bad {
+			found[d.Name()] = true
+		}
+		return nil
+	})
+	return found
+}
+
 // sortedKeys returns the sorted string keys of a set.
 func sortedKeys(m map[string]struct{}) []string {
 	out := make([]string, 0, len(m))
@@ -192,6 +217,13 @@ func sortedKeys(m map[string]struct{}) []string {
 // NAME is in excludes (pruning matched dirs whole), copy symlinks as
 // symlinks, create directories with their mode bits.
 func copyTree(src, dst string, excludes map[string]struct{}) error {
+	// Python's copytree creates the destination root even when the source
+	// is empty; the walk below returns at p==src without touching dst, so
+	// the root must be made here or an empty-after-prune tree leaves no
+	// staging at all and hashing fails with a raw lstat error (critic r2).
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return err
+	}
 	return filepath.WalkDir(src, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err

@@ -1,7 +1,7 @@
 package cli
 
 // cmd_snap: `webv2 snap <campaign> <target> [--deployment F] [--chain F]
-// [--exclude GLOB...]` — pin a source snapshot (cli.py cmd_snap
+// [--exclude NAME...]` — pin a source snapshot (cli.py cmd_snap
 // verbatim, P0 flags only).
 
 import (
@@ -84,7 +84,32 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
+	// R2 (critic): --exclude matches EXACT base names (the ported
+	// ignore-pattern law), so a glob-looking or typo'd pattern can silently
+	// pin nothing-pruned. Echo what matched; name what matched nothing.
+	if len(extra) > 0 {
+		matched := snapshot.MatchedExcludes(pos[1], extra)
+		var silent []string
+		for _, x := range extra {
+			if !matched[x] {
+				silent = append(silent, x)
+			}
+		}
+		if len(silent) > 0 {
+			fmt.Fprintf(stdout, "note: --exclude matched nothing: %s "+
+				"(patterns are exact file/dir BASE names, not globs)\n",
+				strings.Join(silent, ", "))
+		}
+	}
 	src := objAt(snap, "source")
+	// R2-2 (critic): a pin that captures zero files proves nothing about
+	// any target — empty tree or over-broad excludes. Python stored the
+	// empty snapshot; this CLI refuses it (divergence is a refusal, never
+	// a silent success).
+	if objInt(src, "file_count") == 0 {
+		return usageErrf("target pins 0 files — empty tree or every entry " +
+			"matched --exclude (excludes are exact base names, not globs)")
+	}
 	fmt.Fprintf(stdout, "pinned %s (%s, %d files)\n",
 		objStr(snap, "snapshot_id"), objStr(src, "ladder"), objInt(src, "file_count"))
 	if cfg := objAt(snap, "config"); cfg.Kind == validation.Obj && len(cfg.O) > 0 {
@@ -262,7 +287,7 @@ func attachChain(c *state.Campaign, snap validation.Value, path string) (validat
 
 func init() {
 	register(command{ord: 48, name: "snap",
-		line: `snap <campaign> <target> [--deployment F] [--chain F] [--exclude GLOB] [--dry-run]
+		line: `snap <campaign> <target> [--deployment F] [--chain F] [--exclude NAME] [--dry-run]
                         pin a source snapshot`,
 		run: func(root string, args []string, r *Runner) int {
 			return r.withErr(root, func() error { return runSnap(root, args, r.Out) })
