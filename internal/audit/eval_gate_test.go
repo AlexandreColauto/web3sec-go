@@ -1,6 +1,7 @@
 // Task 4 gate proof: the presence-gated eval section is omitted from
-// the audit report when the campaign matches no suite case (golden
-// campaigns keep exactly 14 sections) and present when it does.
+// the audit report when the campaign matches no suite case (an unpriced,
+// unmatched campaign keeps exactly the 14 unconditional sections) and
+// present when it does. price_table follows the same law for pricing.
 package audit
 
 import (
