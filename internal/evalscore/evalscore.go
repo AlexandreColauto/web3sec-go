@@ -111,7 +111,8 @@ func base(p string) string {
 // anchor reports whether a live finding matches a non-control gold case:
 // same bug class — the gold row's bug_class OR any class in its
 // bug_class_accept list — and (no gold locations, or the finding's
-// affected[0] path suffix-matches some gold locations[i].file basename).
+// affected[0] path suffix-matches some gold locations[i].file basename),
+// and the gold's optional mechanism gate (goldAcceptsMechanism) passes.
 //
 // The accept list is the EVAL SPEC's own alternative classes for the same
 // mechanism (an auditor who filed the bug as a logic error is not wrong
@@ -119,6 +120,10 @@ func base(p string) string {
 // path suffix rule below is unchanged and no other axis of the join moves.
 func anchor(f, gold validation.Value) bool {
 	if !goldAcceptsClass(gold, field(obj(f, "root_cause"), "class")) {
+		return false
+	}
+	if !goldAcceptsMechanism(gold, field(obj(f, "root_cause"), "mechanism"),
+		field(obj(f, "root_cause"), "class")) {
 		return false
 	}
 	locs := obj(gold, "locations")
@@ -157,6 +162,106 @@ func goldAcceptsClass(gold validation.Value, class string) bool {
 		}
 	}
 	return false
+}
+
+// goldAcceptsMechanism is the mechanism leg of the anchor, owned entirely by
+// the gold row: when the row carries no match_mechanisms the leg is the
+// historical always-pass (embedded dev cases and every pre-mechanism held-out
+// pack are byte-identical in behavior). When the list exists it must be a
+// non-empty array of non-empty strings — a malformed list FAILS CLOSED, a
+// gold row that cannot state its mechanisms gets no anchor, not a free one —
+// and the finding's root_cause.mechanism sentence (or its root_cause.class,
+// for the 'root:<class>' control entry) must match at least one phrase.
+//
+// Phrase matching is mechanical, not semantic — semantic adjudication stays
+// where it belongs, in the non-gold adjudication layer: a multi-word phrase
+// matches when EVERY one of its words (identifier-folded: underscores and
+// hyphens dropped, lowercased, stop-words exempt) appears somewhere in the
+// finding's mechanism sentence — an unordered containment test, robust to
+// phrasing differences while still refusing a sentence that omits the
+// mechanism's defining vocabulary; a single-word or 'root:<class>' entry
+// matches by exact token equality (the class leg already enforces class
+// equality for root entries, so root entries chiefly gate findings to
+// class-level mechanism naming).
+func goldAcceptsMechanism(gold validation.Value, mech, class string) bool {
+	v := obj(gold, "match_mechanisms")
+	if v.Kind == validation.Null {
+		return true // absent: the historical always-pass
+	}
+	if v.Kind != validation.Arr || len(v.A) == 0 {
+		return false // malformed (wrong type or empty array): fail closed
+	}
+	mw := words(mech)
+	for _, p := range v.A {
+		if p.Kind != validation.Str {
+			return false
+		}
+		s := strings.TrimSpace(p.S)
+		if s == "" {
+			return false
+		}
+		if strings.HasPrefix(s, "root:") {
+			if class != "" && class == strings.TrimSpace(strings.TrimPrefix(s, "root:")) {
+				return true
+			}
+			continue
+		}
+		if phraseMatches(s, mw) {
+			return true
+		}
+	}
+	return false
+}
+
+// words lowercases a string into word runs. Underscores, hyphens and primes
+// INSIDE a word are stripped (prevStateRoot -> prevstateroot) so code
+// identifiers fold across the two spellings a sentence and a phrase may
+// each use; everything non-alphanumeric separates.
+func words(s string) []string {
+	var out []string
+	for _, f := range strings.FieldsFunc(s, func(r rune) bool {
+		return !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') ||
+			r == '_' || r == '-' || r == '\'')
+	}) {
+		out = append(out, strings.ToLower(strings.NewReplacer("_", "", "-", "", "'", "").Replace(f)))
+	}
+	return out
+}
+
+// phraseMatches reports whether phrase's full non-stopword vocabulary is
+// contained (case-folded, identifier-folded) in the finding's mechanism
+// sentence words. A phrase of only stop-words matches nothing.
+func phraseMatches(phrase string, mw []string) bool {
+	pw := words(phrase)
+	if len(pw) == 0 {
+		return false
+	}
+	set := map[string]bool{}
+	for _, w := range mw {
+		set[w] = true
+	}
+	nContent := 0
+	for _, w := range pw {
+		if stopWords[w] {
+			continue
+		}
+		nContent++
+		if !set[w] {
+			return false
+		}
+	}
+	return nContent > 0
+}
+
+// stopWords are the grammar particles a mechanism phrase may carry but a
+// finding sentence may phrase differently; they are exempt from containment.
+var stopWords = map[string]bool{
+	"a": true, "an": true, "and": true, "at": true, "but": true, "by": true,
+	"can": true, "cannot": true, "for": true, "from": true, "if": true, "in": true,
+	"into": true, "its": true, "no": true, "not": true, "of": true, "on": true,
+	"or": true, "per": true, "same": true, "set": true, "than": true, "that": true,
+	"the": true, "their": true, "them": true, "then": true, "to": true, "via": true,
+	"was": true, "were": true, "when": true, "with": true, "without": true,
 }
 
 // jsonKindName names a validation.Value's JSON type the way a reader of the

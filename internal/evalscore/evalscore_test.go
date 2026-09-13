@@ -165,6 +165,111 @@ func TestScoreEndToEnd(t *testing.T) {
 }
 
 // goldCaseAccept is goldCase plus the eval spec's bug_class_accept list.
+// goldMechCase builds a goldCase with a match_mechanisms list injected into
+// its gold object (the builders above predate the mechanism leg).
+func goldMechCase(id, program, class, phrase string) validation.Value {
+	c := goldCase(id, program, "confirmed-exploitable", class, "gold/Rollup.sol")
+	g := obj(c, "gold")
+	mech := validation.VObj(g.O...)
+	// replace gold with gold + match_mechanisms
+	mech.O = append(mech.O, kvE("match_mechanisms",
+		validation.VArr(validation.VStr(phrase))))
+	out := validation.VObj(c.O...)
+	for i, kv := range out.O {
+		if kv.K == "gold" {
+			out.O[i] = kvE("gold", mech)
+		}
+	}
+	return out
+}
+
+// findingMech builds a live finding with root_cause.mechanism populated.
+// (Rebuilds the root_cause object rather than appending through obj()'s
+// struct-copy view — appending there mutates a local copy only.)
+func findingMech(class, path, mech string) validation.Value {
+	return validation.VObj(
+		kvE("root_cause", validation.VObj(
+			kvE("class", validation.VStr(class)),
+			kvE("mechanism", validation.VStr(mech)),
+		)),
+		kvE("affected", validation.VArr(
+			validation.VObj(kvE("path", validation.VStr(path))),
+		)),
+	)
+}
+
+func TestAnchorMechanismGate(t *testing.T) {
+	gold := goldMechCase("CASE-M", "p1", "denial-of-service",
+		"fake prevStateRoot commit")
+	g := obj(gold, "gold")
+
+	// The gold mechanism, worded differently but containing the full phrase
+	// vocabulary (fake, prevstateroot, commit): anchors. AUTHORING NOTE (the
+	// real constraint this rule has): containment is exact-word after
+	// identifier folding — inflections (commit/committed, finalize/finality)
+	// do NOT match — so phrases must name the mechanism by its load-bearing
+	// identifiers and nouns.
+	if !anchor(findingMech("denial-of-service", "src/Rollup.sol",
+		"a FAKE prevStateRoot commit never reaches finality"), g) {
+		t.Fatal("same mechanism, different wording, must anchor")
+	}
+	// The G-01 vs F-5ba35 near-miss: same class, same file, DIFFERENT
+	// mechanism (timeout latch, not fake root): must NOT anchor.
+	if anchor(findingMech("denial-of-service", "src/Rollup.sol",
+		"challenge window times out and latches nonReqRevert blocking commit"), g) {
+		t.Fatal("a same-outcome-different-mechanism near-miss must NOT anchor")
+	}
+	// No mechanism sentence at all: gated out (the list exists).
+	if anchor(finding("denial-of-service", "src/Rollup.sol"), g) {
+		t.Fatal("missing root_cause.mechanism must not pass a mechanism gate")
+	}
+	// Single shared word is not enough ("commit" alone).
+	if anchor(findingMech("denial-of-service", "src/Rollup.sol",
+		"commit fee recursion drains treasury"), g) {
+		t.Fatal("partial vocabulary must not anchor a multi-word phrase")
+	}
+	// Absent list: every finding above anchors exactly as before (the
+	// pre-mechanism join).
+	plain := obj(goldCase("CASE-P", "p1", "confirmed-exploitable",
+		"denial-of-service", "gold/Rollup.sol"), "gold")
+	if !anchor(findingMech("denial-of-service", "src/Rollup.sol",
+		"challenge window times out and latches nonReqRevert blocking commit"), plain) {
+		t.Fatal("a gold row without match_mechanisms must anchor as before")
+	}
+	// root:<class> control entry: passes iff the class leg passed — it
+	// restates class equality as the mechanism, never weakens the join.
+	rootGold := goldMechCase("CASE-R", "p1", "reentrancy", "root:reentrancy")
+	if !anchor(findingMech("reentrancy", "src/Rollup.sol", "whatever sentence"),
+		obj(rootGold, "gold")) {
+		t.Fatal("root:<class> must anchor the matching class")
+	}
+	// Malformed lists fail CLOSED: wrong key type and empty array anchor
+	// nothing, they never fall back to the historical pass.
+	empty := goldMechCase("CASE-B", "p1", "reentrancy", "x")
+	{
+		c := goldCase("CASE-B", "p1", "confirmed-exploitable", "reentrancy", "gold/Rollup.sol")
+		g := validation.VObj(obj(c, "gold").O...)
+		g.O = append(g.O, kvE("match_mechanisms", validation.VArr()))
+		empty = validation.VObj(kvE("case_id", validation.VStr("CASE-B")),
+			kvE("program", validation.VObj(kvE("program", validation.VStr("p1")))),
+			kvE("gold", g), kvE("partition", validation.VStr("dev")))
+	}
+	if anchor(findingMech("reentrancy", "src/Rollup.sol", "x"), obj(empty, "gold")) {
+		t.Fatal("an empty match_mechanisms array must fail closed")
+	}
+
+	// The gate moves HIT counts, not only the predicate: the near-miss
+	// becomes an unanchored FP and the gold stays a MISS — exactly the
+	// scoring honesty the distractor clause exists for.
+	r := ScoreSuite([]string{"p1"}, map[string][]validation.Value{
+		"p1": {findingMech("denial-of-service", "src/Rollup.sol",
+			"challenge window times out and latches nonReqRevert blocking commit")},
+	}, []validation.Value{gold})
+	if r.Hits != 0 || r.Misses != 1 || r.FP != 1 {
+		t.Fatalf("near-miss must score miss+FP, got %+v", r)
+	}
+}
+
 func goldCaseAccept(id, program, outcome, class string, accept []string,
 	files ...string) validation.Value {
 	c := goldCase(id, program, outcome, class, files...)
