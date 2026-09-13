@@ -33,7 +33,7 @@ and MintInflation's envelope likewise (stem -> CASE-00000000000b); the
 
 - detected 2 (ES02 authorization, ES13 flash-loan), proven_silence 0,
   refused 7 (5x rejected-feature incl. the string-literal abort + packed
-  storage + array type; 2x unsupported-feature), unjoined 1 (name collision),
+  storage + array type; 2x unsupported-feature), [pre-rescore tally — the 7-column rescore ties all 12 lines, 0 unjoined; see the note above and the retraction below],
   untied cases 9 (reentrancy x3, oracle, sig-replay, bridge x2, cross-chain,
   liquidation — classes where no claim was authored this pass).
 - clean control ES17: PROVEN on the total-accounting claim. RETRACTION
