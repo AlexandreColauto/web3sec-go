@@ -1,10 +1,18 @@
 package cli
 
 // cmd_ingest: `webv2 ingest [campaign] --json-file F [--example] [--trajectory T]
-// [--stage S] [--answers-priority Q] [--priority-outcome O] [--json]` — ingest a
-// model-produced hypothesis payload: schema-validated, dedup-fingerprinted,
-// intake-checked, with the taxonomy advisory and intake warnings logged WITH
-// the finding. cli.py cmd_ingest verbatim.
+// [--stage S] [--answers-priority Q] [--priority-outcome O] [--json] [--lint]`
+// — ingest a model-produced hypothesis payload: schema-validated,
+// dedup-fingerprinted, intake-checked, with the taxonomy advisory and intake
+// warnings logged WITH the finding. cli.py cmd_ingest verbatim.
+//
+// `--lint` (wave N, T4) threads a lint flag into the SAME run function and the
+// same orchestrator call: the payload travels the exact real pipeline (schema
+// -> exec_ref ledger checks -> gate math) and the command prints exactly what a
+// real ingest prints — the acceptance line or the refusal, same streams, exit 0
+// / 2 — while the single write guard in findings.ingestHypothesis (plus the
+// orchestrator's stage/plan closure guard) keeps the campaign untouched. There
+// is no second validator: `--lint` cannot drift from `ingest`.
 //
 // `--from slither|aderyn --json-file out.json` (G1/I2a) is the SAST lane: the
 // tool's JSON output is adapted to hypothesis payloads
@@ -41,6 +49,7 @@ const t14IngestUsage = `usage: webv2 ingest [-h] [--json-file JSON_FILE] [--exam
                     [--priority-outcome {answered,not-applicable,deprioritized}]
                     [--json]
                     [--from {slither,aderyn}]
+                    [--lint]
                     [campaign]
 `
 
@@ -50,6 +59,7 @@ const t14IngestHelp = `usage: webv2 ingest [-h] [--json-file JSON_FILE] [--examp
                     [--priority-outcome {answered,not-applicable,deprioritized}]
                     [--json]
                     [--from {slither,aderyn}]
+                    [--lint]
                     [campaign]
 
 positional arguments:
@@ -77,6 +87,11 @@ options:
   --from {slither,aderyn}
                         tool-output ingest (G1/I2a); requires
                         --json-file
+  --lint                validate the payload through the whole ingest
+                        pipeline (schema, ledger, gate math) and print what
+                        a real ingest would print — accept or refuse — but
+                        write nothing: no state change, no events, no
+                        finding files (exit 0 accepted / 2 refused)
 `
 
 // trajectoryLetterAliases is the M4 map: the runbook and prompt 39
@@ -161,6 +176,7 @@ type ingestArgs struct {
 	answersPriority string
 	priorityOutcome string
 	asJSON          bool
+	lint            bool
 }
 
 func runIngest(root string, args []string, r *Runner) error {
@@ -205,7 +221,8 @@ func runIngest(root string, args []string, r *Runner) error {
 	}
 	f, err := orchestrator.New(c).Ingest(payload, orchestrator.IngestOpts{
 		Trajectory: a.trajectory, Stage: a.stage,
-		AnswersPriority: a.answersPriority, PriorityOutcome: outcome})
+		AnswersPriority: a.answersPriority, PriorityOutcome: outcome,
+		Lint: a.lint})
 	if err != nil {
 		printIngestFailure(r, err)
 		return t14ExitErr(2, "")
@@ -256,13 +273,17 @@ func runIngestSast(root string, c *state.Campaign, a *ingestArgs, r *Runner) err
 	var created []string
 	for _, p := range payloads {
 		f, err := orch.Ingest(p, orchestrator.IngestOpts{
-			Trajectory: a.trajectory, Stage: stage})
+			Trajectory: a.trajectory, Stage: stage, Lint: a.lint})
 		if err != nil {
 			printIngestFailure(r, err)
 			return t14ExitErr(2, "")
 		}
 		created = append(created, objStr(f, "finding_id"))
 	}
+	// The SAST lane prints the same summary under --lint as a real run (T4:
+	// lint prints exactly what ingest would print); the lane's own per-payload
+	// refusals above are byte-identical too, because they come from the same
+	// pipeline call.
 	fmt.Fprintf(r.Out, "%s ingest: %d hypotheses created\n", a.from, len(created))
 	for _, id := range created {
 		fmt.Fprintf(r.Out, "  %s\n", id)
@@ -331,6 +352,10 @@ func parseIngest(args []string, r *Runner) (*ingestArgs, error) {
 		}
 		if arg == "--json" {
 			a.asJSON = true
+			continue
+		}
+		if arg == "--lint" {
+			a.lint = true
 			continue
 		}
 		name, val, hasVal := splitFlag(arg)
@@ -866,7 +891,7 @@ func t14SkipWS(s []rune, i int) int {
 
 func init() {
 	register(command{ord: 32, name: "ingest",
-		line: `ingest <campaign> --json-file F    ingest a hypothesis payload`,
+		line: `ingest <campaign> --json-file F [--lint]    ingest a hypothesis payload`,
 		run: func(root string, args []string, r *Runner) int {
 			return t14Dispatch(root, r, func() error {
 				return runIngest(root, args, r)

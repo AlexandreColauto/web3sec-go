@@ -36,6 +36,10 @@ type IngestOpts struct {
 	Model           string
 	AnswersPriority string
 	PriorityOutcome string
+	// Lint is `ingest --lint` (wave N, T4): run the whole ingest pipeline for
+	// its verdict and write nothing — no finding file, no event, no stage
+	// transition, no plan closure.
+	Lint bool
 }
 
 // Ingest is ingest(): ingest one model-produced hypothesis.
@@ -52,10 +56,24 @@ func (o *Orchestrator) Ingest(payload validation.Value,
 	if outcome == "" {
 		outcome = "answered"
 	}
-	f, err := findings.IngestHypothesis(o.C, payload, trajectory, opts.Stage,
-		opts.Model)
+	var f validation.Value
+	var err error
+	if opts.Lint {
+		f, err = findings.LintHypothesis(o.C, payload, trajectory, opts.Stage,
+			opts.Model)
+	} else {
+		f, err = findings.IngestHypothesis(o.C, payload, trajectory, opts.Stage,
+			opts.Model)
+	}
 	if err != nil {
 		return validation.VNull(), err
+	}
+	// `--lint` stops at the finding: the stage transition and the plan closure
+	// below are both WRITES (campaign state + events + the plan file), and a
+	// dry run records none of them. Everything the operator sees is produced
+	// from the finding that was validated above.
+	if opts.Lint {
+		return f, nil
 	}
 	fid := strAt(f, "finding_id")
 	note := "ingested " + fid

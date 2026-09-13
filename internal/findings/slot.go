@@ -19,6 +19,18 @@ import (
 // ceiling meters findings that have risen instead. The finding carries the
 // flag so the idempotency survives snapshots and re-loads.
 func ConsumeSlotOnce(campaign *state.Campaign, finding *validation.Value) error {
+	return chargeSlot(campaign, finding, false)
+}
+
+// chargeSlot is the ONE discovery-slot gate. The ceiling READ and its refusal
+// are gate math: `ingest --lint` (wave N, T4) must reach the same verdict as
+// the real verb, so it runs everything above `if lint` and stops there. The
+// only difference between a lint and a real charge is the counter write on
+// disk — the in-memory flag is stamped either way, so the finding a lint run
+// reports is byte-identical to the one a real run would report (bar the id
+// and the clock).
+func chargeSlot(campaign *state.Campaign, finding *validation.Value,
+	lint bool) error {
 	if objBool(*finding, "discovery_slot_consumed") {
 		return nil
 	}
@@ -32,8 +44,10 @@ func ConsumeSlotOnce(campaign *state.Campaign, finding *validation.Value) error 
 			"discovery budget exhausted — raise the ceiling (webv2 budget "+
 				campaign.CampaignID+" --set-discovery N --actor NAME) or plan a new pass")
 	}
-	if err := campaign.ConsumeDiscoverySlot(); err != nil {
-		return err
+	if !lint {
+		if err := campaign.ConsumeDiscoverySlot(); err != nil {
+			return err
+		}
 	}
 	finding.O = validation.SetOrAppend(finding.O,
 		"discovery_slot_consumed", validation.VBool(true))

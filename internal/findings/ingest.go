@@ -246,6 +246,23 @@ func enforceRiseGuardrail(campaign *state.Campaign, finding validation.Value,
 // pass. stage/model are "" for None (both are falsy in every Python use).
 func IngestHypothesis(campaign *state.Campaign, payload validation.Value,
 	trajectory, stage, model string) (validation.Value, error) {
+	return ingestHypothesis(campaign, payload, trajectory, stage, model, false)
+}
+
+// LintHypothesis is `ingest --lint` (wave N, T4): ingest_hypothesis with the
+// writes suppressed. It is the SAME call path — the same payload build, the
+// same full-payload schema validation, the same exec_ref ledger checks, the
+// same gate math (rise guardrail + discovery slot, budget refusal included) —
+// so a lint run can never disagree with the real verb about what a payload
+// means. The returned finding is the one a real ingest WOULD have written; the
+// one write guard below keeps the campaign untouched.
+func LintHypothesis(campaign *state.Campaign, payload validation.Value,
+	trajectory, stage, model string) (validation.Value, error) {
+	return ingestHypothesis(campaign, payload, trajectory, stage, model, true)
+}
+
+func ingestHypothesis(campaign *state.Campaign, payload validation.Value,
+	trajectory, stage, model string, lint bool) (validation.Value, error) {
 	fid := NewFindingID()
 	ts := nowIso()
 	p := validation.Value{Kind: validation.Obj,
@@ -354,10 +371,20 @@ func IngestHypothesis(campaign *state.Campaign, payload validation.Value,
 			return validation.VNull(), err
 		}
 		if e0, _ := LevelIndex("E0"); topIdx > e0 {
-			if err := ConsumeSlotOnce(campaign, &p); err != nil {
+			if err := chargeSlot(campaign, &p, lint); err != nil {
 				return validation.VNull(), err
 			}
 		}
+	}
+	// ---- the write guard (wave N, T4) ------------------------------------
+	// Everything below TOUCHES the campaign: the finding file, the event log,
+	// the ack/mitigation scan ledgers. `--lint` answers "would this payload be
+	// accepted?" and must not answer "and now it is recorded", so the ONE
+	// guard sits here — after the whole pipeline (schema, ledger, gate math)
+	// has run, before the first write. The finding above is the one a real
+	// ingest would write, which is what the caller prints.
+	if lint {
+		return p, nil
 	}
 	// The finding is written AFTER any slot charge: the slot is a budget, and
 	// a crash between the two writes must cost the operator a slot
