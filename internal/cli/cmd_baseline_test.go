@@ -1,6 +1,11 @@
 package cli
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+
+	"websec/internal/forkdiff"
+)
 
 // TestBaselineRemoveGhostIsQuietlyIdempotent pins r7's ruling: the twin
 // argparse golden captured the twin law — remove is rm-rf-idempotent with
@@ -8,6 +13,9 @@ import "testing"
 // surface. This test exists so nobody re-adds a note and breaks the
 // golden twice.
 func TestBaselineRemoveGhostIsQuietlyIdempotent(t *testing.T) {
+	// The baselines-dir seam (same as TestP3ArgparseGolden): the CLI
+	// exercises must never litter or mutate a real baselines/ manifest.
+	forkdiff.SetBaselinesDir(filepath.Join(t.TempDir(), "baselines"))
 	root := t.TempDir()
 	code, out, errS := run(t, "--root", root, "baseline", "remove",
 		"never-registered")
