@@ -276,3 +276,29 @@ func TestIngestJSONCarriesConfirmedFloor(t *testing.T) {
 			d.ConfirmedFloor)
 	}
 }
+
+// TestAdvisoryFollowsFloorOverride pins critic I-2: after `floors set`
+// relaxes the class to the loosest floor, the ingest output carries NO
+// stricter-than-necessary advisory — the warning reads the campaign-aware
+// floor, the same lookup the line and the gate use.
+func TestAdvisoryFollowsFloorOverride(t *testing.T) {
+	c, root, cid := t2Campaign(t)
+	execID := t2RegisterExec(t, c, "")
+	code, _, errS := run(t, "--root", root, "floors", cid, "set",
+		"bridge-message", "E4", "--actor", "operator",
+		"--reason", "this target has no fork, E4 is the bar")
+	if code != 0 {
+		t.Fatalf("floors set: %q %q", errS, "")
+	}
+	_, out2, errS2 := run(t, "--root", root, "ingest", cid, "--json-file",
+		t2Write(t, root, "ovr.json", t6PayloadJSON("bridge-message", execID)))
+	if errS2 != "" {
+		t.Fatalf("ingest after override: %q", errS2)
+	}
+	if !strings.Contains(out2, "CONFIRMED floor E4") {
+		t.Fatalf("line must show the overridden floor: %q", out2)
+	}
+	if strings.Contains(out2, "ADVISORY") {
+		t.Fatalf("no stricter-floor advisory may survive an override: %q", out2)
+	}
+}

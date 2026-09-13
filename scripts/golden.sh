@@ -15,5 +15,12 @@ export GOCACHE="$PWD/.scratch/gocache"
 export GOPATH="$PWD/.scratch/gopath"
 export GOMODCACHE="$PWD/.scratch/gomodcache"
 export GOFLAGS=-mod=mod
+# Formatting gate (critic I-9): a repo whose law is gofmt-clean must not carry
+# drift into a golden run. Cheap, deterministic, fails before the long replay.
+unformatted=$(gofmt -l internal cmd 2>/dev/null)
+if [ -n "$unformatted" ]; then
+  echo "golden: gofmt drift:"; echo "$unformatted"; exit 1
+fi
+
 python3 scripts/golden-run.py || { echo "golden: run failed"; exit 1; }
 python3 scripts/check-golden.py

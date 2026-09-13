@@ -143,6 +143,25 @@ func (r *Runner) run(argv []string) int {
 	}
 	cmd, args := rest[0], rest[1:]
 	if cmd == "help" || cmd == "--help" || cmd == "-h" {
+		// `webv2 help <cmd>` prints THAT command's usage (delegating to the
+		// command's own -h path, so one implementation can never disagree
+		// with the other); a bare help prints the root catalog; an unknown
+		// command is named, not ignored (critic I-11).
+		if cmd == "help" && len(args) > 0 {
+			target, ok := commandByName(args[0])
+			if !ok {
+				fmt.Fprintf(r.Err, "error: unknown command %q\n%s",
+					args[0], usageText())
+				return 2
+			}
+			if len(args) > 1 {
+				fmt.Fprintf(r.Err,
+					"usage: webv2 help <%s> (no further arguments)\n",
+					target.name)
+				return 2
+			}
+			return target.run(root, []string{"-h"}, r)
+		}
 		fmt.Fprint(r.Out, usageText())
 		return 0
 	}

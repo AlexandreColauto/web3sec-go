@@ -137,13 +137,23 @@ func execFindingMatch(rec validation.Value, findingID string) bool {
 
 // IngestExecRefEvidence is the ingest exec_ref happy path: the payload item
 // cites an EXEC the campaign ledger already holds, so ingest attaches the item
-// MINT would have minted for that exec. The ledger trio is enforced here:
+// MINT would have minted for that exec. The ledger trio is enforced here, in
+// THIS order:
 //
 //	unknown exec_ref      -> refuse, naming the ref and the citation;
-//	not SUCCEEDED         -> refuse with mint's own exec-record gate message
-//	                         (profile / exit status / empty output);
 //	bound elsewhere       -> refuse: the exec-finding binding stays, the
-//	                         operator re-runs the exec under the survivor.
+//	                         operator re-runs the exec under the survivor;
+//	not SUCCEEDED         -> refuse with mint's own exec-record gate message
+//	                         (profile / exit status / empty output).
+//
+// The binding check deliberately runs BEFORE the exec-record gate. An exec
+// bound to another finding is refused even when its record would also fail the
+// record gate, because the binding is the more actionable fact: re-running the
+// identical PoC under this finding is pointless while the ledger row still
+// names the other one, so the record's own defects would send the operator to
+// fix the wrong thing. A binding refusal therefore MASKS a failure the record
+// gate would have reported — the record is still there to be read once the
+// binding is corrected.
 //
 // finding is the payload being ingested (it supplies the snapshot pin); the
 // returned item is the minted shape, so exec_ref itself never lands on the
@@ -169,6 +179,26 @@ func IngestExecRefEvidence(c *state.Campaign, findingID string, finding,
 			"exec_ref %s: %s", eid, ref, err)
 	}
 	level, etype := MintEvidenceLevelType(RecordedReproTier(finding), nil)
+	// I-4 (critic round 1): the derivation is authoritative — mint's own
+	// answer for this exec and finding — but a payload that DECLARED a
+	// different type/level must not be quietly rewritten (the recorded
+	// provenance feeds EVIDENCE_TYPE_GROUPS gate reads). Refuse, naming the
+	// derived pair, so the author re-files with the truth or mints with
+	// --type. Absent declarations are the happy path.
+	if dt := objStr(item, "type"); dt != "" && dt != etype {
+		return validation.VNull(), fmt.Errorf("ingest refused: evidence %s "+
+			"declares type %s, but exec_ref %s derives %s for this finding "+
+			"(the derivation governs — cite it honestly or use `webv2 mint "+
+			"--type`)", objStr(item, "evidence_id"), validation.PyReprStr(dt),
+			ref, validation.PyReprStr(etype))
+	}
+	if dl := objStr(item, "level"); dl != "" && dl != level {
+		return validation.VNull(), fmt.Errorf("ingest refused: evidence %s "+
+			"declares level %s, but exec_ref %s derives %s for this finding "+
+			"(the derivation governs — cite it honestly)",
+			objStr(item, "evidence_id"), validation.PyReprStr(dl), ref,
+			validation.PyReprStr(level))
+	}
 	return MintedExecEvidenceItem(ref, level, etype,
 		objStr(item, "description"), rec, finding), nil
 }

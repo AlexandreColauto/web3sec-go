@@ -1158,6 +1158,14 @@ adjudicated additional-true-positive or assumption-gated from the penalty
 denominator. A campaign whose program matches no suite case says so rather
 than printing a zero.
 
+**`ingest --lint` is the rehearsal:** the payload runs the EXACT ingest
+pipeline — schema, then ledger checks (including `exec_ref` resolution), then
+the gate math — and prints byte-identical acceptance/refusal output, but
+writes nothing: no state, no events, no finding file, and no discovery-budget
+charge. Exit 0 accepted, nonzero refused, like the real thing. Use it before a
+multi-item payload when the EXECs are already in the ledger (`exec_ref`) or
+after any schema doubt.
+
 **`--gold FILE` grades a held-out target whose answer key cannot ship in the
 binary.** The embedded suite is the dev pack, and a real held-out target
 matches none of it, so its eval section would be skipped and every precision
@@ -1180,13 +1188,16 @@ never be handed it** — exactly the leakage rule the held-out split enforces. A
 carry `gold.match_mechanisms`: when present, class+location are NOT enough —
 the finding's `root_cause.mechanism` sentence must contain the phrase's full
 vocabulary (identifier-folded, stop-words exempt; `root:<class>` pins
-class-level equality). This is how a grader refuses the *near-miss inflation*
+class-level equality; a phrase needs AT LEAST TWO non-stopword content
+words or it anchors nothing — a one-word phrase is a coin flip, and words
+like `no`, `not`, `cannot`, `without`, `set` are deliberately NOT
+stop-words because negation and domain nouns are load-bearing). This is how a grader refuses the *near-miss inflation*
 mode: a same-outcome-different-mechanism finding (a chain freeze reached by a
 timeout latch, when the gold freeze comes from a fake prev-state root) scores
 as miss + unanchored-true-positive, never as a hit. Absent means the
 historical join, so every pre-existing pack — including the embedded dev
-suite — is bit-identical in behavior; malformed lists fail CLOSED (anchor
-nothing). Phrasing note: containment is exact-word after folding, so gold
+suite — is bit-identical in behavior; an empty or non-array list fails CLOSED; malformed ENTRIES
+are skipped without poisoning the valid ones (per-entry, order-free). Phrasing note: containment is exact-word after folding, so gold
 phrases should name load-bearing identifiers (prevStateRoot), not inflected
 verbs (commit/committed do not match). A malformed entry anchors nothing by itself (fail-closed per entry; an empty or non-array list anchors no finding at all).
 

@@ -529,3 +529,24 @@ func TestIngestUnrecognizedArgument(t *testing.T) {
 		t.Fatalf("usage prefix = %q", errS)
 	}
 }
+
+// TestIngestPrintsAdvisoryOnce pins critic I-8: the advisory string appears
+// exactly once in the acceptance output even though IntakeCheckpoint carries
+// it again as a warning (the DATA keeps both; the render does not double).
+func TestIngestPrintsAdvisoryOnce(t *testing.T) {
+	c, root, cid := t2Campaign(t)
+	p := t2Write(t, root, "adv.json",
+		`{"title":"Unguarded rescue moves protocol-held tokens",`+
+			`"root_cause":{"class":"bridge-message",`+
+			`"description":"rescue has no role check at all"},`+
+			`"affected":[{"path":"V.sol"}],`+
+			`"attacker":{"profile":"arbitrary EOA","capabilities":[]}}`)
+	code, out, errS := run(t, "--root", root, "ingest", cid, "--json-file", p)
+	if code != 0 {
+		t.Fatalf("ingest: %q", errS)
+	}
+	if n := strings.Count(out, "pins a CONFIRMED floor of E6"); n != 1 {
+		t.Fatalf("floor advisory printed %d times, want 1:\n%s", n, out)
+	}
+	_ = c
+}

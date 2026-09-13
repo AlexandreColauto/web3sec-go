@@ -124,6 +124,13 @@ func TestIngestExecRefNotSucceededRefused(t *testing.T) {
 
 // TestIngestExecRefBoundElsewhereRefused: an exec bound to ANOTHER finding
 // stays bound — the operator re-runs it under the survivor.
+//
+// I-14 pins the PRECEDENCE the doc comment states: the binding check runs
+// BEFORE the exec-record gate, so a bound exec that ALSO failed its run is
+// refused for the binding. That refusal deliberately masks the record's own
+// defect (re-running the same broken PoC under this finding cannot help while
+// the ledger row names the other one), so the message must be the binding
+// message and must NOT be the exec-record one.
 func TestIngestExecRefBoundElsewhereRefused(t *testing.T) {
 	c := ingestCamp(t)
 	other := "F-000000000000"
@@ -132,6 +139,17 @@ func TestIngestExecRefBoundElsewhereRefused(t *testing.T) {
 	_, err := IngestHypothesis(c, t2ExecRefPayload(id, "EV-b"), "code", "", "")
 	wantErr(t, err, "ingest refused: exec_ref "+id+" is bound to finding "+
 		"'"+other+"', not F-")
+
+	// The masking case: bound elsewhere AND a failing record.
+	failed := testExec(t, c, "docker-networkless", other, 1, "boom\n")
+	failedID := objStr(failed, "exec_id")
+	_, err = IngestHypothesis(c, t2ExecRefPayload(failedID, "EV-b2"), "code", "", "")
+	wantErr(t, err, "ingest refused: exec_ref "+failedID+" is bound to finding "+
+		"'"+other+"'")
+	if strings.Contains(err.Error(), "exited with status") {
+		t.Errorf("a bound-elsewhere refusal must not leak the exec-record gate "+
+			"message it masks: %v", err)
+	}
 }
 
 // TestIngestExecRefLandsMintedEvidence: the happy path. The item lands as the
@@ -190,6 +208,21 @@ func TestIngestExecRefFollowsRecordedTier(t *testing.T) {
 	p.O = validation.SetOrAppend(p.O, "verification", validation.VObj(
 		kv("reproduction", validation.VObj(
 			kv("tier_reached", validation.VStr("T3"))))))
+	// the payload declares what the derivation will say (I-4): declaring a
+	// LIE is refused outright, tested in TestIngestExecRefRejectsFalseType.
+	if items := objAt(p, "evidence").A; len(items) == 1 {
+		it := validation.VObj(items[0].O...)
+		for i, e := range it.O {
+			if e.K == "type" {
+				it.O[i] = kv("type", validation.VStr("fork-test"))
+			}
+			if e.K == "level" {
+				it.O[i] = kv("level", validation.VStr("E5"))
+			}
+		}
+		p.O = validation.SetOrAppend(p.O, "evidence",
+			validation.VArr(it))
+	}
 	f, err := IngestHypothesis(c, p, "code", "", "")
 	if err != nil {
 		t.Fatal(err)
@@ -198,5 +231,34 @@ func TestIngestExecRefFollowsRecordedTier(t *testing.T) {
 	if lvl, typ := objStr(item, "level"), objStr(item, "type"); lvl != "E5" ||
 		typ != "fork-test" {
 		t.Fatalf("landed (%s, %s), want (E5, fork-test)", lvl, typ)
+	}
+}
+
+// TestIngestExecRefRejectsFalseType pins critic I-4: a declared type/level
+// that disagrees with the mint derivation is REFUSED, naming the derived pair
+// — never silently rewritten, because the recorded type feeds the gate's
+// EVIDENCE_TYPE_GROUPS membership.
+func TestIngestExecRefRejectsFalseType(t *testing.T) {
+	c := ingestCamp(t)
+	rec := testExec(t, c, "docker-networkless", "", 0, "PASS: test_exploit\n")
+	id := objStr(rec, "exec_id")
+	p := t2ExecRefPayload(id, "EV-lie") // declares E4/foundry-test: honest pair
+	f, err := IngestHypothesis(c, p, "code", "", "")
+	if err != nil {
+		t.Fatalf("truthful pair must pass: %v", err)
+	}
+	_ = f
+	// now flip the finding's recorded tier so the derivation says E5/fork-test
+	// while the payload still declares E4/foundry-test.
+	p2 := t2ExecRefPayload(id, "EV-lie2")
+	p2.O = validation.SetOrAppend(p2.O, "verification", validation.VObj(
+		kv("reproduction", validation.VObj(
+			kv("tier_reached", validation.VStr("T3"))))))
+	_, err = IngestHypothesis(c, p2, "code", "", "")
+	if err == nil {
+		t.Fatal("a declared type contradicting the derivation must be refused")
+	}
+	if !strings.Contains(err.Error(), "derives 'fork-test'") {
+		t.Fatalf("refusal must name the derived type: %v", err)
 	}
 }

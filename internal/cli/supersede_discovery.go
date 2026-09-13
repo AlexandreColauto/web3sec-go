@@ -63,7 +63,13 @@ var dedupActionKeys = []string{"tier1_merges", "tier2_clusters",
 //
 // The predicate reads only the report the command already printed, so it can
 // never disagree with what the operator sees, and it is order-free.
-func dedupDiscoveryHint(report validation.Value) string {
+func dedupDiscoveryHint(report validation.Value, liveFindings int) string {
+	// A self-duplicate needs at least two rows to exist; teaching the op on
+	// a lone finding is noise (critic I-7), and the nudge's sibling rule in
+	// the adjudicate path already refuses single-finding campaigns.
+	if liveFindings < 2 {
+		return ""
+	}
 	for _, k := range dedupActionKeys {
 		if len(objAt(report, k).A) > 0 {
 			return ""

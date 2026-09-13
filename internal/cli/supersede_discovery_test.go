@@ -18,11 +18,12 @@ package cli
 // accounting (the plan's ruling: no new basis, no second exclusion path).
 
 import (
-	"websec/internal/evalscore"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
+	"websec/internal/evalscore"
+	"websec/internal/validation"
 
 	"websec/assets"
 )
@@ -362,4 +363,19 @@ func TestNudgeVerdictConstantMatchesEvalscore(t *testing.T) {
 	}
 	t.Fatalf("nudge constant %q is no longer an evalscore verdict",
 		adjudicateFalsePositive)
+}
+
+// TestDedupSingleFindingHintSilent pins critic I-7: a self-duplicate needs
+// two rows; the hint must not fire over a lone finding.
+func TestDedupSingleFindingHintSilent(t *testing.T) {
+	if h := dedupDiscoveryHint(validation.VObj(
+		kvT("untouched", validation.VInt(1)),
+	), 1); h != "" {
+		t.Fatalf("hint must be silent with <2 live findings, got %q", h)
+	}
+	if h := dedupDiscoveryHint(validation.VObj(
+		kvT("untouched", validation.VInt(2)),
+	), 2); h == "" {
+		t.Fatal("hint must still fire at >=2 live untouched findings")
+	}
 }

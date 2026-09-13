@@ -64,7 +64,12 @@ func runDedup(root string, args []string, r *Runner) int {
 	// manual self-duplicate for `supersede`. stdout stays the JSON report
 	// (cli.py parity, pinned by TestDedupReportsSweep); the hint is stderr,
 	// like every other advisory this CLI prints.
-	if hint := dedupDiscoveryHint(report); hint != "" {
+	live, liveErr := findings.LoadLiveFindings(c)
+	liveN := 0
+	if liveErr == nil {
+		liveN = len(live)
+	}
+	if hint := dedupDiscoveryHint(report, liveN); hint != "" {
 		fmt.Fprintln(r.Err, hint)
 	}
 	return 0

@@ -327,3 +327,27 @@ func TestIngestLintRefusesExhaustedBudget(t *testing.T) {
 			before, after)
 	}
 }
+
+// TestHelpSubcommandRouting pins critic I-11: `help <cmd>` shows that
+// command's own usage (same output as `<cmd> -h`), bare help shows the root
+// catalog, and unknown/surplus arguments are refused by name.
+func TestHelpSubcommandRouting(t *testing.T) {
+	_, root, _ := t2Campaign(t)
+	code, out, _ := run(t, "--root", root, "help", "ingest")
+	if code != 0 {
+		t.Fatalf("help ingest exit %d", code)
+	}
+	code2, out2, _ := run(t, "--root", root, "ingest", "-h")
+	if code2 != 0 || out2 != out {
+		t.Fatalf("help ingest must equal ingest -h: %d/%d %q vs %q",
+			code, code2, out[:40], out2[:40])
+	}
+	if _, _, errS := run(t, "--root", root, "help", "nosuchcmd"); errS == "" ||
+		!strings.Contains(errS, "unknown command") {
+		t.Fatalf("unknown help target must be named: %q", errS)
+	}
+	code3, _, errS3 := run(t, "--root", root, "help", "ingest", "--json")
+	if code3 == 0 || !strings.Contains(errS3, "no further arguments") {
+		t.Fatalf("surplus args must be refused, got exit %d: %q", code3, errS3)
+	}
+}

@@ -317,9 +317,9 @@ func printIngestFailure(r *Runner, err error) {
 func printIngestResult(r *Runner, campaign *state.Campaign, f validation.Value,
 	asJSON bool) {
 	cls := objStr(objAt(f, "root_cause"), "class")
-	advisory := taxonomy.ClassAdvisory(&cls)
+	advisory := taxonomy.ClassAdvisory(&cls, campaign)
 	warnings := findings.IntakeCheckpoint(f,
-		objStrDefault(f, "trajectory", "code"), objStr(f, "campaign_id"))
+		objStrDefault(f, "trajectory", "code"), objStr(f, "campaign_id"), campaign)
 	if asJSON {
 		t14PrintJSON(r.Out, validation.VObj(
 			validation.KV{K: "finding", V: f},
@@ -342,6 +342,12 @@ func printIngestResult(r *Runner, campaign *state.Campaign, f validation.Value,
 		fmt.Fprintf(r.Out, "  ADVISORY: %s\n", advisory)
 	}
 	for _, w := range warnings {
+		if advisory != "" && w == advisory {
+			// IntakeCheckpoint re-emits the advisory as a warning (data,
+			// pinned by the golden); the ADVISORY line above already says
+			// it — print once (critic I-8).
+			continue
+		}
 		fmt.Fprintf(r.Out, "  warning: %s\n", w)
 	}
 }
