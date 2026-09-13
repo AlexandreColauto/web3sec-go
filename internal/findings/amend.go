@@ -171,7 +171,7 @@ func Supersede(campaign *state.Campaign, newID, oldID,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if _, terminal := TERMINAL[objStr(old, "status")]; terminal {
+	if IsTerminal(objStr(old, "status")) {
 		return validation.VNull(), &RejectedError{Msg: fmt.Sprintf(
 			"cannot supersede terminal finding %s (%s)",
 			oldID, objStr(old, "status"))}
@@ -185,7 +185,7 @@ func Supersede(campaign *state.Campaign, newID, oldID,
 	// pair onto each other and leave zero live findings behind. The old
 	// side's terminality was always refused; the new side is the same
 	// claim about existence.
-	if _, terminal := TERMINAL[objStr(newFinding, "status")]; terminal {
+	if IsTerminal(objStr(newFinding, "status")) {
 		return validation.VNull(), &RejectedError{Msg: fmt.Sprintf(
 			"cannot supersede %s with terminal finding %s (%s) — the "+
 				"successor must be a live finding; a superseded row cannot "+

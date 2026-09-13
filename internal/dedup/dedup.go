@@ -152,9 +152,7 @@ func SetFoldIntoLineage(fn dedupHelperFn) {
 // recording one is inert bookkeeping that LOOKS like coverage (critic r3).
 // The predicate mirrors the sweep's liveness law exactly.
 func sigLiveGuard(f validation.Value, findingID string) error {
-	switch objStr(f, "status") {
-	case "SUPERSEDED", "DUPLICATE", "OUT_OF_SCOPE", "DISPROVED",
-		"INFORMATIONAL":
+	if findings.IsTerminal(objStr(f, "status")) {
 		return fmt.Errorf("cannot record a dedup signature on %s (%s): the "+
 			"sweep only ever compares live rows — this would satisfy "+
 			"nothing", findingID, objStr(f, "status"))

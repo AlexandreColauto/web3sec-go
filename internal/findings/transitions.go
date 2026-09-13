@@ -704,7 +704,7 @@ func SetCriticVerdict(campaign *state.Campaign, findingID, verdict,
 	// adjudicate already refuses dead rows for exactly this reason, and
 	// verdict must not be the exception that pollutes a SUPERSEDED or
 	// DUPLICATE row's verification block with fresh opinions.
-	if _, dead := TERMINAL[objStr(finding, "status")]; dead {
+	if IsTerminal(objStr(finding, "status")) { // r5: one law, one predicate
 		return validation.VNull(), fmt.Errorf(
 			"cannot record a critic verdict on terminal finding %s (%s) — "+
 				"a verdict is a claim about a finding that exists; the "+
