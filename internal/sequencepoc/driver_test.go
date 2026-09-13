@@ -781,7 +781,8 @@ func dropKey(v validation.Value, key string) validation.Value {
 
 // wBridgedVerdict is a one-call counterexample whose final_storage reading
 // ("total") a layout can ground: the fixture both the executor fact-row and
-// the actor-alias gap row below bridge through harness.BridgeSequenceWithLayout.
+// the actor-alias round-trip row below bridge through
+// harness.BridgeSequenceWithLayout.
 func wBridgedVerdict(t *testing.T) validation.Value {
 	t.Helper()
 	return mustParse(t, `{"rule":"inv_1","verdict":"VIOLATED",`+
@@ -809,30 +810,6 @@ func withoutSpecHash(cmd string) string {
 	return strings.Join(out, "\n")
 }
 
-// withLoaderSafeActorKeys renames the bridge's `actor-N` aliases to the
-// loader's and driver's role-key spelling (`actor_N`): checkRoleKeys and
-// actorFragments both require [A-Za-z][A-Za-z0-9_]*, so the hyphenated
-// spelling the bridge emits is refused by the run path — the gap pinned by
-// TestBridgedActorAliasesAreRefusedByTheRunPath. Nothing else about the
-// bridged document is touched, so the fact-row below stays about the
-// assertion seam.
-func withLoaderSafeActorKeys(t *testing.T, doc validation.Value) validation.Value {
-	t.Helper()
-	actors := objAt(doc, "actors")
-	for i := range actors.O {
-		actors.O[i].K = strings.ReplaceAll(actors.O[i].K, "actor-", "actor_")
-	}
-	for i, s := range listOf(objAt(doc, "steps")) {
-		role := objStr(s, "actor")
-		if !strings.HasPrefix(role, "actor-") {
-			continue
-		}
-		setPath(t, doc, []string{"steps", strconv.Itoa(i), "actor"},
-			validation.VStr(strings.ReplaceAll(role, "actor-", "actor_")))
-	}
-	return doc
-}
-
 // TestBridgeAbsentLayoutLeavesTheRunUnchanged is the executor fact-row for
 // the layout door: when the witness bridge is handed an ABSENT layout (nil)
 // or one that grounds nothing the report read, it emits no assertions and
@@ -843,12 +820,10 @@ func withLoaderSafeActorKeys(t *testing.T, doc validation.Value) validation.Valu
 // makes the negative rows bite: the SAME verdict with a layout that does
 // ground the reading grows the storage assertion into the driver.
 //
-// The actor keys are renamed to the loader's role-key spelling first (see
-// withLoaderSafeActorKeys): the bridge's `actor-N` spelling is refused by
-// LoadSequenceSpec and BuildCommand alike for a reason that has nothing to
-// do with assertions, and the bridge's bytes are frozen by its own
-// byte-pins. That divergence is pinned separately below and reported in
-// .scratch/t4-report.md.
+// The bridged doc is written exactly as the bridge emits it — its native
+// `actor_N` aliases are the run path's own role-key spelling (wave M T1), so
+// no rename sits between the bridge and the loader. The round trip itself is
+// pinned by TestBridgedActorAliasesAreRunPathLegal below.
 func TestBridgeAbsentLayoutLeavesTheRunUnchanged(t *testing.T) {
 	verdict := wBridgedVerdict(t)
 	bridged := func(t *testing.T, layout map[string]string) validation.Value {
@@ -860,8 +835,7 @@ func TestBridgeAbsentLayoutLeavesTheRunUnchanged(t *testing.T) {
 		}
 		path := filepath.Join(t.TempDir(), "seq.json")
 		if err := os.WriteFile(path,
-			[]byte(validation.CanonCompact(
-				withLoaderSafeActorKeys(t, doc))), 0o644); err != nil {
+			[]byte(validation.CanonCompact(doc)), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		loaded, err := LoadSequenceSpec(path)
@@ -919,31 +893,101 @@ func TestBridgeAbsentLayoutLeavesTheRunUnchanged(t *testing.T) {
 	})
 }
 
-// TestBridgedActorAliasesAreRefusedByTheRunPath pins an integration gap this
-// task's round-trip surfaced, and no more than that: the witness bridge
-// aliases its senders `actor-1, actor-2, …` (harness.BridgeSequence,
-// byte-pinned in internal/harness/witness_test.go), while the sequence run
-// path requires role keys matching [A-Za-z][A-Za-z0-9_]* — such a key
-// becomes the shell variable A_<role> and the env var FORK_KEY_<ROLE>, and a
-// hyphen is illegal in both. So a bridged document is refused by
-// LoadSequenceSpec AND by BuildCommand today; nothing about
-// final_assertions changes that.
+// TestBridgedActorAliasesAreRunPathLegal is the positive round trip wave M
+// T1 bought, in place of c8e2a299's TestBridgedActorAliasesAreRefusedByTheRunPath:
+// a bridged document now loads through LoadSequenceSpec and builds a driver
+// through BuildCommand with NO rename, because the bridge aliases its senders
+// `actor_1, actor_2, …` (harness.BridgeSequence, byte-pinned in
+// internal/harness/witness_test.go) and that IS the run path's role-key
+// language ([A-Za-z][A-Za-z0-9_]*, sequencepoc's roleKeyRe — the same rule
+// driver.go's actorFragments enforces).
 //
-// The bridge's bytes are frozen this wave (its output is pinned
-// byte-for-byte, and `actor-1` is documented in
-// docs/MINICERTORA_ARCHITECTURE.md §L4), so aligning the spelling belongs
-// to the fork wave that first mints a .seq.json from the CLI. This row is
-// the evidence a reader of that wave needs; when the spellings are aligned
-// the row flips to asserting the round trip.
-func TestBridgedActorAliasesAreRefusedByTheRunPath(t *testing.T) {
-	doc, refusal := harness.BridgeSequenceWithLayout(wBridgedVerdict(t),
+// The row it replaces pinned the integration gap this wave closed: while the
+// bridge emitted the hyphenated `actor-1` spelling — illegal both as the shell
+// variable A_<role> and as the env var FORK_KEY_<ROLE> — every bridged
+// document was refused by the loader AND by the driver for a reason that had
+// nothing to do with what the document said. The assertion is inverted, not
+// weakened: no key is renamed here, so a regression in the spelling fails at
+// the loader, and the driver text is checked for the roles the fork receives.
+func TestBridgedActorAliasesAreRunPathLegal(t *testing.T) {
+	// Two distinct senders, so both aliases (actor_1 and actor_2) have to
+	// survive the loader as themselves: one sender would prove the spelling
+	// legal but not that the per-call alias references resolve.
+	verdict := mustParse(t, `{"rule":"inv_1","verdict":"VIOLATED",`+
+		`"confidence":"confirmed","failed_assertion":`+
+		`{"expression":"total >= before"},"calls":[`+
+		`{"step":0,"function":"deposit(uint256)","target":"`+addr("cd")+
+		`","args":["1000"],"env":{"msg.sender":"`+addr("aa")+
+		`","msg.value":"0"},"reverted":false},`+
+		`{"step":1,"function":"poke()","target":"`+addr("cd")+
+		`","args":[],"env":{"msg.sender":"`+addr("bb")+
+		`","msg.value":"0"},"reverted":false}],`+
+		`"final_storage":{"total":"7"}}`)
+	doc, refusal := harness.BridgeSequenceWithLayout(verdict,
 		"SEQ-MINI-01", "F-abc123", map[string]string{
 			"Vault": addr("cd"), "Vault.total": "3"})
 	if refusal != "" {
 		t.Fatalf("bridge refusal = %q", refusal)
 	}
+	// The bridge's own bytes are the input: the aliases are read back from
+	// the doc under test, never re-spelled by the row.
+	if a := objAt(doc, "actors"); len(a.O) != 2 ||
+		!hasObjKey(a, "actor_1") || !hasObjKey(a, "actor_2") {
+		t.Fatalf("bridged actors = %s, want actor_1 + actor_2",
+			validation.CanonCompact(a))
+	}
 	path := filepath.Join(t.TempDir(), "seq.json")
 	if err := os.WriteFile(path, []byte(validation.CanonCompact(doc)),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := LoadSequenceSpec(path)
+	if err != nil {
+		t.Fatalf("bridged spec must load natively, no rename: %v", err)
+	}
+	// "Unchanged" is the load-bearing word: the keys that reach the run path
+	// are the bridge's own, so a rename slipped in between bridge and loader
+	// fails here instead of hiding a spelling regression.
+	if a, b := validation.CanonCompact(objAt(loaded, "actors")),
+		validation.CanonCompact(objAt(doc, "actors")); a != b {
+		t.Fatalf("loader changed the bridged actor keys:\n%s\nwant\n%s", a, b)
+	}
+	cmd, err := BuildCommand(loaded, "/wd")
+	if err != nil {
+		t.Fatalf("bridged spec must build a driver natively: %v", err)
+	}
+	// The aliases are not merely accepted: they are the run path's role
+	// names, and each bridged sender reaches the fork through its own key.
+	for _, role := range []string{"FORK_KEY_ACTOR_1", "FORK_KEY_ACTOR_2"} {
+		if !strings.Contains(cmd, role) {
+			t.Fatalf("driver text does not carry %s:\n%s", role, cmd)
+		}
+	}
+}
+
+// TestRunPathStillRefusesHyphenatedRoleKeys is the NEGATIVE half of the row
+// above, and it exists so that inverting c8e2a299's assertion did not quietly
+// drop coverage of the field rule that row exercised: a spec whose actor key
+// is the old hyphenated spelling is still refused by LoadSequenceSpec AND by
+// BuildCommand, because a role key becomes the shell variable A_<role> and the
+// env var FORK_KEY_<ROLE>.
+//
+// The spec is hand-written, NOT bridged — the bridge no longer emits such a
+// key at all, which is the whole point of the row above; no rename helper is
+// involved here either. The rule outlives the bridge's spelling. (The schema
+// does not constrain actor KEYS — `actors` carries only a value pattern — so
+// this key reaches checkRoleKeys/actorFragments, the two arms asserted below.)
+func TestRunPathStillRefusesHyphenatedRoleKeys(t *testing.T) {
+	bad := mustParse(t, `{
+      "spec_id": "SEQ-TEST-02", "finding_id": "F-run1",
+      "actors": {"actor-1": "`+addr("aa")+`"},
+      "steps": [
+        {"step": 1, "actor": "actor-1", "target": "`+addr("cd")+`",
+         "function": "deposit(uint256)", "args": ["1000"]}
+      ],
+      "final_assertions": []}`)
+	path := filepath.Join(t.TempDir(), "bad.json")
+	if err := os.WriteFile(path, []byte(validation.DumpIndented(bad)),
 		0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -951,7 +995,7 @@ func TestBridgedActorAliasesAreRefusedByTheRunPath(t *testing.T) {
 		!strings.Contains(err.Error(), "role key") {
 		t.Fatalf("loader error = %v, want a role-key refusal", err)
 	}
-	if _, err := BuildCommand(doc, "/wd"); err == nil ||
+	if _, err := BuildCommand(bad, "/wd"); err == nil ||
 		!strings.Contains(err.Error(), "shell-safe") {
 		t.Fatalf("driver error = %v, want a shell-safe-identifier refusal",
 			err)

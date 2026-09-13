@@ -488,10 +488,21 @@ statement syntax — and no golden campaign byte moved.
 - **§L4 witness bridge + poc rendering — LANDED** (`a89909df`, comment round
   `5e27bf66`). `harness.BridgeSequence(obj, specID, findingID)` maps a
   counterexample's `calls[]` to a `sequence_poc`-shaped candidate: distinct
-  sender values alias to `actor-1, actor-2, …` by first appearance
+  sender values alias to `actor_1, actor_2, …` by first appearance
   (`env["msg.sender"]` is the treated key; a flattened `sender` is a
   fallback-only spelling), `reverted` becomes `expect_revert: true`, and
-  `mine_blocks` is never emitted. Refusals are byte-pinned and are themselves
+  `mine_blocks` is never emitted. **Alias spelling (wave M T1):** the aliases
+  are `actor_N`, not `actor-N`, because the run path turns a role key into the
+  shell variable `A_<role>` and the env var `FORK_KEY_<ROLE>` and admits only
+  `[A-Za-z][A-Za-z0-9_]*` (`sequencepoc.roleKeyRe`; the same rule
+  `driver.go::actorFragments` enforces). With the hyphenated spelling every
+  bridged document was refused by `LoadSequenceSpec` **and** `BuildCommand`
+  for a reason that had nothing to do with what it said — the gap pinned by
+  `c8e2a299`'s refusal row, which wave M T1 inverted into the positive
+  round-trip row `TestBridgedActorAliasesAreRunPathLegal`. A bridged document
+  is therefore run-path legal **as the bridge emits it**: no rename sits
+  between the bridge and the loader, and each bridged role reaches the fork as
+  `FORK_KEY_ACTOR_<N>`. Refusals are byte-pinned and are themselves
   the guidance: `no calls to bridge`, `unbridgable step: <why>`, `symbolic
   senders cannot be fork-repro'd` (a free symbol does not survive a chain).
   `final_assertions` is deliberately empty this wave — storage-assert

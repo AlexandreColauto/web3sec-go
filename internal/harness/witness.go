@@ -78,6 +78,18 @@
 // replayable, so a step that is both symbolic and value-malformed refuses
 // for the actor.
 //
+// Actor alias spelling. Distinct senders alias `actor_1, actor_2, …` — the
+// UNDERSCORE spelling, because the alias becomes a shell variable (`A_<role>`)
+// and an env var (`FORK_KEY_<role>`) on the run path, whose field rules accept
+// only [A-Za-z][A-Za-z0-9_]* (sequencepoc's roleKeyRe, and driver.go's
+// actorFragments). A hyphen is illegal in both, so the bridge's earlier
+// `actor-1` spelling made every bridged document unloadable — refused by
+// LoadSequenceSpec and by BuildCommand alike, for a reason that had nothing to
+// do with what the document said (the gap pinned by wave-M T1, which flipped
+// c8e2a299's refusal row into the positive round-trip row). With `actor_N` a
+// bridged document is run-path legal NATIVELY: it loads, its driver text
+// builds, and its roles reach the fork as FORK_KEY_ACTOR_N with no rename.
+//
 // Step numbering. The spec's `step` is the 1-based ordinal of a call in
 // the sequence (sequence_poc.schema.json: integer >= 1), and the array
 // order IS the sequence. The prover numbers its calls from 0
@@ -125,8 +137,10 @@ var witnessWeiRe = regexp.MustCompile(`^(0x[0-9a-fA-F]{1,64}|[0-9]+)$`)
 // verbatim (the caller owns the SEQ-… id it minted).
 //
 // Mapping:
-//   - actors: each distinct sender aliases actor-1, actor-2, … by first
-//     appearance, the alias keyed to the sender it names;
+//   - actors: each distinct sender aliases actor_1, actor_2, … by first
+//     appearance, the alias keyed to the sender it names (the underscore
+//     spelling is load-bearing: it is the run path's role-key language — see
+//     "Actor alias spelling" above);
 //   - steps: {step, actor, target, function, args}, in witness order, plus
 //     `value` when the call sent a nonzero, schema-legal wei amount, plus
 //     expect_revert present-and-true only when the call reverted;
@@ -212,7 +226,7 @@ func bridgeSequence(obj validation.Value, specID, findingID string,
 		}
 		alias, seen := bySender[call1.sender]
 		if !seen {
-			alias = fmt.Sprintf("actor-%d", len(order)+1)
+			alias = fmt.Sprintf("actor_%d", len(order)+1)
 			bySender[call1.sender] = alias
 			order = append(order, call1.sender)
 		}

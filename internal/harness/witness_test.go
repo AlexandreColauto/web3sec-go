@@ -71,7 +71,7 @@ func wVerdictStorage(storage string, calls ...string) string {
 }
 
 // TestBridgeSequenceHappyPath pins the bridged spec byte-for-byte: two
-// distinct senders become actor-1/actor-2 by first appearance, one
+// distinct senders become actor_1/actor_2 by first appearance, one
 // reverted call carries expect_revert (and the other does NOT carry the
 // key at all), mine_blocks is never emitted, and final_assertions is the
 // empty array the fork wave fills.
@@ -84,12 +84,12 @@ func TestBridgeSequenceHappyPath(t *testing.T) {
 	if refusal != "" {
 		t.Fatalf("refusal = %q, want none", refusal)
 	}
-	want := `{"actors":{"actor-1":"` + wAlice + `","actor-2":"` + wBob +
+	want := `{"actors":{"actor_1":"` + wAlice + `","actor_2":"` + wBob +
 		`"},"final_assertions":[],"finding_id":"F-abc123",` +
 		`"spec_id":"SEQ-MINI-01","steps":[` +
-		`{"actor":"actor-1","args":["1000"],"function":"deposit",` +
+		`{"actor":"actor_1","args":["1000"],"function":"deposit",` +
 		`"step":1,"target":"` + wTarget + `"},` +
-		`{"actor":"actor-2","args":["1000"],"expect_revert":true,` +
+		`{"actor":"actor_2","args":["1000"],"expect_revert":true,` +
 		`"function":"withdraw","step":2,"target":"` + wTarget + `"}]}`
 	if gotBytes := validation.CanonCompact(got); gotBytes != want {
 		t.Fatalf("bridged spec =\n%s\nwant\n%s", gotBytes, want)
@@ -154,9 +154,9 @@ func hasKey(v validation.Value, key string) bool {
 }
 
 // TestBridgeSequenceAliasesByFirstAppearance pins the actor map's
-// insertion order: eleven distinct senders alias actor-1 … actor-11 in the
-// order they first appear, NOT in canonical (sorted) key order — actor-10
-// would otherwise sort before actor-2.
+// insertion order: eleven distinct senders alias actor_1 … actor_11 in the
+// order they first appear, NOT in canonical (sorted) key order — actor_10
+// would otherwise sort before actor_2.
 func TestBridgeSequenceAliasesByFirstAppearance(t *testing.T) {
 	calls := make([]string, 0, 12)
 	for i := 1; i <= 11; i++ {
@@ -174,15 +174,15 @@ func TestBridgeSequenceAliasesByFirstAppearance(t *testing.T) {
 		t.Fatalf("actors = %s, want 11", validation.CanonCompact(actors))
 	}
 	for i, kv := range actors.O {
-		want := fmt.Sprintf("actor-%d", i+1)
+		want := fmt.Sprintf("actor_%d", i+1)
 		if kv.K != want {
 			t.Fatalf("actors[%d] key = %q, want %q", i, kv.K, want)
 		}
 	}
 	if step := getObj(t, got, "steps").A[11]; !hasKey(step, "actor") {
 		t.Fatalf("repeat step has no actor")
-	} else if a := getObj(t, step, "actor"); a.S != "actor-3" {
-		t.Fatalf("repeated sender alias = %q, want actor-3", a.S)
+	} else if a := getObj(t, step, "actor"); a.S != "actor_3" {
+		t.Fatalf("repeated sender alias = %q, want actor_3", a.S)
 	}
 }
 
@@ -386,8 +386,8 @@ func TestBridgeSequenceSenderKeyIsMsgSender(t *testing.T) {
 	if refusal != "" {
 		t.Fatalf("flattened sender key refused: %q", refusal)
 	}
-	if a := getObj(t, getObj(t, got, "actors"), "actor-1"); a.S != wBob {
-		t.Fatalf("actor-1 = %q, want %q", a.S, wBob)
+	if a := getObj(t, getObj(t, got, "actors"), "actor_1"); a.S != wBob {
+		t.Fatalf("actor_1 = %q, want %q", a.S, wBob)
 	}
 	both := `{"rule":"inv_1","calls":[{"step":0,"function":"deposit",` +
 		`"target":"` + wTarget + `","args":[],"env":{"msg.sender":"` +
@@ -396,8 +396,8 @@ func TestBridgeSequenceSenderKeyIsMsgSender(t *testing.T) {
 	if refusal != "" {
 		t.Fatalf("both sender keys refused: %q", refusal)
 	}
-	if a := getObj(t, getObj(t, got, "actors"), "actor-1"); a.S != wAlice {
-		t.Fatalf("msg.sender must win: actor-1 = %q, want %q", a.S, wAlice)
+	if a := getObj(t, getObj(t, got, "actors"), "actor_1"); a.S != wAlice {
+		t.Fatalf("msg.sender must win: actor_1 = %q, want %q", a.S, wAlice)
 	}
 }
 
@@ -442,12 +442,12 @@ func TestBridgeSequenceCarriesMsgValue(t *testing.T) {
 	if refusal != "" {
 		t.Fatalf("refusal = %q, want none", refusal)
 	}
-	want := `{"actors":{"actor-1":"` + wAlice + `","actor-2":"` + wBob +
+	want := `{"actors":{"actor_1":"` + wAlice + `","actor_2":"` + wBob +
 		`"},"final_assertions":[],"finding_id":"F-abc123",` +
 		`"spec_id":"SEQ-MINI-01","steps":[` +
-		`{"actor":"actor-1","args":["1000"],"function":"deposit",` +
+		`{"actor":"actor_1","args":["1000"],"function":"deposit",` +
 		`"step":1,"target":"` + wTarget + `","value":"1000000000000000000"},` +
-		`{"actor":"actor-2","args":["1000"],"function":"poke",` +
+		`{"actor":"actor_2","args":["1000"],"function":"poke",` +
 		`"step":2,"target":"` + wTarget + `","value":"0x10"}]}`
 	if gotBytes := validation.CanonCompact(got); gotBytes != want {
 		t.Fatalf("bridged spec =\n%s\nwant\n%s", gotBytes, want)
@@ -521,14 +521,14 @@ func TestBridgeSequenceWithLayoutHappyTwoSlots(t *testing.T) {
 	if refusal != "" {
 		t.Fatalf("refusal = %q, want none", refusal)
 	}
-	want := `{"actors":{"actor-1":"` + wAlice + `"},` +
+	want := `{"actors":{"actor_1":"` + wAlice + `"},` +
 		`"final_assertions":[` +
 		`{"id":"A1","kind":"storage","op":"==","slot":"0","target":"` +
 		wTarget + `","value":"16"},` +
 		`{"id":"A2","kind":"storage","op":"==","slot":"3","target":"` +
 		wTarget + `","value":"7"}],` +
 		`"finding_id":"F-abc123","spec_id":"SEQ-MINI-01","steps":[` +
-		`{"actor":"actor-1","args":["1000"],"function":"deposit",` +
+		`{"actor":"actor_1","args":["1000"],"function":"deposit",` +
 		`"step":1,"target":"` + wTarget + `"}]}`
 	if gotBytes := validation.CanonCompact(got); gotBytes != want {
 		t.Fatalf("bridged spec =\n%s\nwant\n%s", gotBytes, want)
