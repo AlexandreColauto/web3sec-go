@@ -290,6 +290,167 @@ func TestAnchorMechanismGate(t *testing.T) {
 	}
 }
 
+// goldMechEntries builds a gold case whose match_mechanisms list is exactly
+// entries, as raw validation values: a test can plant a non-string, a blank
+// entry or a null, which a []string helper could not express.
+func goldMechEntries(id, program, class string,
+	entries ...validation.Value) validation.Value {
+	c := goldCase(id, program, "confirmed-exploitable", class, "gold/Rollup.sol")
+	g := validation.VObj(obj(c, "gold").O...)
+	g.O = append(g.O, kvE("match_mechanisms", validation.VArr(entries...)))
+	return validation.VObj(
+		kvE("case_id", validation.VStr(id)),
+		kvE("program", validation.VObj(kvE("program", validation.VStr(program)))),
+		kvE("gold", g), kvE("partition", validation.VStr("dev")))
+}
+
+// TestAnchorMechanismEntriesArePerEntry pins I-1: a malformed entry
+// contributes NO match and never poisons a well-formed one, so the verdict
+// does not depend on where the junk sits. Before the fix the entry loop
+// returned false on the first malformed entry, which made the SAME list
+// anchor or refuse purely by ordering (junk-last anchored, junk-first did
+// not) — contradicting the documented "per entry" rule.
+func TestAnchorMechanismEntriesArePerEntry(t *testing.T) {
+	const valid = "mint function unauthenticated"
+	const sentence = "the mint function is unauthenticated"
+
+	// Every junk shape, in BOTH orders: the valid phrase still anchors.
+	for _, tc := range []struct {
+		name    string
+		entries []validation.Value
+	}{
+		{"blank first", []validation.Value{
+			validation.VStr("   "), validation.VStr(valid)}},
+		{"blank last", []validation.Value{
+			validation.VStr(valid), validation.VStr("   ")}},
+		{"non-string first", []validation.Value{
+			validation.VInt(42), validation.VStr(valid)}},
+		{"non-string last", []validation.Value{
+			validation.VStr(valid), validation.VInt(42)}},
+		{"null first", []validation.Value{
+			validation.VNull(), validation.VStr(valid)}},
+		{"null last", []validation.Value{
+			validation.VStr(valid), validation.VNull()}},
+	} {
+		t.Run("valid-phrase/"+tc.name, func(t *testing.T) {
+			gold := goldMechEntries("CASE-OR1", "p1", "reentrancy", tc.entries...)
+			if !anchor(findingMech("reentrancy", "src/Rollup.sol", sentence),
+				obj(gold, "gold")) {
+				t.Fatalf("a malformed entry must not poison the valid phrase "+
+					"in %v — entries are judged per entry, never per list",
+					tc.entries)
+			}
+		})
+	}
+
+	// A junk-ONLY list states no usable mechanism, so it anchors nothing:
+	// fail closed (the list exists and says nothing), never the historical
+	// always-pass, and never a free anchor from the junk itself.
+	for _, tc := range []struct {
+		name    string
+		entries []validation.Value
+	}{
+		{"blank only", []validation.Value{validation.VStr("   ")}},
+		{"blank plus non-string", []validation.Value{
+			validation.VStr("   "), validation.VInt(7)}},
+		{"non-string only", []validation.Value{validation.VInt(42)}},
+		{"null only", []validation.Value{validation.VNull()}},
+	} {
+		t.Run("junk-only/"+tc.name, func(t *testing.T) {
+			gold := goldMechEntries("CASE-OR2", "p1", "reentrancy", tc.entries...)
+			if anchor(findingMech("reentrancy", "src/Rollup.sol", sentence),
+				obj(gold, "gold")) {
+				t.Fatalf("a junk-only match_mechanisms list must anchor "+
+					"nothing: %v", tc.entries)
+			}
+		})
+	}
+}
+
+// TestAnchorMechanismInverseSentences pins I-3: negation vocabulary is
+// LOAD-BEARING. "no", "not", "cannot", "can" and "without" were stop-words,
+// so a phrase asserting an ABSENCE anchored a sentence asserting its
+// PRESENCE — the exact inverse of the mechanism the gold case is about.
+// Each pair below must NOT anchor, and each phrase must still anchor the
+// sentence that genuinely states it (so the pin cannot pass by refusing
+// everything).
+func TestAnchorMechanismInverseSentences(t *testing.T) {
+	for _, p := range []struct {
+		phrase  string
+		inverse string
+		stated  string
+	}{
+		{"user cannot withdraw", "user can withdraw always",
+			"the user cannot withdraw their deposit"},
+		{"caller not authorized", "caller authorized always",
+			"the caller is not authorized"},
+		// The presence/absence inverse the brief names: it must fail because
+		// "missing" is content vocabulary the inverse sentence cannot carry.
+		{"missing access check", "access check present always",
+			"missing access check on the setter"},
+	} {
+		t.Run(p.phrase, func(t *testing.T) {
+			gold := goldMechEntries("CASE-INV", "p1", "logic-error",
+				validation.VStr(p.phrase))
+			g := obj(gold, "gold")
+			if anchor(findingMech("logic-error", "src/Rollup.sol", p.inverse), g) {
+				t.Fatalf("phrase %q must NOT anchor its inverse %q — "+
+					"negation vocabulary is never exempt", p.phrase, p.inverse)
+			}
+			if !anchor(findingMech("logic-error", "src/Rollup.sol", p.stated), g) {
+				t.Fatalf("phrase %q must still anchor the sentence that "+
+					"states it: %q", p.phrase, p.stated)
+			}
+		})
+	}
+}
+
+// TestPhraseNeedsTwoContentWords pins I-10: a phrase that brings only ONE
+// content word is a coin flip — "commit" anchors any sentence that happens to
+// say "commit", whatever its mechanism. A phrase must supply at least two
+// DISTINCT non-stopword words (identifier-folded) to anchor at all; a
+// degenerate phrase matches nothing. root:<class> control entries are not
+// phrases and keep their exact-equality behavior.
+func TestPhraseNeedsTwoContentWords(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		phrase   string
+		sentence string
+	}{
+		{"one word", "commit", "the fake commit id was logged"},
+		{"one content word plus stops", "the commit",
+			"the fake commit id was logged"},
+		{"a lone negation", "not", "the value was not checked"},
+		{"all stop words", "the same", "the same thing happened"},
+	} {
+		t.Run("refuse/"+tc.name, func(t *testing.T) {
+			gold := goldMechEntries("CASE-1W", "p1", "logic-error",
+				validation.VStr(tc.phrase))
+			if anchor(findingMech("logic-error", "src/Rollup.sol", tc.sentence),
+				obj(gold, "gold")) {
+				t.Fatalf("degenerate phrase %q (fewer than two content words) "+
+					"must anchor nothing, but matched %q", tc.phrase, tc.sentence)
+			}
+		})
+	}
+	// The same sentence still anchors a phrase that names the mechanism with
+	// two content words: the rule refuses degenerate phrases, not short ones.
+	gold := goldMechEntries("CASE-2W", "p1", "logic-error",
+		validation.VStr("fake commit"))
+	if !anchor(findingMech("logic-error", "src/Rollup.sol",
+		"the fake commit id was logged"), obj(gold, "gold")) {
+		t.Fatal("a two-content-word phrase must still anchor")
+	}
+	// root:<class> is class equality, not a phrase — unaffected by the rule.
+	rootGold := goldMechEntries("CASE-RW", "p1", "reentrancy",
+		validation.VStr("root:reentrancy"))
+	if !anchor(findingMech("reentrancy", "src/Rollup.sol", "anything"),
+		obj(rootGold, "gold")) {
+		t.Fatal("root:<class> entries must be unaffected by the content-word " +
+			"rule")
+	}
+}
+
 func goldCaseAccept(id, program, outcome, class string, accept []string,
 	files ...string) validation.Value {
 	c := goldCase(id, program, outcome, class, files...)
