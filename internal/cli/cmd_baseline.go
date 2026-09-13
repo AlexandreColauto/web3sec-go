@@ -165,6 +165,12 @@ func baselineList(_ *argSpec, r *Runner) error {
 
 func baselineRemove(sp *argSpec, r *Runner) error {
 	name := sp.pos[0].val
+	// r7 (critic) asked whether a remove of a never-registered name is a
+	// lie; the PINNED twin argparse golden (TestP3ArgparseGolden) answers:
+	// remove is IDEMPOTENT ("rm -rf" semantics), stderr stays empty.
+	// Diverging would break the byte-golden, and no other reader trusts
+	// the claim, so the twin's line stands — the law is recorded here
+	// rather than in a behavior change.
 	if err := forkdiff.RemoveBaseline(name); err != nil {
 		return err
 	}

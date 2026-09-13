@@ -176,3 +176,94 @@ func TestPinReadOnlySourceRootSucceeds(t *testing.T) {
 		t.Fatalf("re-pin of a sealed-children store: %v", err)
 	}
 }
+
+// TestRePinReadOnlyTreeLeavesNoStaging pins r7 issue 2: the re-pin
+// (identical content) branch DISCARDS the fresh staging copy — and when the
+// source tree seals its children (0500 dirs), a plain RemoveAll fails in
+// silence, the ghost lands in the store, and every later audit burns red.
+func TestRePinReadOnlyTreeLeavesNoStaging(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores permission bits")
+	}
+	base := t.TempDir()
+	src := filepath.Join(base, "target")
+	sub := filepath.Join(src, "deep")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"a.sol", "deep/b.sol"} {
+		if err := os.WriteFile(filepath.Join(src, filepath.FromSlash(f)),
+			[]byte("content "+f+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Chmod(sub, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(src, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(src, 0o755)
+		_ = os.Chmod(sub, 0o755)
+		// The STORE keeps sealed copies too — unseal it for TempDir.
+		root := filepath.Join(base, "camp")
+		_ = filepath.WalkDir(root, func(pp string, d os.DirEntry,
+			err error) error {
+			if err == nil && d.IsDir() {
+				_ = os.Chmod(pp, 0o755)
+			}
+			return nil
+		})
+	})
+	c := pinCampaign(t, filepath.Join(base, "camp"), "C-deadbeef0001")
+	if _, err := PinSourceSnapshot(c, src, nil, nil); err != nil {
+		t.Fatalf("pin1 of read-only tree: %v", err)
+	}
+	if _, err := PinSourceSnapshot(c, src, nil, nil); err != nil {
+		t.Fatalf("re-pin (identical) must succeed: %v", err)
+	}
+	entries, _ := os.ReadDir(filepath.Join(c.Dir, "snapshots"))
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), "staging-") {
+			t.Fatalf("re-pin leaked %s (the r7 EACCES ghost)", e.Name())
+		}
+	}
+}
+
+// TestCopyTreeFileModeFidelity pins r7 issue 4: mode bits must arrive
+// EXACTLY — os.WriteFile masks with the umask (0o666 & ^0o022 = 0o644),
+// which quietly rewrote group/other bits on the staged tree under a copy2
+// fidelity claim.
+func TestCopyTreeFileModeFidelity(t *testing.T) {
+	src := t.TempDir()
+	f := filepath.Join(src, "script.sh")
+	if err := os.WriteFile(f, []byte("#!/bin/sh\n"), 0o666); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(f, 0o777); err != nil {
+		t.Fatal(err) // the full perm, umask-proof
+	}
+	g := filepath.Join(src, "data.bin")
+	if err := os.WriteFile(g, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(g, 0o664); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(t.TempDir(), "staged")
+	if err := copyTree(src, dst, nil); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]os.FileMode{"script.sh": 0o777,
+		"data.bin": 0o664} {
+		st, err := os.Stat(filepath.Join(dst, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if st.Mode().Perm() != want {
+			t.Fatalf("staged %s mode %v, want %v (umask must not rewrite)",
+				name, st.Mode().Perm(), want)
+		}
+	}
+}

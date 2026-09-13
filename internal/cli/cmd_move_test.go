@@ -955,3 +955,32 @@ func TestMoveAdjacentFlagConflictRefused(t *testing.T) {
 		t.Fatalf("the conflict must be refused: exit %d %q", code, errS)
 	}
 }
+
+// TestMoveAdjacentEmptyEqualsFormConflict (r7-3): --adjacent= is a SET
+// --adjacent with an empty value — with --adjacent-clear it is the same
+// contradiction the space form refuses, not a silent pass.
+func TestMoveAdjacentEmptyEqualsFormConflict(t *testing.T) {
+	c, root := t15Campaign(t, "move-conflict-eq")
+	fid := moveLifecycleFinding(t, c)
+	code, _, errS := run(t, "--root", root, "move", c.CampaignID, fid,
+		"DISPROVED", "--reason", "ruled out the theft path as filed",
+		"--adjacent=", "--adjacent-clear")
+	if code != 2 || !strings.Contains(errS, "mutually exclusive") {
+		t.Fatalf("empty-value conflict must refuse: exit %d %q", code, errS)
+	}
+}
+
+// TestMoveAdjacentEmptyValueStillNamed (r7-3 companion): --adjacent= alone
+// is a NAMED adjacent with an empty name — the library's own blank guard
+// answers it, never a silent no-op.
+func TestMoveAdjacentEmptyValueStillNamed(t *testing.T) {
+	c, root := t15Campaign(t, "move-adj-empty")
+	fid := moveLifecycleFinding(t, c)
+	code, _, errS := run(t, "--root", root, "move", c.CampaignID, fid,
+		"DISPROVED", "--reason", "ruled out the theft path as filed",
+		"--adjacent=")
+	if code == 0 || !strings.Contains(errS, "adjacent") {
+		t.Fatalf("empty adjacent name must be answered by the blank guard: "+
+			"exit %d %q", code, errS)
+	}
+}

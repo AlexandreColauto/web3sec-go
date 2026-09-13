@@ -61,6 +61,7 @@ func moveCmd(root string, args []string, r *Runner) error {
 
 	ensureSeams()
 	reason, actor, adjacent, duplicateOf := "", "", "", ""
+	adjacentSet := false
 	haveReason := false
 	haveOf := false
 	adjacentClear := false
@@ -101,10 +102,13 @@ func moveCmd(root string, args []string, r *Runner) error {
 				return t14ArgparseErr(moveUsage, "move",
 					"argument --adjacent: expected one argument")
 			}
-			adjacent = v
+			adjacent, adjacentSet = v, true
 			i++
 		case strings.HasPrefix(a, "--adjacent="):
 			adjacent = strings.TrimPrefix(a, "--adjacent=")
+			adjacentSet = true // r7: the =-form of an EMPTY value still
+			// SET the flag — --adjacent= with --adjacent-clear is the same
+			// contradiction, and an unset flag must never read as silence.
 		case a == "--adjacent-clear":
 			adjacentClear = true
 		case strings.HasPrefix(a, "--adjacent-clear="):
@@ -184,7 +188,7 @@ func moveCmd(root string, args []string, r *Runner) error {
 	// to one question; the library branch clears first and the named
 	// property would vanish silently. The CLI refuses the combination —
 	// flags are never inert here.
-	if adjacent != "" && adjacentClear {
+	if (adjacentSet || adjacent != "") && adjacentClear {
 		return t14ArgparseErr(moveUsage, "move",
 			"--adjacent and --adjacent-clear are mutually exclusive — name"+
 				" the new adjacent property, or clear it, not both")

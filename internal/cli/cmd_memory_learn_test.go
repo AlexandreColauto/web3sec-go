@@ -14,7 +14,9 @@ import (
 	"strings"
 	"testing"
 
+	"regexp"
 	"websec/internal/completion"
+	"websec/internal/findings"
 	"websec/internal/learning"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -495,5 +497,56 @@ func TestMemoryQueueFindingArgparse(t *testing.T) {
 		if !strings.Contains(out+errS, "usage: webv2 memory") {
 			t.Errorf("%s: usage line missing from %q / %q", tc.name, out, errS)
 		}
+	}
+}
+
+// TestMemoryApproveWarnsOnStaleClass pins r7's queue-drift observation:
+// amending the source finding's class after queueing must make the
+// approval NOTICE the label gap (the judgment stands, the label is
+// reviewed) instead of promoting a stale taxonomy silently.
+func TestMemoryApproveWarnsOnStaleClass(t *testing.T) {
+	c, root, fid := t23Campaign(t, "memory-stale")
+	cid := c.CampaignID
+	if code, _, errS := run(t, "--root", root, "move", cid, fid,
+		"DISPROVED", "--adjacent", "the TWAP staleness window was never "+
+			"checked", "--reason", "repro disproves the rounding path as "+
+			"filed"); code != 0 {
+		t.Fatalf("disprove: %q", errS)
+	}
+	if code, out, errS := run(t, "--root", root, "memory", cid,
+		"--queue-finding", fid, "--kind", "disproved", "--pattern",
+		"logic-error rounding drains value at conversion"); code != 0 {
+		t.Fatalf("queue: exit %d %q %q", code, out, errS)
+	}
+	// The source finding re-files itself under another class.
+	f, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rc := objAt(f, "root_cause")
+	rc.O = validation.SetOrAppend(rc.O, "class",
+		validation.VStr("access-control"))
+	f.O = validation.SetOrAppend(f.O, "root_cause", rc)
+	if err := findings.SaveFinding(c, &f); err != nil {
+		t.Fatal(err)
+	}
+	// Find the queued id from the plain listing line "MEM-…".
+	code, out, errS := run(t, "--root", root, "memory", cid)
+	if code != 0 {
+		t.Fatalf("list: exit %d %q", code, errS)
+	}
+	mid := regexp.MustCompile(`MEM-[0-9a-f]+`).FindString(out)
+	if mid == "" {
+		t.Fatalf("no queued row in listing: %q", out)
+	}
+	code, out, errS = run(t, "--root", root, "memory", cid,
+		"--approve", mid, "--by", "operator")
+	if code != 0 {
+		t.Fatalf("approve stands: exit %d out %q err %q", code, out, errS)
+	}
+	if !strings.Contains(errS, "source finding is now classified") ||
+		!strings.Contains(errS, "access-control") {
+		t.Fatalf("stale label must be warned with the new class: %q",
+			errS)
 	}
 }

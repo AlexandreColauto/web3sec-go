@@ -329,6 +329,15 @@ func memoryApprove(c *state.Campaign, approve, by string,
 	}
 	fmt.Fprintf(r.Out, "approved %s by %s\n", objStr(mem, "memory_id"),
 		objStr(mem, "approved_by"))
+	if rowCls, fndCls, stale := learning.StaleBugClass(c, mem); stale {
+		// r7 (critic): queue-time taxonomy stamped into the row can go
+		// stale under an amend --class. The approval stands (the human
+		// judged the PATTERN); the label drift is named before promotion,
+		// never carried silently.
+		fmt.Fprintf(r.Err, "warn: this row carries bug_class %s but its "+
+			"source finding is now classified %q — review the label before "+
+			"promoting\n", rowCls, fndCls)
+	}
 	fmt.Fprint(r.Out, "promote with (in priority order):\n")
 	commands, err := learning.PromotionCommands(c, objStr(mem, "memory_id"), by)
 	if err != nil {

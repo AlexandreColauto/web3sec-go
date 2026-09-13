@@ -91,13 +91,16 @@ func stageTree(targetAbs, snapRoot string, extraExcludes []string) (*stagedTree,
 	// store makes even the r4 ghost check burn a red audit forever for a
 	// failed pin. discard-on-error is the twin law, not a courtesy.
 	discard := func() {
+		// r7: the walk seals as it goes (deep dirs can be read-only), so
+		// every discard MUST unseal first — plain RemoveAll fails EACCES
+		// in silence and strands the ghost this package's own audit chases.
 		if st.worktreeAdded {
-			_ = os.RemoveAll(staging)
+			_ = removeTreeUnsealed(staging)
 			Git(targetAbs, "worktree", "prune")
 			return
 		}
 		if dirExists(staging) {
-			_ = os.RemoveAll(staging)
+			_ = removeTreeUnsealed(staging)
 		}
 	}
 	if ladder == "git-clean" && commit != nil {
@@ -142,8 +145,8 @@ func stageTree(targetAbs, snapRoot string, extraExcludes []string) (*stagedTree,
 // discardStaged undoes a DRY-RUN staging: remove the temp tree (and its
 // temp parent) and prune a worktree registration if one was made.
 func discardStaged(st *stagedTree) {
-	_ = os.RemoveAll(st.staging)
-	_ = os.RemoveAll(filepath.Dir(st.staging))
+	_ = removeTreeUnsealed(st.staging)
+	_ = removeTreeUnsealed(filepath.Dir(st.staging))
 	if st.worktreeAdded {
 		Git(st.targetAbs, "worktree", "prune")
 	}

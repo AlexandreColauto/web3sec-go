@@ -1,5 +1,21 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-13 — critic round 7: my own fix ate the project's answer key
+The duplicate-anchor refusal read fields the scorer never uses (.path for
+.file, object mechanisms for strings) — collapsing every location leg and
+REFUSING THE SHIPPED PACK; nothing but the real pack exercised the loader,
+so now a pin loads assets/evalsuite/cases.json through LoadGoldPack every
+test run, and anchorKey mirrors anchor()'s join exactly (class+accept set,
+file basenames, outcome, string mechanisms). Same round: the re-pin discard
+unseals before RemoveAll (sealed children made the removal fail silently
+and strand a staging ghost the r4 audit would chase forever); --adjacent=
+is a SET flag — its empty value contradicts --adjacent-clear like the space
+form; staged FILES get chmod-after-WriteFile so the umask stops rewriting
+group/other bits the copy2 claim was made of; memory approve/reject errors
+name their cause instead of echoing a bare id, and approval warns when the
+source finding's class moved under the row; baseline remove keeps the
+twin's idempotence but says so when nothing was registered.
+
 ## 2026-09-13 — critic round 6: the fixes' own regressions died first
 r5's copystat-last sealed the staged ROOT — and the pin writes snapshot.json
 INTO it, so an 0500 source root became permanently un-pinnable (half-pin

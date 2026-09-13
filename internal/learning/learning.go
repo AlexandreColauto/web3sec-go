@@ -238,11 +238,16 @@ func ApproveMemory(c *state.Campaign, memoryID, approver string) (validation.Val
 			"memory promotion requires a recorded human approver")
 	}
 	path := filepath.Join(c.MemoryDir, memoryID+".json")
+	// r7 (critic): a bare id as an error message names nothing — the
+	// operator cannot tell a typo from a missing row from a shape bug.
 	if !memoryIDRe.MatchString(memoryID) {
-		return validation.VNull(), fmt.Errorf("%s", memoryID)
+		return validation.VNull(), fmt.Errorf(
+			"%s is not a memory id (expected MEM-<12 hex>)", memoryID)
 	}
 	if _, err := os.Stat(path); err != nil {
-		return validation.VNull(), fmt.Errorf("%s", memoryID)
+		return validation.VNull(), fmt.Errorf(
+			"memory %s not found in %s's queue — `webv2 memory %s` lists "+
+				"what is there", memoryID, c.CampaignID, c.CampaignID)
 	}
 	mem, err := validation.ReadJson(path)
 	if err != nil {
@@ -286,11 +291,16 @@ func RejectMemory(c *state.Campaign, memoryID, reason, rejectionClass string) (v
 			"memory rejection requires a written reason")
 	}
 	path := filepath.Join(c.MemoryDir, memoryID+".json")
+	// r7 (critic): a bare id as an error message names nothing — the
+	// operator cannot tell a typo from a missing row from a shape bug.
 	if !memoryIDRe.MatchString(memoryID) {
-		return validation.VNull(), fmt.Errorf("%s", memoryID)
+		return validation.VNull(), fmt.Errorf(
+			"%s is not a memory id (expected MEM-<12 hex>)", memoryID)
 	}
 	if _, err := os.Stat(path); err != nil {
-		return validation.VNull(), fmt.Errorf("%s", memoryID)
+		return validation.VNull(), fmt.Errorf(
+			"memory %s not found in %s's queue — `webv2 memory %s` lists "+
+				"what is there", memoryID, c.CampaignID, c.CampaignID)
 	}
 	mem, err := validation.ReadJson(path)
 	if err != nil {
@@ -730,4 +740,37 @@ func pyReprTuple(items []string) string {
 		return "(" + parts[0] + ",)"
 	}
 	return "(" + joinComma(parts) + ")"
+}
+
+// StaleBugClass reports whether an approved row's bug_class no longer
+// matches its source finding's root class (an amend --class after queueing
+// moves the finding out from under the row). Returns the pair and true
+// when the drift exists; absent finding id, missing row, or matching
+// class all report false (r7: the promotion should not silently carry a
+// stale taxonomy label — the CLI warns; the human decides).
+func StaleBugClass(c *state.Campaign, mem validation.Value) (
+	rowClass, findingClass string, stale bool) {
+	fid := objStr(mem, "finding_id")
+	rowClass = objStr(mem, "bug_class")
+	if fid == "" || rowClass == "" {
+		return "", "", false
+	}
+	f, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		return "", "", false
+	}
+	findingClass = objStr(objAt(objAt(f, "root_cause"), "class"), "class")
+	if findingClass == "" {
+		if rc := objAt(f, "root_cause"); rc.Kind == validation.Obj {
+			for _, kv := range rc.O {
+				if kv.K == "class" && kv.V.Kind == validation.Str {
+					findingClass = kv.V.S
+				}
+			}
+		}
+	}
+	if findingClass == "" || findingClass == rowClass {
+		return rowClass, findingClass, false
+	}
+	return rowClass, findingClass, true
 }

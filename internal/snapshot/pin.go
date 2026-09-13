@@ -271,7 +271,16 @@ func copyTree(src, dst string, excludes map[string]struct{}) error {
 				return err
 			}
 			_ = os.Remove(q)
-			return os.WriteFile(q, raw, info.Mode().Perm())
+			perm := info.Mode().Perm() & ^(os.ModePerm & 0o007) // drop s?st?gt?sticky noise if any
+			if err := os.WriteFile(q, raw, perm); err != nil {
+				return err
+			}
+			// r7 (critic): os.WriteFile EXACTS the umask (0777 -> 0755 under
+			// 022); shutil.copystat restores the source's full permission
+			// bits. An executable script that arrives non-executable is a
+			// fidelity break — modes never reach the hashes, but the staged
+			// copy is what a re-checkout runs. Chmod to the source perm.
+			return os.Chmod(q, info.Mode().Perm()&^os.ModeSymlink&os.ModePerm)
 		default:
 			return nil // fifos/sockets: nothing to hash, not copied
 		}
@@ -343,7 +352,7 @@ func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Valu
 		// Python finally block.
 		if worktreeAdded {
 			if dirExists(staging) {
-				_ = os.RemoveAll(staging)
+				_ = removeTreeUnsealed(staging) // r7: sealed modes lie to RemoveAll
 				Git(targetAbs, "worktree", "prune")
 			}
 		}
@@ -362,7 +371,13 @@ func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Valu
 				"pinned snapshot %s no longer matches its recorded content hash "+
 					"— the immutable copy was modified; delete it and re-pin", snapshotID)
 		}
-		_ = os.RemoveAll(staging)
+		if err := removeTreeUnsealed(staging); err != nil {
+			return validation.VNull(), fmt.Errorf(
+				"re-pin: the identical-content staging copy could not be "+
+					"discarded (%v) — a leftover staging dir would read as "+
+					"a half-pin to every later audit; the campaign store "+
+					"needs a manual clean", err)
+		}
 	} else {
 		if err := os.Rename(staging, final); err != nil {
 			return validation.VNull(), err
@@ -468,4 +483,30 @@ func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Valu
 		fmt.Fprintln(os.Stderr, "warning: "+ContainmentWarning)
 	}
 	return snap, nil
+}
+
+// removeTreeUnsealed deletes a staged tree whose child directories may
+// already carry their final (possibly read-only) source modes: chmod the
+// directories back to 0700 while descending, then RemoveAll. A plain
+// RemoveAll inside a sealed tree fails with EACCES and — the r7 leak —
+// silently strands a staging-* dir in the snapshot store, which every
+// later audit then reports as a half-pin.
+func removeTreeUnsealed(root string) error {
+	st, err := os.Lstat(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if !st.IsDir() {
+		return os.RemoveAll(root) // a symlink or file: RemoveAll handles it
+	}
+	_ = filepath.WalkDir(root, func(pp string, d os.DirEntry, werr error) error {
+		if werr == nil && d.IsDir() {
+			_ = os.Chmod(pp, 0o700)
+		}
+		return nil
+	})
+	return os.RemoveAll(root)
 }
