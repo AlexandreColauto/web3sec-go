@@ -707,3 +707,36 @@ func TestLoadGoldPackRefusals(t *testing.T) {
 		t.Fatalf("mismatch error must print the file's own hash: %v", err)
 	}
 }
+
+// TestGoldPackRefusesControlWithMechanisms pins critic r2 (R2-5): a control
+// row carrying match_mechanisms is dead authoring — the mechanism leg never
+// runs for absence checks — so the loader refuses it.
+func TestGoldPackRefusesControlWithMechanisms(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "pack.json")
+	body := `[{"case_id":"CASE-000000000001","schema_version":2,` +
+		`"source":{"dataset":"manual","record_id":"r2-5","url":"https://x.io/a"},` +
+		`"partition":"dev","program":{"program":"vaultx"},` +
+		`"code":{"repo":"https://github.com/v/vaultx","commit":"` +
+		strings.Repeat("a", 40) + `"},` +
+		`"created_at":"2026-09-13T00:00:00Z","notes":"unit fixture",` +
+		`"gold":{"outcome":"confirmed-not-exploitable",` +
+		`"bug_class":"reentrancy","root_cause":"clean control, unit-tested",` +
+		`"locations":[],"match_mechanisms":["mint function unauthenticated"]}}]`
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadGoldPack(p)
+	if err == nil || !strings.Contains(err.Error(), "never runs for control") {
+		t.Fatalf("compound control+mechanism must be refused: %v", err)
+	}
+	// the non-control twin of the same row still loads (refusal is scoped).
+	body2 := strings.Replace(body, "confirmed-not-exploitable",
+		"confirmed-exploitable", 1)
+	if err := os.WriteFile(p, []byte(body2), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadGoldPack(p); err != nil {
+		t.Fatalf("non-control mechanism row must load: %v", err)
+	}
+}

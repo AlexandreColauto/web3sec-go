@@ -646,6 +646,20 @@ func OpenGoldPack(path string) (GoldPack, error) {
 				"gold pack %s: case %s fails evaluation_case validation: %v",
 				path, cid, err)
 		}
+		// R2-5 (critic): the mechanism leg runs only on NON-control anchors
+		// (a control case is a program's ABSENCE check — nothing to anchor
+		// a phrase against). A control row carrying match_mechanisms is
+		// dead authoring: refused at load so an author believes the gate
+		// bites when it cannot.
+		if field(obj(row, "gold"), "outcome") == notExploitable &&
+			obj(row, "gold").Kind == validation.Obj &&
+			obj(obj(row, "gold"), "match_mechanisms").Kind != validation.Null {
+			return GoldPack{}, fmt.Errorf(
+				"gold pack %s: case %s is a control (outcome %s) and "+
+					"carries match_mechanisms — the mechanism leg never runs "+
+					"for control cases; drop the phrases or the outcome",
+				path, field(row, "case_id"), notExploitable)
+		}
 		cid := field(row, "case_id")
 		if seen[cid] {
 			return GoldPack{}, fmt.Errorf(

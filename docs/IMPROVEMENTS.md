@@ -26,6 +26,12 @@ stop-words exempt), `root:<class>` equality pin, absent = historical join
 bit-identical, malformed entries fail CLOSED per entry. Deny-lists
 deliberately NOT expressible (they age badly and fail open). Near-miss now
 scores miss + unanchored-true-positive, adjudicable honestly.
+*Revised by critic rounds 1–2 (commits 283528c3, 7f236505): per-entry
+malformed behavior is SKIP-not-poison (order-free); a phrase needs >=2
+non-stopword content words or anchors nothing; `no/not/cannot/can/without/
+set` left the stop-word list — negation and domain nouns are load-bearing;
+control cases carrying match_mechanisms are refused at pack load (the leg
+never runs for absence checks).*
 
 **Deliberately NOT landed:** the feedback's "mandatory multi-vector
 enumeration before the first liveness PoC" — current main already carries
