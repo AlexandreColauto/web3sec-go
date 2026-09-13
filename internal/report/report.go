@@ -1458,9 +1458,16 @@ func Generate(campaign *state.Campaign) (string, error) {
 	}
 
 	dismissed := []validation.Value{}
+	// r6 (critic issue 4): INFORMATIONAL was missing here — an informational
+	// row rendered in the tables above but never in "dismissed candidates
+	// (with reasons)", so its recorded dismissal reason went unread. This
+	// roster is DELIBERATELY not dismissedTerminalStatuses (supersession is
+	// correction, not dismissal — but a superseded row's move reason still
+	// belongs in the table); the fix is the missing state, not a merge.
 	for _, f := range all {
 		switch objStr(f, "status") {
-		case "DISPROVED", "OUT_OF_SCOPE", "DUPLICATE", "SUPERSEDED":
+		case "DISPROVED", "OUT_OF_SCOPE", "DUPLICATE", "SUPERSEDED",
+			"INFORMATIONAL":
 			dismissed = append(dismissed, f)
 		}
 	}

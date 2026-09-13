@@ -336,7 +336,11 @@ of it. The sweep reports; it never mutates — the fix is a re-answer.
 A separate, unglamorous rule runs on EVERY closure at any tier: a reason or
 `--ref` that names a finding, exec record or invariant must name one that
 exists — `F-1a2b3c4d5e6f` that was never written is refused as fabricated, by
-typo or by invention. The pricing flags are held to the same discipline on
+typo or by invention. Affected-site paths carry the same claim discipline:
+an `affected.path` must live INSIDE the pinned tree — absolute paths,
+backslash paths, and anything walking through `..` (or an empty segment)
+are refused at intake, because every later reader (the snapshot-compatibility
+gate, report.md) cites them against the pin. The pricing flags are held to the same discipline on
 every closure, any route: `--finding` must be a filed, LIVE finding (a
 terminal one — DISPROVED, OUT_OF_SCOPE, INFORMATIONAL, DUPLICATE,
 SUPERSEDED — records nothing about a window that is still open) and

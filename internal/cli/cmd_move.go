@@ -180,6 +180,15 @@ func moveCmd(root string, args []string, r *Runner) error {
 	if actor == "" {
 		actor = "cli" // args.actor or "cli"
 	}
+	// r6 (critic issue 5): --adjacent and --adjacent-clear are two answers
+	// to one question; the library branch clears first and the named
+	// property would vanish silently. The CLI refuses the combination —
+	// flags are never inert here.
+	if adjacent != "" && adjacentClear {
+		return t14ArgparseErr(moveUsage, "move",
+			"--adjacent and --adjacent-clear are mutually exclusive — name"+
+				" the new adjacent property, or clear it, not both")
+	}
 	c, err := state.Open(root, pos[0])
 	if err != nil {
 		return err

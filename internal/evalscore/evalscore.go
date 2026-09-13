@@ -631,6 +631,7 @@ func OpenGoldPack(path string) (GoldPack, error) {
 	}
 	cases := make([]validation.Value, 0, len(doc.A))
 	seen := map[string]bool{}
+	anchors := map[string]string{}
 	for i, row := range doc.A {
 		if row.Kind != validation.Obj {
 			return GoldPack{}, fmt.Errorf(
@@ -667,6 +668,21 @@ func OpenGoldPack(path string) (GoldPack, error) {
 					"gold row", path, cid)
 		}
 		seen[cid] = true
+		// r6 (critic issue 3): the same ANCHOR under two ids is answer-key
+		// duplication — one real finding satisfies both, GoldTotal grows
+		// without the suite learning anything new, and the Wilson
+		// confidence widens off a phantom second sample. Refuse it the way
+		// duplicate case_ids are refused; the anchor's canonical form is
+		// bug_class + sorted location basenames + outcome + mechanisms.
+		key := anchorKey(row)
+		if prev, dup := anchors[key]; dup {
+			return GoldPack{}, fmt.Errorf(
+				"gold pack %s: cases %s and %s have the same gold anchor "+
+					"(bug_class, locations, outcome, mechanisms) — one "+
+					"finding would satisfy both and inflate the answer key; "+
+					"merge them", path, prev, cid)
+		}
+		anchors[key] = cid
 		cases = append(cases, row)
 	}
 	sidecar, ok := goldPackSidecar(path)
@@ -710,4 +726,42 @@ func goldPackSidecar(path string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// anchorKey is the canonical identity of a gold row's ANCHOR: what a
+// finding is matched against (bug_class, sorted location path basenames,
+// gold outcome, sorted match_mechanisms). Two rows with equal keys are
+// indistinguishable to the scorer.
+func anchorKey(row validation.Value) string {
+	g := obj(row, "gold")
+	parts := []string{
+		field(g, "bug_class"),
+		field(g, "outcome"),
+	}
+	var locs []string
+	if ls := g.O; true {
+		for _, kv := range ls {
+			if kv.K != "locations" {
+				continue
+			}
+			for _, l := range kv.V.A {
+				locs = append(locs,
+					filepath.Base(field(l, "path")))
+			}
+		}
+	}
+	sort.Strings(locs)
+	parts = append(parts, strings.Join(locs, ","))
+	var mech []string
+	for _, kv := range g.O {
+		if kv.K != "match_mechanisms" {
+			continue
+		}
+		for _, m := range kv.V.A {
+			mech = append(mech, field(m, "phrase"))
+		}
+	}
+	sort.Strings(mech)
+	parts = append(parts, strings.Join(mech, "|"))
+	return strings.Join(parts, "\x00")
 }

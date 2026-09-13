@@ -1,5 +1,22 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-13 — critic round 6: the fixes' own regressions died first
+r5's copystat-last sealed the staged ROOT — and the pin writes snapshot.json
+INTO it, so an 0500 source root became permanently un-pinnable (half-pin
+burning the r4 ghost check forever, invisible to the unit test that only
+exercised copyTree). The twin's law is sharper than round 5 read it:
+copytree seals CHILD dirs after their content, and the staged root — the
+pin's own creation — stays writable; that is pinned end to end now
+(pinned, re-pinned, audited). Same round: audit section 14 learned the
+mirror direction (a decision ERASED from the file while the chain's last
+word is unpriceable — the gate already refused to credit it, the audit was
+blind); gold packs refuse duplicate ANCHORS under distinct case_ids (one
+finding satisfying two rows inflates GoldTotal and tightens a Wilson CI on
+a phantom sample); intake refuses affected.path that escapes the pinned
+tree; move --adjacent X --adjacent-clear is a refused contradiction, not a
+silent clear; the report's dismissal roster gained INFORMATIONAL; README's
+section arithmetic matches the two presence-gated tails.
+
 ## 2026-09-13 — critic round 5: readers must agree with the law they cite
 copyTree now seals directory modes AFTER the content walk (shutil's
 copystat order): a read-only source tree pinned like the twin instead of

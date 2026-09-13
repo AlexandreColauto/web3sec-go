@@ -941,3 +941,17 @@ func TestMoveOfRefusedOffDuplicate(t *testing.T) {
 		t.Fatalf("bare reopen stdout\n%q\nwant\n%q", out, want)
 	}
 }
+
+// TestMoveAdjacentFlagConflictRefused pins r6 issue 5: mutually exclusive
+// answers must not silently resolve to whichever the library prefers.
+func TestMoveAdjacentFlagConflictRefused(t *testing.T) {
+	c, root := t15Campaign(t, "move-conflict")
+	fid := moveLifecycleFinding(t, c)
+	code, _, errS := run(t, "--root", root, "move", c.CampaignID, fid, "DISPROVED",
+		"--reason", "ruled out the theft path as filed",
+		"--adjacent", "the timelock window was never probed",
+		"--adjacent-clear")
+	if code != 2 || !strings.Contains(errS, "mutually exclusive") {
+		t.Fatalf("the conflict must be refused: exit %d %q", code, errS)
+	}
+}

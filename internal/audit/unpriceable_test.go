@@ -6,6 +6,9 @@ package audit
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"websec/internal/findings"
@@ -206,4 +209,52 @@ func setKey(o []validation.KV, key string, v validation.Value) []validation.KV {
 		}
 	}
 	return append(o, validation.KV{K: key, V: v})
+}
+
+// TestAuditUnpriceableCatchesAnErasure pins r6 issue 2: the section sees
+// BOTH sides of the hand-edit. The file claiming priceable while the
+// chain's last word is a logged unpriceable is the mirror of the ghost
+// row prices.json already refuses.
+func TestAuditUnpriceableCatchesAnErasure(t *testing.T) {
+	Setup()
+	t.Setenv("WEBV2_NOW", "2026-01-01T00:00:00.000000+00:00")
+	c := initCampaign(t)
+	fid := unpFinding(t, c)
+	if _, err := risk.RecordUnpriceable(c, fid, unpCeiling, unpReason,
+		unpActor); err != nil {
+		t.Fatal(err)
+	}
+	// Erase the decision FROM THE FILE ONLY — priceable back to true.
+	p := filepath.Join(c.FindingsDir, fid+".json")
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := validation.ParseOrdered(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	imp := objAt(doc, "economic_impact")
+	imp.O = validation.SetOrAppend(imp.O, "priceable", validation.VBool(true))
+	doc.O = validation.SetOrAppend(doc.O, "economic_impact", imp)
+	if err := os.WriteFile(p,
+		[]byte(validation.DumpsOrdered(doc, true)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sec := unpSection(t, c)
+	body := validation.DumpsOrdered(sec, false)
+	if objAt(sec, "ok").B || !strings.Contains(body, "erased by") {
+		t.Fatalf("erasure must be a problem: %s", body)
+	}
+	// And the proper retraction still passes the mirror check: a later
+	// priced impact makes the file's priceable=true the LOG's own answer.
+	if _, err := risk.RecordEconomicImpact(c, fid,
+		validation.VFloat(1000.0), validation.VNull(),
+		validation.VNull()); err != nil {
+		t.Fatal(err)
+	}
+	if sec := unpSection(t, c); !objAt(sec, "ok").B {
+		t.Fatalf("priced retraction reconciles both sides: %s",
+			validation.DumpsOrdered(sec, false))
+	}
 }

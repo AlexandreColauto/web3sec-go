@@ -655,6 +655,9 @@ func TestLoadGoldPackRefusals(t *testing.T) {
 		t.Fatal(err)
 	}
 	dupPath, _ := writeGoldPack(t, dir, "dup.json", good, good)
+	// r6 issue 3: two ids, ONE anchor — indistinguishable to the scorer.
+	sib := goldPackRow("CASE-000000000f0e", "Morph", "dos-griefing")
+	dupAnchorPath, _ := writeGoldPack(t, dir, "dup-anchor.json", good, sib)
 
 	badSidecar := filepath.Join(dir, "bad-sidecar.json")
 	badData := []byte(validation.DumpIndentedASCII(validation.VArr(good)) + "\n")
@@ -683,6 +686,9 @@ func TestLoadGoldPackRefusals(t *testing.T) {
 				"validation", "bug_class"}},
 		{"duplicate case_id", dupPath,
 			[]string{"duplicate case_id CASE-00000000000e"}},
+		{"duplicate anchor", dupAnchorPath,
+			[]string{"same gold anchor", "CASE-00000000000e",
+				"CASE-000000000f0e"}},
 		{"corrupted sidecar", badSidecar,
 			[]string{"does not match its sidecar",
 				strings.Repeat("0", 64)}},

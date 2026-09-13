@@ -57,7 +57,7 @@ CID=$(ls campaigns | head -1)
 ./dist/webv2 --root . ingest $CID --json-file finding.json
 ./dist/webv2 --root . status $CID
 ./dist/webv2 --root . brief  $CID     # what matters now
-./dist/webv2 --root . audit  $CID     # 15-section integrity audit
+./dist/webv2 --root . audit  $CID     # integrity audit: 14 sections here (16 registered; eval and price_table are presence-gated)
 ```
 
 Campaign state lands in `campaigns/<C-id>/`: `events.jsonl` (hash-chained

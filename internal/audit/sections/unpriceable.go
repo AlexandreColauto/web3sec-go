@@ -85,11 +85,66 @@ func Unpriceable(c *state.Campaign) (validation.Value, error) {
 				validation.PyRepr(recorded))))
 		}
 	}
+	// r6: the mirror direction. The loop above polices a FILE decision the
+	// LOG contradicts; a decision ERASED from the file (priceable true or
+	// absent) while the chain's last word is still finding.unpriceable is
+	// the same hand-edit seen from the other side — prices.json got both
+	// ghost and lost rows from day one, the finding file gets its now. The
+	// gate already refuses to credit an erased decision (it reads the
+	// file); what was missing was that the AUDIT stays silent about it.
+	for _, e := range decisions {
+		if objStr(e, "type") != "finding.unpriceable" {
+			continue
+		}
+		fid := objStr(e, "ref")
+		fdata, ok := findingFileOf(c, fid)
+		if !ok {
+			continue // findings section reports the missing file
+		}
+		imp := objAt(fdata, "economic_impact")
+		if imp.Kind == validation.Obj {
+			if pv := objAt(imp, "priceable"); pv.Kind == validation.Bool &&
+				!pv.B {
+				continue // the decision still stands in the file
+			}
+		}
+		// But was it later retracted the proper way? The decisions list is
+		// log order; this event's own finding's LAST impact decision wins.
+		last := ""
+		for _, e2 := range decisions {
+			if objStr(e2, "ref") == fid {
+				last = objStr(e2, "type")
+			}
+		}
+		if last != "finding.unpriceable" {
+			continue
+		}
+		problems = append(problems, validation.VStr(fmt.Sprintf(
+			"finding %s: the log's last impact decision is a recorded "+
+				"unpriceable, but the file does not carry it "+
+				"(priceable false absent?) — the decision was erased by "+
+				"hand-edit", fid)))
+	}
+	// 'checked' keeps its ported meaning (files examined); the mirror
+	// scan reports, it does not inflate the counter.
 	return validation.VObj(
 		KV("checked", validation.VInt(int64(checked))),
 		KV("problems", validation.VArr(problems...)),
 		KV("ok", validation.VBool(len(problems) == 0)),
 	), nil
+}
+
+// findingFileOf resolves a finding id to its stored file; the path is
+// deterministic (F-<hex>.json), the id inside is double-checked.
+func findingFileOf(c *state.Campaign, fid string) (validation.Value, bool) {
+	v, err := validation.ReadJson(filepath.Join(c.FindingsDir, fid+".json"))
+	if err != nil {
+		return validation.Value{}, false
+	}
+	if objStr(v, "finding_id") != fid {
+		return validation.Value{}, false
+	}
+	return v, true
 }
 
 // pyEqual is Python == on two decoded JSON values: numbers compare across

@@ -326,6 +326,18 @@ func ingestHypothesis(campaign *state.Campaign, payload validation.Value,
 	if err := validation.Validate(p, "finding", 5); err != nil {
 		return validation.VNull(), err
 	}
+	// r6 (critic issue 6): affected.path is a claim ABOUT the pinned tree.
+	// An absolute path or a ..-escaping one can name nothing inside a
+	// snapshot and flows unflagged into report.md — refuse it at intake,
+	// where the vocabulary is still the author's mistake, not the ledger's
+	// lie. Schema keeps the shape rule out of RE2's no-lookahead reach.
+	for i, aff := range objAt(p, "affected").A {
+		if v := objAt(aff, "path"); v.Kind == validation.Str {
+			if err := checkAffectedPath(i, v.S); err != nil {
+				return validation.VNull(), err
+			}
+		}
+	}
 	// ---- ingest phase order (wave N, T2 ruling) ---------------------------
 	// 1. SCHEMA: the WHOLE payload is validated above — before any ledger read
 	//    or gate math — so a schema typo is never masked by a later refusal.
@@ -698,4 +710,28 @@ func pyFloat(v validation.Value) (float64, bool) {
 		return 0, true
 	}
 	return 0, false
+}
+
+// checkAffectedPath is the intake's path discipline: relative, no empty
+// segments, no . or .. anywhere, no drive-letter or backslash windows.
+func checkAffectedPath(i int, path string) error {
+	if path == "" || strings.HasPrefix(path, "/") ||
+		strings.HasPrefix(path, "\\") || strings.Contains(path, "\\") ||
+		len(path) > 1 && path[1] == ':' &&
+			((path[0] >= 'a' && path[0] <= 'z') ||
+				(path[0] >= 'A' && path[0] <= 'Z')) {
+		return fmt.Errorf(
+			"affected[%d].path %q is not a path INSIDE the pinned tree: "+
+				"absolute and backslash paths are refused (make it relative "+
+				"to the repository root)", i, path)
+	}
+	for _, seg := range strings.Split(path, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return fmt.Errorf(
+				"affected[%d].path %q walks outside the pinned tree (empty, "+
+					". or .. segment) — name the in-tree path exactly",
+				i, path)
+		}
+	}
+	return nil
 }
