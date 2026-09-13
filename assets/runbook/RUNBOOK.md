@@ -1498,6 +1498,12 @@ near-miss (uppercase, underscore, extra text) silently falls through to the
 plain skeleton — check the artifact if you meant a template.
 A statement reading `invariant:<slug> of <Contract>.<State> <op> <expr>` (`op` ∈ `>= <= == > <`) renders an induction scaffold:
 `invariant <rule-name>()` plus the reviewed `assert <State> <op> <expr>;` pinned OUTSIDE the BODY window (extra asserts only inside).
+A mapped `counterexample` also writes the runnable bridged PoC `artifacts/harness/<INV>/poc-<INV>.json` — the
+`sequence_poc` a real `webv2 sequence run <C> <path> --finding F` consumes. A re-verify overwrites that one path,
+byte-identically when nothing changed; nothing is written when the witness cannot be replayed, and stderr names
+why (`verify: poc for 'INV' not written: <reason>`). To ground its `final_storage` readings, drop the operator
+sidecar `artifacts/harness/<INV>/layout.json` beside it — a JSON object of `"<Contract>.<var>": "<decimal slot>"`
+plus optional `"<Contract>": "0x…"` address companions; a malformed sidecar is ignored (stderr note) and the PoC is written layoutless.
 
 ## Environment variables
 

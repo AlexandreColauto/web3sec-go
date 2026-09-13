@@ -326,24 +326,17 @@ func verifyScaffold(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		// invariant, named after the invariant it pins.
 		fname = "INV.mspec"
 	}
-	full := filepath.Join(c.ArtifactsDir, "harness", a.invariant, fname)
-	if prev, err := os.ReadFile(full); err == nil &&
-		bytes.Equal(prev, body) {
-		fmt.Fprintf(r.Out, "%s: unchanged\n", artifactID)
-		return nil
-	}
-	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-		return err
-	}
-	if err := os.WriteFile(full, body, 0o644); err != nil {
-		return err
-	}
 	note := fmt.Sprintf("harness scaffold for %s (%s)", a.invariant,
 		a.scaffold)
-	regID, err := c.RegisterOrRefresh("harness", full, note, nil,
-		"scaffold (content may have changed)")
+	full := harnessArtifactFile(c, a.invariant, fname)
+	regID, changed, err := harnessArtifactWrite(c, a.invariant, fname, body,
+		"harness", note, "scaffold (content may have changed)")
 	if err != nil {
 		return err
+	}
+	if !changed {
+		fmt.Fprintf(r.Out, "%s: unchanged\n", artifactID)
+		return nil
 	}
 	sha, err := validation.Sha256File(full)
 	if err != nil {
@@ -368,6 +361,45 @@ func verifyScaffold(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	}
 	fmt.Fprintf(r.Out, "%s: scaffolded %s\n", artifactID, rel)
 	return nil
+}
+
+// harnessArtifactFile is the ONE place a verify-written harness artifact's
+// path is built: artifacts/harness/<INV>/<fname>. The invariant's harness
+// dir is shared by the scaffold files (H.t.sol / F.t.sol / INV.mspec) and
+// by the bridged counterexample PoC (poc-<INV>.json) — one directory per
+// invariant, one writer for it.
+func harnessArtifactFile(c *state.Campaign, invID, fname string) string {
+	return filepath.Join(c.ArtifactsDir, "harness", invID, fname)
+}
+
+// harnessArtifactWrite is the ONE write/commit path for files under
+// artifacts/harness/<INV>/: byte-identical bytes are a NO-OP (changed=false
+// — no write, no registry churn, no event, which is what makes a re-run
+// idempotent), anything else is written and committed through the
+// campaign's artifact registry (RegisterOrRefresh, the same seam exec
+// findings use). kind is the registry kind ("harness" for a scaffold,
+// "sequence-poc" for a bridged witness). It returns the registry row id and
+// whether anything was written. Readers (verifyScaffold, the bridged-PoC
+// writer) compute the path with harnessArtifactFile so the two can never
+// disagree about where the file lives; the caller owns the event it logs on
+// top.
+func harnessArtifactWrite(c *state.Campaign, invID, fname string, body []byte,
+	kind, note, reason string) (string, bool, error) {
+	full := harnessArtifactFile(c, invID, fname)
+	if prev, err := os.ReadFile(full); err == nil && bytes.Equal(prev, body) {
+		return "", false, nil
+	}
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		return "", false, err
+	}
+	if err := os.WriteFile(full, body, 0o644); err != nil {
+		return "", false, err
+	}
+	regID, err := c.RegisterOrRefresh(kind, full, note, nil, reason)
+	if err != nil {
+		return "", false, err
+	}
+	return regID, true, nil
 }
 
 func runVerify(root string, args []string, r *Runner) int {

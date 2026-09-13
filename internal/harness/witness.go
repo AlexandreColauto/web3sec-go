@@ -58,6 +58,13 @@
 // empty array. Nothing here is inferred from a name: a reading whose
 // contract or slot the layout does not state is SKIPPED, never guessed.
 //
+// Consumption door. BridgeSequence/BridgeSequenceWithLayout take the parsed
+// verdict line; BridgeWitnessLine takes the stdout artifact's bytes and does
+// the scan itself, which is how `verify --harness-result` consumes the
+// bridge: the stored proof sidecar's `calls` is the presence gate (a
+// counterexample with a witness) while the LINE carries the final_storage
+// the layout door grounds (see BridgeWitnessLine's doc).
+//
 // Refusal law (fail-open-to-honest, the package's house style): the
 // bridge either returns a schema-valid sequence_poc or the null value
 // plus a refusal byte-pinned in witness_test.go — never a partial spec.
@@ -199,6 +206,41 @@ func BridgeSequence(obj validation.Value, specID,
 // unaffected.
 func BridgeSequenceWithLayout(obj validation.Value, specID, findingID string,
 	layout map[string]string) (validation.Value, string) {
+	return bridgeSequence(obj, specID, findingID, layout)
+}
+
+// BridgeWitnessLine is the CONSUMPTION door: the bridge applied to a whole
+// minicertora JSONL stream (an EXEC record's stdout artifact) instead of an
+// already-parsed verdict line. It performs the structural scan
+// MapMinicertora performs — the single line whose `rule` field matches
+// ruleName, blank lines skipped, a non-JSON line or an abort line stopping
+// the scan — and then bridges THAT line's own object through
+// BridgeSequenceWithLayout.
+//
+// Why the line and not the stored proof sidecar: the sidecar (mcProof,
+// RULING-12KEY) carries `calls` verbatim but deliberately NOT the rest of
+// the witness — `final_storage` and `params` stay in the stdout artifact —
+// so a sidecar-only bridge could never ground a storage assertion and the
+// layout door would be dead at the CLI. The sidecar's `calls` is therefore
+// the PRESENCE gate the caller decides on (a counterexample rung with a
+// witness), while the bytes bridged are the line the prover actually
+// printed. Re-scanning the same bytes with the same rule name is
+// deterministic, so a caller that already mapped the stream to a VIOLATED
+// rung gets the very line that produced that rung.
+//
+// The scanner's own refusal text is returned unchanged when the stream has
+// no single attributed line — the caller already mapped these bytes, so a
+// refusal here is unreachable in practice and is reported rather than
+// swallowed (a bridge that silently wrote nothing would be a lie of
+// omission). Everything else is BridgeSequenceWithLayout's contract: a
+// schema-valid sequence_poc and "", or the null value and a byte-pinned
+// refusal, never a partial spec.
+func BridgeWitnessLine(raw []byte, ruleName, specID, findingID string,
+	layout map[string]string) (validation.Value, string) {
+	_, obj, refusal, ok := mcAttributed(raw, ruleName)
+	if !ok {
+		return validation.VNull(), refusal
+	}
 	return bridgeSequence(obj, specID, findingID, layout)
 }
 

@@ -808,3 +808,69 @@ func TestBridgeSequenceIsTheLayoutlessDoor(t *testing.T) {
 		}
 	}
 }
+
+// TestBridgeWitnessLineScansTheStream pins the consumption door: given the
+// whole JSONL stream (a blank line, an unattributed line, the attributed
+// VIOLATED witness), BridgeWitnessLine finds the line by rule name and
+// bridges IT — including the final_storage reading that never rides the
+// proof sidecar, which is exactly what the layout door grounds.
+func TestBridgeWitnessLineScansTheStream(t *testing.T) {
+	stream := "\n" + `{"rule":"other","verdict":"PROVEN"}` + "\n" +
+		wVerdictStorage(`{"total":"7"}`,
+			wCall(0, "withdraw", wAlice, false)) + "\n"
+	got, refusal := BridgeWitnessLine([]byte(stream), "inv_1", "SEQ-MINI-01",
+		"F-abc123", map[string]string{
+			"V":       wTarget,
+			"V.total": "3",
+		})
+	if refusal != "" {
+		t.Fatalf("refusal = %q, want none", refusal)
+	}
+	want := `{"actors":{"actor_1":"` + wAlice + `"},"final_assertions":[` +
+		`{"id":"A1","kind":"storage","op":"==","slot":"3",` +
+		`"target":"` + wTarget + `","value":"7"}],` +
+		`"finding_id":"F-abc123","spec_id":"SEQ-MINI-01","steps":[` +
+		`{"actor":"actor_1","args":["1000"],"function":"withdraw",` +
+		`"step":1,"target":"` + wTarget + `"}]}`
+	if gotBytes := validation.CanonCompact(got); gotBytes != want {
+		t.Fatalf("bridged spec =\n%s\nwant\n%s", gotBytes, want)
+	}
+	assertSequencePocSchema(t, got)
+}
+
+// TestBridgeWitnessLineRefusals pins the door's refusal lane: the scan's own
+// text when nothing in the stream is attributed to the rule (an abort line
+// with no rule key, a stream that is not JSONL, or a rule the stream never
+// names), and the bridge's own text when the attributed line cannot be
+// replayed — never a null-with-empty-refusal, which would be a silent no-op
+// at the CLI seam.
+func TestBridgeWitnessLineRefusals(t *testing.T) {
+	rows := []struct {
+		name, stream, want string
+	}{
+		{"abort line", `{"reason":"solver-timeout","details":"x"}` + "\n",
+			"aborted: solver-timeout: x"},
+		{"not JSONL", "Compiling 2 files with Solc\n",
+			"inconclusive (output is not JSONL)"},
+		{"no verdict line", `{"rule":"other","verdict":"PROVEN"}` + "\n",
+			"inconclusive (no verdict line for rule inv_1)"},
+		{"no calls", wVerdictStorage(`{"total":"0"}`),
+			"no calls to bridge"},
+		{"symbolic sender", wVerdict(
+			wCall(0, "withdraw", "attacker", false)),
+			"symbolic senders cannot be fork-repro'd"},
+	}
+	for _, tc := range rows {
+		t.Run(tc.name, func(t *testing.T) {
+			got, refusal := BridgeWitnessLine([]byte(tc.stream), "inv_1",
+				"SEQ-MINI-01", "F-abc123", nil)
+			if got.Kind != validation.Null {
+				t.Fatalf("doc = %s, want null",
+					validation.CanonCompact(got))
+			}
+			if refusal != tc.want {
+				t.Fatalf("refusal = %q, want %q", refusal, tc.want)
+			}
+		})
+	}
+}
