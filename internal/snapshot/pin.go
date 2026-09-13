@@ -217,17 +217,16 @@ func sortedKeys(m map[string]struct{}) []string {
 // NAME is in excludes (pruning matched dirs whole), copy symlinks as
 // symlinks, create directories with their mode bits.
 func copyTree(src, dst string, excludes map[string]struct{}) error {
-	// shutil.copystat ORDER, not just semantics: content first, directory
-	// mode bits applied LAST (r5 critic: a 0500 source root must not make
-	// the walk fail where the twin succeeds — and a read-only staged
-	// directory can never receive its own children). Every directory is
-	// staged writable and sealed to the source mode at the end.
-	if err := os.MkdirAll(dst, 0o755); err != nil {
-		return err
-	}
+	// shutil.copystat's ORDER is the law (r5→r6): content moves while every
+	// staged directory is writable; source mode bits are collected and
+	// sealed AFTER the copy finishes — and the staged ROOT is never sealed
+	// at all, because the twin's own sequence writes snapshot.json INTO
+	// the staged tree after copytree returns (the file is hash-excluded by
+	// design; an 0500 source root must not make the pin unrunnable, and
+	// modes never enter any hash). sealStagedDirs applies the collected
+	// child-directory perms once the meta write is done.
 	var pending []pendingMode
-
-	werr := filepath.WalkDir(src, func(p string, d os.DirEntry, err error) error {
+	err := filepath.WalkDir(src, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -240,20 +239,20 @@ func copyTree(src, dst string, excludes map[string]struct{}) error {
 			}
 			return nil
 		}
-		rel, err := filepath.Rel(src, p)
-		if err != nil {
-			return err
+		rel, rerr := filepath.Rel(src, p)
+		if rerr != nil {
+			return rerr
 		}
 		q := filepath.Join(dst, rel)
-		info, err := os.Lstat(p)
-		if err != nil {
-			return err
+		info, lerr := os.Lstat(p)
+		if lerr != nil {
+			return lerr
 		}
 		switch {
 		case info.Mode()&os.ModeSymlink != 0:
-			link, err := os.Readlink(p)
-			if err != nil {
-				return err
+			link, rerr := os.Readlink(p)
+			if rerr != nil {
+				return rerr
 			}
 			_ = os.Remove(q)
 			return os.Symlink(link, q)
@@ -264,9 +263,9 @@ func copyTree(src, dst string, excludes map[string]struct{}) error {
 			pending = append(pending, pendingMode{q, info.Mode().Perm()})
 			return nil
 		case info.Mode().IsRegular():
-			raw, err := os.ReadFile(p)
-			if err != nil {
-				return err
+			raw, rerr := os.ReadFile(p)
+			if rerr != nil {
+				return rerr
 			}
 			if err := os.MkdirAll(filepath.Dir(q), 0o755); err != nil {
 				return err
@@ -277,13 +276,25 @@ func copyTree(src, dst string, excludes map[string]struct{}) error {
 			return nil // fifos/sockets: nothing to hash, not copied
 		}
 	})
-	if werr != nil {
-		return werr
+	if err != nil {
+		return err
 	}
-	// Seal the root, then every staged directory, to the source's modes —
-	// the copystat-last order the twin guarantees. Deeper dirs first is
-	// irrelevant (chmod needs no child access); the ROOT goes last so a
-	// failure mid-seal never leaves an unreadable tree we cannot walk.
+	return sealStagedDirs(dst, pending)
+}
+
+// pendingMode is a staged child directory awaiting its source mode bits.
+type pendingMode struct {
+	path string
+	perm os.FileMode
+}
+
+// sealStagedDirs applies collected perms, deepest first (a sealed child
+// never blocks its still-open parent), and LEAVES THE ROOT WRITABLE: the
+// pin's snapshot.json is written into the staged tree after the copy,
+// exactly as the twin's copytree-then-write_text sequence requires. The
+// root's own mode is deliberately not copied — the staged root is the
+// pin's creation (MkdirAll 0755), not a duplicate of the source's.
+func sealStagedDirs(dst string, pending []pendingMode) error {
 	sort.Slice(pending, func(i, j int) bool {
 		return len(pending[i].path) > len(pending[j].path)
 	})
@@ -292,18 +303,7 @@ func copyTree(src, dst string, excludes map[string]struct{}) error {
 			return err
 		}
 	}
-	if info, serr := os.Stat(src); serr == nil {
-		if err := os.Chmod(dst, info.Mode().Perm()); err != nil {
-			return err
-		}
-	}
 	return nil
-}
-
-// pendingMode is a staged directory awaiting its source mode bits.
-type pendingMode struct {
-	path string
-	perm os.FileMode
 }
 
 // --- the pin ----------------------------------------------------------------

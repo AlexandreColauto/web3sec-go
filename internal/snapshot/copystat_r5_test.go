@@ -80,8 +80,11 @@ func TestCopyTreeCopystatLast(t *testing.T) {
 			t.Fatalf("content %s: %q %v", want.p, raw, err)
 		}
 	}
-	// Modes sealed: root and subdir carry the source perms, not 0755.
-	for _, p := range []string{"", "locked"} {
+	// Modes sealed WHERE THE TWIN SEALS THEM: child directories carry the
+	// source perms; the staged ROOT stays writable — the pin writes
+	// snapshot.json into it after the copy (r6 regression: sealing the
+	// root made every 0500-root target un-pinnable forever).
+	for _, p := range []string{"locked"} {
 		st, err := os.Stat(filepath.Join(dst, p))
 		if err != nil {
 			t.Fatal(err)
@@ -90,6 +93,13 @@ func TestCopyTreeCopystatLast(t *testing.T) {
 			t.Fatalf("staged %q mode %v, want 0500 (copystat parity)",
 				p, st.Mode().Perm())
 		}
+	}
+	// … and the root is EXPLICITLY 0755 (writable for the meta write).
+	if rst, rerr := os.Stat(dst); rerr != nil {
+		t.Fatal(rerr)
+	} else if rst.Mode().Perm() != 0o755 {
+		t.Fatalf("staged root must stay writable for the pin: %v",
+			rst.Mode().Perm())
 	}
 }
 
@@ -127,5 +137,42 @@ func TestFailedPinLeavesNoStaging(t *testing.T) {
 		if strings.HasPrefix(e.Name(), "staging-") {
 			t.Fatalf("failed pin leaked %s into the store", e.Name())
 		}
+	}
+}
+
+// TestPinReadOnlySourceRootSucceeds pins the r6 REGRESSION fix end to end:
+// an 0500 source root must pin, write its manifest, and pass audit — the
+// pre-fix code sealed the staged root before snapshot.json landed, burning
+// the store with a half-pin no retry could heal.
+func TestPinReadOnlySourceRootSucceeds(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores permission bits")
+	}
+	base := t.TempDir()
+	src := filepath.Join(base, "target")
+	if err := os.MkdirAll(src, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "V.sol"),
+		[]byte("contract V {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(src, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(src, 0o755) })
+	c := pinCampaign(t, filepath.Join(base, "camp"), "C-1122334455aa")
+	snap, err := PinSourceSnapshot(c, src, nil, nil)
+	if err != nil {
+		t.Fatalf("read-only ROOT must pin like the twin: %v", err)
+	}
+	final := filepath.Join(c.Dir, "snapshots", objStrOf(t, snap, "snapshot_id"))
+	if _, err := os.Stat(filepath.Join(final, "snapshot.json")); err != nil {
+		t.Fatalf("manifest must exist after a sealed-child copy: %v", err)
+	}
+	// Re-pin (identical) must also succeed — the dirExists(final) re-hash
+	// path the critic found permanently broken.
+	if _, err := PinSourceSnapshot(c, src, nil, nil); err != nil {
+		t.Fatalf("re-pin of a sealed-children store: %v", err)
 	}
 }
