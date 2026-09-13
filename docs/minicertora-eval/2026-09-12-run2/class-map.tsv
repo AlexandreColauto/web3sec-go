@@ -1,0 +1,10 @@
+# run-2 join map: rule keys (tier 1) for report lines; MintFreeC envelope ties by file stem (tier 3).
+# Deliberate: withdraw_decreases_balance is tied ONLY to BankT's case; LegacyVaultT's identically
+# named rule line therefore hits the collision law (rule ties 03, stem ties 12) -> excluded+named.
+borrow_decreases_credit	CASE-000000000004
+claim_twice_double_pays	CASE-000000000009
+donation_keeps_rate	CASE-00000000000b
+flashloan_debt_within_due	CASE-00000000000d
+liquidate_reduces_debt	CASE-00000000000e
+small_deposit_gets_at_least_pro_rata	CASE-000000000006
+withdraw_decreases_balance	CASE-000000000003

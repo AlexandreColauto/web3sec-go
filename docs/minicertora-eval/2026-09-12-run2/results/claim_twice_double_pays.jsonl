@@ -1,0 +1,2 @@
+{"verdict": "UNKNOWN", "reason": "unsupported-opcode", "details": "unsupported-opcode: keccak256: raw hash outside storage-slot patterns"}
+{"verdict": "UNKNOWN", "rule": "claim_twice_double_pays", "reason": "unsupported-opcode", "details": "no verdict: the run aborted before this rule was decided (unsupported-opcode: keccak256: raw hash outside storage-slot patterns)"}

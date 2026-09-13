@@ -1,0 +1,16 @@
+class	cases	detected	proven_silence	refused	clean_agreed	refusal_histogram
+access-control	2	0	0	0	0	-
+authorization	1	0	0	0	0	-
+bridge-message	1	0	0	0	0	-
+cross-chain-replay	1	0	0	1	0	unsupported-opcode=2
+donation	1	0	0	0	0	-
+dos-griefing	1	0	0	0	0	-
+flash-loan	1	0	0	0	0	-
+liquidation-logic	1	0	1	0	0	-
+oracle-manipulation	1	0	0	0	0	-
+precision-rounding	1	0	0	0	0	-
+reentrancy	3	0	0	1	0	external-call-abstraction=2
+share-price-inflation	1	1	0	0	0	-
+signature-replay	1	0	0	0	0	-
+unchecked-external-call	2	0	0	1	0	external-call-abstraction=1
+upgrade-initializer	1	0	0	0	0	-

@@ -39,10 +39,9 @@ invent a second identity for a name collision. The scorecard stderr names it.
   storage + array type; 2x unsupported-feature), unjoined 1 (name collision),
   untied cases 9 (reentrancy x3, oracle, sig-replay, bridge x2, cross-chain,
   liquidation — classes where no claim was authored this pass).
-- clean control ES17: PROVEN on the total-accounting claim. Its gold row is
-  committed as confirmed-exploitable (access-control class), so the
-  scorecard honestly records no-signal for it (a PROVEN line on a
-  known-bad gold row is neither detected nor proven_silence). As a property
-  check the claim proves nothing about the sweep's power (total is monotone
-  by construction there); as a re-labeled clean control it would score
-  proven_silence=1. That gold/fixture drift is itself evalsuite feedback.
+- clean control ES17: PROVEN on the total-accounting claim. RETRACTION
+  (M run-2): an earlier note here claimed ES17's gold row made that "no
+  signal" and spoke of gold-label drift. WRONG — `cases.json` marks
+  CASE-000000000011 (contract Escrow) `confirmed-not-exploitable`: it IS the
+  clean control, and a 7-column rescore puts it at `clean_agreed 1`. No label
+  drift existed; the drift was in my reading.

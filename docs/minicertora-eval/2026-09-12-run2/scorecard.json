@@ -4,16 +4,14 @@
     "cases": 2,
     "detected": 0,
     "proven_silence": 0,
-    "refused": 1,
-    "clean_agreed": 1,
-    "refusal_histogram": {
-      "rejected-feature": 1
-    }
+    "refused": 0,
+    "clean_agreed": 0,
+    "refusal_histogram": {}
   },
   {
     "class": "authorization",
     "cases": 1,
-    "detected": 1,
+    "detected": 0,
     "proven_silence": 0,
     "refused": 0,
     "clean_agreed": 0,
@@ -33,36 +31,34 @@
     "cases": 1,
     "detected": 0,
     "proven_silence": 0,
-    "refused": 0,
+    "refused": 1,
     "clean_agreed": 0,
-    "refusal_histogram": {}
+    "refusal_histogram": {
+      "unsupported-opcode": 2
+    }
   },
   {
     "class": "donation",
     "cases": 1,
     "detected": 0,
     "proven_silence": 0,
-    "refused": 1,
+    "refused": 0,
     "clean_agreed": 0,
-    "refusal_histogram": {
-      "unsupported-feature": 1
-    }
+    "refusal_histogram": {}
   },
   {
     "class": "dos-griefing",
     "cases": 1,
     "detected": 0,
     "proven_silence": 0,
-    "refused": 1,
+    "refused": 0,
     "clean_agreed": 0,
-    "refusal_histogram": {
-      "rejected-feature": 1
-    }
+    "refusal_histogram": {}
   },
   {
     "class": "flash-loan",
     "cases": 1,
-    "detected": 1,
+    "detected": 0,
     "proven_silence": 0,
     "refused": 0,
     "clean_agreed": 0,
@@ -72,7 +68,7 @@
     "class": "liquidation-logic",
     "cases": 1,
     "detected": 0,
-    "proven_silence": 0,
+    "proven_silence": 1,
     "refused": 0,
     "clean_agreed": 0,
     "refusal_histogram": {}
@@ -91,31 +87,29 @@
     "cases": 1,
     "detected": 0,
     "proven_silence": 0,
-    "refused": 1,
+    "refused": 0,
     "clean_agreed": 0,
-    "refusal_histogram": {
-      "rejected-feature": 1
-    }
+    "refusal_histogram": {}
   },
   {
     "class": "reentrancy",
     "cases": 3,
     "detected": 0,
     "proven_silence": 0,
-    "refused": 0,
+    "refused": 1,
     "clean_agreed": 0,
-    "refusal_histogram": {}
+    "refusal_histogram": {
+      "external-call-abstraction": 2
+    }
   },
   {
     "class": "share-price-inflation",
     "cases": 1,
-    "detected": 0,
+    "detected": 1,
     "proven_silence": 0,
-    "refused": 1,
+    "refused": 0,
     "clean_agreed": 0,
-    "refusal_histogram": {
-      "unsupported-feature": 1
-    }
+    "refusal_histogram": {}
   },
   {
     "class": "signature-replay",
@@ -134,7 +128,7 @@
     "refused": 1,
     "clean_agreed": 0,
     "refusal_histogram": {
-      "rejected-feature": 1
+      "external-call-abstraction": 1
     }
   },
   {
@@ -142,10 +136,8 @@
     "cases": 1,
     "detected": 0,
     "proven_silence": 0,
-    "refused": 1,
+    "refused": 0,
     "clean_agreed": 0,
-    "refusal_histogram": {
-      "rejected-feature": 1
-    }
+    "refusal_histogram": {}
   }
 ]
