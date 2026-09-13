@@ -1136,6 +1136,11 @@
         "artifact_id": {
           "$ref": "#/definitions/artifact_id"
         },
+        "exec_ref": {
+          "type": "string",
+          "pattern": "^EXEC-[0-9a-f]{6,}$",
+          "description": "OPTIONAL: cites an EXEC id already in this campaign's ledger. `ingest` attaches the item through the SAME gate and item shape `mint` uses — the ledger must hold the exec, it must have SUCCEEDED (exit 0 with captured output), and it must be bound to the finding being created (a generic exec is allowed). The item lands as the tier mint would give it; exec_ref itself is never written onto the finding."
+        },
         "description": {
           "type": "string",
           "minLength": 5

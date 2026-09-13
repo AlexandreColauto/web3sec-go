@@ -68,20 +68,10 @@ func mintWrap(err error) error {
 	return &MintError{Msg: err.Error()}
 }
 
-// TierOf is tier_of.
+// TierOf is tier_of (delegated to findings.ReproTierOf so the ingest exec_ref
+// path reads the recorded tier through the same reader — wave N, T2).
 func TierOf(repro validation.Value) string {
-	if repro.Kind != validation.Obj {
-		return "none"
-	}
-	for _, kv := range repro.O {
-		if kv.K == "tier_reached" {
-			if kv.V.Kind == validation.Str {
-				return kv.V.S
-			}
-			return "none"
-		}
-	}
-	return "none"
+	return findings.ReproTierOf(repro)
 }
 
 // NextTier is next_tier: the next rung, or None at the end (Python's
@@ -269,24 +259,15 @@ func guidanceFor(outcome string, repro, attempts validation.Value,
 // EffectiveEvidenceType is the type a mint would record for (tier arg,
 // finding): the explicit --type wins, else the tier-derived default
 // (E4→foundry-test, E5→fork-test). Shared by the idempotency checks so the
-// CLI fast path and the library mint can never disagree.
+// CLI fast path and the library mint can never disagree — and delegated to
+// findings.MintEvidenceLevelType, the SAME derivation the ingest exec_ref
+// path uses (wave N, T2: one source, two verbs).
 func EffectiveEvidenceType(tier, evidenceType *string, f validation.Value) string {
-	recorded := TierOf(asDict(objAt(asDict(objAt(f, "verification")), "reproduction")))
-	claimTier := recorded
+	claimTier := findings.RecordedReproTier(f)
 	if tier != nil {
 		claimTier = *tier
 	}
-	level := "E4"
-	if claimTier == "T3" || claimTier == "T4" {
-		level = "E5"
-	}
-	etype := "foundry-test"
-	if level == "E5" {
-		etype = "fork-test"
-	}
-	if evidenceType != nil {
-		etype = *evidenceType
-	}
+	_, etype := findings.MintEvidenceLevelType(claimTier, evidenceType)
 	return etype
 }
 
@@ -316,29 +297,12 @@ func MintReproEvidence(c *state.Campaign, findingID, execID, description string,
 			return f, nil // same exec already minted this type: nothing to do
 		}
 	}
-	profile := objStr(rec, "profile")
-	if _, ok := sandbox.E4_PROFILES[profile]; !ok {
-		return validation.VNull(), mintErrf(
-			"exec %s ran under %s; E4+ evidence requires a container/VM "+
-				"profile — re-run the repro sandboxed", execID,
-			validation.PyReprStr(profile))
-	}
-	exit := objAt(rec, "exit_status")
-	if !(exit.Kind == validation.Int && exit.I == 0) {
-		return validation.VNull(), mintErrf(
-			"exec %s exited with status %s; a run that did not succeed is not "+
-				"a reproduction — fix the PoC and re-run before minting evidence",
-			execID, pyReprScalar(exit))
-	}
-	if strings.TrimSpace(sandbox.ExecOutput(rec)) == "" {
-		return validation.VNull(), mintErrf(
-			"exec %s exited 0 with EMPTY captured output; a run that printed "+
-				"nothing cannot demonstrate a reproduction — verify the exec "+
-				"actually ran (check image entrypoint/command wiring) and "+
-				"re-run before minting evidence", execID)
-	}
-	if prob := sandbox.ExecOutputProblem(rec); prob != nil {
-		return validation.VNull(), mintErrf("exec %s: %s", execID, *prob)
+	// The exec-record gate is findings.ValidateExecRecord — the SAME function
+	// the ingest exec_ref path runs (wave N, T2: single source of truth). Mint
+	// keeps its MintError class and its LoadExec error unwrapped, so cmd_mint
+	// still prints `mint failed: ...` / the generic exit-1 handler unchanged.
+	if err := findings.ValidateExecRecord(execID, rec); err != nil {
+		return validation.VNull(), mintErrf("%s", err.Error())
 	}
 	repro := asDict(objAt(asDict(objAt(f, "verification")), "reproduction"))
 	recorded := TierOf(repro)
@@ -354,36 +318,16 @@ func MintReproEvidence(c *state.Campaign, findingID, execID, description string,
 	if tier != nil {
 		claimTier = *tier
 	}
-	level := "E4"
-	if claimTier == "T3" || claimTier == "T4" {
-		level = "E5"
-	}
+	level, _ := findings.MintEvidenceLevelType(claimTier, evidenceType)
 	// etype was derived above (EffectiveEvidenceType) for the idempotency
 	// check — the same value, so the minted item and the no-op decision
 	// always agree.
-	item := evidenceItem(execID, level, etype, description, rec, f)
+	item := findings.MintedExecEvidenceItem(execID, level, etype, description,
+		rec, f)
 	item, notice := applyMintAdvisories(c, item, f, rec)
 	setMintNotice(notice)
 	out, err := findings.AddEvidence(c, findingID, item)
 	return out, mintWrap(err)
-}
-
-// evidenceItem builds the E4/E5 evidence dict in Python's key order.
-func evidenceItem(execID, level, etype, description string, rec,
-	f validation.Value) validation.Value {
-	return validation.VObj(
-		validation.KV{K: "evidence_id", V: validation.VStr("EV-" + shortID(8))},
-		validation.KV{K: "level", V: validation.VStr(level)},
-		validation.KV{K: "type", V: validation.VStr(etype)},
-		validation.KV{K: "artifact_id", V: validation.VStr(execID)},
-		validation.KV{K: "description", V: validation.VStr(description)},
-		validation.KV{K: "command", V: validation.VStr(objStr(rec, "command"))},
-		validation.KV{K: "produced_at", V: validation.VStr(nowIso())},
-		validation.KV{K: "sandbox_profile", V: validation.VStr(
-			objStr(rec, "profile"))},
-		validation.KV{K: "snapshot_id", V: objAt(objAt(f, "snapshot_ids"),
-			"source")},
-	)
 }
 
 // reproductionState is _reproduction_state.

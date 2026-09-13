@@ -138,11 +138,6 @@ func checkExecGate(campaign *state.Campaign, findingID string,
 // a real EXEC record under the claimed profile.
 func verifyExecReference(campaign *state.Campaign, item validation.Value,
 	profile, findingID string) error {
-	findingMatch := func(rec validation.Value) bool {
-		f := objAt(rec, "finding_id")
-		return f.Kind == validation.Null ||
-			(f.Kind == validation.Str && f.S == findingID)
-	}
 	artifact := objStr(item, "artifact_id")
 	if strings.HasPrefix(artifact, "EXEC-") {
 		recPath := filepath.Join(campaign.ExecsDir, artifact, "exec_record.json")
@@ -159,7 +154,7 @@ func verifyExecReference(campaign *state.Campaign, item validation.Value,
 				"under %s", validation.PyReprStr(profile), artifact,
 				validation.PyRepr(objAt(rec, "profile")))
 		}
-		if !findingMatch(rec) {
+		if !execFindingMatch(rec, findingID) {
 			return fmt.Errorf("exec %s was recorded for finding %s, not %s "+
 				"— its output cannot back this finding's evidence",
 				artifact, validation.PyRepr(objAt(rec, "finding_id")),
@@ -190,7 +185,7 @@ func verifyExecReference(campaign *state.Campaign, item validation.Value,
 		if err != nil {
 			return err
 		}
-		if objStr(rec, "profile") == profile && findingMatch(rec) {
+		if objStr(rec, "profile") == profile && execFindingMatch(rec, findingID) {
 			matching = append(matching, rec)
 		}
 	}
@@ -307,15 +302,43 @@ func IngestHypothesis(campaign *state.Campaign, payload validation.Value,
 	if err := validation.Validate(p, "finding", 5); err != nil {
 		return validation.VNull(), err
 	}
+	// ---- ingest phase order (wave N, T2 ruling) ---------------------------
+	// 1. SCHEMA: the WHOLE payload is validated above — before any ledger read
+	//    or gate math — so a schema typo is never masked by a later refusal.
+	// 2. LEDGER: an item carrying exec_ref must cite an EXEC this campaign's
+	//    ledger holds, SUCCEEDED, and bound to this finding (or generic); the
+	//    item then LANDS as the evidence mint would have minted from that exec
+	//    (same gate, same shape — see exec_evidence.go).
+	// 3. GATE MATH: the shared exec gate for items that did NOT come from
+	//    exec_ref, then the rise guardrail and the discovery slot below.
+	items := append([]validation.Value(nil), objAt(p, "evidence").A...)
+	fromExecRef := map[int]bool{}
+	for i := range items {
+		if objStr(items[i], "exec_ref") == "" {
+			continue
+		}
+		item, err := IngestExecRefEvidence(campaign, fid, p, items[i])
+		if err != nil {
+			return validation.VNull(), err
+		}
+		items[i] = item
+		fromExecRef[i] = true
+	}
+	p.O = validation.SetOrAppend(p.O, "evidence", validation.VArr(items...))
 	// Ingest-path gates (shared helpers with add_evidence): pre-loaded
-	// EXECUTION evidence is rejected outright, and any pre-loaded items
-	// that rise above the HYPOTHESIS baseline run the invariant guardrail.
-	for _, item := range objAt(p, "evidence").A {
+	// EXECUTION evidence WITHOUT an exec_ref is rejected outright (the ledger
+	// is the only door to E4+), and any pre-loaded items that rise above the
+	// HYPOTHESIS baseline run the invariant guardrail. Items that arrived
+	// through exec_ref were already gated by mint's own exec gate above.
+	for i, item := range items {
+		if fromExecRef[i] {
+			continue
+		}
 		if err := checkExecGate(campaign, fid, item, true); err != nil {
 			return validation.VNull(), err
 		}
 	}
-	if len(objAt(p, "evidence").A) > 0 {
+	if len(items) > 0 {
 		top, err := FindingLevel(p)
 		if err != nil {
 			return validation.VNull(), err
