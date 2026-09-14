@@ -242,6 +242,10 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 			}
 			return validation.VNull()
 		}()},
+		// r23 F1: the proof subtree's fingerprint rides the event — k=
+		// and poc: render FROM it, so "backed" must mean it too.
+		validation.KV{K: "proof_sha256",
+			V: validation.VStr(harnessProofDigest(proof))},
 	)
 	if err := linksThenLog(c, func() error {
 		return harnessSaveEntry(c, links, a.harnessResult, entry)

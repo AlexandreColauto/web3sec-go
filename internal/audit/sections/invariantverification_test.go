@@ -6,6 +6,8 @@ package sections
 // the historical key set only (golden bytes untouched).
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"testing"
 
 	"websec/internal/harness"
@@ -78,6 +80,10 @@ func backEvent(t *testing.T, c *state.Campaign, iid string,
 		KV("invariant", validation.VStr(iid)),
 		KV("summary", validation.VStr(objStr(h, "summary"))),
 		KV("bounded_k", objAt(h, "bounded_k")),
+		// Mirror the mapper r23 F1: proof subtree rides as a digest.
+		KV("proof_sha256", validation.VStr(
+			hexText(sha256.Sum256([]byte(validation.CanonCompact(
+				objAt(h, "proof"))))))),
 	)
 	ref := iid
 	if _, err := c.Log("harness_run", &ref, &data); err != nil {
@@ -552,3 +558,5 @@ func TestHarnessRunLineWitnessLabel(t *testing.T) {
 		})
 	}
 }
+
+func hexText(b [32]byte) string { return hex.EncodeToString(b[:]) }

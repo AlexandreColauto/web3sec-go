@@ -438,3 +438,101 @@ func TestR22BackstopComparesTheBound(t *testing.T) {
 			code)
 	}
 }
+
+// TestR23ProofSubtreeIsBackedByTheEvent pins r23 F1: k= and poc: render
+// from the proof subtree — the event now fingerprints it, and the
+// backstop honors the digest both ways (drift AND invention).
+func TestR23ProofSubtreeIsBackedByTheEvent(t *testing.T) {
+	c, root := mcCamp(t, "r23-proof")
+	rep := apWrite(t, `{"schema_version": "1.0", "published": true,
+		"publish_problems": [], "review_independent": true,
+		"capabilities_missing": [], "flags": {"loop_bound": 4},
+		"property_outcomes": {"p1": {"outcome": "PROVEN",
+			"per_rule": {"inv_1": "PROVEN"}}},
+		"review_findings": []}`)
+	if code, _, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep); code != 0 {
+		t.Fatalf("bind: %q", errS)
+	}
+	linksPath := filepath.Join(c.ArtifactsDir, "invariant_links.json")
+	raw, _ := os.ReadFile(linksPath)
+	// (a) the autoprove event pinned the NULL-proof digest: inventing a
+	// subtree on the slot is the hand-edit the digest exists for.
+	hand := strings.Replace(string(raw),
+		`"summary": "autoproved bounded (k=4, 1 rules)"`,
+		`"summary": "autoproved bounded (k=4, 1 rules)", "proof": `+
+			`{"bounds": {"loop_bound": 999999}}`, 1)
+	if hand == string(raw) {
+		t.Fatal("fixture drift: anchor not found")
+	}
+	if err := os.WriteFile(linksPath, []byte(hand), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, _ := run(t, "--root", root, "audit", c.CampaignID)
+	if code == 0 || !strings.Contains(out, "does not match the LAST harness_run event's digest") {
+		t.Fatalf("invented sidecar must burn: exit %d out %.200q", code, out)
+	}
+}
+
+// TestR23SwapDuringMappingRefuses pins the r23 sharpest-idea rail: the
+// event may only name bytes the registry will hold. Swap mid-run and
+// the bind refuses BEFORE any ledger row exists.
+func TestR23SwapDuringMappingRefuses(t *testing.T) {
+	c, root := mcCamp(t, "r23-swap")
+	rep := apWrite(t, `{"schema_version": "1.0", "published": true,
+		"publish_problems": [], "review_independent": true,
+		"capabilities_missing": [], "flags": {"loop_bound": 4},
+		"property_outcomes": {"p1": {"outcome": "PROVEN",
+			"per_rule": {"inv_1": "PROVEN"}}},
+		"review_findings": []}`)
+	// Wrap the real verify in nothing we can inject… the rail fires
+	// between parse and bind INSIDE one process; simulate the swap by
+	// racing a writer is nondeterministic — instead prove the refusal
+	// text via the same sha the pre-bind check reads: bind once clean,
+	// then churn bytes and rebind a DIFFERENT property so the pre-bind
+	// check runs (F9 consumption would fire first on same property, so
+	// use p2 in the swap file).
+	swapped := rep + ".swap"
+	if err := os.WriteFile(swapped, []byte(`{"schema_version": "1.0",
+		"published": true, "publish_problems": [],
+		"review_independent": true, "capabilities_missing": [],
+		"flags": {"loop_bound": 4},
+		"property_outcomes": {"p2": {"outcome": "PROVEN",
+			"per_rule": {"inv_1": "PROVEN"}}},
+		"review_findings": []}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := apVerify(t, root, c, "--property", "p2",
+		"--report", swapped)
+	if code != 0 {
+		t.Fatalf("second distinct property binds clean: %q", errS)
+	}
+	// The deterministic swap: a writer lands NEW bytes after parse-time
+	// mapping — the pre-bind recheck must refuse BEFORE any event
+	// exists, so no unwind is ever needed. Fresh campaign: the seam
+	// arms exactly p2's own clean bind, so the parse-time tree (with
+	// p2) maps while the disk already holds the swapped bytes.
+	c3, root3 := mcCamp(t, "r23-swap2")
+	orig, _ := os.ReadFile(swapped)
+	AutoproveSwapSeam = func() {
+		_ = os.WriteFile(swapped, append(append([]byte{}, orig...),
+			'\n'), 0o644)
+	}
+	defer func() { AutoproveSwapSeam = nil }()
+	code, out, errS := run(t, "--root", root3, "verify", c3.CampaignID,
+		"--autoprove", "INV-1", "--property", "p2", "--report", swapped)
+	if code != 2 || !strings.Contains(errS,
+		"changed on disk while being mapped") {
+		t.Fatalf("mid-run swap must refuse the bind: exit %d err %q",
+			code, errS)
+	}
+	if strings.Contains(out, "INV-1: proved") {
+		t.Fatal("refused swap still printed a bind")
+	}
+	evLog := filepath.Join(root3, "campaigns", c3.CampaignID,
+		"events.jsonl")
+	if raw, _ := os.ReadFile(evLog); strings.Contains(string(raw),
+		"harness_run") {
+		t.Fatal("refused bind still left an event")
+	}
+}

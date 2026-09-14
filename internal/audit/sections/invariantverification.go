@@ -16,6 +16,8 @@
 package sections
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 
 	"websec/internal/harness"
@@ -221,6 +223,25 @@ func harnessRungBacked(events []validation.Value, iid string,
 			"LAST harness_run event (%s) — display state drifted from the "+
 			"ledger", iid, pyKind(slotK), pyKind(eventK))
 	}
+	// r23 F1: the proof subtree feeds the DISPLAY (k= falls back to
+	// proof.bounds.loop_bound, the poc: line counts proof.calls) — a
+	// slot proof must equal the event's fingerprint, and a subtree under
+	// an event that never fingerprinted proofs is exactly the
+	// "hand-edit around the rails" shape: unbacked by construction.
+	slotProof := objAt(h, "proof")
+	evDig := objStr(last, "proof_sha256")
+	if evDig == "" {
+		if slotProof.Kind == validation.Obj {
+			return fmt.Sprintf("%s: stored proof subtree has no event "+
+				"digest to match (the last harness_run event predates "+
+				"digesting or was written around a mapper) — the k=/poc: "+
+				"lines render from UNBACKED bytes", iid)
+		}
+	} else if got := proofDigest(slotProof); got != evDig {
+		return fmt.Sprintf("%s: stored proof subtree (sha %s) does not "+
+			"match the LAST harness_run event's digest (%s) — display "+
+			"state drifted from the ledger", iid, got[:12], evDig[:12])
+	}
 	for _, key := range []string{"kind", "rung", "exec", "summary"} {
 		want := objStr(h, key)
 		got := objStr(last, key)
@@ -257,4 +278,11 @@ func pyKind(v validation.Value) string {
 	default:
 		return validation.CanonCompact(v)
 	}
+}
+
+// proofDigest mirrors cli.harnessProofDigest (canonical JSON, sha256):
+// two packages, one fingerprint — keep byte-identical.
+func proofDigest(proof validation.Value) string {
+	sum := sha256.Sum256([]byte(validation.CanonCompact(proof)))
+	return hex.EncodeToString(sum[:])
 }

@@ -29,6 +29,11 @@ import (
 const autoproveSchemaMajor = "1."
 
 // verifyAutoprove is cmd_verify's --autoprove branch.
+// AutoproveSwapSeam, when armed by a test, runs between parse and the
+// pre-bind recheck — the deterministic stand-in for an adversary racing
+// a write onto the report path (r23 swap rail).
+var AutoproveSwapSeam func()
+
 func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	if a.property == "" {
 		return t14ExitErr(2,
@@ -250,6 +255,20 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		rung = harness.RungInconclusive
 		summary = "inconclusive (prover rollup: " + outcome + ")"
 	}
+	if AutoproveSwapSeam != nil {
+		AutoproveSwapSeam() // test-only: write the file post-parse
+	}
+	// r23: the file was read at parse time; anything changing it between
+	// then and the bind makes the event's report_sha256 a name for bytes
+	// the registry never hashed. Refuse mid-run swaps BEFORE the bind —
+	// nothing to unwind, the re-run maps whatever is current.
+	if cur, rerr := os.ReadFile(a.report); rerr != nil ||
+		validation.Sha256Hex(cur) != digest {
+		return t14ExitErr(2, "verify --autoprove: the report changed on "+
+			"disk while being mapped (parse-time sha %s, now different) — "+
+			"a bind must name the exact bytes it read; re-run against the "+
+			"current file\n", digest[:12])
+	}
 	var bk *int
 	if rung == harness.RungProvedBounded && k > 0 {
 		bk = &k
@@ -292,11 +311,31 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 			"bound from a DIFFERENT report digest ("+prior[:12]+"… -> "+
 			digest[:12]+"…) — "+rebindReason)
 	}
-	if _, err := c.RegisterOrRefresh("harness", a.report,
+	artID, err := c.RegisterOrRefresh("harness", a.report,
 		"miniprover report bound to "+a.autoprove+" (property "+
 			a.property+", rollup "+outcome+")", nil,
-		rebindReason); err != nil {
+		rebindReason)
+	if err != nil {
 		return err
+	}
+	// r23 (sharpest idea): the event pins the digest of the bytes we
+	// MAPPED; the registry hashed the PATH later — a swap in that
+	// window left provenance naming bytes nothing ever checked. Compare
+	// the two, before and after: the pre-check refuses the common
+	// single swap (event not yet bound, nothing to unwind); the
+	// post-check catches the pathological double-swap and says so
+	// where the rung lives — an admitted skew the rebind rail makes
+	// loud, never a silent "consistent".
+	if cur, rerr := os.ReadFile(a.report); rerr != nil ||
+		validation.Sha256Hex(cur) != digest {
+		fmt.Fprintf(r.Err, "  WARNING: %s's report bytes changed again "+
+			"after binding (mapped sha %s, artifact %s now holds %s) — "+
+			"the event names the MAPPED bytes; re-verify against them\n",
+			a.autoprove, digest[:12], artID,
+			validation.Sha256Hex(func() []byte {
+				b, _ := os.ReadFile(a.report)
+				return b
+			}())[:12])
 	}
 	fmt.Fprintf(r.Out, "%s: %s — %s\n", a.autoprove, rung, summary)
 	if !t26Truthy(rep, "review_independent") {
@@ -421,6 +460,10 @@ func autoproveEventData(invID, rung, exec, summary, property,
 		validation.KV{K: "invariant", V: validation.VStr(invID)},
 		validation.KV{K: "summary", V: validation.VStr(summary)},
 		validation.KV{K: "bounded_k", V: bk},
+		// r23 F1: no proof sidecar on this path — the digest of ABSENCE
+		// pins that fact so any slot-invented subtree burns the backstop.
+		validation.KV{K: "proof_sha256",
+			V: validation.VStr(harnessProofDigest(validation.VNull()))},
 		validation.KV{K: "property", V: validation.VStr(property)},
 		validation.KV{K: "report_sha256", V: validation.VStr(digest)},
 		validation.KV{K: "review_independent",
