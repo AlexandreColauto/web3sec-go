@@ -1223,3 +1223,41 @@ func TestR27AdoptPublishedVerifiesBytesAndShape(t *testing.T) {
 	}
 	r27WantVictim(t, victim)
 }
+
+// TestR27bHardlinkAtFinalPathRefuses pins the hardlink arm: lstat sees a
+// regular file, but the inode is shared with a name outside the store —
+// so the store's read-only chmod would rewrite a foreign name's mode.
+func TestR27bHardlinkAtFinalPathRefuses(t *testing.T) {
+	c, root := mcCamp(t, "r27b-hardlink")
+	body := `{"schema_version": "1.0", "published": true,
+		"publish_problems": [], "review_independent": true,
+		"capabilities_missing": [], "flags": {"loop_bound": 4},
+		"property_outcomes": {"p1": {"outcome": "PROVEN",
+			"per_rule": {"inv_1": "PROVEN"}}},
+		"review_findings": []}`
+	rep := apWrite(t, body)
+	digest := validation.Sha256Hex([]byte(body))
+	dir := filepath.Join(c.ArtifactsDir, "reports")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	victim := filepath.Join(t.TempDir(), "victim.json")
+	if err := os.WriteFile(victim, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Link(victim, filepath.Join(dir, "report-"+digest+".json")); err != nil {
+		t.Skipf("hardlinks unsupported here: %v", err)
+	}
+	code, _, errS := apVerify(t, root, c, "--property", "p1", "--report", rep)
+	if code != 2 || !strings.Contains(errS, "hard link") {
+		t.Fatalf("a hardlinked store path must refuse: exit %d err %q",
+			code, errS)
+	}
+	fi, err := os.Stat(victim)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fi.Mode().Perm() != 0o644 {
+		t.Fatalf("the foreign name's mode changed: %v", fi.Mode())
+	}
+}

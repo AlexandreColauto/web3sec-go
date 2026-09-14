@@ -748,11 +748,29 @@ func storeRefuseNonRegular(path string) error {
 		return err
 	}
 	if fi.Mode().IsRegular() {
+		// r27b: a HARDLINK is regular to lstat, so a shared inode walks
+		// past the shape check — and a chmod through it rewrites the
+		// mode of every other name for those bytes. The copy must be a
+		// file the store ALONE names.
+		if n, ok := storeLinkCount(fi); ok && n > 1 {
+			return fmt.Errorf("the store path %s is a regular file with "+
+				"%d hard links - the copy must be a file only the store "+
+				"names (a shared inode means the read-only chmod "+
+				"rewrites a foreign name too)", path, n)
+		}
 		return nil
 	}
 	return fmt.Errorf("the store path %s is a %s, not the copy - the "+
 		"immutable record must be a regular file inside the campaign",
 		path, storePathShape(fi))
+}
+
+// storeLinkCount reads the link count where the platform reports one.
+func storeLinkCount(fi os.FileInfo) (uint64, bool) {
+	if st, ok := fi.Sys().(*syscall.Stat_t); ok {
+		return uint64(st.Nlink), true
+	}
+	return 0, false
 }
 
 // storeAdoptPublished: a rename lost the race to a writer that published
