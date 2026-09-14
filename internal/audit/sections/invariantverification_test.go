@@ -54,6 +54,69 @@ func harnessLinks(t *testing.T, c *state.Campaign,
 	if _, err := invariants.SaveLinks(c, links); err != nil {
 		t.Fatal(err)
 	}
+	// r21 F7: the cross-check made event-less slots ILLEGAL state — the
+	// fixture must write what a mapper writes: rung + harness_run
+	// together. Tests that want an unbacked slot delete the events
+	// afterwards.
+	for iid, h := range fields {
+		backEvent(t, c, iid, h)
+	}
+}
+
+// backEvent lands the harness_run event a mapper would have written for
+// this slot — required state since the r21 F7 cross-check (an event-less
+// slot is ILLEGAL, not merely unshown).
+func backEvent(t *testing.T, c *state.Campaign, iid string,
+	h validation.Value) {
+	t.Helper()
+	if objStr(h, "exec") == "" {
+		return // malformed: no line, no event (skip arm's world)
+	}
+	data := validation.VObj(
+		KV("rung", validation.VStr(objStr(h, "rung"))),
+		KV("exec", validation.VStr(objStr(h, "exec"))),
+		KV("invariant", validation.VStr(iid)),
+		KV("summary", validation.VStr(objStr(h, "summary"))),
+	)
+	ref := iid
+	if _, err := c.Log("harness_run", &ref, &data); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestInvariantVerificationUnbackedSlotBurns pins r21 F7 in the
+// section's own seat: a slot whose LAST event disagrees (or is absent)
+// is a problem, not a display line beyond reproach.
+func TestInvariantVerificationUnbackedSlotBurns(t *testing.T) {
+	c, err := state.Init(t.TempDir(), "Acme Program", state.InitOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	harnessLinks(t, c, map[string]validation.Value{
+		"INV-3": harnessObj("halmos", "proved-bounded", "EXEC-7",
+			validation.VInt(100), "proved bounded (k=100)"),
+	})
+	// (a) drift: strengthen the slot after the event landed.
+	links, _ := invariants.LoadLinks(c)
+	e := objAt(objAt(links, "invariants"), "INV-3")
+	h := objAt(objAt(e, "verification"), "harness")
+	h.O = validation.SetOrAppend(h.O, "summary",
+		validation.VStr("proved bounded (k=999999)"))
+	e.O = validation.SetOrAppend(e.O, "verification",
+		validation.VObj(KV("harness", h)))
+	reg := objAt(links, "invariants")
+	reg.O = validation.SetOrAppend(reg.O, "INV-3", e)
+	links.O = validation.SetOrAppend(links.O, "invariants", reg)
+	if _, err := invariants.SaveLinks(c, links); err != nil {
+		t.Fatal(err)
+	}
+	v, err := InvariantVerification(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objAt(v, "ok").B {
+		t.Fatalf("drifted slot must burn: %s", validation.CanonCompact(v))
+	}
 }
 
 func harnessObj(kind, rung, exec string, bk validation.Value,

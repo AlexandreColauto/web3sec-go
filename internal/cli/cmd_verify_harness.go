@@ -85,6 +85,7 @@ package cli
 // record.
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -93,6 +94,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"websec/internal/harness"
 	"websec/internal/invariants"
@@ -195,7 +197,10 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		// version checked the RUN, not this proof.
 		avOK := false
 		if proof.Kind == validation.Obj {
-			if v := objAt(proof, "solc_version"); v.Kind == validation.Str {
+			// r21 F4: an EMPTY solc_version is exactly "carries no
+			// version" — Kind alone resurrected the "checked" lie.
+			if v := objAt(proof, "solc_version"); v.Kind == validation.Str &&
+				v.S != "" {
 				avOK = true
 			}
 		}
@@ -222,6 +227,9 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		validation.VObj(harnessField(kind, rung, a.execID, boundedK,
 			summary, proof)))
 	hrunData := validation.VObj(
+		// r21: kind rides the event so the audit backstop can back-check
+		// the slot's kind too (additive to the event payload).
+		validation.KV{K: "kind", V: validation.VStr(string(kind))},
 		validation.KV{K: "rung", V: validation.VStr(rung)},
 		validation.KV{K: "exec", V: validation.VStr(a.execID)},
 		validation.KV{K: "invariant", V: validation.VStr(a.harnessResult)},
@@ -892,7 +900,20 @@ func harnessCompilerPin(rec validation.Value) (version, source,
 				"reconstructible here)"
 		}
 		if strings.HasPrefix(path, "/") {
-			out, perr := exec.Command(path, "--version").Output()
+			// r21 F6: a HANGING named compiler must not hang verify;
+			// 10s bounded probe, timeout refused as an unanswerable pin.
+			ctxP, cancelP := context.WithTimeout(context.Background(),
+				10*time.Second)
+			defer cancelP()
+			cmdP := exec.CommandContext(ctxP, path, "--version")
+			cmdP.WaitDelay = 2 * time.Second
+			out, perr := cmdP.Output()
+			if ctxP.Err() != nil {
+				return "", "", "", t14ExitErr(2, "verify: probing the "+
+					"pinned compiler %s TIMED OUT — provenance cannot be "+
+					"checked, and a hanging pin is refused, not skipped\n",
+					path)
+			}
 			if perr != nil {
 				return "", "", "", t14ExitErr(2, "verify: cannot probe the "+
 					"pinned compiler %s: %v — the run's provenance "+
@@ -960,6 +981,15 @@ func harnessReportedCompilers(raw []byte) []string {
 // on refusal. (SaveThenLogMany's sibling, one fewer package import.)
 func linksThenLog(c *state.Campaign, save func() error, log func() error) error {
 	path := filepath.Join(c.ArtifactsDir, "invariant_links.json")
+	// r21 F9: the links file is a SHARED multi-key registry — a
+	// whole-file restore over a sibling writer's concurrent change would
+	// revert its rung while its event stands. Hold the campaign process
+	// lock across the snapshot→save→log→restore window (the same lock
+	// Log itself takes, re-entrant by depth).
+	if err := c.LockProcess(); err != nil {
+		return err
+	}
+	defer c.UnlockProcess()
 	prevRaw, perr := os.ReadFile(path)
 	had := perr == nil
 	if perr != nil && !os.IsNotExist(perr) {

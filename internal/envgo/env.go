@@ -101,6 +101,12 @@ func realRunProc(argv []string, timeout time.Duration) (procResult, error) {
 	cmd := exec.Command(argv[0], argv[1:]...)
 	var out, errB strings.Builder
 	cmd.Stdout, cmd.Stderr = &out, &errB
+	// r21 F5 (third sibling of the pipe-hold): docker IS a shell shim;
+	// killing only the direct child left its daemon-side child holding
+	// the pipe and `<-done` hung — the "timeout" never fired. Own
+	// process group, group kill, bounded grace, and the grace arm
+	// returns EMPTY rather than racing the Builders.
+	setProcGroup(cmd)
 	if err := cmd.Start(); err != nil {
 		return procResult{Stdout: out.String(), Stderr: errB.String()}, err
 	}
@@ -118,8 +124,19 @@ func realRunProc(argv []string, timeout time.Duration) (procResult, error) {
 		}
 		return res, nil
 	case <-time.After(timeout):
-		_ = cmd.Process.Kill()
-		<-done
+		killGroup(cmd)
+		grace := time.NewTimer(5 * time.Second)
+		defer grace.Stop()
+		waited := false
+		select {
+		case <-done:
+			waited = true
+		case <-grace.C:
+		}
+		if !waited {
+			return procResult{}, fmt.Errorf("Command %s timed out after "+
+				"%d seconds", pyArgvRepr(argv), int(timeout.Seconds()))
+		}
 		return procResult{Stdout: out.String(), Stderr: errB.String()},
 			fmt.Errorf("Command %s timed out after %d seconds",
 				pyArgvRepr(argv), int(timeout.Seconds()))

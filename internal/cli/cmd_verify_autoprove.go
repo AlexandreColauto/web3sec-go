@@ -77,10 +77,15 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	// the dedup law refuses everywhere else). Scan the event ledger
 	// (not display state): the claim must not be laundered by a later
 	// overwrite of the first binding.
-	if holder, first := autoprovePropertyHolder(c, digest, a.property); holder != "" && holder != a.autoprove {
-		return t14ExitErr(2, "verify --autoprove: property %s of this "+
-			"report already proves %s (%s) — one property's proof binds "+
-			"one invariant; give the second invariant its OWN property\n",
+	// r21 F3: the rail keys on the PROPERTY TITLE, not (digest,property):
+	// a trailing newline churned the sha and re-registered the same
+	// proof for a second invariant clean. A property is a named claim —
+	// the name is the identity; the digest is F10's freshness concern.
+	if holder, first := autoprovePropertyHolder(c, a.property); holder != "" && holder != a.autoprove {
+		return t14ExitErr(2, "verify --autoprove: property %s was already "+
+			"bound to %s (%s) — one property's proof binds one invariant; "+
+			"give the second invariant its OWN property (digest churn is "+
+			"not a new proof)\n",
 			validation.PyReprStr(a.property), holder, first)
 	}
 	exec := a.execID
@@ -289,14 +294,30 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 func autoproveSuspects(rep validation.Value, property string) string {
 	out := []string{}
 	for _, f := range objAt(rep, "review_findings").A {
-		if objStr(f, "property") != property {
-			continue
-		}
 		// r20 F2: the prover stores the review LLM's verdict VERBATIM —
 		// "SUSPECT"/"Suspect" is the same word and the same danger; the
 		// gate is case-insensitive by law.
-		if v := strings.ToLower(objStr(f, "verdict")); v != "" &&
-			v != "suspect" {
+		// r21 F2: the gate is FAIL-CLOSED against the shapes an LLM
+		// review actually emits: verdict is TRIMMED as well as
+		// case-folded (" suspect " is the same flag), and a finding
+		// element that is not an object (a bare string was the critic's
+		// dodge) has NO property to match — it counts against EVERY
+		// property. Unparseable warning is never cleared warning.
+		if f.Kind != validation.Obj {
+			out = append(out, "malformed review finding (non-object): "+
+				scalarStr(f))
+			continue
+		}
+		v := strings.ToLower(strings.TrimSpace(objStr(f, "verdict")))
+		if v != "" && v != "suspect" {
+			continue
+		}
+		if f2 := objAt(f, "property"); f2.Kind != validation.Str {
+			out = append(out, "suspect-flagged finding with no property "+
+				"attribution — counted against every property")
+			continue
+		}
+		if objStr(f, "property") != property {
 			continue
 		}
 		out = append(out, scalarStr(objAt(f, "reason")))
@@ -370,6 +391,8 @@ func orUnset(s, alt string) string {
 func autoproveEventData(invID, rung, exec, summary, property,
 	digest string, rep validation.Value) validation.Value {
 	return validation.VObj(
+		validation.KV{K: "kind",
+			V: validation.VStr(string(harness.Kind("miniprover")))},
 		validation.KV{K: "rung", V: validation.VStr(rung)},
 		validation.KV{K: "exec", V: validation.VStr(exec)},
 		validation.KV{K: "invariant", V: validation.VStr(invID)},
@@ -385,7 +408,7 @@ func autoproveEventData(invID, rung, exec, summary, property,
 // pair already bound to some invariant. Returns (invariant, exec) of the
 // FIRST binding (a re-bind of the same pair to the same invariant is a
 // refresh, allowed; to a DIFFERENT invariant it is double credit).
-func autoprovePropertyHolder(c *state.Campaign, digest, property string) (string, string) {
+func autoprovePropertyHolder(c *state.Campaign, property string) (string, string) {
 	events, err := c.Events()
 	if err != nil {
 		// Unreadable ledger: the CALLER parses nothing silently either —
@@ -400,8 +423,7 @@ func autoprovePropertyHolder(c *state.Campaign, digest, property string) (string
 			continue
 		}
 		d := objAt(e, "data")
-		if objStr(d, "report_sha256") != digest ||
-			objStr(d, "property") != property {
+		if objStr(d, "property") != property {
 			continue
 		}
 		if inv := objStr(d, "invariant"); inv != "" {

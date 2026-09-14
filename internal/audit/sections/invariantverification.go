@@ -49,6 +49,15 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 		}
 		if line, ok := harnessRunLine(iid, e); ok {
 			runs = append(runs, validation.VStr(line))
+			// r21 F7: the display slot alone used to be beyond reproach —
+			// §8's "audit cross-checks claims against events" is NOW
+			// true for harness rungs: the CURRENT rung (kind, rung, exec,
+			// summary — the summary is the mapper's full rendering, so a
+			// hand-edit or an unrecoverable half-land can't match) must
+			// appear as the LAST harness_run event for the invariant.
+			if msg := harnessRungBacked(events, iid, e); msg != "" {
+				problems = append(problems, validation.VStr(msg))
+			}
 		}
 		tally.add(e)
 		if objStr(e, "status") != "CHECKED_AGAINST_CODE" {
@@ -176,4 +185,52 @@ func harnessBoundK(h validation.Value) (string, bool) {
 		return validation.IntText(lb), true
 	}
 	return "", false
+}
+
+// harnessRungBacked returns "" when the invariant's stored harness rung
+// is the outcome of the LAST harness_run event for it (events are the
+// truth; the slot is the latest bind — if the slot disagrees with the
+// newest event, somebody wrote to the slot WITHOUT an event: hand-edit,
+// a refused bind whose unwind itself failed, or a version skew).
+func harnessRungBacked(events []validation.Value, iid string,
+	entry validation.Value) string {
+	h := objAt(objAt(entry, "verification"), "harness")
+	last := validation.VNull()
+	for _, ev := range events {
+		if objStr(ev, "type") != "harness_run" {
+			continue
+		}
+		d := objAt(ev, "data")
+		if objStr(d, "invariant") == iid {
+			last = d
+		}
+	}
+	if last.Kind != validation.Obj {
+		return fmt.Sprintf("%s: verification.harness present with NO "+
+			"harness_run event — the slot was not written by a mapper "+
+			"(hand edit or failed unwind); the rung is not backed", iid)
+	}
+	for _, key := range []string{"kind", "rung", "exec", "summary"} {
+		want := objStr(h, key)
+		got := objStr(last, key)
+		if want == "" || got == "" {
+			// early harness_run events predate per-kind/summary
+			// payloads; a field only ONE side carries is compared never,
+			// but RUNG — the claim itself — is always present on both by
+			// the mappers' own contract.
+			if key == "rung" && want != "" && got == "" {
+				return fmt.Sprintf("%s: the last harness_run event names "+
+					"no rung for the stored %s — the slot is unbacked", iid,
+					validation.PyReprStr(want))
+			}
+			continue
+		}
+		if want != got {
+			return fmt.Sprintf("%s: stored harness rung (%s=%s) does not "+
+				"match the LAST harness_run event (%s=%s) — display state "+
+				"drifted from the ledger", iid, key, validation.PyReprStr(want),
+				key, validation.PyReprStr(got))
+		}
+	}
+	return ""
 }

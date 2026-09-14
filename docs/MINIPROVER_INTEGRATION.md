@@ -91,8 +91,14 @@ control plane enforces elsewhere:
 5. `review_independent: false` is recorded when the budget could not buy a
    DIFFERENT model for review — one model's opinion is never presented twice.
 6. **PROVEN next to a SUSPECT review finding is the most expensive state
-   there is** — the prover shouts it in its summary; webv2's mapper
-   refuses to bless it (§4, phase B).
+   there is** — webv2's mapper refuses to bless it (§4), FAIL-CLOSED on
+   shape (r21: padded/case-folded verdicts, non-object findings, and
+   unattributed suspect flags all refuse). The prover's own summary
+   shout is case-SENSITIVE (`cli.py` compares `verdict == "suspect"`
+   verbatim against LLM-authored strings): an uppercase-emitting
+   reviewer stays quiet upstream, so webv2's gate — not the prover's
+   shout — is the load-bearing rail. Upstream fix owed: fold case +
+   whitespace there too.
 
 ## 4. Compiler provenance: recorded, and NOW enforced
 
@@ -175,7 +181,7 @@ different numbers on purpose.
 | `review_independent: false` in report.json | review model == authoring model | set `MINIPROVER_MODEL_REVIEW` to a DIFFERENT id |
 | `--parse-only`/`--check-only` rows say unavailable | minicertora is pre-v0.4 (R12/R14 unshipped) | expected degradation; run `tools/minicertora_conformance.py` to see the full gap |
 | `toolchain-mismatch` on a harness result | the run's solc ≠ the pin | re-exec with `--solc-path` pointing at the reported version, or fix PATH solc |
-| doctor row says `probe TIMED OUT after 5s` | a PATH binary hangs on `--version` | the row IS the diagnosis — fix the shim; doctor self-timeouts (5s ctx + 2s pipe-drain), it never hangs to report breakage |
+| doctor row says `probe TIMED OUT after 5s` | a PATH binary hangs on `--version` | the row IS the diagnosis — fix the shim; EVERY host probe is now bounded (doctor 5s+WaitDelay, EXEC probes group-kill+grace, docker 20s+group-kill, compiler-pin 10s): a probe reports a hang, it never joins it |
 | autoprove says `report-contradiction` | rollup claims PROVEN while per_rule values disagree | per-rule lines are the authority (law 3); file a prover bug if the rollup really disagreed |
 
 ## 7. What is NOT integrated (open edges, honest list)
@@ -209,3 +215,24 @@ without a --force flag ceremony; the sticky-rung alternative invents
 an "invalidation" verb with more states than the event ledger already
 records). The audit surface cross-checks claims against events; the
 display slot is where "latest" belongs.
+
+## 9. The audit backstop is real now (r21 F7)
+
+§8's promise that "the audit surface cross-checks claims against
+events" now LITERALLY holds for harness rungs: `audit` section
+`invariant_verification` compares each stored `verification.harness`
+slot against the LAST `harness_run` event for that invariant (kind,
+rung, exec, summary — the summary being the mapper's full rendering,
+so no stronger claim survives a drift). A slot written without an
+event — hand edit, or the `UNWIND ALSO FAILED` state linksThenLog
+names — burns audit instead of printing as a legitimate verification
+line. `linksThenLog` additionally holds the campaign process lock
+across snapshot→save→log→restore: a whole-file restore can no longer
+silently revert a sibling writer's concurrent bind (r21 F9).
+
+And the pipe-hold class is dead at all four sites (r21 F1/F5/F6):
+process-GROUP kills reach wrapper children (uv shims are `#!/bin/sh`
+scripts; killing the shell leaves the child holding the pipe — which
+is what made "bounded" probes unbounded), the timeout arms return
+EMPTY rather than racing the output Builders, and `go test -race` now
+ships a pin for it.

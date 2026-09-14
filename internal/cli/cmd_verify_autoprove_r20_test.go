@@ -129,7 +129,7 @@ func TestR20OnePropertyProvesOneInvariant(t *testing.T) { // F9
 	}
 	// Same report+property claimed for INV-1 as well: refused.
 	code, _, errS = apVerify(t, root, c, "--property", "p1", "--report", rep)
-	if code != 2 || !strings.Contains(errS, "already proves INV-2") {
+	if code != 2 || !strings.Contains(errS, "already bound to INV-2") {
 		t.Fatalf("double credit for one proof must refuse: exit %d err %q",
 			code, errS)
 	}
@@ -231,3 +231,106 @@ func TestR20HarnessRungAlsoRollsBack(t *testing.T) { // F3 (harness path)
 }
 
 var _ = state.Campaign{}
+
+// TestR21SuspectGateFailsClosed pins r21 F2: verdicts are LLM
+// verbatim — " suspect " (padding) and string-shaped findings are the
+// SAME flag; the gate may only fail toward refusal.
+func TestR21SuspectGateFailsClosed(t *testing.T) {
+	cases := []struct{ name, findings string }{
+		{"padded", `[{"property": "p1", "verdict": " suspect ",
+			"reason": "r"}]`},
+		{"trailing-newline", `[{"property": "p1", "verdict": "SUSPECT\n",
+			"reason": "r"}]`},
+		{"string-shaped", `["the whole review was a mess"]`},
+		{"unattributed-suspect", `[{"verdict": "suspect",
+			"reason": "which property? all of them"}]`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, root := mcCamp(t, "r21-f2-"+tc.name)
+			rep := apWrite(t, `{"schema_version": "1.0", "published": true,
+				"publish_problems": [], "review_independent": true,
+				"capabilities_missing": [], "flags": {"loop_bound": 4},
+				"property_outcomes": {"p1": {"outcome": "PROVEN",
+					"per_rule": {"inv_1": "PROVEN"}}},
+				"review_findings": `+tc.findings+`}`)
+			code, _, errS := apVerify(t, root, c, "--property", "p1",
+				"--report", rep)
+			if code != 2 {
+				t.Fatalf("%s must refuse the bind: exit %d err %q",
+					tc.name, code, errS)
+			}
+		})
+	}
+}
+
+// TestR21DigestChurnCannotReuseAProperty pins r21 F3: the rail is
+// keyed on the property NAME — one byte of churn is not a new proof.
+func TestR21DigestChurnCannotReuseAProperty(t *testing.T) {
+	c, root := mcCamp(t, "r21-f3")
+	model := validation.VObj(kvT("invariants", validation.VArr(
+		validation.VObj(
+			kvT("id", validation.VStr("INV-2")),
+			kvT("statement", validation.VStr(
+				"withdrawer never receives more than deposited")),
+		))))
+	if _, err := invariants.SeedFromModel(c, model); err != nil {
+		t.Fatal(err)
+	}
+	body := `{"schema_version": "1.0", "published": true,
+		"publish_problems": [], "review_independent": true,
+		"capabilities_missing": [], "flags": {"loop_bound": 4},
+		"property_outcomes": {"p1": {"outcome": "PROVEN",
+			"per_rule": {"inv_1": "PROVEN"}}},
+		"review_findings": []}`
+	rep := apWrite(t, body)
+	if code, _, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--autoprove", "INV-2", "--property", "p1", "--report", rep); code != 0 {
+		t.Fatalf("first bind: %q", errS)
+	}
+	// Same property, DIFFERENT bytes (churn) aimed at INV-1: refused.
+	rep2 := apWrite(t, body+"\n")
+	code, _, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep2)
+	if code != 2 || !strings.Contains(errS, "already bound to INV-2") {
+		t.Fatalf("digest churn must not buy a second bind: exit %d err %q",
+			code, errS)
+	}
+}
+
+// TestR21AuditRefusesAnUnbackedHarnessRung pins r21 F7: docs §8 said
+// the audit cross-checks claims against events — now it TRUELY does:
+// a slot written without an event (hand edit here) burns.
+func TestR21AuditRefusesAnUnbackedHarnessRung(t *testing.T) {
+	c, root := mcCamp(t, "r21-f7")
+	rep := apWrite(t, `{"schema_version": "1.0", "published": true,
+		"publish_problems": [], "review_independent": true,
+		"capabilities_missing": [], "flags": {"loop_bound": 4},
+		"property_outcomes": {"p1": {"outcome": "PROVEN",
+			"per_rule": {"inv_1": "PROVEN"}}},
+		"review_findings": []}`)
+	if code, _, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep); code != 0 {
+		t.Fatalf("bind: %q", errS)
+	}
+	if code, _, errS := run(t, "--root", root, "audit", c.CampaignID); code != 0 {
+		t.Fatalf("baseline audit must PASS: exit %d %q", code, errS)
+	}
+	// Hand-edit the slot: same event, stronger claim.
+	linksPath := filepath.Join(c.ArtifactsDir, "invariant_links.json")
+	raw, _ := os.ReadFile(linksPath)
+	hand := strings.Replace(string(raw),
+		`"summary": "autoproved bounded (k=4, 1 rules)"`,
+		`"summary": "proved by angles and miracles"`, 1)
+	if hand == string(raw) {
+		t.Fatal("fixture drift: summary text not found")
+	}
+	if err := os.WriteFile(linksPath, []byte(hand), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", root, "audit", c.CampaignID)
+	if code == 0 || !strings.Contains(out, "does not match the LAST harness_run") {
+		t.Fatalf("drifted slot must burn audit: exit %d out %q err %q",
+			code, out, errS)
+	}
+}

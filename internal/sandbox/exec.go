@@ -54,6 +54,9 @@ func realRunProc(argv []string, dir string, env []string,
 	}
 	var out, errB strings.Builder
 	cmd.Stdout, cmd.Stderr = &out, &errB
+	// r21 F1: own process group, so the timeout kill reaches wrapper
+	// CHILDREN (the pipe-holders), not just the direct child.
+	setProcGroup(cmd)
 	if err := cmd.Start(); err != nil {
 		return ProcResult{Stdout: out.String(), Stderr: errB.String()}, err
 	}
@@ -66,12 +69,15 @@ func realRunProc(argv []string, dir string, env []string,
 		return ProcResult{ReturnCode: exitCode(err), Stdout: out.String(),
 			Stderr: errB.String()}, nil
 	case <-timer.C:
-		_ = cmd.Process.Kill()
-		// r19 P2 (the exec-side twin of the doctor's pipe-hold): Wait
-		// returns only after the io copiers see EOF — a killed SHELL
-		// wrapper can leave its CHILD holding the fd, hanging this
-		// "timeout" forever, which is worse than the hang it bounds.
-		// Kill again at interval and give the wait its own deadline.
+		// r21 F1: kill the whole process GROUP. The direct child of a
+		// probe is often a WRAPPER (uv shims are #!/bin/sh scripts);
+		// killing only the shell leaves its child holding the stdout
+		// pipe — Wait never returns, and the r19 grace-return read the
+		// shared Builders while a copier goroutine still wrote: a DATA
+		// RACE on top of a goroutine leak. Setpgid (at Start, below)
+		// makes the group kill reach the survivors, so Wait lands and
+		// the Builders are quiescent before we read them.
+		killGroup(cmd)
 		killDone := make(chan struct{})
 		go func() {
 			ticker := time.NewTicker(500 * time.Millisecond)
@@ -81,17 +87,28 @@ func realRunProc(argv []string, dir string, env []string,
 				case <-killDone:
 					return
 				case <-ticker.C:
-					_ = cmd.Process.Kill()
+					killGroup(cmd)
 				}
 			}
 		}()
 		grace := time.NewTimer(5 * time.Second)
 		defer grace.Stop()
+		waited := false
 		select {
 		case <-done:
+			waited = true
 		case <-grace.C:
 		}
 		close(killDone)
+		if !waited {
+			// The pathological arm: even the GROUP kill left the pipes
+			// open (a survivor re-forked out of the group). Reading the
+			// Builders now would race a live copier — return empty. A
+			// lost timeout's stdout costs a display line; a race costs
+			// truth. The goroutine stays parked on Wait; the process is
+			// SIGKILLed, so this is bounded leakage, not a hang.
+			return ProcResult{ReturnCode: -1}, errTimeout
+		}
 		return ProcResult{ReturnCode: -1, Stdout: out.String(),
 			Stderr: errB.String()}, errTimeout
 	}

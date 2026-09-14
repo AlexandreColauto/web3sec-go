@@ -55,6 +55,9 @@ func seedRefusalLinks(t *testing.T, c *state.Campaign, rows []refusalRow) {
 	if _, err := invariants.SaveLinks(c, links); err != nil {
 		t.Fatal(err)
 	}
+	for _, r := range rows {
+		backEvent(t, c, r.id, r.h) // r21 F7: slots must be event-backed
+	}
 }
 
 // proofReason is the L-core proof sidecar carrying the stored reason code
