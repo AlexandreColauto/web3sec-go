@@ -61,6 +61,15 @@ const mcInvariantUninitialized = `{"contract":"Capped.sol","rule":"inv_1","verdi
 const mcCallsWitness = `{"contract":"V.sol","rule":"inv_1","verdict":"VIOLATED","confidence":"unconfirmed","reason":"assertion-violated","failed_assertion":{"expression":"total >= before"},"bounds":{"loop_bound":4,"path_cap":64,"solver_timeout_ms":30000},"calls":[{"step":1,"function":"withdraw","target":"0x1111111111111111111111111111111111111111","args":["1000"],"env":{"msg.sender":"0x2222222222222222222222222222222222222222","msg.value":"0"},"reverted":false,"reentrant":false,"overrides":{}},{"step":2,"function":"withdraw","target":"0x1111111111111111111111111111111111111111","args":["2000"],"env":{"msg.sender":"0x3333333333333333333333333333333333333333","msg.value":"0"},"reverted":true,"reentrant":false,"overrides":{}}]}
 `
 
+// mcProvenLineBound is a PROVEN verdict line whose bounds.loop_bound is
+// the given JSON expression (r27's degenerate-bound fixtures print 0, -1
+// and -2 — statements the twin's VerifierFlags refuses).
+func mcProvenLineBound(expr string) string {
+	return `{"rule":"inv_1","verdict":"PROVEN","confidence":"modeled",` +
+		`"assumptions":[],"bounds":{"loop_bound":` + expr + `,` +
+		`"path_cap":64,"solver_timeout_ms":30000}}` + "\n"
+}
+
 // TestMapMinicertora is the mapping table: each row is one raw stdout
 // byte string plus the exec record's exit_status, and pins the rung, the
 // byte-exact summary and whether a proof sidecar was captured.
@@ -163,6 +172,32 @@ func TestMapMinicertora(t *testing.T) {
 			exit: 0, rule: "inv_1", rung: RungInconclusive,
 			summary: "inconclusive (exit output unmapped)",
 		},
+		{
+			// r27 F1: the PROVEN line's OWN bounds state a bound the
+			// twin refuses (it raises for loop_bound < 1), so these
+			// bytes are not twin output — a blessing over zero
+			// unrollings proves nothing. Floor it: no rung, no
+			// bounded_k, no sidecar.
+			name: "PROVEN at loop_bound 0 floors",
+			raw:  mcProvenLineBound("0"), exit: 0, rule: "inv_1",
+			rung: RungInconclusive,
+			summary: "inconclusive (degenerate-bound: the run states " +
+				"no bound >= 1)",
+		},
+		{
+			name: "PROVEN at loop_bound -1 floors",
+			raw:  mcProvenLineBound("-1"), exit: 0, rule: "inv_1",
+			rung: RungInconclusive,
+			summary: "inconclusive (degenerate-bound: the run states " +
+				"no bound >= 1)",
+		},
+		{
+			name: "PROVEN at loop_bound -2 floors",
+			raw:  mcProvenLineBound("-2"), exit: 0, rule: "inv_1",
+			rung: RungInconclusive,
+			summary: "inconclusive (degenerate-bound: the run states " +
+				"no bound >= 1)",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -204,6 +239,81 @@ func TestMapMinicertora(t *testing.T) {
 					t.Errorf("proof key %d = %q, want %q", i, kv.K,
 						mcVerdictKeys[i])
 				}
+			}
+		})
+	}
+}
+
+// TestMapMinicertoraInvoc pins the INVOCATION-level half of the floor
+// (r27 F1): the exec record's own command can state a degenerate bound
+// (--loop-bound 0), and the twin raises for loop_bound < 1 before a run
+// ever starts — so the whole record floors whatever the stdout says, with
+// MapRun's own degenerate-bound wording, no sidecar and no bounded_k. A
+// command naming no bound (0, unstated) or an honest bound (>= 1)
+// delegates to MapMinicertora untouched.
+func TestMapMinicertoraInvoc(t *testing.T) {
+	wantInvoc := "inconclusive (degenerate-bound: the invocation " +
+		"states no bound >= 1)"
+	cases := []struct {
+		name     string
+		raw      string
+		exit     int
+		invBound int
+		rung     string
+		summary  string
+		k        int
+		hasK     bool
+		proof    bool
+	}{
+		{
+			name: "degenerate invocation over an honest k=4 proof",
+			raw:  mcProven, exit: 0, invBound: BoundDegenerate,
+			rung: RungInconclusive, summary: wantInvoc,
+		},
+		{
+			// The floor is about the FLAG the tool refuses, not the
+			// verdict it printed: no line under such an invocation is
+			// tool output either.
+			name: "degenerate invocation over a violation",
+			raw:  mcViolated, exit: 1, invBound: BoundDegenerate,
+			rung: RungInconclusive, summary: wantInvoc,
+		},
+		{
+			name: "unstated invocation delegates",
+			raw:  mcProven, exit: 0, invBound: 0,
+			rung: RungProvedBounded, summary: "proved bounded (k=4)",
+			k: 4, hasK: true, proof: true,
+		},
+		{
+			name: "honest invocation delegates",
+			raw:  mcProven, exit: 0, invBound: 4,
+			rung: RungProvedBounded, summary: "proved bounded (k=4)",
+			k: 4, hasK: true, proof: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rung, summary, proof, boundedK := MapMinicertoraInvoc(
+				[]byte(tc.raw), tc.exit, "inv_1", tc.invBound)
+			if rung != tc.rung {
+				t.Errorf("rung = %q, want %q", rung, tc.rung)
+			}
+			if summary != tc.summary {
+				t.Errorf("summary = %q, want %q", summary, tc.summary)
+			}
+			if tc.hasK {
+				if boundedK == nil || *boundedK != tc.k {
+					t.Fatalf("boundedK = %v, want %d", boundedK, tc.k)
+				}
+			} else if boundedK != nil {
+				t.Errorf("boundedK = %d, want nil", *boundedK)
+			}
+			if tc.proof && proof.Kind != validation.Obj {
+				t.Errorf("proof kind = %c, want object", proof.Kind)
+			}
+			if !tc.proof && proof.Kind != validation.Null {
+				t.Errorf("proof = %s, want null",
+					validation.CanonCompact(proof))
 			}
 		})
 	}

@@ -1,0 +1,376 @@
+package cli
+
+// cmd_artifact_prune_test.go: the operator's retirement tool (r27 F7). The
+// registry is append-only and its growth knowingly unbounded (docs/
+// MINIPROVER_INTEGRATION.md §10), so the verb that retires a row must
+// exist, must record WHY, and must WARN — never refuse — when the row it
+// retires is the evidence a live blessing cites. Refusing is the bind's
+// discipline (the cite-guard); the operator's explicit act is not the
+// bind's, and the burn that follows is the honest cost.
+//
+// The cited fixture is built exactly the way the mapper builds it: a
+// report whose bytes re-derive the rung through harness.MapReport, the
+// invariant slot, and the harness_run event that pins the report digest.
+// That makes the PRE-prune audit green and the POST-prune audit red for
+// the one reason under test — the retired row.
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"websec/internal/harness"
+	"websec/internal/invariants"
+	"websec/internal/state"
+	"websec/internal/validation"
+)
+
+// t27CampaignRegister writes a file into the campaign root and registers
+// it, returning the artifact id.
+func t27CampaignRegister(t *testing.T, c *state.Campaign, name string) string {
+	t.Helper()
+	path := filepath.Join(c.Root, name)
+	if err := os.WriteFile(path, []byte("report bytes\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := c.ActiveSnapshotIDOrNone()
+	if err != nil {
+		t.Fatal(err)
+	}
+	aid, err := c.RegisterArtifact("report", path, "", snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return aid
+}
+
+// t27CitedFixture registers a REPORT- row and lands the binding a live
+// blessing would carry for iid: the invariant slot plus the harness_run
+// event that pins the row's digest as its report_sha256. Returns the
+// artifact id and the pinned digest.
+func t27CitedFixture(t *testing.T, c *state.Campaign, iid, exec string) (string, string) {
+	t.Helper()
+	prop := validation.VObj(
+		kv("outcome", validation.VStr("PROVEN")),
+		kv("per_rule", validation.VObj(kv("inv_p", validation.VStr("PROVEN")))),
+	)
+	rep := validation.VObj(
+		kv("flags", validation.VObj(kv("loop_bound", validation.VInt(100)))),
+		kv("property_outcomes", validation.VObj(kv("p", prop))),
+	)
+	path := filepath.Join(c.Root, "report.json")
+	if err := validation.WriteJson(path, rep, ""); err != nil {
+		t.Fatal(err)
+	}
+	aid, err := c.RegisterArtifact("report", path, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row, err := c.Artifact(aid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sha := objStr(row, "sha256")
+	// Derive the rung through the functions the audit re-derives with, so
+	// the fixture is an honest bind rather than a shape that merely looks
+	// like one.
+	k, kStated, kOK, why := harness.BoundFromFlags(objAt(rep, "flags"))
+	if !kOK {
+		t.Fatalf("fixture bound must be mappable: %s", why)
+	}
+	rung, summary, bk := harness.MapReport(objStr(prop, "outcome"),
+		objAt(prop, "per_rule"), k, kStated)
+	if bk == nil {
+		t.Fatal("fixture must derive a bound")
+	}
+	model := validation.VObj(kv("invariants", validation.VArr(
+		validation.VObj(
+			kv("id", validation.VStr(iid)),
+			kv("statement", validation.VStr("the report blesses this"))))))
+	if _, err := invariants.SeedFromModel(c, model); err != nil {
+		t.Fatal(err)
+	}
+	links, err := invariants.LoadLinks(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := objAt(links, "invariants")
+	e := objAt(reg, iid)
+	h := validation.VObj(
+		kv("kind", validation.VStr("minicertora")),
+		kv("rung", validation.VStr(rung)),
+		kv("exec", validation.VStr(exec)),
+		kv("bounded_k", validation.VInt(int64(*bk))),
+		kv("summary", validation.VStr(summary)),
+	)
+	e.O = validation.SetOrAppend(e.O, "verification",
+		validation.VObj(kv("harness", h)))
+	reg.O = validation.SetOrAppend(reg.O, iid, e)
+	links.O = validation.SetOrAppend(links.O, "invariants", reg)
+	if _, err := invariants.SaveLinks(c, links); err != nil {
+		t.Fatal(err)
+	}
+	data := validation.VObj(
+		kv("invariant", validation.VStr(iid)),
+		kv("kind", validation.VStr("minicertora")),
+		kv("rung", validation.VStr(rung)),
+		kv("exec", validation.VStr(exec)),
+		kv("summary", validation.VStr(summary)),
+		kv("bounded_k", validation.VInt(int64(*bk))),
+		kv("property", validation.VStr("p")),
+		kv("report_sha256", validation.VStr(sha)),
+	)
+	ref := iid
+	if _, err := c.Log("harness_run", &ref, &data); err != nil {
+		t.Fatal(err)
+	}
+	return aid, sha
+}
+
+// t27AuditSection runs `audit --json` and returns the exit code and the
+// invariant_verification section.
+func t27AuditSection(t *testing.T, root, cid string) (int, validation.Value) {
+	t.Helper()
+	code, out, errS := run(t, "--root", root, "audit", cid, "--json")
+	if out == "" {
+		t.Fatalf("audit printed no report (exit %d, stderr %q)", code, errS)
+	}
+	rep, err := validation.ParseOrdered([]byte(out))
+	if err != nil {
+		t.Fatalf("audit --json did not parse: %v\n%s", err, out)
+	}
+	return code, objAt(objAt(rep, "sections"), "invariant_verification")
+}
+
+// t27PrunedEvent is the artifact.pruned event for aid.
+func t27PrunedEvent(t *testing.T, c *state.Campaign, aid string) validation.Value {
+	t.Helper()
+	events, err := c.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ev := range events {
+		if objStr(ev, "type") == "artifact.pruned" &&
+			objStr(ev, "ref") == aid {
+			return ev
+		}
+	}
+	t.Fatalf("no artifact.pruned event names %s", aid)
+	return validation.VNull()
+}
+
+// TestArtifactPruneUncitedRow: the plain retirement — exit 0, the row gone
+// from artifact-list, and the ledger carrying the reason.
+func TestArtifactPruneUncitedRow(t *testing.T) {
+	c, root := t15Campaign(t, "prune")
+	aid := t27CampaignRegister(t, c, "old-report.json")
+	code, out, errS := run(t, "--root", root, "artifact-prune", aid,
+		"--reason", "superseded by the re-bind")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	want := aid + ": kind=report path=old-report.json\n"
+	if out != want {
+		t.Fatalf("stdout\n%q\nwant\n%q", out, want)
+	}
+	if errS != "" {
+		t.Fatalf("an uncited row must prune without a warning: %q", errS)
+	}
+	code, out, errS = run(t, "--root", root, "artifact-list", c.CampaignID)
+	if code != 0 {
+		t.Fatalf("artifact-list exit %d: %q", code, errS)
+	}
+	if strings.Contains(out, aid) {
+		t.Fatalf("the retired row is still listed: %q", out)
+	}
+	ev := t27PrunedEvent(t, c, aid)
+	if got := objStr(objAt(ev, "data"), "reason"); got != "superseded by the re-bind" {
+		t.Fatalf("data.reason = %q, want the operator's reason", got)
+	}
+}
+
+// TestArtifactPruneJSON: --json prints the retired row with the reason it
+// was retired for, in the sibling --json shape (indent-2 ASCII).
+func TestArtifactPruneJSON(t *testing.T) {
+	c, root := t15Campaign(t, "prune")
+	aid := t27CampaignRegister(t, c, "old.json")
+	code, out, errS := run(t, "--root", root, "artifact-prune", aid,
+		"--reason", "nothing cites it", "--json")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("--json output does not parse: %v\n%s", err, out)
+	}
+	if got["artifact_id"] != aid || got["kind"] != "report" ||
+		got["path"] != "old.json" || got["reason"] != "nothing cites it" {
+		t.Fatalf("--json object = %v", got)
+	}
+}
+
+// TestArtifactPruneCitedRowWarnsAndBurnsTheRung is the contract's sharp
+// edge: the row a live blessing cites is NOT protected from the operator —
+// it warns on stderr, prunes anyway, and the audit's own re-derivation then
+// names the missing evidence and qualifies the rung (UNBACKED).
+func TestArtifactPruneCitedRowWarnsAndBurnsTheRung(t *testing.T) {
+	c, root := t15Campaign(t, "prune")
+	aid, sha := t27CitedFixture(t, c, "INV-3", "REPORT-9")
+	// PRE: the binding is honest — the store holds the cited bytes, so the
+	// section is green and the rung prints unqualified.
+	code, sec := t27AuditSection(t, root, c.CampaignID)
+	if code != 0 || !objAt(sec, "ok").B {
+		t.Fatalf("fixture must start green: exit %d, section %s", code,
+			validation.CanonCompact(sec))
+	}
+	runs := objAt(sec, "harness_runs")
+	if len(runs.A) != 1 || runs.A[0].S != "INV-3: PROVEN-BOUNDED "+
+		"(minicertora, k=100, REPORT-9)" {
+		t.Fatalf("pre-prune harness_runs = %s",
+			validation.CanonCompact(runs))
+	}
+	code, out, errS := run(t, "--root", root, "artifact-prune", aid,
+		"--reason", "the report is stale")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if out != aid+": kind=report path=report.json\n" {
+		t.Fatalf("stdout %q", out)
+	}
+	for _, want := range []string{"WARNING", aid, "INV-3", "UNBACKED"} {
+		if !strings.Contains(errS, want) {
+			t.Fatalf("stderr must name %q: %q", want, errS)
+		}
+	}
+	// POST: section 11 re-derives against the registry, finds nothing that
+	// holds the pinned bytes, and says so — and the line a consumer reads
+	// carries the qualifier.
+	code, sec = t27AuditSection(t, root, c.CampaignID)
+	if code != 1 {
+		t.Fatalf("audit must exit 1 once the cited row is retired: %d", code)
+	}
+	if objAt(sec, "ok").B {
+		t.Fatalf("section 11 must burn: %s", validation.CanonCompact(sec))
+	}
+	joined := ""
+	for _, p := range objAt(sec, "problems").A {
+		joined += p.S + "\n"
+	}
+	if !strings.Contains(joined, "no registry artifact holds the report bytes") ||
+		!strings.Contains(joined, sha[:12]) {
+		t.Fatalf("the burn must name the exact state observed: %q", joined)
+	}
+	runs = objAt(sec, "harness_runs")
+	if len(runs.A) != 1 {
+		t.Fatalf("harness_runs = %s", validation.CanonCompact(runs))
+	}
+	if !strings.HasSuffix(runs.A[0].S, " (UNBACKED)") {
+		t.Fatalf("an unbacked blessing must be qualified: %q", runs.A[0].S)
+	}
+}
+
+// TestArtifactPruneMissingIDExits2: the id is required, and an explicitly
+// empty one is missing too.
+func TestArtifactPruneMissingIDExits2(t *testing.T) {
+	_, root := t15Campaign(t, "prune")
+	want := artifactPruneUsage + "webv2 artifact-prune: error: the " +
+		"following arguments are required: artifact_id\n"
+	code, out, errS := run(t, "--root", root, "artifact-prune",
+		"--reason", "why")
+	if code != 2 || errS != want || out != "" {
+		t.Fatalf("missing id: exit %d, stdout %q, stderr\n%q\nwant\n%q",
+			code, out, errS, want)
+	}
+	code, out, errS = run(t, "--root", root, "artifact-prune", "",
+		"--reason", "why")
+	if code != 2 || out != "" ||
+		!strings.Contains(errS, "artifact_id must not be empty") {
+		t.Fatalf("empty id: exit %d, stdout %q, stderr %q", code, out, errS)
+	}
+}
+
+// TestArtifactPruneMissingReasonExits2: the ledger must record WHY, so a
+// missing or blank reason is a usage error, not a default.
+func TestArtifactPruneMissingReasonExits2(t *testing.T) {
+	c, root := t15Campaign(t, "prune")
+	aid := t27CampaignRegister(t, c, "old.json")
+	want := artifactPruneUsage + "webv2 artifact-prune: error: the " +
+		"following arguments are required: --reason\n"
+	code, out, errS := run(t, "--root", root, "artifact-prune", aid)
+	if code != 2 || errS != want || out != "" {
+		t.Fatalf("missing reason: exit %d, stdout %q, stderr\n%q\nwant\n%q",
+			code, out, errS, want)
+	}
+	code, out, errS = run(t, "--root", root, "artifact-prune", aid,
+		"--reason", "   ")
+	if code != 2 || out != "" ||
+		!strings.Contains(errS, "--reason must not be empty") {
+		t.Fatalf("blank reason: exit %d, stdout %q, stderr %q", code, out, errS)
+	}
+	// The refused attempts must not have retired anything.
+	code, out, errS = run(t, "--root", root, "artifact-list", c.CampaignID)
+	if code != 0 || !strings.Contains(out, aid) {
+		t.Fatalf("a refused prune must not touch the row (exit %d): %q %q",
+			code, out, errS)
+	}
+}
+
+// TestArtifactPruneUnknownIDExits2: an id no campaign holds is a usage
+// error naming the id — in a workspace with campaigns and in one without.
+func TestArtifactPruneUnknownIDExits2(t *testing.T) {
+	_, root := t15Campaign(t, "prune")
+	for _, r := range []string{root, mkroot(t)} {
+		code, out, errS := run(t, "--root", r, "artifact-prune",
+			"ART-nope1234", "--reason", "why")
+		if code != 2 || out != "" {
+			t.Fatalf("root %q: exit %d, stdout %q, stderr %q", r, code, out,
+				errS)
+		}
+		if !strings.Contains(errS, "unknown artifact 'ART-nope1234'") {
+			t.Fatalf("root %q: stderr must name the id: %q", r, errS)
+		}
+	}
+}
+
+// TestArtifactPruneAmbiguousIDRefuses: one id in two campaigns is
+// reachable only by a hand-edited registry pair, and the verb refuses to
+// guess which row the operator meant (exit 2, both campaigns named).
+func TestArtifactPruneAmbiguousIDRefuses(t *testing.T) {
+	c1, root := t15Campaign(t, "prune")
+	aid := t27CampaignRegister(t, c1, "old.json")
+	c2, err := state.Open(root, initOne(t, root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	row, err := c1.Artifact(aid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := c2.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	arts := objAt(st, "artifacts")
+	arts.A = append(arts.A, row)
+	st.O = validation.SetOrAppend(st.O, "artifacts", arts)
+	if err := c2.SaveState(st); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", root, "artifact-prune", aid,
+		"--reason", "why")
+	if code != 2 || out != "" {
+		t.Fatalf("exit %d, stdout %q, stderr %q", code, out, errS)
+	}
+	for _, want := range []string{"two campaigns", c1.CampaignID,
+		c2.CampaignID} {
+		if !strings.Contains(errS, want) {
+			t.Fatalf("stderr must name %q: %q", want, errS)
+		}
+	}
+	// Nothing was retired by the refusal.
+	if _, err := c1.Artifact(aid); err != nil {
+		t.Fatalf("the refusal must not touch the first row: %v", err)
+	}
+}

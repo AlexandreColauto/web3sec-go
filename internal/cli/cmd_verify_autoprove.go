@@ -554,21 +554,37 @@ func harnessRowForPath(c *state.Campaign, path string) (validation.Value,
 // overwritten — the rows are immutable by construction).
 //
 // r26 F2: the tmp+rename dance has a crash seam. A process killed after
-// the write and before the rename leaves report-<digest>.json.tmp on
-// disk; while that tmp was created 0444, the NEXT bind of the same
-// digest opened it for writing, took EACCES as the owner, and refused
-// that digest FOREVER — a transient crash became a permanent
-// unavailability. Two disciplines close it: the tmp is written 0600 so
-// a leftover is always overwritable by its owner (the 0444 lands on the
-// FINAL name only, after the rename, and is still immutable-by-
-// convention evidence), and a leftover tmp is SWEPT rather than
-// trusted — bytes that already hash to the digest are renamed into
-// place (the crash cost nothing) and anything else is scratch, removed
-// and rewritten (only the digest-named final file is evidence). The tmp
-// is also fsynced and closed before the rename, matching
-// validation.WriteJson: without it the rename can land before the bytes
-// do, and a power loss publishes a zero-length or partial file under a
-// content-addressed name the registry will then refuse.
+// the write and before the rename leaves a tmp on disk; while that tmp
+// was created 0444, the NEXT bind of the same digest opened it for
+// writing, took EACCES as the owner, and refused that digest FOREVER — a
+// transient crash became a permanent unavailability. The tmp is written
+// 0600 so a leftover is always overwritable by its owner (the 0444 lands
+// on the FINAL name only, after the rename), and a leftover LEGACY tmp is
+// SWEPT rather than trusted — bytes that already hash to the digest are
+// renamed into place (the crash cost nothing) and anything else is
+// scratch, removed and rewritten. The tmp is fsynced and closed before
+// the rename, matching validation.WriteJson: without it the rename can
+// land before the bytes do, and a power loss publishes a zero-length or
+// partial file under a content-addressed name the registry will then
+// refuse.
+//
+// r27 hardening (F2/F3/F4/F5/F6), all in this one function:
+//   - the store NEVER operates through a link (F2/F3). A symlink at the
+//     tmp or the final name is a REFUSAL naming the shape: os.Rename
+//     moves the LINK into place and the following os.Chmod FOLLOWS it,
+//     which rewrote a victim's mode outside the campaign (observed
+//     0644 -> 0444), and a link at the final name let a matching-bytes
+//     target masquerade as the immutable copy. A directory/fifo/device
+//     at either name is the same refusal class (F5) — a non-empty
+//     directory at the tmp name used to wedge that digest forever
+//     behind a message that misdiagnosed it as crash scratch.
+//   - the scratch name is PER-CALL unique (F4), so two processes binding
+//     one digest never share it; a rename that loses to a writer which
+//     published the same digest is accepted only after re-reading the
+//     final path and hashing it back to the digest.
+//   - the durability step is CHECKED, not swallowed (F6): a directory
+//     that cannot be opened for fsync is surfaced with its path and its
+//     error, and the 0444 mode itself is fsynced after the chmod.
 func storeReportCopy(c *state.Campaign, digest string,
 	raw []byte) (string, error) {
 	dir := filepath.Join(c.ArtifactsDir, "reports")
@@ -579,6 +595,14 @@ func storeReportCopy(c *state.Campaign, digest string,
 	// store whose name is truncated can collide, and the collision arm
 	// REFUSES a legitimate bind (availability hazard for zero benefit).
 	p := filepath.Join(dir, "report-"+digest+".json")
+	// r27 F3: the FINAL name must be a REGULAR file the store itself
+	// owns. os.ReadFile follows a link, so a symlink here whose target
+	// held the digest was accepted as the immutable copy — and
+	// rewriting that target later made §11 burn the honest bind with
+	// "cannot be re-read from the store".
+	if err := storeRefuseNonRegular(p); err != nil {
+		return "", err
+	}
 	if cur, err := os.ReadFile(p); err == nil {
 		if validation.Sha256Hex(cur) == digest {
 			return p, nil // the honest copy already stands
@@ -588,35 +612,63 @@ func storeReportCopy(c *state.Campaign, digest string,
 	} else if !os.IsNotExist(err) {
 		return "", err
 	}
-	tmp := p + ".tmp"
-	// Sweep the crash seam: a leftover tmp whose bytes ARE the digest was
-	// written by an earlier run of this very call — finish its rename
-	// instead of redoing the write.
-	if cur, err := os.ReadFile(tmp); err == nil &&
-		validation.Sha256Hex(cur) == digest {
-		if err := os.Rename(tmp, p); err != nil {
-			return "", err
-		}
-		if err := os.Chmod(p, 0o444); err != nil {
-			return "", err
-		}
-		return p, nil
-	}
-	// Anything else at the tmp name is scratch, never evidence — and it
-	// may carry the old 0444 mode, which its own owner cannot open for
-	// writing. Remove it (the directory is what grants us that, not the
-	// file) so the stale mode can never deny the digest it names.
-	if err := os.Remove(tmp); err != nil && !os.IsNotExist(err) {
-		return "", fmt.Errorf("cannot clear the scratch file %s "+
-			"left by an interrupted store: %w", tmp, err)
-	}
-	// Open explicitly rather than os.WriteFile: the create mode is
-	// filtered by umask, and the Sync below must be ours to check — a
-	// swallowed fsync error is the crash seam this close exists for.
-	fh, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
-	if err != nil {
+	// Sweep the crash seam of the LEGACY fixed tmp name: a leftover tmp
+	// whose bytes ARE the digest was written by an earlier run of this
+	// very call — finish its rename instead of redoing the write.
+	// r27 F2/F5 run FIRST: a link, directory, fifo or device at that
+	// name is not scratch, it is a refusal.
+	legacy := p + ".tmp"
+	if err := storeRefuseNonRegular(legacy); err != nil {
 		return "", err
 	}
+	if cur, err := os.ReadFile(legacy); err == nil &&
+		validation.Sha256Hex(cur) == digest {
+		if rerr := os.Rename(legacy, p); rerr == nil {
+			if err := storeSeal(dir, p); err != nil {
+				return "", err
+			}
+			return p, nil
+		} else if !os.IsNotExist(rerr) {
+			return "", rerr
+		}
+		// A concurrent writer took the legacy tmp and published this
+		// digest: succeed only against an honest final copy.
+		return storeAdoptPublished(dir, p, digest)
+	}
+	// Anything else at the legacy name is scratch, never evidence — and
+	// it may carry the old 0444 mode, which its own owner cannot open
+	// for writing. Remove it (the directory is what grants us that, not
+	// the file) so the stale mode can never deny the digest it names.
+	if err := os.Remove(legacy); err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("cannot clear the scratch file %s "+
+			"left by an interrupted store: %w", legacy, err)
+	}
+	// r27 F4: the scratch name is PER-CALL unique — os.CreateTemp's
+	// random suffix, the same shape validation.WriteJson uses
+	// (name.tmp-<rand>: recognisable as a crash leftover, one writer per
+	// scratch file) — so two processes binding one digest never share
+	// scratch. The old fixed name made the loser's os.Rename return
+	// ENOENT and exit 2 with a raw "no such file or directory" on the
+	// very path the docs call idempotent (reproduced 4/8 and 2/10
+	// rounds). CreateTemp's O_EXCL is the other half: whatever a hostile
+	// writer planted at a guessed name is never written through — the
+	// call simply gets a fresh name. The defer is the whole failure-path
+	// story: this call's scratch never accumulates.
+	fh, err := os.CreateTemp(dir, filepath.Base(p)+".tmp-*")
+	if err != nil {
+		return "", fmt.Errorf("cannot create the report scratch for %s "+
+			"in %s: %w", digest, dir, err)
+	}
+	tt := fh.Name()
+	defer func() { _ = os.Remove(tt) }()
+	// Belt and braces on the exact name we are about to write through.
+	if err := storeRefuseNonRegular(tt); err != nil {
+		fh.Close()
+		return "", err
+	}
+	// The create mode is filtered by umask, so the 0600 is set on the
+	// OPEN handle; and the Sync below must be ours to check — a
+	// swallowed fsync error is the crash seam this close exists for.
 	if _, err := fh.Write(raw); err != nil {
 		fh.Close()
 		return "", err
@@ -629,35 +681,140 @@ func storeReportCopy(c *state.Campaign, digest string,
 		fh.Close()
 		return "", fmt.Errorf("cannot fsync the report tmp %s: %w "+
 			"(the rename must not publish bytes the disk never got)",
-			tmp, err)
+			tt, err)
 	}
 	if err := fh.Close(); err != nil {
 		return "", err
 	}
-	if err := os.Rename(tmp, p); err != nil {
-		return "", err
+	if err := os.Rename(tt, p); err != nil {
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		// r27 F4(b): the tmp vanished under the rename because another
+		// writer published the identical digest. That is a lost race,
+		// not a failure — adopt the published copy if (and only if) its
+		// bytes hash to the digest this bind names.
+		return storeAdoptPublished(dir, p, digest)
 	}
 	// 0444 lands AFTER the rename: the tmp name must stay owner-writable
 	// for the life of the crash window, or a kill -9 between the two
-	// steps re-creates the wedge this rail removes.
-	if err := os.Chmod(p, 0o444); err != nil {
+	// steps re-creates the wedge this rail removes. The seal fsyncs the
+	// mode and the directory entry (r27 F6).
+	if err := storeSeal(dir, p); err != nil {
 		return "", err
 	}
-	// The file is durable; the NAME is not until the directory entry is
-	// synced. Without this, power loss can leave the campaign holding a
-	// registry row and a harness_run event whose digest-named file never
-	// landed — audit correctly burns evidence that the disk simply lost,
-	// and the operator has to re-bind to restore it. Best-effort by
-	// necessity (some filesystems refuse directory fsync with EINVAL):
-	// a refusal that is not "this FS cannot" is surfaced.
-	if d, derr := os.Open(dir); derr == nil {
-		serr := d.Sync()
-		d.Close()
-		if serr != nil && !errors.Is(serr, syscall.EINVAL) &&
-			!errors.Is(serr, syscall.ENOTSUP) {
-			return "", fmt.Errorf("cannot fsync the report store %s: %w",
-				dir, serr)
+	return p, nil
+}
+
+// storeSyncRefused: a Sync failure that means the FILESYSTEM cannot do
+// it, not that the durability step silently did not happen. Everything
+// else is surfaced (r27 F6).
+func storeSyncRefused(err error) bool {
+	return errors.Is(err, syscall.EINVAL) ||
+		errors.Is(err, syscall.ENOTSUP) ||
+		errors.Is(err, syscall.ENOSYS)
+}
+
+// storePathShape names what was actually found at a store path, so the
+// refusal can state the exact shape observed (r27 F5).
+func storePathShape(fi os.FileInfo) string {
+	m := fi.Mode()
+	switch {
+	case m&os.ModeSymlink != 0:
+		return "symlink"
+	case m.IsDir():
+		return "directory"
+	case m&os.ModeNamedPipe != 0:
+		return "fifo"
+	case m&os.ModeSocket != 0:
+		return "socket"
+	case m&os.ModeCharDevice != 0:
+		return "character device"
+	case m&os.ModeDevice != 0:
+		return "block device"
+	}
+	return m.String()
+}
+
+// storeRefuseNonRegular: the store never operates THROUGH an object.
+// lstat (not Stat) both the tmp and the final name; a non-regular object
+// is a REFUSAL naming its shape, never scratch to delete (r27 F2/F3/F5).
+func storeRefuseNonRegular(path string) error {
+	fi, err := os.Lstat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
 		}
+		return err
+	}
+	if fi.Mode().IsRegular() {
+		return nil
+	}
+	return fmt.Errorf("the store path %s is a %s, not the copy - the "+
+		"immutable record must be a regular file inside the campaign",
+		path, storePathShape(fi))
+}
+
+// storeAdoptPublished: a rename lost the race to a writer that published
+// this digest. Success is honest ONLY if the final path is a regular file
+// the store owns whose bytes hash to the digest; anything else is the
+// refusal it deserves (r27 F3/F4).
+func storeAdoptPublished(dir, p, digest string) (string, error) {
+	if err := storeRefuseNonRegular(p); err != nil {
+		return "", err
+	}
+	cur, err := os.ReadFile(p)
+	if err != nil {
+		return "", fmt.Errorf("the report scratch for %s vanished before "+
+			"the rename and the store does not hold it: %w", digest, err)
+	}
+	if validation.Sha256Hex(cur) != digest {
+		return "", fmt.Errorf("%s exists with foreign bytes (impossible "+
+			"under a sha-named path: a prior collision or a tamper)", p)
+	}
+	if err := storeSeal(dir, p); err != nil {
+		return "", err
 	}
 	return p, nil
+}
+
+// storeSeal publishes the immutable copy: 0444 ON the regular file, then
+// fsync OF the file (so a crash cannot leave the copy 0600 while the docs
+// promise 0444) and fsync of the directory entry that names it (so power
+// loss cannot leave a registry row citing a file the disk never got).
+// Only failures meaning "this filesystem cannot" are tolerated (r27 F6):
+// an OPEN failure is surfaced with its path and its error — a reports
+// directory the process cannot open (mode 0333 -> EACCES) used to skip
+// the whole durability step silently in the name of best-effort.
+func storeSeal(dir, p string) error {
+	if err := storeRefuseNonRegular(p); err != nil {
+		return err
+	}
+	if err := os.Chmod(p, 0o444); err != nil {
+		return fmt.Errorf("cannot set the immutable mode 0444 on the "+
+			"published copy %s: %w", p, err)
+	}
+	fh, err := os.Open(p)
+	if err != nil {
+		return fmt.Errorf("cannot open the published copy %s to fsync its "+
+			"0444 mode: %w", p, err)
+	}
+	serr := fh.Sync()
+	fh.Close()
+	if serr != nil && !storeSyncRefused(serr) {
+		return fmt.Errorf("cannot fsync the published copy %s after the "+
+			"0444 chmod: %w", p, serr)
+	}
+	d, derr := os.Open(dir)
+	if derr != nil {
+		return fmt.Errorf("cannot open the report store %s to fsync the "+
+			"rename that published %s: %w", dir, p, derr)
+	}
+	dserr := d.Sync()
+	d.Close()
+	if dserr != nil && !storeSyncRefused(dserr) {
+		return fmt.Errorf("cannot fsync the report store %s: %w",
+			dir, dserr)
+	}
+	return nil
 }

@@ -644,6 +644,116 @@ func TestHarnessRunLineWitnessLabel(t *testing.T) {
 
 func hexText(b [32]byte) string { return hex.EncodeToString(b[:]) }
 
+// r27SetExecCommand rewrites one exec record's command: mintExecEvidence
+// writes none, and r27 made the invocation bound part of the mapping the
+// audit re-derives.
+func r27SetExecCommand(t *testing.T, c *state.Campaign, exec, cmd string) {
+	t.Helper()
+	rec := validation.VObj(
+		KV("exec_id", validation.VStr(exec)),
+		KV("command", validation.VStr(cmd)),
+		KV("exit_status", validation.VInt(0)),
+	)
+	if err := validation.WriteJson(filepath.Join(c.ExecsDir, exec,
+		"exec_record.json"), rec, ""); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// r27JoinedProblems concatenates the section's problem strings.
+func r27JoinedProblems(v validation.Value) string {
+	joined := ""
+	for _, p := range objAt(v, "problems").A {
+		joined += p.S
+	}
+	return joined
+}
+
+// TestR27LegacyDegenerateBindBurns pins finding r27 F1's honest burn: a
+// campaign that bound BEFORE the floor existed stored proved-bounded with
+// bounded_k 0 over a PROVEN line whose own bounds said loop_bound 0 — a
+// proof about nothing the old mapper blessed. The slot and its event agree
+// byte-for-byte, so only re-deriving through the bind's own entry point
+// (harness.MapMinicertoraInvoc) tells: the mapping did not come from this
+// run's bytes. The invocation-bound variant below is the half of the floor
+// that lives in the ENTRY POINT alone — without the audit using it, a
+// legacy --loop-bound 0 bind re-derives to the honest k=4 and stays green.
+func TestR27LegacyDegenerateBindBurns(t *testing.T) {
+	t.Run("loop_bound 0 bytes", func(t *testing.T) {
+		c, err := state.Init(t.TempDir(), "Acme Program", state.InitOpts{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The pre-fix slot verbatim: proved-bounded, bounded_k 0, and the
+		// sidecar the old mapper captured for a PROVEN line.
+		h := harnessProofObj("minicertora", "proved-bounded", "EXEC-88",
+			validation.VInt(0), "proved bounded (k=0)",
+			proofBounds(validation.VInt(0)))
+		harnessLinks(t, c, map[string]validation.Value{"INV-3": h})
+		v, err := InvariantVerification(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if objAt(v, "ok").B {
+			t.Fatalf("a k=0 blessing must burn: %s",
+				validation.CanonCompact(v)[:400])
+		}
+		joined := r27JoinedProblems(v)
+		if !strings.Contains(joined, "re-derives rung 'inconclusive'") ||
+			!strings.Contains(joined, "the mapping did not come from "+
+				"this run's bytes") {
+			t.Fatalf("want the re-derivation burn, got %q", joined)
+		}
+	})
+	t.Run("degenerate invocation", func(t *testing.T) {
+		c, err := state.Init(t.TempDir(), "Acme Program", state.InitOpts{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The bytes are an honest k=4 proof; only the INVOCATION is
+		// degenerate (--loop-bound 0), so a re-derivation that ignores
+		// the recorded command would reproduce the legacy claim.
+		h := harnessObj("minicertora", "proved-bounded", "EXEC-90",
+			validation.VInt(4), "proved bounded (k=4)")
+		harnessLinks(t, c, map[string]validation.Value{"INV-3": h})
+		r27SetExecCommand(t, c, "EXEC-90",
+			"minicertora --rule inv_3 --loop-bound 0")
+		v, err := InvariantVerification(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if objAt(v, "ok").B {
+			t.Fatalf("a degenerate-invocation blessing must burn: %s",
+				validation.CanonCompact(v)[:400])
+		}
+		joined := r27JoinedProblems(v)
+		if !strings.Contains(joined, "re-derives rung 'inconclusive'") ||
+			!strings.Contains(joined, "the mapping did not come from "+
+				"this run's bytes") {
+			t.Fatalf("want the re-derivation burn, got %q", joined)
+		}
+	})
+	t.Run("honest invocation stays green", func(t *testing.T) {
+		c, err := state.Init(t.TempDir(), "Acme Program", state.InitOpts{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		h := harnessObj("minicertora", "proved-bounded", "EXEC-91",
+			validation.VInt(4), "proved bounded (k=4)")
+		harnessLinks(t, c, map[string]validation.Value{"INV-3": h})
+		r27SetExecCommand(t, c, "EXEC-91",
+			"minicertora --rule inv_3 --loop-bound 4")
+		v, err := InvariantVerification(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !objAt(v, "ok").B {
+			t.Fatalf("the same fixture at an honest bound must stay "+
+				"green: %s", validation.CanonCompact(v)[:400])
+		}
+	})
+}
+
 // TestInvariantVerificationRecheckCatchesAForgedPair pins the r24
 // read-time law: slot AND event can agree by conspiracy — only
 // re-deriving from the exec stdout the event names tells whether the

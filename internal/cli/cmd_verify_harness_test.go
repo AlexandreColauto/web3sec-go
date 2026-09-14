@@ -832,3 +832,166 @@ Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 9.81ms
 ---
 Ran 1 test suite: 1 passed; 0 failed; 0 skipped
 `
+
+// r27McProvenBound is a PROVEN minicertora verdict line whose
+// bounds.loop_bound is the given JSON expression — the auditor's own repro
+// shape (0, -1 and -2 are statements the twin's VerifierFlags refuses).
+func r27McProvenBound(expr string) string {
+	return `{"rule":"inv_1","verdict":"PROVEN","confidence":"modeled",` +
+		`"assumptions":[],"bounds":{"loop_bound":` + expr + `,` +
+		`"path_cap":64,"solver_timeout_ms":30000}}` + "\n"
+}
+
+// The two degenerate-bound summaries (the r26 shell's vocabulary, shared
+// by MapRun and the minicertora mapper — pinned as exact bytes so a
+// wording regression cannot slip).
+const (
+	r27McRunFloor = "inconclusive (degenerate-bound: the run states " +
+		"no bound >= 1)"
+	r27McInvocFloor = "inconclusive (degenerate-bound: the invocation " +
+		"states no bound >= 1)"
+)
+
+// TestR27MinicertoraDegenerateBoundFloorsTheBind pins finding r27 F1's
+// proof-level arm end to end: the minicertora path bypassed MapRun
+// entirely, so a PROVEN line whose OWN bounds.loop_bound was 0 (or -1/-2)
+// used to bind proved-bounded — a proof about nothing, audit-green. The
+// floor must floor the rung, name the degenerate bound in the r26
+// vocabulary (escalate-bound's class, never a second wording class), keep
+// bounded_k out of the slot, and — bind==audit — leave the same campaign's
+// audit at exit 0 (no false burn for an honest bind).
+func TestR27MinicertoraDegenerateBoundFloorsTheBind(t *testing.T) {
+	for _, bound := range []string{"0", "-1", "-2"} {
+		t.Run("loop_bound "+bound, func(t *testing.T) {
+			c, root := mcCamp(t, "r27-mc-deg-"+
+				strings.ReplaceAll(bound, "-", "n"))
+			execID := "EXEC-0000000044"
+			mcHarnessExec(t, c, execID, r27McProvenBound(bound),
+				"minicertora --rule inv_1 --loop-bound 4",
+				map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 0)
+			code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+				"--harness-result", "INV-1", "--exec", execID)
+			if code != 0 {
+				t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+			}
+			if want := "INV-1: inconclusive (minicertora, " + execID + ")\n"; out != want {
+				t.Fatalf("stdout = %q, want %q", out, want)
+			}
+			h := mcHarness(t, c)
+			if rung := objStr(h, "rung"); rung != "inconclusive" {
+				t.Fatalf("loop_bound %s must not bless: %s", bound,
+					validation.CanonCompact(h))
+			}
+			if s := objStr(h, "summary"); s != r27McRunFloor {
+				t.Fatalf("summary = %q, want %q", s, r27McRunFloor)
+			}
+			if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+				t.Fatalf("bounded_k must never ride a degenerate bound: %s",
+					validation.CanonCompact(bk))
+			}
+			if objHasKey(h, "proof") {
+				t.Fatal("a degenerate-bound refusal stores no proof key")
+			}
+			// The advice class the tally reads must be escalate-bound,
+			// not a second wording class of our own.
+			if cls, _, ok := harness.Disposition(objStr(h, "summary")); !ok ||
+				cls != harness.EscalateBound {
+				t.Fatalf("Disposition(%q) = %q ok=%v, want escalate-bound",
+					objStr(h, "summary"), cls, ok)
+			}
+			// bind==audit: the audit re-derives through the same entry
+			// point, so the floored bind must not burn its own campaign.
+			if acode, aout, aerr := run(t, "--root", root, "audit",
+				c.CampaignID); acode != 0 {
+				t.Fatalf("audit must agree with the floored bind: exit %d "+
+					"out=%.300q err=%q", acode, aout, aerr)
+			}
+		})
+	}
+}
+
+// TestR27MinicertoraDegenerateInvocationFloorsTheBind pins the
+// invocation-level arm: the record's own command says --loop-bound 0, and
+// the twin raises for loop_bound < 1, so no run can have executed under it
+// — the honest-looking loop_bound 4 in the output must NOT bind as
+// proved-bounded with k=4. The audit of that same campaign stays exit 0.
+func TestR27MinicertoraDegenerateInvocationFloorsTheBind(t *testing.T) {
+	c, root := mcCamp(t, "r27-mc-deg-invoc")
+	execID := "EXEC-0000000045"
+	mcHarnessExec(t, c, execID, mcProvenLine,
+		"minicertora --rule inv_1 --loop-bound 0",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 0)
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	if strings.Contains(out, "proved-bounded") || strings.Contains(out, "k=4") {
+		t.Fatalf("a degenerate invocation must not bind k=4: %q", out)
+	}
+	if want := "INV-1: inconclusive (minicertora, " + execID + ")\n"; out != want {
+		t.Fatalf("stdout = %q, want %q", out, want)
+	}
+	h := mcHarness(t, c)
+	if objStr(h, "rung") != "inconclusive" {
+		t.Fatalf("rung = %s", validation.CanonCompact(h))
+	}
+	if s := objStr(h, "summary"); s != r27McInvocFloor {
+		t.Fatalf("summary = %q, want %q", s, r27McInvocFloor)
+	}
+	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+		t.Fatalf("bounded_k must be null, got %s",
+			validation.CanonCompact(bk))
+	}
+	if code, aout, aerr := run(t, "--root", root, "audit",
+		c.CampaignID); code != 0 {
+		t.Fatalf("audit must agree with the floored bind: exit %d out=%.300q "+
+			"err=%q", code, aout, aerr)
+	}
+}
+
+// TestR27MinicertoraHonestRunIsByteUnchanged is the control the two floors
+// above must never touch: an honest minicertora run (--loop-bound 4 over
+// loop_bound 4) keeps its rung, its byte-exact summary and its bounded_k 4,
+// and its campaign audits green.
+func TestR27MinicertoraHonestRunIsByteUnchanged(t *testing.T) {
+	c, root := mcCamp(t, "r27-mc-honest")
+	execID := "EXEC-0000000046"
+	mcHarnessExec(t, c, execID, mcProvenLine,
+		"minicertora --rule inv_1 --loop-bound 4",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 0)
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	if want := "INV-1: proved-bounded (minicertora, k=4, " + execID + ")\n"; out != want {
+		t.Fatalf("stdout = %q, want %q", out, want)
+	}
+	h := mcHarness(t, c)
+	if rung := objStr(h, "rung"); rung != "proved-bounded" {
+		t.Fatalf("an honest run must still prove: %s",
+			validation.CanonCompact(h))
+	}
+	if s := objStr(h, "summary"); s != "proved bounded (k=4)" {
+		t.Fatalf("summary = %q, want %q", s, "proved bounded (k=4)")
+	}
+	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Int || bk.I != 4 {
+		t.Fatalf("bounded_k = %s, want 4", validation.CanonCompact(bk))
+	}
+	p := objAt(h, "proof")
+	if p.Kind != validation.Obj {
+		t.Fatalf("an attributed PROVEN line keeps its sidecar: %s",
+			validation.CanonCompact(h))
+	}
+	if lb := objAt(objAt(p, "bounds"), "loop_bound"); lb.Kind != validation.Int ||
+		lb.I != 4 {
+		t.Fatalf("proof.bounds.loop_bound = %s, want 4",
+			validation.CanonCompact(lb))
+	}
+	if code, aout, aerr := run(t, "--root", root, "audit",
+		c.CampaignID); code != 0 {
+		t.Fatalf("an honest bind must audit green: exit %d out=%.300q err=%q",
+			code, aout, aerr)
+	}
+}

@@ -250,7 +250,10 @@ time, from the artifacts the event names:
 
 * `EXEC-*` provenance + a blessing rung (proved-bounded /
   counterexample): the exec's stored stdout bytes are re-run through
-  the SAME mapping function the bind used — `harness.MapMinicertora`
+  the SAME mapping function the bind used — `harness.MapMinicertoraInvoc`
+  (r27: the shared entry point, so the invocation-level floor is
+  re-derived too, not just the bytes; it delegates to
+  `harness.MapMinicertora` for everything else)
   for minicertora (rung, proof-subtree digest with the mapper-added
   `compiler_pin` stripped both sides, `bounded_k`), and since r25
   `harness.MapRun`/`BoundK` for halmos and forge-fuzz (the kind-skip
@@ -266,9 +269,12 @@ time, from the artifacts the event names:
   paperwork; a forged pair over honest registry bytes still has to
   reproduce rung, summary and bound). The bind stores a
   content-addressed COPY under `<campaign>/artifacts/reports/`, so the
-  evidence is immutable and a later act can neither refresh-overwrite
-  nor prune the row an earlier live bind cites: rung/summary/k all
-  re-checked against bytes that cannot move under them.
+  evidence is immutable and a later act cannot refresh-overwrite it:
+  rung/summary/k are all re-checked against bytes that cannot move under
+  them. The COPY survives a hand `artifact-prune <id> --reason R` (that
+  verb removes a row, never a file), but the ROW can still be retired by
+  name — the verb warns when a live bind cites it, and §11 then reports
+  that rung ` (UNBACKED)`; the bytes stay, the blessing does not.
 * Inconclusive rungs are outside the blessing law — but not outside
   fabrication: a conspiring (slot, event) pair with invented `| next:`
   advice feeds the disposition tally. When the witness still exists the
@@ -280,6 +286,31 @@ time, from the artifacts the event names:
   different class, and never burn. When the witness has genuinely aged
   out, absence stays silent: an inconclusive rung blesses nothing, and
   noise there only punishes honest age.
+
+A bound below 1 is a bound no tool would have run under — the twin's
+own `VerifierFlags.__post_init__` raises for `loop_bound < 1` — so since
+r27 the floor covers the THIRD kind as well: a minicertora line whose
+`bounds.loop_bound` is 0, -1 or -2 floors the whole run (no rung, no
+proof sidecar, no `bounded_k`), and an exec record whose own invocation
+says `--loop-bound 0` floors on the flag alone, whatever its stdout
+claims. A campaign that bound such a rung BEFORE the floor existed is
+not grandfathered: its slot/event pair no longer reproduces from the
+bytes, and section 11 burns it — the campaign really did bless a proof
+about nothing, and the burn is the honest record of that.
+
+The store refuses to hold anything that is not a regular file it owns:
+a symlink or directory at either the `report-<sha>.json` name or its
+scratch name is a named refusal (r27 measured the alternative: a symlink
+at the scratch name was renamed into place and the following read-only
+chmod FOLLOWED it, silently rewriting the mode of a file outside the
+campaign). Scratch names are unique per call, so two concurrent binds of
+one digest no longer share a tmp and race to ENOENT — and where a race
+still loses, the writer re-reads the published copy, verifies its bytes
+and succeeds; the store is idempotent by digest, so both binds exit 0.
+Durability covers the name as well as the bytes: the tmp is fsynced
+before the rename, the store directory is fsynced after it, and the
+0444 mode is flushed, because a copy the disk lost is evidence the audit
+must burn.
 
 A binding the section cannot back is QUALIFIED in the display: when
 this section's own backing check burns an invariant's rung (pruned
@@ -293,15 +324,23 @@ re-bind whose report bytes CHANGED mints one immutable copy
 (`artifacts/reports/report-<full sha256>.json`, written read-only 0444),
 one new registry row and one `artifact.registered` event — five
 changed-bytes re-binds of the same path leave five files, five rows and
-five events, and audits stay green throughout; a re-bind of the SAME
-digest adds nothing (idempotent: the honest copy already stands). NO verb
-garbage-collects superseded rows or copies, and every audit re-hashes
-every registered row, so that cost is paid again on every audit. The
-operator's tool is `artifact prune <id>` — a bind refuses to prune a row
-a live `harness_run` event still cites (the cite-guard), so a row retires
-only once nothing binds it. Collisions are a non-event by construction:
-the file NAME is the full digest, so two different byte strings cannot
-name one file, and an existing copy is verified rather than overwritten.
+five events, and audits stay green throughout. A re-bind of the SAME
+digest adds no new copy and no new row — the content-addressed copy already
+stands, so the registry finds that same row — but it is NOT ledger-silent:
+the campaign records the re-bind as it records any bind, one `harness_run`
+event plus an `artifact.refreshed` on that row (`refresh_count` 0 → 1). No
+verb garbage-collects the immutable copies, and every audit re-hashes every
+registered row, so that cost is paid again on every audit. The operator's
+tool is `artifact-prune <id> --reason R` (a single token, and the reason is
+REQUIRED — it lands on the `artifact.pruned` event): the verb WARNS on
+stderr when the row it retires is still cited by a live `harness_run` event,
+names every invariant whose blessing cites that sha and says audit §11 will
+now report that rung ` (UNBACKED)`, and prunes anyway — retiring evidence is
+an explicit operator act whose burn is the honest cost, not a bug. (The
+bind's own cite-guard is narrower: a refused bind prunes only an orphan
+row.) Collisions are a non-event by construction: the file NAME is the
+full digest, so two different byte strings cannot name one file, and an
+existing copy is verified rather than overwritten.
 
 A slot that stored LESS proof than its bytes support is
 under-reporting — richer evidence than displayed — and skipped: rails

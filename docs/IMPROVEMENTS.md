@@ -1,5 +1,50 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — r27 (b-ai critic): the floor reached two kinds of three, and the store trusted its own path
+
+F1 (P1) was r26's own cure applied to half the surface. `BoundDegenerate` floored a stated bound below 1 for
+halmos and forge because both map through `MapRun` — but the minicertora arm bypasses `MapRun` entirely
+(`harnessMappedKind` calls `harness.MapMinicertora` directly), so a PROVEN line whose own report said
+`bounds.loop_bound` 0 — or -1, or -2, which the display PRINTED as `k=-2` — bound `proved-bounded` with a
+green audit, and an invocation stating `--loop-bound 0` over output claiming 4 was ignored outright. The twin
+raises for exactly these (`VerifierFlags.__post_init__`: `loop_bound` must be >= 1), so those bytes are not
+twin output at all. Cure, in the harness layer so section 11 re-derives it: `MapMinicertora` floors a PROVEN
+line whose own bound is below 1 (whole run: no rung, no sidecar, no `bounded_k`), and the new
+`MapMinicertoraInvoc` floors on the INVOCATION flag before the mapper is even consulted — bound and audit both
+call it, so the decision has one home. A campaign that bound such a rung before the floor existed is not
+grandfathered: it no longer reproduces from its bytes and section 11 burns it, which is the honest outcome —
+the campaign really did bless a proof about nothing. Verified by tamper probe: neutralizing BOTH gates
+reproduces the auditor's line `proved-bounded (minicertora, k=0, EXEC-...)` and fails the pin; restoring them
+passes, byte-identical file hash.
+
+F2/F3 (P2) were the store trusting a name instead of a file. A symlink at the scratch name was RENAMED into
+place and the following read-only chmod FOLLOWED it, rewriting the mode of a file outside the campaign; a
+symlink at the final name was accepted as the immutable copy, and rewriting its target later made section 11
+burn an honest bind for tampering with a pointer the store itself created. Both are now named refusals: the
+store holds a regular file it owns, or nothing. F4 (P2): two concurrent binds of one digest shared a scratch
+name, so the loser's rename returned ENOENT and exited 2 on the very path the docs call idempotent — scratch
+is unique per call, a lost race re-reads the published copy, verifies its bytes and succeeds, and both binds
+exit 0. F5 (P3): a directory at the scratch name wedged that digest forever while the message misdiagnosed it
+as crash scratch — same refusal class as the symlink, named for what it is. F6 (P3): the directory-fsync arm
+inspected only `Sync()` while an unopenable store (`chmod 0333`) silently skipped durability, and the 0444
+mode was never flushed — the open failure is surfaced, and the mode is fsynced too, since a copy the disk
+lost is evidence the audit must burn.
+
+F7 (P3) was docs naming a tool that did not exist: two paragraphs told the operator to retire rows with
+`artifact prune <id>`, and no such verb was registered (only `artifact-register`, `artifact-list`,
+`artifact-reconcile` ever were). Because the store's growth is disclosed and unbounded, the verb now ships as
+`artifact-prune <id> --reason R`: the reason is required, and pruning a row a live `harness_run` event still
+cites warns on stderr, names the affected invariants, and prunes anyway — section 11 then burns that blessing,
+which is the honest cost of retiring evidence rather than a bug to be gated away. F8 (P3) was the mirror
+overclaim in the same paragraphs: "a re-bind of the SAME digest adds nothing" is true of the STORE (no new
+copy, no new row) and false of the LEDGER, which records one `harness_run` event and an `artifact.refreshed`
+with `refresh_count` incremented, exactly as any bind does. Both sentences now say what the code does.
+
+Pinned by `TestR27Minicertora{DegenerateBound,DegenerateInvocation}*`, `TestR27MinicertoraHonestRunIsByteUnchanged`,
+`TestR27LegacyDegenerateBindBurns`, the nine store tests (symlink/dir at each name, unopenable store,
+8-way concurrent binds, legacy scratch sweep, honest reuse, adoption) and `TestArtifactPrune*`;
+`gofmt`/`go vet` clean, 70/70 packages, runbook-walkthrough and golden GREEN.
+
 ## 2026-09-14 — r26 (b-ai critic): the audit re-derived a truth the bind never used, and the floor lived on the wrong path
 
 F1 (P1) was a corrupted version of r25's own proudest claim. r25 F2 made bind and audit run the
@@ -38,12 +83,18 @@ F4 (P2) was disclosure, not code. The content-addressed copy that r25 F4 added t
 immutable is append-only, and its cost was real but under-documented: every re-bind whose report
 bytes CHANGED leaves one 0444 copy, one registry row and one `artifact.registered` event, forever
 (five changed-bytes re-binds of one path = five files, five rows, five events, audit green
-throughout), while a re-bind of the SAME digest is idempotent and adds nothing. NO verb
-garbage-collects superseded rows or copies, and every audit re-hashes every registered row, so that
-cost is paid again on every audit; the operator's tool is `artifact prune <id>`, and a bind refuses
-to prune a row a live `harness_run` event still cites (the cite-guard). §10 of
-docs/MINIPROVER_INTEGRATION.md now says all of this out loud — an auditor who finds the growth by
-measurement should not also have to find the missing paragraph.
+throughout), while a re-bind of the SAME digest adds no new copy and no new row — the
+content-addressed copy already stands and the registry finds that same row — but it is NOT
+ledger-silent: the campaign records the re-bind as it records any bind, one `harness_run` event plus
+an `artifact.refreshed` on that row (`refresh_count` 0 → 1). No verb garbage-collects the immutable
+copies, and every audit re-hashes every registered row, so that cost is paid again on every audit;
+the operator's tool is `artifact-prune <id> --reason R` (a single token, and the reason is REQUIRED
+— it lands on the `artifact.pruned` event), which WARNS on stderr when the row it retires is still
+cited by a live `harness_run` event — naming the citing invariants and that audit §11 will now
+report that rung ` (UNBACKED)` — and prunes anyway: retiring evidence is an explicit operator act
+whose burn is the honest cost, not a bug. §10 of docs/MINIPROVER_INTEGRATION.md now says all of this
+out loud — an auditor who finds the growth by measurement should not also have to find the missing
+paragraph.
 
 The auditor's D4 was offered as a nit and is now law, because "the burn is the demotion" is only
 true for a reader that reads the burn: pruning the registry row a live bind cites left

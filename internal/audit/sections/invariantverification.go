@@ -85,7 +85,8 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 			// events too, and only the EXEC OUTPUT the event names is the
 			// original evidence. Re-derive the mapper's numbers from the
 			// artifacts at AUDIT time: minicertora rungs re-run through
-			// harness.MapMinicertora over the exec stdout, autoprove
+			// harness.MapMinicertoraInvoc over the exec stdout and the
+			// record's own invocation bound, autoprove
 			// digests must exist in the registry. A lie then needs the
 			// stdout bytes or a registry row to match too — write-time
 			// convention becomes an audit-time invariant.
@@ -411,8 +412,14 @@ func recheckExecEvidence(c *state.Campaign, iid string,
 	if v := objAt(rec, "exit_status"); v.Kind == validation.Int {
 		es = int(v.I)
 	}
-	rung, _, proof, bk := harness.MapMinicertora(raw, es,
-		harness.MspecRuleName(iid))
+	// r27 F1: the bind maps minicertora through MapMinicertoraInvoc, so
+	// the re-derivation must too — the invocation bound the exec record's
+	// own command states (0 = unstated, BoundDegenerate = a stated flag the
+	// twin refuses) is part of the mapping, and a plain MapMinicertora
+	// here would burn an honest degenerate-bound floor as unmappable.
+	invK := harness.InvocationBound(objStr(rec, "command"))
+	rung, _, proof, bk := harness.MapMinicertoraInvoc(raw, es,
+		harness.MspecRuleName(iid), invK)
 	if want := objStr(last, "rung"); rung != want {
 		return fmt.Sprintf("%s: exec %s stdout re-derives rung %s; the "+
 			"event claims %s — the mapping did not come from this run's "+
@@ -675,8 +682,13 @@ func recheckInconclusive(c *state.Campaign, iid string,
 		v.Big == "" {
 		es = int(v.I)
 	}
-	_, sum, _, _ := harness.MapMinicertora(raw, es,
-		harness.MspecRuleName(iid))
+	// Same entry point as the bind (r27 F1): an invocation-floor refusal
+	// re-derives to its own class instead of the bytes' verdict. The
+	// timed-out branch below returns on wantCls alone, so a killed run
+	// keeps its runtime floor either way.
+	invK := harness.InvocationBound(objStr(rec, "command"))
+	_, sum, _, _ := harness.MapMinicertoraInvoc(raw, es,
+		harness.MspecRuleName(iid), invK)
 	if !strings.HasPrefix(sum, "inconclusive") {
 		return "" // bytes bless MORE than the claim: modesty, never a
 		// lie — the pair under-claims and the ledger stays honest.

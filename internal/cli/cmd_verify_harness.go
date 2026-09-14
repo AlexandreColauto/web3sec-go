@@ -28,9 +28,10 @@ package cli
 //     file that still matches maps normally with an "(unbound: ...)"
 //     suffix;
 //  4. map the stdout to a rung: an untimed minicertora run through
-//     MapMinicertora(raw, exit_status, MspecRuleName(inv)) — which also
-//     captures the proof sidecar for every attributed verdict line
-//     (UNKNOWN included) — and every other run through
+//     MapMinicertoraInvoc(raw, exit_status, MspecRuleName(inv), k) —
+//     MapMinicertora plus the invocation-level degenerate-bound floor,
+//     which also captures the proof sidecar for every attributed verdict
+//     line (UNKNOWN included) — and every other run through
 //     MapRun(kind, stdout, timedOut, k). Write verification.harness
 //     {kind, rung, exec, bounded_k, summary[, proof]} onto the invariant
 //     entry (the existing invariant_links.json store — no parallel store)
@@ -721,11 +722,11 @@ func invocationBound(command string, kind harness.Kind) int {
 // The three G8 kinds share the bound check above the mapping seam. Below
 // it the decision belongs to the kind: halmos/forge-fuzz go through
 // MapRun (minicertora included, for the timedOut branch only), while an
-// untimed minicertora run goes through MapMinicertora — its exit status
-// and scaffold-pinned rule name are the mapper's business, not the
-// dispatcher's. The proof sidecar is non-null exactly when a mapper
-// attributed a verdict line; the bound-violation and scaffold-degraded
-// refusals below never map, so they never carry one.
+// untimed minicertora run goes through MapMinicertoraInvoc — its exit
+// status, its invocation bound and the scaffold-pinned rule name are the
+// mapper's business, not the dispatcher's. The proof sidecar is non-null
+// exactly when a mapper attributed a verdict line; the bound-violation and
+// scaffold-degraded refusals below never map, so they never carry one.
 func harnessMapBound(kind harness.Kind, inv validation.Value, raw []byte,
 	rec validation.Value, scaffold []byte, timedOut bool, k, exitStatus int,
 	ruleName string) (rung, summary string, proof validation.Value,
@@ -793,8 +794,9 @@ func scaffoldDegradedReason(err error) string {
 }
 
 // harnessMappedKind dispatches one bound run to its kind's mapper: an
-// untimed minicertora run through MapMinicertora (exit status + rule
-// name), everything else — including a timed-out minicertora run, which
+// untimed minicertora run through MapMinicertoraInvoc (exit status, rule
+// name and the invocation bound k, so a degenerate --loop-bound never
+// binds), everything else — including a timed-out minicertora run, which
 // must never reach the JSONL mapper — through MapRun.
 //
 // The timed-out minicertora run is the one kind whose MapRun summary would
@@ -818,8 +820,13 @@ func harnessMappedKind(kind harness.Kind, raw []byte, timedOut bool, k,
 			validation.VNull(), nil
 	}
 	if kind == harness.MiniCertora && !timedOut {
-		rung, summary, proof, bk := harness.MapMinicertora(raw, exitStatus,
-			ruleName)
+		// r27 F1: the minicertora branch goes through the SAME
+		// invocation-level floor as the audit's re-derivation —
+		// MapMinicertoraInvoc refuses a command whose own bound flag
+		// states a degenerate value (--loop-bound 0), which the twin
+		// raises for, and never hands out a bounded_k below 1.
+		rung, summary, proof, bk := harness.MapMinicertoraInvoc(raw,
+			exitStatus, ruleName, k)
 		return rung, summary + suffix, proof, bk
 	}
 	rung, summary, bk := harnessMapped(kind, raw, timedOut, k, suffix)

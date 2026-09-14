@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"websec/internal/invariants"
@@ -834,4 +835,391 @@ func TestR26ForeignBytesAtTheFinalPathStillRefuse(t *testing.T) {
 	if validation.Sha256Hex(got) == digest {
 		t.Fatal("fixture is vacuous: the forged bytes hash to the digest")
 	}
+}
+
+// r27Victim writes a 0644 file OUTSIDE the campaign whose bytes are the
+// report body — the out-of-campaign object a link at a store path makes
+// the store rewrite through.
+func r27Victim(t *testing.T, body string) string {
+	t.Helper()
+	v := filepath.Join(t.TempDir(), "victim.json")
+	if err := os.WriteFile(v, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(v, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
+// r27WantVictim: an out-of-campaign victim's bytes AND mode are exactly
+// what they were before a refused store (r27 F2: os.Rename moves the
+// LINK into place and os.Chmod FOLLOWS it — observed 0644 -> 0444).
+func r27WantVictim(t *testing.T, v string) {
+	t.Helper()
+	got, err := os.ReadFile(v)
+	if err != nil {
+		t.Fatalf("victim unreadable: %v", err)
+	}
+	if string(got) != r26F2Body {
+		t.Fatalf("victim bytes changed: %q", got)
+	}
+	st, err := os.Stat(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o644 {
+		t.Fatalf("victim mode was rewritten through the link: got %v, "+
+			"want 0644", st.Mode().Perm())
+	}
+}
+
+// r27NoScratchLeft: a successful store leaves no scratch behind — not
+// the legacy fixed tmp and not this call's per-call tmp (r27 F4).
+func r27NoScratchLeft(t *testing.T, dir string) {
+	t.Helper()
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range ents {
+		if strings.Contains(e.Name(), ".tmp") {
+			t.Fatalf("scratch %s survived a successful store in %s",
+				e.Name(), dir)
+		}
+	}
+}
+
+// r27OnlyCopy: the store holds exactly the one digest-named file.
+func r27OnlyCopy(t *testing.T, dir, final string) {
+	t.Helper()
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := []string{}
+	for _, e := range ents {
+		names = append(names, e.Name())
+	}
+	if len(ents) != 1 || ents[0].Name() != filepath.Base(final) {
+		t.Fatalf("exactly one digest-named copy expected in %s, got %v",
+			dir, names)
+	}
+}
+
+// TestR27SymlinkAtTmpRefusesAndLeavesVictimAlone: the audited r27 F2. A
+// symlink at report-<digest>.json.tmp whose (out-of-campaign) target
+// holds exactly the report bytes used to: bind, have os.Rename MOVE THE
+// LINK into place, and then have os.Chmod FOLLOW it and rewrite the
+// victim's mode 0644 -> 0444. The store must refuse naming the shape, and
+// the victim's bytes and mode must be untouched.
+func TestR27SymlinkAtTmpRefusesAndLeavesVictimAlone(t *testing.T) {
+	c, root := mcCamp(t, "r27-f2")
+	rep := apWrite(t, r26F2Body)
+	_, final, tmp := r26F2Paths(t, c, r26F2Body)
+	victim := r27Victim(t, r26F2Body)
+	if err := os.Symlink(victim, tmp); err != nil {
+		t.Fatalf("cannot build the fixture symlink: %v", err)
+	}
+	code, _, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep)
+	if code != 2 {
+		t.Fatalf("a symlink at the tmp path must refuse: exit %d err %q",
+			code, errS)
+	}
+	if !strings.Contains(errS, tmp) || !strings.Contains(errS, "symlink") {
+		t.Fatalf("the refusal must name the path %s and the shape "+
+			"symlink: %q", tmp, errS)
+	}
+	r27WantVictim(t, victim)
+	if fi, err := os.Lstat(tmp); err != nil ||
+		fi.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("the refused link must stay where it was (lstat %v %v)",
+			fi, err)
+	}
+	if _, err := os.Lstat(final); !os.IsNotExist(err) {
+		t.Fatalf("nothing may be published at %s (lstat err %v)",
+			final, err)
+	}
+}
+
+// TestR27SymlinkAtFinalPathRefuses: the audited r27 F3. A symlink at
+// report-<digest>.json whose target holds matching bytes was accepted as
+// the immutable copy (the early reuse arm never checked the shape);
+// rewriting the target later made §11 burn the honest bind with "cannot
+// be re-read from the store". Refuse instead — the final path must be a
+// regular file the store itself owns.
+func TestR27SymlinkAtFinalPathRefuses(t *testing.T) {
+	c, root := mcCamp(t, "r27-f3")
+	rep := apWrite(t, r26F2Body)
+	_, final, tmp := r26F2Paths(t, c, r26F2Body)
+	victim := r27Victim(t, r26F2Body)
+	if err := os.Symlink(victim, final); err != nil {
+		t.Fatalf("cannot build the fixture symlink: %v", err)
+	}
+	code, _, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep)
+	if code != 2 {
+		t.Fatalf("a symlink at the final path must refuse: exit %d err "+
+			"%q", code, errS)
+	}
+	if !strings.Contains(errS, final) || !strings.Contains(errS, "symlink") {
+		t.Fatalf("the refusal must name the path %s and the shape "+
+			"symlink: %q", final, errS)
+	}
+	r27WantVictim(t, victim)
+	if _, err := os.Lstat(tmp); !os.IsNotExist(err) {
+		t.Fatalf("a refused store must leave no scratch at %s (lstat "+
+			"err %v)", tmp, err)
+	}
+}
+
+// TestR27DirectoryAtTmpRefuses: the audited r27 F5. A non-empty
+// directory at report-<digest>.json.tmp is NOT crash scratch: the old
+// sweep called os.Remove on it, took ENOTEMPTY, and wedged that digest
+// forever behind a message that misdiagnosed it as interrupted-store
+// scratch. A directory is the same refusal class as a symlink, and the
+// refused directory must survive untouched.
+func TestR27DirectoryAtTmpRefuses(t *testing.T) {
+	c, root := mcCamp(t, "r27-f5-tmp")
+	rep := apWrite(t, r26F2Body)
+	_, final, tmp := r26F2Paths(t, c, r26F2Body)
+	if err := os.MkdirAll(tmp, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	keep := filepath.Join(tmp, "keep")
+	if err := os.WriteFile(keep, []byte("not scratch"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep)
+	if code != 2 {
+		t.Fatalf("a directory at the tmp path must refuse: exit %d err "+
+			"%q", code, errS)
+	}
+	if !strings.Contains(errS, tmp) || !strings.Contains(errS, "directory") {
+		t.Fatalf("the refusal must name the path %s and the shape "+
+			"directory: %q", tmp, errS)
+	}
+	if _, err := os.Stat(keep); err != nil {
+		t.Fatalf("a refused directory is not scratch and must survive: %v",
+			err)
+	}
+	if _, err := os.Lstat(final); !os.IsNotExist(err) {
+		t.Fatalf("nothing may be published at %s (lstat err %v)",
+			final, err)
+	}
+}
+
+// TestR27DirectoryAtFinalPathRefuses: a directory at the digest-named
+// FINAL path is not an immutable copy either — same refusal class,
+// naming the shape (r27 F5/F3).
+func TestR27DirectoryAtFinalPathRefuses(t *testing.T) {
+	c, root := mcCamp(t, "r27-f5-final")
+	rep := apWrite(t, r26F2Body)
+	_, final, tmp := r26F2Paths(t, c, r26F2Body)
+	if err := os.MkdirAll(final, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	keep := filepath.Join(final, "keep")
+	if err := os.WriteFile(keep, []byte("not a copy"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep)
+	if code != 2 {
+		t.Fatalf("a directory at the final path must refuse: exit %d "+
+			"err %q", code, errS)
+	}
+	if !strings.Contains(errS, final) || !strings.Contains(errS, "directory") {
+		t.Fatalf("the refusal must name the path %s and the shape "+
+			"directory: %q", final, errS)
+	}
+	if _, err := os.Stat(keep); err != nil {
+		t.Fatalf("a refused directory is not scratch and must survive: %v",
+			err)
+	}
+	if _, err := os.Lstat(tmp); !os.IsNotExist(err) {
+		t.Fatalf("a refused store must leave no scratch at %s (lstat "+
+			"err %v)", tmp, err)
+	}
+}
+
+// TestR27LegacyScratchIsStillSweptAndRecovered: the kept r26 rails. A
+// leftover LEGACY fixed-name tmp (report-<digest>.json.tmp) whose bytes
+// already hash to the digest is the crash-after-write case and is
+// RECOVERED by rename; one holding foreign bytes is scratch and is
+// SWEPT. Both must still bind exit 0 under the per-call scratch regime,
+// leaving exactly one digest-named copy.
+func TestR27LegacyScratchIsStillSweptAndRecovered(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"honest-bytes", r26F2Body},
+		{"foreign-bytes", `{"stale": "scratch"}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, root := mcCamp(t, "r27-legacy-"+tc.name)
+			rep := apWrite(t, r26F2Body)
+			digest, final, tmp := r26F2Paths(t, c, r26F2Body)
+			if err := os.WriteFile(tmp, []byte(tc.body), 0o444); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(tmp, 0o444); err != nil {
+				t.Fatal(err)
+			}
+			code, _, errS := apVerify(t, root, c, "--property", "p1",
+				"--report", rep)
+			if code != 0 {
+				t.Fatalf("a leftover 0444 legacy tmp must not wedge "+
+					"the digest: exit %d err %q", code, errS)
+			}
+			r26F2WantFinal(t, final, digest)
+			dir := filepath.Dir(final)
+			r27NoScratchLeft(t, dir)
+			r27OnlyCopy(t, dir, final)
+		})
+	}
+}
+
+// TestR27UnopenableReportsDirIsSurfaced: the audited r27 F6. The old
+// arm inspected only d.Sync(), so an os.Open failure (reports dir mode
+// 0333 -> EACCES) silently skipped the whole durability step while the
+// comment claimed best-effort. An Open failure must now name the path
+// and the error; only Sync failures meaning the filesystem cannot are
+// tolerated.
+func TestR27UnopenableReportsDirIsSurfaced(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses the 0333 directory mode")
+	}
+	c, root := mcCamp(t, "r27-f6")
+	rep := apWrite(t, r26F2Body)
+	_, final, _ := r26F2Paths(t, c, r26F2Body)
+	dir := filepath.Dir(final)
+	if err := os.Chmod(dir, 0o333); err != nil {
+		t.Fatal(err)
+	}
+	restore := func() {
+		if err := os.Chmod(dir, 0o755); err != nil {
+			t.Fatalf("cannot restore the reports dir mode: %v", err)
+		}
+	}
+	t.Cleanup(restore)
+	code, _, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep)
+	if code != 2 {
+		t.Fatalf("an unopenable report store must refuse: exit %d err "+
+			"%q", code, errS)
+	}
+	if !strings.Contains(errS, dir) ||
+		!strings.Contains(errS, "cannot open the report store") {
+		t.Fatalf("the refusal must name the store %s and the Open "+
+			"failure: %q", dir, errS)
+	}
+	if _, err := os.Lstat(final); err != nil {
+		t.Fatalf("the copy must exist before the failed durability step: "+
+			"%v", err)
+	}
+	restore()
+	r27NoScratchLeft(t, dir)
+}
+
+// TestR27ConcurrentBindsOfOneDigestBothSucceed: the audited r27 F4.
+// Two writers of one digest shared the fixed tmp name, so the loser's
+// os.Rename returned ENOENT and the bind exited 2 with a raw "no such
+// file or directory" on the very path the docs call idempotent
+// (reproduced 4/8 and 2/10 rounds). The scratch name is now per-call
+// unique and a lost rename is tolerated by re-verifying the published
+// bytes: EVERY concurrent store must succeed, exactly one final file
+// must stand, it must hash to the digest, and it must be 0444.
+func TestR27ConcurrentBindsOfOneDigestBothSucceed(t *testing.T) {
+	c, _ := mcCamp(t, "r27-f4")
+	_, final, _ := r26F2Paths(t, c, r26F2Body)
+	digest := validation.Sha256Hex([]byte(r26F2Body))
+	const n = 8
+	errs := make([]error, n)
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			_, errs[i] = storeReportCopy(c, digest, []byte(r26F2Body))
+		}(i)
+	}
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent store %d of %d must succeed, got %v "+
+				"(one digest, one immutable copy, both exit 0)", i+1, n, err)
+		}
+	}
+	r26F2WantFinal(t, final, digest)
+	dir := filepath.Dir(final)
+	r27NoScratchLeft(t, dir)
+	r27OnlyCopy(t, dir, final)
+}
+
+// TestR27HonestCopyReuseBindsTwice: idempotent reuse of an honest copy
+// is kept intact — binding the same bytes twice exits 0 both times and
+// leaves exactly one 0444 file, never a second copy and never scratch.
+func TestR27HonestCopyReuseBindsTwice(t *testing.T) {
+	c, root := mcCamp(t, "r27-reuse")
+	rep := apWrite(t, r26F2Body)
+	digest, final, _ := r26F2Paths(t, c, r26F2Body)
+	dir := filepath.Dir(final)
+	for i := 1; i <= 2; i++ {
+		code, _, errS := apVerify(t, root, c, "--property", "p1",
+			"--report", rep)
+		if code != 0 {
+			t.Fatalf("bind %d must reuse the honest copy (exit 0, one "+
+				"file): exit %d err %q", i, code, errS)
+		}
+		r26F2WantFinal(t, final, digest)
+		r27NoScratchLeft(t, dir)
+		r27OnlyCopy(t, dir, final)
+	}
+}
+
+// TestR27AdoptPublishedVerifiesBytesAndShape pins the lost-rename
+// fallback itself (r27 F4b): it succeeds ONLY against a regular final
+// copy whose bytes hash to the digest — a symlink there is the F3
+// refusal (victim untouched) and foreign bytes are the tamper refusal.
+func TestR27AdoptPublishedVerifiesBytesAndShape(t *testing.T) {
+	c, _ := mcCamp(t, "r27-f4b")
+	digest, final, _ := r26F2Paths(t, c, r26F2Body)
+	dir := filepath.Dir(final)
+	if err := os.WriteFile(final, []byte(r26F2Body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := storeAdoptPublished(dir, final, digest)
+	if err != nil || got != final {
+		t.Fatalf("an honest published copy must be adopted: %q %v",
+			got, err)
+	}
+	r26F2WantFinal(t, final, digest)
+	if err := os.Remove(final); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(final, []byte(`{"published": false}`), 0o444); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := storeAdoptPublished(dir, final, digest); err == nil ||
+		!strings.Contains(err.Error(), "foreign bytes") {
+		t.Fatalf("foreign bytes at the final path must refuse as tamper: "+
+			"%v", err)
+	}
+	if err := os.Remove(final); err != nil {
+		t.Fatal(err)
+	}
+	victim := r27Victim(t, r26F2Body)
+	if err := os.Symlink(victim, final); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := storeAdoptPublished(dir, final, digest); err == nil ||
+		!strings.Contains(err.Error(), "symlink") {
+		t.Fatalf("a symlink at the final path must refuse by shape: %v",
+			err)
+	}
+	r27WantVictim(t, victim)
 }

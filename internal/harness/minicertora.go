@@ -1,4 +1,6 @@
-// minicertora.go: MapMinicertora — the G8 third kind's outcome mapper.
+// minicertora.go: MapMinicertora — the G8 third kind's outcome mapper —
+// and MapMinicertoraInvoc, the bind/audit entry point that adds the
+// invocation-level degenerate-bound floor.
 // Where halmos/forge-fuzz print prose (outcome.go), MiniCertora prints a
 // JSON-lines verdict stream: one object per line, exactly one of which is
 // attributed to this invariant by the scaffold-pinned rule name
@@ -15,6 +17,16 @@
 // attributed line that contradicts its own exit status loses the sidecar
 // too, because a prover that disagrees with itself gets zero trust and
 // its own output is not campaign evidence.
+//
+// Degenerate-bound floor (r27 F1): the same law MapRun carries, on both
+// axes this mapper can see. A PROVEN line whose OWN bounds.loop_bound is
+// below 1 is not twin output at all — the twin raises for loop_bound < 1
+// (miniprover/verifier/unit.py) — so it floors to inconclusive with the
+// "degenerate-bound" vocabulary disposition.go already classifies as
+// escalate-bound, and hands out no bounded_k (0 and negatives alike). The
+// invocation axis is MapMinicertoraInvoc: a command that states a
+// degenerate bound (--loop-bound 0) describes a run no tool can have
+// executed, whatever the stdout says.
 //
 // Timeout law: it lives in the CALLER, but this mapper keeps its own
 // fail-closed floor. `verify --harness-result` checks harnessTimedOut and
@@ -33,11 +45,27 @@ import (
 	"websec/internal/validation"
 )
 
+// The degenerate-bound refusal vocabulary, shared with outcome.go rather
+// than re-worded: disposition.go classifies the "degenerate-bound" inner
+// text as EscalateBound, so a second wording class here would silently
+// drop the advice. The run form is mapHalmos's parsed-marker wording, the
+// invocation form is MapRun's stated-flag wording.
+const (
+	mcDegenerateRunSummary = "inconclusive (degenerate-bound: the run " +
+		"states no bound >= 1)"
+	mcDegenerateInvocationSummary = "inconclusive (degenerate-bound: the " +
+		"invocation states no bound >= 1)"
+)
+
 // MapMinicertora maps one MiniCertora run (the raw stdout bytes, the exec
 // record's exit_status, and the scaffold-pinned rule name) onto the rung
 // vocabulary of outcome.go, plus the proof sidecar captured verbatim.
 // proof is VNull() when no verdict line was attributed or when the run is
-// refused. boundedK is non-nil only for proved-bounded.
+// refused. boundedK is non-nil only for proved-bounded, and never below 1:
+// a PROVEN line whose own bounds state a degenerate bound floors (see the
+// package comment's degenerate-bound floor). Callers holding the exec
+// command's bound flag want MapMinicertoraInvoc, which adds the
+// invocation-level half of the same floor.
 //
 // The law is applied in stream order: blank lines are skipped, and the
 // first line that is not a JSON object, that carries no rule key, or that
@@ -61,6 +89,15 @@ func MapMinicertora(raw []byte, exitStatus int, ruleName string) (rung,
 	switch verdict {
 	case "PROVEN":
 		k, hasK := mcIntAt(obj, "bounds", "loop_bound")
+		if hasK && k < 1 {
+			// r27 F1: the line's own report states a bound the twin
+			// refuses (loop_bound < 1), so these bytes are not twin
+			// output — a blessing over zero (or negative) unrollings
+			// is a proof about nothing. Floor the whole run: no rung,
+			// no sidecar, no bounded_k (0, -1 and -2 alike).
+			return RungInconclusive, mcDegenerateRunSummary,
+				validation.VNull(), nil
+		}
 		if !hasK {
 			return RungProvedBounded, "proved bounded",
 				mcProof(obj), nil
@@ -76,6 +113,43 @@ func MapMinicertora(raw []byte, exitStatus int, ruleName string) (rung,
 		return RungInconclusive, "inconclusive (exit output unmapped)",
 			validation.VNull(), nil
 	}
+}
+
+// MapMinicertoraInvoc is the INVOCATION-level floor the bind and the audit
+// share. The exec command can itself state a degenerate bound
+// (--loop-bound 0), and the twin raises for loop_bound < 1 before a run
+// ever starts, so a record claiming one describes a run no tool can have
+// executed — whatever its stdout says. invBound is
+// harness.InvocationBound(command): BoundDegenerate (-1) for a stated flag
+// below 1, 0 for a command that names none, N >= 1 for a stated bound.
+//
+// Every verdict on a degenerate invocation is refused, not just PROVEN:
+// it is the FLAG the tool refuses, so no verdict line under it is tool
+// output either. The summary is MapRun's own degenerate-bound wording (the
+// inner class Disposition maps to EscalateBound) and the floor is total —
+// no proof sidecar, no bounded_k.
+//
+// MapMinicertora's own signature is untouched for its other callers; both
+// the bind (cli.harnessMappedKind) and section 11's re-derivation
+// (sections.recheckExecEvidence, recheckInconclusive) go through here, so
+// the audit reproduces the bind's decision byte-for-byte.
+func MapMinicertoraInvoc(raw []byte, exitStatus int, ruleName string,
+	invBound int) (rung, summary string, proof validation.Value,
+	boundedK *int) {
+	if invBound == BoundDegenerate {
+		return RungInconclusive, mcDegenerateInvocationSummary,
+			validation.VNull(), nil
+	}
+	rung, summary, proof, boundedK = MapMinicertora(raw, exitStatus, ruleName)
+	if rung == RungProvedBounded && boundedK != nil && *boundedK < 1 {
+		// Belt-and-braces: the mapper already floors a stated bound
+		// below 1, so a bounded_k that tiny can only arrive through a
+		// future mapper bug — and a proof about nothing must never
+		// reach the slot however it got here.
+		return RungInconclusive, mcDegenerateRunSummary,
+			validation.VNull(), nil
+	}
+	return rung, summary, proof, boundedK
 }
 
 // mcAttributed scans the JSONL stream for the single verdict line whose
