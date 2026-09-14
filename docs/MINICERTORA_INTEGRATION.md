@@ -167,12 +167,12 @@ scripts/minicertora-scorecard.py --results runs \
 - `MINIPROVER_REQUIREMENTS.md` (untracked, minicertora repo root): the
   MiniProver ↔ MiniCertora interface contract — next piece of work, not
   consumed by anything today.
-- Cross-checking report-line `solc_version` against the EXEC record's
-  pinned compiler (architecture §L0's `toolchain-mismatch` refusal) is
-  design prose: the mapper COPIES `solc_version` into the stored proof
-  (`internal/harness/minicertora.go`) but no shipped code compares it
-  against anything — a mismatched-compiler run binds today. Provenance
-  is recorded, enforcement is not.
-- A `minicertora` presence row in `webv2 env doctor` — today presence is
-  visible only through the EXEC record's `tool_versions` and the
-  `command not found` exec failure.
+- ~~Cross-checking report-line `solc_version` against the pinned
+  compiler~~ CLOSED r18: `verify --harness-result` now refuses exit 2
+  with `toolchain-mismatch` naming both versions, and the stored proof
+  carries `compiler_pin` (checked against what, or honestly unchecked).
+  See `MINIPROVER_INTEGRATION.md` §4 — one law serves both harnesses.
+- ~~A `minicertora` presence row in `webv2 env doctor`~~ CLOSED r18:
+  `prover minicertora:` / `prover miniprover:` rows print on STDERR
+  (the docker surface on stdout stays twin-pinned) and the JSON report
+  carries `host_provers`.

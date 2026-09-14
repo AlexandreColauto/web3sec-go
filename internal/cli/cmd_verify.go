@@ -36,6 +36,8 @@ const t36VerifyUsage = `usage: webv2 verify [-h] [--queue] [--exec EXEC_ID] [--f
                     [--invariant INVARIANT] [--harness-result INVARIANT]
                     [--kind {halmos,forge-fuzz,minicertora}]
                     [--post-patch FINDING] [--snapshot SNAPSHOT]
+                    [--autoprove INVARIANT] [--property TITLE]
+                    [--report PATH]
                     campaign
 `
 
@@ -56,6 +58,9 @@ options:
   --invariant INVARIANT
   --harness-result INVARIANT
   --exec EXEC_ID        EXEC id of the harness run (with --harness-result)
+  --autoprove INVARIANT
+  --property TITLE      exact prover property title (with --autoprove)
+  --report PATH         miniprover reports/report.json (with --autoprove)
   --kind {halmos,forge-fuzz,minicertora}
   --post-patch FINDING
                         finding to regress against the post-patch run (with --exec)
@@ -75,6 +80,9 @@ type verifyArgs struct {
 	scaffold      string
 	invariant     string
 	harnessResult string
+	autoprove     string
+	property      string
+	report        string
 	kind          string
 	postPatch     string
 	snapshot      string
@@ -125,7 +133,9 @@ func parseVerifyArgs(args []string, r *Runner) (*verifyArgs, bool, error) {
 			{"--verifier", &a.verifier}, {"--description", &a.description},
 			{"--scaffold", &a.scaffold}, {"--invariant", &a.invariant},
 			{"--harness-result", &a.harnessResult}, {"--kind", &a.kind},
-			{"--post-patch", &a.postPatch}, {"--snapshot", &a.snapshot}} {
+			{"--post-patch", &a.postPatch}, {"--snapshot", &a.snapshot},
+			{"--autoprove", &a.autoprove}, {"--property", &a.property},
+			{"--report", &a.report}} {
 			v, next, ok, err := t36VerifyValue(args, i, f.name)
 			if err != nil {
 				return nil, false, err
@@ -432,6 +442,9 @@ func verifyCmd(root string, args []string, r *Runner) error {
 	}
 	if a.harnessResult != "" {
 		return verifyHarnessResult(c, a, r)
+	}
+	if a.autoprove != "" {
+		return verifyAutoprove(c, a, r)
 	}
 	if a.postPatch != "" {
 		return verifyPostPatch(c, a, r)

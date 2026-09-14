@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"strings"
 
+	"io"
+	"os/exec"
 	"websec/internal/envgo"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -99,12 +101,22 @@ func runEnvDoctor(root string, args []string, r *Runner) error {
 	if err != nil {
 		return err
 	}
+	// r18 (MiniProver integration A1): the HOST prover CLIs are presence
+	// rows the twin-era docker view never had — until now their absence
+	// surfaced only as an exec `command not found` mid-pipeline. Printed
+	// on STDERR: the stdout surface is twin-pinned, and the JSON report
+	// carries a "host_provers" key for machines (--json included).
+	host := hostProverRows()
+	if objAt(report, "host_provers").Kind == validation.Null {
+		report.O = append(report.O, validation.KV{K: "host_provers", V: host})
+	}
 	if asJSON {
 		// cli.py's --json branch prints and `return`s: exit 0 even when the
 		// report has issues (the CI exit code is the text surface).
 		t14PrintJSON(r.Out, report)
 		return nil
 	}
+	printHostProvers(r.Err, host)
 	printEnvDoctor(r, report)
 	if t26Truthy(report, "ok") {
 		return nil
@@ -207,4 +219,50 @@ func init() {
 	register(command{ord: 59, name: "env",
 		line: "env doctor [<campaign>] [--json] environment doctor (read-only)",
 		run:  runEnv})
+}
+
+// hostProverRows probes the two host prover CLIs the pipeline can drive.
+// "probed" carries the --version first line (the same contract
+// toolVersions writes into every EXEC record); missing says what to
+// install, in the shape webv2 exec will hit later.
+func hostProverRows() validation.Value {
+	rows := validation.VObj()
+	for _, tool := range []string{"minicertora", "miniprover"} {
+		path, err := exec.LookPath(tool)
+		if err != nil {
+			rows.O = validation.SetOrAppend(rows.O, tool, validation.VObj(
+				validation.KV{K: "present", V: validation.VBool(false)},
+				validation.KV{K: "hint", V: validation.VStr(
+					"absent from PATH — `uv tool install --editable " +
+						"<repo>` or shim the venv bin/ (docs/MINICERTORA_" +
+						"INTEGRATION.md §1, docs/MINIPROVER_INTEGRATION.md §1)"),
+				}))
+			continue
+		}
+		ver := "present (version probe failed)"
+		res, verr := exec.Command(tool, "--version").Output()
+		if verr == nil {
+			line := strings.SplitN(strings.TrimSpace(string(res)), "\n", 2)[0]
+			if line != "" {
+				ver = line
+			}
+		}
+		rows.O = validation.SetOrAppend(rows.O, tool, validation.VObj(
+			validation.KV{K: "present", V: validation.VBool(true)},
+			validation.KV{K: "path", V: validation.VStr(path)},
+			validation.KV{K: "version", V: validation.VStr(ver)},
+		))
+	}
+	return rows
+}
+
+func printHostProvers(w io.Writer, host validation.Value) {
+	for _, kv := range host.O {
+		row := kv.V
+		if t26Truthy(row, "present") {
+			fmt.Fprintf(w, "prover %s:   %s\n", kv.K, objStr(row, "version"))
+		} else {
+			fmt.Fprintf(w, "prover %s:   ABSENT — %s\n", kv.K, objStr(row, "hint"))
+		}
+	}
 }

@@ -925,8 +925,12 @@ func TestHarnessResultMinicertoraRuleLineInvariantNull(t *testing.T) {
 	for _, kv := range proof.O {
 		keys = append(keys, kv.K)
 	}
+	// compiler_pin joined the proof in r18 (A2): the stored solc_version
+	// was copied but never compared — the pin row says WHICH compiler
+	// the record was checked against (or honestly, unchecked).
 	wantKeys := "tool_version,solc_version,spec_version,evm_version," +
-		"confidence,reason,bounds,assumptions,warnings,ghosts,invariant,calls"
+		"confidence,reason,bounds,assumptions,warnings,ghosts,invariant," +
+		"calls,compiler_pin"
 	if got := strings.Join(keys, ","); got != wantKeys {
 		t.Fatalf("stored proof keys = %s\nwant %s", got, wantKeys)
 	}
@@ -935,6 +939,10 @@ func TestHarnessResultMinicertoraRuleLineInvariantNull(t *testing.T) {
 			t.Errorf("stored proof.%s = %s, want null", k,
 				validation.CanonCompact(v))
 		}
+	}
+	if !strings.HasPrefix(objStr(proof, "compiler_pin"), "unchecked") {
+		t.Errorf("a fixture record with no visible pin must say so, got %q",
+			objStr(proof, "compiler_pin"))
 	}
 }
 
@@ -1104,5 +1112,74 @@ func TestHarnessResultUnreadableSaysUnreadable(t *testing.T) {
 		"--harness-result", "INV-1", "--exec", execID)
 	if code != 2 || !strings.Contains(errS, "unreadable") {
 		t.Fatalf("want exit 2 unreadable, got exit %d err %q", code, errS)
+	}
+}
+
+// TestHarnessResultRefusesACompilerMismatch pins r18 A2: the recorded
+// solc_version was provenance WITHOUT enforcement — a rung bound to a
+// run compiled by a different solc than the exec pinned. The mapper now
+// compares the report lines against the visible pin and refuses exit 2
+// naming BOTH versions.
+func TestHarnessResultRefusesACompilerMismatch(t *testing.T) {
+	c, root := mcCamp(t, "mc-toolchain-mismatch")
+	execID := "EXEC-18"
+	mcHarnessExec(t, c, execID, mcProvenLine,
+		"minicertora --rule inv_1",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 0)
+	recPath := filepath.Join(c.ExecsDir, execID, "exec_record.json")
+	raw, err := os.ReadFile(recPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec, perr := validation.ParseOrdered(raw)
+	if perr != nil {
+		t.Fatal(perr)
+	}
+	rec.O = validation.SetOrAppend(rec.O, "environment", validation.VObj(
+		kvT("tool_versions", validation.VObj(
+			kvT("solc", validation.VStr("0.8.24")))),
+	))
+	if err := validation.WriteJson(recPath, rec, "sandbox_execution"); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 2 || !strings.Contains(errS, "toolchain-mismatch") {
+		t.Fatalf("mismatch must refuse exit 2 naming toolchain-mismatch: "+
+			"exit %d err %q", code, errS)
+	}
+	if !strings.Contains(errS, "0.8.36") || !strings.Contains(errS, "0.8.24") {
+		t.Fatalf("the refusal must name BOTH versions: %q", errS)
+	}
+}
+
+// TestHarnessResultChecksAMatchingPin is the other side: the pin agrees,
+// and the proof says so instead of hiding the check.
+func TestHarnessResultChecksAMatchingPin(t *testing.T) {
+	c, root := mcCamp(t, "mc-toolchain-match")
+	execID := "EXEC-19"
+	mcHarnessExec(t, c, execID, mcProvenLine,
+		"minicertora --rule inv_1",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 0)
+	recPath := filepath.Join(c.ExecsDir, execID, "exec_record.json")
+	raw, _ := os.ReadFile(recPath)
+	rec, _ := validation.ParseOrdered(raw)
+	rec.O = validation.SetOrAppend(rec.O, "environment", validation.VObj(
+		kvT("tool_versions", validation.VObj(
+			kvT("solc", validation.VStr("0.8.36")))),
+	))
+	if err := validation.WriteJson(recPath, rec, "sandbox_execution"); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("a matching pin must map: exit %d err %q", code, errS)
+	}
+	proof := mcLinkField(t, c, "invariants", "INV-1", "verification",
+		"harness", "proof")
+	if !strings.Contains(objStr(proof, "compiler_pin"), "checked against pinned solc 0.8.36") {
+		t.Fatalf("proof must record the check it passed: %q",
+			objStr(proof, "compiler_pin"))
 	}
 }

@@ -100,6 +100,12 @@ import (
 	"websec/internal/validation"
 )
 
+import (
+	"os/exec"
+
+	"websec/internal/sandbox"
+)
+
 // harnessStdoutCap is the 1MB read cap on exec stdout files.
 const harnessStdoutCap = 1 << 20
 
@@ -134,6 +140,31 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	if err != nil {
 		return err
 	}
+	// r18 (A2, §6.2 of the integration doc): provenance was RECORDED but
+	// never ENFORCED — a run compiled by a different solc than the
+	// campaign's exec record pins bound its rung today. Now the mapper
+	// compares the report lines' solc_version against the pinned
+	// compiler (the --solc-path the command itself named, else the
+	// record's tool_versions row) and REFUSES a mismatch. When no pin
+	// is visible from either source the run proceeds, marked UNCHECKED
+	// in the proof — honest, not silent.
+	pin, pinSource, pinErr := harnessCompilerPin(rec)
+	if pinErr != nil {
+		return pinErr
+	}
+	reported := harnessReportedCompilers(raw)
+	if pin != "" && len(reported) > 0 {
+		for _, v := range reported {
+			if v != pin {
+				return t14ExitErr(2,
+					"verify: toolchain-mismatch for %s — the harness "+
+						"reports solc %s, the exec pinned solc %s (%s); "+
+						"rerun with a matching compiler (the provenance "+
+						"is recorded, now it is also enforced)\n",
+					a.harnessResult, v, pin, pinSource)
+			}
+		}
+	}
 	timedOut := harnessTimedOut(rec)
 	// The minicertora mapper is exit-status aware: an int exit_status is
 	// the run's own report, anything else (absent/null/big) is "unknown"
@@ -146,12 +177,21 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		exitStatus = int(v.I)
 	}
 	k := invocationBound(harnessCommand(rec), kind)
+	_ = pinSource
 	ruleName := harness.MspecRuleName(a.harnessResult)
 	// Validate renders from the same value the scaffold command rendered
 	// from, so the re-render can only differ where the bytes really moved.
 	inv := harnessInvValue(a.harnessResult, entry)
 	rung, summary, proof, boundedK := harnessMapBound(kind, inv, raw, rec,
 		scaffold, timedOut, k, exitStatus, ruleName)
+	if proof.Kind == validation.Obj {
+		state := "unchecked (no compiler pin visible on this record)"
+		if pin != "" {
+			state = "checked against pinned solc " + pin
+		}
+		proof.O = validation.SetOrAppend(proof.O, "compiler_pin",
+			validation.VStr(state))
+	}
 	entry.O = validation.SetOrAppend(entry.O, "verification",
 		validation.VObj(harnessField(kind, rung, a.execID, boundedK,
 			summary, proof)))
@@ -792,4 +832,62 @@ func harnessRecordedHashes(rec validation.Value) (hashes []string,
 		}
 	}
 	return hashes, harnessNamed
+}
+
+// harnessCompilerPin resolves the compiler version the EXEC pinned: the
+// binary its own --solc-path names (probed at verify time — asking the
+// pin what version it IS), else the record's tool_versions["solc"]
+// row. "" means no visible pin; a non-nil error means the pinned path
+// exists but refuses to answer, which is NOT silently unchecked.
+func harnessCompilerPin(rec validation.Value) (version, source string,
+	err error) {
+	cmd := harnessCommand(rec)
+	if i := strings.Index(cmd, "--solc-path"); i >= 0 {
+		rest := strings.Fields(cmd[i+len("--solc-path"):])
+		if len(rest) > 0 && strings.HasPrefix(rest[0], "/") {
+			out, perr := exec.Command(rest[0], "--version").Output()
+			if perr != nil {
+				return "", "", t14ExitErr(2, "verify: cannot probe the "+
+					"pinned compiler %s: %v — the run's provenance "+
+					"cannot be checked, so it is not mapped", rest[0],
+					perr)
+			}
+			if v := sandbox.SolcVersionFromText(string(out)); v != "" {
+				return v, "--solc-path " + rest[0], nil
+			}
+			return "", "", t14ExitErr(2, "verify: pinned compiler %s "+
+				"reported no parseable version — provenance cannot be "+
+				"checked", rest[0])
+		}
+	}
+	tv := objAt(objAt(rec, "environment"), "tool_versions")
+	if v := objStr(tv, "solc"); v != "" && strings.ContainsAny(v, "0123456789") {
+		return v, "record tool_versions.solc", nil
+	}
+	return "", "", nil
+}
+
+// harnessReportedCompilers collects the DISTINCT non-null solc_version
+// strings the report lines carry (a run that mixed compilers shows as
+// two values — every one is then compared against the pin).
+func harnessReportedCompilers(raw []byte) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, line := range strings.Split(strings.TrimSuffix(string(raw), "\n"), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		v, perr := validation.ParseOrdered([]byte(line))
+		if perr != nil || v.Kind != validation.Obj {
+			continue
+		}
+		sv := objAt(v, "solc_version")
+		if sv.Kind != validation.Str || sv.S == "" || seen[sv.S] {
+			continue
+		}
+		seen[sv.S] = true
+		out = append(out, sv.S)
+	}
+	return out
 }

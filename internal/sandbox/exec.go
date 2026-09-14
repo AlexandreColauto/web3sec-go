@@ -576,7 +576,7 @@ func hashDir(d *string) validation.Value {
 func toolVersions() validation.Value {
 	out := []validation.KV{}
 	for _, tool := range []string{"forge", "cast", "slither", "aderyn",
-		"halmos", "minicertora", "python3", "docker"} {
+		"halmos", "minicertora", "miniprover", "solc", "python3", "docker"} {
 		if _, err := exec.LookPath(tool); err != nil {
 			continue
 		}
@@ -590,8 +590,15 @@ func toolVersions() validation.Value {
 		if text == "" {
 			text = res.Stderr
 		}
-		out = append(out, validation.KV{K: tool,
-			V: validation.VStr(pyFirstLine80(text))})
+		line := pyFirstLine80(text)
+		if tool == "solc" {
+			// solc's FIRST line is a banner; its version rides the
+			// "Version: X" line (r18: the harness toolchain check
+			// consumes this row, so it stores the VERSION, not the
+			// banner).
+			line = solcVersionLine(res.Stdout + res.Stderr)
+		}
+		out = append(out, validation.KV{K: tool, V: validation.VStr(line)})
 	}
 	return validation.VObj(out...)
 }
@@ -679,4 +686,25 @@ func envKeyValues2(keys []string) []validation.Value {
 		out = append(out, validation.VStr(k))
 	}
 	return out
+}
+
+// SolcVersionFromText exports the extractor for the verify-side pin
+// probe (same parsing, one law).
+func SolcVersionFromText(text string) string { return solcVersionLine(text) }
+
+// solcVersionLine extracts "0.8.36" from solc --version output
+// ("Version: 0.8.36+commit..."). "" when no version line exists.
+func solcVersionLine(text string) string {
+	for _, ln := range strings.Split(text, "\n") {
+		ln = strings.TrimSpace(ln)
+		if !strings.HasPrefix(ln, "Version:") {
+			continue
+		}
+		v := strings.TrimSpace(strings.TrimPrefix(ln, "Version:"))
+		if i := strings.IndexAny(v, "+ "); i >= 0 {
+			v = v[:i]
+		}
+		return v
+	}
+	return ""
 }
