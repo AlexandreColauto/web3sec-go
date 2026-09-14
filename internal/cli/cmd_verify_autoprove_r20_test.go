@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -534,5 +535,89 @@ func TestR23SwapDuringMappingRefuses(t *testing.T) {
 	if raw, _ := os.ReadFile(evLog); strings.Contains(string(raw),
 		"harness_run") {
 		t.Fatal("refused bind still left an event")
+	}
+}
+
+// TestR24BoundIsReadTyped pins r24 F3: 4.5 is not a bound the run
+// stated — truncation was a silent lie; a stated 0 IS stated (k=0),
+// and UNSTATED means the report said nothing at all.
+func TestR24BoundIsReadTyped(t *testing.T) {
+	mk := func(body string) (int, string, string) {
+		c, root := mcCamp(t, "r24-typed")
+		model := validation.VObj(kvT("invariants", validation.VArr(
+			validation.VObj(
+				kvT("id", validation.VStr("INV-2")),
+				kvT("statement", validation.VStr(
+					"withdrawer never receives more than deposited")),
+			))))
+		if _, err := invariants.SeedFromModel(c, model); err != nil {
+			t.Fatal(err)
+		}
+		rep := apWrite(t, body)
+		return run(t, "--root", root, "verify", c.CampaignID,
+			"--autoprove", "INV-2", "--property", "p1",
+			"--report", rep)
+	}
+	base := `{"schema_version": "1.0", "published": true,
+		"publish_problems": [], "review_independent": true,
+		"capabilities_missing": [], "flags": {"loop_bound": %s},
+		"property_outcomes": {"p1": {"outcome": "PROVEN",
+			"per_rule": {"inv_1": "PROVEN"}}},
+		"review_findings": []}`
+	if code, _, errS := mk(fmt.Sprintf(base, "4.5")); code != 2 ||
+		!strings.Contains(errS, "not an integer") {
+		t.Fatalf("float bound must refuse: %d %q", code, errS)
+	}
+	if code, _, errS := mk(fmt.Sprintf(base, "-1")); code != 2 ||
+		!strings.Contains(errS, "negative") {
+		t.Fatalf("negative bound must refuse: %d %q", code, errS)
+	}
+	if code, _, errS := mk(fmt.Sprintf(base, `"4"`)); code != 2 ||
+		!strings.Contains(errS, "not an integer") {
+		t.Fatalf("string bound must refuse: %d %q", code, errS)
+	}
+	// Stated zero: binds, and SAYS k=0 (not UNSTATED).
+	code, out, errS := mk(fmt.Sprintf(base, "0"))
+	if code != 0 || !strings.Contains(out, "k=0") ||
+		strings.Contains(out, "UNSTATED") {
+		t.Fatalf("stated 0 is a stated bound: %d out %q err %q",
+			code, out, errS)
+	}
+	// Null: the honest UNSTATED.
+	code, out, _ = mk(fmt.Sprintf(base, "null"))
+	if code != 0 || !strings.Contains(out, "bound UNSTATED") {
+		t.Fatalf("null must render UNSTATED: %d out %q", code, out)
+	}
+}
+
+// TestR24QuietReconcileBurnsAudit pins the r24 F1 end-state: bind,
+// overwrite the report file on disk, reconcile refreshes the registry
+// row — the event still names the MAPPED bytes and no row holds them
+// anymore. The §8 promise "a substituted report file cannot ride a
+// quiet refresh" now has a read-time witness.
+func TestR24QuietReconcileBurnsAudit(t *testing.T) {
+	c, root := mcCamp(t, "r24-reconcile")
+	rep := apWrite(t, `{"schema_version": "1.0", "published": true,
+		"publish_problems": [], "review_independent": true,
+		"capabilities_missing": [], "flags": {"loop_bound": 4},
+		"property_outcomes": {"p1": {"outcome": "PROVEN",
+			"per_rule": {"inv_1": "PROVEN"}}},
+		"review_findings": []}`)
+	if code, _, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep); code != 0 {
+		t.Fatalf("bind: %q", errS)
+	}
+	if err := os.WriteFile(rep, []byte(`{"schema_version": "1.0",
+		"published": false}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code, _, errS := run(t, "--root", root, "artifact-reconcile",
+		c.CampaignID); code != 0 {
+		t.Fatalf("reconcile: exit %d %q", code, errS)
+	}
+	code, out, _ := run(t, "--root", root, "audit", c.CampaignID)
+	if code == 0 || !strings.Contains(out,
+		"no registry artifact holds the report bytes") {
+		t.Fatalf("quiet substitution must burn audit: exit %d", code)
 	}
 }

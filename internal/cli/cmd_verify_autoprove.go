@@ -187,7 +187,31 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	}
 	outcome := objStr(prop, "outcome")
 	perRule := objAt(prop, "per_rule")
-	k := intFrom(objAt(rep, "flags"), "loop_bound")
+	// r24 F3: the bound is READ TYPED. An int is the bound (0 is a
+	// STATED zero, not an absence — UNSTATED means the report said
+	// nothing). A float is truncation, a negative is nonsense, a
+	// string is a shape the twin never emits: all three are unreadable
+	// AUTHORITY INPUTS and refuse the bind — intFrom's silent 0 made a
+	// 4.5-bound report claim k=4 in every record forever.
+	kvB := objAt(objAt(rep, "flags"), "loop_bound")
+	var k int
+	kStated := true
+	switch kvB.Kind {
+	case validation.Null:
+		kStated = false
+	case validation.Int:
+		if kvB.I < 0 {
+			return t14ExitErr(2, "verify --autoprove: flags.loop_bound "+
+				"is negative (%d) — no such bound exists; refusing to "+
+				"map this report\n", kvB.I)
+		}
+		k = int(kvB.I)
+	default:
+		return t14ExitErr(2, "verify --autoprove: flags.loop_bound is "+
+			"not an integer (kind %v: %s) — truncating it would state a "+
+			"bound the run never stated\n", kvB.Kind,
+			scalarStr(kvB))
+	}
 	var rung, summary string
 	switch outcome {
 	case "PROVEN":
@@ -220,7 +244,7 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 			break
 		}
 		n := len(kvs)
-		if k > 0 {
+		if kStated {
 			summary = fmt.Sprintf("autoproved bounded (k=%d, %d rules)", k, n)
 		} else {
 			// r20 F11: "bounded" with no bound stated must SAY so — the
@@ -270,7 +294,7 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 			"current file\n", digest[:12])
 	}
 	var bk *int
-	if rung == harness.RungProvedBounded && k > 0 {
+	if rung == harness.RungProvedBounded && kStated {
 		bk = &k
 	}
 	// proof sidecar is minicertora-only BY SCHEMA ("ABSENT for other
@@ -286,23 +310,16 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	// (F10: the PRIOR digest is captured BEFORE this bind's event exists
 	// — asking after the append would always "find" the current run.)
 	prior := autoprovePriorDigest(c, a.autoprove)
-	if err := linksThenLog(c, func() error {
-		return harnessSaveEntry(c, links, a.autoprove, entry)
-	}, func() error {
-		bkV := validation.VNull()
-		if bk != nil {
-			bkV = validation.VInt(int64(*bk))
-		}
-		edata := autoproveEventData(a.autoprove, rung, exec, summary,
-			a.property, digest, bkV, rep)
-		_, lerr := c.Log("harness_run", &a.autoprove, &edata)
-		return lerr
-	}); err != nil {
-		return err
-	}
-	// r20 F10: a re-bind over a DIFFERENT report digest (bytes edited on
-	// disk since the first bind) must say so — the reason row names old
-	// and new sha, so the refresh cannot launder a substituted report.
+	// r24 F1 (critic F1): REGISTER FIRST and let the registry's own
+	// hash vote on the bind. The old order (bind, then register) left
+	// the event naming bytes the registry might never have held — a
+	// swap in the window was permanent, audit-invisible, and the
+	// transient stderr warning pointed at evidence nothing stored.
+	// Now: register (which hashes the path), compare against the
+	// mapped digest, and refuse — pruning the fresh row — when the
+	// registry holds different bytes than the bind would name. A
+	// refused linksThenLog likewise prunes: no registered-but-unlogged
+	// ghost in either direction.
 	rebindReason := "autoprove result re-bound"
 	if prior != "" && prior != digest {
 		rebindReason = fmt.Sprintf("autoprove re-bound over a CHANGED "+
@@ -318,24 +335,39 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	// r23 (sharpest idea): the event pins the digest of the bytes we
-	// MAPPED; the registry hashed the PATH later — a swap in that
-	// window left provenance naming bytes nothing ever checked. Compare
-	// the two, before and after: the pre-check refuses the common
-	// single swap (event not yet bound, nothing to unwind); the
-	// post-check catches the pathological double-swap and says so
-	// where the rung lives — an admitted skew the rebind rail makes
-	// loud, never a silent "consistent".
-	if cur, rerr := os.ReadFile(a.report); rerr != nil ||
-		validation.Sha256Hex(cur) != digest {
-		fmt.Fprintf(r.Err, "  WARNING: %s's report bytes changed again "+
-			"after binding (mapped sha %s, artifact %s now holds %s) — "+
-			"the event names the MAPPED bytes; re-verify against them\n",
-			a.autoprove, digest[:12], artID,
-			validation.Sha256Hex(func() []byte {
-				b, _ := os.ReadFile(a.report)
-				return b
-			}())[:12])
+	regDig := ""
+	if row, aerr := c.Artifact(artID); aerr == nil {
+		regDig = objStr(row, "sha256")
+	}
+	if regDig != digest {
+		_, _ = c.PruneArtifact(artID,
+			"pruned: registry digest does not match the mapped report "+
+				"bytes at bind time")
+		return t14ExitErr(2, "verify --autoprove: the registry hashed "+
+			"the report as %s but this bind maps %s — the bytes differ, "+
+			"and an event would name evidence the store does not hold; "+
+			"refused, artifact row pruned\n", regDig, digest)
+	}
+	if err := linksThenLog(c, func() error {
+		return harnessSaveEntry(c, links, a.autoprove, entry)
+	}, func() error {
+		bkV := validation.VNull()
+		if bk != nil {
+			bkV = validation.VInt(int64(*bk))
+		}
+		edata := autoproveEventData(a.autoprove, rung, exec, summary,
+			a.property, digest, bkV, rep)
+		_, lerr := c.Log("harness_run", &a.autoprove, &edata)
+		return lerr
+	}); err != nil {
+		_, perr := c.PruneArtifact(artID,
+			"pruned: bind refused — "+err.Error())
+		if perr != nil {
+			return fmt.Errorf("%w (AND the artifact row %s could not be "+
+				"pruned: %v — a registered-but-unbound report; reconcile "+
+				"by hand)", err, artID, perr)
+		}
+		return err
 	}
 	fmt.Fprintf(r.Out, "%s: %s — %s\n", a.autoprove, rung, summary)
 	if !t26Truthy(rep, "review_independent") {

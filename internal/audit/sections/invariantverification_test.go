@@ -8,6 +8,10 @@ package sections
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"websec/internal/harness"
@@ -87,6 +91,79 @@ func backEvent(t *testing.T, c *state.Campaign, iid string,
 	)
 	ref := iid
 	if _, err := c.Log("harness_run", &ref, &data); err != nil {
+		t.Fatal(err)
+	}
+	// r24: blessing rungs get their EVIDENCE too — the audit re-derives
+	// minicertora claims from the exec ledger, so a fixture that
+	// displays PROVEN-BOUNDED must own a stdout that re-maps to it.
+	if objStr(h, "kind") == "minicertora" &&
+		strings.HasPrefix(objStr(h, "exec"), "EXEC-") &&
+		(objStr(h, "rung") == "proved-bounded" ||
+			objStr(h, "rung") == "counterexample") {
+		mintExecEvidence(t, c, iid, h)
+	}
+}
+
+// mintExecEvidence writes the exec dir whose bytes MapMinicertora
+// re-derives into exactly this slot's claim.
+func mintExecEvidence(t *testing.T, c *state.Campaign, iid string,
+	h validation.Value) {
+	t.Helper()
+	rule := harness.MspecRuleName(iid)
+	exec := objStr(h, "exec")
+	dir := filepath.Join(c.ExecsDir, exec)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var line string
+	exit := 0
+	if objStr(h, "rung") == "proved-bounded" {
+		exit = 0
+		line = fmt.Sprintf(
+			`{"rule": %s, "verdict": "PROVEN", `+
+				`"bounds": {"loop_bound": %s, "trace_length": 0, `+
+				`"steps": 0}, "reason": null, "assumptions": [], `+
+				`"warnings": [], "ghosts": [], "invariant": null, `+
+				`"calls": []}`,
+			validation.CanonCompact(validation.VStr(rule)),
+			validation.CanonCompact(objAt(h, "bounded_k")))
+		// bounded_k null? the fixture only uses ints here.
+		if objAt(h, "bounded_k").Kind != validation.Int {
+			line = fmt.Sprintf(
+				`{"rule": %s, "verdict": "PROVEN", "reason": null, `+
+					`"assumptions": [], "warnings": [], "ghosts": [], `+
+					`"invariant": null, "calls": []}`,
+				validation.CanonCompact(validation.VStr(rule)))
+		}
+	} else {
+		exit = 1
+		line = fmt.Sprintf(`{"rule": %s, "verdict": "VIOLATED", `+
+			`"reason": null, "assumptions": [], "warnings": [], `+
+			`"ghosts": [], "invariant": null, "calls": []}`,
+			validation.CanonCompact(validation.VStr(rule)))
+	}
+	// Append, never overwrite: several invariants' rows share a witness
+	// dir in fixtures exactly as one scaffold run attributes many rules
+	// — mcAttributed scans JSONL lines for THIS rule.
+	f, err := os.OpenFile(filepath.Join(dir, "stdout.log"),
+		os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(line + "\n"); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	// exit_status: PROVEN rows need 0, VIOLATED rows 1 — one record per
+	// dir; a mixed fixture dir would contradict itself, so bump to the
+	// worst verdict present is NOT possible here (per-row exit is a
+	// single-run truth). Fixtures keep one run per rung kind by id.
+	rec := validation.VObj(
+		KV("exec_id", validation.VStr(exec)),
+		KV("exit_status", validation.VInt(int64(exit))),
+	)
+	if err := validation.WriteJson(filepath.Join(dir,
+		"exec_record.json"), rec, ""); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -560,3 +637,45 @@ func TestHarnessRunLineWitnessLabel(t *testing.T) {
 }
 
 func hexText(b [32]byte) string { return hex.EncodeToString(b[:]) }
+
+// TestInvariantVerificationRecheckCatchesAForgedPair pins the r24
+// read-time law: slot AND event can agree by conspiracy — only
+// re-deriving from the exec stdout the event names tells whether the
+// bytes ever said k=100. This is the critic's F2 forgery minus the
+// hash-forgery plumbing: an internally consistent (slot,event) pair
+// whose numbers the EVIDENCE denies.
+func TestInvariantVerificationRecheckCatchesAForgedPair(t *testing.T) {
+	c, err := state.Init(t.TempDir(), "Acme Program", state.InitOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := harnessObj("minicertora", "proved-bounded", "EXEC-77",
+		validation.VInt(100), "proved bounded (k=100)")
+	harnessLinks(t, c, map[string]validation.Value{"INV-3": h})
+	// The real bytes say k=4 (backEvent minted from the slot claim??
+	// no: mintExecEvidence renders bounded_k FROM the slot, so forge a
+	// mismatch by rewriting stdout to the honest k=4 run):
+	stdout := filepath.Join(c.ExecsDir, "EXEC-77", "stdout.log")
+	line := `{"rule": "inv_3", "verdict": "PROVEN", "bounds": ` +
+		`{"loop_bound": 4, "trace_length": 0, "steps": 0}, ` +
+		`"reason": null, "assumptions": [], "warnings": [], ` +
+		`"ghosts": [], "invariant": null, "calls": []}` + "\n"
+	if err := os.WriteFile(stdout, []byte(line), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	v, err := InvariantVerification(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objAt(v, "ok").B {
+		t.Fatalf("conspiring pair must burn on re-derivation: %s",
+			validation.CanonCompact(v)[:400])
+	}
+	joined := ""
+	for _, p := range objAt(v, "problems").A {
+		joined += p.S
+	}
+	if !strings.Contains(joined, "re-derives bounded_k 4; the event pins 100") {
+		t.Fatalf("want inflated-bound problem, got %q", joined)
+	}
+}

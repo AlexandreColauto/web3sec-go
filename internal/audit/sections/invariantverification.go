@@ -19,6 +19,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"websec/internal/harness"
 	"websec/internal/invariants"
@@ -58,6 +61,18 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 			// hand-edit or an unrecoverable half-land can't match) must
 			// appear as the LAST harness_run event for the invariant.
 			if msg := harnessRungBacked(events, iid, e); msg != "" {
+				problems = append(problems, validation.VStr(msg))
+			}
+			// r24 (sharpest untried idea): the slot↔event rails bind the
+			// display to the LEDGER — but a chain-valid forgery edits the
+			// events too, and only the EXEC OUTPUT the event names is the
+			// original evidence. Re-derive the mapper's numbers from the
+			// artifacts at AUDIT time: minicertora rungs re-run through
+			// harness.MapMinicertora over the exec stdout, autoprove
+			// digests must exist in the registry. A lie then needs the
+			// stdout bytes or a registry row to match too — write-time
+			// convention becomes an audit-time invariant.
+			if msg := harnessEvidenceRecheck(c, events, iid, e); msg != "" {
 				problems = append(problems, validation.VStr(msg))
 			}
 		}
@@ -285,4 +300,149 @@ func pyKind(v validation.Value) string {
 func proofDigest(proof validation.Value) string {
 	sum := sha256.Sum256([]byte(validation.CanonCompact(proof)))
 	return hex.EncodeToString(sum[:])
+}
+
+// harnessEvidenceRecheck re-derives what the event claims FROM the
+// evidence it names ("" = consistent or not re-derivable by shape).
+func harnessEvidenceRecheck(c *state.Campaign,
+	events []validation.Value, iid string, entry validation.Value) string {
+	h := objAt(objAt(entry, "verification"), "harness")
+	last := validation.VNull()
+	for _, ev := range events {
+		if objStr(ev, "type") != "harness_run" {
+			continue
+		}
+		d := objAt(ev, "data")
+		if objStr(d, "invariant") == iid {
+			last = d
+		}
+	}
+	if last.Kind != validation.Obj {
+		return "" // harnessRungBacked already burns this shape
+	}
+	exec := objStr(last, "exec")
+	switch {
+	case strings.HasPrefix(exec, "EXEC-"):
+		return recheckExecEvidence(c, iid, h, last, exec)
+	case strings.HasPrefix(exec, "REPORT-"):
+		return recheckRegistryEvidence(c, iid, last)
+	}
+	return ""
+}
+
+func recheckExecEvidence(c *state.Campaign, iid string,
+	h, last validation.Value, exec string) string {
+	if objStr(h, "kind") != "minicertora" {
+		return "" // halmos/forge render via MapRun with no proof
+		// subtree — the compared fields already cover their claims.
+	}
+	// r24 scope law: re-derivation guards the rungs that RECORD CREDIT
+	// (proved-bounded, counterexample). An inconclusive rung blesses
+	// nothing, and torching its (often old, often pruned) witness dir
+	// would punish honesty with noise.
+	if rung := objStr(last, "rung"); rung != harness.RungProvedBounded &&
+		rung != harness.RungCounterexample {
+		return ""
+	}
+	recs, err := state.AllExecs(c)
+	if err != nil {
+		return fmt.Sprintf("%s: the exec ledger cannot be read (%v)",
+			iid, err)
+	}
+	var rec validation.Value
+	for _, e := range recs {
+		if objStr(e, "exec_id") == exec {
+			rec = e
+			break
+		}
+	}
+	if rec.Kind != validation.Obj {
+		return fmt.Sprintf("%s: provenance names %s, which the exec "+
+			"ledger does not hold — the witness was deleted or never "+
+			"existed; the run is unbacked by its own evidence", iid, exec)
+	}
+	// Same law as the mapper (r13): the canonical capture path wins.
+	raw, rerr := os.ReadFile(filepath.Join(c.ExecsDir, exec,
+		"stdout.log"))
+	if rerr != nil {
+		return fmt.Sprintf("%s: exec %s stdout unreadable (%v) — the "+
+			"evidence behind the rung cannot be re-checked", iid, exec,
+			rerr)
+	}
+	es := 0
+	if v := objAt(rec, "exit_status"); v.Kind == validation.Int {
+		es = int(v.I)
+	}
+	rung, _, proof, bk := harness.MapMinicertora(raw, es,
+		harness.MspecRuleName(iid))
+	if want := objStr(last, "rung"); rung != want {
+		return fmt.Sprintf("%s: exec %s stdout re-derives rung %s; the "+
+			"event claims %s — the mapping did not come from this run's "+
+			"bytes", iid, exec, validation.PyReprStr(rung),
+			validation.PyReprStr(want))
+	}
+	// The slot proof carries the mapper-appended compiler_pin (host
+	// provenance, not tool bytes): strip it before comparing to what
+	// re-deriving from stdout alone produces.
+	stripPin := func(v validation.Value) validation.Value {
+		if v.Kind != validation.Obj {
+			return v
+		}
+		var kvs []validation.KV
+		for _, kv := range v.O {
+			if kv.K != "compiler_pin" {
+				kvs = append(kvs, kv)
+			}
+		}
+		return validation.VObj(kvs...)
+	}
+	if dig := objStr(last, "proof_sha256"); dig != "" {
+		slotProof := stripPin(objAt(h, "proof"))
+		slotDig := proofDigest(slotProof)
+		reD := proofDigest(stripPin(proof))
+		// A slot that stored LESS proof than the bytes support is
+		// under-reporting (hides witness richness, claims no extra
+		// credit) — inconclusive-safe territory, not a lie: skip. The
+		// burned directions are slot OVER the bytes (fabricated or
+		// inflated subtree) and mismatched non-null pairings.
+		slotEmpty := slotProof.Kind == validation.Null
+		if !slotEmpty && slotDig != reD {
+			return fmt.Sprintf("%s: exec %s stdout re-derives proof sha "+
+				"%s; the slot carries %s — the proof subtree is not this "+
+				"run's bytes (event pinned %s)", iid, exec, reD[:12],
+				slotDig[:12], dig[:12])
+		}
+	}
+	if bkV := objAt(last, "bounded_k"); bkV.Kind == validation.Int {
+		have := int64(-1)
+		if bk != nil {
+			have = int64(*bk)
+		}
+		if have != bkV.I {
+			return fmt.Sprintf("%s: exec %s stdout re-derives bounded_k "+
+				"%d; the event pins %d — the bound is inflated", iid, exec,
+				have, bkV.I)
+		}
+	}
+	return ""
+}
+func recheckRegistryEvidence(c *state.Campaign, iid string,
+	last validation.Value) string {
+	dig := objStr(last, "report_sha256")
+	if dig == "" {
+		return "" // pre-r23 autoprove event; refresh will pin it
+	}
+	st, err := c.State()
+	if err != nil {
+		return fmt.Sprintf("%s: registry unreadable (%v)", iid, err)
+	}
+	for _, a := range objAt(st, "artifacts").A {
+		if objStr(a, "sha256") == dig {
+			return ""
+		}
+	}
+	return fmt.Sprintf("%s: no registry artifact holds the report bytes "+
+		"the event pins (sha %s) — the evidence named by the bind is not "+
+		"in the store (substituted path or quiet reconcile)", iid,
+		dig[:12])
 }

@@ -208,7 +208,12 @@ costly: one (report, property) pair can hold exactly ONE invariant
 (a second bind refuses, naming the holder — a proof is not reusable
 across ledger rows), and re-binding an invariant over a DIFFERENT
 report digest warns on stderr and names both shas in the artifact
-refresh reason (a substituted report file cannot ride a quiet refresh).
+refresh reason (a substituted report file cannot ride a quiet refresh —
+r24 made that literal twice: at bind time the registry's own hash votes
+(register FIRST, compare, prune-and-refuse on any mismatch, so no event
+can ever name bytes the store does not hold), and at audit time
+`recheckRegistryEvidence` demands the event's `report_sha256` exist as a
+registry row — a post-bind overwrite + reconcile burns §11).
 Deliberately NOT added: rung stickiness (an operator who invalidates a
 counterexample with a fixed spec must be able to bind the newer proof
 without a --force flag ceremony; the sticky-rung alternative invents
@@ -236,3 +241,24 @@ scripts; killing the shell leaves the child holding the pipe — which
 is what made "bounded" probes unbounded), the timeout arms return
 EMPTY rather than racing the output Builders, and `go test -race` now
 ships a pin for it.
+
+## 10. Re-derivation: the evidence, not just the paperwork (r24)
+
+Slot-vs-event rails bind the display to the LEDGER — a chain-valid
+forger edits the ledger too. The audit therefore RE-DERIVES, at read
+time, from the artifacts the event names:
+
+* `EXEC-*` provenance + minicertora + a blessing rung (proved-bounded /
+  counterexample): the exec's stored stdout bytes are re-run through
+  `harness.MapMinicertora` — rung, proof-subtree digest (mapper-added
+  `compiler_pin` stripped both sides), and `bounded_k` must all match
+  what the event claims. The lie now needs the stdout bytes (or the
+  ledger row) to match too, not just two mutually-consistent JSON
+  files. Inconclusive rungs are out of scope by law: they bless
+  nothing, and old pruned witnesses must not torch honest sessions.
+* `REPORT-*` provenance (autoprove): the pinned `report_sha256` must
+  exist as a registry digest.
+
+A slot that stored LESS proof than its bytes support is
+under-reporting — richer evidence than displayed — and skipped: rails
+burn lies, not modesty.

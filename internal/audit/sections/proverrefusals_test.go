@@ -248,14 +248,14 @@ func TestInvariantVerificationRefusalHistogram(t *testing.T) {
 		// keeps its historical two lines).
 		name: "minicertora campaign without refusals emits no line",
 		rows: []refusalRow{
-			{"INV-1", harnessObj("minicertora", "proved-bounded", "EXEC-9",
+			{"INV-1", harnessObj("minicertora", "proved-bounded", "EXEC-10",
 				validation.VInt(4), "proved bounded (k=4)")},
-			{"INV-2", harnessObj("minicertora", "counterexample", "EXEC-9",
+			{"INV-2", harnessObj("minicertora", "counterexample", "EXEC-11",
 				validation.VNull(), "counterexample: total >= before")},
 		},
 		want: []string{
-			"INV-1: PROVEN-BOUNDED (minicertora, k=4, EXEC-9)",
-			"INV-2: counterexample (minicertora, EXEC-9)",
+			"INV-1: PROVEN-BOUNDED (minicertora, k=4, EXEC-10)",
+			"INV-2: counterexample (minicertora, EXEC-11)",
 		},
 	}}
 	for _, tc := range tests {
