@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"websec/internal/state"
@@ -175,7 +176,14 @@ func SaveThenLog(campaign *state.Campaign, finding *validation.Value,
 	}
 	if err := log(); err != nil {
 		if rerr := restoreBytes(path, prevRaw, hadRaw); rerr != nil {
-			return err
+			// r18 P2: a FAILED restore means the finding bytes are still
+			// AHEAD of the refused event — the exact half-land this
+			// helper exists to prevent. Returning only the ledger error
+			// laundered that fact; name both failures so no caller can
+			// report a clean unwind that never happened.
+			return fmt.Errorf("%w (UNWIND ALSO FAILED: %v — the finding "+
+				"file may hold post-write bytes with no event; repair "+
+				"by hand before continuing)", err, rerr)
 		}
 		return err
 	}
@@ -195,4 +203,53 @@ func restoreBytes(path string, raw []byte, had bool) error {
 		return os.Remove(path)
 	}
 	return os.WriteFile(path, raw, 0o644)
+}
+
+// SaveThenLogMany generalizes SaveThenLog to a SET of findings that must
+// land atomically with one event (dedup.candidate_resolved stamps BOTH
+// sides then logs once: a refused event with one side stamped and the
+// other not is a verdict half-written across two files). Same law:
+// capture every file's bytes first; one failed restore names the whole
+// failure, none is silent.
+func SaveThenLogMany(campaign *state.Campaign, findingsList []*validation.Value,
+	log func() error) error {
+	type snap struct {
+		path      string
+		raw       []byte
+		had       bool
+		findingID string
+	}
+	snaps := make([]snap, 0, len(findingsList))
+	for _, f := range findingsList {
+		id := objStr(*f, "finding_id")
+		path := FindingPath(campaign, id)
+		raw, had, perr := prevBytes(path)
+		if perr != nil && !os.IsNotExist(perr) {
+			return perr
+		}
+		snaps = append(snaps, snap{path: path, raw: raw, had: had, findingID: id})
+	}
+	for i, f := range findingsList {
+		if err := SaveFinding(campaign, f); err != nil {
+			for j := 0; j < i; j++ {
+				_ = restoreBytes(snaps[j].path, snaps[j].raw, snaps[j].had)
+			}
+			return err
+		}
+	}
+	if err := log(); err != nil {
+		var failed []string
+		for _, s := range snaps {
+			if rerr := restoreBytes(s.path, s.raw, s.had); rerr != nil {
+				failed = append(failed, s.findingID)
+			}
+		}
+		if len(failed) > 0 {
+			return fmt.Errorf("%w (UNWIND INCOMPLETE: %v still hold "+
+				"post-write bytes with no event — repair by hand)", err,
+				strings.Join(failed, ", "))
+		}
+		return err
+	}
+	return nil
 }

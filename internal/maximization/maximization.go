@@ -300,6 +300,10 @@ func StartLadder(c *state.Campaign, findingID string) (validation.Value, error) 
 			kvOf("at", validation.VNull()))),
 		kvOf("history", validation.VArr()),
 	)
+	// r18: capture BOTH files before the first write; a
+	// refused event restores them (restoreLadderPair).
+	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
+	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
 		return validation.VNull(), err
 	}
@@ -312,11 +316,14 @@ func StartLadder(c *state.Campaign, findingID string) (validation.Value, error) 
 	if err := findings.SaveFinding(c, &f); err != nil {
 		return validation.VNull(), err
 	}
-	ref := findingID
 	data := validation.VObj(
 		kvOf("ladder_id", objAt(lad, "ladder_id")),
 		kvOf("base_rung", objAt(base, "rung_id")))
-	if _, err := c.Log("ladder.started", &ref, &data); err != nil {
+	if _, err := c.Log("ladder.started", &findingID, &data); err != nil {
+		// r18: the ledger refused — restore BOTH the ladder
+		// doc and the finding (see restoreLadderPair).
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
+
 		return validation.VNull(), err
 	}
 	return lad, nil
@@ -439,15 +446,22 @@ func AddVariant(c *state.Campaign, findingID, name, description string,
 		}
 	}
 	lad.O = validation.SetOrAppend(lad.O, "axes_explored", explored)
+	// r18: capture BOTH files before the first write; a
+	// refused event restores them (restoreLadderPair).
+	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
+	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
 		return validation.VNull(), err
 	}
-	ref := findingID
 	data := validation.VObj(
 		kvOf("rung_id", objAt(rung, "rung_id")),
 		kvOf("axes", strArr(axes)),
 		kvOf("name", validation.VStr(name)))
-	if _, err := c.Log("ladder.variant_added", &ref, &data); err != nil {
+	if _, err := c.Log("ladder.variant_added", &findingID, &data); err != nil {
+		// r18: the ledger refused — restore BOTH the ladder
+		// doc and the finding (see restoreLadderPair).
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
+
 		return validation.VNull(), err
 	}
 	return rung, nil
@@ -504,14 +518,21 @@ func ExploreAxis(c *state.Campaign, findingID, axis, note string) (validation.Va
 		explored.A = append(explored.A, validation.VStr(axis))
 	}
 	lad.O = validation.SetOrAppend(lad.O, "axes_explored", explored)
+	// r18: capture BOTH files before the first write; a
+	// refused event restores them (restoreLadderPair).
+	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
+	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
 		return validation.VNull(), err
 	}
-	ref := findingID
 	data := validation.VObj(
 		kvOf("axis", validation.VStr(axis)),
 		kvOf("note", validation.VStr(truncate(strings.TrimSpace(note), 200))))
-	if _, err := c.Log("ladder.axis_explored", &ref, &data); err != nil {
+	if _, err := c.Log("ladder.axis_explored", &findingID, &data); err != nil {
+		// r18: the ledger refused — restore BOTH the ladder
+		// doc and the finding (see restoreLadderPair).
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
+
 		return validation.VNull(), err
 	}
 	return lad, nil
@@ -583,14 +604,21 @@ func ReproduceRung(c *state.Campaign, findingID, rungID, execID string,
 		kvOf("event", validation.VStr("reproduced")),
 		kvOf("exec_id", validation.VStr(execID))))
 	lad.O = validation.SetOrAppend(lad.O, "history", hist)
+	// r18: capture BOTH files before the first write; a
+	// refused event restores them (restoreLadderPair).
+	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
+	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
 		return validation.VNull(), err
 	}
-	ref := findingID
 	data := validation.VObj(
 		kvOf("rung_id", validation.VStr(rungID)),
 		kvOf("exec_id", validation.VStr(execID)))
-	if _, err := c.Log("ladder.rung_reproduced", &ref, &data); err != nil {
+	if _, err := c.Log("ladder.rung_reproduced", &findingID, &data); err != nil {
+		// r18: the ledger refused — restore BOTH the ladder
+		// doc and the finding (see restoreLadderPair).
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
+
 		return validation.VNull(), err
 	}
 	return rung, nil
@@ -671,6 +699,10 @@ func DisproveRung(c *state.Campaign, findingID, rungID, reason string) (validati
 		kvOf("rung_id", validation.VStr(rungID)),
 		kvOf("event", validation.VStr("disproved"))))
 	lad.O = validation.SetOrAppend(lad.O, "history", hist)
+	// r18: capture BOTH files before the first write; a
+	// refused event restores them (restoreLadderPair).
+	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
+	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
 		return validation.VNull(), err
 	}
@@ -686,9 +718,12 @@ func DisproveRung(c *state.Campaign, findingID, rungID, reason string) (validati
 	}); err != nil {
 		return validation.VNull(), err
 	}
-	ref := findingID
 	data := validation.VObj(kvOf("rung_id", validation.VStr(rungID)))
-	if _, err := c.Log("ladder.rung_disproved", &ref, &data); err != nil {
+	if _, err := c.Log("ladder.rung_disproved", &findingID, &data); err != nil {
+		// r18: the ledger refused — restore BOTH the ladder
+		// doc and the finding (see restoreLadderPair).
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
+
 		return validation.VNull(), err
 	}
 	return rung, nil
@@ -730,6 +765,10 @@ func SetMaximal(c *state.Campaign, findingID, rungID string) (validation.Value, 
 		kvOf("rung_id", validation.VStr(rungID)),
 		kvOf("event", validation.VStr("claim_pinned"))))
 	lad.O = validation.SetOrAppend(lad.O, "history", hist)
+	// r18: capture BOTH files before the first write; a
+	// refused event restores them (restoreLadderPair).
+	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
+	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
 		return validation.VNull(), err
 	}
@@ -750,12 +789,15 @@ func SetMaximal(c *state.Campaign, findingID, rungID string) (validation.Value, 
 	if err := findings.SaveFinding(c, &f); err != nil {
 		return validation.VNull(), err
 	}
-	ref := findingID
 	data := validation.VObj(
 		kvOf("rung_id", validation.VStr(rungID)),
 		kvOf("capital_usd", objAt(rung, "capital_usd")),
 		kvOf("extraction_ratio", objAt(rung, "extraction_ratio")))
-	if _, err := c.Log("ladder.claim_pinned", &ref, &data); err != nil {
+	if _, err := c.Log("ladder.claim_pinned", &findingID, &data); err != nil {
+		// r18: the ledger refused — restore BOTH the ladder
+		// doc and the finding (see restoreLadderPair).
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
+
 		return validation.VNull(), err
 	}
 	return f, nil
@@ -804,6 +846,10 @@ func CompleteLadder(c *state.Campaign, findingID, actor string) (validation.Valu
 		kvOf("reason", validation.VNull()),
 		kvOf("actor", validation.VStr(actor)),
 		kvOf("at", validation.VStr(nowIso()))))
+	// r18: capture BOTH files before the first write; a
+	// refused event restores them (restoreLadderPair).
+	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
+	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
 		return validation.VNull(), err
 	}
@@ -817,9 +863,12 @@ func CompleteLadder(c *state.Campaign, findingID, actor string) (validation.Valu
 	if err := findings.SaveFinding(c, &f); err != nil {
 		return validation.VNull(), err
 	}
-	ref := findingID
 	data := validation.VObj(kvOf("actor", validation.VStr(actor)))
-	if _, err := c.Log("ladder.complete", &ref, &data); err != nil {
+	if _, err := c.Log("ladder.complete", &findingID, &data); err != nil {
+		// r18: the ledger refused — restore BOTH the ladder
+		// doc and the finding (see restoreLadderPair).
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
+
 		return validation.VNull(), err
 	}
 	return lad, nil
@@ -891,6 +940,10 @@ func ReopenLadder(c *state.Campaign, findingID, reason, actor string) (validatio
 		kvOf("reason", validation.VStr(trimmed)),
 		kvOf("actor", validation.VStr(actor)),
 		kvOf("at", validation.VStr(nowIso()))))
+	// r18: capture BOTH files before the first write; a
+	// refused event restores them (restoreLadderPair).
+	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
+	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
 		return validation.VNull(), err
 	}
@@ -904,11 +957,14 @@ func ReopenLadder(c *state.Campaign, findingID, reason, actor string) (validatio
 	if err := findings.SaveFinding(c, &f); err != nil {
 		return validation.VNull(), err
 	}
-	ref := findingID
 	data := validation.VObj(
 		kvOf("reason", validation.VStr(trimmed)),
 		kvOf("actor", validation.VStr(actor)))
-	if _, err := c.Log("ladder.reopen", &ref, &data); err != nil {
+	if _, err := c.Log("ladder.reopen", &findingID, &data); err != nil {
+		// r18: the ledger refused — restore BOTH the ladder
+		// doc and the finding (see restoreLadderPair).
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
+
 		return validation.VNull(), err
 	}
 	return lad, nil
@@ -989,4 +1045,40 @@ func SortAxes(items []string) []string {
 	out := append([]string{}, items...)
 	sort.Strings(out)
 	return out
+}
+
+// r18 P1-2: the LADDER class — StartLadder wrote the ladder doc and the
+// finding's maximization block BEFORE logging; a refused Log left the
+// projection rows standing, the event absent, and the retry path takes
+// the idempotent early-return (finding already has ladder_id) so the
+// missing ladder.started can NEVER be emitted — the r9 PinSnapshot
+// permanent-burn shape reborn, with `verify` GREEN throughout. Same
+// discipline, generalized: capture BOTH file bytes before the first
+// write of a verb; restore them together when the ledger refuses.
+func prevFile(path string) ([]byte, bool) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false
+	}
+	return raw, true
+}
+
+// restoreLadderPair undoes one verb's writes. A failed restore is
+// swallowed silently ONLY because the caller already returns the ledger
+// error — the damage it describes (state ahead of event) is exactly
+// what verify's projection hunt burns red, so it is never hidden.
+func restoreLadderPair(c *state.Campaign, findingID string,
+	ladPrev []byte, ladHad bool, fPrev []byte, fHad bool) {
+	lp := ladderPath(c, findingID)
+	fp := findings.FindingPath(c, findingID)
+	if !ladHad {
+		os.Remove(lp)
+	} else {
+		os.WriteFile(lp, ladPrev, 0o644)
+	}
+	if !fHad {
+		os.Remove(fp)
+	} else {
+		os.WriteFile(fp, fPrev, 0o644)
+	}
 }

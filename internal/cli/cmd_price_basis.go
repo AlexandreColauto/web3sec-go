@@ -71,12 +71,14 @@ func runPriceBasis(root string, args []string, r *Runner) int {
 		}
 		ei.O = validation.SetOrAppend(ei.O, "price_basis", validation.VStr(pos[2]))
 		f.O = validation.SetOrAppend(f.O, "economic_impact", ei)
-		if err := findings.SaveFinding(c, &f); err != nil {
-			return err
-		}
+		// r18 P2 sweep: a price basis on the file with no event silently
+		// re-scores every later report. Unwind law, same as everywhere.
 		data := validation.VObj(validation.KV{K: "price_basis",
 			V: validation.VStr(pos[2])})
-		if _, err := c.Log("finding.price_basis", &pos[1], &data); err != nil {
+		if err := findings.SaveThenLog(c, &f, func() error {
+			_, lerr := c.Log("finding.price_basis", &pos[1], &data)
+			return lerr
+		}); err != nil {
 			return err
 		}
 		fmt.Fprintf(r.Out, "%s: price basis pinned to %s (%s @ $%s)\n",

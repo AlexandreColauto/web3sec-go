@@ -160,15 +160,17 @@ func RecordAckScan(c *state.Campaign, findingID string) (bool, error) {
 		dm.O = kept
 		f.O = validation.SetOrAppend(f.O, "dedup_meta", dm)
 	}
-	if err := SaveFinding(c, &f); err != nil {
-		return false, err
-	}
+	// r18 P2 sweep: the ack stamp without its event lets a scan "cover"
+	// a finding twice with one ledger row. Unwind.
 	data := validation.VObj(
 		validation.KV{K: "finding_id", V: validation.VStr(findingID)},
 		validation.KV{K: "hit", V: validation.VBool(hit)},
 		validation.KV{K: "ack", V: ack},
 	)
-	if _, err := c.Log("finding.ack_scanned", &findingID, &data); err != nil {
+	if err := SaveThenLog(c, &f, func() error {
+		_, lerr := c.Log("finding.ack_scanned", &findingID, &data)
+		return lerr
+	}); err != nil {
 		return false, err
 	}
 	return hit, nil

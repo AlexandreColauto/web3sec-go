@@ -613,6 +613,15 @@ func PublishCampaignWith(c *state.Campaign, actor string,
 		memIDs[mid] = struct{}{}
 		memAdded++
 	}
+	// r18 P2 (memory sites): the shared store is the ONE place where a
+	// refused event used to be UNDOABLE by any retry — the sigs/mem rows
+	// and the manifest record land globally, deduped silently by the next
+	// publish while `shared.published` never exists. Capture all three
+	// files' bytes before writeStore; restore together on refusal.
+	sigPrev, sigHad := prevOrEmpty(sigsPath(store))
+	memPrev, memHad := prevOrEmpty(memPath(store))
+	manPath := manifestPath(store)
+	manPrev, manHad := prevOrEmpty(manPath)
 	if err := writeStore(store, sigs, mems); err != nil {
 		return validation.VNull(), err
 	}
@@ -648,6 +657,8 @@ func PublishCampaignWith(c *state.Campaign, actor string,
 		kv("tier", validation.VStr(tier)),
 		kv("actor", validation.VStr(actor)))
 	if _, err := c.Log("shared.published", &rid, &data); err != nil {
+		publishRollback(store, sigPrev, sigHad, memPrev, memHad, manPath,
+			manPrev, manHad)
 		return validation.VNull(), err
 	}
 	var noop validation.Value = validation.VNull()
@@ -1403,4 +1414,30 @@ func patternInStore(mems []validation.Value, programKey string,
 // normPattern is the collapse key: case-folded runs of whitespace.
 func normPattern(s string) string {
 	return strings.ToLower(strings.Join(strings.Fields(s), " "))
+}
+
+// prevOrEmpty / restoreOrKeep / publishRollback: the publish-site
+// unwind trio (absent file = remove on restore, never create empty).
+func prevOrEmpty(path string) ([]byte, bool) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false
+	}
+	return raw, true
+}
+
+func restoreOrKeep(path string, raw []byte, had bool) {
+	if !had {
+		os.Remove(path)
+		return
+	}
+	_ = os.WriteFile(path, raw, 0o644)
+}
+
+func publishRollback(store string, sigPrev []byte, sigHad bool,
+	memPrev []byte, memHad bool, manPath string, manPrev []byte,
+	manHad bool) {
+	restoreOrKeep(sigsPath(store), sigPrev, sigHad)
+	restoreOrKeep(memPath(store), memPrev, memHad)
+	restoreOrKeep(manPath, manPrev, manHad)
 }

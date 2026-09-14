@@ -175,10 +175,12 @@ func SetRootCauseSignature(campaign *state.Campaign, findingID, normalizedSenten
 		f = setDeep(f, validation.VStr(*cwe), "root_cause", "cwe")
 	}
 	f = setDeep(f, validation.VStr(normalizedSentence), "dedup_meta", "root_cause_sentence")
-	if err := findings.SaveFinding(campaign, &f); err != nil {
-		return validation.VNull(), err
-	}
-	if _, err := campaign.Log("dedup.root_cause_set", &findingID, nil); err != nil {
+	// r18 P2: signature stamped with no event = a dedup row the audit
+	// can never explain; unwind law applies like everywhere else.
+	if err := findings.SaveThenLog(campaign, &f, func() error {
+		_, lerr := campaign.Log("dedup.root_cause_set", &findingID, nil)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return f, nil
@@ -198,10 +200,10 @@ func SetEconomicSignature(campaign *state.Campaign, findingID,
 	sig := findings.TextSignature(normalizedEffect)
 	f = setDeep(f, validation.VStr(sig), "dedup", "economic_signature")
 	f = setDeep(f, validation.VStr(normalizedEffect), "dedup_meta", "economic_effect_sentence")
-	if err := findings.SaveFinding(campaign, &f); err != nil {
-		return validation.VNull(), err
-	}
-	if _, err := campaign.Log("dedup.economic_set", &findingID, nil); err != nil {
+	if err := findings.SaveThenLog(campaign, &f, func() error {
+		_, lerr := campaign.Log("dedup.economic_set", &findingID, nil)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return f, nil
@@ -481,11 +483,12 @@ func autoMergePair(campaign *state.Campaign, keep, dup validation.Value) (bool, 
 			ids = append(ids, keepID)
 		}
 		dup = setDeep(dup, strArray(ids), "dedup", "possible_duplicate_of")
-		if err := findings.SaveFinding(campaign, &dup); err != nil {
-			return false, err
-		}
 		data := validation.VObj(kv("of", validation.VStr(keepID)))
-		if _, err := campaign.Log("dedup.cross_snapshot_flagged", &dupID, &data); err != nil {
+		if err := findings.SaveThenLog(campaign, &dup, func() error {
+			_, lerr := campaign.Log("dedup.cross_snapshot_flagged",
+				&dupID, &data)
+			return lerr
+		}); err != nil {
 			return false, err
 		}
 		return false, nil
@@ -589,21 +592,31 @@ func ResolveCandidate(campaign *state.Campaign, findingID, ofFindingID, verdict,
 		side    validation.Value
 		otherID string
 	}{{f, ofFindingID}, {other, findingID}}
-	for _, s := range sides {
-		side := setDeep(s.side, validation.VStr(verdict), "dedup", "candidate_verdicts", s.otherID)
+	sideVals := make([]*validation.Value, 0, len(sides))
+	for k := range sides {
+		side := setDeep(sides[k].side, validation.VStr(verdict), "dedup",
+			"candidate_verdicts", sides[k].otherID)
 		if note != "" {
-			side = setDeep(side, validation.VStr(stripped), "dedup_meta", "candidate_notes", s.otherID)
+			side = setDeep(side, validation.VStr(stripped), "dedup_meta",
+				"candidate_notes", sides[k].otherID)
 		}
-		if err := findings.SaveFinding(campaign, &side); err != nil {
-			return validation.VNull(), err
-		}
+		sides[k].side = side
+		sideVals = append(sideVals, &sides[k].side)
 	}
 	data := validation.VObj(
 		kv("of", validation.VStr(ofFindingID)),
 		kv("verdict", validation.VStr(verdict)),
 		kv("actor", validation.VStr(actor)),
 	)
-	if _, err := campaign.Log("dedup.candidate_resolved", &findingID, &data); err != nil {
+	// r18 P2: a refused resolve event used to leave BOTH sides stamped
+	// with a verdict the ledger never recorded — the pair silently
+	// merged in the files only. SaveThenLogMany lands both files with
+	// the event or restores both.
+	if err := findings.SaveThenLogMany(campaign, sideVals, func() error {
+		_, lerr := campaign.Log("dedup.candidate_resolved", &findingID,
+			&data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	if verdict == "same" {
@@ -647,11 +660,13 @@ func ResolveCandidate(campaign *state.Campaign, findingID, ofFindingID, verdict,
 			sid := objStr(survivor, "finding_id")
 			corroborated := setDeep(survivor, validation.VStr(otherID),
 				"dedup_meta", "corroborated_by")
-			if err := findings.SaveFinding(campaign, &corroborated); err != nil {
-				return validation.VNull(), err
-			}
 			data := validation.VObj(kv("of", validation.VStr(otherID)))
-			if _, err := campaign.Log("dedup.corroborated", &sid, &data); err != nil {
+			if err := findings.SaveThenLog(campaign, &corroborated,
+				func() error {
+					_, lerr := campaign.Log("dedup.corroborated", &sid,
+						&data)
+					return lerr
+				}); err != nil {
 				return validation.VNull(), err
 			}
 		}

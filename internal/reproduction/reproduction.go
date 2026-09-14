@@ -199,15 +199,17 @@ func RecordAttempt(c *state.Campaign, findingID, outcome string,
 		"blocked": "blocked", "falsified": "falsified"}[outcome]))
 	ver = setKey(ver, "reproduction", repro)
 	f = setKey(f, "verification", ver)
-	if err := findings.SaveFinding(c, &f); err != nil {
-		return validation.VNull(), err
-	}
+	// r18 P2 sweep: an attempt recorded on the finding but not the ledger
+	// silently consumes the retry BUDGET (attempt count) with no audit.
 	data := validation.VObj(
 		validation.KV{K: "outcome", V: validation.VStr(outcome)},
 		validation.KV{K: "failure_class", V: failure},
 		validation.KV{K: "attempt", V: validation.VInt(int64(len(attempts.A)))},
 	)
-	if _, err := c.Log("repro.attempt", &findingID, &data); err != nil {
+	if err := findings.SaveThenLog(c, &f, func() error {
+		_, lerr := c.Log("repro.attempt", &findingID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return guidanceFor(outcome, repro, attempts, opts, budget, maxRetries), nil
@@ -550,14 +552,16 @@ func MintIndependentEvidence(c *state.Campaign, findingID, execID, description,
 		validation.KV{K: "discrepancies", V: validation.VArr()},
 	))
 	out = setKey(out, "verification", ver)
-	if err := findings.SaveFinding(c, &out); err != nil {
-		return validation.VNull(), err
-	}
 	data := validation.VObj(
 		validation.KV{K: "verifier", V: validation.VStr(verifier)},
 		validation.KV{K: "exec_id", V: validation.VStr(execID)},
 	)
-	if _, err := c.Log("repro.independent", &findingID, &data); err != nil {
+	// r18 P2 sweep: independent-verification stamped without its event is
+	// the E6 wash — a VERIFIED_BY row the queue can never confirm.
+	if err := findings.SaveThenLog(c, &out, func() error {
+		_, lerr := c.Log("repro.independent", &findingID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return out, nil

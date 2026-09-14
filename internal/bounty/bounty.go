@@ -1516,15 +1516,17 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 		validation.Value{Kind: validation.Arr, A: g.checks})
 	f.O = validation.SetOrAppend(f.O, "bounty", bounty)
 	if save {
-		if err := findings.SaveFinding(campaign, &f); err != nil {
-			return validation.VNull(), err
-		}
+		// r18 P2 sweep: gate stamped on the finding with no bounty.gate
+		// event = a payout decision the ledger cannot replay. Unwind law.
 		data := validation.VObj(
 			validation.KV{K: "eligible", V: validation.VBool(eligible)},
 			validation.KV{K: "submission_ready", V: validation.VBool(submissionReady)},
 			validation.KV{K: "blockers", V: strList(g.blockers)},
 		)
-		if _, err := campaign.Log("bounty.gate", &findingID, &data); err != nil {
+		if err := findings.SaveThenLog(campaign, &f, func() error {
+			_, lerr := campaign.Log("bounty.gate", &findingID, &data)
+			return lerr
+		}); err != nil {
 			return validation.VNull(), err
 		}
 	}

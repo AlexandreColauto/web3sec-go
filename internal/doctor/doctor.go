@@ -182,11 +182,35 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 		)
 		journalPath := filepath.Join(campaign.Dir, "doctor.json")
 		journal := []validation.Value{}
+		corruptTo := ""
 		if raw, jerr := os.ReadFile(journalPath); jerr == nil {
 			if v, perr := validation.ParseOrdered(raw); perr == nil &&
 				v.Kind == validation.Arr {
 				journal = v.A
+			} else {
+				// r18 P2: corrupt-to-silence — an unreadable journal used
+				// to be replaced by a fresh one, quietly deleting every
+				// earlier disclosure while THIS rebuild laundered the
+				// truncation it was supposed to record. The bytes are
+				// rescued next to the journal and the salvage is named in
+				// the entry that overwrites it.
+				corruptTo = journalPath + ".corrupt"
+				for n := 1; n < 100; n++ {
+					if _, statErr := os.Stat(corruptTo); os.IsNotExist(statErr) {
+						break
+					}
+					corruptTo = fmt.Sprintf("%s.corrupt-%d", journalPath, n)
+				}
+				if werr := os.WriteFile(corruptTo, raw, 0o644); werr != nil {
+					corruptTo = "RESCUE FAILED: " + werr.Error()
+				}
 			}
+		}
+		if corruptTo != "" {
+			entry.O = validation.SetOrAppend(entry.O, "journal_replaced",
+				validation.VStr("previous doctor.json was unparseable; its "+
+					"bytes rescued to "+filepath.Base(corruptTo)+
+					" — repairs before this one are NOT in this journal"))
 		}
 		journal = append(journal, entry)
 		if len(journal) > 50 { // capped journal, newest kept

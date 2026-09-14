@@ -318,6 +318,12 @@ func Record(c *state.Campaign, a Adjudication) (Adjudication, error) {
 	}
 	st.O = validation.SetOrAppend(st.O, "eval_adjudications",
 		validation.VArr(append(kept, entry)...))
+	// r18 P2 (evalscore site): the adjudication row entered campaign_state
+	// BEFORE its event; a refused log left the scorer's authority row —
+	// the thing scoring TRUSTS — updated while eval.adjudicated never
+	// existed, and the retry's `replaced: true` hid the burn. Floor
+	// law (floors.go): snapshot state bytes pre-write, unwind on refusal.
+	prevRaw, hadRaw := c.RawState()
 	if err := saveState(c, st); err != nil {
 		return Adjudication{}, err
 	}
@@ -339,6 +345,11 @@ func Record(c *state.Campaign, a Adjudication) (Adjudication, error) {
 		data.O = append(data.O, kv("exec", validation.VStr(a.Exec)))
 	}
 	if _, err := c.Log("eval.adjudicated", &a.Finding, &data); err != nil {
+		if uerr := c.UnwindState(prevRaw, hadRaw); uerr != nil {
+			return Adjudication{}, fmt.Errorf("%w (UNWIND ALSO FAILED: %v "+
+				"— state holds an adjudication with no event; repair by "+
+				"hand)", err, uerr)
+		}
 		return Adjudication{}, err
 	}
 	return a, nil

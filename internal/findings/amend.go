@@ -129,20 +129,28 @@ func Amend(campaign *state.Campaign, findingID string,
 		validation.KV{K: "actor", V: validation.VStr(actor)},
 	))
 	finding.O = validation.SetOrAppend(finding.O, "history", hist)
-	if err := SaveFinding(campaign, &finding); err != nil {
-		return validation.VNull(), err
-	}
-	keys := make([]validation.Value, len(changed))
-	for i, k := range changed {
-		keys[i] = validation.VStr(k)
-	}
-	data := validation.VObj(
-		validation.KV{K: "changed", V: validation.VArr(keys...)},
-		validation.KV{K: "reason", V: validation.VStr(reason)},
-		validation.KV{K: "actor", V: validation.VStr(actor)},
-		validation.KV{K: "claim_version", V: validation.VInt(version)},
-	)
-	if _, err := campaign.Log("finding.amended", &findingID, &data); err != nil {
+	// r18 P1: THE amend docstring promises a claim is "corrected without
+	// lying to the hash chain" — an unwound save+log half-landed edited
+	// claim text + bumped claim_version with NO finding.amended event,
+	// invisible to every projection (the ingest event still exists;
+	// nothing compares content). SaveThenLog: file and event land
+	// together or not at all.
+	if err := SaveThenLog(campaign, &finding, func() error {
+		keys := make([]validation.Value, len(changed))
+		for i, k := range changed {
+			keys[i] = validation.VStr(k)
+		}
+		data := validation.VObj(
+			validation.KV{K: "changed", V: validation.VArr(keys...)},
+			validation.KV{K: "reason", V: validation.VStr(reason)},
+			validation.KV{K: "actor", V: validation.VStr(actor)},
+			validation.KV{K: "claim_version", V: validation.VInt(version)},
+		)
+		if _, lerr := campaign.Log("finding.amended", &findingID, &data); lerr != nil {
+			return lerr
+		}
+		return nil
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return finding, nil
@@ -216,15 +224,26 @@ func Supersede(campaign *state.Campaign, newID, oldID,
 	dm.O = validation.SetOrAppend(dm.O, "supersedes",
 		validation.VStr(oldID))
 	newFinding.O = validation.SetOrAppend(newFinding.O, "dedup_meta", dm)
-	if err := SaveFinding(campaign, &newFinding); err != nil {
-		return validation.VNull(), err
-	}
-	data := validation.VObj(
-		validation.KV{K: "old", V: validation.VStr(oldID)},
-		validation.KV{K: "new", V: validation.VStr(newID)},
-		validation.KV{K: "actor", V: validation.VStr(actor)},
-	)
-	if _, err := campaign.Log("finding.superseded", &newID, &data); err != nil {
+	// r18 P1 (the round's MOST damaging): the OLD finding already
+	// transitioned to terminal SUPERSEDED through Transition (unwind-
+	// safe, WITH its event). If the successor's save half-lands while
+	// its finding.superseded event is refused, the campaign sits between
+	// a retired claim and an unrecorded successor — and NO verb can
+	// finish or undo it (terminal doors don't reopen; supersede refuses
+	// a terminal target). SaveThenLog closes the split-brain class:
+	// either the successor carries the pointer WITH the event, or the
+	// file stays exactly as it was and the operator can retry.
+	if err := SaveThenLog(campaign, &newFinding, func() error {
+		data := validation.VObj(
+			validation.KV{K: "old", V: validation.VStr(oldID)},
+			validation.KV{K: "new", V: validation.VStr(newID)},
+			validation.KV{K: "actor", V: validation.VStr(actor)},
+		)
+		if _, lerr := campaign.Log("finding.superseded", &newID, &data); lerr != nil {
+			return lerr
+		}
+		return nil
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return newFinding, nil
