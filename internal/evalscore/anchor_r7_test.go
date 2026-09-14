@@ -88,3 +88,59 @@ func loadRows(t *testing.T, rows ...validation.Value) ([]validation.Value, error
 	}
 	return LoadGoldPack(p)
 }
+
+// TestAnchorKeyBehaviorEquality (r8-1): the guard fires on what anchor()
+// cannot distinguish — repeats, order, whitespace, dead-basename
+// location sets — and stays silent where the join genuinely differs.
+func TestAnchorKeyBehaviorEquality(t *testing.T) {
+	base := withFile(goldPackRow("CASE-00000000aa01", "Morph", "reentrancy"),
+		"Vault.sol")
+	// duplicated accept entry: same membership -> same anchor
+	dupAcc := withFile(goldPackRow("CASE-00000000aa02", "Morph", "reentrancy"),
+		"Vault.sol")
+	g := obj(dupAcc, "gold")
+	g.O = validation.SetOrAppend(g.O, "bug_class_accept", validation.VArr(
+		validation.VStr("access-control"), validation.VStr("access-control")))
+	dupAcc.O = validation.SetOrAppend(dupAcc.O, "gold", g)
+	singleAcc := withFile(goldPackRow("CASE-00000000aa03", "Morph",
+		"reentrancy"), "Vault.sol")
+	g2 := obj(singleAcc, "gold")
+	g2.O = validation.SetOrAppend(g2.O, "bug_class_accept", validation.VArr(
+		validation.VStr("access-control")))
+	singleAcc.O = validation.SetOrAppend(singleAcc.O, "gold", g2)
+	if _, err := loadRows(t, dupAcc, singleAcc); err == nil ||
+		!strings.Contains(err.Error(), "same gold anchor") {
+		t.Fatalf("duplicated accept entries are the SAME anchor: %v", err)
+	}
+	_ = base
+	// "a/" (dead basename) vs NO locations: matches-nothing is NOT
+	// matches-everything — both load alongside each other, and each
+	// differs from a real basename too.
+	deadA := withFile(goldPackRow("CASE-00000000bb01", "Morph",
+		"oracle-manipulation"), "a/")
+	deadB := withFile(goldPackRow("CASE-00000000bb02", "Morph",
+		"oracle-manipulation"), "b/")
+	plain := goldPackRow("CASE-00000000bb03", "Morph", "oracle-manipulation")
+	// deadA vs plain (class-only): DIFFERENT anchors (match-nothing vs
+	// match-everything) — must load together.
+	if _, err := loadRows(t,
+		withFile(goldPackRow("CASE-00000000bb04", "Morph",
+			"oracle-manipulation"), "a/"), plain); err != nil {
+		t.Fatalf("dead-basename vs class-only are distinct anchors: %v",
+			err)
+	}
+	// deadA vs deadB: identical (both match nothing) — refuse.
+	if _, err := loadRows(t, deadA, deadB); err == nil ||
+		!strings.Contains(err.Error(), "same gold anchor") {
+		t.Fatalf("two dead-basename rows ARE identical anchors: %v", err)
+	}
+	// mechanism whitespace: "phrase" == "phrase   ".
+	m1 := withMechs(withFile(goldPackRow("CASE-00000000cc01", "Morph",
+		"dos-griefing"), "G.sol"), "gas stipend changes control flow")
+	m2 := withMechs(withFile(goldPackRow("CASE-00000000cc02", "Morph",
+		"dos-griefing"), "G.sol"), "gas stipend changes control flow   ")
+	if _, err := loadRows(t, m1, m2); err == nil ||
+		!strings.Contains(err.Error(), "same gold anchor") {
+		t.Fatalf("trailing-space mechanism duplicates: %v", err)
+	}
+}

@@ -729,42 +729,75 @@ func goldPackSidecar(path string) (string, bool) {
 }
 
 // anchorKey is the canonical identity of a gold row's ANCHOR: everything
-// the scorer's anchor() joins a finding against — the ACCEPTED class SET
-// (bug_class plus bug_class_accept, sorted: a finding carries exactly one
-// class, so rows collide only when the class leg can be satisfied by the
-// same single class), the sorted location BASENAMES (anchor() matches on
-// basename suffixes), the outcome, and the sorted match_mechanisms (plain
-// strings in the schema). Two rows with equal keys are indistinguishable
-// to the scorer for EVERY finding; anything else stays legal (r7 lesson:
-// reading .path instead of .file collapsed the location leg and refused
-// the project's own shipped pack).
+// the scorer's anchor() joins a finding against, EXACTLY as anchor()
+// collapses it (r7-r8 law: the guard exists to refuse answer-key
+// duplication, so it must fire on anchor-behavior equality — not on raw
+// JSON that merely looks different):
+//   - the ACCEPTED class SET, deduped and sorted (bug_class ∪
+//     bug_class_accept; anchor() tests membership, order and repeats are
+//     invisible to it),
+//   - the location leg as (present?, usable basename set): a NON-EMPTY
+//     locations array whose every basename is empty ({"file":"a/"}) makes
+//     anchor() match NOTHING — that is NOT the same anchor as absent/[]
+//     locations, which match EVERYTHING (r8 false-refusal),
+//   - the gold outcome,
+//   - the mechanism leg, deduped and TRIMMED the way
+//     goldAcceptsMechanism trims ("phrase" == "phrase   ").
 func anchorKey(row validation.Value) string {
 	g := obj(row, "gold")
-	classes := []string{field(g, "bug_class")}
+	// goldAcceptsClass membership is the union of bug_class and
+	// bug_class_accept: one set, order and repeats invisible (r8).
+	all := []string{field(g, "bug_class")}
 	for _, a := range obj(g, "bug_class_accept").A {
 		if a.Kind == validation.Str {
-			classes = append(classes, a.S)
+			all = append(all, a.S)
 		}
 	}
-	sort.Strings(classes)
-	var locs []string
-	for _, l := range obj(g, "locations").A {
-		if b := base(field(l, "file")); b != "" {
-			locs = append(locs, b)
+	classes := dedupeSorted(all)
+	locs := obj(g, "locations").A
+	locLeg := "*" // absent or []: class-only anchor, matches everything
+	if len(locs) > 0 {
+		bases := make([]string, 0, len(locs))
+		for _, l := range locs {
+			if b := base(field(l, "file")); b != "" {
+				bases = append(bases, b)
+			}
+		}
+		if len(bases) == 0 {
+			locLeg = "!" // present-but-dead: matches NOTHING
+		} else {
+			locLeg = strings.Join(dedupeSorted(bases), ",")
 		}
 	}
-	sort.Strings(locs)
-	var mech []string
+	mechs := make([]string, 0)
 	for _, m := range obj(g, "match_mechanisms").A {
 		if m.Kind == validation.Str {
-			mech = append(mech, m.S)
+			if s := strings.TrimSpace(m.S); s != "" {
+				mechs = append(mechs, s)
+			}
 		}
 	}
-	sort.Strings(mech)
+	mechLeg := ""
+	if len(mechs) > 0 {
+		mechLeg = strings.Join(dedupeSorted(mechs), "\u0000")
+	}
 	return strings.Join([]string{
-		strings.Join(classes, ","),
-		strings.Join(locs, ","),
-		field(g, "outcome"),
-		strings.Join(mech, "\u0000"),
+		strings.Join(classes, ","), locLeg,
+		field(g, "outcome"), mechLeg,
 	}, "\x00")
+}
+
+// dedupeSorted is the anchor-leg normalizer: unique, ascending.
+func dedupeSorted(in []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	sort.Strings(out)
+	return out
 }
