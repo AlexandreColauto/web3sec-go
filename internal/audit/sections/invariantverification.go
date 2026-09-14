@@ -210,6 +210,17 @@ func harnessRungBacked(events []validation.Value, iid string,
 			"harness_run event — the slot was not written by a mapper "+
 			"(hand edit or failed unwind); the rung is not backed", iid)
 	}
+	// r22 F3: bounded_k is the field the DISPLAY line trusts most — a
+	// event-less k can only mean "the run carried none"; any other
+	// disagreement (slot 999999 vs event 100) is a hand-edit. Events
+	// from pre-k mappers omit the key entirely and pass (null-vs-null).
+	slotK, eventK := objAt(h, "bounded_k"), objAt(last, "bounded_k")
+	if slotK.Kind != eventK.Kind ||
+		(slotK.Kind == validation.Int && slotK.I != eventK.I) {
+		return fmt.Sprintf("%s: stored bounded_k (%s) does not match the "+
+			"LAST harness_run event (%s) — display state drifted from the "+
+			"ledger", iid, pyKind(slotK), pyKind(eventK))
+	}
 	for _, key := range []string{"kind", "rung", "exec", "summary"} {
 		want := objStr(h, key)
 		got := objStr(last, key)
@@ -233,4 +244,17 @@ func harnessRungBacked(events []validation.Value, iid string,
 		}
 	}
 	return ""
+}
+
+// pyKind names a JSON value's shape for drift messages (null != 100 is
+// the informative case; "Null vs Int" says it).
+func pyKind(v validation.Value) string {
+	switch v.Kind {
+	case validation.Null:
+		return "absent/null"
+	case validation.Int:
+		return fmt.Sprintf("%d", v.I)
+	default:
+		return validation.CanonCompact(v)
+	}
 }

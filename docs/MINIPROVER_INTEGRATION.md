@@ -94,11 +94,11 @@ control plane enforces elsewhere:
    there is** — webv2's mapper refuses to bless it (§4), FAIL-CLOSED on
    shape (r21: padded/case-folded verdicts, non-object findings, and
    unattributed suspect flags all refuse). The prover's own summary
-   shout is case-SENSITIVE (`cli.py` compares `verdict == "suspect"`
-   verbatim against LLM-authored strings): an uppercase-emitting
-   reviewer stays quiet upstream, so webv2's gate — not the prover's
-   shout — is the load-bearing rail. Upstream fix owed: fold case +
-   whitespace there too.
+   shout compared the LLM string verbatim — FIXED upstream in the same
+   sweep (prover commit canonicalizing verdicts at storage:
+   `.strip().lower()` in `review._finding`), so both rails now agree;
+   webv2 stays fail-CLOSED on shapes regardless (defense in depth
+   means the host gate never assumes the tool behaves).
 
 ## 4. Compiler provenance: recorded, and NOW enforced
 

@@ -234,6 +234,14 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		validation.KV{K: "exec", V: validation.VStr(a.execID)},
 		validation.KV{K: "invariant", V: validation.VStr(a.harnessResult)},
 		validation.KV{K: "summary", V: validation.VStr(summary)},
+		// r22 F3: the backstop can only back-check what the event
+		// carries — k rides too (null = the run stated no bound).
+		validation.KV{K: "bounded_k", V: func() validation.Value {
+			if boundedK != nil {
+				return validation.VInt(int64(*boundedK))
+			}
+			return validation.VNull()
+		}()},
 	)
 	if err := linksThenLog(c, func() error {
 		return harnessSaveEntry(c, links, a.harnessResult, entry)

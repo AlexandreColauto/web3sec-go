@@ -6,8 +6,10 @@ import "os/exec"
 
 func setProcGroup(cmd *exec.Cmd) {}
 
-func killGroup(cmd *exec.Cmd) {
-	if cmd.Process != nil {
-		_ = cmd.Process.Kill()
+// killGroup: windows has no POSIX groups; direct kill only.
+func killGroup(cmd *exec.Cmd) bool {
+	if cmd.Process == nil {
+		return false
 	}
+	return cmd.Process.Kill() == nil
 }

@@ -334,3 +334,107 @@ func TestR21AuditRefusesAnUnbackedHarnessRung(t *testing.T) {
 			code, out, errS)
 	}
 }
+
+// TestR22ReviewCrashNeverBlessed pins r22 F2 + F5: review_error means
+// the gate NEVER RAN; null findings is a foreign contract. Neither is
+// "no findings".
+func TestR22ReviewCrashNeverBlessed(t *testing.T) {
+	cases := []struct{ name, inject, want string }{
+		{"crashed review", `"review_error": "review model call failed: boom",`,
+			"NEVER RAN"},
+		{"null findings", `"review_findings": null,`, "malformed"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, root := mcCamp(t, "r22-"+strings.ReplaceAll(tc.name, " ", "-"))
+			rep := apWrite(t, `{"schema_version": "1.0", "published": true,
+				`+tc.inject+`
+				"publish_problems": [], "review_independent": true,
+				"capabilities_missing": [], "flags": {"loop_bound": 4},
+				"property_outcomes": {"p1": {"outcome": "PROVEN",
+					"per_rule": {"inv_1": "PROVEN"}}}}`)
+			code, _, errS := apVerify(t, root, c, "--property", "p1",
+				"--report", rep)
+			if code != 2 || !strings.Contains(errS, tc.want) {
+				t.Fatalf("%s: exit %d err %q", tc.name, code, errS)
+			}
+		})
+	}
+}
+
+// TestR22CaseFoldedAttribution pins r22 F4: " suspect " on "P1" is the
+// same flag on the same property; and one property proves one
+// invariant ACROSS casings.
+func TestR22CaseFoldedAttribution(t *testing.T) {
+	c, root := mcCamp(t, "r22-f4a")
+	rep := apWrite(t, `{"schema_version": "1.0", "published": true,
+		"review_error": "",
+		"publish_problems": [], "review_independent": true,
+		"capabilities_missing": [], "flags": {"loop_bound": 4},
+		"property_outcomes": {"P1": {"outcome": "PROVEN",
+			"per_rule": {"inv_1": "PROVEN"}}},
+		"review_findings": [{"property": "p1", "verdict": "Suspect",
+			"reason": "case-dodged?"}]}`)
+	code, _, errS := apVerify(t, root, c, "--property", "P1", "--report", rep)
+	if code != 2 || !strings.Contains(errS, "SUSPECT") {
+		t.Fatalf("case-slipped flag must gate: exit %d err %q", code, errS)
+	}
+	// Double-credit rail across cases.
+	c2, root2 := mcCamp(t, "r22-f4b")
+	model := validation.VObj(kvT("invariants", validation.VArr(
+		validation.VObj(
+			kvT("id", validation.VStr("INV-2")),
+			kvT("statement", validation.VStr(
+				"withdrawer never receives more than deposited")),
+		))))
+	if _, err := invariants.SeedFromModel(c2, model); err != nil {
+		t.Fatal(err)
+	}
+	clean := `{"schema_version": "1.0", "published": true,
+		"publish_problems": [], "review_independent": true,
+		"capabilities_missing": [], "flags": {"loop_bound": 4},
+		"property_outcomes": {"p1": {"outcome": "PROVEN",
+			"per_rule": {"inv_1": "PROVEN"}}},
+		"review_findings": []}`
+	rep2 := apWrite(t, clean)
+	if code, _, errS := run(t, "--root", root2, "verify", c2.CampaignID,
+		"--autoprove", "INV-2", "--property", "p1", "--report", rep2); code != 0 {
+		t.Fatalf("first bind: %q", errS)
+	}
+	code, _, errS = apVerify(t, root2, c2, "--property", "P1", "--report", rep2)
+	if code != 2 || !strings.Contains(errS, "already bound to INV-2") {
+		t.Fatalf("P1 is p1 for the rail: exit %d err %q", code, errS)
+	}
+}
+
+// TestR22BackstopComparesTheBound pins r22 F3: k is the field the
+// display trusts MOST — hand-editing it burns audit even when the
+// summary stays true.
+func TestR22BackstopComparesTheBound(t *testing.T) {
+	c, root := mcCamp(t, "r22-f3k")
+	rep := apWrite(t, `{"schema_version": "1.0", "published": true,
+		"publish_problems": [], "review_independent": true,
+		"capabilities_missing": [], "flags": {"loop_bound": 4},
+		"property_outcomes": {"p1": {"outcome": "PROVEN",
+			"per_rule": {"inv_1": "PROVEN"}}},
+		"review_findings": []}`)
+	if code, _, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep); code != 0 {
+		t.Fatalf("bind: %q", errS)
+	}
+	linksPath := filepath.Join(c.ArtifactsDir, "invariant_links.json")
+	raw, _ := os.ReadFile(linksPath)
+	hand := strings.Replace(string(raw), `"bounded_k": 4,`,
+		`"bounded_k": 999999,`, 1)
+	if hand == string(raw) {
+		t.Fatal("fixture drift: bounded_k not found")
+	}
+	if err := os.WriteFile(linksPath, []byte(hand), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, _ := run(t, "--root", root, "audit", c.CampaignID)
+	if code == 0 || !strings.Contains(out, "bounded_k") {
+		t.Fatalf("a 999999 hand-edit must burn on the k axis: exit %d",
+			code)
+	}
+}

@@ -77,6 +77,7 @@ func backEvent(t *testing.T, c *state.Campaign, iid string,
 		KV("exec", validation.VStr(objStr(h, "exec"))),
 		KV("invariant", validation.VStr(iid)),
 		KV("summary", validation.VStr(objStr(h, "summary"))),
+		KV("bounded_k", objAt(h, "bounded_k")),
 	)
 	ref := iid
 	if _, err := c.Log("harness_run", &ref, &data); err != nil {

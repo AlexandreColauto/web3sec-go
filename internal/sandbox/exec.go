@@ -28,6 +28,12 @@ type ProcResult struct {
 	ReturnCode int
 	Stdout     string
 	Stderr     string
+	// TimeoutNote, when set, qualifies the timeout record: the
+	// pathological "group signalled but a survivor escaped" arm says so
+	// instead of the wrapper claiming a clean kill (r22 F1: a record
+	// that says "was killed" when nothing died is a lie + destroyed
+	// stdout). Faked/injected results leave it empty = plain wording.
+	TimeoutNote string
 }
 
 // runFunc executes a subprocess. dir is the working directory ("" = inherit),
@@ -101,13 +107,15 @@ func realRunProc(argv []string, dir string, env []string,
 		}
 		close(killDone)
 		if !waited {
-			// The pathological arm: even the GROUP kill left the pipes
-			// open (a survivor re-forked out of the group). Reading the
-			// Builders now would race a live copier — return empty. A
-			// lost timeout's stdout costs a display line; a race costs
-			// truth. The goroutine stays parked on Wait; the process is
-			// SIGKILLed, so this is bounded leakage, not a hang.
-			return ProcResult{ReturnCode: -1}, errTimeout
+			// The pathological arm, now only for survivors that RE-FORKED
+			// OUT of the group (setsid): the pgid kill by number lands
+			// for every wrapper shape the r22 probe enumerated. Reading
+			// the Builders would race a live copier, so bytes are
+			// withheld — and the record says EXACTLY what happened
+			// instead of claiming a kill that escaped.
+			return ProcResult{ReturnCode: -1, TimeoutNote: "; its process group was SIGKILLed, but a pipe-holding " +
+					"survivor escaped the group (partial output withheld)"},
+				errTimeout
 		}
 		return ProcResult{ReturnCode: -1, Stdout: out.String(),
 			Stderr: errB.String()}, errTimeout
@@ -339,8 +347,8 @@ func (s *Sandbox) execute(containerArgv []string, command string,
 			stderr += "\n"
 		}
 		return -1, res.Stdout, stderr +
-			fmt.Sprintf("sandbox: timed out after %gs and was killed\n",
-				timeout.Seconds())
+			fmt.Sprintf("sandbox: timed out after %gs and was killed%s\n",
+				timeout.Seconds(), res.TimeoutNote)
 	}
 	if err != nil {
 		// The process never ran — a missing workdir, no docker on PATH, an

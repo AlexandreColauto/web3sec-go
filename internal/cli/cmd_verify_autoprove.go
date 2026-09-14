@@ -155,6 +155,24 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 			"this run (the prover attempted: %s) — exact-match only\n",
 			validation.PyReprStr(a.property), joinOrDash(names))
 	}
+	// r22 F2: the prover records review_error precisely so "no findings"
+	// and "no review" never look alike — a run whose review role
+	// CRASHED carries an EMPTY findings list that means nothing. Law:
+	// an unmade check is never a cleared check.
+	if re := objStr(rep, "review_error"); re != "" {
+		return t14ExitErr(2, "verify --autoprove: the independent review "+
+			"NEVER RAN (%s) — PROVEN binds without it only by "+
+			"inattention; refusing\n", re)
+	}
+	if v := objAt(rep, "review_findings"); v.Kind != validation.Arr {
+		// r22 F5: the twin ALWAYS emits an array — null, absent, or
+		// scalar are all foreign contracts. An unreadable gate input
+		// reads as "nothing flagged" to nothing: refuse.
+		return t14ExitErr(2, "verify --autoprove: malformed "+
+			"review_findings (kind %v, contract: array) — the gate "+
+			"reads the review's output; a broken one is never empty "+
+			"enough to pass\n", v.Kind)
+	}
 	if sus := autoproveSuspects(rep, a.property); sus != "" {
 		return t14ExitErr(2, "verify --autoprove: the independent review "+
 			"flagged property %s as SUSPECT — %s — a PROVEN verdict next "+
@@ -252,8 +270,12 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	if err := linksThenLog(c, func() error {
 		return harnessSaveEntry(c, links, a.autoprove, entry)
 	}, func() error {
+		bkV := validation.VNull()
+		if bk != nil {
+			bkV = validation.VInt(int64(*bk))
+		}
 		edata := autoproveEventData(a.autoprove, rung, exec, summary,
-			a.property, digest, rep)
+			a.property, digest, bkV, rep)
 		_, lerr := c.Log("harness_run", &a.autoprove, &edata)
 		return lerr
 	}); err != nil {
@@ -317,7 +339,7 @@ func autoproveSuspects(rep validation.Value, property string) string {
 				"attribution — counted against every property")
 			continue
 		}
-		if objStr(f, "property") != property {
+		if !autoproveSameName(objStr(f, "property"), property) {
 			continue
 		}
 		out = append(out, scalarStr(objAt(f, "reason")))
@@ -389,7 +411,8 @@ func orUnset(s, alt string) string {
 // (property title, sha256 of the bytes mapped, whether the review was
 // independent at run time).
 func autoproveEventData(invID, rung, exec, summary, property,
-	digest string, rep validation.Value) validation.Value {
+	digest string, bk validation.Value,
+	rep validation.Value) validation.Value {
 	return validation.VObj(
 		validation.KV{K: "kind",
 			V: validation.VStr(string(harness.Kind("miniprover")))},
@@ -397,6 +420,7 @@ func autoproveEventData(invID, rung, exec, summary, property,
 		validation.KV{K: "exec", V: validation.VStr(exec)},
 		validation.KV{K: "invariant", V: validation.VStr(invID)},
 		validation.KV{K: "summary", V: validation.VStr(summary)},
+		validation.KV{K: "bounded_k", V: bk},
 		validation.KV{K: "property", V: validation.VStr(property)},
 		validation.KV{K: "report_sha256", V: validation.VStr(digest)},
 		validation.KV{K: "review_independent",
@@ -423,7 +447,7 @@ func autoprovePropertyHolder(c *state.Campaign, property string) (string, string
 			continue
 		}
 		d := objAt(e, "data")
-		if objStr(d, "property") != property {
+		if !autoproveSameName(objStr(d, "property"), property) {
 			continue
 		}
 		if inv := objStr(d, "invariant"); inv != "" {
@@ -452,4 +476,13 @@ func autoprovePriorDigest(c *state.Campaign, invID string) string {
 		}
 	}
 	return last
+}
+
+// autoproveSameName: property titles are AGENT-authored strings — the
+// same verbatim-slop class r21 F2 fixed for verdicts. Attribution and
+// consumption fold case + edges (display keeps the first spelling;
+// identity is the folded form, so "P1" cannot launder a second bind
+// nor dodge a suspect flag).
+func autoproveSameName(a, b string) bool {
+	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
 }
