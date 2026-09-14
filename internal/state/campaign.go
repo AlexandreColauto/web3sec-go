@@ -299,7 +299,38 @@ func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
 	if err := c.save(st); err != nil {
 		return "", err
 	}
-	if !existing {
+	// r11: the event decision keys on the LEDGER, not on the state row.
+	// The old `!existing` gate meant a re-pin of the same id could never
+	// re-emit a missing event — an erased snapshot.pinned left the
+	// projection red forever with the ONLY exit being the very hand-edit
+	// section 5 exists to catch. Now: no event for this id in the ledger
+	// ⇒ emit it (first pin, or a sanctioned heal); event already there ⇒
+	// truly no-op. The state row follows the same rule as before.
+	pinnedInLog := false
+	evts, evErr := c.Events()
+	if evErr != nil && !os.IsNotExist(evErr) {
+		// The ledger cannot be read: the event decision is unknowable.
+		// Fail like a refused event (same unwind law, r9) — never pin a
+		// row whose event cannot be checked.
+		if unwinding := c.unwindState(prevState, hadPrev); unwinding != nil {
+			return "", fmt.Errorf("pinned-event lookup failed (%v) and "+
+				"the state could not be unwound (%v): %w", evErr, unwinding,
+				evErr)
+		}
+		return "", fmt.Errorf("snapshot %s was NOT kept — the ledger could "+
+			"not be read to decide the pin event, and the state "+
+			"projection was rolled back: %w", sid, evErr)
+	}
+	if evErr == nil {
+		for _, e := range evts {
+			if objStr(e, "type") == "snapshot.pinned" &&
+				objStr(e, "ref") == sid {
+				pinnedInLog = true
+				break
+			}
+		}
+	}
+	if !pinnedInLog {
 		// DEFECT-2 follow-up: the pin records the framework build that
 		// produced the snapshot, so a later `brief` running a different
 		// binary can warn instead of silently trusting probe semantics
@@ -310,13 +341,20 @@ func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
 			kv("ladder", objAt(objAt(snap, "source"), "ladder")),
 			kv("framework_build", validation.VStr(version.Commit())),
 		)
+		if existing {
+			// A heal, disclosed as such — an operator reading the log
+			// sees WHY the event lands second.
+			data.O = validation.SetOrAppend(data.O, "reconciled",
+				validation.VBool(true))
+		}
 		if _, err := c.Log("snapshot.pinned", &sid, &data); err != nil {
 			if unwinding := c.unwindState(prevState, hadPrev); unwinding != nil {
 				return "", fmt.Errorf("pin event failed (%v) AND the state "+
 					"projection could not be unwound (%v): campaign_state "+
 					"lists snapshot %s the ledger never recorded — repair "+
-					"the events tail and re-pin before trusting any "+
-					"projection", err, unwinding, sid)
+					"the events tail and re-pin `snap --reconcile` the "+
+					"snapshot before trusting any projection",
+					err, unwinding, sid)
 			}
 			return "", fmt.Errorf("snapshot %s was NOT kept — the state "+
 				"projection was rolled back with the ledger refusing the "+

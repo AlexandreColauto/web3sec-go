@@ -1,5 +1,22 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — critic round 11: the heal must exist before the red is honest
+The r10 un-gating made a stripped pinned-event catchable — and caught it
+FOREVER: re-pin keyed its event on the STATE row (no row ⇒ log), so a row
+whose event was erased could never legally regain it, and the only exit
+was the hand-edit the check exists to police. PinSnapshot now keys on the
+LEDGER (no snapshot.pinned event for this id ⇒ emit it, marked
+reconciled: true), which makes a plain `snap` of the same content the
+sanctioned heal — documented in RUNBOOK §3. Same round: the CLI `index`
+verb registered NOTHING while the orchestrator registered raw — forged
+index rows fed prescreen/sinks under a green audit; every writer of the
+regenerated structural_index.json (CLI verb, pipeline stage, the
+EnsureFreshIndex wrapper) now goes through RegisterOrRefresh (one row per
+path, always re-hashed — the D3 lesson this file already knew); the
+exit-code paragraph stopped claiming a convention the unknown-id family
+does not have; r9's ledger-first read learned to unwind too when Events()
+itself cannot parse.
+
 ## 2026-09-14 — critic round 10: a gate is only as good as its blind spot
 Section 5's snapshot-row check ran only WHEN THE LEDGER HAD PINNED EVENTS —
 so deleting an event from both ledger copies (jsonl + state mirror) blinded

@@ -39,7 +39,24 @@ func runIndex(root string, args []string, r *Runner) int {
 		if err != nil {
 			return err
 		}
-		if _, err := structidx.SaveIndex(c, idx); err != nil {
+		idxPath, err := structidx.SaveIndex(c, idx)
+		if err != nil {
+			return err
+		}
+		// r11: REGISTER the index like the orchestrator's own path does
+		// (internal/orchestrator/index.go). An unregistered derived
+		// artifact is a trust boundary the audit cannot see: a hand-edited
+		// structural_index.json — a forged payable withdraw node — fed
+		// prescreen and sinks while every ledger check stayed green,
+		// because the Artifacts section hashes REGISTERED files only.
+		// Registration re-hashes on every audit and artifact-reconcile.
+		snapID := objStr(idx, "snapshot_id")
+		var snapRef *string
+		if snapID != "" && snapID != "unpinned" {
+			snapRef = &snapID
+		}
+		if _, err := c.RegisterOrRefresh("structural-index", idxPath, "",
+			snapRef, "structural index rebuilt"); err != nil {
 			return err
 		}
 		if asJSON {

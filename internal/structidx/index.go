@@ -193,7 +193,22 @@ func EnsureFreshIndex(c *state.Campaign, root string) (validation.Value, error) 
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if _, err := SaveIndex(c, idx); err != nil {
+	saved, err := SaveIndex(c, idx)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	// r11: a wrapper that REWRITES the campaign's registered artifact must
+	// keep the registry truthful: re-hash the row (RegisterOrRefresh is the
+	// sanctioned same-path seam — one row per resolved path, always
+	// refreshed) or the very next `audit` reads honest drift over a file
+	// this command itself regenerated.
+	snapID := objStr(idx, "snapshot_id")
+	var snapRef *string
+	if snapID != "" && snapID != "unpinned" {
+		snapRef = &snapID
+	}
+	if _, err := c.RegisterOrRefresh("structural-index", saved, "",
+		snapRef, "structural index rebuilt (freshness wrapper)"); err != nil {
 		return validation.VNull(), err
 	}
 	return idx, nil

@@ -78,7 +78,13 @@ func (o *Orchestrator) BuildStructuralIndex() (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if _, err := o.C.RegisterArtifact("structural-index", out, "", snapID); err != nil {
+	// r11: RegisterOrRefresh, not a raw register — the index is a
+	// REGENERATED file (run after re-snap, or a wrapper rebuild): raw
+	// register would mint a ghost row whose hash is stale the moment the
+	// index is rebuilt again, and the audit's re-hash-every-row check
+	// burns red with no sanctioned exit (the D3 lesson, applied here).
+	if _, err := o.C.RegisterOrRefresh("structural-index", out, "",
+		snapID, "structural index rebuilt (pipeline stage)"); err != nil {
 		return validation.VNull(), err
 	}
 	if err := o.C.SetStage("structural-index", "done", validation.VNull(),

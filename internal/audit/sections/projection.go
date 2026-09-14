@@ -2,8 +2,12 @@
 // projection of the log. An entry the projection holds that the log never
 // recorded is a hand-edit of the state file; the reverse (log events with
 // no state entry) is what legacy campaigns look like, so it is not
-// flagged. Each check runs only when the log records at least one event
-// of that kind. Message-for-message with audit.py section 5.
+// flagged. Most checks run only when the log records at least one event
+// of that kind — the SNAPSHOT-ROW direction does not (r10): gating it on
+// the ledger's pinned-event count let an event erased from BOTH ledger
+// copies blind the check over a lying state row. Messages are for-
+// message with audit.py section 5; the un-gating is a documented
+// divergence, and r11 made a plain re-pin the sanctioned heal.
 package sections
 
 import (

@@ -58,13 +58,19 @@ webv2 env doctor            # read-only: docker cli/daemon, image presence + dig
 webv2 env doctor <C-xxx>    # + checks the box against the evidence floor THIS campaign needs (exit 1 while it cannot)
 ```
 
-Exit codes are one convention across every verb: **0** did what was asked
-(including a truthful empty result), **1** is a decision or integrity failure
-(gate not passed, verification refused, content too short), **2** is the
-"the thing you named does not exist or was not given" family — argparse
-refusals, missing rows, unknown ids, missing prerequisite state (an index
-before `probes run`, a plan before `answered`). A 2 never means "wrong"; it
-means "nothing to operate on — fix the invocation or the precondition".
+Exit codes follow one shared shape, with a boundary worth knowing exactly:
+**0** did what was asked (including a truthful empty result). **1** is a
+decision or integrity failure — a refused transition, a failed gate, a
+content check too short — AND, today, an unknown-id lookup discovered at
+RUN time by some verbs (a `move`/`verdict`/`mint` naming a finding that does
+not exist). **2** is "you asked about something the machine cannot even
+locate": every argparse refusal, and the dependency/lookup misses that
+check preconditions up front (an index missing before `probes run`, no plan
+before `answered`, an unknown id passed to `impact`/`invariant-verify`/
+`execs --id`). The 1-vs-2 line inside the "unknown id" family is a
+historical split that still varies per verb — treat 2 as "fix the
+invocation or the precondition", never as "wrong", and never read the two
+codes as different verdicts about your WORK.
 
 ## 1. The fast path: the pipeline
 
@@ -150,6 +156,14 @@ webv2 snap <C-xxx> ./target-repo --deployment d.json      # + deployment pin (ve
 webv2 snap <C-xxx> ./target-repo --deployment d.json --chain c.json   # + chain pin (fork target)
 webv2 snap <C-xxx> ./target-repo --exclude NAME           # prune more names (repeatable, comma-separated)
 ```
+
+A `snap` of the same content is also the SANCTIONED HEAL for a `[projection]`
+red that says "state lists snapshot … with no snapshot.pinned event" (an
+erased event): the pin re-emits the missing ledger event, disclosed
+`reconciled: true` (r11). Hand-editing `campaign_state.json` to clear such a
+red is exactly the act the projection check exists to catch — re-pin instead.
+A pin whose event the ledger refuses (torn tail) unwinds the state
+projection with it: no half-pin, no lying row, the error says so.
 
 - A `foundry.toml` in the target is read **automatically**: `snap` prints a
   `toolchain:` line (build system + solc version) and records it in the
