@@ -177,3 +177,31 @@ func TestWiringBountyWaiverSeam(t *testing.T) {
 		t.Errorf("detail = %q, want a waived-by line", detail)
 	}
 }
+
+// TestDiscoveryWaiverWorksBeforeThePlan pins r12 issue 4: the proof
+// returned "no plan" BEFORE ever reading the waiver map, so `waive
+// discovery --subject '*'` recorded a row that satisfied nothing — the
+// R3 typo guard passes (discovery consults waiverMap) yet the waiver was
+// inert. The no-plan leg now consults the waiver and says who waived.
+func TestDiscoveryWaiverWorksBeforeThePlan(t *testing.T) {
+	root := t.TempDir()
+	c, err := state.Init(root, "Waive Program",
+		state.InitOpts{CampaignID: "C-wire000003"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Waive(c, "discovery", "*",
+		"operator-driven plan-free discovery", "alice"); err != nil {
+		t.Fatal(err)
+	}
+	res, err := Proofs["discovery"](c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objAt(res, "done").Kind != validation.Bool || !objAt(res, "done").B {
+		t.Fatalf("a stage-wide waiver must open the no-plan leg: %v", res)
+	}
+	if n := objStr(res, "note"); n != "no plan — waived by alice" {
+		t.Fatalf("the note must name the waiver actor, got %q", n)
+	}
+}

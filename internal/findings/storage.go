@@ -74,7 +74,12 @@ func LoadAllFindings(campaign *state.Campaign) ([]validation.Value, error) {
 }
 
 // LoadLiveFindings is load_live_findings: all findings not in a terminal
-// junk state (dedup, scope, superseded).
+// junk state (dedup, scope, superseded). The asymmetry against IsTerminal
+// is the twin's, ported deliberately: DISPROVED and INFORMATIONAL rows
+// stay "live" for triage and evalscore because they are NEGATIVE
+// EXAMPLES the pipeline must keep seeing (a disproved claim is a scored
+// answer; a superseded or merged one is bookkeeping noise). Not a drift
+// bug — r12 audit concluded "unexplained"; this is the explanation.
 func LoadLiveFindings(campaign *state.Campaign) ([]validation.Value, error) {
 	all, err := LoadAllFindings(campaign)
 	if err != nil {

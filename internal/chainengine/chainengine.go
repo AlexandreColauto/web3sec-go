@@ -50,13 +50,16 @@ func norm(caps []string) []string {
 	return capabilities.NormalizeLabels(caps)
 }
 
-// nonDuplicate is the status filter shared by both sweeps.
+// nonDuplicate is the status filter shared by both sweeps. r12: it was a
+// hand-copied three-status list {DUPLICATE, OUT_OF_SCOPE, INFORMATIONAL}
+// while the sibling sweep (terminals) already used the framework's own
+// TERMINAL law — so capability links were rendered FROM superseded rows
+// and chains proposed through them, the exact r5 drift class this repo
+// declared closed. Terminal rows (DISPROVED, OUT_OF_SCOPE, INFORMATIONAL,
+// DUPLICATE, SUPERSEDED) answer a question; a sweep chains ANSWERS to
+// nothing. Live rows — including CONFIRMED — still participate.
 func nonDuplicate(f validation.Value) bool {
-	switch objStr(f, "status") {
-	case "DUPLICATE", "OUT_OF_SCOPE", "INFORMATIONAL":
-		return false
-	}
-	return true
+	return !findings.IsTerminal(objStr(f, "status"))
 }
 
 // capBlock is `f.get("capabilities") or {}` normalized into granted/required.

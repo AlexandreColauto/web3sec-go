@@ -319,7 +319,9 @@ func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
 		}
 		return "", fmt.Errorf("snapshot %s was NOT kept — the ledger could "+
 			"not be read to decide the pin event, and the state "+
-			"projection was rolled back: %w", sid, evErr)
+			"projection was rolled back: %v — repair the events tail "+
+			"(see `webv2 verify` line report) before re-pinning",
+			sid, evErr)
 	}
 	if evErr == nil {
 		for _, e := range evts {

@@ -648,3 +648,40 @@ func TestReproductionTierOfHelpers(t *testing.T) {
 		t.Fatalf("tier = %s", got)
 	}
 }
+
+// TestBuildCapabilityIndexDropsSuperseded pins r12 issue 2: the sweep's
+// hand list {DUPLICATE, OUT_OF_SCOPE, INFORMATIONAL} let SUPERSEDED (and
+// DISPROVED) rows keep granting capabilities and seeding chain proposals
+// while the sibling terminals sweep already used the framework's TERMINAL
+// law. One law now: IsTerminal.
+func TestBuildCapabilityIndexDropsSuperseded(t *testing.T) {
+	c := newCampaign(t, "Acme Program")
+	hypo(t, c, "logic-error", []string{"cap keep"}, nil, "Keep title here")
+	sup := hypo(t, c, "logic-error", []string{"cap sup"}, nil, "Sup title here")
+	dsp := hypo(t, c, "logic-error", []string{"cap dsp"}, nil, "Dsp title here")
+	if _, err := findings.Transition(c, objStr(sup, "finding_id"),
+		"SUPERSEDED", "answered by the successor", "", "", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := findings.Transition(c, objStr(dsp, "finding_id"),
+		"DISPROVED", "repro says no", "", "", false); err != nil {
+		t.Fatal(err)
+	}
+	idx, err := BuildCapabilityIndex(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	granted := objAt(idx, "granted")
+	if !hasKey(granted, "cap_keep") {
+		t.Fatalf("live granter missing: %v", granted)
+	}
+	if hasKey(granted, "cap_sup") || hasKey(granted, "cap_dsp") {
+		t.Fatalf("terminal rows must not grant: %v", granted)
+	}
+	// Chain proposals must not be SEEDED by terminal rows either: the
+	// proposal sweep shares the one filter.
+	links, err := BuildCapabilityIndex(c)
+	if err != nil || links.Kind != validation.Obj {
+		t.Fatalf("second index build: %v", err)
+	}
+}

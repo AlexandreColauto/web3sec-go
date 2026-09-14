@@ -125,6 +125,14 @@ func referencedSnapshotIDs(st validation.Value) []string {
 		out = append(out, s)
 	}
 	add(objStr(st, "active_snapshot_id"))
+	// r12: the projection check reads EVERY row of state.snapshots, and
+	// the brief/learning layers trust non-active rows too — a deleted
+	// directory for an INACTIVE row was a ghost pin the message already
+	// named ("the ledger pins are ghosts") but no check covered. Every
+	// referenced row must exist, active or not.
+	for _, r := range objAt(st, "snapshots").A {
+		add(objStr(r, "snapshot_id"))
+	}
 	sort.Strings(out)
 	return out
 }

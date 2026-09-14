@@ -1464,10 +1464,12 @@ func Generate(campaign *state.Campaign) (string, error) {
 	// roster is DELIBERATELY not dismissedTerminalStatuses (supersession is
 	// correction, not dismissal — but a superseded row's move reason still
 	// belongs in the table); the fix is the missing state, not a merge.
+	// r12: this roster IS the framework's terminal set (r6's addition
+	// completed it) — a hand list that only ever drifts now, so it asks
+	// the law itself. SUPERSEDED stays by the law's own definition; the
+	// r6 comment above stands.
 	for _, f := range all {
-		switch objStr(f, "status") {
-		case "DISPROVED", "OUT_OF_SCOPE", "DUPLICATE", "SUPERSEDED",
-			"INFORMATIONAL":
+		if findings.IsTerminal(objStr(f, "status")) {
 			dismissed = append(dismissed, f)
 		}
 	}

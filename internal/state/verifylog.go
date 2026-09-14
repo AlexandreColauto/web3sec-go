@@ -3,6 +3,8 @@ package state
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"websec/internal/validation"
 )
@@ -136,6 +138,52 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 		}
 	}
 
+	// r12: waivers.jsonl is a PROJECTION like state.events — Waive()
+	// writes the row AND logs completion.waived. Deleting the file left
+	// `waive` records outside every integrity check ("recorded
+	// dispositions, never silent skips" was itself silently skippable).
+	// One law now: the waiver file and the ledger's waived events must
+	// agree, row for row, per (stage, subject).
+	wp := filepath.Join(c.Dir, "waivers.jsonl")
+	wrows, werr := readWaiverRowsR12(wp)
+	if werr != nil {
+		problems = append(problems,
+			fmt.Sprintf("waivers.jsonl: unreadable (%v) — recorded "+
+				"dispositions cannot be trusted", werr))
+	} else {
+		evWaived := map[[2]string]int{}
+		for _, e := range events {
+			if objAt(e, "type").Kind != validation.Str ||
+				objAt(e, "type").S != "completion.waived" {
+				continue
+			}
+			key := [2]string{objStr(e, "ref"),
+				objStr(objAt(e, "data"), "subject")}
+			evWaived[key]++
+		}
+		rowWaived := map[[2]string]int{}
+		for _, w := range wrows {
+			key := [2]string{objStr(w, "stage"), objStr(w, "subject")}
+			rowWaived[key]++
+		}
+		for key, n := range rowWaived {
+			if evWaived[key] < n {
+				problems = append(problems, fmt.Sprintf(
+					"waivers.jsonl: %s/%s recorded %d time(s), the ledger "+
+						"%d — a waiver without its event", key[0], key[1],
+					n, evWaived[key]))
+			}
+		}
+		for key, n := range evWaived {
+			if rowWaived[key] < n {
+				problems = append(problems, fmt.Sprintf(
+					"waivers.jsonl: the ledger holds %d completion.waived "+
+						"event(s) for %s/%s, the file %d — waived rows were "+
+						"deleted or never written", n, key[0], key[1],
+					rowWaived[key]))
+			}
+		}
+	}
 	return LogVerdict{
 		Events:          len(events),
 		OK:              len(problems) == 0,
@@ -144,6 +192,30 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 		LegacyUnchained: len(events) - chained,
 		MalformedLines:  0,
 	}, nil
+}
+
+// readWaiverRowsR12 reads waivers.jsonl (missing file = nil, nil): the
+// same one-object-per-line framing, parsed with the ledger's decoder.
+func readWaiverRowsR12(path string) ([]validation.Value, error) {
+	raw, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var out []validation.Value
+	for _, ln := range strings.Split(string(raw), "\n") {
+		if strings.TrimSpace(ln) == "" {
+			continue
+		}
+		v, perr := validation.ParseOrdered([]byte(ln))
+		if perr != nil {
+			return nil, perr
+		}
+		out = append(out, v)
+	}
+	return out, nil
 }
 
 // pyStr is Python's str() over a JSON value, for problem messages:

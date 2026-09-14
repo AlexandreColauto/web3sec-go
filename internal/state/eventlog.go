@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 
+	"fmt"
 	"websec/internal/validation"
 )
 
@@ -36,6 +37,26 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 	lines, err := c.logLines()
 	if err != nil {
 		return validation.VNull(), err
+	}
+	// r12: writing into a MISSING log is genesis — the previous ledger
+	// (and whatever the state mirror still carries of it) is gone. The
+	// first append must rewind the mirror to the new ledger's own tail;
+	// appending onto a stale mirror stranded `verify`/audit's
+	// "state event tail" check forever — a heal that could not fully
+	// heal. Rewinding before the append keeps the mirror honest from the
+	// first event of the new chain.
+	if _, serr := os.Stat(c.EventsPath); os.IsNotExist(serr) {
+		st, gerr := c.State()
+		if gerr != nil {
+			return validation.VNull(), gerr
+		}
+		if len(objAt(st, "events").A) > 0 {
+			st.O = validation.SetOrAppend(st.O, "events",
+				validation.VArr())
+			if werr := c.save(st); werr != nil {
+				return validation.VNull(), werr
+			}
+		}
 	}
 	var last validation.Value
 	hasLast := false
@@ -136,10 +157,15 @@ func (c *Campaign) Events() ([]validation.Value, error) {
 		return nil, err
 	}
 	out := make([]validation.Value, 0, len(lines))
-	for _, ln := range lines {
+	for i, ln := range lines {
 		ev, err := validation.ParseOrdered([]byte(ln))
 		if err != nil {
-			return nil, err
+			// r12: a bare json error ("invalid character '{' after
+			// object key:value pair") forced the operator to hunt the
+			// torn line by hand. Name the line; the hint belongs where
+			// EVERY reader gets the error, not one call site.
+			return nil, fmt.Errorf("events.jsonl line %d does not parse "+
+				"(%v) — repair the torn tail and re-run", i+1, err)
 		}
 		out = append(out, ev)
 	}

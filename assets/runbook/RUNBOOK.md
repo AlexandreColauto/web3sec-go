@@ -160,8 +160,12 @@ webv2 snap <C-xxx> ./target-repo --exclude NAME           # prune more names (re
 A `snap` of the same content is also the SANCTIONED HEAL for a `[projection]`
 red that says "state lists snapshot … with no snapshot.pinned event" (an
 erased event): the pin re-emits the missing ledger event, disclosed
-`reconciled: true` (r11). Hand-editing `campaign_state.json` to clear such a
-red is exactly the act the projection check exists to catch — re-pin instead.
+`reconciled: true` (r11). The heal is PER ROW — if a whole-ledger deletion
+left several snapshot rows, re-pin each named snapshot; the state mirror of
+the event tail rewinds itself when the log is rebuilt from genesis (r12),
+so `verify` follows the heal back to green. Hand-editing
+`campaign_state.json` to clear such a red is exactly the act the projection
+check exists to catch — re-pin instead.
 A pin whose event the ledger refuses (torn tail) unwinds the state
 projection with it: no half-pin, no lying row, the error says so.
 

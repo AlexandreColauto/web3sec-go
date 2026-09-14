@@ -1,5 +1,29 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — critic round 12: one law, or the sweeps disagree
+with themselves
+`chainengine.nonDuplicate` still hand-listed three statuses while its
+sibling sweep used the framework's TERMINAL law — superseded rows kept
+granting capabilities and seeding chain proposals, the r5 drift class
+reborn in one switch; the filter now calls IsTerminal (pinned dropping
+SUPERSEDED and DISPROVED). r11's heal was half a heal: Log into a MISSING
+events.jsonl appended onto the dead ledger's state tail, stranding verify
+red with no verb to repair the mirror — the first append to a missing log
+now rewinds the tail (genesis), and the RUNBOOK says the heal is per-row.
+The [snapshots] section checked only the ACTIVE pin while its own message
+threatened "the ledger pins are ghosts" — every referenced row must exist
+now. A discovery waiver was INERT: the no-plan leg returned before
+waiverMap was ever read, so `waive discovery --subject '*'` printed
+"waived" and changed nothing; the consult precedes the refusal and the
+note names the actor. waivers.jsonl lived outside every integrity check
+(delete it: audit PASS) — VerifyLog cross-checks it against
+completion.waived events both directions. REFUSED: hash-equal refresh as
+a no-op — two ported twin pins require the provenance event for identical
+bytes (a re-verification IS an act), so report's honest freshness flip
+stays, with the law noted at the seam. Line-attributed parse errors
+replace the bare json message; LoadLiveFindings' asymmetry against
+IsTerminal got its explanation in the doc.
+
 ## 2026-09-14 — critic round 11: the heal must exist before the red is honest
 The r10 un-gating made a stripped pinned-event catchable — and caught it
 FOREVER: re-pin keyed its event on the STATE row (no row ⇒ log), so a row

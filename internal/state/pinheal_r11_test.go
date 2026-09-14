@@ -114,3 +114,40 @@ func TestRePinHealsStrippedPinnedEvent(t *testing.T) {
 }
 
 func init() { _ = filepath.Join }
+
+// TestGenesisLogRewindsStaleMirror pins r12 issue 1: Log into a missing
+// events.jsonl starts a NEW hash chain, but the state mirror still held
+// the dead ledger's tail — verify and audit then burned
+// "state event tail does not match the log suffix" with no verb able to
+// repair it. The first append to a missing log rewinds the mirror.
+func TestGenesisLogRewindsStaleMirror(t *testing.T) {
+	root := t.TempDir()
+	c, err := Init(root, "C-genesis0001", InitOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Log("note.added", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := len(objAt(st, "events").A); n == 0 {
+		t.Fatal("mirror must hold the event before deletion")
+	}
+	if err := os.Remove(c.EventsPath); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Log("note.added", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	v, err := c.VerifyLog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !v.OK {
+		t.Fatalf("verify after genesis rebuild must be green: %v",
+			v.Problems)
+	}
+}

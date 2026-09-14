@@ -266,6 +266,15 @@ func (c *Campaign) refreshArtifact(artifactID, reason, actor, newKind string) (v
 		return validation.VNull(),
 			fmt.Errorf("refresh_artifact requires a written reason")
 	}
+	// r12 NOTE (critic issue 6, REFUSED): a hash-equal refresh does log
+	// an event and bump refresh_count — deliberately. Two ported twin
+	// pins demand it: TestRefreshArtifact ("second refresh increments to
+	// 2" over identical bytes) and TestInvariantVerifyExecRerunRefreshes
+	// TheSameArtifact (a re-verification is a REAL act whose provenance
+	// must land even when output bytes coincide). The cost — report →
+	// re-index → prove says "regenerate" — is honest: something DID
+	// happen after report.generated. A content-no-op refresh would trade
+	// recorded provenance for convenience, so the flip stays.
 	old := objAt(a, "sha256")
 	oldKind := objStr(a, "kind")
 	migrated := ""

@@ -226,9 +226,32 @@ func proofDiscovery(c *state.Campaign) (validation.Value, error) {
 		return validation.VNull(), err
 	}
 	if !found {
-		return proofResult(false,
-			[]string{"campaign plan (discovery consumes its queue)"},
-			"no plan"), nil
+		// r12: a waiver is a recorded disposition, and it must be able to
+		// waive THIS deficit — the early return used to precede the
+		// waiverMap read, so `waive discovery --subject '*'` printed
+		// "waived" and then the proof refused anyway: an inert waiver
+		// that silently satisfied nothing. The waiver consult comes
+		// before the refusal, stage-wide or a plan-subject row.
+		wmap, werr := waiverMap(c, "discovery")
+		if werr != nil {
+			return validation.VNull(), werr
+		}
+		if _, ok := wmap["*"]; !ok {
+			if _, ok := wmap["campaign plan (discovery consumes its queue)"]; !ok {
+				return proofResult(false,
+					[]string{"campaign plan (discovery consumes its queue)"},
+					"no plan"), nil
+			}
+		}
+		actor := "operator"
+		if w, ok := wmap["*"]; ok {
+			actor = objStr(w, "actor")
+		} else if w, ok := wmap["campaign plan (discovery consumes "+
+			"its queue)"]; ok {
+			actor = objStr(w, "actor")
+		}
+		return proofResult(true, []string{},
+			"no plan — waived by "+actor), nil
 	}
 	queue, err := planner.WorkQueue(c, plan, validation.VObj(), false)
 	if err != nil {
