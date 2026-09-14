@@ -1,5 +1,48 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — r28 (b-ai critic): "the same function" is not "the same decision"
+
+Rounds 25-27 kept saying bind and audit "run the SAME function", and the critic took that sentence apart three
+ways at once. F2 (P1): section 11's minicertora re-derivation read `exit_status` with `es := 0` and no `Big`
+guard, while the bind defaults absent/null/big to `-2` — so a chain-valid forged pair claiming
+`proved-bounded k=4` over a record whose `exit_status` was absent (or null; both schema-valid) audited GREEN
+with all fourteen sections ok, over a record the bind itself had refused as `inconclusive (exit output
+unmapped)`. Same function, different ARGUMENTS. F3 (P2) was bigger: the bind decides a rung through
+`harnessMapBound`'s provenance arms — the recorded file hash against the stored scaffold's sha256, the
+`harness.Validate` re-render of the CURRENT claim (which refuses as `scaffold-degraded: <reason>`), the
+harness-named-different-sha refusal, and only then the kind mapper — while section 11 called the kind mappers
+directly, reproducing the last step alone. The auditor edited a links entry's statement after binding and the
+audit still printed `PROVEN-BOUNDED` while a re-bind refused `scaffold-degraded`; swapping an exec record's
+`input_hashes` entry for a foreign sha behaved the same. Cure: one exported decision entry point
+(`harness.DecideBound`) that takes EVERY input (kind, claim value, stdout bytes, exec record, scaffold bytes,
+timedOut, invocation bound, exit status, rule name) and owns the whole decision including the hash arm and the
+re-render; the cli keeps only the IO around it and section 11 calls the same function with the same inputs. The
+unbound arm (no recorded hash at all) still maps normally, because its hash comparison is vacuous by
+definition — rails burn lies, not modesty — and everything the cli prints stayed byte-identical. Verified by
+tamper probe: neutralizing the `harness.Validate` arm reproduces the auditor's line verbatim
+(`exit 0 ok=true runs=[INV-1: PROVEN-BOUNDED (minicertora, k=4, EXEC-1)]`) and fails the pin; restoring it
+passes, byte-identical file hash.
+
+F1 (P2) was the invocation parse disagreeing with the tool it claims to mirror: `InvocationBound` returned the
+FIRST bound flag and could not match a negative, so `--loop-bound 4 --loop-bound 0` blessed k=4 where click is
+LAST-wins (the twin's own parser puts `loop_bound` at 0 and `VerifierFlags.__post_init__` raises) and
+`--loop-bound -1` read as "unstated" instead of a stated degenerate bound. The parse is now click-shaped: last
+occurrence wins, the value may be signed, `< 1` floors, and `--loop-bound 1` stays an honest k=1 (a floor that
+eats 1 would be the opposite bug). F4 (P2) moved the r27 containment law one directory up: `storeRefuseNonRegular`
+checked the final and scratch NAMES but never the DIRECTORY, so a symlink at `artifacts/reports` made the bind
+write a 0444 copy outside the campaign with no audit-visible trace — the store now refuses a store directory
+that is not a real directory inside the campaign. Two smaller ones: an adopted published copy kept its planted
+mode (`0646`, while the docs promise read-only), so adoption now seals 0444 and refuses if it cannot; and
+`artifact-prune`'s citation warning saw only `harness_run` events, so pruning a scaffold row a live EXEC rung
+pinned was silent while the RUNBOOK promised a warning — it now covers exec-pinned rows too.
+
+Pinned by `TestInvocationBoundIsClickShaped` (20 cases), `TestDecideBoundReproducesTheBindsArms`,
+`TestDecideBoundExitStatusFloorsTheBlessing`, `TestZZR28BClaimDriftBurnsOnBothSides`,
+`TestZZR28BForeignHashBurnsOnBothSides`, `TestZZR28BAbsentExitStatusIsNotABlessing`,
+`TestZZR28BPinnedBindSummaries`, the five store tests (symlinked reports/artifacts dir, file at the store path,
+sealed adoption, unsealable adoption) and the three exec-citation prune tests; `gofmt`/`go vet` clean, 70/70
+packages, runbook-walkthrough and golden GREEN.
+
 ## 2026-09-14 — r27 (b-ai critic): the floor reached two kinds of three, and the store trusted its own path
 
 F1 (P1) was r26's own cure applied to half the surface. `BoundDegenerate` floored a stated bound below 1 for

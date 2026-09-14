@@ -1261,3 +1261,187 @@ func TestR27bHardlinkAtFinalPathRefuses(t *testing.T) {
 		t.Fatalf("the foreign name's mode changed: %v", fi.Mode())
 	}
 }
+
+// TestR28SymlinkedReportsDirRefusesAndLeavesVictimAlone pins r28 F4. The
+// auditor's repro: symlink <campaign>/artifacts/reports to a directory
+// OUTSIDE the campaign, then bind. os.MkdirAll follows the link, so the
+// store wrote (and chmod 0444'd) report-<sha>.json in that outside
+// directory — a write outside the campaign with no audit-visible trace,
+// because only the two NAMES inside the store were lstat-checked. The bind
+// must now exit 2 naming the path and its shape, and the outside directory
+// must still hold nothing at all.
+func TestR28SymlinkedReportsDirRefusesAndLeavesVictimAlone(t *testing.T) {
+	c, root := mcCamp(t, "r28-f4")
+	rep := apWrite(t, r26F2Body)
+	digest := validation.Sha256Hex([]byte(r26F2Body))
+	dir := filepath.Join(c.ArtifactsDir, "reports")
+	victimDir := t.TempDir()
+	if err := os.Symlink(victimDir, dir); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep)
+	if code != 2 {
+		t.Fatalf("a symlinked store directory must refuse: exit %d "+
+			"stdout %q stderr %q", code, out, errS)
+	}
+	for _, want := range []string{dir, "symlink", "inside the campaign"} {
+		if !strings.Contains(errS, want) {
+			t.Fatalf("the refusal must name %q: %q", want, errS)
+		}
+	}
+	// Nothing was created through the link: not the copy, not scratch.
+	ents, err := os.ReadDir(victimDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ents) != 0 {
+		names := []string{}
+		for _, e := range ents {
+			names = append(names, e.Name())
+		}
+		t.Fatalf("the store wrote outside the campaign through the link: %v",
+			names)
+	}
+	if _, err := os.Lstat(filepath.Join(victimDir,
+		"report-"+digest+".json")); !os.IsNotExist(err) {
+		t.Fatalf("the copy landed outside the campaign (lstat err %v)", err)
+	}
+	// The REFUSED bind left no registered-but-unlogged row either.
+	if rows := t28RegistryRows(t, c); strings.Contains(rows, digest) {
+		t.Fatalf("a refused bind must not register the report: %s", rows)
+	}
+}
+
+// TestR28SymlinkedArtifactsDirRefuses is the same rail one level up: the
+// artifacts directory ITSELF being a link is the identical escape (it is
+// the parent the reports dir is derived from), so it refuses the same way.
+func TestR28SymlinkedArtifactsDirRefuses(t *testing.T) {
+	c, root := mcCamp(t, "r28-f4b")
+	rep := apWrite(t, r26F2Body)
+	real := c.ArtifactsDir
+	moved := real + ".real"
+	if err := os.Rename(real, moved); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(moved, real); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep)
+	if code != 2 {
+		t.Fatalf("a symlinked artifacts directory must refuse: exit %d "+
+			"stderr %q", code, errS)
+	}
+	for _, want := range []string{real, "symlink", "inside the campaign"} {
+		if !strings.Contains(errS, want) {
+			t.Fatalf("the refusal must name %q: %q", want, errS)
+		}
+	}
+}
+
+// TestR28FileAtReportsPathRefuses: the same directory rail names the other
+// shape — a plain file where the store directory belongs. os.MkdirAll used
+// to surface a raw ENOTDIR; the refusal must say what is there.
+func TestR28FileAtReportsPathRefuses(t *testing.T) {
+	c, root := mcCamp(t, "r28-f4c")
+	rep := apWrite(t, r26F2Body)
+	dir := filepath.Join(c.ArtifactsDir, "reports")
+	if err := os.WriteFile(dir, []byte("not a directory\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep)
+	if code != 2 {
+		t.Fatalf("a file where the store directory belongs must refuse: "+
+			"exit %d stderr %q", code, errS)
+	}
+	for _, want := range []string{dir, "regular file",
+		"inside the campaign"} {
+		if !strings.Contains(errS, want) {
+			t.Fatalf("the refusal must name %q: %q", want, errS)
+		}
+	}
+}
+
+// t28RegistryRows renders the live registry rows (id + sha256) so a test
+// can assert what a refused/committed bind registered.
+func t28RegistryRows(t *testing.T, c *state.Campaign) string {
+	t.Helper()
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := ""
+	for _, row := range objAt(st, "artifacts").A {
+		out += objStr(row, "artifact_id") + " " +
+			objStr(row, "sha256") + "\n"
+	}
+	return out
+}
+
+// TestR28AdoptedCopyIsSealedReadOnly pins the r28 adoption-sealing half.
+// The auditor planted a matching-bytes file at the digest-named final path
+// with mode 0646 and bound: the bytes were adopted, the row said
+// "immutable copy", the docs promised the copy is written read-only — and
+// the planted 0646 survived. Adoption must seal 0444 (and fsync it) the
+// way the write path does.
+func TestR28AdoptedCopyIsSealedReadOnly(t *testing.T) {
+	c, root := mcCamp(t, "r28-adopt")
+	rep := apWrite(t, r26F2Body)
+	digest, final, _ := r26F2Paths(t, c, r26F2Body)
+	// The planted copy: the exact bytes the bind will map, with a mode
+	// nothing promises.
+	if err := os.WriteFile(final, []byte(r26F2Body), 0o646); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(final, 0o646); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Lstat(final); err != nil ||
+		fi.Mode().Perm() != 0o646 {
+		t.Fatalf("the fixture must start 0646: %v %v", fi, err)
+	}
+	code, _, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep)
+	if code != 0 {
+		t.Fatalf("an honest pre-existing copy must bind: exit %d err %q",
+			code, errS)
+	}
+	r26F2WantFinal(t, final, digest)
+	// The bind's own row names the copy it just sealed.
+	if rows := t28RegistryRows(t, c); !strings.Contains(rows, digest) {
+		t.Fatalf("the adopted copy must be registered: %s", rows)
+	}
+}
+
+// TestR28AdoptSealFailureRefuses: when the copy cannot be sealed, the bind
+// refuses rather than hand back a path it could not put in the read-only
+// state the row and the docs claim. (The seal failure here is a reports
+// directory the process cannot open for the directory fsync — the same
+// EACCES the r27 F6 rail surfaces.)
+func TestR28AdoptSealFailureRefuses(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses the 0333 directory mode")
+	}
+	c, root := mcCamp(t, "r28-adopt-fail")
+	rep := apWrite(t, r26F2Body)
+	_, final, _ := r26F2Paths(t, c, r26F2Body)
+	dir := filepath.Dir(final)
+	if err := os.WriteFile(final, []byte(r26F2Body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o333); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+	code, _, errS := apVerify(t, root, c, "--property", "p1",
+		"--report", rep)
+	if code != 2 {
+		t.Fatalf("an unsealable adopted copy must refuse: exit %d err %q",
+			code, errS)
+	}
+	if !strings.Contains(errS, "cannot open the report store") {
+		t.Fatalf("the refusal must name the seal step: %q", errS)
+	}
+}

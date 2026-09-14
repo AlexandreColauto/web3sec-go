@@ -130,9 +130,12 @@ func MapMinicertora(raw []byte, exitStatus int, ruleName string) (rung,
 // no proof sidecar, no bounded_k.
 //
 // MapMinicertora's own signature is untouched for its other callers; both
-// the bind (cli.harnessMappedKind) and section 11's re-derivation
-// (sections.recheckExecEvidence, recheckInconclusive) go through here, so
-// the audit reproduces the bind's decision byte-for-byte.
+// the bind and section 11's re-derivation reach it through ONE dispatcher —
+// harness.decideMappedKind, called from harness.DecideBound (r28b F3: the
+// bind's whole decision, hash arm and Validate re-render included, moved
+// here from cli.harnessMapBound, and sections.recheckExecEvidence /
+// recheckInconclusive now call that same entry point) — so the audit
+// reproduces the bind's decision byte-for-byte.
 func MapMinicertoraInvoc(raw []byte, exitStatus int, ruleName string,
 	invBound int) (rung, summary string, proof validation.Value,
 	boundedK *int) {

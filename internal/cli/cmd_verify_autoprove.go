@@ -510,8 +510,14 @@ func autoproveSameName(a, b string) bool {
 }
 
 // artifactCitedByLiveBinds: does any harness_run event still name this
-// digest as its report_sha256? (The refused bind wrote none — the
-// unwind restored the ledger — so this asks about the OTHER rows.)
+// digest as evidence? (The refused bind wrote none — the unwind restored
+// the ledger — so this asks about the OTHER rows.) Two arms, ONE predicate
+// (artifactEventCitesDig, next to the prune verb that reads it): the event
+// names the digest as its report_sha256, OR the event names an exec whose
+// record pins the digest in input_hashes/artifact_hashes (N1: the EXEC
+// rungs, whose evidence is the hashed scaffold bytes — the bind's guard
+// and the prune verb's warning must not disagree about what "cited"
+// means).
 func artifactCitedByLiveBinds(c *state.Campaign, dig string) (bool,
 	error) {
 	if dig == "" {
@@ -521,11 +527,15 @@ func artifactCitedByLiveBinds(c *state.Campaign, dig string) (bool,
 	if err != nil {
 		return false, err
 	}
+	pins, err := artifactCitedExecIDs(events, c, dig)
+	if err != nil {
+		return false, err
+	}
 	for _, ev := range events {
 		if objStr(ev, "type") != "harness_run" {
 			continue
 		}
-		if objStr(objAt(ev, "data"), "report_sha256") == dig {
+		if artifactEventCitesDig(objAt(ev, "data"), dig, pins) {
 			return true, nil
 		}
 	}
@@ -585,10 +595,38 @@ func harnessRowForPath(c *state.Campaign, path string) (validation.Value,
 //   - the durability step is CHECKED, not swallowed (F6): a directory
 //     that cannot be opened for fsync is surfaced with its path and its
 //     error, and the 0444 mode itself is fsynced after the chmod.
+//
+// r28 hardening (F4 + adoption sealing) adds the two halves the same
+// discipline was missing:
+//   - the DIRECTORY the store writes in is verified BEFORE anything is
+//     written (F4). storeRefuseNonRegular guards the two names, but
+//     os.MkdirAll follows a symlink, so a link at artifacts/reports made
+//     this function write (and chmod 0444) a file in a directory outside
+//     the campaign. A symlink/non-directory at the reports dir — or at
+//     the artifacts dir above it — is refused by shape; the store must
+//     live inside the campaign.
+//   - an ADOPTED copy (bytes already at the final name) is sealed 0444
+//     after its bytes are verified, exactly like a written one; a bind
+//     that found a planted 0646 file used to hand that path back as the
+//     read-only copy the docs promise. A failed seal is a refusal, never
+//     an unsealed path.
 func storeReportCopy(c *state.Campaign, digest string,
 	raw []byte) (string, error) {
 	dir := filepath.Join(c.ArtifactsDir, "reports")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	// r28 F4: the DIRECTORY the store writes in is checked before any
+	// write, not just the two names inside it. os.MkdirAll FOLLOWS a
+	// symlink, so a link at <campaign>/artifacts/reports pointing at
+	// /tmp/victimDir made this function create /tmp/victimDir/report-
+	// <sha>.json (mode 0444) — a write AND a chmod outside the campaign,
+	// with no audit-visible trace: storeRefuseNonRegular lstat-checks the
+	// final and the scratch NAMES, and the directory above them was never
+	// inspected. The store is a directory the campaign owns: lstat both
+	// levels, create what is absent, refuse any symlink (or non-directory)
+	// by shape instead of resolving through it.
+	if err := storeEnsureStoreDir(c.ArtifactsDir, "artifacts directory"); err != nil {
+		return "", err
+	}
+	if err := storeEnsureStoreDir(dir, "report store"); err != nil {
 		return "", err
 	}
 	// Full digest in the NAME, not a 12-hex prefix: a content-addressed
@@ -605,6 +643,18 @@ func storeReportCopy(c *state.Campaign, digest string,
 	}
 	if cur, err := os.ReadFile(p); err == nil {
 		if validation.Sha256Hex(cur) == digest {
+			// r28 (adoption sealing): a pre-existing copy whose bytes
+			// match is ADOPTED, and adoption owes the copy the same 0444
+			// the write path publishes. The audit planted a matching-
+			// bytes file at the final name with mode 0646 and it
+			// survived the bind: the row said "immutable copy", the
+			// docs promised read-only, and the bytes on disk said
+			// otherwise. Seal it after verifying the bytes, and refuse
+			// when the seal fails — a path this call could not seal is
+			// not one it can hand back as the immutable copy.
+			if serr := storeSeal(dir, p); serr != nil {
+				return "", serr
+			}
 			return p, nil // the honest copy already stands
 		}
 		return "", fmt.Errorf("%s exists with foreign bytes (impossible "+
@@ -716,7 +766,11 @@ func storeSyncRefused(err error) bool {
 }
 
 // storePathShape names what was actually found at a store path, so the
-// refusal can state the exact shape observed (r27 F5).
+// refusal can state the exact shape observed (r27 F5). The regular-file
+// case became reachable with r28 F4's directory rail: a plain FILE where a
+// store DIRECTORY belongs is named as one ("regular file", not its raw
+// mode string) in the refusal that tells the operator the store must live
+// inside the campaign.
 func storePathShape(fi os.FileInfo) string {
 	m := fi.Mode()
 	switch {
@@ -732,8 +786,42 @@ func storePathShape(fi os.FileInfo) string {
 		return "character device"
 	case m&os.ModeDevice != 0:
 		return "block device"
+	case m.IsRegular():
+		return "regular file"
 	}
 	return m.String()
+}
+
+// storeEnsureStoreDir is the r28 F4 directory rail: the store may only
+// write into a REAL directory the campaign owns. lstat (never Stat) the
+// path; a missing one is created 0755 (MkdirAll, then re-lstat so a link
+// planted in the race is still seen as a link); an existing symlink — or
+// any other non-directory — is a REFUSAL naming the path and the shape
+// found, because the store must live inside the campaign. Resolving
+// through the link and continuing is exactly the escape this refuses:
+// os.MkdirAll follows a link, so the write and its 0444 chmod land
+// outside the campaign with no audit-visible trace.
+func storeEnsureStoreDir(path, role string) error {
+	fi, err := os.Lstat(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+		if merr := os.MkdirAll(path, 0o755); merr != nil {
+			return fmt.Errorf("cannot create the %s %s: %w", role, path,
+				merr)
+		}
+		if fi, err = os.Lstat(path); err != nil {
+			return err
+		}
+	}
+	if fi.Mode()&os.ModeSymlink != 0 || !fi.IsDir() {
+		return fmt.Errorf("the %s %s is a %s, not a directory - the store "+
+			"must live inside the campaign, never through a link (a "+
+			"symlinked store directory writes the evidence outside it)",
+			role, path, storePathShape(fi))
+	}
+	return nil
 }
 
 // storeRefuseNonRegular: the store never operates THROUGH an object.

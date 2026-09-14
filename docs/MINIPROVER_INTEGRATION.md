@@ -250,10 +250,16 @@ time, from the artifacts the event names:
 
 * `EXEC-*` provenance + a blessing rung (proved-bounded /
   counterexample): the exec's stored stdout bytes are re-run through
-  the SAME mapping function the bind used — `harness.MapMinicertoraInvoc`
-  (r27: the shared entry point, so the invocation-level floor is
-  re-derived too, not just the bytes; it delegates to
-  `harness.MapMinicertora` for everything else)
+  the SAME decision entry point the bind used — `harness.DecideBound`
+  (r28: the whole decision, not just its last step. Before r28 section 11
+  called the kind mappers directly and so reproduced only the mapping: a
+  blessing whose CLAIM had drifted, or whose exec record pinned a foreign
+  hash, audited green while a re-bind over the identical record refused
+  `scaffold-degraded` / `scaffold-bound violation`. The recorded-hash
+  arm, the `harness.Validate` re-render, the unbound suffix and the
+  invocation-level floor now live in one function that both sides call
+  with the same inputs — the cli keeps only the IO around it, so its
+  stdout stays byte-identical)
   for minicertora (rung, proof-subtree digest with the mapper-added
   `compiler_pin` stripped both sides, `bounded_k`), and since r25
   `harness.MapRun`/`BoundK` for halmos and forge-fuzz (the kind-skip
@@ -287,6 +293,15 @@ time, from the artifacts the event names:
   out, absence stays silent: an inconclusive rung blesses nothing, and
   noise there only punishes honest age.
 
+The invocation parse is twin-shaped since r28: the bound flags are read
+click's way — the LAST occurrence wins and the value may be signed — so
+`--loop-bound 4 --loop-bound 0` floors exactly as the twin would refuse
+it, and `--loop-bound -1` is a stated degenerate bound rather than an
+unparsable "unstated". An exec record whose `exit_status` is absent or
+null feeds `-2` on BOTH sides (absence is inconclusive); before r28 one
+section-11 site defaulted that to `0`, so a forged pair audited green
+over a record the bind itself had refused.
+
 A bound below 1 is a bound no tool would have run under — the twin's
 own `VerifierFlags.__post_init__` raises for `loop_bound < 1` — so since
 r27 the floor covers the THIRD kind as well: a minicertora line whose
@@ -298,9 +313,10 @@ not grandfathered: its slot/event pair no longer reproduces from the
 bytes, and section 11 burns it — the campaign really did bless a proof
 about nothing, and the burn is the honest record of that.
 
-The store refuses to hold anything that is not a regular file it owns:
-a symlink or directory at either the `report-<sha>.json` name or its
-scratch name is a named refusal (r27 measured the alternative: a symlink
+The store refuses to hold anything that is not a regular file it owns,
+in a directory it owns:
+a symlink or directory at the `artifacts/reports` directory, at the
+`report-<sha>.json` name or at its scratch name is a named refusal (r27 measured the alternative: a symlink
 at the scratch name was renamed into place and the following read-only
 chmod FOLLOWED it, silently rewriting the mode of a file outside the
 campaign). Scratch names are unique per call, so two concurrent binds of
@@ -333,8 +349,11 @@ verb garbage-collects the immutable copies, and every audit re-hashes every
 registered row, so that cost is paid again on every audit. The operator's
 tool is `artifact-prune <id> --reason R` (a single token, and the reason is
 REQUIRED — it lands on the `artifact.pruned` event): the verb WARNS on
-stderr when the row it retires is still cited by a live `harness_run` event,
-names every invariant whose blessing cites that sha and says audit §11 will
+stderr when the row it retires is still cited by a live bind — a
+`harness_run` event naming its sha, or an exec record the ledger holds
+whose recorded `input_hashes`/`artifact_hashes` pin it (r28: the warning
+used to see only the event form, so pruning a scaffold row a live EXEC
+rung pinned was silent) — names every invariant whose blessing cites it and says audit §11 will
 now report that rung ` (UNBACKED)`, and prunes anyway — retiring evidence is
 an explicit operator act whose burn is the honest cost, not a bug. (The
 bind's own cite-guard is narrower: a refused bind prunes only an orphan

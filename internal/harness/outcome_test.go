@@ -286,3 +286,87 @@ const halmosStatusPassedK0 = `halmos 0.3.3 --root . --match-contract InvInvarian
 Status: passed [k=0, paths: 1]
 Successfully proved 1 property with bound k=0
 `
+
+// TestInvocationBoundIsClickShaped pins r28 F1: InvocationBound parses the
+// invocation the way the twin's click CLI binds it. Verified against the
+// twin's own parser (miniprover/.venv, click 8.x):
+//
+//	['--loop-bound','4','--loop-bound','0'] -> 0    (and VerifierFlags raises)
+//	['--loop-bound','0','--loop-bound','4'] -> 4
+//	['--loop-bound','-1'] / ['--loop-bound=-1'] -> -1 (raises for < 1)
+//	['--loop-bound','00'] -> 0 (raises)   ['--loop-bound','1'] -> 1
+//	[] -> 4 (the default)                 ['--loop-boundx','4'] -> error
+//
+// So the LAST occurrence decides (click's last-wins), a signed token is a
+// real value, and anything < 1 is a STATED degenerate bound — the run can
+// be mapped to nothing, because the twin never ran it.
+func TestInvocationBoundIsClickShaped(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		command string
+		want    int
+	}{
+		// last-wins: the flag that decides is the one click would
+		// have bound to loop_bound.
+		{"last degenerate floors", "miniprover run --loop-bound 4 " +
+			"--loop-bound 0", BoundDegenerate},
+		{"last honest does not floor", "miniprover run --loop-bound 0 " +
+			"--loop-bound 4", 4},
+		{"halmos last degenerate floors", "halmos check --loop 100 " +
+			"--loop 0", BoundDegenerate},
+		{"forge last honest wins", "forge test --fuzz-runs 0 " +
+			"--fuzz-runs 256", 256},
+		// signed tokens: both forms click's type=int accepts.
+		{"negative space form", "--loop-bound -1", BoundDegenerate},
+		{"negative equals form", "--loop-bound=-1", BoundDegenerate},
+		{"negative fuzz-runs", "forge test --fuzz-runs -3",
+			BoundDegenerate},
+		// zero spellings are the same statement.
+		{"zero-padded zero", "--loop-bound 00", BoundDegenerate},
+		{"plain zero", "forge test --fuzz-runs 0", BoundDegenerate},
+		// honest statements are untouched, in both forms.
+		{"one", "--loop-bound 1", 1},
+		{"space form", "--loop-bound 8", 8},
+		{"equals form", "--loop-bound=8", 8},
+		{"halmos loop", "halmos check --loop 100", 100},
+		{"forge fuzz-runs", "forge test --fuzz-runs 200", 200},
+		// no flag at all.
+		{"no flag", "forge test --match-test inv_1", 0},
+		// a lookalike inside another word names no flag.
+		{"lookalike suffix", "--loop-boundx 4", 0},
+		{"lookalike halmos", "--loopx 5", 0},
+		// absurd widths keep the guard's reading (UNSTATED), never a
+		// wrapped number.
+		{"absurd positive", "--loop-bound 99999999999999999999999999", 0},
+		{"absurd negative", "--loop-bound -99999999999999999999999999",
+			BoundDegenerate},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := InvocationBound(tc.command); got != tc.want {
+				t.Fatalf("InvocationBound(%q) = %d, want %d",
+					tc.command, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestInvocationBoundFloorsTheWholeInvocation is the rung-level half of
+// r28 F1: the auditor's exact repro command must floor the run through the
+// same code path the bind uses, with NO rung riding it.
+func TestInvocationBoundFloorsTheWholeInvocation(t *testing.T) {
+	cmd := "miniprover run --loop-bound 4 --loop-bound 0"
+	k := InvocationBound(cmd)
+	if k != BoundDegenerate {
+		t.Fatalf("InvocationBound(%q) = %d, want BoundDegenerate", cmd, k)
+	}
+	rung, summary := MapRun(ForgeFuzz, []byte(forgePass), false, k)
+	if rung != RungInconclusive || !strings.Contains(summary,
+		"degenerate-bound") {
+		t.Fatalf("the auditor's repro must floor: %q %q", rung, summary)
+	}
+	// The mirrored direction: an honest LAST flag keeps its bound.
+	if got := InvocationBound("miniprover run --loop-bound 0 " +
+		"--loop-bound 4"); got != 4 {
+		t.Fatalf("an honest last flag must not floor: %d", got)
+	}
+}

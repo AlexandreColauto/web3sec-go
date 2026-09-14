@@ -84,12 +84,14 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 			// display to the LEDGER — but a chain-valid forgery edits the
 			// events too, and only the EXEC OUTPUT the event names is the
 			// original evidence. Re-derive the mapper's numbers from the
-			// artifacts at AUDIT time: minicertora rungs re-run through
-			// harness.MapMinicertoraInvoc over the exec stdout and the
-			// record's own invocation bound, autoprove
-			// digests must exist in the registry. A lie then needs the
-			// stdout bytes or a registry row to match too — write-time
-			// convention becomes an audit-time invariant.
+			// artifacts at AUDIT time through the BIND'S OWN decision
+			// entry point (r28b F3: harness.DecideBound — recorded-hash
+			// arm, Validate re-render and unbound suffix included, over
+			// the exec stdout, the record's own exit status / timeout bit
+			// / invocation bound and the scaffold artifact bytes), while
+			// autoprove digests must exist in the registry. A lie then
+			// needs the stdout bytes or a registry row to match too —
+			// write-time convention becomes an audit-time invariant.
 			if msg := harnessEvidenceRecheck(c, events, iid, e); msg != "" {
 				problems = append(problems, validation.VStr(msg))
 				unbacked = true
@@ -350,15 +352,78 @@ func harnessEvidenceRecheck(c *state.Campaign,
 	exec := objStr(last, "exec")
 	switch {
 	case strings.HasPrefix(exec, "EXEC-"):
-		return recheckExecEvidence(c, iid, h, last, exec)
+		return recheckExecEvidence(c, events, iid, entry, h, last, exec)
 	case strings.HasPrefix(exec, "REPORT-"):
 		return recheckRegistryEvidence(c, iid, last)
 	}
 	return ""
 }
 
-func recheckExecEvidence(c *state.Campaign, iid string,
-	h, last validation.Value, exec string) string {
+// harnessScaffoldArtifactBytes reads the T17 scaffold artifact bytes the
+// bind hashed and re-rendered: the latest harness_scaffold event for
+// HARNESS-<INV>-<kind> names the registered artifact as its ref, and the
+// bytes come back through the registry's OWN reader (state.ArtifactBytes,
+// which refuses a path whose file no longer hashes to the pinned sha — the
+// same r25 F2 discipline recheckRegistryEvidence applies to report bytes).
+// why != "" means the bytes could not be obtained, and names what is
+// missing (r28b F3 constraint 3: "cannot re-derive" is never a blessing).
+func harnessScaffoldArtifactBytes(c *state.Campaign,
+	events []validation.Value, iid string,
+	kind harness.Kind) (raw []byte, why string) {
+	want := "HARNESS-" + iid + "-" + string(kind)
+	ref := ""
+	for _, ev := range events {
+		if objStr(ev, "type") != "harness_scaffold" {
+			continue
+		}
+		if objStr(objAt(ev, "data"), "artifact_id") != want {
+			continue
+		}
+		ref = objStr(ev, "ref")
+	}
+	if ref == "" {
+		return nil, fmt.Sprintf("no harness_scaffold event names %s", want)
+	}
+	art, err := c.Artifact(ref)
+	if err != nil {
+		return nil, fmt.Sprintf("the scaffold artifact %s the bind "+
+			"hashed is not registered any more", ref)
+	}
+	raw, err = c.ArtifactBytes(art)
+	if err != nil {
+		return nil, fmt.Sprintf("the scaffold artifact %s cannot be "+
+			"re-read the way the row pins it: %v", ref, err)
+	}
+	return raw, ""
+}
+
+// scaffoldUnavailableBurn is r28b F3 constraint 3 reasoned against the
+// bind's own arms: a blessing's hash arm CANNOT be re-derived without the
+// scaffold bytes it hashed (they are what the recorded sha256 is compared
+// against, and what Validate re-renders), so a record that carries hash
+// evidence burns as "not backed", naming what is missing. The UNBOUND arm
+// (no hash evidence at all) needs no scaffold bytes for its MAPPING — its
+// hash comparison is vacuous and the rung on record proves the bind's own
+// Validate passed at bind time — so it keeps the honest behaviour and
+// DecideBound proceeds without the re-render (see harness.DecideBound).
+// "" means "this shape may proceed".
+func scaffoldUnavailableBurn(iid, exec, why string,
+	rec validation.Value) string {
+	if why == "" {
+		return ""
+	}
+	hashes, harnessNamed := harness.RecordedHashes(rec)
+	if len(hashes) == 0 && !harnessNamed {
+		return ""
+	}
+	return fmt.Sprintf("%s: exec %s carries recorded harness file hash(es), "+
+		"but the scaffold bytes they were bound to cannot be re-derived "+
+		"(%s) — the bind's hash arm and its Validate re-render both run "+
+		"against those bytes, so the rung is not backed", iid, exec, why)
+}
+
+func recheckExecEvidence(c *state.Campaign, events []validation.Value,
+	iid string, entry, h, last validation.Value, exec string) string {
 	// r24 scope law: re-derivation guards the rungs that RECORD CREDIT
 	// (proved-bounded, counterexample). An inconclusive rung blesses
 	// nothing, and torching its (often old, often pruned) witness dir
@@ -376,12 +441,12 @@ func recheckExecEvidence(c *state.Campaign, iid string,
 		// over-claim directions (claimed advice the bytes contradict;
 		// claimed-absent proof present in the run).
 		if objStr(h, "kind") == "minicertora" {
-			return recheckInconclusive(c, iid, h, last, exec)
+			return recheckInconclusive(c, events, iid, entry, h, last, exec)
 		}
 		return ""
 	}
 	if kind := objStr(h, "kind"); kind != "minicertora" {
-		return recheckMapRunEvidence(c, iid, last, exec, kind)
+		return recheckMapRunEvidence(c, events, iid, entry, last, exec, kind)
 	}
 	recs, err := state.AllExecs(c)
 	if err != nil {
@@ -408,24 +473,39 @@ func recheckExecEvidence(c *state.Campaign, iid string,
 			"evidence behind the rung cannot be re-checked", iid, exec,
 			rerr)
 	}
-	es := 0
-	if v := objAt(rec, "exit_status"); v.Kind == validation.Int {
-		es = int(v.I)
+	// r28b F3: the audit re-derives through the SAME decision entry point
+	// the bind used, with the SAME arguments — the recorded-hash arm, the
+	// Validate re-render of the CURRENT claim and the unbound suffix all
+	// live in harness.DecideBound. Calling the kind mapper directly (the
+	// r24 shape) reproduced only the last step, so a blessing bound before
+	// its claim drifted, or bound to a hash the record has since replaced,
+	// audited out clean while a re-bind over the same record + claim
+	// refused "scaffold-degraded: …" / "scaffold-bound violation: …".
+	scaffold, scaffoldWhy := harnessScaffoldArtifactBytes(c, events, iid,
+		harness.MiniCertora)
+	if msg := scaffoldUnavailableBurn(iid, exec, scaffoldWhy, rec); msg != "" {
+		return msg
 	}
-	// r27 F1: the bind maps minicertora through MapMinicertoraInvoc, so
-	// the re-derivation must too — the invocation bound the exec record's
-	// own command states (0 = unstated, BoundDegenerate = a stated flag the
-	// twin refuses) is part of the mapping, and a plain MapMinicertora
-	// here would burn an honest degenerate-bound floor as unmappable.
-	invK := harness.InvocationBound(objStr(rec, "command"))
-	rung, _, proof, bk := harness.MapMinicertoraInvoc(raw, es,
-		harness.MspecRuleName(iid), invK)
-	if want := objStr(last, "rung"); rung != want {
+	inv := harness.InvValue(iid, entry)
+	// r28b F2: the exit status comes from the BIND's own reader
+	// (harness.RecordExitStatus: absent/null/too-wide -> -2). This arm used
+	// to read `es := 0` with no guard, so a chain-valid forged pair over a
+	// record whose exit_status was absent or null re-derived an honest
+	// PROVEN line as proved-bounded and audited green — absence read as a
+	// clean exit. Absence is inconclusive, never a blessing.
+	invK := harness.InvocationBound(harness.RecordCommand(rec))
+	decRung, decSummary, decProof, decBK := harness.DecideBound(
+		harness.MiniCertora, inv, raw, rec, scaffold,
+		harness.RecordTimedOut(rec), invK, harness.RecordExitStatus(rec),
+		harness.MspecRuleName(iid))
+	if want := objStr(last, "rung"); decRung != want {
 		return fmt.Sprintf("%s: exec %s stdout re-derives rung %s; the "+
 			"event claims %s — the mapping did not come from this run's "+
-			"bytes", iid, exec, validation.PyReprStr(rung),
-			validation.PyReprStr(want))
+			"bytes (re-derived: %s)", iid, exec,
+			validation.PyReprStr(decRung), validation.PyReprStr(want),
+			decSummary)
 	}
+	proof := decProof
 	// The slot proof carries the mapper-appended compiler_pin (host
 	// provenance, not tool bytes): strip it before comparing to what
 	// re-deriving from stdout alone produces.
@@ -460,8 +540,8 @@ func recheckExecEvidence(c *state.Campaign, iid string,
 	}
 	if bkV := objAt(last, "bounded_k"); bkV.Kind == validation.Int {
 		have := int64(-1)
-		if bk != nil {
-			have = int64(*bk)
+		if decBK != nil {
+			have = int64(*decBK)
 		}
 		if have != bkV.I {
 			return fmt.Sprintf("%s: exec %s stdout re-derives bounded_k "+
@@ -595,12 +675,17 @@ func autoproveProp(rep validation.Value, name string) (validation.Value,
 // (r25 F1: the kind-skip arm was E5's open door — a chain-valid forged
 // pair rendered `halmos, k=100` over a stdout whose marker said k=7,
 // and `rung=counterexample` over a PASS output, audit-green). Same
-// discipline, cheaper functions: MapRun over the stored bytes with the
-// record's own timedOut bit and the command's invocation bound must
-// reproduce the claimed rung, and a proved-bounded claim must
-// reproduce bounded_k through BoundK.
-func recheckMapRunEvidence(c *state.Campaign, iid string,
-	last validation.Value, exec, kind string) string {
+// discipline, same entry point: the bind's own decision function
+// (harness.DecideBound) over the stored bytes, the record's own
+// timedOut/exit status/invocation bound and the scaffold artifact bytes,
+// which must reproduce the claimed rung — and a proved-bounded claim must
+// reproduce bounded_k. r28b F3 closed the remaining hole here too: this arm
+// used to call MapRun directly, so a halmos blessing whose recorded H.t.sol
+// hash had since been replaced by a foreign sha (or whose scaffold artifact
+// was pruned) re-derived proved-bounded and audited green while the bind
+// would have refused it.
+func recheckMapRunEvidence(c *state.Campaign, events []validation.Value,
+	iid string, entry, last validation.Value, exec, kind string) string {
 	k := harness.Kind(kind)
 	if k != harness.Halmos && k != harness.ForgeFuzz {
 		return "" // unknown kinds render no harness_runs line anyway
@@ -629,24 +714,29 @@ func recheckMapRunEvidence(c *state.Campaign, iid string,
 			"evidence behind the rung cannot be re-checked", iid, exec,
 			rerr)
 	}
-	es := -2
-	if v := objAt(rec, "exit_status"); v.Kind == validation.Int &&
-		v.Big == "" {
-		es = int(v.I)
+	scaffold, scaffoldWhy := harnessScaffoldArtifactBytes(c, events, iid, k)
+	if msg := scaffoldUnavailableBurn(iid, exec, scaffoldWhy, rec); msg != "" {
+		return msg
 	}
-	timedOut := harness.TimedOutBit(es)
-	invK := harness.InvocationBound(objStr(rec, "command"))
-	rung, _ := harness.MapRun(k, raw, timedOut, invK)
+	invK := harness.InvocationBound(harness.RecordCommand(rec))
+	rung, decSummary, _, decBK := harness.DecideBound(k,
+		harness.InvValue(iid, entry), raw, rec, scaffold,
+		harness.RecordTimedOut(rec), invK, harness.RecordExitStatus(rec),
+		"")
 	if want := objStr(last, "rung"); rung != want {
 		return fmt.Sprintf("%s: exec %s stdout re-derives rung %s; the "+
 			"event claims %s — the mapping did not come from this run's "+
-			"bytes", iid, exec, validation.PyReprStr(rung),
-			validation.PyReprStr(want))
+			"bytes (re-derived: %s)", iid, exec,
+			validation.PyReprStr(rung), validation.PyReprStr(want),
+			decSummary)
 	}
 	if rung == harness.RungProvedBounded {
 		if bkV := objAt(last, "bounded_k"); bkV.Kind == validation.Int {
-			have := harness.BoundK(k, raw, invK)
-			if int64(have) != bkV.I {
+			have := int64(-1)
+			if decBK != nil {
+				have = int64(*decBK)
+			}
+			if have != bkV.I {
 				return fmt.Sprintf("%s: exec %s stdout re-derives "+
 					"bounded_k %d; the event pins %d — the bound is "+
 					"inflated", iid, exec, have, bkV.I)
@@ -656,8 +746,8 @@ func recheckMapRunEvidence(c *state.Campaign, iid string,
 	return ""
 }
 
-func recheckInconclusive(c *state.Campaign, iid string,
-	h, last validation.Value, exec string) string {
+func recheckInconclusive(c *state.Campaign, events []validation.Value,
+	iid string, entry, h, last validation.Value, exec string) string {
 	recs, err := state.AllExecs(c)
 	if err != nil {
 		return ""
@@ -677,36 +767,39 @@ func recheckInconclusive(c *state.Campaign, iid string,
 	if rerr != nil {
 		return ""
 	}
-	es := -2
-	if v := objAt(rec, "exit_status"); v.Kind == validation.Int &&
-		v.Big == "" {
-		es = int(v.I)
-	}
-	// Same entry point as the bind (r27 F1): an invocation-floor refusal
-	// re-derives to its own class instead of the bytes' verdict. The
-	// timed-out branch below returns on wantCls alone, so a killed run
-	// keeps its runtime floor either way.
-	invK := harness.InvocationBound(objStr(rec, "command"))
-	_, sum, _, _ := harness.MapMinicertoraInvoc(raw, es,
-		harness.MspecRuleName(iid), invK)
+	es := harness.RecordExitStatus(rec)
+	// Same entry point as the bind (r27 F1, r28b F3): the decision —
+	// invocation floor, recorded-hash arm, Validate re-render, unbound
+	// suffix — is harness.DecideBound's, so an inconclusive claim is
+	// re-derived from the same bytes through the same arms. A refusal-arm
+	// summary ("scaffold-degraded: …", "scaffold-bound violation: …",
+	// "aborted: …") is NOT an "inconclusive" mapping, and an inconclusive
+	// rung blesses nothing: the guard below skips it (modesty — the
+	// scope law above), so missing scaffold bytes can never burn an
+	// honest inconclusive bind here.
+	invK := harness.InvocationBound(harness.RecordCommand(rec))
+	scaffold, _ := harnessScaffoldArtifactBytes(c, events, iid,
+		harness.MiniCertora)
+	_, sum, _, _ := harness.DecideBound(harness.MiniCertora,
+		harness.InvValue(iid, entry), raw, rec, scaffold,
+		harness.RecordTimedOut(rec), invK, es, harness.MspecRuleName(iid))
 	if !strings.HasPrefix(sum, "inconclusive") {
 		return "" // bytes bless MORE than the claim: modesty, never a
 		// lie — the pair under-claims and the ledger stays honest.
 	}
 	// Compare DISPOSITION CLASSES, not bytes: the mapper legitimately
-	// decorates stored summaries (" […] (unbound: …)", its own
-	// "no clean completion" timeout wording, "scaffold-degraded: …"),
-	// and those are transport/shape differences, not different advice.
-	// Disposition() is the canonical classifier the tally itself reads
-	// — comparing classes is the right equality for this rail, and the
-	// exact-text version (r25 first cut) would have burned honest
-	// decorated binds.
+	// decorates stored summaries (the "(unbound: …)" suffix the unbound arm
+	// appends, its own "no clean completion" timeout wording), and those are
+	// transport/shape differences, not different advice. Disposition() is
+	// the canonical classifier the tally itself reads — comparing classes is
+	// the right equality for this rail, and the exact-text version (r25
+	// first cut) would have burned honest decorated binds.
 	wantCls, _, wantOK := harness.Disposition(objStr(last, "summary"))
 	gotCls, _, gotOK := harness.Disposition(sum)
 	if !wantOK {
 		return "" // the pair renders no advice: nothing to fabricate
 	}
-	if harness.TimedOutBit(es) {
+	if harness.RecordTimedOut(rec) {
 		// A run that never completed can only be the runtime floor: any
 		// OTHER named class is fabricated over a process that was
 		// killed (by law its partial bytes map to no verdict).

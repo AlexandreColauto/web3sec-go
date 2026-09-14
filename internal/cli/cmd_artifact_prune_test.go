@@ -374,3 +374,181 @@ func TestArtifactPruneAmbiguousIDRefuses(t *testing.T) {
 		t.Fatalf("the refusal must not touch the first row: %v", err)
 	}
 }
+
+// t28ExecRecord writes one EXEC ledger row whose input_hashes and
+// artifact_hashes pin the given file-name -> sha256 pairs (nil = the map is
+// absent). Self-contained on purpose: the harness bind's own fixture lives
+// in a file this round does not own.
+func t28ExecRecord(t *testing.T, c *state.Campaign, execID string,
+	inputs, artifacts map[string]string) {
+	t.Helper()
+	dir := filepath.Join(c.ExecsDir, execID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stdout := filepath.Join(dir, "stdout.log")
+	if err := os.WriteFile(stdout, []byte("{\"verdict\":\"PROVEN\"}\n"),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	rec := validation.VObj(
+		kv("exec_id", validation.VStr(execID)),
+		kv("campaign_id", validation.VStr(c.CampaignID)),
+		kv("profile", validation.VStr("minicertora")),
+		kv("finding_id", validation.VNull()),
+		kv("artifact_id", validation.VNull()),
+		kv("command", validation.VStr("minicertora V.sol INV.mspec "+
+			"--loop-bound 4")),
+		kv("policy_verdict", validation.VObj(
+			kv("allowed", validation.VBool(true)),
+			kv("violations", validation.VArr()))),
+		kv("origin", validation.VStr("locally-executed")),
+		kv("reported_by", validation.VNull()),
+		kv("started_at", validation.VStr("2026-09-11T05:06:07+00:00")),
+		kv("finished_at", validation.VStr("2026-09-11T05:06:07+00:00")),
+		kv("exit_status", validation.VInt(0)),
+		kv("stdout_path", validation.VStr(stdout)),
+		kv("stderr_path", validation.VStr(filepath.Join(dir,
+			"stderr.log"))),
+	)
+	for key, m := range map[string]map[string]string{
+		"input_hashes": inputs, "artifact_hashes": artifacts} {
+		if m == nil {
+			continue
+		}
+		kvs := make([]validation.KV, 0, len(m))
+		for k, v := range m {
+			kvs = append(kvs, kv(k, validation.VStr(v)))
+		}
+		rec.O = validation.SetOrAppend(rec.O, key, validation.VObj(kvs...))
+	}
+	if err := validation.WriteJson(filepath.Join(dir, "exec_record.json"),
+		rec, "sandbox_execution"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// t28ScaffoldRow is the live registry row for INV-1's minicertora scaffold
+// (the row whose bytes an EXEC rung hashes as its input), by id and sha.
+func t28ScaffoldRow(t *testing.T, c *state.Campaign) (string, string) {
+	t.Helper()
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range objAt(st, "artifacts").A {
+		if strings.HasSuffix(objStr(row, "path"), "INV.mspec") {
+			return objStr(row, "artifact_id"), objStr(row, "sha256")
+		}
+	}
+	t.Fatal("the scaffold registered no INV.mspec row")
+	return "", ""
+}
+
+// t28ExecRungEvent logs the harness_run event a minicertora EXEC-rung bind
+// writes: the rung, the invariant and the EXEC it names — and NO
+// report_sha256 (an EXEC rung's evidence is the hashed scaffold, not a
+// report file), so the report arm alone can never explain a warning.
+func t28ExecRungEvent(t *testing.T, c *state.Campaign, iid, execID string) {
+	t.Helper()
+	ref := iid
+	data := validation.VObj(
+		kv("invariant", validation.VStr(iid)),
+		kv("kind", validation.VStr("minicertora")),
+		kv("rung", validation.VStr("proved-bounded")),
+		kv("exec", validation.VStr(execID)),
+		kv("summary", validation.VStr("proved bounded (k=4)")),
+		kv("bounded_k", validation.VInt(4)),
+	)
+	if _, err := c.Log("harness_run", &ref, &data); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestR28ExecPinnedRowWarnsOnPrune is the audited N1: the scaffold row is
+// cited by a live minicertora EXEC-rung bind — the harness_run event names
+// EXEC-x, and EXEC-x's record pins the row's sha256 in input_hashes — and
+// the prune verb retired it with EMPTY stderr, while the usage line and the
+// RUNBOOK promise the warning whenever a live bind cites the row. The
+// warning must name the artifact and the invariant, and the prune must
+// still happen.
+func TestR28ExecPinnedRowWarnsOnPrune(t *testing.T) {
+	c, root := mcCamp(t, "r28-n1")
+	aid, sha := t28ScaffoldRow(t, c)
+	t28ExecRecord(t, c, "EXEC-0000000042",
+		map[string]string{"INV.mspec": sha}, nil)
+	t28ExecRungEvent(t, c, "INV-1", "EXEC-0000000042")
+	code, out, errS := run(t, "--root", root, "artifact-prune", aid,
+		"--reason", "the scaffold was re-authored")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	for _, want := range []string{"WARNING", aid, "INV-1", "UNBACKED"} {
+		if !strings.Contains(errS, want) {
+			t.Fatalf("stderr must name %q: %q", want, errS)
+		}
+	}
+	if !strings.HasPrefix(out, aid+": ") {
+		t.Fatalf("stdout must print the retired row: %q", out)
+	}
+	// Pruned anyway: the operator's act is not gated.
+	if _, err := c.Artifact(aid); err == nil {
+		t.Fatalf("the row must be retired despite the warning")
+	}
+}
+
+// TestR28ExecArtifactHashesArmWarns: the second map of the same arm — a
+// produced artifact_hashes entry pinning the row is the same citation.
+func TestR28ExecArtifactHashesArmWarns(t *testing.T) {
+	c, root := mcCamp(t, "r28-n1b")
+	aid, sha := t28ScaffoldRow(t, c)
+	t28ExecRecord(t, c, "EXEC-0000000043", nil,
+		map[string]string{"INV.mspec": sha})
+	t28ExecRungEvent(t, c, "INV-1", "EXEC-0000000043")
+	code, _, errS := run(t, "--root", root, "artifact-prune", aid,
+		"--reason", "superseded")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	for _, want := range []string{"WARNING", aid, "INV-1"} {
+		if !strings.Contains(errS, want) {
+			t.Fatalf("stderr must name %q: %q", want, errS)
+		}
+	}
+}
+
+// TestR28ExecCitationNeedsALiveEvent pins the boundary of the new arm: a
+// pin alone is not a citation. An exec whose record pins the row is silent
+// when NO harness_run event names it (the ledger row exists, nothing bound
+// it), and an event that names an exec whose record does NOT pin the row is
+// silent too — otherwise every artifact an unrelated run touched would warn.
+func TestR28ExecCitationNeedsALiveEvent(t *testing.T) {
+	c, root := mcCamp(t, "r28-n1c")
+	aid, sha := t28ScaffoldRow(t, c)
+	// (a) the pin exists, no event names that exec.
+	t28ExecRecord(t, c, "EXEC-0000000044",
+		map[string]string{"INV.mspec": sha}, nil)
+	code, _, errS := run(t, "--root", root, "artifact-prune", aid,
+		"--reason", "nothing bound it")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if errS != "" {
+		t.Fatalf("an unbound pin must not warn: %q", errS)
+	}
+	// (b) the event names an exec whose record pins a DIFFERENT digest.
+	c2, root2 := mcCamp(t, "r28-n1d")
+	aid2, _ := t28ScaffoldRow(t, c2)
+	t28ExecRecord(t, c2, "EXEC-0000000045",
+		map[string]string{"INV.mspec": strings.Repeat("0", 64)}, nil)
+	t28ExecRungEvent(t, c2, "INV-1", "EXEC-0000000045")
+	code, _, errS = run(t, "--root", root2, "artifact-prune", aid2,
+		"--reason", "the run hashed different bytes")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if errS != "" {
+		t.Fatalf("an event over a different digest must not warn about "+
+			"this row: %q", errS)
+	}
+}

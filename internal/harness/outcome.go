@@ -354,25 +354,70 @@ func TimedOutBit(exitStatus int) bool {
 // `--flag=N`), minicertora's --loop-bound N. 0 = unstated: the number
 // only feeds display text, never a rung. (cli.boundFlagRe delegates
 // here.)
+//
+// r28 F1: the parse is CLICK-SHAPED, because the twin's CLI is a click
+// option (`@click.option("--loop-bound", type=int, default=4)`) and click
+// binds a repeated option LAST-WINS (ctx.params["loop_bound"] is the final
+// occurrence). Reading the FIRST match called
+// `miniprover run --loop-bound 4 --loop-bound 0` a k=4 proof — but the twin
+// parses 0 there, VerifierFlags.__post_init__ raises for loop_bound < 1,
+// and no tool output can exist under that command at all, so the first
+// match was evidence for a run the twin refuses to make. LAST occurrence
+// decides, exactly as click does: a degenerate flag last floors the whole
+// invocation even after an honest one, while a degenerate flag followed by
+// an honest one does not floor.
+//
+// The token may carry a sign (click's type=int accepts `-1`, in both the
+// `--flag -1` and `--flag=-1` forms), and the twin then RAISES — so a
+// negative is a STATED degenerate bound, never "unstated". A negative whose
+// digits overflow int is degenerate by its sign alone (flooring is the
+// honest direction) while an overflowing POSITIVE keeps the old guard's
+// reading, UNSTATED.
 func InvocationBound(command string) int {
-	m := boundFlagRe.FindStringSubmatch(command)
-	if m == nil {
+	ms := boundFlagRe.FindAllStringSubmatch(command, -1)
+	if len(ms) == 0 {
 		return 0
 	}
+	tok := ms[len(ms)-1][1]
+	neg := strings.HasPrefix(tok, "-")
+	if neg {
+		tok = tok[1:]
+	}
 	n := 0
-	for _, c := range []byte(m[1]) {
-		n = n*10 + int(c-'0')
-		if n > 1<<62 {
+	for _, c := range []byte(tok) {
+		if n > (1<<62)/10 {
+			// The next digit would leave int range: report the
+			// statement the guard always did (UNSTATED for an
+			// absurd width), never a wrapped number.
+			if neg {
+				return BoundDegenerate
+			}
 			return 0
 		}
+		n = n*10 + int(c-'0')
+	}
+	if n > 1<<62 {
+		if neg {
+			return BoundDegenerate
+		}
+		return 0
+	}
+	if neg {
+		n = -n
 	}
 	if n < 1 {
-		// STATED and degenerate ("--loop 0", "--fuzz-runs=0"): not
-		// unstated, and not a bound any tool would have run under.
+		// STATED and degenerate ("--loop 0", "--fuzz-runs=0",
+		// "--loop-bound -1"): not unstated, and not a bound any tool
+		// would have run under.
 		return BoundDegenerate
 	}
 	return n
 }
 
+// boundFlagRe finds every bound-flag occurrence with its signed token.
+// The flag text is anchored so a lookalike inside another word
+// ("--loop-boundx 4") matches nothing: after `--loop`/`--loop-bound` /
+// `--fuzz-runs` the regex demands the `=` or the space and then the
+// digits, so a trailing letter fails the whole alternative.
 var boundFlagRe = regexp.MustCompile(
-	`--(?:loop(?:-bound)?|fuzz-runs)[= ](\d+)`)
+	`--(?:loop(?:-bound)?|fuzz-runs)[= ](-?\d+)`)

@@ -18,12 +18,17 @@ package cli
 // CITE WARNING, never a gate. The bind's cite-guard refuses to prune a row
 // a live harness_run event cites — but that is the BIND's discipline, not
 // the operator's: this verb reuses the same guard and its predicate
-// (artifactCitedByLiveBinds) to SCAN, names on stderr the artifact and
-// every invariant whose blessing cites the row's sha256, says on that same
-// line that the evidence is being removed and that audit section 11 will
-// now report that rung unbacked (UNBACKED) — and then prunes anyway. The
-// burn that follows is the honest cost of an explicit operator act, so
-// there is deliberately no --force flag to make it look conditional.
+// (artifactCitedByLiveBinds / artifactEventCitesDig) to SCAN, names on
+// stderr the artifact and every invariant whose blessing cites the row's
+// sha256 — whether the event pinned that digest as its report_sha256 or
+// named an EXEC whose record hashed the row as the bytes the run took in
+// (N1: the EXEC rungs' evidence is the hashed scaffold, and the scan that
+// saw only report_sha256 pruned such a row with EMPTY stderr) — says on
+// that same line that the evidence is being removed and that audit section
+// 11 will now report that rung unbacked (UNBACKED) — and then prunes
+// anyway. The burn that follows is the honest cost of an explicit operator
+// act, so there is deliberately no --force flag to make it look
+// conditional.
 //
 // Success prints the retired row in artifact-register's line shape
 // (`{id}: kind={kind} path={path}`); --json prints the row as object with
@@ -174,13 +179,17 @@ func pruneLookup(root, artID string) (*state.Campaign, validation.Value, error) 
 // pruneCitedInvariants lists the invariants whose harness_run events pin
 // dig, in event order and deduplicated. It is the naming half of the
 // cite-guard: artifactCitedByLiveBinds decides "cited" with the identical
-// predicate (type == harness_run && data.report_sha256 == dig) and this
-// collects the ids the warning must name.
+// predicate (artifactEventCitesDig over the set artifactCitedExecIDs
+// builds) and this collects the ids the warning must name.
 func pruneCitedInvariants(c *state.Campaign, dig string) ([]string, error) {
 	if dig == "" {
 		return nil, nil
 	}
 	events, err := c.Events()
+	if err != nil {
+		return nil, err
+	}
+	pins, err := artifactCitedExecIDs(events, c, dig)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +200,7 @@ func pruneCitedInvariants(c *state.Campaign, dig string) ([]string, error) {
 			continue
 		}
 		d := objAt(ev, "data")
-		if objStr(d, "report_sha256") != dig {
+		if !artifactEventCitesDig(d, dig, pins) {
 			continue
 		}
 		iid := objStr(d, "invariant")
@@ -202,6 +211,97 @@ func pruneCitedInvariants(c *state.Campaign, dig string) ([]string, error) {
 		ids = append(ids, iid)
 	}
 	return ids, nil
+}
+
+// artifactEventCitesDig is THE cite predicate, one home for both callers
+// (the bind's cite-guard through artifactCitedByLiveBinds, and the prune
+// verb's warning). A live harness_run event cites dig when EITHER
+//
+//   - its own data.report_sha256 IS dig — the report-bound rungs
+//     (miniprover autoprove, minicertora report binds), whose event names
+//     the exact bytes it mapped; OR
+//   - it names an exec (data.exec) whose recorded exec pins dig in
+//     input_hashes / artifact_hashes — the EXEC rungs, whose evidence is
+//     the scaffold file the sandbox hashed as the run's input (N1: the
+//     scaffold artifact row was prunable with an EMPTY stderr, because the
+//     scan saw only report_sha256, while the usage line and the RUNBOOK
+//     both promise the warning whenever a live bind cites the row).
+func artifactEventCitesDig(d validation.Value, dig string,
+	citedExecs map[string]bool) bool {
+	if dig == "" {
+		return false
+	}
+	if objStr(d, "report_sha256") == dig {
+		return true
+	}
+	id := objStr(d, "exec")
+	return id != "" && citedExecs[id]
+}
+
+// artifactCitedExecIDs is the second cite arm's resolution: the exec ids
+// that a live harness_run event names AND whose exec record pins dig. It
+// is a LOCAL re-read of the harness bind's hash reader (cmd_verify_harness
+// .go's harnessRecordedHashes, owned elsewhere, which this file must not
+// edit): the same two maps, the same "non-empty string VALUE is a hash"
+// rule — reimplemented here so the prune verb agrees with the bind instead
+// of holding a second opinion about what the bind recorded.
+//
+// "Live" is the same notion the report arm already used: every harness_run
+// event on the append-only ledger (nothing removes one; a superseded bind
+// is still a bind the audit re-derives). Reading an extra event as cited
+// burns nothing — it only makes the warning more conservative.
+func artifactCitedExecIDs(events []validation.Value, c *state.Campaign,
+	dig string) (map[string]bool, error) {
+	if dig == "" {
+		return nil, nil
+	}
+	named := map[string]bool{}
+	for _, ev := range events {
+		if objStr(ev, "type") != "harness_run" {
+			continue
+		}
+		if id := objStr(objAt(ev, "data"), "exec"); id != "" {
+			named[id] = true
+		}
+	}
+	if len(named) == 0 {
+		return nil, nil
+	}
+	execs, err := state.AllExecs(c)
+	if err != nil {
+		return nil, err
+	}
+	pins := map[string]bool{}
+	for _, rec := range execs {
+		id := objStr(rec, "exec_id")
+		if named[id] && artifactExecPins(rec, dig) {
+			pins[id] = true
+		}
+	}
+	return pins, nil
+}
+
+// artifactExecPins: does one exec record pin dig among the bytes the run
+// took in (input_hashes) or produced (artifact_hashes)? The record maps a
+// file NAME to a sha256 STRING; only non-empty strings are hashes, so a
+// null/absent/scalar map contributes nothing (same filter as the bind's
+// reader).
+func artifactExecPins(rec validation.Value, dig string) bool {
+	if dig == "" {
+		return false
+	}
+	for _, key := range []string{"input_hashes", "artifact_hashes"} {
+		m := objAt(rec, key)
+		if m.Kind != validation.Obj {
+			continue
+		}
+		for _, kv := range m.O {
+			if kv.V.Kind == validation.Str && kv.V.S == dig {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func init() {
