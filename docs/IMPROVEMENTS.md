@@ -1,5 +1,20 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — critic round 9: the projection lied while the directory healed
+r8's half-pin rollback removed the right directory but PinSnapshot had ALREADY
+saved campaign_state.json — a ledger that then refused its event left the
+state naming a snapshot that never existed, and the row's existence suppressed
+the event forever: permanent audit red from a healed pin. The pin now UNWINDS
+the state projection when its event is refused (log failure ⇒ pre-pin state
+bytes restored; verified with a corrupted tail end to end). Mechanism-leg
+third pass: anchorKey keys on the gate's behavior — phrase fingerprints are
+words()-folded content-word sets, and every inert gate form ([] , blank,
+below-bar) is ONE match-nothing symbol distinct from no-gate; a hand-scaled
+chain failure in StaleBugClass now says "successor unreadable" instead of
+going silent; the brief's STALE line tells which geometry actually holds
+("computed before any pin existed" — nothing moved); the exit-code
+convention (0/1/2 families) got its one RUNBOOK paragraph. r9: 8/10.
+
 ## 2026-09-13 — critic round 8: equality means WHAT THE CODE SEES
 anchorKey v1 still keyed on raw JSON; the scorer sees MEMBERSHIP sets,
 trimmed phrases and basename collapse — so duplicates with reordered/

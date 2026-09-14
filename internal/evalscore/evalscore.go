@@ -769,18 +769,7 @@ func anchorKey(row validation.Value) string {
 			locLeg = strings.Join(dedupeSorted(bases), ",")
 		}
 	}
-	mechs := make([]string, 0)
-	for _, m := range obj(g, "match_mechanisms").A {
-		if m.Kind == validation.Str {
-			if s := strings.TrimSpace(m.S); s != "" {
-				mechs = append(mechs, s)
-			}
-		}
-	}
-	mechLeg := ""
-	if len(mechs) > 0 {
-		mechLeg = strings.Join(dedupeSorted(mechs), "\u0000")
-	}
+	mechLeg := mechGateKey(g)
 	return strings.Join([]string{
 		strings.Join(classes, ","), locLeg,
 		field(g, "outcome"), mechLeg,
@@ -800,4 +789,74 @@ func dedupeSorted(in []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// mechGateKey canonicalizes the mechanism gate the way goldAcceptsMechanism
+// consumes it (r9): the gate's BEHAVIOR is fully described by the set of
+// content-word fingerprints of its live phrases plus its root: class tests.
+//   - absent/null  -> "*"  (always pass, the historical gate)
+//   - [] / all entries inert (blank, non-string, or below the two-content-
+//     word bar) -> "!" — every form that anchors NOTHING is one anchor,
+//     because a phrase below the bar matches nothing exactly like an empty
+//     array ("   " == [] == ["a"] behaviorally)
+//   - live phrases -> sorted "P:"+wordset fingerprints, plus sorted
+//     "R:"+class tokens for root: tests; two spellings folding to the same
+//     content vocabulary ("a  b", "A_B", "b a"...) are ONE gate.
+func mechGateKey(g validation.Value) string {
+	v := obj(g, "match_mechanisms")
+	if v.Kind == validation.Null {
+		return "*"
+	}
+	if v.Kind != validation.Arr || len(v.A) == 0 {
+		return "!" // malformed or empty: fail closed
+	}
+	var live []string
+	for _, p := range v.A {
+		if p.Kind != validation.Str {
+			continue // inert
+		}
+		s := strings.TrimSpace(p.S)
+		if s == "" {
+			continue // inert
+		}
+		if strings.HasPrefix(s, "root:") {
+			r := strings.TrimSpace(strings.TrimPrefix(s, "root:"))
+			if r == "" {
+				// root: with no class cannot match: goldAcceptsMechanism
+				// demands class != "". Inert.
+				continue
+			}
+			live = append(live, "R:"+r)
+			continue
+		}
+		if k, ok := phraseFingerprint(s); ok {
+			live = append(live, "P:"+k)
+		}
+		// Below-bar / stop-word-only phrases are INERT — they match
+		// nothing, contributing exactly what an absent entry contributes.
+	}
+	if len(live) == 0 {
+		return "!"
+	}
+	return strings.Join(dedupeSorted(live), "\u0000")
+}
+
+// phraseFingerprint is the content-word set phraseMatches anchors on:
+// folded, deduped, stop-words dropped, ordered — with the same two-distinct
+// bar. ok=false when the phrase cannot match anything.
+func phraseFingerprint(phrase string) (string, bool) {
+	seen := map[string]bool{}
+	var content []string
+	for _, w := range words(phrase) {
+		if stopWords[w] || seen[w] {
+			continue
+		}
+		seen[w] = true
+		content = append(content, w)
+	}
+	if len(content) < 2 {
+		return "", false
+	}
+	sort.Strings(content)
+	return strings.Join(content, " "), true
 }

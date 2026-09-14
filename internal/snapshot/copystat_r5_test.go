@@ -367,3 +367,99 @@ func TestHalfPinRollsBackAfterRename(t *testing.T) {
 		t.Fatal("empty meta")
 	}
 }
+
+// TestPinEventFailureUnwindsState pins r9 issue 1: the state save used to
+// land BEFORE the snapshot.pinned event; a corrupted ledger tail then left
+// campaign_state.json listing an id the ledger never recorded — and since
+// the row's existence suppresses the event forever, the projection audit
+// burned red permanently. Now a refused event unwinds the projection.
+func TestPinEventFailureUnwindsState(t *testing.T) {
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "a.sol"), []byte("x\n"),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	c := pinCampaign(t, t.TempDir(), "C-9badf00d0001")
+	// Corrupt the events tail (a torn final line): appends refuse.
+	raw, err := os.ReadFile(c.EventsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(c.EventsPath, append(raw,
+		[]byte("{torn garbage not json\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err = PinSourceSnapshot(c, src, nil, nil)
+	if err == nil {
+		t.Fatal("torn tail must refuse the pin event")
+	}
+	if !strings.Contains(err.Error(), "rolled back") {
+		t.Fatalf("the error must name the rollback: %v", err)
+	}
+	st, serr := c.State()
+	if serr != nil {
+		t.Fatal(serr)
+	}
+	for _, kv := range st.O {
+		switch kv.K {
+		case "snapshots":
+			if kv.V.Kind == validation.Arr && len(kv.V.A) > 0 {
+				t.Fatalf("state lists snapshots the ledger refused: %v",
+					kv.V.A)
+			}
+		case "active_snapshot_id":
+			if kv.V.Kind == validation.Str && kv.V.S != "" {
+				t.Fatalf("a rolled-back pin must not stay active: %v", kv.V)
+			}
+		}
+	}
+	entries, _ := os.ReadDir(filepath.Join(c.Dir, "snapshots"))
+	for _, e := range entries {
+		t.Fatalf("rolled-back pin left %s in the store", e.Name())
+	}
+	// Heal: truncate the torn line, re-pin — the event lands EXACTLY
+	// once and projection and ledger agree.
+	if err := os.WriteFile(c.EventsPath, raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PinSourceSnapshot(c, src, nil, nil); err != nil {
+		t.Fatalf("healed re-pin: %v", err)
+	}
+	events, err := c.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	nPinned := 0
+	for _, ev := range events {
+		if evS(ev, "type") == "snapshot.pinned" {
+			nPinned++
+		}
+	}
+	if nPinned != 1 {
+		t.Fatalf("snapshot.pinned must appear exactly once, got %d", nPinned)
+	}
+	st, _ = c.State()
+	if len(evArr(st, "snapshots")) != 1 {
+		t.Fatalf("state must carry exactly the one pinned row")
+	}
+}
+
+// evS is objStr for events rows in this package's tests.
+func evS(v validation.Value, key string) string {
+	for _, kv := range v.O {
+		if kv.K == key && kv.V.Kind == validation.Str {
+			return kv.V.S
+		}
+	}
+	return ""
+}
+
+// evArr returns the array under key of an object value.
+func evArr(v validation.Value, key string) []validation.Value {
+	for _, kv := range v.O {
+		if kv.K == key && kv.V.Kind == validation.Arr {
+			return kv.V.A
+		}
+	}
+	return nil
+}

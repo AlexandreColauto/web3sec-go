@@ -766,7 +766,15 @@ func StaleBugClass(c *state.Campaign, mem validation.Value) (
 	for {
 		f, err := findings.LoadFinding(c, cur)
 		if err != nil {
-			return "", "", false
+			if cur == fid {
+				return "", "", false // the row's own finding is gone
+			}
+			// r9: a chain that goes unread must not FAIL OPEN into
+			// silence — the successor exists (the ledger says so) but its
+			// row cannot be loaded. Report the drift as unknown-but-broken
+			// and let the operator see it (stale carries the broken
+			// marker).
+			return rowClass, "(successor " + cur + " unreadable)", true
 		}
 		findingClass = rootClass(f)
 		next := supersededBy(c, cur)

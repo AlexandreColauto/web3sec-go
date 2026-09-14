@@ -283,6 +283,18 @@ func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
 		))
 		st.O = validation.SetOrAppend(st.O, "snapshots", rows)
 	}
+	// r9 (critic): save-then-log could strand a LYING projection — the
+	// state listed the snapshot (and made it active) while the corrupted
+	// ledger refused the snapshot.pinned event, and because the row then
+	// exists, no re-pin can ever emit the missing event: the projection
+	// audit burned red permanently. Reordering (log first) only moves the
+	// lie to the other side of the pair. The pin is atomic against the
+	// ledger by UNWIND: keep the exact pre-pin bytes, restore them if the
+	// event cannot be written.
+	prevState, hadPrev := []byte(nil), false
+	if raw, rerr := os.ReadFile(c.StatePath); rerr == nil {
+		prevState, hadPrev = raw, true
+	}
 	st.O = validation.SetOrAppend(st.O, "active_snapshot_id", validation.VStr(sid))
 	if err := c.save(st); err != nil {
 		return "", err
@@ -299,10 +311,32 @@ func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
 			kv("framework_build", validation.VStr(version.Commit())),
 		)
 		if _, err := c.Log("snapshot.pinned", &sid, &data); err != nil {
-			return "", err
+			if unwinding := c.unwindState(prevState, hadPrev); unwinding != nil {
+				return "", fmt.Errorf("pin event failed (%v) AND the state "+
+					"projection could not be unwound (%v): campaign_state "+
+					"lists snapshot %s the ledger never recorded — repair "+
+					"the events tail and re-pin before trusting any "+
+					"projection", err, unwinding, sid)
+			}
+			return "", fmt.Errorf("snapshot %s was NOT kept — the state "+
+				"projection was rolled back with the ledger refusing the "+
+				"pin event: %w", sid, err)
 		}
 	}
 	return sid, nil
+}
+
+// unwindState restores the pre-pin campaign_state.json (r9): same bytes
+// through the same canonical writer, not a hand-rolled rewrite.
+func (c *Campaign) unwindState(prev []byte, hadPrev bool) error {
+	if !hadPrev {
+		return os.Remove(c.StatePath)
+	}
+	st, err := validation.ParseOrdered(prev)
+	if err != nil {
+		return err
+	}
+	return validation.WriteJson(c.StatePath, st, "campaign_state")
 }
 
 // ActiveSnapshot is active_snapshot: the active snapshots row, or Null when

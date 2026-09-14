@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"fmt"
 	"websec/assets"
 	"websec/internal/validation"
 )
@@ -142,5 +143,59 @@ func TestAnchorKeyBehaviorEquality(t *testing.T) {
 	if _, err := loadRows(t, m1, m2); err == nil ||
 		!strings.Contains(err.Error(), "same gold anchor") {
 		t.Fatalf("trailing-space mechanism duplicates: %v", err)
+	}
+}
+
+// TestAnchorKeyGateFolding (r9-2/3): the mechanism leg keys on the gate's
+// BEHAVIOR — whitespace/identifier/case/stop-word folds that
+// goldAcceptsMechanism cannot distinguish are refused as duplicates, and
+// every way of matching NOTHING ([] , all-blank, below-bar phrases) is ONE
+// anchor, distinct from no-gate at all.
+func TestAnchorKeyGateFolding(t *testing.T) {
+	mk := func(id, mech string) validation.Value {
+		return withMechs(withFile(goldPackRow(id, "Morph", "dos-griefing"),
+			"F.sol"), mech)
+	}
+	pairs := [][2]string{
+		{"alpha  beta gamma", "alpha beta gamma"},                                      // ws runs
+		{"external call precedes state update", "External Call precedes STATE update"}, // case fold only
+		{"the a call precedes the state update", "call precedes state update"},         // stop-words
+		{"call precedes state update", "update state precedes call"},                   // order-free
+	}
+	for i, pr := range pairs {
+		a := mk(fmt.Sprintf("CASE-%012d", 900+i), pr[0])
+		b := mk(fmt.Sprintf("CASE-%012d", 950+i), pr[1])
+		if _, err := loadRows(t, a, b); err == nil ||
+			!strings.Contains(err.Error(), "same gold anchor") {
+			t.Fatalf("fold pair %d (%q/%q) must refuse as one gate: %v",
+				i, pr[0], pr[1], err)
+		}
+	}
+	// All-inert gates are ONE dead anchor...
+	d1 := mk("CASE-00000000e001", "   ") // blank after trim: inert
+	d2 := mk("CASE-00000000e002", "one") // below two-content-word bar
+	if _, err := loadRows(t, d1, d2); err == nil ||
+		!strings.Contains(err.Error(), "same gold anchor") {
+		t.Fatalf("two inert gates anchor nothing — one anchor: %v", err)
+	}
+	// ...and the dead gate is DISTINCT from no gate at all.
+	none := withFile(goldPackRow("CASE-00000000e003", "Morph",
+		"dos-griefing"), "F.sol")
+	if _, err := loadRows(t, d1, none); err != nil {
+		t.Fatalf("gate-nothing vs gate-absent are different anchors: %v",
+			err)
+	}
+	// root: spellings fold to the same class test:
+	r1 := mk("CASE-00000000e004", "root: reentrancy")
+	r2 := mk("CASE-00000000e005", "root:  reentrancy")
+	if _, err := loadRows(t, r1, r2); err == nil ||
+		!strings.Contains(err.Error(), "same gold anchor") {
+		t.Fatalf("root: spellings are one test: %v", err)
+	}
+	// root:X and a phrase that can also only match via class remain
+	// DISTINCT: one keys R:, the other P:.
+	r3 := mk("CASE-00000000e006", "reentrancy into the vault twice")
+	if _, err := loadRows(t, r1, r3); err != nil {
+		t.Fatalf("root: test != phrase test: %v", err)
 	}
 }

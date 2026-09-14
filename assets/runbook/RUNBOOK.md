@@ -58,6 +58,14 @@ webv2 env doctor            # read-only: docker cli/daemon, image presence + dig
 webv2 env doctor <C-xxx>    # + checks the box against the evidence floor THIS campaign needs (exit 1 while it cannot)
 ```
 
+Exit codes are one convention across every verb: **0** did what was asked
+(including a truthful empty result), **1** is a decision or integrity failure
+(gate not passed, verification refused, content too short), **2** is the
+"the thing you named does not exist or was not given" family — argparse
+refusals, missing rows, unknown ids, missing prerequisite state (an index
+before `probes run`, a plan before `answered`). A 2 never means "wrong"; it
+means "nothing to operate on — fix the invocation or the precondition".
+
 ## 1. The fast path: the pipeline
 
 `webv2 run` walks the phase machine and **halts honestly at the first stage

@@ -271,9 +271,33 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 			"%s\n", pyReprVal(objAt(iv, "total")), unv)
 	}
 	for _, s := range objListAt(ch, "stale_artifacts") {
-		fmt.Fprintf(r.Out, "  STALE %s (computed on %s, active pin moved) — "+
-			"re-run: %s\n", objStr(s, "artifact"), objStr(s, "stale_snapshot"),
-			objStr(s, "re_run"))
+		// r9 (critic): the reason must tell the truth about the geometry.
+		// "active pin moved" is only honest when a pin EXISTS to move;
+		// the common unpinned case is "computed before any pin was made"
+		// — nothing moved, and (twin law) an unpinned artifact is simply
+		// never reusable, which deserves that plain sentence, not a
+		// story about a pin that never was.
+		from, active := objStr(s, "stale_snapshot"), snapshot
+		if active == "(none)" {
+			active = ""
+		}
+		why := "active pin moved"
+		switch {
+		case from == "" || from == "unpinned":
+			why = "computed before any pin existed"
+		case active == "":
+			why = "the campaign has no active pin anymore"
+		}
+		if from == "" || from == "unpinned" {
+			// One clause, not two: "computed on unpinned, computed
+			// before any pin existed" said the same thing twice.
+			why = "computed before any pin existed"
+			from = ""
+		} else {
+			why = "computed on " + from + ", " + why
+		}
+		fmt.Fprintf(r.Out, "  STALE %s (%s) — re-run: %s\n",
+			objStr(s, "artifact"), why, objStr(s, "re_run"))
 	}
 	for _, m := range objListAt(b, "pending_memory") {
 		fmt.Fprintf(r.Out, "  memory decision: %s (%s/%s)\n",
