@@ -393,7 +393,11 @@ func TestPinEventFailureUnwindsState(t *testing.T) {
 	if err == nil {
 		t.Fatal("torn tail must refuse the pin event")
 	}
-	if !strings.Contains(err.Error(), "rolled back") {
+	// r11: the refusal may now land BEFORE the state save (the ledger is
+	// read first, and a torn tail fails the read) — either way the pin is
+	// unwound: dir gone, state untouched, no event.
+	if !strings.Contains(err.Error(), "rolled back") &&
+		!strings.Contains(err.Error(), "was NOT kept") {
 		t.Fatalf("the error must name the rollback: %v", err)
 	}
 	st, serr := c.State()
