@@ -271,10 +271,15 @@ time, from the artifacts the event names:
   re-checked against bytes that cannot move under them.
 * Inconclusive rungs are outside the blessing law — but not outside
   fabrication: a conspiring (slot, event) pair with invented `| next:`
-  advice feeds the disposition tally, so when the witness still exists
-  the summary is re-derived and a fabricated one burns (r25). When the
-  witness has genuinely aged out, absence stays silent: an inconclusive
-  rung blesses nothing, and noise there only punishes honest age.
+  advice feeds the disposition tally. When the witness still exists the
+  summary is re-derived and compared BY DISPOSITION CLASS (`Disposition`
+  is the classifier the tally itself reads) — a pair claiming
+  escalate-flag advice over bytes whose reason re-derives escalate-bound
+  burns, while the mapper's legitimate decorations (" (unbound: …)", its
+  own "no clean completion" timeout wording) are transport, not a
+  different class, and never burn. When the witness has genuinely aged
+  out, absence stays silent: an inconclusive rung blesses nothing, and
+  noise there only punishes honest age.
 
 A slot that stored LESS proof than its bytes support is
 under-reporting — richer evidence than displayed — and skipped: rails

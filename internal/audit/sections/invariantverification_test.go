@@ -755,9 +755,12 @@ func TestInvariantVerificationFabricatedAdviceBurns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The BOUND pair claims the escalate-flag class; the bytes carry a
+	// loop-bound reason (escalate-bound). Same rung, different advice —
+	// exactly what steers the disposition tally.
 	bad := harnessObj("minicertora", "inconclusive", "EXEC-55",
 		validation.VNull(),
-		"inconclusive (prover rollup: PROVEN AND THE WORLD IS FLAT)")
+		"inconclusive (path-limit-reached: 256)")
 	harnessLinks(t, c, map[string]validation.Value{"INV-3": bad})
 	// mintExecEvidence never ran (rung not blessing): write the honest
 	// INCONCLUSIVE output the pair contradicts — a rule-attributed
@@ -767,7 +770,8 @@ func TestInvariantVerificationFabricatedAdviceBurns(t *testing.T) {
 		t.Fatal(err)
 	}
 	line := `{"rule": "inv_3", "verdict": "UNKNOWN", "reason": ` +
-		`"loop bound too low", "assumptions": [], "warnings": [], ` +
+		`"loop-bound-may-be-exceeded", "details": "bound 4 < 8", ` +
+		`"assumptions": [], "warnings": [], ` +
 		`"ghosts": [], "invariant": null, "calls": []}` + "\n"
 	if err := os.WriteFile(filepath.Join(dir, "stdout.log"),
 		[]byte(line), 0o644); err != nil {
@@ -785,15 +789,15 @@ func TestInvariantVerificationFabricatedAdviceBurns(t *testing.T) {
 	}
 	if objAt(v, "ok").B {
 		t.Fatalf("fabricated advice must burn: %s",
-			validation.CanonCompact(v)[:300])
+			validation.CanonCompact(v))
 	}
 	joined := ""
 	for _, pr := range objAt(v, "problems").A {
 		joined += pr.S
 	}
-	if !strings.Contains(joined, "fabricated next-step") {
+	if !strings.Contains(joined, "the bound pair claims") {
 		t.Fatalf("must burn on the ADVICE axis, not elsewhere: %q",
-			joined[:300])
+			joined)
 	}
 	// Aged-out witness: same forged pair, evidence gone — the rail
 	// falls silent (inconclusive is not a blessing; noise there would
@@ -806,8 +810,88 @@ func TestInvariantVerificationFabricatedAdviceBurns(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, pr := range objAt(v2, "problems").A {
-		if strings.Contains(pr.S, "fabricated next-step") {
+		if strings.Contains(pr.S, "the bound pair claims") {
 			t.Fatalf("missing witness must skip, not burn: %q", pr.S)
 		}
+	}
+	// And the DECORATED honest shape must never burn: the mapper
+	// appends " (unbound: …)" / renders its own timeout wording, and
+	// Disposition treats those as transport, not as a different class.
+	_ = v2
+}
+
+// TestInvariantVerificationDecoratedInconclusiveStaysQuiet pins the
+// class rule's other direction (the r25 first cut compared summary
+// BYTES and would have burned honest binds): the mapper legitimately
+// appends " (unbound: …)" and renders its own timeout wording, and
+// Disposition() treats those as transport. Same class = no lie.
+func TestInvariantVerificationDecoratedInconclusiveStaysQuiet(t *testing.T) {
+	c, err := state.Init(t.TempDir(), "Acme Program", state.InitOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := harnessObj("minicertora", "inconclusive", "EXEC-56",
+		validation.VNull(),
+		"inconclusive (path-limit-reached: 256) "+
+			"(unbound: harness file hash not recorded)")
+	harnessLinks(t, c, map[string]validation.Value{"INV-3": h})
+	dir := filepath.Join(c.ExecsDir, "EXEC-56")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	line := `{"rule": "inv_3", "verdict": "UNKNOWN", "reason": ` +
+		`"path-limit-reached", "details": "cap 256", ` +
+		`"assumptions": [], "warnings": [], ` +
+		`"ghosts": [], "invariant": null, "calls": []}` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "stdout.log"),
+		[]byte(line), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := validation.WriteJson(filepath.Join(dir,
+		"exec_record.json"), validation.VObj(
+		KV("exec_id", validation.VStr("EXEC-56")),
+		KV("exit_status", validation.VInt(2))), ""); err != nil {
+		t.Fatal(err)
+	}
+	v, err := InvariantVerification(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !objAt(v, "ok").B {
+		t.Fatalf("a decorated honest bind must not burn: %s",
+			validation.CanonCompact(v))
+	}
+	// Second honest shape: a TIMED-OUT run. The mapper gives it its own
+	// "no clean completion" wording (MapRun would lie about seconds) —
+	// the runtime floor, which is exactly the class the pair claims.
+	c2, err := state.Init(t.TempDir(), "Acme Program", state.InitOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h2 := harnessObj("minicertora", "inconclusive", "EXEC-57",
+		validation.VNull(),
+		"inconclusive (no clean completion; loop bound was 4)")
+	harnessLinks(t, c2, map[string]validation.Value{"INV-3": h2})
+	dir2 := filepath.Join(c2.ExecsDir, "EXEC-57")
+	if err := os.MkdirAll(dir2, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir2, "stdout.log"),
+		[]byte("partial garbage that never completed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := validation.WriteJson(filepath.Join(dir2,
+		"exec_record.json"), validation.VObj(
+		KV("exec_id", validation.VStr("EXEC-57")),
+		KV("exit_status", validation.VInt(-1))), ""); err != nil {
+		t.Fatal(err)
+	}
+	v2, err := InvariantVerification(c2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !objAt(v2, "ok").B {
+		t.Fatalf("a timed-out honest bind must not burn: %s",
+			validation.CanonCompact(v2))
 	}
 }

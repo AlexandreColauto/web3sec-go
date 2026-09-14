@@ -627,14 +627,43 @@ func recheckInconclusive(c *state.Campaign, iid string,
 		return "" // bytes bless MORE than the claim: modesty, never a
 		// lie — the pair under-claims and the ledger stays honest.
 	}
-	if want := objStr(last, "summary"); want != sum {
-		// The slot↔event backstop already forces slot==event; here the
-		// PAIR shares advice the bytes never wrote: fabricated
-		// disposition text feeding the tally.
-		return fmt.Sprintf("%s: exec %s stdout re-derives inconclusive "+
-			"advice %s; the bound pair claims %s — fabricated next-step "+
-			"text steers the disposition tally", iid, exec,
-			validation.PyReprStr(sum), validation.PyReprStr(want))
+	// Compare DISPOSITION CLASSES, not bytes: the mapper legitimately
+	// decorates stored summaries (" […] (unbound: …)", its own
+	// "no clean completion" timeout wording, "scaffold-degraded: …"),
+	// and those are transport/shape differences, not different advice.
+	// Disposition() is the canonical classifier the tally itself reads
+	// — comparing classes is the right equality for this rail, and the
+	// exact-text version (r25 first cut) would have burned honest
+	// decorated binds.
+	wantCls, _, wantOK := harness.Disposition(objStr(last, "summary"))
+	gotCls, _, gotOK := harness.Disposition(sum)
+	if !wantOK {
+		return "" // the pair renders no advice: nothing to fabricate
+	}
+	if harness.TimedOutBit(es) {
+		// A run that never completed can only be the runtime floor: any
+		// OTHER named class is fabricated over a process that was
+		// killed (by law its partial bytes map to no verdict).
+		if wantCls != harness.EscalateRuntime {
+			return fmt.Sprintf("%s: exec %s never completed (exit %d) "+
+				"and its bytes re-derive the runtime floor; the bound "+
+				"pair claims advice class %q — a disposition no run of "+
+				"these bytes can carry", iid, exec, es, wantCls)
+		}
+		return ""
+	}
+	if !gotOK {
+		// No named disposition in the bytes (plumbing floor), yet the
+		// pair claims one: invented campaign-steering advice.
+		return fmt.Sprintf("%s: exec %s stdout re-derives no named "+
+			"disposition (%s); the bound pair claims advice class %q "+
+			"— fabricated next-step text steers the tally", iid, exec,
+			validation.PyReprStr(sum), wantCls)
+	}
+	if gotCls != wantCls {
+		return fmt.Sprintf("%s: exec %s stdout re-derives disposition "+
+			"%q; the bound pair claims %q — fabricated next-step text "+
+			"steers the tally", iid, exec, gotCls, wantCls)
 	}
 	return ""
 }
