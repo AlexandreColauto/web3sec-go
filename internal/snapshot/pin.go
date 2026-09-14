@@ -225,6 +225,12 @@ func copyTree(src, dst string, excludes map[string]struct{}) error {
 	// design; an 0500 source root must not make the pin unrunnable, and
 	// modes never enter any hash). sealStagedDirs applies the collected
 	// child-directory perms once the meta write is done.
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		// copytree materializes the destination root first, EVEN FOR an
+		// empty source (r2's no-staging-at-all fix — kept through the
+		// r5/r6 seal rework; the flat walk cannot create it itself).
+		return err
+	}
 	var pending []pendingMode
 	err := filepath.WalkDir(src, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -253,6 +259,14 @@ func copyTree(src, dst string, excludes map[string]struct{}) error {
 			link, rerr := os.Readlink(p)
 			if rerr != nil {
 				return rerr
+			}
+			// r8: shutil.copytree materializes the tree top-down; Go's
+			// flat walk can reach a ROOT-level symlink before any dir
+			// operation has created the staging root itself (the empty
+			// copyTree used to, the seal rework dropped it) — Symlink
+			// then dies ENOENT and the whole pin fails on a legal source.
+			if err := os.MkdirAll(filepath.Dir(q), 0o755); err != nil {
+				return err
 			}
 			_ = os.Remove(q)
 			return os.Symlink(link, q)
@@ -346,6 +360,13 @@ func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Valu
 	worktreeAdded := st.worktreeAdded
 	contentHash, fileCount := st.contentHash, st.fileCount
 	snapshotID := st.snapshotID
+	// renamed: staging has become the final dir; pinDone: the whole pin
+	// (manifest, snapshot.json, pin index) completed. The defer removes
+	// final iff renamed && !pinDone (r8 half-pin rollback).
+	final := filepath.Join(snapRoot, snapshotID)
+	// renamed: staging has become the final dir (the defer + tail below
+	// arm it right after the successful rename).
+	renamed, pinDone := false, false
 	defer func() {
 		// The worktree moved (rename) or was discarded (re-pin noop): only
 		// a leftover staging dir needs rmtree + prune, exactly like the
@@ -356,9 +377,25 @@ func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Valu
 				Git(targetAbs, "worktree", "prune")
 			}
 		}
+		// r8: the discard-on-error law, one step later. Everything AFTER
+		// the staging->final rename (excluded-log, manifest refresh, the
+		// snapshot.json write, the pin index) can still fail — and a final
+		// dir holding staged content with NO snapshot.json is exactly the
+		// half-pin the audits are built to flag forever. The Python twin
+		// copies straight into the id-dir and strands the same corpse
+		// (there was no rollback to port); this is a documented
+		// divergence: a failed post-install step removes what it
+		// installed and says so in the error.
+		if renamed && !pinDone {
+			if rerr := removeTreeUnsealed(final); rerr != nil {
+				fmt.Fprintf(os.Stderr, "error: the failed pin also could "+
+					"NOT remove its half-installed snapshot %s (%v) — the "+
+					"audit will flag it until it is cleaned by hand\n",
+					final, rerr)
+			}
+		}
 	}()
 
-	final := filepath.Join(snapRoot, snapshotID)
 	if dirExists(final) {
 		// Re-pin of identical content: verify the existing copy still
 		// hashes to what was just computed, then discard staging.
@@ -387,6 +424,7 @@ func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Valu
 			Git(targetAbs, "worktree", "repair", final)
 			worktreeAdded = false
 		}
+		renamed = true
 	}
 
 	var cfg validation.Value
@@ -459,19 +497,19 @@ func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Valu
 				"bulk-default and/or --exclude prune set at pin time")},
 		)
 		if _, err := c.Log("snapshot.excluded", &snapshotID, &data); err != nil {
-			return validation.VNull(), err
+			return validation.VNull(), rolledBackErr(final, err)
 		}
 	}
 	// Self-describing manifest, then the schema-validated write, then pin.
 	snap, err = RefreshManifest(snap, final)
 	if err != nil {
-		return validation.VNull(), err
+		return validation.VNull(), rolledBackErr(final, err)
 	}
 	if err := validation.WriteJson(filepath.Join(final, "snapshot.json"), snap, "snapshot"); err != nil {
-		return validation.VNull(), err
+		return validation.VNull(), rolledBackErr(final, err)
 	}
 	if _, err := c.PinSnapshot(snap); err != nil {
-		return validation.VNull(), err
+		return validation.VNull(), rolledBackErr(final, err)
 	}
 	// Printed here, not by the caller, because the pin path is the only
 	// place that still knows the TARGET: source.root is the staged copy,
@@ -479,10 +517,20 @@ func PinSourceSnapshot(c *state.Campaign, target string, config *validation.Valu
 	// not reconstruct the geometry from the returned dict. stderr, not
 	// stdout: the pin's own report is the machine-readable part, and the
 	// `snap` verb has no stderr writer of its own to hand down.
+	pinDone = true // the defer's half-pin rollback stands down
 	if campaignInsideTarget {
 		fmt.Fprintln(os.Stderr, "warning: "+ContainmentWarning)
 	}
 	return snap, nil
+}
+
+// rolledBackErr annotates a post-rename failure: the defer WILL remove the
+// half-installed snapshot dir, and the operator must know the store was
+// restored, not silently left to rot (r8).
+func rolledBackErr(final string, err error) error {
+	return fmt.Errorf(
+		"snapshot %s was NOT kept — the half-installed dir is removed so "+
+			"the store never reads a corpse as tampering: %w", final, err)
 }
 
 // removeTreeUnsealed deletes a staged tree whose child directories may

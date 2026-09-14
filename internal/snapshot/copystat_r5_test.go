@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"websec/internal/validation"
 )
 
 // TestCopyTreeCopystatLast pins r5 issue 1: a read-only source ROOT (0500)
@@ -265,5 +267,103 @@ func TestCopyTreeFileModeFidelity(t *testing.T) {
 			t.Fatalf("staged %s mode %v, want %v (umask must not rewrite)",
 				name, st.Mode().Perm(), want)
 		}
+	}
+}
+
+// TestCopyTreeRootSymlink pins r8 issue 2: a root-level symlink is legal
+// source content (copytree materializes the root before children; the
+// reworked flat walk must not assume a directory entry comes first).
+func TestCopyTreeRootSymlink(t *testing.T) {
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "real.txt"), []byte("x\n"),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("real.txt", filepath.Join(src, "alink")); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(t.TempDir(), "staged")
+	if err := copyTree(src, dst, nil); err != nil {
+		t.Fatalf("root symlink must copy: %v", err)
+	}
+	li, err := os.Lstat(filepath.Join(dst, "alink"))
+	if err != nil || li.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("alink must arrive as a symlink: %v %v", li, err)
+	}
+	// And the FULL pin path works on such a tree (no-vcs ladder):
+	c := pinCampaign(t, t.TempDir(), "C-feedface0001")
+	if _, err := PinSourceSnapshot(c, src, nil, nil); err != nil {
+		t.Fatalf("pin over root symlink: %v", err)
+	}
+}
+
+// TestCopyTreeEmptySourceCreatesRoot pins the r2 law the r8 rework
+// nearly ate: an empty (or fully-excluded) source still stages a root —
+// hashing a nonexistent tree is a raw lstat error, not an answer.
+func TestCopyTreeEmptySourceCreatesRoot(t *testing.T) {
+	src := t.TempDir()
+	dst := filepath.Join(t.TempDir(), "staged")
+	if err := copyTree(src, dst, nil); err != nil {
+		t.Fatal(err)
+	}
+	h, n, err := ContentHash(dst)
+	if err != nil || n != 0 || h == "" {
+		t.Fatalf("empty staged tree must hash: %q %d %v", h, n, err)
+	}
+}
+
+// TestHalfPinRollsBackAfterRename pins r8 issue 3: every failure AFTER
+// staging became final used to return an error while leaving the staged
+// content unmanifested in the store — the exact half-pin the audits burn
+// red over. Now the failed pin removes what it installed and says so.
+func TestHalfPinRollsBackAfterRename(t *testing.T) {
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "a.sol"), []byte("x\n"),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	c := pinCampaign(t, t.TempDir(), "C-c0ffee00c0de")
+	// config fails ONLY at the snapshot.json schema write — i.e. after
+	// the rename has installed the tree.
+	badCfg := validation.VObj(validation.KV{K: "no_such_key",
+		V: validation.VInt(1)})
+	_, err := PinSourceSnapshot(c, src, &badCfg, nil)
+	if err == nil {
+		t.Fatal("schema-rejecting config must fail the pin")
+	}
+	if !strings.Contains(err.Error(), "was NOT kept") {
+		t.Fatalf("the error must name the rollback: %v", err)
+	}
+	entries, rerr := os.ReadDir(filepath.Join(c.Dir, "snapshots"))
+	if rerr != nil {
+		t.Fatal(rerr)
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		if _, serr := os.Stat(filepath.Join(c.Dir, "snapshots", e.Name(),
+			"snapshot.json")); serr == nil {
+			continue // a complete pin (none here expected)
+		}
+		t.Fatalf("failed pin stranded %s without snapshot.json", e.Name())
+	}
+	// The store stays auditable-clean and a corrected re-pin succeeds.
+	good, err := PinSourceSnapshot(c, src, nil, nil)
+	if err != nil {
+		t.Fatalf("healed re-pin: %v", err)
+	}
+	var ladder string
+	for _, kv := range good.O {
+		if kv.K == "source" && kv.V.Kind == validation.Obj {
+			for _, sk := range kv.V.O {
+				if sk.K == "ladder" && sk.V.Kind == validation.Str {
+					ladder = sk.V.S
+				}
+			}
+		}
+	}
+	if ladder == "" {
+		t.Fatal("empty meta")
 	}
 }
