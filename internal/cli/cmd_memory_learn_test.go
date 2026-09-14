@@ -550,3 +550,62 @@ func TestMemoryApproveWarnsOnStaleClass(t *testing.T) {
 			errS)
 	}
 }
+
+// TestMemoryApproveWarnsAcrossSupersede pins r8 issue 4: when the source
+// finding is SUPERSEDED by a differently-classed successor, the approval
+// must name the drift too — the frozen row class is not the taxonomy in
+// force anymore.
+func TestMemoryApproveWarnsAcrossSupersede(t *testing.T) {
+	// The only window where the class can move AFTER the row exists:
+	// queue against a CONFIRMED finding (queueable, still live for
+	// supersession), then hand the finding to a differently-classed
+	// successor. Supersede freezes the old row's class — StaleBugClass
+	// must follow the chain or the stale label promotes in silence
+	// (r8-4).
+	c, root := t15Campaign(t, "memory-supersede")
+	cid := c.CampaignID
+	t15GlobalRow(t, "MEM-global01", "logic-error")
+	f := cliPassingLogicError(t, c)
+	fid := objStr(f, "finding_id")
+	if code, _, errS := run(t, "--root", root, "move", cid, fid,
+		"POSSIBLE", "--reason", "triage survived the critic",
+		"--actor", "golden"); code != 0 {
+		t.Fatalf("POSSIBLE: %q", errS)
+	}
+	if code, _, errS := run(t, "--root", root, "move", cid, fid,
+		"CONFIRMED", "--reason", "the PoC reproduces on the pinned fork",
+		"--actor", "golden"); code != 0 {
+		t.Fatalf("CONFIRMED: %q", errS)
+	}
+	if code, out, errS := run(t, "--root", root, "memory", cid,
+		"--queue-finding", fid, "--kind", "confirmed", "--pattern",
+		"logic-error rounding drains value at conversion"); code != 0 {
+		t.Fatalf("queue: %q %q", out, errS)
+	}
+	newFid := t23Ingest(t, root, cid, "Same drain, right framing",
+		"access-control", []string{"withdraw_without_auth"}, nil)
+	if code, _, errS := run(t, "--root", root, "supersede", cid, newFid,
+		"--of", fid); code != 0 {
+		t.Fatalf("supersede: %q", errS)
+	}
+	_, out, _ := run(t, "--root", root, "memory", cid)
+	mid := ""
+	for _, tok := range strings.Fields(out) {
+		if strings.HasPrefix(tok, "MEM-") {
+			mid = strings.TrimSuffix(tok, "]")
+			break
+		}
+	}
+	if mid == "" {
+		t.Fatalf("no queued row: %q", out)
+	}
+	code, _, errS := run(t, "--root", root, "memory", cid,
+		"--approve", mid, "--by", "operator")
+	if code != 0 {
+		t.Fatalf("approve stands: exit %d %q", code, errS)
+	}
+	if !strings.Contains(errS, "access-control") {
+		t.Fatalf("the successor's class must surface in the warn: %q",
+			errS)
+	}
+}

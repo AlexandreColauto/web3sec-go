@@ -565,7 +565,7 @@ func PublishCampaignWith(c *state.Campaign, actor string,
 		sigKeys[sigKey(full)] = struct{}{}
 		sigsAdded++
 	}
-	memAdded, approvedRows := 0, 0
+	memAdded, approvedRows, memDeduped := 0, 0, 0
 	rows, err := learning.AllMemory(c)
 	if err != nil {
 		return validation.VNull(), err
@@ -577,6 +577,16 @@ func PublishCampaignWith(c *state.Campaign, actor string,
 		approvedRows++
 		mid := objStr(m, "memory_id")
 		if _, ok := memIDs[mid]; ok {
+			continue
+		}
+		// r8: two campaigns that learned the SAME lesson must not
+		// double-promote it into every later campaign's recall. The
+		// collapse is per (program_key, kind, normalized pattern) —
+		// provenance stays visible (the store keeps the first publisher's
+		// row untouched), but the shared surface stays a SET. The skipped
+		// count is reported, never silent.
+		if patternInStore(mems, key, m) {
+			memDeduped++
 			continue
 		}
 		// Leakage-partition guard (dataset-ingestion sprint, constraint 4).
@@ -654,8 +664,15 @@ func PublishCampaignWith(c *state.Campaign, actor string,
 		if approvedRows == 0 {
 			reasons = append(reasons, "no human-approved memory row for this program")
 		} else {
-			reasons = append(reasons, fmt.Sprintf("all %d approved memory "+
-				"row(s) are already published to the %s store", approvedRows, tier))
+			msg := fmt.Sprintf("all %d approved memory row(s) are already "+
+				"published to the %s store", approvedRows, tier)
+			if memDeduped > 0 {
+				msg = fmt.Sprintf("all %d approved memory row(s) are "+
+					"already published to the %s store (%d collapsed as "+
+					"pattern duplicates of rows from other campaigns)",
+					approvedRows, tier, memDeduped)
+			}
+			reasons = append(reasons, msg)
 		}
 		next := []string{}
 		if publishableFindings == 0 {
@@ -674,7 +691,11 @@ func PublishCampaignWith(c *state.Campaign, actor string,
 		kv("record_id", validation.VStr(rid)),
 		kv("program_key", validation.VStr(key)),
 		kv("signatures_added", validation.VInt(int64(sigsAdded))),
+		// r8: the ledger record's key set is byte-frozen (twin), but the
+		// operator-facing report says everything: pattern collapses are
+		// counted here too, never silent.
 		kv("memory_added", validation.VInt(int64(memAdded))),
+		kv("memory_pattern_deduped", validation.VInt(int64(memDeduped))),
 		kv("tier", validation.VStr(tier)),
 		kv("store", validation.VStr(store)),
 		kv("noop", noop)), nil
@@ -1354,4 +1375,32 @@ func pyReprList(items []string) string {
 // idTail is new_id('x', n).split('-')[1].
 func idTail(n int) string {
 	return strings.SplitN(state.NewID("x", n), "-", 2)[1]
+}
+
+// patternInStore reports whether an equal lesson (same kind, same pattern
+// modulo case/whitespace collapse) already rides the store for this
+// program_key. The campaign-LOCAL row always keeps its own copy; only the
+// shared tier collapses.
+func patternInStore(mems []validation.Value, programKey string,
+	m validation.Value) bool {
+	kind, pat := objStr(m, "kind"), normPattern(objStr(m, "pattern"))
+	if pat == "" {
+		return false
+	}
+	for _, w := range mems {
+		if objStr(w, "program_key") != programKey {
+			continue
+		}
+		row := objAt(w, "row")
+		if objStr(row, "kind") == kind &&
+			normPattern(objStr(row, "pattern")) == pat {
+			return true
+		}
+	}
+	return false
+}
+
+// normPattern is the collapse key: case-folded runs of whitespace.
+func normPattern(s string) string {
+	return strings.ToLower(strings.Join(strings.Fields(s), " "))
 }

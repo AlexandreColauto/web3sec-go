@@ -755,22 +755,67 @@ func StaleBugClass(c *state.Campaign, mem validation.Value) (
 	if fid == "" || rowClass == "" {
 		return "", "", false
 	}
-	f, err := findings.LoadFinding(c, fid)
-	if err != nil {
-		return "", "", false
-	}
-	findingClass = objStr(objAt(objAt(f, "root_cause"), "class"), "class")
-	if findingClass == "" {
-		if rc := objAt(f, "root_cause"); rc.Kind == validation.Obj {
-			for _, kv := range rc.O {
-				if kv.K == "class" && kv.V.Kind == validation.Str {
-					findingClass = kv.V.S
-				}
-			}
+	// r8: follow supersession before judging. The superseded row keeps a
+	// FROZEN class (supersede never rewrites root_cause); the live
+	// successor carries the taxonomy the finding actually has now. The
+	// chain is read from the event ledger — the append-only truth — not
+	// from dedup_meta, and a visited set keeps a hand-forged cycle from
+	// looping the check.
+	seen := map[string]bool{fid: true}
+	cur := fid
+	for {
+		f, err := findings.LoadFinding(c, cur)
+		if err != nil {
+			return "", "", false
 		}
+		findingClass = rootClass(f)
+		next := supersededBy(c, cur)
+		if next == "" || seen[next] {
+			break
+		}
+		seen[next] = true
+		cur = next
+	}
+	if findingClass == "" {
+		return rowClass, "", false
 	}
 	if findingClass == "" || findingClass == rowClass {
 		return rowClass, findingClass, false
 	}
 	return rowClass, findingClass, true
+}
+
+// rootClass is root_cause.class of a finding row.
+func rootClass(f validation.Value) string {
+	rc := objAt(f, "root_cause")
+	if rc.Kind != validation.Obj {
+		return ""
+	}
+	for _, kv := range rc.O {
+		if kv.K == "class" && kv.V.Kind == validation.Str {
+			return kv.V.S
+		}
+	}
+	return ""
+}
+
+// supersededBy returns the LATEST successor recorded for fid via
+// finding.superseded events (the ledger keeps the full chain history);
+// "" when none.
+func supersededBy(c *state.Campaign, fid string) string {
+	events, err := c.Events()
+	if err != nil {
+		return ""
+	}
+	next := ""
+	for _, ev := range events {
+		if objStr(ev, "type") != "finding.superseded" {
+			continue
+		}
+		d := objAt(ev, "data")
+		if objStr(d, "old") == fid {
+			next = objStr(d, "new")
+		}
+	}
+	return next
 }

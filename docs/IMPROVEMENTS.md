@@ -1,5 +1,23 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-13 — critic round 8: equality means WHAT THE CODE SEES
+anchorKey v1 still keyed on raw JSON; the scorer sees MEMBERSHIP sets,
+trimmed phrases and basename collapse — so duplicates with reordered/
+repeated/whitespace-padded legs loaded (missed refusals) while a dead
+{"file":"a/"} location collapsed onto class-only rows (false refusal).
+The key now mirrors anchor()'s predicates exactly, including the
+present-but-dead location leg as its own symbol. Also: copyTree creates
+its root before the walk (empty-source r2 law, restored) and mkdirs a
+symlink's parent (root-level symlink killed whole pins); any failure AFTER
+the staging->final rename now removes what it installed and names the
+rollback — the half-pin the audits chase can no longer be manufactured by
+the pinner itself; StaleBugClass follows the supersede chain through the
+event ledger (a frozen old row's class is not the taxonomy in force);
+floors set keeps the open-vocabulary law but TELLS you a class binds
+nothing yet; publish collapses (program, kind, pattern) duplicates on the
+shared tier with a counted field, and the twin's byte-frozen ledger record
+stayed byte-frozen doing it.
+
 ## 2026-09-13 — critic round 7: my own fix ate the project's answer key
 The duplicate-anchor refusal read fields the scorer never uses (.path for
 .file, object mechanisms for strings) — collapsing every location leg and
@@ -13,8 +31,11 @@ is a SET flag — its empty value contradicts --adjacent-clear like the space
 form; staged FILES get chmod-after-WriteFile so the umask stops rewriting
 group/other bits the copy2 claim was made of; memory approve/reject errors
 name their cause instead of echoing a bare id, and approval warns when the
-source finding's class moved under the row; baseline remove keeps the
-twin's idempotence but says so when nothing was registered.
+source finding's class moved under the row; baseline remove was proposed
+to gain a stderr note — and the pinned twin argparse golden answered: the
+reference output has EMPTY stderr there, so the twin's rm-rf idempotence
+stands (a ghost remove exits 0, quiet) and the ruling is recorded in a
+pin, not smuggled in as a behavior change.
 
 ## 2026-09-13 — critic round 6: the fixes' own regressions died first
 r5's copystat-last sealed the staged ROOT — and the pin writes snapshot.json

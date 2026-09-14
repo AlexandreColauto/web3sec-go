@@ -163,3 +163,31 @@ func TestFloorsHelp(t *testing.T) {
 		t.Fatalf("stderr = %q", errS)
 	}
 }
+
+// TestFloorsSetUnknownClassDiscloses pins r8-5: an out-of-taxonomy floor
+// stays ACCEPTED (open vocabulary law) but names its inertness on stderr
+// — the operator learns a typo costs protection, not that the taxonomy is
+// closed.
+func TestFloorsSetUnknownClassDiscloses(t *testing.T) {
+	c, root := t15Campaign(t, "floors-unknown")
+	code, out, errS := run(t, "--root", root, "floors", c.CampaignID,
+		"set", "not-a-class", "E4", "--actor", "operator",
+		"--reason", "we plan to file this class of drain soon")
+	if code != 0 {
+		t.Fatalf("open vocabulary must stay accepted: exit %d %q",
+			code, errS)
+	}
+	if !strings.Contains(out, "floor policy set") {
+		t.Fatalf("stdout stays the twin line: %q", out)
+	}
+	if !strings.Contains(errS, "not a known taxonomy class") {
+		t.Fatalf("inertness must be disclosed: %q", errS)
+	}
+	// A canonical class says nothing extra.
+	code, _, errS = run(t, "--root", root, "floors", c.CampaignID,
+		"set", "reentrancy", "E4", "--actor", "operator",
+		"--reason", "hard floor for value-moving paths in this program")
+	if code != 0 || strings.Contains(errS, "not a known") {
+		t.Fatalf("known class must be quiet: exit %d %q", code, errS)
+	}
+}

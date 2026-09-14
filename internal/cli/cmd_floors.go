@@ -13,6 +13,8 @@ import (
 	"websec/internal/floors"
 	"websec/internal/state"
 	"websec/internal/validation"
+
+	"websec/internal/taxonomy"
 )
 
 const t14FloorsUsage = `usage: webv2 floors [-h] [--json] campaign {list,set,unset} ...
@@ -258,6 +260,17 @@ func floorsSet(c *state.Campaign, a *floorsArgs, r *Runner) error {
 	fmt.Fprintf(r.Out, "floor policy set: %s -> %s (actor %s, %s)\n",
 		objStr(entry, "class"), objStr(entry, "floor"),
 		objStr(entry, "actor"), objStr(entry, "at"))
+	if _, known := taxonomy.KnownClasses()[a.class]; !known {
+		// r8: the open-vocabulary law is deliberate — a class may exist
+		// in the taxonomy tomorrow, and refusing unknown names would
+		// re-close the door the override table exists to hold open. But
+		// an operator who TYPOGUARDED a real class deserves to know the
+		// floor is inert today, before a "protected" finding ships over
+		// it. Advisory visibility, never silent acceptance.
+		fmt.Fprintf(r.Err, "note: %s is not a known taxonomy class — this "+
+			"floor binds nothing until a finding carries it (open "+
+			"vocabulary is legal, typos are not free)\n", a.class)
+	}
 	return nil
 }
 
