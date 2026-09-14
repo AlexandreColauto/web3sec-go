@@ -35,7 +35,9 @@ install -m755 dist/webv2 ~/.local/bin/webv2
 ```
 
 Tooling expected on PATH (**absence degrades capability, does not block**):
-`git`; `forge`/`cast` (Foundry); `docker` with a **running** daemon (E4+
+`git`; `forge`/`cast` (Foundry); the bounded prover shim `minicertora`
+(`--scaffold minicertora` lane; install and trust rails:
+docs/MINICERTORA_INTEGRATION.md in the source tree); `docker` with a **running** daemon (E4+
 evidence — the container profiles execute a real `docker run` in
 `$WEBV2_DOCKER_IMAGE`, default `ghcr.io/foundry-rs/foundry:latest`); an
 optional `gvisor` and a fork-RPC endpoint for `fork-runner` (point
@@ -57,6 +59,31 @@ cannot produce:
 webv2 env doctor            # read-only: docker cli/daemon, image presence + digest, fork-RPC reachability, per-profile readiness, solc cache
 webv2 env doctor <C-xxx>    # + checks the box against the evidence floor THIS campaign needs (exit 1 while it cannot)
 ```
+
+The bounded SMT prover (§harness notes, `--scaffold minicertora`) is a HOST
+tool too: the `minicertora` sandbox profile runs a `minicertora` shim on
+PATH — network `none`, filesystem `readonly`, host-classified, so it can
+never back E4+ evidence by itself. Install the shim once so plain
+`minicertora <C.sol> <INV.mspec>` works from ANY directory:
+
+```bash
+ln -sf /path/to/minicertora/.venv/bin/minicertora ~/.local/bin/minicertora
+minicertora --help    # exit 0 from any cwd; test a clean env with: env -i PATH=$HOME/.local/bin:/usr/bin:/bin HOME=$HOME minicertora --help
+```
+
+The symlink points INTO the venv: if the venv is deleted/recreated or the
+repo moves, the link dangles — relink it, or move to an isolated tool venv
+that still tracks the live source (`uv tool install --editable
+/path/to/minicertora`).
+
+The command string names an ABSOLUTE `--solc-path` (the corpus pins a solc
+per target; the shim on PATH keeps argv reviewable). Exit codes are the
+verdict worst-case: **0** every rule PROVEN, **1** a counterexample, **2**
+undecided/refusal/tool error — the tool's own JSON line per rule carries
+`tool_version`/`spec_version`/`solc_version`; `verify --harness-result`
+(§harness notes) maps it to the rung, and a run captured under a relative
+`--root` reads back fine (the canonical `<execs>/EXEC-*/stdout.log`
+location is derived, never trusted from the record's stored path).
 
 Exit codes follow one shared shape, with a boundary worth knowing exactly:
 **0** did what was asked (including a truthful empty result). **1** is a

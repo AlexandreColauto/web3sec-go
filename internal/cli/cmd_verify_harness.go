@@ -479,26 +479,42 @@ func harnessExecRecord(c *state.Campaign, execID string) (validation.Value,
 		validation.PyReprStr(execID))
 }
 
-// harnessExecStdout reads the record's stdout file, resolving a relative
-// stdout_path against the exec dir and capping the read at 1MB.
+// harnessExecStdout reads the run's captured stdout, capping the read at
+// 1MB. r13: a record written under `--root .` stores a CWD-relative
+// stdout_path; joining it back against execDir double-nests the path and
+// a plainly-present capture was reported as "no captured stdout to map".
+// The canonical location — <execDir>/stdout.log — is the audit's law
+// (execs.go derives it the same way) and wins; the stored string is only
+// a fallback. An unreadable file now says unreadable(path: errno), an
+// empty record field still says nothing was captured.
 func harnessExecStdout(execDir string, rec validation.Value) ([]byte, error) {
 	p := objStr(rec, "stdout_path")
+	candidates := []string{filepath.Join(execDir, "stdout.log")}
+	if p != "" {
+		if filepath.IsAbs(p) {
+			candidates = []string{p, candidates[0]}
+		} else {
+			candidates = append(candidates, filepath.Join(execDir, p))
+		}
+	}
+	var openErr error
+	for _, cand := range candidates {
+		fh, err := os.Open(cand)
+		if err != nil {
+			openErr = err
+			continue
+		}
+		defer fh.Close()
+		return io.ReadAll(io.LimitReader(fh, harnessStdoutCap))
+	}
 	if p == "" {
 		return nil, t14ExitErr(2,
 			"verify: exec %s has no captured stdout to map\n",
 			validation.PyReprStr(objStr(rec, "exec_id")))
 	}
-	if !filepath.IsAbs(p) {
-		p = filepath.Join(execDir, p)
-	}
-	fh, err := os.Open(p)
-	if err != nil {
-		return nil, t14ExitErr(2,
-			"verify: exec %s has no captured stdout to map\n",
-			validation.PyReprStr(objStr(rec, "exec_id")))
-	}
-	defer fh.Close()
-	return io.ReadAll(io.LimitReader(fh, harnessStdoutCap))
+	return nil, t14ExitErr(2,
+		"verify: exec %s stdout file unreadable (%v)\n",
+		validation.PyReprStr(objStr(rec, "exec_id")), openErr)
 }
 
 // harnessScaffoldBytes loads the T17 scaffold artifact bytes: the latest

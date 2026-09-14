@@ -18,6 +18,7 @@ import (
 	"strings"
 	"testing"
 
+	"encoding/json"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -1045,5 +1046,63 @@ func TestHarnessResultMinicertoraUnboundDegradedClaim(t *testing.T) {
 	got, _ := evs[0]["data"].(map[string]any)
 	if got["rung"] != "inconclusive" || got["summary"] != degraded {
 		t.Fatalf("event data = %v, want the refusal", got)
+	}
+}
+
+// TestHarnessResultReadsRelativeRootExec pins r13: `exec` under
+// `--root .` stores a CWD-relative stdout_path; the old join against
+// execDir double-nested the path and a plainly-present capture read as
+// "no captured stdout to map". The canonical derived location must win.
+func TestHarnessResultReadsRelativeRootExec(t *testing.T) {
+	c, root := mcCamp(t, "mc-relpath")
+	execID := "EXEC-rel"
+	mcHarnessExec(t, c, execID, mcViolatedLine,
+		"minicertora --rule inv_1",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 1)
+	recPath := filepath.Join(c.ExecsDir, execID, "exec_record.json")
+	raw, err := os.ReadFile(recPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	m["stdout_path"] = filepath.Join("execs", execID, "stdout.log")
+	blob, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(recPath, blob, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("relative stored path must still map: exit %d %q %q",
+			code, out, errS)
+	}
+	if !strings.Contains(out, "counterexample") {
+		t.Fatalf("face = %q", out)
+	}
+}
+
+// TestHarnessResultUnreadableSaysUnreadable pins the r13 message split:
+// an absent capture file must say UNREADABLE with the errno — the old
+// code reused "no captured stdout to map" for open failures, hiding a
+// deleted/torn artifact as "nothing ran".
+func TestHarnessResultUnreadableSaysUnreadable(t *testing.T) {
+	c, root := mcCamp(t, "mc-unreadable")
+	execID := "EXEC-unread"
+	mcHarnessExec(t, c, execID, mcViolatedLine,
+		"minicertora --rule inv_1",
+		map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 1)
+	if err := os.Remove(filepath.Join(c.ExecsDir, execID, "stdout.log")); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID)
+	if code != 2 || !strings.Contains(errS, "unreadable") {
+		t.Fatalf("want exit 2 unreadable, got exit %d err %q", code, errS)
 	}
 }

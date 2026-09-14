@@ -6,6 +6,12 @@ what we remember) and MiniCertora as a **prover backend** (bounded SMT
 verdicts with a closed refusal vocabulary). Status: proposal, 2026-09-14.
 Liftable to `docs/IMPROVEMENTS.md` as Wave L when un-parked.
 
+> **STATUS UPDATE (2026-09-14):** the system half LANDED — see §9 landing
+> notes for the shipped spellings — and the operational guide (install,
+> trust rails, verified end-to-end loop, troubleshooting) is
+> [`MINICERTORA_INTEGRATION.md`](MINICERTORA_INTEGRATION.md). Where §L0-L8
+> prose and shipped behavior disagree, §9 and the integration guide win.
+
 ## 0. Premise — this is Wave K, realized
 
 Wave K's locked decision stands: *"No new verifier is built in this wave —
@@ -89,6 +95,10 @@ squash is nearly lossless, and the loss is recorded, not hidden.
   whose solc differs from the pinned compiler (rung inconclusive,
   `toolchain-mismatch` in the summary). That check is what makes a proof
   byte-reproducible in the `WEBV2_*`-pinning sense.
+  *(SHIPPED STATUS, 2026-09-14: the probe and the COPY of `solc_version`
+  into the proof are live — the shim now answers `--version` (prover
+  `fc0316d`); the mismatch REFUSAL is still design. See
+  `MINICERTORA_INTEGRATION.md` §6.)*
 
 ### L1 — Spec plane: `.mspec` scaffolds under the BODY law
 
@@ -424,9 +434,11 @@ Per campaign, after `plan`:
 webv2 brief $CID                       # what is unproven and matters
 # 2. spec it (model writes BODY only; boundary validates)
 webv2 verify $CID --scaffold minicertora --invariant INV-7
+#    → artifacts/harness/INV-7/INV.mspec, rule header `rule inv_7(env e)`
+#      (scaffold-owned: the mapper attributes lines on that exact name)
 # 3. prove it (host profile, pinned toolchain; escalation = more execs)
 webv2 exec $CID --profile minicertora --command \
-  'minicertora target/src/V.sol artifacts/HARNESS-INV-7-minicertora.mspec \
+  'minicertora target/src/V.sol artifacts/harness/INV-7/INV.mspec \
    --solc-path /abs/solc-0.8.36 --loop-bound 4 --timeout-ms 30000'
 webv2 verify $CID --harness-result INV-7 --exec EXEC-12 --kind minicertora
 #    → INV-7: counterexample (minicertora, EXEC-12)      [or PROVEN-BOUNDED k=4]
