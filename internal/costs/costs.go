@@ -164,13 +164,17 @@ func LoadCosts(c *state.Campaign) ([]validation.Value, error) {
 		return nil, err
 	}
 	var out []validation.Value
-	for _, line := range strings.Split(strings.TrimSuffix(string(raw), "\n"), "\n") {
+	for i, line := range strings.Split(strings.TrimSuffix(string(raw), "\n"), "\n") {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
 		v, err := validation.ParseOrdered([]byte(line))
 		if err != nil {
-			return nil, err
+			// r15: line-attributed, like every other JSONL in the
+			// tree — "invalid character '\xff'" alone sent operators
+			// scanning the file by eye.
+			return nil, fmt.Errorf("costs.jsonl line %d does not parse (%v)",
+				i+1, err)
 		}
 		out = append(out, v)
 	}
@@ -494,6 +498,17 @@ func listOf(v validation.Value, key string) []validation.Value {
 // ceiling (budget.max_total_cost_usd). The ceiling is a DECISION surface,
 // not a meter.
 func BudgetStatus(c *state.Campaign) (validation.Value, error) {
+	// r15: enforcement never prices a damaged mirror. This is a
+	// REFUSAL, not a warning — the pipeline that halts here halts on
+	// the honest reason, and `audit` names each problem (the sanctioned
+	// way back is repair, not a bigger ceiling).
+	if probs := CostMirrorProblems(c); len(probs) > 0 {
+		return validation.VNull(), fmt.Errorf(
+			"cost projection is damaged (%d problem(s), first: %s) — "+
+				"spend numbers cannot be trusted and the budget will "+
+				"not be evaluated against them; run `webv2 audit` for "+
+				"the full list", len(probs), probs[0])
+	}
 	budget, err := c.Budget()
 	if err != nil {
 		return validation.VNull(), err
@@ -684,4 +699,64 @@ func setKey(v *validation.Value, key string, val validation.Value) {
 		}
 	}
 	v.O = append(v.O, validation.KV{K: key, V: val})
+}
+
+// CostMirrorProblems is the ONE cost-projection law: costs.jsonl rows
+// and cost.recorded ledger events must describe the same spend, both
+// directions. The audit (sections.Projection) reports these; the
+// ENFORCEMENT side (BudgetStatus) refuses to price a campaign over
+// them (r15: a ghost row halted pipelines on spend the audit
+// simultaneously called forged — the gate and the truth reader each
+// trusted their own file). Presence-gated: quiet campaigns and fully
+// consistent ones return nothing.
+func CostMirrorProblems(c *state.Campaign) []string {
+	evts, err := c.Events()
+	if err != nil {
+		return nil // the ledger verdict belongs to verify; not ours to invent
+	}
+	var costEvts []validation.Value
+	refs := map[string]bool{}
+	for _, e := range evts {
+		if objStr(e, "type") == "cost.recorded" {
+			costEvts = append(costEvts, e)
+			refs[objStr(e, "ref")] = true
+		}
+	}
+	rows, rerr := LoadCosts(c)
+	if rerr != nil {
+		return []string{fmt.Sprintf("costs.jsonl unreadable: %v", rerr)}
+	}
+	if len(costEvts) == 0 && len(rows) == 0 {
+		return nil
+	}
+	var out []string
+	have := map[string]bool{}
+	for _, r := range rows {
+		id := objStr(r, "cost_id")
+		if id == "" {
+			id = "<blank cost_id>"
+			out = append(out, "costs.jsonl has a row with no cost_id — "+
+				"spend that cannot be attributed cannot be audited")
+		}
+		have[id] = true
+	}
+	for _, e := range costEvts {
+		if !have[objStr(e, "ref")] {
+			out = append(out, fmt.Sprintf("the ledger records cost %s but "+
+				"costs.jsonl has no row for it", objStr(e, "ref")))
+		}
+	}
+	for _, r := range rows {
+		id := objStr(r, "cost_id")
+		if id == "" {
+			continue
+		}
+		if !refs[id] {
+			out = append(out, fmt.Sprintf("costs.jsonl row %s was never "+
+				"recorded in the ledger — ghost spend inflates the "+
+				"budget silently; costs are owed through `webv2 cost`, "+
+				"not by editing the file", id))
+		}
+	}
+	return out
 }

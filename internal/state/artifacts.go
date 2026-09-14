@@ -58,6 +58,14 @@ func (c *Campaign) StageStatus(stage string) (validation.Value, error) {
 // explicitly — VNull()/nil for the defaults. Python's `executor or ...`
 // also treats "" as "keep the old value"; the port matches.
 func (c *Campaign) SetStage(stage, status string, note validation.Value, executor *string) error {
+	// r15: load->edit->write of campaign_state is one unit;
+	// the campaign lock spans the WHOLE window (the entry that
+	// used to lock only SaveState still lost updates racing a
+	// sibling writer — the processlock law, method-level).
+	if err := c.LockProcess(); err != nil {
+		return err
+	}
+	defer c.UnlockProcess()
 	st, err := c.State()
 	if err != nil {
 		return err
@@ -103,6 +111,14 @@ func (c *Campaign) SetStage(stage, status string, note validation.Value, executo
 // when the file is inside it, else absolute, and log artifact.registered
 // with the ORIGINAL path argument.
 func (c *Campaign) RegisterArtifact(kind, path, note string, snapshotID *string) (string, error) {
+	// r15: load->edit->write of campaign_state is one unit;
+	// the campaign lock spans the WHOLE window (the entry that
+	// used to lock only SaveState still lost updates racing a
+	// sibling writer — the processlock law, method-level).
+	if err := c.LockProcess(); err != nil {
+		return "", err
+	}
+	defer c.UnlockProcess()
 	if _, err := os.Stat(path); err != nil {
 		// p.exists() is False on ANY stat failure -> FileNotFoundError(p)
 		// whose str() is the path itself.
@@ -187,6 +203,14 @@ func (c *Campaign) resolveArtifactPath(a validation.Value) string {
 // longer be verified. The row is removed from the working projection; the
 // original artifact.registered event stays on the log as the audit trail.
 func (c *Campaign) PruneArtifact(artifactID, reason string) (validation.Value, error) {
+	// r15: load->edit->write of campaign_state is one unit;
+	// the campaign lock spans the WHOLE window (the entry that
+	// used to lock only SaveState still lost updates racing a
+	// sibling writer — the processlock law, method-level).
+	if err := c.LockProcess(); err != nil {
+		return validation.VNull(), err
+	}
+	defer c.UnlockProcess()
 	st, err := c.State()
 	if err != nil {
 		return validation.VNull(), err
@@ -227,6 +251,14 @@ func (c *Campaign) PruneArtifact(artifactID, reason string) (validation.Value, e
 // Deviation: Python's default actor="operator" has no Go analogue for an
 // omitted argument; an empty actor string is treated as the default.
 func (c *Campaign) RefreshArtifact(artifactID, reason, actor string) (validation.Value, error) {
+	// r15: load->edit->write of campaign_state is one unit;
+	// the campaign lock spans the WHOLE window (the entry that
+	// used to lock only SaveState still lost updates racing a
+	// sibling writer — the processlock law, method-level).
+	if err := c.LockProcess(); err != nil {
+		return validation.VNull(), err
+	}
+	defer c.UnlockProcess()
 	return c.refreshArtifact(artifactID, reason, actor, "")
 }
 
@@ -341,6 +373,14 @@ func (c *Campaign) refreshArtifact(artifactID, reason, actor, newKind string) (v
 // replaces it, so a copy would add an unverifiable duplicate with no
 // provenance value — the prune event keeps the retired row's id, kind and path.
 func (c *Campaign) RegisterOrRefresh(kind, path, note string, snapshotID *string, reason string) (string, error) {
+	// r15: load->edit->write of campaign_state is one unit;
+	// the campaign lock spans the WHOLE window (the entry that
+	// used to lock only SaveState still lost updates racing a
+	// sibling writer — the processlock law, method-level).
+	if err := c.LockProcess(); err != nil {
+		return "", err
+	}
+	defer c.UnlockProcess()
 	if _, err := os.Stat(path); err != nil {
 		return "", fmt.Errorf("%s", path)
 	}
@@ -403,6 +443,14 @@ func (c *Campaign) RegisterOrRefresh(kind, path, note string, snapshotID *string
 // is the list of artifact ids (refreshed, or would-be-refreshed when dry) and
 // missing is a list of {artifact_id, path}.
 func (c *Campaign) ReconcileArtifacts(dry bool) (validation.Value, error) {
+	// r15: load->edit->write of campaign_state is one unit;
+	// the campaign lock spans the WHOLE window (the entry that
+	// used to lock only SaveState still lost updates racing a
+	// sibling writer — the processlock law, method-level).
+	if err := c.LockProcess(); err != nil {
+		return validation.VNull(), err
+	}
+	defer c.UnlockProcess()
 	st, err := c.State()
 	if err != nil {
 		return validation.VNull(), err

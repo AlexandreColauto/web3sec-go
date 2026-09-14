@@ -106,6 +106,17 @@ func printDoctor(r *Runner, rep validation.Value) {
 		fmt.Fprintf(r.Out, "state: %s -> %s (freed %s)\n",
 			mb(objFlt(st, "size_before")), mb(objFlt(st, "size_after")),
 			mb(objFlt(st, "bytes_freed")))
+		if objAt(st, "events_mirror_rebuilt").B {
+			fmt.Fprintln(r.Out, "  rebuilt the events mirror from "+
+				"events.jsonl (the ledger is the truth; the projection "+
+				"was stale)")
+		}
+		if ref := objAt(st, "events_mirror_refused"); ref.Kind == validation.Str {
+			fmt.Fprintf(r.Out, "  events mirror NOT rebuilt: %s\n"+
+				"  fix the ledger damage through sanctioned verbs; "+
+				"verify will keep naming it — do not hand-edit "+
+				"events.jsonl\n", ref.S)
+		}
 		notes := objAt(st, "notes_truncated").A
 		for _, t := range notes {
 			fmt.Fprintf(r.Out, "  truncated note on stage %s: %s -> %s "+

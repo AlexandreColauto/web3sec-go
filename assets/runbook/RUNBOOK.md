@@ -97,6 +97,12 @@ that touches `campaign_state.json`, including `floors`, `probes blank`,
 Projection damage is repairable, not terminal: if `verify` reports the
 events mirror no longer matches the log, `webv2 doctor <C>` rebuilds the
 mirror from the ledger — the log is the truth and is never rewritten.
+The rebuild trusts the ledger only while its hash chain checks out
+event-by-event; a tampered log makes doctor say so and leave the
+projection alone rather than launder the damage. Enforcement reads the
+same cross-check as the audit: with a damaged or forged cost projection
+`budget` refuses to price the campaign (and refuses to set a ceiling
+before touching state), because numbers over a lie are not a gate.
 
 Exit codes follow one shared shape, with a boundary worth knowing exactly:
 **0** did what was asked (including a truthful empty result). **1** is a

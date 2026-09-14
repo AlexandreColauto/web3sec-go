@@ -29,6 +29,14 @@ func phaseKnown(phase string) bool {
 // SetPhase is set_phase: same phase is a no-op; a transition appends a
 // history entry, saves, and logs phase.transition.
 func (c *Campaign) SetPhase(phase, reason string) error {
+	// r15: load->edit->write of campaign_state is one unit;
+	// the campaign lock spans the WHOLE window (the entry that
+	// used to lock only SaveState still lost updates racing a
+	// sibling writer — the processlock law, method-level).
+	if err := c.LockProcess(); err != nil {
+		return err
+	}
+	defer c.UnlockProcess()
 	if !phaseKnown(phase) {
 		return fmt.Errorf("unknown phase %s", validation.PyReprStr(phase))
 	}
@@ -62,6 +70,14 @@ func (c *Campaign) SetPhase(phase, reason string) error {
 
 // Halt is halt: record the reason, then move to HALTED.
 func (c *Campaign) Halt(reason string) error {
+	// r15: load->edit->write of campaign_state is one unit;
+	// the campaign lock spans the WHOLE window (the entry that
+	// used to lock only SaveState still lost updates racing a
+	// sibling writer — the processlock law, method-level).
+	if err := c.LockProcess(); err != nil {
+		return err
+	}
+	defer c.UnlockProcess()
 	st, err := c.State()
 	if err != nil {
 		return err
@@ -85,6 +101,14 @@ func (c *Campaign) Halt(reason string) error {
 // of obscure codepoints (e.g. U+00A0 is not stripped by either, but a
 // few C1 controls differ); operator-typed actor/reason is unaffected.
 func (c *Campaign) Complete(actor, reason string) (validation.Value, error) {
+	// r15: load->edit->write of campaign_state is one unit;
+	// the campaign lock spans the WHOLE window (the entry that
+	// used to lock only SaveState still lost updates racing a
+	// sibling writer — the processlock law, method-level).
+	if err := c.LockProcess(); err != nil {
+		return validation.VNull(), err
+	}
+	defer c.UnlockProcess()
 	actor = strings.TrimSpace(actor)
 	reason = strings.TrimSpace(reason)
 	if actor == "" {
@@ -129,6 +153,14 @@ func (c *Campaign) Budget() (validation.Value, error) {
 
 // ConsumeDiscoverySlot is consume_discovery_slot: increment the counter.
 func (c *Campaign) ConsumeDiscoverySlot() error {
+	// r15: load->edit->write of campaign_state is one unit;
+	// the campaign lock spans the WHOLE window (the entry that
+	// used to lock only SaveState still lost updates racing a
+	// sibling writer — the processlock law, method-level).
+	if err := c.LockProcess(); err != nil {
+		return err
+	}
+	defer c.UnlockProcess()
 	st, err := c.State()
 	if err != nil {
 		return err
@@ -145,6 +177,14 @@ func (c *Campaign) ConsumeDiscoverySlot() error {
 // is a decision: actor-attributed and log-chained — the pipeline halts
 // when recorded spend crosses it.
 func (c *Campaign) SetCostCeiling(ceil *validation.Value, actor string) (validation.Value, error) {
+	// r15: load->edit->write of campaign_state is one unit;
+	// the campaign lock spans the WHOLE window (the entry that
+	// used to lock only SaveState still lost updates racing a
+	// sibling writer — the processlock law, method-level).
+	if err := c.LockProcess(); err != nil {
+		return validation.VNull(), err
+	}
+	defer c.UnlockProcess()
 	st, err := c.State()
 	if err != nil {
 		return validation.VNull(), err
@@ -178,6 +218,14 @@ func (c *Campaign) SetCostCeiling(ceil *validation.Value, actor string) (validat
 // Deviation: the Python isinstance(x, bool) rejection has no Go
 // analogue (an int64 is never a bool); the < 1 check is exact.
 func (c *Campaign) SetDiscoveryBudget(maxFindings int64, actor string) (validation.Value, error) {
+	// r15: load->edit->write of campaign_state is one unit;
+	// the campaign lock spans the WHOLE window (the entry that
+	// used to lock only SaveState still lost updates racing a
+	// sibling writer — the processlock law, method-level).
+	if err := c.LockProcess(); err != nil {
+		return validation.VNull(), err
+	}
+	defer c.UnlockProcess()
 	if maxFindings < 1 {
 		return validation.VNull(), fmt.Errorf("max_discovery_findings must be a positive integer")
 	}

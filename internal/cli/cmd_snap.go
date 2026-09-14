@@ -131,18 +131,26 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 	fmt.Fprintf(stdout, "pinned %s (%s, %d files)\n",
 		objStr(snap, "snapshot_id"), objStr(src, "ladder"), objInt(src, "file_count"))
 	if root := objStr(src, "root"); root != "" {
-		if n, err := snapshot.PinnedSymlinkCount(root); err == nil && n > 0 {
-			// r14: custody is a claim, so the pin says what it does
-			// NOT take: links are copied as links and hashed as
-			// links — the bytes behind them stay outside the
-			// campaign.
+		if links, err := snapshot.PinnedSymlinks(root); err == nil && len(links) > 0 {
+			// r14/r15: custody is a claim, so the pin says exactly what
+			// it does NOT take — every escaping link by name (a bare
+			// count hid which file to materialize; note also that a
+			// RELATIVE target resolves differently once the copy lives
+			// under snapshots/<id>/).
 			word := "entries"
-			if n == 1 {
+			if len(links) == 1 {
 				word = "entry"
 			}
-			fmt.Fprintf(stdout, "  note: %d pinned %s symlinked — the "+
-				"copy keeps the link, not what it points at; materialize "+
-				"(cp -rL) first if the pin must stand alone\n", n, word)
+			shown := links
+			if len(shown) > 5 {
+				shown = append(append([]string{}, shown[:5]...),
+					fmt.Sprintf("… and %d more", len(links)-5))
+			}
+			fmt.Fprintf(stdout, "  note: %d pinned %s symlinked (copied "+
+				"as links, hashed as links — outside bytes are NOT in "+
+				"custody; relative targets resolve from the store): "+
+				"%s\n  materialize (cp -rL) first if the pin must stand "+
+				"alone\n", len(links), word, strings.Join(shown, ", "))
 		}
 	}
 	if cfg := objAt(snap, "config"); cfg.Kind == validation.Obj && len(cfg.O) > 0 {

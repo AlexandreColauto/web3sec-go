@@ -15,10 +15,10 @@ import (
 	"path/filepath"
 	"sort"
 
-	"os"
-	"strings"
 	"websec/internal/state"
 	"websec/internal/validation"
+
+	"websec/internal/costs"
 )
 
 // Projection is audit.py section 5. checked is hardcoded to 4.
@@ -108,41 +108,12 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 	// home r12 gave waivers) — presence-gated so campaigns without
 	// costs are byte-identical to the ported output.
 	{
-		// UNCONDITIONAL like r10 taught: ghost rows with no events at
-		// all are the loudest case, not the gate's excuse.
-		costEvents := eventsOfType(events, "cost.recorded")
-		rows, rerr := readCostRowsR14(c)
-		if rerr != nil {
-			proj = append(proj, validation.VStr(
-				fmt.Sprintf("costs.jsonl: unreadable (%v) — recorded "+
-					"spend cannot be trusted", rerr)))
-		} else if len(rows) > 0 || len(costEvents) > 0 {
-			have := map[string]bool{}
-			for _, r := range rows {
-				have[objStr(r, "cost_id")] = true
-			}
-			for _, e := range costEvents {
-				if !have[objStr(e, "ref")] {
-					proj = append(proj, validation.VStr(fmt.Sprintf(
-						"the ledger records cost %s ($%s %s) but "+
-							"costs.jsonl has no row for it — spend went "+
-							"missing from the projection budget reads",
-						objStr(e, "ref"),
-						pyStrValue(objAt(objAt(e, "data"), "amount_usd")),
-						objStr(objAt(e, "data"), "kind"))))
-				}
-			}
-			seen := refsOf(events, "cost.recorded")
-			for _, r := range rows {
-				if _, ok := seen[objStr(r, "cost_id")]; !ok {
-					proj = append(proj, validation.VStr(fmt.Sprintf(
-						"costs.jsonl row %s was never recorded in the "+
-							"ledger — ghost spend inflates the budget "+
-							"silently; costs are owed through `webv2 "+
-							"cost`, not by editing the file",
-						objStr(r, "cost_id"))))
-				}
-			}
+		// r15: one law, one implementation — the SAME cross-check the
+		// budget enforcement refuses on (costs.CostMirrorProblems).
+		// Presence-gated by the helper itself, so costless campaigns
+		// stay byte-identical to the ported output.
+		for _, msg := range costs.CostMirrorProblems(c) {
+			proj = append(proj, validation.VStr(msg))
 		}
 	}
 	return validation.VObj(
@@ -199,39 +170,4 @@ func sortedKeys(set map[string]struct{}) []string {
 	// None/str would crash Python, so strings-only it is).
 	sort.Strings(out)
 	return out
-}
-
-// eventsOfType is refsOf's sibling: the full events of one type, log order.
-func eventsOfType(events []validation.Value, typ string) []validation.Value {
-	var out []validation.Value
-	for _, e := range events {
-		if objStr(e, "type") == typ {
-			out = append(out, e)
-		}
-	}
-	return out
-}
-
-// readCostRowsR14 loads costs.jsonl rows (bare-JSON twin format, one per
-// line); a missing file is zero rows, not an error.
-func readCostRowsR14(c *state.Campaign) ([]validation.Value, error) {
-	raw, err := os.ReadFile(filepath.Join(c.Dir, "costs.jsonl"))
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	var out []validation.Value
-	for _, ln := range strings.Split(string(raw), "\n") {
-		if strings.TrimSpace(ln) == "" {
-			continue
-		}
-		v, perr := validation.ParseOrdered([]byte(ln))
-		if perr != nil {
-			return nil, perr
-		}
-		out = append(out, v)
-	}
-	return out, nil
 }

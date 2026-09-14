@@ -330,3 +330,26 @@ func PinnedSymlinkCount(root string) (int, error) {
 	}
 	return n, nil
 }
+
+// PinnedSymlinks lists symlink entries as "rel -> target" (r15 P2: a
+// count hid WHICH custody escapes; operators materialize the wrong
+// file). Sorted, capped by the caller.
+func PinnedSymlinks(root string) ([]string, error) {
+	files, err := pinnedFiles(root)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, f := range files {
+		if !f.link {
+			continue
+		}
+		tgt, lerr := os.Readlink(f.abs)
+		if lerr != nil {
+			tgt = "?"
+		}
+		out = append(out, f.rel+" -> "+tgt)
+	}
+	sort.Strings(out)
+	return out, nil
+}

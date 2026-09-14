@@ -122,7 +122,7 @@ func mergeBudget(budget *validation.Value) validation.Value {
 // Init is Campaign.init: create the layout, write the initial state
 // (schema-validated), log campaign.created. An existing campaign is an
 // error, never an overwrite.
-func Init(root, program string, opts InitOpts) (*Campaign, error) {
+func Init(root, program string, opts InitOpts) (retC *Campaign, retErr error) {
 	id := opts.CampaignID
 	if id == "" {
 		id = newId("C", 10)
@@ -141,11 +141,19 @@ func Init(root, program string, opts InitOpts) (*Campaign, error) {
 	// it created; only after some directory exists does the cleanup
 	// apply (we never delete what this call did not make).
 	defer func() {
-		if dirsMade && c != nil {
-			if _, serr := os.Stat(c.StatePath); serr != nil {
-				os.RemoveAll(c.Dir)
-			}
+		if !dirsMade || retErr == nil {
+			return
 		}
+		// r15: EVERY failed Init un-creates what it made — the state
+		// file's existence is not a reason to keep a half-campaign.
+		// The original guard only swept stateless skeletons and left
+		// the worse ghost: state written, campaign.created refused
+		// (torn events.jsonl from an earlier era) — the refused init
+		// still registered, `status` still worked, every write verb
+		// died, and `already exists` blocked repair. If the state
+		// file predates this call we would not be here: the
+		// already-exists check returns before any mkdir.
+		os.RemoveAll(c.Dir)
 	}()
 	for _, d := range []string{c.Dir, c.FindingsDir, c.ArtifactsDir,
 		c.MemoryDir, c.ChainsDir, c.ExecsDir} {
@@ -229,7 +237,7 @@ func (c *Campaign) save(st validation.Value) error { return c.SaveState(st) }
 // per-process caveat from r13 still stands: cross-process is closed,
 // goroutine-safety is not claimed).
 func (c *Campaign) SaveState(st validation.Value) error {
-	if err := c.plock.lock(c.lockPath()); err != nil {
+	if err := c.plock.lock(c.lockPath(), c.CampaignID); err != nil {
 		return err
 	}
 	defer c.plock.unlock()
@@ -284,6 +292,14 @@ func hasKey(v validation.Value, key string) bool {
 // id is already registered, set it active, save, and log snapshot.pinned on
 // first registration. Returns the snapshot id.
 func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
+	// r15: load->edit->write of campaign_state is one unit;
+	// the campaign lock spans the WHOLE window (the entry that
+	// used to lock only SaveState still lost updates racing a
+	// sibling writer — the processlock law, method-level).
+	if err := c.LockProcess(); err != nil {
+		return "", err
+	}
+	defer c.UnlockProcess()
 	if err := validation.Validate(snap, "snapshot", 1); err != nil {
 		return "", err
 	}
@@ -409,7 +425,7 @@ func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
 func (c *Campaign) unwindState(prev []byte, hadPrev bool) error {
 	// r14: a rollback IS a state write — a racing process must not land
 	// its update between our decision to unwind and the rename.
-	if err := c.plock.lock(c.lockPath()); err != nil {
+	if err := c.plock.lock(c.lockPath(), c.CampaignID); err != nil {
 		return err
 	}
 	defer c.plock.unlock()
@@ -495,6 +511,14 @@ func (c *Campaign) ActiveSnapshotContentHash() (string, bool) {
 // existed simply lack it; the schema keeps the property optional, so absence
 // validates and reads as never-ran.
 func (c *Campaign) StampRecon(verb, src string) error {
+	// r15: load->edit->write of campaign_state is one unit;
+	// the campaign lock spans the WHOLE window (the entry that
+	// used to lock only SaveState still lost updates racing a
+	// sibling writer — the processlock law, method-level).
+	if err := c.LockProcess(); err != nil {
+		return err
+	}
+	defer c.UnlockProcess()
 	st, err := c.State()
 	if err != nil {
 		return err

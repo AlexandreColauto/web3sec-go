@@ -93,13 +93,13 @@ func SetSaveState(f func(*state.Campaign, validation.Value) error) {
 // defaultSaveState is campaign._save: updated_at is replaced in place (key
 // position kept) and the state is re-written under the campaign_state schema.
 func defaultSaveState(c *state.Campaign, st validation.Value) error {
-	for i, kv := range st.O {
-		if kv.K == "updated_at" {
-			st.O[i].V = validation.VStr(nowIsoFunc())
-			break
-		}
-	}
-	return validation.WriteJson(c.StatePath, st, "campaign_state")
+	// r15: this local _save was the r14 P0's hiding place — a raw
+	// WriteJson of campaign_state outside the lock (the critic's
+	// "factually false comment" was right: the depth count does NOT
+	// ride through a direct writer). The twin body now lives in exactly
+	// one place: state.SaveState, which owns the lock and the schema
+	// write. The SetSaveState seam keeps working for tests.
+	return c.SaveState(st)
 }
 
 // init wires the campaign-aware floor resolver into findings (findings cannot
@@ -152,8 +152,8 @@ func SetFloorPolicy(campaign *state.Campaign, bugClass, floor, actor,
 	// r14: LOAD through SAVE is one read-modify-write unit — a sibling
 	// `floors set` between our State() and our rename used to vanish
 	// (both exit 0, state says 39, ledger says 34). The campaign lock
-	// spans the window; the depth count rides straight through
-	// saveStateFunc into state.SaveState.
+	// spans the window; saveStateFunc's default (state.SaveState)
+	// re-enters by depth instead of writing the file a second way.
 	if err := campaign.LockProcess(); err != nil {
 		return validation.VNull(), err
 	}

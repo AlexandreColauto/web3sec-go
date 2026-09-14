@@ -341,3 +341,36 @@ func TestRefusedInitLeavesNoSkeleton(t *testing.T) {
 		t.Fatalf("good init damaged: %v", err)
 	}
 }
+
+// TestRefusedInitAfterStateWriteAlsoCleans pins r15 P1-2: the guard
+// that only swept STATELESS skeletons left the dangerous ghost — state
+// written, campaign.created refused by a torn pre-existing log: the
+// "failed" init still LISTED, status worked, every write died. Any
+// failed Init now un-creates its whole directory.
+func TestRefusedInitAfterStateWriteAlsoCleans(t *testing.T) {
+	root := t.TempDir()
+	// Pre-seed the exact torn shape at a campaign dir Init will pick:
+	// force the id so the collision is deterministic.
+	dir := filepath.Join(root, "campaigns", "C-torn111111")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "events.jsonl"),
+		[]byte(`{"torn"`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Init(root, "Torn Ghost Program",
+		InitOpts{CampaignID: "C-torn111111"}); err == nil {
+		t.Fatal("init accepted a torn ledger head")
+	} else if !strings.Contains(err.Error(), "line 1") {
+		t.Fatalf("the torn head must be attributed: %v", err)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatalf("half-init left a registered ghost: %v", err)
+	}
+	// And the id is free again — repair by re-init, not hand surgery:
+	if _, err := Init(root, "Torn Ghost Program",
+		InitOpts{CampaignID: "C-torn111111"}); err != nil {
+		t.Fatalf("refused init poisoned the id: %v", err)
+	}
+}

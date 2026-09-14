@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -43,7 +44,7 @@ type processLock struct {
 	depth int
 }
 
-func (l *processLock) lock(path string) error {
+func (l *processLock) lock(path, campaignID string) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.depth > 0 { // same-process re-entry: one OS lock, counted
@@ -65,16 +66,28 @@ func (l *processLock) lock(path string) error {
 		err := syscall.Flock(l.fd, syscall.LOCK_EX|syscall.LOCK_NB)
 		if err == nil {
 			l.depth = 1
+			// Name the holder for anyone who times out (advisory,
+			// best-effort — the pid may have exited; still beats "who
+			// knows what"): pid + human-readable command line.
+			info := fmt.Sprintf("%d %s", os.Getpid(),
+				strings.ReplaceAll(strings.Join(os.Args, " "), "\n", " "))
+			if _, werr := syscall.Pwrite(l.fd, []byte(info), 0); werr == nil {
+				_ = syscall.Ftruncate(l.fd, int64(len(info)))
+			}
 			return nil
 		}
 		if err != syscall.EWOULDBLOCK && err != syscall.EAGAIN {
 			return fmt.Errorf("campaign lock %s: %w", path, err)
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("campaign is locked by another process "+
-				"(waited %s on %s) — let the running webv2 finish and "+
-				"retry; do NOT edit the ledger or state by hand", lockBudget,
-				filepath.Base(path))
+			holder := "unknown holder"
+			if raw, rerr := os.ReadFile(path); rerr == nil && len(raw) > 0 {
+				holder = string(raw)
+			}
+			return fmt.Errorf("campaign %s is locked by another process "+
+				"(waited %s; holder: %s) — let the running webv2 finish "+
+				"and retry; do NOT edit the ledger or state by hand",
+				campaignID, lockBudget, holder)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
@@ -99,7 +112,7 @@ func (l *processLock) unlock() {
 // plus its event, a snapshot dir plus manifest — wrap the WHOLE unit,
 // not each write.
 func (c *Campaign) LockProcess() error {
-	return c.plock.lock(c.lockPath())
+	return c.plock.lock(c.lockPath(), c.CampaignID)
 }
 
 // UnlockProcess releases one held depth. Always paired with

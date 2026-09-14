@@ -237,3 +237,32 @@ func TestClearCeilingReturnsToNoLimit(t *testing.T) {
 		t.Errorf("status = %q, want no-limit after clearing", got)
 	}
 }
+
+// TestBudgetRefusesADamagedMirror pins r15 P1-1: the enforcing gate
+// read ONLY costs.jsonl while the audit read both — a ghost row halted
+// pipelines on spend the tool itself called forged. Enforcement now
+// refuses over the same cross-check until it is repaired.
+func TestBudgetRefusesADamagedMirror(t *testing.T) {
+	c := camp(t)
+	if _, err := RecordCost(c, RecordOpts{Kind: "model", AmountUSD: 1.0,
+		Actor: "op"}); err != nil {
+		t.Fatal(err)
+	}
+	good, err := BudgetStatus(c)
+	if err != nil {
+		t.Fatalf("healthy mirror must price: %v", err)
+	}
+	_ = good
+	// Ghost row through the raw file (no event):
+	f := filepath.Join(c.Dir, "costs.jsonl")
+	raw, _ := os.ReadFile(f)
+	if err := os.WriteFile(f, append(raw, []byte(
+		`{"cost_id": "COST-ghost000001", "at": "2026-01-01T00:00:00+00:00", "kind": "model", "amount_usd": 999999.0, "actor": "ghost"}`+"\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := BudgetStatus(c); err == nil {
+		t.Fatal("budget priced a forged mirror")
+	} else if !strings.Contains(err.Error(), "COST-ghost000001") {
+		t.Fatalf("refusal must name a problem: %v", err)
+	}
+}

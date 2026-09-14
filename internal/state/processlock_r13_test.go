@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -169,7 +170,7 @@ func TestConcurrentLoadModifyWritesLoseNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Each worker appended one entry to probe_blanks-like list "floor_policy"
+	// Each worker appended one entry to the projection-backed list
 	// via a raw projection edit; the final state must contain EVERY class
 	// exactly once and its winner per class must equal the LAST event for
 	// that class — a lost update shows as a missing class or a mismatch.
@@ -244,6 +245,129 @@ func lmwWorker() {
 	if _, err := c.Log("floor_policy.set", &ref, &data); err != nil {
 		os.Stderr.WriteString(err.Error())
 		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+// TestConcurrentMethodRacesLoseNothing pins r15 P0-1 directly: the
+// state package's OWN methods (SetCostCeiling etc.) used to load state
+// outside the lock and write inside it, so racing a locked verb
+// (floors-style) against them still lost logged decisions. Workers
+// here race both shapes — ceiling sets and floor-style RMW — and every
+// decision must survive in state AND agree with the ledger.
+func TestConcurrentMethodRacesLoseNothing(t *testing.T) {
+	if os.Getenv("WEBV2_MWWORKER") != "" {
+		mwWorker()
+	}
+	root := t.TempDir()
+	if _, err := Init(root, "Method Race Program",
+		InitOpts{CampaignID: "C-mwrace0001"}); err != nil {
+		t.Fatal(err)
+	}
+	self, _ := os.Executable()
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			cmd := exec.Command(self, "-test.run=TestConcurrentMethodRacesLoseNothing")
+			cmd.Env = append(os.Environ(),
+				"WEBV2_MWWORKER=1", "WEBV2_LOCKROOT="+root,
+				"WEBV2_LOCKID=C-mwrace0001",
+				fmt.Sprintf("WEBV2_WORKER=%d", i))
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Errorf("worker %d: %v\n%s", i, err, out)
+			}
+		}(i)
+	}
+	wg.Wait()
+	c, err := Open(root, "C-mwrace0001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, _ := c.State()
+	evts, _ := c.Events()
+	byRef := map[string]validation.Value{}
+	for _, e := range evts {
+		if objStr(e, "type") == "floor_policy.set" {
+			byRef[objStr(e, "ref")] = objAt(e, "data")
+		}
+	}
+	if len(byRef) != 4 {
+		t.Fatalf("floor events lost: %d/4", len(byRef))
+	}
+	rows := objAt(st, "floor_policy")
+	if len(rows.A) != 4 {
+		t.Fatalf("floor state rows lost: %d/4", len(rows.A))
+	}
+	for _, r := range rows.A {
+		d := byRef[objStr(r, "class")]
+		if objStr(d, "reason") != objStr(r, "reason") {
+			t.Fatalf("state/ledger disagree for %s", objStr(r, "class"))
+		}
+	}
+	// Ceilings: each of 4 workers set a distinct value; the LAST writer
+	// wins but must agree with ITS event — and no floor decision may be
+	// lost meanwhile.
+	v, err := c.VerifyLog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !v.OK {
+		t.Fatalf("verify red after method race: %v", v.Problems)
+	}
+}
+
+func mwWorker() {
+	i := os.Getenv("WEBV2_WORKER")
+	c, err := Open(os.Getenv("WEBV2_LOCKROOT"), os.Getenv("WEBV2_LOCKID"))
+	if err != nil {
+		os.Exit(1)
+	}
+	n, _ := strconv.Atoi(i)
+	if n%2 == 0 { // floor-style RMW through locked methods
+		cls := "mclass-" + i
+		reason := "method race decision " + i + " xyz"
+		if err := c.LockProcess(); err != nil {
+			os.Exit(1)
+		}
+		st, err := c.State()
+		if err != nil {
+			os.Exit(1)
+		}
+		pol := objAt(st, "floor_policy")
+		var kept []validation.Value
+		for _, e := range pol.A {
+			if objStr(e, "class") != cls {
+				kept = append(kept, e)
+			}
+		}
+		entry := validation.VObj(
+			validation.KV{K: "class", V: validation.VStr(cls)},
+			validation.KV{K: "floor", V: validation.VStr("E5")},
+			validation.KV{K: "actor", V: validation.VStr("w")},
+			validation.KV{K: "reason", V: validation.VStr(reason)},
+			validation.KV{K: "at", V: validation.VStr("2026-01-01T00:00:00+00:00")})
+		st.O = validation.SetOrAppend(st.O, "floor_policy", validation.VArr(append(kept, entry)...))
+		if err := c.SaveState(st); err != nil {
+			os.Exit(1)
+		}
+		ref := cls
+		data := validation.VObj(
+			validation.KV{K: "floor", V: validation.VStr("E5")},
+			validation.KV{K: "actor", V: validation.VStr("w")},
+			validation.KV{K: "reason", V: validation.VStr(reason)},
+			validation.KV{K: "replaced", V: validation.VBool(false)})
+		if _, err := c.Log("floor_policy.set", &ref, &data); err != nil {
+			os.Exit(1)
+		}
+		c.UnlockProcess()
+	} else { // pure method call (SetCostCeiling owns its lock now)
+		v := validation.VFloat(float64(n) + 0.5)
+		if _, err := c.SetCostCeiling(&v, "worker"); err != nil {
+			os.Stderr.WriteString(err.Error())
+			os.Exit(1)
+		}
 	}
 	os.Exit(0)
 }

@@ -349,3 +349,44 @@ func TestStateHealthRebuildsStrandedMirror(t *testing.T) {
 		_ = n
 	}
 }
+
+// TestMirrorRebuildRefusesADamagedLedger pins r15 P0-2: the r14 rebuild
+// folded ANY parseable line into campaign_state and wrote it WITHOUT
+// schema — one scalar tampered line turned every verb (doctor included)
+// into an error, and re-running doctor re-poisoned with rc 0. The
+// rebuild is gated on the ledger being provably a chain now, and the
+// candidate state on the schema; refusal is reported, human and JSON.
+func TestMirrorRebuildRefusesADamagedLedger(t *testing.T) {
+	c := newCampaign(t, "Poison Heal Program")
+	ref := ""
+	d := validation.VObj(validation.KV{K: "text", V: validation.VStr("keep me safe")})
+	if _, err := c.Log("note.added", &ref, &d); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(c.EventsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(raw), "\n")
+	// Tamper the SECOND line into a scalar (valid JSON, contract-less).
+	lines[1] = "42"
+	if err := os.WriteFile(c.EventsPath, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := StateHealth(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objAt(rep, "events_mirror_rebuilt").B {
+		t.Fatal("doctor rebuilt from a damaged ledger")
+	}
+	refusal := objAt(rep, "events_mirror_refused")
+	if refusal.Kind != validation.Str || !strings.Contains(refusal.S, "not a JSON object") {
+		t.Fatalf("refusal must name the damage: %s",
+			validation.DumpsOrdered(rep, false))
+	}
+	// The state file stays loadable — that is the whole point.
+	if _, err := c.State(); err != nil {
+		t.Fatalf("doctor bricked the campaign: %v", err)
+	}
+}

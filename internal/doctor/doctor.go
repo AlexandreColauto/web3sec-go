@@ -22,6 +22,7 @@ import (
 	"sort"
 	"unicode/utf8"
 
+	"fmt"
 	"websec/internal/envgo"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -39,6 +40,15 @@ var SnapshotFileWarn = 5000
 // oversized stage notes. Rewrites the projection (campaign_state.json) with
 // every note capped; the event log is untouched.
 func StateHealth(campaign *state.Campaign) (validation.Value, error) {
+	// r15: doctor WRITES campaign_state (note caps, mirror rebuild) —
+	// it is a state writer like any other and takes the lock for its
+	// whole load->repair->write window; the raw WriteJson at the bottom
+	// is inside this span. Racing a repair against a `floors set` used
+	// to lose the floor decision silently.
+	if err := campaign.LockProcess(); err != nil {
+		return validation.VNull(), err
+	}
+	defer campaign.UnlockProcess()
 	path := campaign.StatePath
 	before := int64(0)
 	if fi, err := os.Stat(path); err == nil {
@@ -95,12 +105,28 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 	// projection-only damage: rebuild the tail from the log (the log is
 	// never touched; its chain is the truth). Reported, never silent.
 	mirrorRebuilt := false
-	if fresh, merr := campaign.EventsMirrorFromLog(); merr == nil {
-		if validation.CanonSpaced(objAt(st, "events")) !=
-			validation.CanonSpaced(validation.Value{Kind: validation.Arr,
-				A: fresh}) {
-			st.O = validation.SetOrAppend(st.O, "events",
-				validation.Value{Kind: validation.Arr, A: fresh})
+	var mirrorRefusal string
+	fresh, merr := campaign.EventsMirrorFromLog()
+	if merr != nil {
+		// r15: a refused rebuild is DISCLOSED, never silent — but it
+		// does not veto the note-cap repair (an oversized note still
+		// gets capped; the mirror stays as-is, visible to verify).
+		mirrorRefusal = merr.Error()
+	} else if validation.CanonSpaced(objAt(st, "events")) !=
+		validation.CanonSpaced(validation.Value{Kind: validation.Arr,
+			A: fresh}) {
+		cand := st
+		cand.O = validation.SetOrAppend(cand.O, "events",
+			validation.Value{Kind: validation.Arr, A: fresh})
+		// The rebuild must not poison the file it repairs: if the
+		// candidate state fails the schema (or the log could not be
+		// read as a whole), skip the rebuild rather than write a state
+		// NO verb can load afterward.
+		if verr := validation.Validate(cand, "campaign_state", 1); verr != nil {
+			mirrorRefusal = fmt.Sprintf("rebuilt state would not "+
+				"validate: %v", verr)
+		} else {
+			st = cand
 			mirrorRebuilt = true
 		}
 	}
@@ -122,6 +148,13 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 		validation.KV{K: "notes_truncated", V: validation.VArr(truncated...)},
 		validation.KV{K: "repaired_at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "events_mirror_rebuilt", V: validation.VBool(mirrorRebuilt)},
+		validation.KV{K: "events_mirror_refused",
+			V: func() validation.Value {
+				if mirrorRefusal == "" {
+					return validation.VNull()
+				}
+				return validation.VStr(mirrorRefusal)
+			}()},
 	), nil
 }
 

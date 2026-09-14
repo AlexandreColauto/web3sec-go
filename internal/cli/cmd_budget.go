@@ -198,6 +198,15 @@ func budgetShow(c *state.Campaign, a *budgetArgs, r *Runner) error {
 		actor = "unknown"
 	}
 	if a.clear || a.set != nil {
+		// r15 P2: a damaged cost mirror used to half-commit the ceiling
+		// (state + budget.limit_set event landed, then the status read
+		// died and the operator heard only failure — the limit WAS set).
+		// Refuse BEFORE mutating anything: no silent half-landings.
+		if probs := costs.CostMirrorProblems(c); len(probs) > 0 {
+			return fmt.Errorf("cost projection is damaged (%d problem(s), "+
+				"first: %s) — the ceiling was NOT set; `webv2 audit` "+
+				"lists every problem, repair first", len(probs), probs[0])
+		}
 		var ceil *validation.Value
 		if a.set != nil {
 			v := validation.VFloat(*a.set)
