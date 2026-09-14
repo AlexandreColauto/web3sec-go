@@ -107,16 +107,24 @@ compared it — a mismatched-compiler run bound its rung. Shipped (r18):
   time), else `tool_versions.solc` — and REFUSES exit 2 with
   `toolchain-mismatch` naming BOTH versions when any attributed line
   disagrees;
-- no visible pin still maps, but the proof records
-  `compiler_pin: "unchecked (no compiler pin visible on this record)"` —
-  loud honesty, not silent leniency;
+- THREE states, never a fourth lie: pin present + report lines carrying
+  `solc_version` → `checked against pinned solc X`; NO visible pin →
+  `unchecked (no compiler pin visible...)`; pin present but the
+  attributed lines carry no `solc_version` → `unchecked (pin X ...
+  nothing was verified)` — an unmade comparison is never reported as
+  made (r19);
+- a run that NAMES `--solc-path` in a form the check cannot resolve
+  (relative path — the exec's cwd is not reconstructible here) is
+  REFUSED exit 2, not silently downgraded to the record row (r19);
 - when minicertora v0.4 ships `--require-solc-version` (R13), that flag
   becomes the belt; this webv2 check remains the braces.
 
 ## 5. The `verify --autoprove` mapper (SHIPPED)
 
 Machine input is ONE file: the run's `reports/report.json` (schema
-versioned; unknown versions refuse). Mapping law, per invariant:
+versioned; unknown versions refuse). Mapping law, per invariant — note
+the mapper checks per-rule VALUES, not just the rollup, and refuses any
+report carrying non-empty `publish_problems` even if `published` is set:
 
 | prover state | webv2 rung |
 |---|---|
@@ -160,6 +168,8 @@ different numbers on purpose.
 | `review_independent: false` in report.json | review model == authoring model | set `MINIPROVER_MODEL_REVIEW` to a DIFFERENT id |
 | `--parse-only`/`--check-only` rows say unavailable | minicertora is pre-v0.4 (R12/R14 unshipped) | expected degradation; run `tools/minicertora_conformance.py` to see the full gap |
 | `toolchain-mismatch` on a harness result | the run's solc ≠ the pin | re-exec with `--solc-path` pointing at the reported version, or fix PATH solc |
+| doctor row says `probe TIMED OUT after 5s` | a PATH binary hangs on `--version` | the row IS the diagnosis — fix the shim; doctor self-timeouts (5s ctx + 2s pipe-drain), it never hangs to report breakage |
+| autoprove says `report-contradiction` | rollup claims PROVEN while per_rule values disagree | per-rule lines are the authority (law 3); file a prover bug if the rollup really disagreed |
 
 ## 7. What is NOT integrated (open edges, honest list)
 

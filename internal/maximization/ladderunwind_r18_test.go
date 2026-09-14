@@ -2,6 +2,7 @@ package maximization
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -54,4 +55,41 @@ func TestRefusedLadderStartLeavesNothingToHide(t *testing.T) {
 		t.Fatal("retry started without ever emitting ladder.started")
 	}
 	_ = lad
+}
+
+// TestFailedFindingSaveLeavesNoOrphanLadder pins r19 P1 #4, the attack
+// the r18 fix itself missed: SaveLadder succeeds, SaveFinding fails
+// (unwritable findings dir), the verb returns — leaving a ladder doc
+// with no event AND no finding stamp. The retry's idempotent
+// early-return then prints "started", exits 0, audit PASSes, and
+// ladder.started is unemittable FOREVER. After the fix: the refused
+// start removes its own doc; the retry is a REAL logged start.
+func TestFailedFindingSaveLeavesNoOrphanLadder(t *testing.T) {
+	c := newCampaign(t, "Orphan Burn")
+	f := confirmedFinding(t, c, "Flash-loan price manipulation")
+	fid := objStr(f, "finding_id")
+	fdir := filepath.Join(c.Dir, "findings")
+	if err := os.Chmod(fdir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(fdir, 0o755) })
+	if _, err := StartLadder(c, fid); err == nil {
+		t.Fatal("start succeeded writing into an unwritable dir")
+	}
+	if _, err := os.Stat(ladderPath(c, fid)); !os.IsNotExist(err) {
+		t.Fatalf("refused start orphaned its ladder doc: %v", err)
+	}
+	if err := os.Chmod(fdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := StartLadder(c, fid); err != nil {
+		t.Fatalf("retry must be a real start: %v", err)
+	}
+	ev, err := os.ReadFile(c.EventsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(string(ev), "ladder.started"); got != 1 {
+		t.Fatalf("exactly one ladder.started expected, got %d", got)
+	}
 }

@@ -80,6 +80,23 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	}
 	// The run-level gates FIRST: a rollup over a run the prover itself
 	// refuses to publish is not evidence of anything.
+	// r19 P2: publish_problems is the prover's own veto list — binding a
+	// rollup over a report that carries problems (even with published
+	// true, a contradiction the prover itself refuses to emit) launders
+	// them; refuse and show them verbatim.
+	if probsPre := objAt(rep, "publish_problems"); len(objKVs(probsPre)) > 0 {
+		msgs := []string{}
+		for _, pv := range probsPre.A {
+			msgs = append(msgs, scalarStr(pv))
+		}
+		return t14ExitErr(2, "verify --autoprove: the report carries "+
+			"publish_problems (%s)%s\n", joinOrDash(msgs),
+			map[bool]string{
+				true: " while claiming published — internally " +
+					"contradictory; nothing binds",
+				false: " — the run is unpublished; nothing binds",
+			}[t26Truthy(rep, "published")])
+	}
 	if !t26Truthy(rep, "published") {
 		probs := []string{}
 		for _, p := range objAt(rep, "publish_problems").A {
@@ -117,14 +134,35 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	var rung, summary string
 	switch outcome {
 	case "PROVEN":
-		if perRule.Kind != validation.Arr && len(objKVs(perRule)) == 0 {
-			// The prover's own rule 2: no lines is never PROVEN.
+		// r19 P1: the rollup is the prover's claim ABOUT its rule lines;
+		// the rule-keyed values are the AUTHORITY (law 3 — a buggy or
+		// doctored report whose per_rule contradicts its PROVEN rollup
+		// must not bind). Empty per_rule of ANY shape is UNATTRIBUTED.
+		kvs := objKVs(perRule)
+		if perRule.Kind == validation.Arr || len(kvs) == 0 {
 			rung = harness.RungInconclusive
-			summary = "inconclusive (UNATTRIBUTED: the property claims " +
-				"PROVEN with no per-rule outcomes)"
+			if perRule.Kind == validation.Arr {
+				summary = "inconclusive (malformed per_rule: an ARRAY has " +
+					"no rule keys — the mapper is rule-keyed by contract)"
+			} else {
+				summary = "inconclusive (UNATTRIBUTED: the property claims " +
+					"PROVEN with no per-rule outcomes)"
+			}
 			break
 		}
-		n := len(objKVs(perRule))
+		bad := []string{}
+		for _, kv := range kvs {
+			if scalarStr(kv.V) != "PROVEN" {
+				bad = append(bad, kv.K+"="+scalarStr(kv.V))
+			}
+		}
+		if len(bad) > 0 {
+			rung = harness.RungInconclusive
+			summary = "inconclusive (report-contradiction: rollup says " +
+				"PROVEN but per_rule carries " + joinHead(bad, 5) + ")"
+			break
+		}
+		n := len(kvs)
 		if k > 0 {
 			summary = fmt.Sprintf("autoproved bounded (k=%d, %d rules)", k, n)
 		} else {

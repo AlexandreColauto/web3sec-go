@@ -148,7 +148,7 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	// record's tool_versions row) and REFUSES a mismatch. When no pin
 	// is visible from either source the run proceeds, marked UNCHECKED
 	// in the proof — honest, not silent.
-	pin, pinSource, pinErr := harnessCompilerPin(rec)
+	pin, pinSource, pinNamedUnresolved, pinErr := harnessCompilerPin(rec)
 	if pinErr != nil {
 		return pinErr
 	}
@@ -185,9 +185,23 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	rung, summary, proof, boundedK := harnessMapBound(kind, inv, raw, rec,
 		scaffold, timedOut, k, exitStatus, ruleName)
 	if proof.Kind == validation.Obj {
+		// r19 P1 #3: there are THREE states, not two. A pin with NO
+		// report lines carrying solc_version compared NOTHING — stamping
+		// "checked against pinned" there was the same lie in reverse
+		// (law 3: an unmade comparison is never reported as made).
 		state := "unchecked (no compiler pin visible on this record)"
-		if pin != "" {
+		switch {
+		case pin != "" && len(reported) > 0:
 			state = "checked against pinned solc " + pin
+		case pin != "":
+			state = "unchecked (pin " + pin + " from " + pinSource +
+				"; the attributed report lines carry no solc_version to " +
+				"compare — nothing was verified)"
+		}
+		if pinNamedUnresolved != "" {
+			state += " [note: the exec names --solc-path " +
+				pinNamedUnresolved + " in a form this check could not " +
+				"resolve; the pin above is NOT that binary]"
 		}
 		proof.O = validation.SetOrAppend(proof.O, "compiler_pin",
 			validation.VStr(state))
@@ -839,32 +853,63 @@ func harnessRecordedHashes(rec validation.Value) (hashes []string,
 // pin what version it IS), else the record's tool_versions["solc"]
 // row. "" means no visible pin; a non-nil error means the pinned path
 // exists but refuses to answer, which is NOT silently unchecked.
-func harnessCompilerPin(rec validation.Value) (version, source string,
-	err error) {
+func harnessCompilerPin(rec validation.Value) (version, source,
+	pinNamedUnresolved string, err error) {
 	cmd := harnessCommand(rec)
+	pinNamedUnresolved = ""
 	if i := strings.Index(cmd, "--solc-path"); i >= 0 {
-		rest := strings.Fields(cmd[i+len("--solc-path"):])
-		if len(rest) > 0 && strings.HasPrefix(rest[0], "/") {
-			out, perr := exec.Command(rest[0], "--version").Output()
+		// r19 P2: `--solc-path=PATH` is the same flag; one Fields() parse
+		// silently DROPPED the named binary for it (and for relatives),
+		// then labelled the record-pin "checked" anyway. Parse both
+		// forms; when the mention cannot be resolved, SAY so on the
+		// proof instead of pretending the flag wasn't there.
+		token := cmd[i+len("--solc-path"):]
+		path := ""
+		if strings.HasPrefix(token, "=") {
+			path = strings.Fields(token[1:])[0]
+		} else if rest := strings.Fields(token); len(rest) > 0 {
+			path = rest[0]
+		}
+		switch {
+		case path == "":
+			pinNamedUnresolved = "(no argument)"
+		case !strings.HasPrefix(path, "/"):
+			pinNamedUnresolved = path + " (relative: the exec's cwd is not " +
+				"reconstructible here)"
+		}
+		if strings.HasPrefix(path, "/") {
+			out, perr := exec.Command(path, "--version").Output()
 			if perr != nil {
-				return "", "", t14ExitErr(2, "verify: cannot probe the "+
+				return "", "", "", t14ExitErr(2, "verify: cannot probe the "+
 					"pinned compiler %s: %v — the run's provenance "+
-					"cannot be checked, so it is not mapped", rest[0],
+					"cannot be checked, so it is not mapped", path,
 					perr)
 			}
 			if v := sandbox.SolcVersionFromText(string(out)); v != "" {
-				return v, "--solc-path " + rest[0], nil
+				return v, "--solc-path " + path, "", nil
 			}
-			return "", "", t14ExitErr(2, "verify: pinned compiler %s "+
+			return "", "", "", t14ExitErr(2, "verify: pinned compiler %s "+
 				"reported no parseable version — provenance cannot be "+
-				"checked", rest[0])
+				"checked", path)
+		} else if pinNamedUnresolved != "" {
+			// fall through to the record pin WITH the note attached
+			tv0 := objAt(objAt(rec, "environment"), "tool_versions")
+			if v0 := objStr(tv0, "solc"); v0 == "" {
+				return "", "", pinNamedUnresolved, nil
+			}
+			return "", "", pinNamedUnresolved, t14ExitErr(2, "verify: the "+
+				"run names --solc-path %s this check cannot resolve, and "+
+				"enforcement of a NAMED compiler is not silently downgraded "+
+				"to the record row — rerun recording a resolvable "+
+				"--solc-path (absolute) or pin via tool_versions"+
+				"\n", pinNamedUnresolved)
 		}
 	}
 	tv := objAt(objAt(rec, "environment"), "tool_versions")
 	if v := objStr(tv, "solc"); v != "" && strings.ContainsAny(v, "0123456789") {
-		return v, "record tool_versions.solc", nil
+		return v, "record tool_versions.solc", pinNamedUnresolved, nil
 	}
-	return "", "", nil
+	return "", "", pinNamedUnresolved, nil
 }
 
 // harnessReportedCompilers collects the DISTINCT non-null solc_version

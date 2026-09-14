@@ -12,8 +12,11 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"io"
 	"os/exec"
@@ -240,8 +243,25 @@ func hostProverRows() validation.Value {
 			continue
 		}
 		ver := "present (version probe failed)"
-		res, verr := exec.Command(tool, "--version").Output()
-		if verr == nil {
+		// r19 P2: a HANGING binary on PATH used to hang env doctor — the
+		// EXEC probe (sandbox.runProc) gives it 15s; the doctor's own
+		// presence probe gives 5 and REPORTS the timeout. A tool whose
+		// job is to find broken infrastructure must not join it.
+		ctxT, cancelT := context.WithTimeout(context.Background(),
+			5*time.Second)
+		cmdT := exec.CommandContext(ctxT, tool, "--version")
+		// WaitDelay matters: a killed SHELL can leave its child holding
+		// the stdout pipe open forever (the fake-miniprover repro) — the
+		// deadline kills the process, WaitDelay bounds the pipe wait.
+		cmdT.WaitDelay = 2 * time.Second
+		res, verr := cmdT.Output()
+		timedOut := errors.Is(ctxT.Err(), context.DeadlineExceeded)
+		cancelT()
+		if timedOut {
+			ver = "present (version probe TIMED OUT after 5s — the " +
+				"binary hangs; fix it, doctor will not)"
+		}
+		if verr == nil && !timedOut {
 			line := strings.SplitN(strings.TrimSpace(string(res)), "\n", 2)[0]
 			if line != "" {
 				ver = line

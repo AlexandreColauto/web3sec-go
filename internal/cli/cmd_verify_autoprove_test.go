@@ -137,7 +137,7 @@ func TestAutoproveRefusals(t *testing.T) {
 				`"publish_problems": ["rule inv_1 unverifiable"]`, 1)
 			os.WriteFile(p, []byte(b), 0o644)
 			return p
-		}(), nil, "did NOT publish"},
+		}(), nil, "unpublished; nothing binds"},
 		{"suspect review", func() string {
 			p := apReport(t, dir, ``)
 			b := strings.Replace(string(mustRead(t, p)),
@@ -181,4 +181,89 @@ func mustRead(t *testing.T, p string) []byte {
 		t.Fatal(err)
 	}
 	return raw
+}
+
+// TestAutoproveRuleValuesAreTheAuthority pins r19 P1 #1/#2: the rollup
+// is a CLAIM, the per-rule values are the truth.
+func TestAutoproveRuleValuesAreTheAuthority(t *testing.T) {
+	rep := apReport(t, t.TempDir(), "")
+	body := string(mustRead(t, rep))
+	cases := []struct {
+		name, mutate, want string
+	}{
+		{"contradiction", strings.Replace(body,
+			`"inv_1": "PROVEN"`, `"inv_1": "REFUSED"`, 1),
+			"report-contradiction"},
+		{"vacuous-only", strings.Replace(strings.Replace(body,
+			`"inv_1": "PROVEN"`, `"inv_1": "PROVEN_VACUOUS"`, 1),
+			`"inv_1_via_getter": "PROVEN"`,
+			`"inv_1_via_getter": "PROVEN_VACUOUS"`, 1),
+			"report-contradiction"},
+	}
+	for i, tc := range cases {
+		c, root := mcCamp(t, "ap-authority"+fmt.Sprint(i))
+		p2 := filepath.Join(t.TempDir(), "r.json")
+		if err := os.WriteFile(p2, []byte(tc.mutate), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		code, out, errS := apVerify(t, root, c,
+			"--property", "total_never_wraps", "--report", p2)
+		if code != 0 {
+			t.Fatalf("%s: exit %d err %q", tc.name, code, errS)
+		}
+		if !strings.Contains(out, "inconclusive") ||
+			!strings.Contains(out, tc.want) {
+			t.Fatalf("%s: contradiction must demote, naming offenders: %q",
+				tc.name, out)
+		}
+		if strings.Contains(out, "proved-bounded") {
+			t.Fatalf("%s: REFUSED rule bound a PROVEN rung", tc.name)
+		}
+	}
+}
+
+// TestAutoproveEmptyPerRuleArrayIsUnattributed pins the []-bypass.
+func TestAutoproveEmptyPerRuleArrayIsUnattributed(t *testing.T) {
+	c, root := mcCamp(t, "ap-emptyarr")
+	p2 := filepath.Join(t.TempDir(), "r.json")
+	body := `{"schema_version": "1.0", "published": true, ` +
+		`"publish_problems": [], "review_independent": true, ` +
+		`"capabilities_missing": [], "flags": {"loop_bound": 4}, ` +
+		`"property_outcomes": {"total_never_wraps": {"outcome": "PROVEN", ` +
+		`"per_rule": []}}, "review_findings": []}`
+	if err := os.WriteFile(p2, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := apVerify(t, root, c, "--property", "total_never_wraps",
+		"--report", p2)
+	if code != 0 {
+		t.Fatalf("exit %d err %q", code, errS)
+	}
+	if strings.Contains(out, "proved-bounded") ||
+		!strings.Contains(out, "inconclusive") {
+		t.Fatalf("zero rules may never bind a proof: %q", out)
+	}
+}
+
+// TestAutoproveProblemsNeverSilent pins r19 P2: publish_problems is the
+// prover's veto — it cannot be laundered by published:true next to it.
+func TestAutoproveProblemsNeverSilent(t *testing.T) {
+	c, root := mcCamp(t, "ap-problems")
+	p2 := filepath.Join(t.TempDir(), "r.json")
+	body := `{"schema_version": "1.0", "published": true, ` +
+		`"publish_problems": ["rule inv_1 unverifiable"], ` +
+		`"review_independent": true, "capabilities_missing": [], ` +
+		`"flags": {"loop_bound": 4}, ` +
+		`"property_outcomes": {"total_never_wraps": {"outcome": "PROVEN", ` +
+		`"per_rule": {"inv_1": "PROVEN"}}}, "review_findings": []}`
+	if err := os.WriteFile(p2, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := apVerify(t, root, c, "--property", "total_never_wraps",
+		"--report", p2)
+	if code != 2 || !strings.Contains(errS, "internally") ||
+		!strings.Contains(errS, "inv_1 unverifiable") {
+		t.Fatalf("contradictory publish must refuse quoting problems: exit "+
+			"%d err %q", code, errS)
+	}
 }

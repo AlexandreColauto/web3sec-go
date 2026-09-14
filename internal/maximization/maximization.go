@@ -305,6 +305,12 @@ func StartLadder(c *state.Campaign, findingID string) (validation.Value, error) 
 	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
 	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
+		// r19 P1 #4: SaveLadder's own write is atomic (temp+rename), but
+		// a partial-visibility error (ENOSPC mid-rename on some mounts)
+		// must not leave a doc the retry will early-return over. Remove
+		// any bytes it may have produced (start ran on an absent ladder
+		// — the early-return above proves it).
+		os.Remove(ladderPath(c, findingID))
 		return validation.VNull(), err
 	}
 	mx := asObj(objAt(f, "maximization"))
@@ -314,6 +320,15 @@ func StartLadder(c *state.Campaign, findingID string) (validation.Value, error) 
 	}
 	f.O = validation.SetOrAppend(f.O, "maximization", mx)
 	if err := findings.SaveFinding(c, &f); err != nil {
+		// r19 P1 #4 (the live-repro'd burn): a finding write that fails
+		// AFTER the ladder doc landed left an ORPHAN ladder — the retry
+		// takes the idempotent early-return (the doc exists), prints
+		// "started", exit 0, and ladder.started can NEVER be emitted;
+		// audit stays PASS over the orphan. The doc is this verb's
+		// creation: unwinding means REMOVING it, restoring the finding
+		// to its (untouched) bytes.
+		os.Remove(ladderPath(c, findingID))
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	data := validation.VObj(

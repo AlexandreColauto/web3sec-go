@@ -67,7 +67,31 @@ func realRunProc(argv []string, dir string, env []string,
 			Stderr: errB.String()}, nil
 	case <-timer.C:
 		_ = cmd.Process.Kill()
-		<-done
+		// r19 P2 (the exec-side twin of the doctor's pipe-hold): Wait
+		// returns only after the io copiers see EOF — a killed SHELL
+		// wrapper can leave its CHILD holding the fd, hanging this
+		// "timeout" forever, which is worse than the hang it bounds.
+		// Kill again at interval and give the wait its own deadline.
+		killDone := make(chan struct{})
+		go func() {
+			ticker := time.NewTicker(500 * time.Millisecond)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-killDone:
+					return
+				case <-ticker.C:
+					_ = cmd.Process.Kill()
+				}
+			}
+		}()
+		grace := time.NewTimer(5 * time.Second)
+		defer grace.Stop()
+		select {
+		case <-done:
+		case <-grace.C:
+		}
+		close(killDone)
 		return ProcResult{ReturnCode: -1, Stdout: out.String(),
 			Stderr: errB.String()}, errTimeout
 	}
