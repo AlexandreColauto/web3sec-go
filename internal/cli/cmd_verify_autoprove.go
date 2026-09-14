@@ -17,6 +17,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"websec/internal/harness"
@@ -187,98 +188,19 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	}
 	outcome := objStr(prop, "outcome")
 	perRule := objAt(prop, "per_rule")
-	// r24 F3: the bound is READ TYPED. An int is the bound (0 is a
-	// STATED zero, not an absence — UNSTATED means the report said
-	// nothing). A float is truncation, a negative is nonsense, a
-	// string is a shape the twin never emits: all three are unreadable
-	// AUTHORITY INPUTS and refuse the bind — intFrom's silent 0 made a
-	// 4.5-bound report claim k=4 in every record forever.
-	kvB := objAt(objAt(rep, "flags"), "loop_bound")
-	var k int
-	kStated := true
-	switch kvB.Kind {
-	case validation.Null:
-		kStated = false
-	case validation.Int:
-		if kvB.I < 0 {
-			return t14ExitErr(2, "verify --autoprove: flags.loop_bound "+
-				"is negative (%d) — no such bound exists; refusing to "+
-				"map this report\n", kvB.I)
-		}
-		k = int(kvB.I)
-	default:
-		return t14ExitErr(2, "verify --autoprove: flags.loop_bound is "+
-			"not an integer (kind %v: %s) — truncating it would state a "+
-			"bound the run never stated\n", kvB.Kind,
-			scalarStr(kvB))
+	// r24 F3: the bound is READ TYPED — a float is truncation, a
+	// string/big is a foreign shape, and the twin's VerifierFlags
+	// raises for loop_bound<1, so 0 is by definition NOT twin output
+	// (r25 F3: honoring k=0 would bless a proof-about-nothing with a
+	// loudly stated bound). r25 F2: the decision itself moved to
+	// harness.MapReport — the audit re-derives from the SAME function,
+	// so bind-time and read-time can never disagree.
+	k, kStated, kOK, kWhy := harness.BoundFromFlags(objAt(rep, "flags"))
+	if !kOK {
+		return t14ExitErr(2, "verify --autoprove: flags.loop_bound %s; "+
+			"this report is not a twin output and will not bind\n", kWhy)
 	}
-	var rung, summary string
-	switch outcome {
-	case "PROVEN":
-		// r19 P1: the rollup is the prover's claim ABOUT its rule lines;
-		// the rule-keyed values are the AUTHORITY (law 3 — a buggy or
-		// doctored report whose per_rule contradicts its PROVEN rollup
-		// must not bind). Empty per_rule of ANY shape is UNATTRIBUTED.
-		kvs := objKVs(perRule)
-		if perRule.Kind == validation.Arr || len(kvs) == 0 {
-			rung = harness.RungInconclusive
-			if perRule.Kind == validation.Arr {
-				summary = "inconclusive (malformed per_rule: an ARRAY has " +
-					"no rule keys — the mapper is rule-keyed by contract)"
-			} else {
-				summary = "inconclusive (UNATTRIBUTED: the property claims " +
-					"PROVEN with no per-rule outcomes)"
-			}
-			break
-		}
-		bad := []string{}
-		for _, kv := range kvs {
-			if scalarStr(kv.V) != "PROVEN" {
-				bad = append(bad, kv.K+"="+scalarStr(kv.V))
-			}
-		}
-		if len(bad) > 0 {
-			rung = harness.RungInconclusive
-			summary = "inconclusive (report-contradiction: rollup says " +
-				"PROVEN but per_rule carries " + joinHead(bad, 5) + ")"
-			break
-		}
-		n := len(kvs)
-		if kStated {
-			summary = fmt.Sprintf("autoproved bounded (k=%d, %d rules)", k, n)
-		} else {
-			// r20 F11: "bounded" with no bound stated must SAY so — the
-			// rung names the absence, it does not hide behind the word.
-			summary = fmt.Sprintf("autoproved bounded (bound UNSTATED, %d "+
-				"rules)", n)
-		}
-		rung = harness.RungProvedBounded
-	case "VIOLATED":
-		viol := []string{}
-		for _, kv := range objKVs(perRule) {
-			if scalarStr(kv.V) == "VIOLATED" {
-				viol = append(viol, kv.K)
-			}
-		}
-		if len(viol) == 0 {
-			// r20 F5: symmetry — a VIOLATED rollup whose per_rule carries
-			// NO violated line is the same contradiction in the other
-			// direction; a counterexample names its refuted rule or is a
-			// gap.
-			rung = harness.RungInconclusive
-			summary = "inconclusive (report-contradiction: rollup says " +
-				"VIOLATED but per_rule carries no violated line)"
-			break
-		}
-		summary = "counterexample (autoprove refuted rules: " +
-			joinHead(viol, 5) + ")"
-		rung = harness.RungCounterexample
-	default:
-		// OUT_OF_FRAGMENT / INCONCLUSIVE / REFUSED / UNATTRIBUTED and
-		// any FUTURE outcome string the prover adds: gaps, never passes.
-		rung = harness.RungInconclusive
-		summary = "inconclusive (prover rollup: " + outcome + ")"
-	}
+	rung, summary, bk := harness.MapReport(outcome, perRule, k, kStated)
 	if AutoproveSwapSeam != nil {
 		AutoproveSwapSeam() // test-only: write the file post-parse
 	}
@@ -292,10 +214,6 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 			"disk while being mapped (parse-time sha %s, now different) — "+
 			"a bind must name the exact bytes it read; re-run against the "+
 			"current file\n", digest[:12])
-	}
-	var bk *int
-	if rung == harness.RungProvedBounded && kStated {
-		bk = &k
 	}
 	// proof sidecar is minicertora-only BY SCHEMA ("ABSENT for other
 	// kinds") — the report itself is registered as the artifact instead:
@@ -328,7 +246,21 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 			"bound from a DIFFERENT report digest ("+prior[:12]+"… -> "+
 			digest[:12]+"…) — "+rebindReason)
 	}
-	artID, err := c.RegisterOrRefresh("harness", a.report,
+	// r25 F4: bind a CONTENT-ADDRESSED COPY under the campaign, not the
+	// mutable operator path. Refresh-overwrite is the destructive act:
+	// a refused re-bind used to prune (or a successful one rewrite) the
+	// row a PRIOR live bind's event cites — evidence ownership erased by
+	// an unrelated later act. With the copy, each digest is its own
+	// immutable row inside the store: prior citations always survive,
+	// reconcile can never substitute a foreign byte into a pinned sha
+	// (the copy IS the store), and the registry hash that VOTES on the
+	// bind hashes exactly what the event names.
+	copyPath, cerr := storeReportCopy(c, digest, raw)
+	if cerr != nil {
+		return t14ExitErr(2, "verify --autoprove: cannot store the "+
+			"report copy: %v\n", cerr)
+	}
+	artID, err := c.RegisterOrRefresh("harness", copyPath,
 		"miniprover report bound to "+a.autoprove+" (property "+
 			a.property+", rollup "+outcome+")", nil,
 		rebindReason)
@@ -360,12 +292,25 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		_, lerr := c.Log("harness_run", &a.autoprove, &edata)
 		return lerr
 	}); err != nil {
-		_, perr := c.PruneArtifact(artID,
-			"pruned: bind refused — "+err.Error())
-		if perr != nil {
-			return fmt.Errorf("%w (AND the artifact row %s could not be "+
-				"pruned: %v — a registered-but-unbound report; reconcile "+
-				"by hand)", err, artID, perr)
+		// r25 F4: NEVER destroy evidence a LIVE bind still cites. The
+		// REFUSED bind's own event does not exist (unwind restored it),
+		// but an EARLIER bind may pin this row's digest — pruning it
+		// then would burn the prior, honest rung on §11 for an
+		// operator hiccup that touched nothing of theirs. Cite-check
+		// first: prune only an orphan.
+		if cited, cerr := artifactCitedByLiveBinds(c, regDig); cerr == nil &&
+			!cited {
+			_, perr := c.PruneArtifact(artID,
+				"pruned: bind refused — "+err.Error())
+			if perr != nil {
+				return fmt.Errorf("%w (AND the artifact row %s could not "+
+					"be pruned: %v — a registered-but-unbound report; "+
+					"reconcile by hand)", err, artID, perr)
+			}
+		} else {
+			fmt.Fprintf(r.Err, "  NOTE: artifact %s stays: a live bind "+
+				"cites its bytes; this refused bind left no event\n",
+				artID)
 		}
 		return err
 	}
@@ -560,4 +505,73 @@ func autoprovePriorDigest(c *state.Campaign, invID string) string {
 // nor dodge a suspect flag).
 func autoproveSameName(a, b string) bool {
 	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
+}
+
+// artifactCitedByLiveBinds: does any harness_run event still name this
+// digest as its report_sha256? (The refused bind wrote none — the
+// unwind restored the ledger — so this asks about the OTHER rows.)
+func artifactCitedByLiveBinds(c *state.Campaign, dig string) (bool,
+	error) {
+	if dig == "" {
+		return false, nil
+	}
+	events, err := c.Events()
+	if err != nil {
+		return false, err
+	}
+	for _, ev := range events {
+		if objStr(ev, "type") != "harness_run" {
+			continue
+		}
+		if objStr(objAt(ev, "data"), "report_sha256") == dig {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// harnessRowForPath: the registry row currently holding this path
+// (resolved the registry's own way), if any.
+func harnessRowForPath(c *state.Campaign, path string) (validation.Value,
+	bool) {
+	st, err := c.State()
+	if err != nil {
+		return validation.VNull(), false
+	}
+	want := state.ResolveArtifactPathFor(c, path)
+	for _, arow := range objAt(st, "artifacts").A {
+		if state.ResolveArtifactPathFor(c, objStr(arow, "path")) == want {
+			return arow, true
+		}
+	}
+	return validation.VNull(), false
+}
+
+// storeReportCopy writes the mapped bytes into the campaign store at a
+// digest-named path (idempotent: an existing copy is verified, never
+// overwritten — the rows are immutable by construction).
+func storeReportCopy(c *state.Campaign, digest string,
+	raw []byte) (string, error) {
+	dir := filepath.Join(c.ArtifactsDir, "reports")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	p := filepath.Join(dir, "report-"+digest[:12]+".json")
+	if cur, err := os.ReadFile(p); err == nil {
+		if validation.Sha256Hex(cur) == digest {
+			return p, nil // the honest copy already stands
+		}
+		return "", fmt.Errorf("%s exists with foreign bytes (impossible "+
+			"under a sha-named path: a prior collision or a tamper)", p)
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	tmp := p + ".tmp"
+	if err := os.WriteFile(tmp, raw, 0o444); err != nil {
+		return "", err
+	}
+	if err := os.Rename(tmp, p); err != nil {
+		return "", err
+	}
+	return p, nil
 }

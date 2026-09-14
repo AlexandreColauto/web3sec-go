@@ -530,3 +530,39 @@ func (c *Campaign) ReconcileArtifacts(dry bool) (validation.Value, error) {
 		kv("dry", validation.VBool(dry)),
 	), nil
 }
+
+// ArtifactBytes resolves a registry row, re-hashes the file behind it,
+// and returns the bytes ONLY when they still match the row's pinned
+// sha256 — callers that re-derive evidence must not be able to read a
+// substituted path while trusting the row (r25 F2 audit re-derivation).
+// A row whose file moved returns a mismatch error naming both shas.
+func (c *Campaign) ArtifactBytes(row validation.Value) ([]byte, error) {
+	p := c.resolveArtifactPath(row)
+	stored := objStr(row, "sha256")
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		return nil, err
+	}
+	if stored == "" {
+		return nil, fmt.Errorf("%s", "registry row carries no sha to "+
+			"check the bytes against")
+	}
+	if got := validation.Sha256Hex(raw); got != stored {
+		return nil, fmt.Errorf("registry row pins %s but %s now hashes "+
+			"to %s", stored, p, got)
+	}
+	return raw, nil
+}
+
+// ResolveArtifactPathFor exposes resolveArtifactPath's resolution for
+// one path string (r25 F4 cite-guard: bind-time callers must find the
+// row that OWNS a path, which is exactly the resolver's question).
+func ResolveArtifactPathFor(c *Campaign, p string) string {
+	if p == "" {
+		return ""
+	}
+	row := validation.VObj(
+		validation.KV{K: "path", V: validation.VStr(p)},
+	)
+	return c.resolveArtifactPath(row)
+}

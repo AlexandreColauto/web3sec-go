@@ -332,17 +332,29 @@ func harnessEvidenceRecheck(c *state.Campaign,
 
 func recheckExecEvidence(c *state.Campaign, iid string,
 	h, last validation.Value, exec string) string {
-	if objStr(h, "kind") != "minicertora" {
-		return "" // halmos/forge render via MapRun with no proof
-		// subtree — the compared fields already cover their claims.
-	}
 	// r24 scope law: re-derivation guards the rungs that RECORD CREDIT
 	// (proved-bounded, counterexample). An inconclusive rung blesses
 	// nothing, and torching its (often old, often pruned) witness dir
 	// would punish honesty with noise.
-	if rung := objStr(last, "rung"); rung != harness.RungProvedBounded &&
+	rung := objStr(last, "rung")
+	if rung != harness.RungProvedBounded &&
 		rung != harness.RungCounterexample {
+		// r25 preemption (critic's sharpest): a forged (slot,event)
+		// pair claiming inconclusive with an invented `| next:` advice
+		// line feeds the disposition tally — the moment a planner
+		// consumes classes, fabricated advice steers the campaign.
+		// Re-derive summary+proof digests ONLY when the evidence
+		// still exists on disk (an aged-out witness dir stays silent:
+		// absence is not proof of a lie), and burn ONLY the
+		// over-claim directions (claimed advice the bytes contradict;
+		// claimed-absent proof present in the run).
+		if objStr(h, "kind") == "minicertora" {
+			return recheckInconclusive(c, iid, h, last, exec)
+		}
 		return ""
+	}
+	if kind := objStr(h, "kind"); kind != "minicertora" {
+		return recheckMapRunEvidence(c, iid, last, exec, kind)
 	}
 	recs, err := state.AllExecs(c)
 	if err != nil {
@@ -436,13 +448,193 @@ func recheckRegistryEvidence(c *state.Campaign, iid string,
 	if err != nil {
 		return fmt.Sprintf("%s: registry unreadable (%v)", iid, err)
 	}
+	var row validation.Value
 	for _, a := range objAt(st, "artifacts").A {
 		if objStr(a, "sha256") == dig {
-			return ""
+			row = a
+			break
 		}
 	}
-	return fmt.Sprintf("%s: no registry artifact holds the report bytes "+
-		"the event pins (sha %s) — the evidence named by the bind is not "+
-		"in the store (substituted path or quiet reconcile)", iid,
-		dig[:12])
+	if row.Kind != validation.Obj {
+		return fmt.Sprintf("%s: no registry artifact holds the report "+
+			"bytes the event pins (sha %s) — the evidence named by the "+
+			"bind is not in the store (substituted path or quiet "+
+			"reconcile)", iid, dig[:12])
+	}
+	// r25 F2: OWNERSHIP was paperwork; re-DERIVE the decision from the
+	// bytes the row holds, through harness.MapReport — the function the
+	// mapper itself now runs. A forged (slot,event) pair naming honest
+	// registry bytes still has to match what those bytes say.
+	raw, rerr := c.ArtifactBytes(row)
+	if rerr != nil {
+		return fmt.Sprintf("%s: pinned report bytes (%s) cannot be "+
+			"re-read from the store (%v) — uncheckable is not backed",
+			iid, dig[:12], rerr)
+	}
+	rep, perr := validation.ParseOrdered(raw)
+	if perr != nil || rep.Kind != validation.Obj {
+		return fmt.Sprintf("%s: the pinned report bytes no longer parse "+
+			"(%v) — the store does not hold what the bind named", iid,
+			perr)
+	}
+	prop := validation.VNull()
+	if po := objAt(rep, "property_outcomes"); po.Kind == validation.Obj {
+		for _, kv := range po.O {
+			if cliFoldName(kv.K, objStr(last, "property")) {
+				prop = kv.V
+				break
+			}
+		}
+	}
+	if prop.Kind != validation.Obj {
+		return fmt.Sprintf("%s: the pinned report does not attempt the "+
+			"property the event binds (%s) — provenance and evidence "+
+			"disagree", iid, validation.PyReprStr(
+			objStr(last, "property")))
+	}
+	k, kStated, kOK, _ := harness.BoundFromFlags(objAt(rep, "flags"))
+	if !kOK {
+		return fmt.Sprintf("%s: the pinned report carries a degenerate "+
+			"bound the mapper would refuse — those bytes cannot have "+
+			"produced this event", iid)
+	}
+	rung, summary, bk := harness.MapReport(objStr(prop, "outcome"),
+		objAt(prop, "per_rule"), k, kStated)
+	if want := objStr(last, "rung"); want != rung {
+		return fmt.Sprintf("%s: the pinned report re-derives to rung "+
+			"%s; the event claims %s — the mapping did not come from "+
+			"these bytes", iid, validation.PyReprStr(rung),
+			validation.PyReprStr(want))
+	}
+	if want := objStr(last, "summary"); want != summary {
+		return fmt.Sprintf("%s: the pinned report re-derives summary "+
+			"%s; the event carries %s", iid,
+			validation.PyReprStr(summary), validation.PyReprStr(want))
+	}
+	if bk == nil {
+		if v := objAt(last, "bounded_k"); v.Kind == validation.Int {
+			return fmt.Sprintf("%s: the pinned report states no bound; "+
+				"the event pins bounded_k %d — inflated", iid, v.I)
+		}
+	} else if v := objAt(last, "bounded_k"); v.Kind != validation.Int ||
+		v.I != int64(*bk) {
+		return fmt.Sprintf("%s: the pinned report derives bounded_k "+
+			"%d; the event carries a different bound", iid, *bk)
+	}
+	return ""
+}
+
+// cliFoldName mirrors cli.autoproveSameName (case+edge fold) — keep
+// byte-identical semantics with the bind rail.
+func cliFoldName(a, b string) bool {
+	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
+}
+
+// recheckMapRunEvidence extends the read-time law to halmos/forge-fuzz
+// (r25 F1: the kind-skip arm was E5's open door — a chain-valid forged
+// pair rendered `halmos, k=100` over a stdout whose marker said k=7,
+// and `rung=counterexample` over a PASS output, audit-green). Same
+// discipline, cheaper functions: MapRun over the stored bytes with the
+// record's own timedOut bit and the command's invocation bound must
+// reproduce the claimed rung, and a proved-bounded claim must
+// reproduce bounded_k through BoundK.
+func recheckMapRunEvidence(c *state.Campaign, iid string,
+	last validation.Value, exec, kind string) string {
+	k := harness.Kind(kind)
+	if k != harness.Halmos && k != harness.ForgeFuzz {
+		return "" // unknown kinds render no harness_runs line anyway
+	}
+	recs, err := state.AllExecs(c)
+	if err != nil {
+		return fmt.Sprintf("%s: the exec ledger cannot be read (%v)",
+			iid, err)
+	}
+	var rec validation.Value
+	for _, e := range recs {
+		if objStr(e, "exec_id") == exec {
+			rec = e
+			break
+		}
+	}
+	if rec.Kind != validation.Obj {
+		return fmt.Sprintf("%s: provenance names %s, which the exec "+
+			"ledger does not hold — the witness was deleted or never "+
+			"existed; the run is unbacked by its own evidence", iid, exec)
+	}
+	raw, rerr := os.ReadFile(filepath.Join(c.ExecsDir, exec,
+		"stdout.log"))
+	if rerr != nil {
+		return fmt.Sprintf("%s: exec %s stdout unreadable (%v) — the "+
+			"evidence behind the rung cannot be re-checked", iid, exec,
+			rerr)
+	}
+	es := -2
+	if v := objAt(rec, "exit_status"); v.Kind == validation.Int &&
+		v.Big == "" {
+		es = int(v.I)
+	}
+	timedOut := harness.TimedOutBit(es)
+	invK := harness.InvocationBound(objStr(rec, "command"))
+	rung, _ := harness.MapRun(k, raw, timedOut, invK)
+	if want := objStr(last, "rung"); rung != want {
+		return fmt.Sprintf("%s: exec %s stdout re-derives rung %s; the "+
+			"event claims %s — the mapping did not come from this run's "+
+			"bytes", iid, exec, validation.PyReprStr(rung),
+			validation.PyReprStr(want))
+	}
+	if rung == harness.RungProvedBounded {
+		if bkV := objAt(last, "bounded_k"); bkV.Kind == validation.Int {
+			have := harness.BoundK(k, raw, invK)
+			if int64(have) != bkV.I {
+				return fmt.Sprintf("%s: exec %s stdout re-derives "+
+					"bounded_k %d; the event pins %d — the bound is "+
+					"inflated", iid, exec, have, bkV.I)
+			}
+		}
+	}
+	return ""
+}
+
+func recheckInconclusive(c *state.Campaign, iid string,
+	h, last validation.Value, exec string) string {
+	recs, err := state.AllExecs(c)
+	if err != nil {
+		return ""
+	}
+	var rec validation.Value
+	for _, e := range recs {
+		if objStr(e, "exec_id") == exec {
+			rec = e
+			break
+		}
+	}
+	if rec.Kind != validation.Obj {
+		return "" // aged-out witness: nothing to re-derive against
+	}
+	raw, rerr := os.ReadFile(filepath.Join(c.ExecsDir, exec,
+		"stdout.log"))
+	if rerr != nil {
+		return ""
+	}
+	es := -2
+	if v := objAt(rec, "exit_status"); v.Kind == validation.Int &&
+		v.Big == "" {
+		es = int(v.I)
+	}
+	_, sum, _, _ := harness.MapMinicertora(raw, es,
+		harness.MspecRuleName(iid))
+	if !strings.HasPrefix(sum, "inconclusive") {
+		return "" // bytes bless MORE than the claim: modesty, never a
+		// lie — the pair under-claims and the ledger stays honest.
+	}
+	if want := objStr(last, "summary"); want != sum {
+		// The slot↔event backstop already forces slot==event; here the
+		// PAIR shares advice the bytes never wrote: fabricated
+		// disposition text feeding the tally.
+		return fmt.Sprintf("%s: exec %s stdout re-derives inconclusive "+
+			"advice %s; the bound pair claims %s — fabricated next-step "+
+			"text steers the disposition tally", iid, exec,
+			validation.PyReprStr(sum), validation.PyReprStr(want))
+	}
+	return ""
 }

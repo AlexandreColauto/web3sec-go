@@ -248,17 +248,43 @@ Slot-vs-event rails bind the display to the LEDGER — a chain-valid
 forger edits the ledger too. The audit therefore RE-DERIVES, at read
 time, from the artifacts the event names:
 
-* `EXEC-*` provenance + minicertora + a blessing rung (proved-bounded /
+* `EXEC-*` provenance + a blessing rung (proved-bounded /
   counterexample): the exec's stored stdout bytes are re-run through
-  `harness.MapMinicertora` — rung, proof-subtree digest (mapper-added
-  `compiler_pin` stripped both sides), and `bounded_k` must all match
-  what the event claims. The lie now needs the stdout bytes (or the
-  ledger row) to match too, not just two mutually-consistent JSON
-  files. Inconclusive rungs are out of scope by law: they bless
-  nothing, and old pruned witnesses must not torch honest sessions.
+  the SAME mapping function the bind used — `harness.MapMinicertora`
+  for minicertora (rung, proof-subtree digest with the mapper-added
+  `compiler_pin` stripped both sides, `bounded_k`), and since r25
+  `harness.MapRun`/`BoundK` for halmos and forge-fuzz (the kind-skip
+  was an open door: a chain-valid forged pair rendered `halmos, k=100`
+  over a stdout whose own marker said `k = 7`, and even
+  `counterexample` over a PASS output, audit-green). The lie now needs
+  the stdout bytes (or the ledger row) to match too, not just two
+  mutually-consistent JSON files.
 * `REPORT-*` provenance (autoprove): the pinned `report_sha256` must
-  exist as a registry digest.
+  exist as a registry digest **and** those bytes are re-decided through
+  `harness.BoundFromFlags` + `harness.MapReport` — the very functions
+  `verify --autoprove` now calls at bind time (r25 F2: ownership was
+  paperwork; a forged pair over honest registry bytes still has to
+  reproduce rung, summary and bound). The bind stores a
+  content-addressed COPY under `<campaign>/artifacts/reports/`, so the
+  evidence is immutable and a later act can neither refresh-overwrite
+  nor prune the row an earlier live bind cites: rung/summary/k all
+  re-checked against bytes that cannot move under them.
+* Inconclusive rungs are outside the blessing law — but not outside
+  fabrication: a conspiring (slot, event) pair with invented `| next:`
+  advice feeds the disposition tally, so when the witness still exists
+  the summary is re-derived and a fabricated one burns (r25). When the
+  witness has genuinely aged out, absence stays silent: an inconclusive
+  rung blesses nothing, and noise there only punishes honest age.
 
 A slot that stored LESS proof than its bytes support is
 under-reporting — richer evidence than displayed — and skipped: rails
 burn lies, not modesty.
+
+Two more write-time laws landed with the same sweep: `flags.loop_bound`
+below 1 REFUSES (the twin's own `VerifierFlags.__post_init__` raises
+for degenerate flags and its CLI default is 4, so a report stating 0 is
+not a twin output at all — honoring it would bless a proof-about-
+nothing), and the bind REGISTERS FIRST so the registry's hash votes on
+the bind: a mismatch prunes the fresh row and refuses before any event
+exists, while a refused bind never prunes a row another live event
+cites.

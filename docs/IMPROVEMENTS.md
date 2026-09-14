@@ -1,5 +1,30 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — r25 (b-ai critic): the re-derivation was scoped by KIND, and every skip-arm was a door
+
+r24 shipped re-derivation and then quietly scoped it: minicertora only, blessing rungs only, REPORT
+provenance ownership only. The critic walked through all three doors. F1: a chain-valid forged pair
+rendered `halmos, k=100` over stderr-clean stdout whose own marker said `k = 7` — and `counterexample`
+over a PASS output — audit-green, because `recheckExecEvidence` returned early for any non-minicertora
+kind. Cure: the same re-derivation now dispatches by kind through `harness.MapRun`/`BoundK` (shared
+law, since `cli.harnessTimedOut`/`invocationBound` moved into `harness` as `TimedOutBit`/
+`InvocationBound` rather than being copied). F2 was the sharper one: the REPORT recheck demanded only
+that the pinned sha exist somewhere in the registry — a forged PROVEN k=100/9-rules pair over honest
+registry bytes naming a report that said k=4/1-rule stayed green. Cure: the bind-time decision itself
+moved to `harness.MapReport` + `harness.BoundFromFlags`, so bind and audit run the SAME pure function
+over the SAME bytes — drift is structurally impossible, not merely tested for. F3 was a twin-law
+violation we had introduced ourselves: the twin's `VerifierFlags.__post_init__` raises for
+`loop_bound < 1` (default 4), so our r24 "0 is a STATED bound" arm blessed a proof-about-nothing with
+a loudly stated k=0 — now `<1` refuses as foreign. F4: register-first pruning could delete the row an
+EARLIER live bind cites (a refused re-bind, no adversary required, burned an honest rung on §11) —
+binds now store a content-addressed COPY under `artifacts/reports/`, so evidence is immutable, refresh
+can never rewrite a cited sha, prune is cite-checked, and the pre-refresh guard was dropped as moot
+rather than tightened. The critic's own sharpest idea landed preemptively too: inconclusive rungs are
+out of the blessing law but not out of fabrication, so when the witness still exists the advice text is
+re-derived and invented `| next:` lines burn — while a genuinely aged-out witness stays silent, because
+absence is not evidence of a lie. Fixtures mint the evidence they claim (exec records + stdout) or the
+audit rightly convicts them; 70/70, walkthrough and golden green.
+
 ## 2026-09-14 — r24 (b-ai critic): the rails bind display to LEDGER; forgers edit ledgers — bind display to EVIDENCE
 Two of r24's five holds were write-time ordering: the autoprove bind REGISTERED after the event, so a swap window left provenance naming bytes nothing stored (F1: permanent, audit-invisible, and the transient stderr warning pointed at evidence that existed nowhere). Cure is order: register first, let the registry's own hash VOTE — mismatch prunes the fresh row and refuses before any event exists; a refused linksThenLog prunes too (no ghost either direction). The critic's F2 demonstrated chain-valid events + slot edits rendering k=100 over a stdout that said k=4: the slot/event rails were working perfectly and still lied, because both rails compare PAPERWORK. §11 now re-derives from the evidence the event names: minicertora blessing rungs re-run through MapMinicertora over the stored exec stdout (rung, proof digest with compiler_pin stripped both sides, bounded_k), REPORT-rungs demand their pinned sha exist in the registry; a slot under-reporting proof is modesty, not a lie (skipped); inconclusive rungs are outside the law — they bless nothing. Typed bound reading (F3): 4.5/-1/"4" refuse (truncation stated bounds the run never stated), 0 is STATED k=0, UNSTATED means null. F4/F5 recorded honestly: duplicate-key Canon≠CPython is latent (oracle structurally blind — noted, unfixed, no live path), and F7-exec provenance is now TIED at read time by the same re-derivation. §8's "cannot ride a quiet refresh" became literal twice.
 

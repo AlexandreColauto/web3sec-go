@@ -569,22 +569,21 @@ func TestR24BoundIsReadTyped(t *testing.T) {
 		t.Fatalf("float bound must refuse: %d %q", code, errS)
 	}
 	if code, _, errS := mk(fmt.Sprintf(base, "-1")); code != 2 ||
-		!strings.Contains(errS, "negative") {
+		!strings.Contains(errS, "degenerate") {
 		t.Fatalf("negative bound must refuse: %d %q", code, errS)
 	}
 	if code, _, errS := mk(fmt.Sprintf(base, `"4"`)); code != 2 ||
 		!strings.Contains(errS, "not an integer") {
 		t.Fatalf("string bound must refuse: %d %q", code, errS)
 	}
-	// Stated zero: binds, and SAYS k=0 (not UNSTATED).
-	code, out, errS := mk(fmt.Sprintf(base, "0"))
-	if code != 0 || !strings.Contains(out, "k=0") ||
-		strings.Contains(out, "UNSTATED") {
-		t.Fatalf("stated 0 is a stated bound: %d out %q err %q",
-			code, out, errS)
+	// Stated zero: the TWIN refuses degenerate flags (loop_bound<1
+	// raises), so a report stating 0 is foreign — refuse (r25 F3).
+	if code, _, errS := mk(fmt.Sprintf(base, "0")); code != 2 ||
+		!strings.Contains(errS, "degenerate") {
+		t.Fatalf("k=0 must refuse as the twin does: %d %q", code, errS)
 	}
 	// Null: the honest UNSTATED.
-	code, out, _ = mk(fmt.Sprintf(base, "null"))
+	code, out, _ := mk(fmt.Sprintf(base, "null"))
 	if code != 0 || !strings.Contains(out, "bound UNSTATED") {
 		t.Fatalf("null must render UNSTATED: %d out %q", code, out)
 	}
@@ -607,6 +606,12 @@ func TestR24QuietReconcileBurnsAudit(t *testing.T) {
 		"--report", rep); code != 0 {
 		t.Fatalf("bind: %q", errS)
 	}
+	// r25 F4 changed the SHAPE of this attack: the bind stores a
+	// content-addressed COPY, so mutating (or deleting) the operator
+	// path after the bind is physically inert — the event's digest
+	// lives in the campaign. The substituted-path attack now needs to
+	// tamper the STORE (which the chain and the digest-named path
+	// expose), not ride a quiet refresh.
 	if err := os.WriteFile(rep, []byte(`{"schema_version": "1.0",
 		"published": false}`), 0o644); err != nil {
 		t.Fatal(err)
@@ -615,9 +620,40 @@ func TestR24QuietReconcileBurnsAudit(t *testing.T) {
 		c.CampaignID); code != 0 {
 		t.Fatalf("reconcile: exit %d %q", code, errS)
 	}
+	if code, out, _ := run(t, "--root", root, "audit", c.CampaignID); code != 0 {
+		t.Fatalf("post-bind mutation of the SOURCE path must not burn "+
+			"(the copy is the evidence): exit %d out %q", code, out[:200])
+	}
+	// And a forged STORE copy DOES burn: flip a byte inside the bound
+	// report copy — the row's sha vs the digest-named contents.
+	dir := filepath.Join(c.ArtifactsDir, "reports")
+	ents, _ := os.ReadDir(dir)
+	if len(ents) != 1 {
+		t.Fatalf("expected one stored copy, got %d", len(ents))
+	}
+	cp := filepath.Join(dir, ents[0].Name())
+	if err := os.Chmod(cp, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cp, []byte(`{"published": false}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	code, out, _ := run(t, "--root", root, "audit", c.CampaignID)
+	if code == 0 || !strings.Contains(out, "artifacts=1 problem") {
+		t.Fatalf("tampered store copy must burn audit: exit %d out "+
+			"%.200q", code, out)
+	}
+	// The §11 leg: reconcile honestly re-hashes the (tampered) store
+	// file into the row — after that, NO row holds the bytes the EVENT
+	// pinned, and the report-recheck must say so too.
+	if code, _, errS := run(t, "--root", root, "artifact-reconcile",
+		c.CampaignID); code != 0 {
+		t.Fatalf("reconcile #2: %q", errS)
+	}
+	code, out, _ = run(t, "--root", root, "audit", c.CampaignID)
 	if code == 0 || !strings.Contains(out,
-		"no registry artifact holds the report bytes") {
-		t.Fatalf("quiet substitution must burn audit: exit %d", code)
+		"no registry artifact holds the report") {
+		t.Fatalf("orphaned event digest must burn §11: exit %d out "+
+			"%.300q", code, out)
 	}
 }

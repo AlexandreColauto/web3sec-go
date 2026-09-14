@@ -92,7 +92,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -659,7 +658,7 @@ func harnessScaffoldBytes(c *state.Campaign, invID string,
 func harnessTimedOut(rec validation.Value) bool {
 	if v := objAt(rec, "exit_status"); v.Kind == validation.Int &&
 		v.Big == "" {
-		return v.I == -1 || v.I >= 128
+		return harness.TimedOutBit(int(v.I))
 	}
 	return false
 }
@@ -678,25 +677,11 @@ func harnessCommand(rec validation.Value) string {
 // wrong verdict. The boundary classes matter: `--loop` alone must not
 // swallow `--loop-bound`'s digits as a separate flag, and `--loopx` must
 // not parse at all.
-var boundFlagRe = regexp.MustCompile(
-	`--(?:loop(?:-bound)?|fuzz-runs)[= ](\d+)`)
-
 // invocationBound is the MapRun k: the bound flag from the exec command,
 // or 0 when the command names none.
 func invocationBound(command string, kind harness.Kind) int {
 	_ = kind
-	m := boundFlagRe.FindStringSubmatch(command)
-	if m == nil {
-		return 0
-	}
-	n := 0
-	for _, c := range []byte(m[1]) {
-		n = n*10 + int(c-'0')
-		if n > 1<<62 {
-			return 0
-		}
-	}
-	return n
+	return harness.InvocationBound(command)
 }
 
 // harnessMapBound runs the Decision 2b bound check around MapRun:

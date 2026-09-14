@@ -277,3 +277,35 @@ func atoiClamped(s string) (int, error) {
 func isASCIILetter(c byte) bool {
 	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
 }
+
+// TimedOutBit is the MapRun timedOut bit derived from a recorded
+// exit_status: -1 covers both "the timeout killed it" and "it never
+// started"; 128+N is the shell's signal-death convention. Either way
+// the run did not COMPLETE, so its bytes map to inconclusive, never to
+// a rung (cli.harnessTimedOut delegates here — one law, one home).
+func TimedOutBit(exitStatus int) bool {
+	return exitStatus == -1 || exitStatus >= 128
+}
+
+// InvocationBound parses the bound flag out of an exec command string:
+// halmos's --loop N, forge's --fuzz-runs N (both `--flag N` and
+// `--flag=N`), minicertora's --loop-bound N. 0 = unstated: the number
+// only feeds display text, never a rung. (cli.boundFlagRe delegates
+// here.)
+func InvocationBound(command string) int {
+	m := boundFlagRe.FindStringSubmatch(command)
+	if m == nil {
+		return 0
+	}
+	n := 0
+	for _, c := range []byte(m[1]) {
+		n = n*10 + int(c-'0')
+		if n > 1<<62 {
+			return 0
+		}
+	}
+	return n
+}
+
+var boundFlagRe = regexp.MustCompile(
+	`--(?:loop(?:-bound)?|fuzz-runs)[= ](\d+)`)

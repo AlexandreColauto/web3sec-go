@@ -102,6 +102,12 @@ func backEvent(t *testing.T, c *state.Campaign, iid string,
 			objStr(h, "rung") == "counterexample") {
 		mintExecEvidence(t, c, iid, h)
 	}
+	if (objStr(h, "kind") == "halmos" ||
+		objStr(h, "kind") == "forge-fuzz") &&
+		(objStr(h, "rung") == "proved-bounded" ||
+			objStr(h, "rung") == "counterexample") {
+		mintMapRunEvidence(t, c, iid, h)
+	}
 }
 
 // mintExecEvidence writes the exec dir whose bytes MapMinicertora
@@ -677,5 +683,131 @@ func TestInvariantVerificationRecheckCatchesAForgedPair(t *testing.T) {
 	}
 	if !strings.Contains(joined, "re-derives bounded_k 4; the event pins 100") {
 		t.Fatalf("want inflated-bound problem, got %q", joined)
+	}
+}
+
+// mintMapRunEvidence writes stdout the MapRun family re-derives to
+// THIS claim: halmos renders its k from the stdout marker, forge-fuzz
+// from the invocation flag in the recorded command.
+func mintMapRunEvidence(t *testing.T, c *state.Campaign, iid string,
+	h validation.Value) {
+	t.Helper()
+	exec := objStr(h, "exec")
+	k := objAt(h, "bounded_k")
+	if k.Kind != validation.Int && objStr(h, "rung") == "proved-bounded" {
+		return // no bound claimed: nothing for recheck to reproduce
+	}
+	if k.Kind != validation.Int {
+		k = validation.VInt(4)
+	}
+	dir := filepath.Join(c.ExecsDir, exec)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, cmd string
+	exitOverride := 0
+	switch objStr(h, "kind") {
+	case "halmos":
+		if objStr(h, "rung") == "counterexample" {
+			stdout = "Status: fail\nCounterexample:\n  a = 5\n"
+			cmd = "halmos"
+			exitOverride = 1
+			break
+		}
+		stdout = "Running halmos...\nCounterexample: none\n" +
+			"Status: passed\n[PASS] check_" + iid +
+			" (path: k = " + validation.IntText(k) + ")\n"
+		cmd = "halmos --loop " + validation.IntText(k)
+	case "forge-fuzz":
+		stdout = "Suite result: ok.\n1 passed; 0 failed;\n"
+		cmd = "forge test --fuzz-runs " + validation.IntText(k)
+		if objStr(h, "rung") == "counterexample" {
+			stdout = "[FAIL]InvariantTest.testTotal() (fuzz test, " +
+				"seed: 5)\n"
+			cmd = "forge test --fuzz-runs 10000"
+			exitOverride = 1
+		}
+	default:
+		return
+	}
+	if err := os.WriteFile(filepath.Join(dir, "stdout.log"),
+		[]byte(stdout), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rec := validation.VObj(
+		KV("exec_id", validation.VStr(exec)),
+		KV("exit_status", validation.VInt(int64(exitOverride))),
+		KV("command", validation.VStr(cmd)),
+	)
+	if err := validation.WriteJson(filepath.Join(dir,
+		"exec_record.json"), rec, ""); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestInvariantVerificationFabricatedAdviceBurns pins the r25
+// preemption: a conspiring (slot,event) pair claiming inconclusive
+// with INVENTED advice burns when the exec's own stdout re-derives
+// different words — and stays silent when the witness aged out
+// (absence of evidence is not evidence of a lie).
+func TestInvariantVerificationFabricatedAdviceBurns(t *testing.T) {
+	c, err := state.Init(t.TempDir(), "Acme Program", state.InitOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad := harnessObj("minicertora", "inconclusive", "EXEC-55",
+		validation.VNull(),
+		"inconclusive (prover rollup: PROVEN AND THE WORLD IS FLAT)")
+	harnessLinks(t, c, map[string]validation.Value{"INV-3": bad})
+	// mintExecEvidence never ran (rung not blessing): write the honest
+	// INCONCLUSIVE output the pair contradicts — a rule-attributed
+	// UNKNOWN line.
+	dir := filepath.Join(c.ExecsDir, "EXEC-55")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	line := `{"rule": "inv_3", "verdict": "UNKNOWN", "reason": ` +
+		`"loop bound too low", "assumptions": [], "warnings": [], ` +
+		`"ghosts": [], "invariant": null, "calls": []}` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "stdout.log"),
+		[]byte(line), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := validation.WriteJson(filepath.Join(dir,
+		"exec_record.json"), validation.VObj(
+		KV("exec_id", validation.VStr("EXEC-55")),
+		KV("exit_status", validation.VInt(2))), ""); err != nil {
+		t.Fatal(err)
+	}
+	v, err := InvariantVerification(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objAt(v, "ok").B {
+		t.Fatalf("fabricated advice must burn: %s",
+			validation.CanonCompact(v)[:300])
+	}
+	joined := ""
+	for _, pr := range objAt(v, "problems").A {
+		joined += pr.S
+	}
+	if !strings.Contains(joined, "fabricated next-step") {
+		t.Fatalf("must burn on the ADVICE axis, not elsewhere: %q",
+			joined[:300])
+	}
+	// Aged-out witness: same forged pair, evidence gone — the rail
+	// falls silent (inconclusive is not a blessing; noise there would
+	// only punish honest age).
+	if err := os.RemoveAll(dir); err != nil {
+		t.Fatal(err)
+	}
+	v2, err := InvariantVerification(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, pr := range objAt(v2, "problems").A {
+		if strings.Contains(pr.S, "fabricated next-step") {
+			t.Fatalf("missing witness must skip, not burn: %q", pr.S)
+		}
 	}
 }
