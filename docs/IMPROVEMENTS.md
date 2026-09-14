@@ -1,5 +1,8 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — critic round 13: two processes, one truth
+Nothing in `state` guarded between PROCESSES: two concurrent `hint`s minted duplicate seqs and dropped an event while both reported success; two concurrent `snap`s last-writer-wined the state and orphaned a pin (dir + event alive, row gone — invisible to the state->event projection). Campaign writes now take a per-campaign advisory flock (`campaign.lock`, re-entrant by depth, 5s budget then a loud retry message): Log spans read-tail->append->mirror-save, save is locked end-to-end, and the waiver row+event pair is one unit. Pinned by 6-subprocess race (contiguous seqs, every event once) and reproduced green live. Same round: the index no longer stamps an arbitrary --src with the ACTIVE pin's id — the claim is proven by content hash (foreign tree -> `unpinned`, decoy executed live; the test fixture that pinned a fake `deadbeef` hash discovered itself); execs grew the projection law's missing direction (ledger events whose record dir was deleted burn red); supersede now warns on stderr when the retired row granted capabilities the successor lacks (r12's terminal law made that silent proposal loss); the genesis rewind discloses `ledger_rewound` in the new chain's first event; torn waiver lines are numbered; the [snapshots] ghost message tells the truth about activeness. All four golden fixtures + every waiver-bearing port case verified unaffected.
+
 ## 2026-09-14 — critic round 12: one law, or the sweeps disagree
 with themselves
 `chainengine.nonDuplicate` still hand-listed three statuses while its

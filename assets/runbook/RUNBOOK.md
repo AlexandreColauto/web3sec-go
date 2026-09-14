@@ -85,6 +85,14 @@ undecided/refusal/tool error — the tool's own JSON line per rule carries
 `--root` reads back fine (the canonical `<execs>/EXEC-*/stdout.log`
 location is derived, never trusted from the record's stored path).
 
+One campaign, one writer at a time: every ledger and state write takes a
+per-campaign advisory lock (`campaigns/<C>/campaign.lock` — OS metadata,
+never an artifact, appears in no projection). A second `webv2` racing it
+waits up to five seconds, then fails loudly with "campaign is locked by
+another process" — let the running command finish and retry; the lock is
+what keeps two concurrent `hint`/`snap` invocations from interleaving the
+ledger.
+
 Exit codes follow one shared shape, with a boundary worth knowing exactly:
 **0** did what was asked (including a truthful empty result). **1** is a
 decision or integrity failure — a refused transition, a failed gate, a

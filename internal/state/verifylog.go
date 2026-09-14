@@ -145,11 +145,17 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 	// One law now: the waiver file and the ledger's waived events must
 	// agree, row for row, per (stage, subject).
 	wp := filepath.Join(c.Dir, "waivers.jsonl")
-	wrows, werr := readWaiverRowsR12(wp)
+	wrows, werr, wline := readWaiverRowsR12(wp)
 	if werr != nil {
+		// r13: same line-attribution law the events log got — a bare
+		// "unexpected EOF" makes the operator diff the file by eye.
+		where := ""
+		if wline > 0 {
+			where = fmt.Sprintf(" line %d", wline)
+		}
 		problems = append(problems,
-			fmt.Sprintf("waivers.jsonl: unreadable (%v) — recorded "+
-				"dispositions cannot be trusted", werr))
+			fmt.Sprintf("waivers.jsonl%s: unreadable (%v) — recorded "+
+				"dispositions cannot be trusted", where, werr))
 	} else {
 		evWaived := map[[2]string]int{}
 		for _, e := range events {
@@ -196,26 +202,26 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 
 // readWaiverRowsR12 reads waivers.jsonl (missing file = nil, nil): the
 // same one-object-per-line framing, parsed with the ledger's decoder.
-func readWaiverRowsR12(path string) ([]validation.Value, error) {
+func readWaiverRowsR12(path string) ([]validation.Value, error, int) {
 	raw, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return nil, nil
+		return nil, nil, 0
 	}
 	if err != nil {
-		return nil, err
+		return nil, err, 0
 	}
 	var out []validation.Value
-	for _, ln := range strings.Split(string(raw), "\n") {
+	for i, ln := range strings.Split(string(raw), "\n") {
 		if strings.TrimSpace(ln) == "" {
 			continue
 		}
 		v, perr := validation.ParseOrdered([]byte(ln))
 		if perr != nil {
-			return nil, perr
+			return nil, perr, i + 1
 		}
 		out = append(out, v)
 	}
-	return out, nil
+	return out, nil, 0
 }
 
 // pyStr is Python's str() over a JSON value, for problem messages:

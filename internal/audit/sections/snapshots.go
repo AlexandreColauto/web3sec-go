@@ -95,10 +95,18 @@ func Snapshots(c *state.Campaign) (validation.Value, error) {
 	// already says exists:false), do not block ingest over a deleted dir
 	// the operator may be mid-recovery from.
 	if st, serr := c.State(); serr == nil {
+		active := objStr(st, "active_snapshot_id")
 		for _, name := range referencedSnapshotIDs(st) {
 			if _, derr := os.Stat(filepath.Join(snapsRoot, name)); os.IsNotExist(derr) {
+				// r13: one message must not claim "active" for an
+				// inactive ghost row — activeness is a fact the check
+				// knows, so it speaks it.
+				role := "lists"
+				if name == active {
+					role = "names as active"
+				}
 				problems = append(problems, validation.VStr(
-					name+": the campaign names this snapshot active but "+
+					name+": the campaign "+role+" this snapshot but "+
 						"snapshots/"+name+" does not exist — re-pin (`webv2 "+
 						"snap`) or the ledger pins are ghosts"))
 			}

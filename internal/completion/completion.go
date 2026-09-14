@@ -99,6 +99,16 @@ func Waive(c *state.Campaign, stage, subject, reason, actor string) (validation.
 		kv("actor", validation.VStr(actor)),
 		kv("at", validation.VStr(nowIso())),
 	)
+	// r13: the waiver row and its completion.waived event are ONE unit
+	// (VerifyLog cross-checks them both directions). Another process
+	// must not observe or interleave half of it: hold the campaign lock
+	// across the append AND the Log. A hard crash between the two still
+	// burns red loudly — that residue is inherent to a two-store pair
+	// without a shared commit, and the red is honest.
+	if err := c.LockProcess(); err != nil {
+		return validation.VNull(), err
+	}
+	defer c.UnlockProcess()
 	if err := validation.AppendJsonl(WaiversPath(c), pyJSONDumps(row)); err != nil {
 		return validation.VNull(), err
 	}

@@ -20,6 +20,8 @@ import (
 	"strings"
 
 	"websec/internal/findings"
+
+	"websec/internal/validation"
 )
 
 const supersedeUsage = `usage: webv2 supersede [-h] --of OLD_FINDING [--actor ACTOR]
@@ -125,6 +127,13 @@ func supersedeCmd(root string, args []string, r *Runner) error {
 	if err != nil {
 		return err
 	}
+	// r13: capture the old row's capability grants BEFORE the move — the
+	// chain sweeps speak one TERMINAL law now (r12), so a SUPERSEDED
+	// granter silently stops granting and its capabilities stop seeding
+	// proposals. That is right (terminal rows answer nothing) but was
+	// SILENT: warn loudly when the retired row carried grants the
+	// successor does not, and name the one command that matters.
+	oldFinding, oldErr := findings.LoadFinding(c, oldID)
 	newFinding, err := findings.Supersede(c, pos[1], oldID, actor)
 	if err != nil {
 		var rej *findings.RejectedError
@@ -145,6 +154,40 @@ func supersedeCmd(root string, args []string, r *Runner) error {
 	}
 	fmt.Fprintf(r.Out, "superseded %s by %s (%d evidence items re-parented)\n",
 		oldID, pos[1], reparented)
+	if oldErr == nil {
+		var lost []string
+		for _, g := range objListAt(objAt(oldFinding, "capabilities"),
+			"granted") {
+			if g.Kind == validation.Str {
+				lost = append(lost, g.S)
+			}
+		}
+		if len(lost) > 0 {
+			// Successor's grants for the same labels:
+			succGrants := map[string]bool{}
+			for _, g := range objListAt(objAt(newFinding,
+				"capabilities"), "granted") {
+				if g.Kind == validation.Str {
+					succGrants[g.S] = true
+				}
+			}
+			var dropped []string
+			for _, l := range lost {
+				if !succGrants[l] {
+					dropped = append(dropped, l)
+				}
+			}
+			if len(dropped) > 0 {
+				fmt.Fprintf(r.Err, "note: %s granted %s — SUPERSEDED rows "+
+					"no longer grant capabilities or seed chain "+
+					"proposals (the terminal law); %s does not carry "+
+					"them. Re-record any that still hold via the "+
+					"capabilities amend surface, or chains through the "+
+					"successor will not appear.\n",
+					oldID, strings.Join(dropped, ", "), pos[1])
+			}
+		}
+	}
 	return nil
 }
 

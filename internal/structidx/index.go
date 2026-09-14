@@ -13,6 +13,8 @@ import (
 
 	"websec/internal/state"
 	"websec/internal/validation"
+
+	"websec/internal/snapshot"
 )
 
 // StructuralIndexFile is the root artifact every derived report copies its
@@ -105,7 +107,22 @@ func IndexSnapshot(c *state.Campaign, root, backend string) (validation.Value, e
 	}
 	snapID := "unpinned"
 	if snap != nil {
-		snapID = *snap
+		// r13: the stamp is CLAIMED by proof, not by calendar. Indexing an
+		// arbitrary --src while a pin was active used to stamp THAT pin's
+		// id onto foreign content — decoy nodes registered as campaign
+		// artifacts of the pinned tree, and `audit` passed because the
+		// claim was never re-computed. Now: the tree actually hashed on
+		// disk must equal the pin's recorded content_hash, or the index
+		// honestly says `unpinned` (the same sentinel the no-pin case
+		// uses). The freshness NOTE in prescreen can finally fire.
+		if cHash, _, herr := snapshot.ContentHash(root); herr == nil {
+			if recorded, ok := c.ActiveSnapshotContentHash(); ok &&
+				recorded == cHash {
+				snapID = *snap
+			}
+		} else {
+			return validation.VNull(), herr
+		}
 	}
 	externalEdges := int64(0)
 	for _, e := range edgeVals {

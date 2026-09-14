@@ -150,4 +150,17 @@ func TestGenesisLogRewindsStaleMirror(t *testing.T) {
 		t.Fatalf("verify after genesis rebuild must be green: %v",
 			v.Problems)
 	}
+	// r13: the rebuild must be DISCLOSED in the new chain's first event
+	// — the ledger says how many mirrored tail events it dropped rather
+	// than letting a deleted history pass as a fresh start.
+	evts, err := c.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	lr := objAt(objAt(evts[0], "data"), "ledger_rewound")
+	if lr.Kind != validation.Obj ||
+		objAt(lr, "dropped_tail").I != 2 { // campaign.created + note
+		t.Fatalf("first genesis event must disclose the rewind: %s",
+			validation.DumpsOrdered(evts[0], false))
+	}
 }

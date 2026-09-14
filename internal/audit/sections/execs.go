@@ -14,7 +14,10 @@ import (
 
 // Execs is audit.py section 3: {checked, problems, ok} over all_execs.
 // Each record validates against "sandbox_execution"; a valid record's
-// artifact_hashes are re-checked against the output files on disk.
+// artifact_hashes are re-checked against the output files on disk. r13
+// adds the ledger->disk direction: exec events whose record was deleted
+// are a problem (documented divergence from the ported section, same law
+// as the projection check's un-gating).
 func Execs(c *state.Campaign) (validation.Value, error) {
 	execs, err := state.AllExecs(c)
 	if err != nil {
@@ -58,6 +61,37 @@ func Execs(c *state.Campaign) (validation.Value, error) {
 					fmt.Sprintf("%s: %s hash mismatch after execution", eid, name)))
 			}
 		}
+	}
+	// r13: the mirror direction the projection law demands for execs —
+	// the ledger CLAIMS an execution happened (sandbox.exec.registered
+	// names the EXEC id); deleting execs/EXEC-*/ wholesale left the
+	// events asserting a run whose record is gone, and the audit stayed
+	// green because section 3 iterated only surviving records. An event
+	// without its record is now a problem. (Records without events stay
+	// lenient — legacy campaigns predate the event, same rule as
+	// projection's state->log direction.)
+	if evts, err := c.Events(); err == nil {
+		seen := map[string]bool{}
+		for _, rec := range execs {
+			seen[objStr(rec, "exec_id")] = true
+		}
+		for _, e := range evts {
+			typ := objStr(e, "type")
+			if typ != "sandbox.exec.registered" && typ != "sandbox.exec" {
+				continue
+			}
+			eid := objStr(e, "ref")
+			if eid == "" || seen[eid] {
+				continue
+			}
+			problems = append(problems, validation.VStr(
+				fmt.Sprintf("%s: the ledger records exec %s but no "+
+					"exec record survives on disk — delete the events "+
+					"only through a sanctioned verb, never the store",
+					typ, eid)))
+		}
+	} else if !os.IsNotExist(err) {
+		return validation.Value{}, err
 	}
 	return validation.VObj(
 		KV("checked", validation.VInt(int64(len(execs)))),

@@ -33,11 +33,21 @@ func (c *Campaign) logLines() ([]string, error) {
 func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (validation.Value, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	// r13: the whole read-tail -> append -> mirror-save window must be
+	// atomic against OTHER PROCESSES, not just other goroutines — two
+	// concurrent loggers used to mint duplicate seqs and drop one
+	// event while both exited 0. The lock spans the full window; the
+	// inner save() re-enters by depth (processlock.go).
+	if err := c.plock.lock(c.lockPath()); err != nil {
+		return validation.VNull(), err
+	}
+	defer c.plock.unlock()
 
 	lines, err := c.logLines()
 	if err != nil {
 		return validation.VNull(), err
 	}
+	rewoundDropped := 0
 	// r12: writing into a MISSING log is genesis — the previous ledger
 	// (and whatever the state mirror still carries of it) is gone. The
 	// first append must rewind the mirror to the new ledger's own tail;
@@ -50,12 +60,13 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 		if gerr != nil {
 			return validation.VNull(), gerr
 		}
-		if len(objAt(st, "events").A) > 0 {
+		if n := len(objAt(st, "events").A); n > 0 {
 			st.O = validation.SetOrAppend(st.O, "events",
 				validation.VArr())
 			if werr := c.save(st); werr != nil {
 				return validation.VNull(), werr
 			}
+			rewoundDropped = n
 		}
 	}
 	var last validation.Value
@@ -82,6 +93,21 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 	dataV := validation.VObj()
 	if data != nil {
 		dataV = *data
+	}
+	if rewoundDropped > 0 {
+		// r13: the rewind must be DISCLOSED inside the new chain's first
+		// event (hashed, so it cannot be quietly rewritten later):
+		// deleting events.jsonl plus any log-writing command was a
+		// silent full-history wipe; now the ledger itself says how many
+		// mirrored events it lost and when.
+		if dataV.Kind != validation.Obj {
+			dataV = validation.VObj()
+		}
+		dataV.O = validation.SetOrAppend(dataV.O, "ledger_rewound",
+			validation.VObj(
+				kv("dropped_tail", validation.VInt(int64(rewoundDropped))),
+				kv("at", validation.VStr(nowIso())),
+			))
 	}
 	event := validation.VObj(
 		kv("seq", validation.VInt(int64(len(lines)))),

@@ -31,6 +31,8 @@ type Campaign struct {
 	// append (read-lines + append + state mirror) must be atomic under
 	// -race.
 	mu sync.Mutex
+	// plock is the cross-process campaign lock handle (r13, processlock.go).
+	plock processLock
 }
 
 var campaignIDRe = regexp.MustCompile(`^C-[0-9a-z]{8,16}$`)
@@ -199,6 +201,20 @@ func (c *Campaign) State() (validation.Value, error) {
 // save is _save: bump updated_at in place (key position kept) and
 // re-write with validation.
 func (c *Campaign) save(st validation.Value) error {
+	// r13: every state write is a read-modify-write of a projection —
+	// across processes that is corruption (a sibling webv2 appending its
+	// event between our State() and this rename loses its record with
+	// BOTH processes reporting success). The campaign lock serializes
+	// writers; nested calls (Log -> save) reuse the held lock by depth
+	// count. NOTE the limit: the depth gate is per-process — two
+	// GOROUTINES of one process calling save concurrently behave as
+	// they did before (c.mu has always guarded only Log's window); this
+	// closes the cross-process hole the r13 critic executed, not a
+	// general goroutine-safety claim.
+	if err := c.plock.lock(c.lockPath()); err != nil {
+		return err
+	}
+	defer c.plock.unlock()
 	for i, kv := range st.O {
 		if kv.K == "updated_at" {
 			st.O[i].V = validation.VStr(nowIso())
@@ -415,6 +431,30 @@ func (c *Campaign) ActiveSnapshotIDOrNone() (*string, error) {
 	}
 	out := sid.S
 	return &out, nil
+}
+
+// ActiveSnapshotContentHash is the content_hash of the ACTIVE pin as
+// recorded in the immutable store: snapshots/<id>/snapshot.json carries
+// source.content_hash (the state row is only an index into it — r13
+// corrected that reading). ok=false when there is no active pin, the meta
+// file is missing/unreadable, or no hash was recorded; callers treat that
+// as "cannot claim". This is the proof side of the index stamping law —
+// a tree may print a pin's id only after hashing equal to this.
+func (c *Campaign) ActiveSnapshotContentHash() (string, bool) {
+	sid, err := c.ActiveSnapshotIDOrNone()
+	if err != nil || sid == nil {
+		return "", false
+	}
+	meta, err := validation.ReadJson(
+		filepath.Join(c.Dir, "snapshots", *sid, "snapshot.json"))
+	if err != nil {
+		return "", false
+	}
+	h := objAt(objAt(meta, "source"), "content_hash")
+	if h.Kind == validation.Str && h.S != "" {
+		return h.S, true
+	}
+	return "", false
 }
 
 // --- recon run stamps (FIX-8) ---------------------------------------------

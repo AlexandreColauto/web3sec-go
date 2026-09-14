@@ -40,7 +40,14 @@ func bfMorphModel() validation.Value {
 // both recon stamps on record — the same way the CLI satisfies the gate.
 func reconOnRecord(t *testing.T, c *state.Campaign) {
 	t.Helper()
-	tree := filepath.Join("..", "structidx", "testdata", "sink")
+	// r13: recon runs against the tree the ACTIVE PIN actually covers —
+	// reading the pin's recorded root from its immutable manifest. The
+	// old fixture prescreened a DIFFERENT tree (testdata/sink) while a
+	// V.sol-only tree was pinned: the index then stamped the pin's id
+	// for content it never saw, and every staleness law slept. Once the
+	// stamp requires a hash proof, that fixture honestly reads
+	// `unpinned` — and brief correctly refuses the attestation.
+	tree := pinnedTreeOf(t, c)
 	if _, err := archetypes.Prescreen(c, tree, nil); err != nil {
 		t.Fatalf("prescreen: %v", err)
 	}
@@ -178,4 +185,30 @@ func TestBriefNoPlanIsUnchanged(t *testing.T) {
 			t.Fatalf("a plan-less brief gained divergence guidance: %q", a)
 		}
 	}
+}
+
+// pinnedTreeOf reads snapshots/<active>/snapshot.json source.root — the
+// path the pin actually took content from. Falls back to testdata/sink
+// only for campaigns with no real manifest (never in this suite now).
+func pinnedTreeOf(t *testing.T, c *state.Campaign) string {
+	t.Helper()
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	aid := objStr(st, "active_snapshot_id")
+	if aid == "" {
+		// Unpinned fixture: the sink tree is fine — nothing to claim.
+		return filepath.Join("..", "structidx", "testdata", "sink")
+	}
+	meta, err := validation.ReadJson(filepath.Join(c.Dir, "snapshots",
+		aid, "snapshot.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := objStr(objAt(meta, "source"), "root")
+	if root == "" {
+		t.Fatal("pin manifest has no source.root")
+	}
+	return root
 }

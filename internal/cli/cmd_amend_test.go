@@ -268,3 +268,45 @@ func TestSupersedeMissingOfIsExit2(t *testing.T) {
 		t.Fatalf("stderr = %q", errS)
 	}
 }
+
+// TestSupersedeWarnsWhenGrantsDie pins r13 issue 4: since the r12
+// terminal law, a SUPERSEDED granter stops granting and stops seeding
+// chain proposals — correct, but it was SILENT proposal loss. The
+// successor inherits evidence, not capabilities; supersede now says so
+// on stderr, naming exactly the labels that died.
+func TestSupersedeWarnsWhenGrantsDie(t *testing.T) {
+	c, root := t15Campaign(t, "supersede-grants")
+	oldID := supersedeIngest(t, c)
+	f, err := findings.LoadFinding(c, oldID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.O = validation.SetOrAppend(f.O, "capabilities", validation.VObj(
+		validation.KV{K: "granted", V: validation.VArr(
+			validation.VStr("withdraw_arbitrary"))},
+		validation.KV{K: "required", V: validation.VArr()}))
+	if err := findings.SaveFinding(c, &f); err != nil {
+		t.Fatal(err)
+	}
+	newID := supersedeIngest(t, c)
+	code, out, errS := run(t, "--root", root, "supersede", c.CampaignID,
+		newID, "--of", oldID)
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if !strings.Contains(errS, "withdraw_arbitrary") ||
+		!strings.Contains(errS, "no longer grant") {
+		t.Fatalf("stderr must name the dead grant: %q (out %q)", errS, out)
+	}
+	// Successor WITHOUT the grant warns; a campaign where nothing dies
+	// stays quiet (supersedeIngest rows carry no grants at all).
+	c2, root2 := t15Campaign(t, "supersede-nogrant")
+	a := supersedeIngest(t, c2)
+	b := supersedeIngest(t, c2)
+	code, _, errS2 := run(t, "--root", root2, "supersede", c2.CampaignID,
+		b, "--of", a)
+	if code != 0 || errS2 != "" {
+		t.Fatalf("grantless supersede must stay silent: exit %d %q",
+			code, errS2)
+	}
+}

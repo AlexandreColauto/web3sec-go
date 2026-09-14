@@ -11,6 +11,8 @@ import (
 	"websec/internal/planner"
 	"websec/internal/state"
 	"websec/internal/validation"
+
+	"websec/internal/snapshot"
 )
 
 func newCampaign(t *testing.T, program string) *state.Campaign {
@@ -70,22 +72,44 @@ func TestSaveIndexRejectsStaleParseVersion(t *testing.T) {
 	}
 }
 
-// pinSnapshot pins a minimal snapshot so active_snapshot_id_or_none() is
-// non-nil (the reuse path).
-func pinSnapshot(t *testing.T, c *state.Campaign, sid string) {
+// pinTreePinned pins the REAL store for `root`: state row + events via
+// PinSnapshot, and the immutable snapshot.json manifest the r13 stamping
+// law reads (a state row alone proves nothing — the claim lives in the
+// store). Returns the recorded content_hash.
+func pinTreePinned(t *testing.T, c *state.Campaign, root string) string {
 	t.Helper()
-	doc := validation.VObj(
+	h, _, err := snapshot.ContentHash(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sid := "src-content-" + h[:12]
+	dir := filepath.Join(c.Dir, "snapshots", sid)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	meta := validation.VObj(
 		validation.KV{K: "snapshot_id", V: validation.VStr(sid)},
 		validation.KV{K: "campaign_id", V: validation.VStr(c.CampaignID)},
 		validation.KV{K: "created_at", V: validation.VStr("2026-01-01T00:00:00.000000+00:00")},
+		validation.KV{K: "pass", V: validation.VInt(1)},
+		validation.KV{K: "pinned", V: validation.VBool(true)},
 		validation.KV{K: "source", V: validation.VObj(
 			validation.KV{K: "ladder", V: validation.VStr("no-vcs")},
-			validation.KV{K: "content_hash", V: validation.VStr("deadbeef")},
+			validation.KV{K: "git_commit", V: validation.VNull()},
+			validation.KV{K: "git_dirty", V: validation.VNull()},
+			validation.KV{K: "content_hash", V: validation.VStr(h)},
+			validation.KV{K: "root", V: validation.VStr(root)},
+			validation.KV{K: "file_count", V: validation.VInt(1)},
 		)},
 	)
-	if _, err := c.PinSnapshot(doc); err != nil {
+	if err := validation.WriteJson(filepath.Join(dir, "snapshot.json"),
+		meta, "snapshot"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.PinSnapshot(meta); err != nil {
 		t.Fatalf("PinSnapshot: %v", err)
 	}
+	return sid
 }
 
 // storedCreatedAt is the artifact's created_at, or "" when unreadable.
@@ -132,12 +156,12 @@ func TestEnsureFreshIndexUnpinnedAlwaysRebuilds(t *testing.T) {
 func TestEnsureFreshIndexReusesPinnedAndRebuildsStale(t *testing.T) {
 	c := newCampaign(t, "fresh-program")
 	tree := filepath.Join("testdata", "sink")
-	pinSnapshot(t, c, "S-0123456789abcdef")
+	sid := pinTreePinned(t, c, tree)
 	idx, err := EnsureFreshIndex(c, tree)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(idx, "snapshot_id") != "S-0123456789abcdef" {
+	if objStr(idx, "snapshot_id") != sid {
 		t.Fatalf("snapshot_id %q", objStr(idx, "snapshot_id"))
 	}
 	if err := validation.WriteJson(IndexPath(c),
@@ -155,7 +179,7 @@ func TestEnsureFreshIndexReusesPinnedAndRebuildsStale(t *testing.T) {
 	// rebuild rather than be read as "no guards".
 	for _, mutate := range []func(validation.Value) validation.Value{
 		func(v validation.Value) validation.Value {
-			return setKeyV(v, "snapshot_id", validation.VStr("S-deadbeef"))
+			return setKeyV(v, "snapshot_id", validation.VStr("src-content-deadbee"))
 		},
 		func(v validation.Value) validation.Value {
 			return setKeyV(v, "parse_version", validation.VStr("2"))
@@ -172,7 +196,7 @@ func TestEnsureFreshIndexReusesPinnedAndRebuildsStale(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if objStr(rebuilt, "snapshot_id") != "S-0123456789abcdef" ||
+		if objStr(rebuilt, "snapshot_id") != sid ||
 			objStr(rebuilt, "parse_version") != ParseVersion {
 			t.Fatalf("did not rebuild: %v / %v",
 				objStr(rebuilt, "snapshot_id"), objStr(rebuilt, "parse_version"))
@@ -440,5 +464,51 @@ func TestIndexShaChangesWithGuardAndIsRebuildStable(t *testing.T) {
 	}
 	if got := IndexSha(changed); got == sha {
 		t.Fatal("sha did not change when the guard changed")
+	}
+}
+
+// TestForeignTreeNeverClaimsTheActivePin pins r13 issue 2: with a real
+// pin active, `--src`-ing a DECOY tree used to stamp the pin's id onto
+// the decoy's nodes — registered as a campaign artifact of the pinned
+// tree, audit green, provenance a calendar lie. The stamp is a claim by
+// proof now: hash unequal ⇒ "unpinned".
+func TestForeignTreeNeverClaimsTheActivePin(t *testing.T) {
+	c := newCampaign(t, "decoy-program")
+	real := filepath.Join("testdata", "sink")
+	sid := pinTreePinned(t, c, real)
+	decoy := t.TempDir()
+	if err := os.WriteFile(filepath.Join(decoy, "Decoy.sol"),
+		[]byte("contract Decoy { mapping(address=>uint256) balances; "+
+			"function drain() external {} }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	idx, err := IndexSnapshot(c, decoy, "regex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := objStr(idx, "snapshot_id"); got != "unpinned" {
+		t.Fatalf("decoy content CLAIMED the active pin %s: stamped %q",
+			sid, got)
+	}
+	// And the same tree through the writer path stays honest:
+	if _, err := EnsureFreshIndex(c, decoy); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := validation.ReadJson(IndexPath(c))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objStr(stored, "snapshot_id") != "unpinned" {
+		t.Fatalf("EnsureFreshIndex persisted a false claim: %q",
+			objStr(stored, "snapshot_id"))
+	}
+	// The REAL tree still claims its pin (no over-refusal):
+	homing, err := IndexSnapshot(c, real, "regex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objStr(homing, "snapshot_id") != sid {
+		t.Fatalf("the pinned tree lost its stamp: %q",
+			objStr(homing, "snapshot_id"))
 	}
 }
