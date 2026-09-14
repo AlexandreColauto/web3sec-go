@@ -29,11 +29,18 @@ import (
 	"websec/internal/validation"
 )
 
+// unbackedSuffix qualifies a harness_runs line whose blessing THIS section
+// could not back (harnessRungBacked or harnessEvidenceRecheck burned it).
+// It closes the line, after every derived clause, and is emitted only on
+// that failure — a fully backed rung keeps its historical bytes.
+const unbackedSuffix = " (UNBACKED)"
+
 // InvariantVerification is audit.py section 11: {checked, problems, ok}
 // plus the presence-gated harness_runs lines: one per invariant carrying a
 // well-formed verification.harness object, then — when the campaign stores
 // at least one inconclusive MiniCertora record — the one derived refusal
-// histogram line (L-defer T5, proverrefusals.go).
+// histogram line (L-defer T5, proverrefusals.go). A line whose own backing
+// check burned in this same pass carries the unbackedSuffix.
 func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 	links, err := invariants.LoadLinks(c)
 	if err != nil {
@@ -53,7 +60,16 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 			continue
 		}
 		if line, ok := harnessRunLine(iid, e); ok {
-			runs = append(runs, validation.VStr(line))
+			// r26 D4: the display line and the burn are ONE observation.
+			// This section can refuse to back a blessing (a pruned
+			// REPORT row, a deleted EXEC) while still printing the
+			// unqualified rung — a consumer that reads only
+			// harness_runs then sees a blessing the section itself just
+			// called unbacked. The qualifier below is driven by the
+			// section's OWN two backing checks for THIS invariant
+			// (their non-empty return, not a re-grep of problem text),
+			// so there is no second derivation to drift.
+			unbacked := false
 			// r21 F7: the display slot alone used to be beyond reproach —
 			// §8's "audit cross-checks claims against events" is NOW
 			// true for harness rungs: the CURRENT rung (kind, rung, exec,
@@ -62,6 +78,7 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 			// appear as the LAST harness_run event for the invariant.
 			if msg := harnessRungBacked(events, iid, e); msg != "" {
 				problems = append(problems, validation.VStr(msg))
+				unbacked = true
 			}
 			// r24 (sharpest untried idea): the slot↔event rails bind the
 			// display to the LEDGER — but a chain-valid forgery edits the
@@ -74,7 +91,16 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 			// convention becomes an audit-time invariant.
 			if msg := harnessEvidenceRecheck(c, events, iid, e); msg != "" {
 				problems = append(problems, validation.VStr(msg))
+				unbacked = true
 			}
+			// The qualifier closes the line: after the advice clause
+			// (" | next: …") and after the witness label (" | poc: …"),
+			// so the rung parenthetical itself stays byte-identical on
+			// the happy path.
+			if unbacked {
+				line += unbackedSuffix
+			}
+			runs = append(runs, validation.VStr(line))
 		}
 		tally.add(e)
 		if objStr(e, "status") != "CHECKED_AGAINST_CODE" {
@@ -477,14 +503,9 @@ func recheckRegistryEvidence(c *state.Campaign, iid string,
 			"(%v) — the store does not hold what the bind named", iid,
 			perr)
 	}
-	prop := validation.VNull()
-	if po := objAt(rep, "property_outcomes"); po.Kind == validation.Obj {
-		for _, kv := range po.O {
-			if cliFoldName(kv.K, objStr(last, "property")) {
-				prop = kv.V
-				break
-			}
-		}
+	prop, why := autoproveProp(rep, objStr(last, "property"))
+	if why != "" {
+		return fmt.Sprintf("%s: %s", iid, why)
 	}
 	if prop.Kind != validation.Obj {
 		return fmt.Sprintf("%s: the pinned report does not attempt the "+
@@ -524,10 +545,43 @@ func recheckRegistryEvidence(c *state.Campaign, iid string,
 	return ""
 }
 
-// cliFoldName mirrors cli.autoproveSameName (case+edge fold) — keep
-// byte-identical semantics with the bind rail.
-func cliFoldName(a, b string) bool {
-	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
+// autoproveProp resolves the bound property the way the BIND does:
+// cli.fieldOf is an EXACT key lookup, so an exact hit wins outright.
+// The fold fallback survives only for a SINGLE fold-equal key (legacy
+// spelling); a report carrying several fold-equal keys and no exact hit
+// pins no attributable truth, and the auditor must refuse rather than
+// pick — r26 F1: the original fold-FIRST-HIT read a different truth
+// than the bind had and burned an honest rung (the very
+// bind==audit-derivation claim r25 F2 made). Returns a refusal reason
+// when the property cannot be attributed at all.
+func autoproveProp(rep validation.Value, name string) (validation.Value,
+	string) {
+	po := objAt(rep, "property_outcomes")
+	if po.Kind != validation.Obj {
+		return validation.VNull(), ""
+	}
+	for _, kv := range po.O {
+		if kv.K == name {
+			return kv.V, ""
+		}
+	}
+	var hit validation.Value
+	n := 0
+	for _, kv := range po.O {
+		if strings.EqualFold(strings.TrimSpace(kv.K),
+			strings.TrimSpace(name)) {
+			hit = kv.V
+			n++
+		}
+	}
+	if n > 1 {
+		return validation.VNull(), fmt.Sprintf("the pinned report carries "+
+			"%d fold-equal spellings of the bound property %s and no "+
+			"exact key — no single truth is attributable (the bind is "+
+			"exact-match only, so this event cannot be reproduced from "+
+			"these bytes)", n, validation.PyReprStr(name))
+	}
+	return hit, ""
 }
 
 // recheckMapRunEvidence extends the read-time law to halmos/forge-fuzz

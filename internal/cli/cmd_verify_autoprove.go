@@ -550,13 +550,33 @@ func harnessRowForPath(c *state.Campaign, path string) (validation.Value,
 // storeReportCopy writes the mapped bytes into the campaign store at a
 // digest-named path (idempotent: an existing copy is verified, never
 // overwritten — the rows are immutable by construction).
+//
+// r26 F2: the tmp+rename dance has a crash seam. A process killed after
+// the write and before the rename leaves report-<digest>.json.tmp on
+// disk; while that tmp was created 0444, the NEXT bind of the same
+// digest opened it for writing, took EACCES as the owner, and refused
+// that digest FOREVER — a transient crash became a permanent
+// unavailability. Two disciplines close it: the tmp is written 0600 so
+// a leftover is always overwritable by its owner (the 0444 lands on the
+// FINAL name only, after the rename, and is still immutable-by-
+// convention evidence), and a leftover tmp is SWEPT rather than
+// trusted — bytes that already hash to the digest are renamed into
+// place (the crash cost nothing) and anything else is scratch, removed
+// and rewritten (only the digest-named final file is evidence). The tmp
+// is also fsynced and closed before the rename, matching
+// validation.WriteJson: without it the rename can land before the bytes
+// do, and a power loss publishes a zero-length or partial file under a
+// content-addressed name the registry will then refuse.
 func storeReportCopy(c *state.Campaign, digest string,
 	raw []byte) (string, error) {
 	dir := filepath.Join(c.ArtifactsDir, "reports")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
-	p := filepath.Join(dir, "report-"+digest[:12]+".json")
+	// Full digest in the NAME, not a 12-hex prefix: a content-addressed
+	// store whose name is truncated can collide, and the collision arm
+	// REFUSES a legitimate bind (availability hazard for zero benefit).
+	p := filepath.Join(dir, "report-"+digest+".json")
 	if cur, err := os.ReadFile(p); err == nil {
 		if validation.Sha256Hex(cur) == digest {
 			return p, nil // the honest copy already stands
@@ -567,10 +587,58 @@ func storeReportCopy(c *state.Campaign, digest string,
 		return "", err
 	}
 	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, raw, 0o444); err != nil {
+	// Sweep the crash seam: a leftover tmp whose bytes ARE the digest was
+	// written by an earlier run of this very call — finish its rename
+	// instead of redoing the write.
+	if cur, err := os.ReadFile(tmp); err == nil &&
+		validation.Sha256Hex(cur) == digest {
+		if err := os.Rename(tmp, p); err != nil {
+			return "", err
+		}
+		if err := os.Chmod(p, 0o444); err != nil {
+			return "", err
+		}
+		return p, nil
+	}
+	// Anything else at the tmp name is scratch, never evidence — and it
+	// may carry the old 0444 mode, which its own owner cannot open for
+	// writing. Remove it (the directory is what grants us that, not the
+	// file) so the stale mode can never deny the digest it names.
+	if err := os.Remove(tmp); err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("cannot clear the scratch file %s "+
+			"left by an interrupted store: %w", tmp, err)
+	}
+	// Open explicitly rather than os.WriteFile: the create mode is
+	// filtered by umask, and the Sync below must be ours to check — a
+	// swallowed fsync error is the crash seam this close exists for.
+	fh, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return "", err
+	}
+	if _, err := fh.Write(raw); err != nil {
+		fh.Close()
+		return "", err
+	}
+	if err := fh.Chmod(0o600); err != nil {
+		fh.Close()
+		return "", err
+	}
+	if err := fh.Sync(); err != nil {
+		fh.Close()
+		return "", fmt.Errorf("cannot fsync the report tmp %s: %w "+
+			"(the rename must not publish bytes the disk never got)",
+			tmp, err)
+	}
+	if err := fh.Close(); err != nil {
 		return "", err
 	}
 	if err := os.Rename(tmp, p); err != nil {
+		return "", err
+	}
+	// 0444 lands AFTER the rename: the tmp name must stay owner-writable
+	// for the life of the crash window, or a kill -9 between the two
+	// steps re-creates the wedge this rail removes.
+	if err := os.Chmod(p, 0o444); err != nil {
 		return "", err
 	}
 	return p, nil

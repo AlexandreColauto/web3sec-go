@@ -37,16 +37,40 @@ const maxExcerpt = 120
 // kMarker finds halmos's bounded marker ("k=100", "k = 100").
 var kMarker = regexp.MustCompile(`k\s*=\s*(\d+)`)
 
+// BoundDegenerate is the bound a STATED-but-degenerate flag carries.
+// The tools themselves refuse such invocations — halmos rejects
+// --loop 0, forge rejects --fuzz-runs 0, and the miniprover twin's
+// VerifierFlags.__post_init__ raises for loop_bound < 1 — so a record
+// claiming a clean run under one describes something no tool can have
+// executed. It is NOT "unstated" (0): that would let a k=0 rider print
+// as a stated bound, and "proved bounded over zero executions" is a
+// proof about nothing. MapRun therefore floors the WHOLE run (r26 F3:
+// the r25 <1 floor lived only on the autoprove report path, while the
+// real exec path still blessed `proved-bounded (forge-fuzz, k=0)`).
+const BoundDegenerate = -1
+
 // MapRun maps raw runner output to (rung, summary). kind selects the
 // branch; timedOut forces inconclusive ("timeout after <k>s" — k is the
 // caller-passed bound, never read from the wall); k is the bound the
 // runner was invoked with (forge-fuzz proved-bounded carries it as
-// bounded_k; halmos prefers a parsed k=<n> marker — see BoundK).
+// bounded_k; halmos prefers a parsed k=<n> marker — see BoundK). A
+// DEGENERATE stated bound (BoundDegenerate) floors the run whatever the
+// output says: no rung rides a bound no tool would have executed under.
 func MapRun(kind Kind, out []byte, timedOut bool, k int) (rung string,
 	summary string) {
 	text := string(out)
 	if timedOut {
 		return RungInconclusive, fmt.Sprintf("timeout after %ds", k)
+	}
+	if k == BoundDegenerate {
+		return RungInconclusive,
+			"inconclusive (degenerate-bound: the invocation states no " +
+				"bound >= 1)"
+	}
+	if k == BoundDegenerate {
+		return RungInconclusive,
+			"inconclusive (degenerate-bound: the invocation states no " +
+				"bound >= 1)"
 	}
 	switch kind {
 	case Halmos:
@@ -75,10 +99,27 @@ func mapHalmos(text string, k int) (string, string) {
 	}
 	if hasStatusWord(text, "passed") || strings.Contains(text,
 		"Successfully proved") {
-		if _, ok := parseK(text); ok || hasBoundedFlag(text) {
+		if n, ok := parseK(text); ok {
+			// A marker that PARSES is not automatically evidence:
+			// "k = 0" is the same degenerate statement the flag form
+			// carries, and a blessing over zero iterations is a proof
+			// about nothing (r26 F3).
+			if n == BoundDegenerate {
+				return RungInconclusive,
+					"inconclusive (degenerate-bound: the run states " +
+						"no bound >= 1)"
+			}
 			return RungProvedBounded,
-				fmt.Sprintf("proved bounded (k=%d)",
-					BoundK(Halmos, []byte(text), k))
+				fmt.Sprintf("proved bounded (k=%d)", n)
+		}
+		if hasBoundedFlag(text) {
+			n := BoundK(Halmos, []byte(text), k)
+			if n < 1 {
+				return RungProvedBounded,
+					"proved bounded (bound UNSTATED)"
+			}
+			return RungProvedBounded,
+				fmt.Sprintf("proved bounded (k=%d)", n)
 		}
 		return RungInconclusive, "inconclusive (exit output unmapped)"
 	}
@@ -103,6 +144,13 @@ func mapForgeFuzz(text string, k int) (string, string) {
 			"counterexample: " + truncateRunes(failLine, maxExcerpt)
 	}
 	if !hasFail && forgePassSummary(text) {
+		// r26 F3 mirror: forge's runs count rides the invocation, so an
+		// invocation that named none states no bound — the summary must
+		// say so rather than print a "k=0" nobody stated (F11's law:
+		// a null bound renders UNSTATED).
+		if k < 1 {
+			return RungProvedBounded, "proved bounded (bound UNSTATED)"
+		}
 		return RungProvedBounded, fmt.Sprintf("proved bounded (k=%d)", k)
 	}
 	return RungInconclusive, "inconclusive (exit output unmapped)"
@@ -116,8 +164,18 @@ func mapForgeFuzz(text string, k int) (string, string) {
 func BoundK(kind Kind, out []byte, k int) int {
 	if kind == Halmos {
 		if n, ok := parseK(string(out)); ok {
+			// The output SPOKE: a degenerate marker is a statement
+			// that no usable bound was proven, so it must not fall
+			// back to the invocation (r26 F3) — the run is floored
+			// anyway, and 0 here reads as UNSTATED, never as a bound.
+			if n == BoundDegenerate {
+				return 0
+			}
 			return n
 		}
+	}
+	if k < 1 {
+		return 0
 	}
 	return k
 }
@@ -132,6 +190,10 @@ func parseK(text string) (n int, ok bool) {
 	n, err := atoiClamped(m[1])
 	if err != nil {
 		return 0, false
+	}
+	if n < 1 {
+		// Parsed, but degenerate: the marker states a bound below 1.
+		return BoundDegenerate, true
 	}
 	return n, true
 }
@@ -303,6 +365,11 @@ func InvocationBound(command string) int {
 		if n > 1<<62 {
 			return 0
 		}
+	}
+	if n < 1 {
+		// STATED and degenerate ("--loop 0", "--fuzz-runs=0"): not
+		// unstated, and not a bound any tool would have run under.
+		return BoundDegenerate
 	}
 	return n
 }

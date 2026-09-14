@@ -239,3 +239,50 @@ func TestForgePassSummaryIsPerLine(t *testing.T) {
 		t.Fatal("the \"---\" summary form must still promote")
 	}
 }
+
+// TestDegenerateBoundFloorsTheRun pins r26 F3: a STATED bound below 1 is
+// not "unstated" and not a blessing — the tools themselves refuse such
+// invocations (halmos --loop 0, forge --fuzz-runs 0, the twin's
+// VerifierFlags raising for loop_bound < 1), so a record claiming a
+// clean run under one describes a run no tool can have executed.
+func TestDegenerateBoundFloorsTheRun(t *testing.T) {
+	if got := InvocationBound("forge test --fuzz-runs 0"); got != BoundDegenerate {
+		t.Fatalf("--fuzz-runs 0 = %d, want BoundDegenerate", got)
+	}
+	if got := InvocationBound("halmos check --loop=0"); got != BoundDegenerate {
+		t.Fatalf("--loop=0 = %d, want BoundDegenerate", got)
+	}
+	if got := InvocationBound("forge test"); got != 0 {
+		t.Fatalf("no flag must stay UNSTATED (0), got %d", got)
+	}
+	rung, summary := MapRun(ForgeFuzz, []byte(forgePass), false,
+		BoundDegenerate)
+	if rung != RungInconclusive || !strings.Contains(summary,
+		"degenerate-bound") {
+		t.Fatalf("forge --fuzz-runs 0 must floor: %q %q", rung, summary)
+	}
+	// The marker form carries the same statement: "k = 0" is not evidence.
+	rung, summary = MapRun(Halmos, []byte(halmosStatusPassedK0), false, 100)
+	if rung != RungInconclusive || !strings.Contains(summary,
+		"degenerate-bound") {
+		t.Fatalf("halmos k=0 marker must floor: %q %q", rung, summary)
+	}
+	// ...and BoundK must never hand a degenerate marker out as a bound.
+	if got := BoundK(Halmos, []byte(halmosStatusPassedK0), 100); got != 0 {
+		t.Fatalf("degenerate marker must not become a bound: %d", got)
+	}
+	// Honest bounds are untouched: marker wins, flag fallback keeps k.
+	rung, _ = MapRun(Halmos, []byte(halmosProvedK), false, 100)
+	if rung != RungProvedBounded {
+		t.Fatalf("an honest k marker must still prove: %q", rung)
+	}
+	rung, _ = MapRun(ForgeFuzz, []byte(forgePass), false, 256)
+	if rung != RungProvedBounded {
+		t.Fatalf("an honest forge run must still prove: %q", rung)
+	}
+}
+
+const halmosStatusPassedK0 = `halmos 0.3.3 --root . --match-contract InvInvariantHalmos
+Status: passed [k=0, paths: 1]
+Successfully proved 1 property with bound k=0
+`

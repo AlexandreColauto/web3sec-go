@@ -760,3 +760,75 @@ func TestVerifyHarnessResultUnboundScaffoldValidate(t *testing.T) {
 		})
 	}
 }
+
+// TestR26DegenerateBoundFloorsTheExecPath pins critic r26 F3 end to end:
+// the r25 "<1 refuses" law lived only on the autoprove REPORT path, so a
+// real exec record invoking `forge test --fuzz-runs 0` over a PASS
+// output still bound `proved-bounded (forge-fuzz, k=0)` — a proof about
+// nothing with a loudly stated bound, audit-green.
+func TestR26DegenerateBoundFloorsTheExecPath(t *testing.T) {
+	c, root := harnessCamp(t, "forge-fuzz", "")
+	execID := "EXEC-0000000042"
+	harnessExec(t, c, execID, r26ForgePass,
+		"forge test --fuzz-runs 0", nil, 0)
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID,
+		"--kind", "forge-fuzz")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
+	if objStr(h, "rung") != "inconclusive" {
+		t.Fatalf("a degenerate bound must NOT bless: %s",
+			validation.CanonCompact(h))
+	}
+	if !strings.Contains(objStr(h, "summary"), "degenerate-bound") {
+		t.Fatalf("the floor must be named: %q", objStr(h, "summary"))
+	}
+	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+		t.Fatalf("bounded_k must be null, got %s",
+			validation.CanonCompact(bk))
+	}
+	if code, out, _ := run(t, "--root", root, "audit", c.CampaignID); code != 0 {
+		t.Fatalf("audit must agree with the floored bind: exit %d out %.300q",
+			code, out)
+	}
+}
+
+// TestR26UnstatedBoundIsNotZero pins the mirror half: an invocation that
+// never named a bound proves, but it states UNSTATED — never "k=0",
+// which is a bound nobody stated.
+func TestR26UnstatedBoundIsNotZero(t *testing.T) {
+	c, root := harnessCamp(t, "forge-fuzz", "")
+	execID := "EXEC-0000000043"
+	harnessExec(t, c, execID, r26ForgePass, "forge test", nil, 0)
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID,
+		"--kind", "forge-fuzz")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
+	if objStr(h, "rung") != "proved-bounded" {
+		t.Fatalf("an honest unstated-bound pass must still prove: %s",
+			validation.CanonCompact(h))
+	}
+	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+		t.Fatalf("an unstated bound must not ride the slot as k=0: %s",
+			validation.CanonCompact(bk))
+	}
+	if s := objStr(h, "summary"); strings.Contains(s, "k=0") ||
+		!strings.Contains(s, "UNSTATED") {
+		t.Fatalf("summary %q must say UNSTATED, never k=0", s)
+	}
+}
+
+// r26ForgePass is a forge-fuzz suite that passes with no FAIL line.
+const r26ForgePass = `Compiling 2 files with Solc 0.8.33
+Solc 0.8.33 finished in 365ms
+Ran 1 test for test/Inv.t.sol:InvInvariantFuzz
+[PASS] fuzz_inv_1(uint256) (runs: 256, calls: 1024, reverts: 31)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 9.81ms
+---
+Ran 1 test suite: 1 passed; 0 failed; 0 skipped
+`

@@ -834,8 +834,16 @@ func harnessMapped(kind harness.Kind, raw []byte, timedOut bool, k int,
 	if rung != harness.RungProvedBounded {
 		return rung, summary, nil
 	}
-	bk := harness.BoundK(kind, raw, k)
-	return rung, summary, &bk
+	// r26 F3 (mirror half): only a STATED bound >= 1 rides the slot. An
+	// invocation that never named one used to hand back k=0, which the
+	// display then printed as a bound nobody stated — and the paired
+	// law above floors a stated-but-degenerate value, so the two arms
+	// together say exactly one thing: a number in the slot was stated
+	// by the run, or the slot says UNSTATED.
+	if bk := harness.BoundK(kind, raw, k); bk >= 1 {
+		return rung, summary, &bk
+	}
+	return rung, summary, nil
 }
 
 // harnessRecordedHashes collects every recorded file hash from the exec

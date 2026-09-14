@@ -657,3 +657,181 @@ func TestR24QuietReconcileBurnsAudit(t *testing.T) {
 			"%.300q", code, out)
 	}
 }
+
+// TestR26FoldEqualKeysDoNotBurnHonestBinds pins critic r26 F1: the bind
+// resolves --property by EXACT key (cli.fieldOf) while the audit
+// resolved it by case-fold FIRST-HIT, so a report holding two fold-equal
+// spellings let the audit read a truth the bind never used and burn an
+// honest rung on a green bind.
+func TestR26FoldEqualKeysDoNotBurnHonestBinds(t *testing.T) {
+	c, root := mcCamp(t, "r26-f1")
+	rep := apWrite(t, `{"schema_version": "1.0", "published": true,
+		"publish_problems": [], "review_independent": true,
+		"capabilities_missing": [], "flags": {"loop_bound": 4},
+		"property_outcomes": {
+			"p": {"outcome": "VIOLATED", "per_rule": {"inv_1": "VIOLATED"}},
+			"P": {"outcome": "PROVEN", "per_rule": {"inv_1": "PROVEN",
+				"inv_2": "PROVEN"}}},
+		"review_findings": []}`)
+	code, out, errS := apVerify(t, root, c, "--property", "P",
+		"--report", rep)
+	if code != 0 {
+		t.Fatalf("bind must succeed: exit %d err %q", code, errS)
+	}
+	if !strings.Contains(out+errS, "proved-bounded") {
+		t.Fatalf("the EXACT key's truth must bind: %q", out+errS)
+	}
+	if code, out, _ := run(t, "--root", root, "audit", c.CampaignID); code != 0 {
+		t.Fatalf("audit must re-derive the BIND's truth (exact-first), "+
+			"not the fold-first neighbour: exit %d out %.400q", code, out)
+	}
+}
+
+// TestR26FoldAmbiguousReportRefusesAttribution: several fold-equal
+// spellings and NO exact key can belong to no bind (the bind is
+// exact-match only), so the auditor refuses attribution instead of
+// picking one — a forged event cannot hide behind spelling soup.
+func TestR26FoldAmbiguousReportRefusesAttribution(t *testing.T) {
+	c, root := mcCamp(t, "r26-f1b")
+	rep := apWrite(t, `{"schema_version": "1.0", "published": true,
+		"publish_problems": [], "review_independent": true,
+		"capabilities_missing": [], "flags": {"loop_bound": 4},
+		"property_outcomes": {
+			"p":  {"outcome": "PROVEN", "per_rule": {"inv_1": "PROVEN"}},
+			"P ": {"outcome": "VIOLATED",
+				"per_rule": {"inv_1": "VIOLATED"}}},
+		"review_findings": []}`)
+	code, _, errS := apVerify(t, root, c, "--property", "P",
+		"--report", rep)
+	if code != 2 || !strings.Contains(errS, "exact-match only") {
+		t.Fatalf("no exact key must refuse at BIND time: exit %d err %q",
+			code, errS)
+	}
+}
+
+// r26F2Body is the clean report body the F2 crash-seam cases bind: its
+// own bytes are the digest, so a test can place a tmp (or a foreign
+// final file) at the exact path storeReportCopy computes.
+const r26F2Body = `{"schema_version": "1.0", "published": true,
+	"publish_problems": [], "review_independent": true,
+	"capabilities_missing": [], "flags": {"loop_bound": 4},
+	"property_outcomes": {"p1": {"outcome": "PROVEN",
+		"per_rule": {"inv_1": "PROVEN"}}},
+	"review_findings": []}`
+
+// r26F2Paths: the digest-named store paths for a report body, computed
+// the way storeReportCopy computes them (sha256 of the exact bytes).
+func r26F2Paths(t *testing.T, c *state.Campaign, body string) (string, string, string) {
+	t.Helper()
+	digest := validation.Sha256Hex([]byte(body))
+	dir := filepath.Join(c.ArtifactsDir, "reports")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	final := filepath.Join(dir, "report-"+digest+".json")
+	return digest, final, final + ".tmp"
+}
+
+// r26F2WantFinal: the final copy exists, is 0444, and its bytes hash to
+// the digest the event will name.
+func r26F2WantFinal(t *testing.T, final, digest string) {
+	t.Helper()
+	got, err := os.ReadFile(final)
+	if err != nil {
+		t.Fatalf("final report copy missing: %v", err)
+	}
+	if validation.Sha256Hex(got) != digest {
+		t.Fatalf("final copy bytes do not hash to the digest %s", digest)
+	}
+	st, err := os.Stat(final)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o444 {
+		t.Fatalf("final evidence must be 0444, got %v", st.Mode().Perm())
+	}
+}
+
+// TestR26CrashLeftoverTmpDoesNotWedgeTheBind pins the first half of r26
+// F2: a 0444 tmp left by a kill -9 between write and rename used to make
+// the next bind open it for writing, take EACCES as the owner, and exit 2
+// on that digest FOREVER. A tmp is scratch — wrong bytes are swept, and
+// the digest must bind.
+func TestR26CrashLeftoverTmpDoesNotWedgeTheBind(t *testing.T) {
+	c, root := mcCamp(t, "r26-f2-wedge")
+	rep := apWrite(t, r26F2Body)
+	digest, final, tmp := r26F2Paths(t, c, r26F2Body)
+	if err := os.WriteFile(tmp, []byte(`{"stale": "scratch"}`), 0o444); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(tmp, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := apVerify(t, root, c, "--property", "p1", "--report", rep)
+	if code != 0 {
+		t.Fatalf("a leftover 0444 tmp must be swept, not wedge the "+
+			"digest: exit %d err %q", code, errS)
+	}
+	r26F2WantFinal(t, final, digest)
+	if _, err := os.Stat(tmp); !os.IsNotExist(err) {
+		t.Fatalf("the scratch tmp must not survive a successful store "+
+			"(stat err %v)", err)
+	}
+}
+
+// TestR26CrashLeftoverTmpWithHonestBytesIsRecovered pins the second half:
+// a tmp whose bytes ALREADY hash to the digest is the crash-after-write
+// case — recovering it by rename must produce the same final evidence
+// without a redo.
+func TestR26CrashLeftoverTmpWithHonestBytesIsRecovered(t *testing.T) {
+	c, root := mcCamp(t, "r26-f2-recover")
+	rep := apWrite(t, r26F2Body)
+	digest, final, tmp := r26F2Paths(t, c, r26F2Body)
+	if err := os.WriteFile(tmp, []byte(r26F2Body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := apVerify(t, root, c, "--property", "p1", "--report", rep)
+	if code != 0 {
+		t.Fatalf("a tmp already holding the digest must bind: exit %d "+
+			"err %q", code, errS)
+	}
+	r26F2WantFinal(t, final, digest)
+	if _, err := os.Stat(tmp); !os.IsNotExist(err) {
+		t.Fatalf("the recovered tmp must have been renamed into place "+
+			"(stat err %v)", err)
+	}
+}
+
+// TestR26ForeignBytesAtTheFinalPathStillRefuse: the sweep rail must not
+// soften the load-bearing tamper arm — a digest-named FINAL file whose
+// bytes do not hash to its own name is evidence substituted, and the
+// bind still refuses loudly, naming the tampered path.
+func TestR26ForeignBytesAtTheFinalPathStillRefuse(t *testing.T) {
+	c, root := mcCamp(t, "r26-f2-final")
+	rep := apWrite(t, r26F2Body)
+	digest, final, _ := r26F2Paths(t, c, r26F2Body)
+	forged := []byte(`{"published": false}`)
+	if err := os.WriteFile(final, forged, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(final, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := apVerify(t, root, c, "--property", "p1", "--report", rep)
+	if code != 2 {
+		t.Fatalf("foreign bytes at the digest-named final path must "+
+			"refuse: exit %d err %q", code, errS)
+	}
+	if !strings.Contains(errS, final) {
+		t.Fatalf("the refusal must name the tampered path %s: %q",
+			final, errS)
+	}
+	got, err := os.ReadFile(final)
+	if err != nil || string(got) != string(forged) {
+		t.Fatalf("the refused store must leave the foreign final file "+
+			"untouched: %q err %v", got, err)
+	}
+	if validation.Sha256Hex(got) == digest {
+		t.Fatal("fixture is vacuous: the forged bytes hash to the digest")
+	}
+}

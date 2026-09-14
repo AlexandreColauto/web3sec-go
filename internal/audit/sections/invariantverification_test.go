@@ -895,3 +895,127 @@ func TestInvariantVerificationDecoratedInconclusiveStaysQuiet(t *testing.T) {
 			validation.CanonCompact(v2))
 	}
 }
+
+// TestAutoprovePropResolutionLaw pins the resolution rule itself: exact
+// key wins (the bind is exact-match only), a lone fold-equal spelling
+// still attributes, spelling soup attributes NOTHING.
+func TestAutoprovePropResolutionLaw(t *testing.T) {
+	proven := validation.VObj(
+		KV("outcome", validation.VStr("PROVEN")),
+		KV("per_rule", validation.VObj(
+			KV("inv_1", validation.VStr("PROVEN")))))
+	viol := validation.VObj(
+		KV("outcome", validation.VStr("VIOLATED")),
+		KV("per_rule", validation.VObj(
+			KV("inv_1", validation.VStr("VIOLATED")))))
+	rep := validation.VObj(
+		KV("property_outcomes", validation.VObj(
+			KV("p", viol),
+			KV("P", proven))))
+	got, why := autoproveProp(rep, "P")
+	if why != "" || objStr(got, "outcome") != "PROVEN" {
+		t.Fatalf("exact key must win: %v %v", got, why)
+	}
+	if got, _ := autoproveProp(rep, "p"); objStr(got, "outcome") !=
+		"VIOLATED" {
+		t.Fatalf("lowercase exact key must win too: %v", got)
+	}
+	// One fold-equal spelling only: legacy tolerance, still attributed.
+	lone := validation.VObj(
+		KV("property_outcomes", validation.VObj(
+			KV("  P  ", proven))))
+	if got, why := autoproveProp(lone, "P"); why != "" ||
+		objStr(got, "outcome") != "PROVEN" {
+		t.Fatalf("a lone folded spelling must attribute: %v %v", got, why)
+	}
+	// Spelling soup: two fold-equal keys, no exact key — refuse.
+	soup := validation.VObj(
+		KV("property_outcomes", validation.VObj(
+			KV(" p", viol),
+			KV("P ", proven))))
+	if _, why := autoproveProp(soup, "P"); why == "" {
+		t.Fatalf("ambiguous spelling must refuse attribution")
+	}
+}
+
+// TestInvariantVerificationUnbackedBlessingLineIsQualified pins r26 D4: a
+// blessing rung whose backing evidence is GONE — here the exec ledger no
+// longer holds the EXEC the last harness_run event names (the pruned-
+// witness / pruned-REPORT shape) — still burns, AND the harness_runs line
+// a consumer reads carries " (UNBACKED)" at its very end. The rung
+// parenthetical is untouched: the qualifier only closes the line.
+func TestInvariantVerificationUnbackedBlessingLineIsQualified(t *testing.T) {
+	c, err := state.Init(t.TempDir(), "Acme Program", state.InitOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := harnessObj("minicertora", "proved-bounded", "EXEC-77",
+		validation.VInt(100), "proved bounded (k=100)")
+	harnessLinks(t, c, map[string]validation.Value{"INV-3": h})
+	// The witness disappears (aged-out or pruned ledger record): the slot
+	// and its event still claim PROVEN-BOUNDED, the evidence is gone.
+	if err := os.RemoveAll(filepath.Join(c.ExecsDir, "EXEC-77")); err != nil {
+		t.Fatal(err)
+	}
+	v, err := InvariantVerification(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objAt(v, "ok").B {
+		t.Fatalf("an unbacked blessing must burn: %s",
+			validation.CanonCompact(v))
+	}
+	runs := objAt(v, "harness_runs")
+	if runs.Kind != validation.Arr || len(runs.A) != 1 {
+		t.Fatalf("harness_runs = %s, want 1 line",
+			validation.CanonCompact(runs))
+	}
+	want := "INV-3: PROVEN-BOUNDED (minicertora, k=100, EXEC-77) " +
+		"(UNBACKED)"
+	if got := runs.A[0].S; got != want {
+		t.Fatalf("line = %q, want %q", got, want)
+	}
+	// The burn itself still names the exact state observed: the problem
+	// names the EXEC the ledger does not hold.
+	joined := ""
+	for _, p := range objAt(v, "problems").A {
+		joined += p.S
+	}
+	if !strings.Contains(joined, "EXEC-77") {
+		t.Fatalf("the burn must name the missing exec: %q", joined)
+	}
+}
+
+// TestInvariantVerificationBackedBlessingLineUnchanged pins the no-churn
+// half of r26 D4: a fully backed blessing (event landed, exec evidence
+// minted by the fixture, re-derivation consistent) renders exactly the
+// historical bytes — no qualifier anywhere, ok=true.
+func TestInvariantVerificationBackedBlessingLineUnchanged(t *testing.T) {
+	c, err := state.Init(t.TempDir(), "Acme Program", state.InitOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := harnessObj("minicertora", "proved-bounded", "EXEC-78",
+		validation.VInt(100), "proved bounded (k=100)")
+	harnessLinks(t, c, map[string]validation.Value{"INV-3": h})
+	v, err := InvariantVerification(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !objAt(v, "ok").B {
+		t.Fatalf("a backed blessing must not burn: %s",
+			validation.CanonCompact(v))
+	}
+	runs := objAt(v, "harness_runs")
+	if runs.Kind != validation.Arr || len(runs.A) != 1 {
+		t.Fatalf("harness_runs = %s, want 1 line",
+			validation.CanonCompact(runs))
+	}
+	want := "INV-3: PROVEN-BOUNDED (minicertora, k=100, EXEC-78)"
+	if got := runs.A[0].S; got != want {
+		t.Fatalf("line = %q, want %q", got, want)
+	}
+	if s := validation.CanonCompact(v); strings.Contains(s, "UNBACKED") {
+		t.Fatalf("no qualifier may appear on the backed path: %s", s)
+	}
+}

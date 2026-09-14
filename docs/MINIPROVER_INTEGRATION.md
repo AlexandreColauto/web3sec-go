@@ -281,6 +281,28 @@ time, from the artifacts the event names:
   out, absence stays silent: an inconclusive rung blesses nothing, and
   noise there only punishes honest age.
 
+A binding the section cannot back is QUALIFIED in the display: when
+this section's own backing check burns an invariant's rung (pruned
+registry row, deleted witness), its `harness_runs` line ends with
+` (UNBACKED)` — a consumer that reads only that array can no longer see
+an unbacked blessing unqualified. The qualifier rides the same two
+checks that produced the problem, and the happy path is byte-identical.
+
+The store is append-only and its growth is knowingly unbounded. Every
+re-bind whose report bytes CHANGED mints one immutable copy
+(`artifacts/reports/report-<full sha256>.json`, written read-only 0444),
+one new registry row and one `artifact.registered` event — five
+changed-bytes re-binds of the same path leave five files, five rows and
+five events, and audits stay green throughout; a re-bind of the SAME
+digest adds nothing (idempotent: the honest copy already stands). NO verb
+garbage-collects superseded rows or copies, and every audit re-hashes
+every registered row, so that cost is paid again on every audit. The
+operator's tool is `artifact prune <id>` — a bind refuses to prune a row
+a live `harness_run` event still cites (the cite-guard), so a row retires
+only once nothing binds it. Collisions are a non-event by construction:
+the file NAME is the full digest, so two different byte strings cannot
+name one file, and an existing copy is verified rather than overwritten.
+
 A slot that stored LESS proof than its bytes support is
 under-reporting — richer evidence than displayed — and skipped: rails
 burn lies, not modesty.

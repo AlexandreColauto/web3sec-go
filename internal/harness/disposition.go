@@ -253,6 +253,16 @@ func Disposition(summary string) (class, advice string, ok bool) {
 		// disposition.
 		return "", "", false
 	}
+	if strings.HasPrefix(inner, "degenerate-bound") {
+		// MapRun's BoundDegenerate floor: the invocation stated a bound
+		// no tool would have executed under (halmos rejects --loop 0,
+		// forge rejects --fuzz-runs 0, the twin raises for < 1), so the
+		// run proves nothing. Named, not plumbing: the fix is a bound
+		// the tool accepts, which is exactly escalate-bound's advice —
+		// and it must NOT join dispositionOf, whose 25 names are the
+		// twin's own closed REASON_CODES set (corpus_test pins it).
+		return EscalateBound, dispositionAdvice[EscalateBound], true
+	}
 	if strings.HasPrefix(inner, "no clean completion") {
 		// The named runtime floor (a killed/timed-out run — both the
 		// bare shape and the "; loop bound was N" variant). The run

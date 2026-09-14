@@ -1,5 +1,65 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — r26 (b-ai critic): the audit re-derived a truth the bind never used, and the floor lived on the wrong path
+
+F1 (P1) was a corrupted version of r25's own proudest claim. r25 F2 made bind and audit run the
+SAME pure function over the SAME bytes so "bind==audit" could not drift — but the two resolved the
+property differently: the bind's `cli.fieldOf` is an EXACT key lookup, while the auditor's
+`autoproveProp` folded case and took the FIRST hit. A report carrying two fold-equal spellings (a
+`"p"` VIOLATED beside an exact `"P"` PROVEN) therefore let the audit re-derive a truth the bind
+never used and burn an honest rung on a green bind; the sharper arm is a report carrying several
+fold-equal keys and NO exact one, which reproduces no bind at all. Cure: the audit resolves
+EXACT-FIRST — the bind's own rule — the fold fallback survives only for a SINGLE fold-equal key
+(legacy spelling), and several fold-equal keys with no exact hit are a named refusal: no single
+truth is attributable, so a forged event cannot hide behind spelling soup.
+
+F2 (P2) was the crash seam under the r25 copy store's tmp+rename dance. A process killed between
+the write and the rename left `report-<digest>.json.tmp` on disk — and because that tmp had been
+minted 0444, the NEXT bind of the same digest opened it for writing, took EACCES as its own owner,
+and refused that digest FOREVER: a transient crash became permanent unavailability of honest
+evidence. Cure: the tmp is owner-writable 0600 and the 0444 lands on the FINAL name only, after the
+rename; the bytes are fsynced and closed before the rename, so a power loss cannot publish a
+partial file under a content-addressed name the registry would then refuse; and a leftover tmp is
+SWEPT BY HASH — bytes that already hash to the digest are renamed into place (the crash cost
+nothing) and anything else is deleted and rewritten. A tmp is scratch; only the digest-named final
+file is evidence.
+
+F3 (P2): the r25 "<1 refuses" floor lived ONLY on the autoprove report path, so the real exec path
+still bound `proved-bounded (forge-fuzz, k=0)` over honest PASS bytes and blessed a halmos `k = 0`
+marker — a proof about nothing, honoring a bound no tool would have executed under (halmos rejects
+`--loop 0`, forge rejects `--fuzz-runs 0`, the twin's `VerifierFlags.__post_init__` raises). The
+floor now lives in the harness mapper as `BoundDegenerate` (-1): `MapRun` floors the WHOLE run
+whatever the output says, the summary names a `degenerate-bound` disposition the tally classifies
+as escalate-bound (whose advice is exactly "use a bound the tool accepts"), and the mirror lie is
+gone too — an invocation that named NO bound proves but states UNSTATED instead of printing a `k=0`
+nobody stated (`BoundK` returns 0 for a degenerate marker and never falls back to the invocation).
+
+F4 (P2) was disclosure, not code. The content-addressed copy that r25 F4 added to make evidence
+immutable is append-only, and its cost was real but under-documented: every re-bind whose report
+bytes CHANGED leaves one 0444 copy, one registry row and one `artifact.registered` event, forever
+(five changed-bytes re-binds of one path = five files, five rows, five events, audit green
+throughout), while a re-bind of the SAME digest is idempotent and adds nothing. NO verb
+garbage-collects superseded rows or copies, and every audit re-hashes every registered row, so that
+cost is paid again on every audit; the operator's tool is `artifact prune <id>`, and a bind refuses
+to prune a row a live `harness_run` event still cites (the cite-guard). §10 of
+docs/MINIPROVER_INTEGRATION.md now says all of this out loud — an auditor who finds the growth by
+measurement should not also have to find the missing paragraph.
+
+The auditor's D4 was offered as a nit and is now law, because "the burn is the demotion" is only
+true for a reader that reads the burn: pruning the registry row a live bind cites left
+`harness_runs` printing `INV-1: PROVEN-BOUNDED (miniprover, k=4, REPORT-...)` UNQUALIFIED in the very
+output whose problems array named the missing evidence. The qualifier is driven by the section's own
+two backing checks for THAT invariant — their non-empty return, not a re-grep of problem text, so
+there is no second derivation to drift — and it closes the line after every derived clause, which
+keeps a fully backed rung byte-identical (golden green). A consumer that greps only harness_runs can
+no longer read an unbacked blessing without being told.
+
+The code arms are pinned by name (`TestR26FoldEqualKeysDoNotBurnHonestBinds`,
+`TestR26FoldAmbiguousReportRefusesAttribution`, the tmp-sweep and tmp-recovery pins, the
+foreign-bytes refusal, `TestR26DegenerateBoundFloorsTheExecPath`, `TestR26UnstatedBoundIsNotZero`);
+F4's evidence is this entry plus §10, docs-only. `GOCACHE=$PWD/.gocache go test ./... -count=1`
+green.
+
 ## 2026-09-14 — r25 (b-ai critic): the re-derivation was scoped by KIND, and every skip-arm was a door
 
 r24 shipped re-derivation and then quietly scoped it: minicertora only, blessing rungs only, REPORT
