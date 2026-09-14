@@ -107,15 +107,22 @@ compared it — a mismatched-compiler run bound its rung. Shipped (r18):
   time), else `tool_versions.solc` — and REFUSES exit 2 with
   `toolchain-mismatch` naming BOTH versions when any attributed line
   disagrees;
-- THREE states, never a fourth lie: pin present + report lines carrying
-  `solc_version` → `checked against pinned solc X`; NO visible pin →
-  `unchecked (no compiler pin visible...)`; pin present but the
-  attributed lines carry no `solc_version` → `unchecked (pin X ...
-  nothing was verified)` — an unmade comparison is never reported as
-  made (r19);
+- FOUR states, never a lie: pin + the ATTRIBUTED line's own
+  `solc_version` → `checked against pinned solc X`; pin + other lines
+  carry versions but the attributed line does not → `checked at run
+  level ... (the attributed line carries no solc_version of its own)`
+  (r20 F4 — a foreign rule's version checked the RUN, not this proof);
+  pin but zero lines carrying any version → `unchecked (pin X ...
+  nothing was verified)` (r19); no pin at all → `unchecked (no
+  compiler pin visible...)`. An unmade comparison is never reported
+  as made;
 - a run that NAMES `--solc-path` in a form the check cannot resolve
   (relative path — the exec's cwd is not reconstructible here) is
-  REFUSED exit 2, not silently downgraded to the record row (r19);
+  REFUSED exit 2 when a record row could silently stand in for it —
+  a named compiler is never downgraded to `tool_versions.solc`
+  (r19/r20 F8); with NO resolvable pin anywhere (no record row either)
+  the bind takes the honest state-2 lane and the proof carries the
+  `[note: ...]` naming the unresolved mention;
 - when minicertora v0.4 ships `--require-solc-version` (R13), that flag
   becomes the belt; this webv2 check remains the braces.
 
@@ -184,3 +191,21 @@ different numbers on purpose.
   Gaps): no webv2-side assumption may depend on caching.
 - minicertora v0.4 (R1–R15 contract) is unshipped; the conformance table
   is the source of truth for what the installed verifier can do today.
+
+## 8. Binding law between the paths (r20)
+
+Both mappers write the SAME `verification.harness` slot, last-wins — by
+design the rung is display of the latest claim; the EVENT ledger is the
+truth (every bind appends `harness_run`, and the F3 law means a bind
+without its event cannot happen). Two consumption rails make overwrite
+costly: one (report, property) pair can hold exactly ONE invariant
+(a second bind refuses, naming the holder — a proof is not reusable
+across ledger rows), and re-binding an invariant over a DIFFERENT
+report digest warns on stderr and names both shas in the artifact
+refresh reason (a substituted report file cannot ride a quiet refresh).
+Deliberately NOT added: rung stickiness (an operator who invalidates a
+counterexample with a fixed spec must be able to bind the newer proof
+without a --force flag ceremony; the sticky-rung alternative invents
+an "invalidation" verb with more states than the event ledger already
+records). The audit surface cross-checks claims against events; the
+display slot is where "latest" belongs.

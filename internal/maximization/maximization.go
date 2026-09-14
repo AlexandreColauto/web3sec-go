@@ -310,7 +310,14 @@ func StartLadder(c *state.Campaign, findingID string) (validation.Value, error) 
 		// must not leave a doc the retry will early-return over. Remove
 		// any bytes it may have produced (start ran on an absent ladder
 		// — the early-return above proves it).
-		os.Remove(ladderPath(c, findingID))
+		if rmErr := os.Remove(ladderPath(c, findingID)); rmErr != nil &&
+			!os.IsNotExist(rmErr) {
+			return validation.VNull(), fmt.Errorf(
+				"%w (AND the orphan ladder doc could NOT be removed: %v — "+
+					"the retry's early-return would print 'started' without "+
+					"an event; remove ladders/%s.json by hand)", err, rmErr,
+				findingID)
+		}
 		return validation.VNull(), err
 	}
 	mx := asObj(objAt(f, "maximization"))
@@ -327,7 +334,14 @@ func StartLadder(c *state.Campaign, findingID string) (validation.Value, error) 
 		// audit stays PASS over the orphan. The doc is this verb's
 		// creation: unwinding means REMOVING it, restoring the finding
 		// to its (untouched) bytes.
-		os.Remove(ladderPath(c, findingID))
+		if rmErr := os.Remove(ladderPath(c, findingID)); rmErr != nil &&
+			!os.IsNotExist(rmErr) {
+			restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
+			return validation.VNull(), fmt.Errorf(
+				"%w (AND the orphan ladder doc survived removal: %v — "+
+					"delete ladders/%s.json by hand before retrying)", err,
+				rmErr, findingID)
+		}
 		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}

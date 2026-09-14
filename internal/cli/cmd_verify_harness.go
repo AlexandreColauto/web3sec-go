@@ -190,9 +190,21 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		// "checked against pinned" there was the same lie in reverse
 		// (law 3: an unmade comparison is never reported as made).
 		state := "unchecked (no compiler pin visible on this record)"
+		// r20 F4: "checked" must mean the ATTRIBUTED line's own
+		// solc_version agreed with the pin — a foreign rule line's
+		// version checked the RUN, not this proof.
+		avOK := false
+		if proof.Kind == validation.Obj {
+			if v := objAt(proof, "solc_version"); v.Kind == validation.Str {
+				avOK = true
+			}
+		}
 		switch {
-		case pin != "" && len(reported) > 0:
+		case pin != "" && len(reported) > 0 && avOK:
 			state = "checked against pinned solc " + pin
+		case pin != "" && len(reported) > 0 && !avOK:
+			state = "checked at run level against pinned solc " + pin +
+				" (the attributed line carries no solc_version of its own)"
 		case pin != "":
 			state = "unchecked (pin " + pin + " from " + pinSource +
 				"; the attributed report lines carry no solc_version to " +
@@ -209,16 +221,18 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	entry.O = validation.SetOrAppend(entry.O, "verification",
 		validation.VObj(harnessField(kind, rung, a.execID, boundedK,
 			summary, proof)))
-	if err := harnessSaveEntry(c, links, a.harnessResult, entry); err != nil {
-		return err
-	}
-	data := validation.VObj(
+	hrunData := validation.VObj(
 		validation.KV{K: "rung", V: validation.VStr(rung)},
 		validation.KV{K: "exec", V: validation.VStr(a.execID)},
 		validation.KV{K: "invariant", V: validation.VStr(a.harnessResult)},
 		validation.KV{K: "summary", V: validation.VStr(summary)},
 	)
-	if _, err := c.Log("harness_run", &a.harnessResult, &data); err != nil {
+	if err := linksThenLog(c, func() error {
+		return harnessSaveEntry(c, links, a.harnessResult, entry)
+	}, func() error {
+		_, lerr := c.Log("harness_run", &a.harnessResult, &hrunData)
+		return lerr
+	}); err != nil {
 		return err
 	}
 	// The rung (entry + event) is on record before the derived artifact is
@@ -935,4 +949,38 @@ func harnessReportedCompilers(raw []byte) []string {
 		out = append(out, sv.S)
 	}
 	return out
+}
+
+// linksThenLog is the r20 F3 law for the INVARIANT_LINKS surface: the
+// rung is campaign STATE (artifacts/invariant_links.json) exactly like
+// a finding file is — a save that lands while its event is refused
+// leaves the ledger asserting a verification nobody logged, and the
+// half-landed rung is invisible to audit. Same discipline as
+// findings.SaveThenLog: snapshot the file pre-write, restore together
+// on refusal. (SaveThenLogMany's sibling, one fewer package import.)
+func linksThenLog(c *state.Campaign, save func() error, log func() error) error {
+	path := filepath.Join(c.ArtifactsDir, "invariant_links.json")
+	prevRaw, perr := os.ReadFile(path)
+	had := perr == nil
+	if perr != nil && !os.IsNotExist(perr) {
+		return perr
+	}
+	if err := save(); err != nil {
+		return err
+	}
+	if err := log(); err != nil {
+		rerr := error(nil)
+		if had {
+			rerr = os.WriteFile(path, prevRaw, 0o644)
+		} else {
+			rerr = os.Remove(path)
+		}
+		if rerr != nil {
+			return fmt.Errorf("%w (UNWIND ALSO FAILED: %v — the links "+
+				"file holds a rung with no event; repair by hand)", err,
+				rerr)
+		}
+		return err
+	}
+	return nil
 }
