@@ -199,3 +199,36 @@ func TestAnchorKeyGateFolding(t *testing.T) {
 		t.Fatalf("root: test != phrase test: %v", err)
 	}
 }
+
+// TestAnchorKeyRootLegBar pins r10 issue 2: an invalid class tail on a
+// root: phrase can never fire (schema grammar ^[a-z0-9-]{3,64}$), so it
+// must fold as inert — neither distinguishing a duplicate pair nor
+// keying two dead gates apart.
+func TestAnchorKeyRootLegBar(t *testing.T) {
+	mk := func(id, mech string) validation.Value {
+		return withMechs(withFile(goldPackRow(id, "Morph", "reentrancy"),
+			"R.sol"), mech)
+	}
+	clean := mk("CASE-00000000d001", "root: reentrancy")
+	poisoned := mk("CASE-00000000d002", "root: a b")
+	// same live phrase + the junk root appended: the junk cannot change
+	// behavior, so the pair is ONE anchor and must refuse.
+	both := withMechs(withFile(goldPackRow("CASE-00000000d003", "Morph",
+		"reentrancy"), "R.sol"), "root: reentrancy")
+	g := obj(both, "gold")
+	g.O = validation.SetOrAppend(g.O, "match_mechanisms", validation.VArr(
+		validation.VStr("root: reentrancy"), validation.VStr("root: a b")))
+	both.O = validation.SetOrAppend(both.O, "gold", g)
+	if _, err := loadRows(t, clean, both); err == nil ||
+		!strings.Contains(err.Error(), "same gold anchor") {
+		t.Fatalf("a junk root: entry must not evade the refusal: %v", err)
+	}
+	// Two rows gated ONLY by unfireable roots share the dead "!" anchor.
+	x := mk("CASE-00000000d004", "root: Bad Class!")
+	y := mk("CASE-00000000d005", "root: Bad Space")
+	if _, err := loadRows(t, x, y); err == nil ||
+		!strings.Contains(err.Error(), "same gold anchor") {
+		t.Fatalf("unfireable roots are one dead anchor: %v", err)
+	}
+	_ = poisoned
+}

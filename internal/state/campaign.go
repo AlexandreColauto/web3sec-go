@@ -327,7 +327,11 @@ func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
 }
 
 // unwindState restores the pre-pin campaign_state.json (r9): same bytes
-// through the same canonical writer, not a hand-rolled rewrite.
+// through the same canonical writer, not a hand-rolled rewrite. The
+// hadPrev=false branch (remove the state file) is defensive only —
+// PinSnapshot reads the state through c.State() first, which fails closed
+// on a missing file, so a pin never runs against no prior state (r10
+// audit noted the reachability; the guard stays, the fact is recorded).
 func (c *Campaign) unwindState(prev []byte, hadPrev bool) error {
 	if !hadPrev {
 		return os.Remove(c.StatePath)

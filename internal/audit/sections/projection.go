@@ -39,15 +39,21 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 		}
 	}
 
-	// snapshot_refs: refs of snapshot.pinned events.
+	// snapshot_refs: refs of snapshot.pinned events. r10: the state-row
+	// direction is UNCONDITIONAL — gating it on "the log has pinned
+	// events" let an attacker (or the r9 bug's twin: strip the event from
+	// BOTH ledger copies while the state row survives) blind the very
+	// check that polices it: zero pinned events then skipped the whole
+	// loop, and the lying projection audited green. A campaign state that
+	// lists a snapshot the ledger never recorded is a hand-edit regardless
+	// of how many other pinned events exist. The ledger->state direction
+	// stays lenient (legacy), and the message is the twin's.
 	snapshotRefs := refsOf(events, "snapshot.pinned")
-	if len(snapshotRefs) > 0 {
-		for _, s := range objAt(st, "snapshots").A {
-			if _, ok := snapshotRefs[objStr(s, "snapshot_id")]; !ok {
-				proj = append(proj, validation.VStr(
-					fmt.Sprintf("state lists snapshot %s with no snapshot.pinned event",
-						objStr(s, "snapshot_id"))))
-			}
+	for _, s := range objAt(st, "snapshots").A {
+		if _, ok := snapshotRefs[objStr(s, "snapshot_id")]; !ok {
+			proj = append(proj, validation.VStr(
+				fmt.Sprintf("state lists snapshot %s with no snapshot.pinned event",
+					objStr(s, "snapshot_id"))))
 		}
 	}
 

@@ -32,6 +32,7 @@ import (
 	"sort"
 	"strings"
 
+	"regexp"
 	"websec/internal/findings"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -820,13 +821,17 @@ func mechGateKey(g validation.Value) string {
 			continue // inert
 		}
 		if strings.HasPrefix(s, "root:") {
+			// r10: the honest bar for a root: test is the CLASS GRAMMAR
+			// (finding schema ^[a-z0-9-]{3,64}$), not "non-empty". A
+			// spaced or capitalized tail can never equal a valid class —
+			// it matches nothing and must key INERT (dropping out, or
+			// collapsing to "!"), never as a live R: leg. Otherwise one
+			// junk "root: a b" entry is all it takes to evade the
+			// duplicate-anchor refusal.
 			r := strings.TrimSpace(strings.TrimPrefix(s, "root:"))
-			if r == "" {
-				// root: with no class cannot match: goldAcceptsMechanism
-				// demands class != "". Inert.
-				continue
+			if rootClassRe.MatchString(r) {
+				live = append(live, "R:"+r)
 			}
-			live = append(live, "R:"+r)
 			continue
 		}
 		if k, ok := phraseFingerprint(s); ok {
@@ -860,3 +865,7 @@ func phraseFingerprint(phrase string) (string, bool) {
 	sort.Strings(content)
 	return strings.Join(content, " "), true
 }
+
+// rootClassRe is the finding schema's class grammar; a root: gate tail that
+// cannot name a real class cannot fire (r10).
+var rootClassRe = regexp.MustCompile(`^[a-z0-9-]{3,64}$`)

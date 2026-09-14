@@ -1,5 +1,16 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — critic round 10: a gate is only as good as its blind spot
+Section 5's snapshot-row check ran only WHEN THE LEDGER HAD PINNED EVENTS —
+so deleting an event from both ledger copies (jsonl + state mirror) blinded
+the exact check that polices lying projections, and the r9-then-green audit
+came back. The state-row direction is now UNCONDITIONAL (message and
+checked=4 stay the twin's; the ledger->state leniency for legacy stands).
+Same round: root: gate tails must pass the class grammar to be live —
+otherwise one "root: a b" entry evaded the duplicate-anchor refusal by
+looking different while matching nothing; unfireable roots now fold into
+the same dead symbol as [] and below-bar phrases.
+
 ## 2026-09-14 — critic round 9: the projection lied while the directory healed
 r8's half-pin rollback removed the right directory but PinSnapshot had ALREADY
 saved campaign_state.json — a ledger that then refused its event left the
