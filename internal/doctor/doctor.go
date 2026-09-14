@@ -106,6 +106,7 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 	// never touched; its chain is the truth). Reported, never silent.
 	mirrorRebuilt := false
 	var mirrorRefusal string
+	mirrorDeltaNote := validation.VNull()
 	fresh, merr := campaign.EventsMirrorFromLog()
 	if merr != nil {
 		// r15: a refused rebuild is DISCLOSED, never silent — but it
@@ -115,6 +116,12 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 	} else if validation.CanonSpaced(objAt(st, "events")) !=
 		validation.CanonSpaced(validation.Value{Kind: validation.Arr,
 			A: fresh}) {
+		// r16: capture the OLD mirror BEFORE cand is built —
+		// SetOrAppend writes through the shared []KV backing array,
+		// so st["events"] reads the NEW value once cand exists (and a
+		// delta computed from st afterwards is zero by construction
+		// — it was, until a pin caught it).
+		oldMirror := objAt(st, "events")
 		cand := st
 		cand.O = validation.SetOrAppend(cand.O, "events",
 			validation.Value{Kind: validation.Arr, A: fresh})
@@ -126,8 +133,23 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 			mirrorRefusal = fmt.Sprintf("rebuilt state would not "+
 				"validate: %v", verr)
 		} else {
+			// r16: the rebuild adopts the log's version of EVENTS —
+			// when that means content the projection remembered
+			// differently (edited payloads, rewritten history), the
+			// operator sees HOW it changes, not just that it did:
+			// the chain gate proves format and continuity, not
+			// authorship (see verifylog's boundary note).
+			adopted, changed, dropped, added := mirrorDelta(
+				oldMirror,
+				validation.Value{Kind: validation.Arr, A: fresh})
 			st = cand
 			mirrorRebuilt = true
+			mirrorDeltaNote = validation.VObj(
+				validation.KV{K: "kept", V: validation.VInt(adopted)},
+				validation.KV{K: "changed", V: validation.VInt(changed)},
+				validation.KV{K: "dropped_from_projection", V: validation.VInt(dropped)},
+				validation.KV{K: "added_from_log", V: validation.VInt(added)},
+			)
 		}
 	}
 	// no schema validation on the repair write: doctor's job is to make the
@@ -148,6 +170,7 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 		validation.KV{K: "notes_truncated", V: validation.VArr(truncated...)},
 		validation.KV{K: "repaired_at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "events_mirror_rebuilt", V: validation.VBool(mirrorRebuilt)},
+		validation.KV{K: "events_mirror_delta", V: mirrorDeltaNote},
 		validation.KV{K: "events_mirror_refused",
 			V: func() validation.Value {
 				if mirrorRefusal == "" {
@@ -378,4 +401,26 @@ func itoa(n int) string {
 		b[i] = '-'
 	}
 	return string(b[i:])
+}
+
+// mirrorDelta compares the old projection tail against the rebuilt one
+// by position: same-prefix counts (kept), positions present in both but
+// unequal (changed — edited content under a chain that still verifies),
+// extra old rows (dropped), extra new rows (added). Counts only; the
+// human output prints the number, the JSON carries it.
+func mirrorDelta(oldV, newV validation.Value) (kept, changed, dropped, added int64) {
+	min := len(oldV.A)
+	if len(newV.A) < min {
+		min = len(newV.A)
+	}
+	for i := 0; i < min; i++ {
+		if validation.CanonSpaced(oldV.A[i]) == validation.CanonSpaced(newV.A[i]) {
+			kept++
+		} else {
+			changed++
+		}
+	}
+	dropped = int64(len(oldV.A) - min)
+	added = int64(len(newV.A) - min)
+	return
 }

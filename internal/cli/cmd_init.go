@@ -49,6 +49,12 @@ func runInit(root string, args []string, stdout io.Writer) error {
 		return err
 	}
 	if err := writeRunbookDocs(c.Dir); err != nil {
+		// r16 P2: the campaign itself is fully valid at this point —
+		// say so instead of a bare rc=1 that reads like nothing was
+		// created (the twin would traceback here too, but silence
+		// about the half-state is ours to own).
+		fmt.Fprintf(stdout, "initialized %s at %s (runbook docs NOT "+
+			"written: %v)\n", c.CampaignID, c.Dir, err)
 		return err
 	}
 	fmt.Fprintf(stdout, "initialized %s at %s\n", c.CampaignID, c.Dir)

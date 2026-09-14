@@ -730,33 +730,149 @@ func CostMirrorProblems(c *state.Campaign) []string {
 		return nil
 	}
 	var out []string
-	have := map[string]bool{}
-	for _, r := range rows {
-		id := objStr(r, "cost_id")
-		if id == "" {
-			id = "<blank cost_id>"
-			out = append(out, "costs.jsonl has a row with no cost_id — "+
-				"spend that cannot be attributed cannot be audited")
-		}
-		have[id] = true
+	// r16 P1-1: the law is about SPEND, not id-existence — comparing
+	// cost_id strings alone let one appended duplicate-id row double the
+	// booked amount (audit PASS while budget priced phantom money) and
+	// let an amount rewrite hide under its own id. Per id the ledger and
+	// the file must agree on COUNT and on the SUM of amounts (and every
+	// kind the id carries): twin stores legitimately repeat an id across
+	// rows — uuid4 is per-row but the pinned fixtures prove identity is
+	// not the invariant — so equality is aggregated, and that catches
+	// inflation, dodging, and edits alike.
+	type ledger struct {
+		n     int
+		sum   float64
+		kinds map[string]bool
 	}
+	byID := map[string]ledger{}
 	for _, e := range costEvts {
-		if !have[objStr(e, "ref")] {
-			out = append(out, fmt.Sprintf("the ledger records cost %s but "+
-				"costs.jsonl has no row for it", objStr(e, "ref")))
-		}
-	}
-	for _, r := range rows {
-		id := objStr(r, "cost_id")
+		id := objStr(e, "ref")
 		if id == "" {
+			out = append(out, "a cost.recorded event carries no ref — "+
+				"spend the ledger cannot attribute")
 			continue
 		}
-		if !refs[id] {
-			out = append(out, fmt.Sprintf("costs.jsonl row %s was never "+
-				"recorded in the ledger — ghost spend inflates the "+
-				"budget silently; costs are owed through `webv2 cost`, "+
+		l := byID[id]
+		l.n++
+		if a := objAt(objAt(e, "data"), "amount_usd"); a.Kind == validation.Flt ||
+			a.Kind == validation.Int {
+			f, _ := numberValue(a)
+			l.sum += f
+		}
+		if l.kinds == nil {
+			l.kinds = map[string]bool{}
+		}
+		if k := objStr(objAt(e, "data"), "kind"); k != "" {
+			l.kinds[k] = true
+		}
+		byID[id] = l
+	}
+	count := map[string]int{}
+	sum := map[string]float64{}
+	kinds := map[string]map[string]bool{}
+	for _, r := range rows {
+		id := objStr(r, "cost_id")
+		if id == "" {
+			out = append(out, "costs.jsonl has a row with no cost_id — "+
+				"spend that cannot be attributed cannot be audited")
+			continue
+		}
+		count[id]++
+		if a := objAt(r, "amount_usd"); a.Kind == validation.Flt ||
+			a.Kind == validation.Int {
+			f, _ := numberValue(a)
+			sum[id] += f
+		}
+		if kinds[id] == nil {
+			kinds[id] = map[string]bool{}
+		}
+		if k := objStr(r, "kind"); k != "" {
+			kinds[id][k] = true
+		}
+	}
+	for id, l := range byID {
+		if count[id] == 0 {
+			out = append(out, fmt.Sprintf("the ledger records cost %s (%s) "+
+				"but costs.jsonl has no row for it", id,
+				pyReprValue(validation.VFloat(l.sum))))
+			continue
+		}
+		if count[id] != l.n {
+			out = append(out, fmt.Sprintf(
+				"costs.jsonl carries %d rows for cost %s but the ledger "+
+					"recorded %d — spend was duplicated or events lost",
+				count[id], id, l.n))
+			continue
+		}
+		if sum[id] != l.sum {
+			out = append(out, fmt.Sprintf(
+				"costs.jsonl books $%s under cost %s but the ledger "+
+					"events sum to $%s — the recorded amounts were "+
+					"edited in the file", format2(sum[id]), id,
+				format2(l.sum)))
+			continue
+		}
+		for k := range l.kinds {
+			if !kinds[id][k] {
+				out = append(out, fmt.Sprintf(
+					"the ledger says cost %s was kind %s but no costs.jsonl "+
+						"row for it is — the recorded kind was edited", id, k))
+			}
+		}
+	}
+	for id := range count {
+		if _, ok := byID[id]; !ok {
+			out = append(out, fmt.Sprintf("costs.jsonl row(s) for cost %s "+
+				"were never recorded in the ledger — ghost spend inflates "+
+				"the budget silently; costs are owed through `webv2 cost`, "+
 				"not by editing the file", id))
 		}
 	}
 	return out
+}
+
+// sameSpend compares ledger vs row numbers the way Python's == would
+// across int/float (1 == 1.0), and treats any non-number as unequal to
+// a number. Null vs Null is equal (a cost recorded without an amount
+// matches a row without one).
+func sameSpend(a, b validation.Value) bool {
+	if a.Kind == validation.Null && b.Kind == validation.Null {
+		return true
+	}
+	an, aok := numberValue(a)
+	bn, bok := numberValue(b)
+	if aok && bok {
+		return an == bn
+	}
+	return false
+}
+
+func numberValue(v validation.Value) (float64, bool) {
+	switch v.Kind {
+	case validation.Flt:
+		return v.F, true
+	case validation.Int:
+		return float64(v.I), true
+	}
+	return 0, false
+}
+
+// pyReprValue renders a number for a message (None, 10.0, 4).
+func pyReprValue(v validation.Value) string {
+	if v.Kind == validation.Null {
+		return "None"
+	}
+	f, ok := numberValue(v)
+	if !ok {
+		return validation.PyRepr(v)
+	}
+	if v.Kind == validation.Int {
+		return validation.IntText(v)
+	}
+	return validation.PythonFloat(f)
+}
+
+// format2 renders a money figure for messages (2 decimals, plain).
+func format2(f float64) string {
+	return strconv.FormatFloat(f, 'f', 2, 64)
 }

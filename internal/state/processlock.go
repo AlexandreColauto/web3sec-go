@@ -125,3 +125,17 @@ func (c *Campaign) UnlockProcess() { c.plock.unlock() }
 func (c *Campaign) lockPath() string {
 	return filepath.Join(c.Dir, "campaign.lock")
 }
+
+// rawState is the pre-write snapshot bytes for the unwind discipline
+// (r16: the r9 PinSnapshot law — save-then-log is only atomic if a
+// failed Log RESTORES the exact pre-pin bytes — generalized to every
+// state-mutating method): read campaign_state.json as bytes before the
+// first save; on ledger refusal, write them back and report the save
+// undone. had=false when the file did not exist yet (unwind removes it).
+func (c *Campaign) rawState() ([]byte, bool) {
+	raw, err := os.ReadFile(c.StatePath)
+	if err != nil {
+		return nil, false
+	}
+	return raw, true
+}

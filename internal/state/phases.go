@@ -37,6 +37,7 @@ func (c *Campaign) SetPhase(phase, reason string) error {
 		return err
 	}
 	defer c.UnlockProcess()
+	prevRaw, hadRaw := c.rawState() // r16 unwind law
 	if !phaseKnown(phase) {
 		return fmt.Errorf("unknown phase %s", validation.PyReprStr(phase))
 	}
@@ -64,8 +65,17 @@ func (c *Campaign) SetPhase(phase, reason string) error {
 		kv("from", validation.VStr(prev)),
 		kv("reason", validation.VStr(reason)),
 	)
-	_, err = c.Log("phase.transition", &phase, &data)
-	return err
+	if _, lerr := c.Log("phase.transition", &phase, &data); lerr != nil {
+		// r16: the ledger refused — UNWIND the state
+		// write (PinSnapshot's r9 discipline,
+		// generalized): a decision the log never
+		// recorded must not live in the projection.
+		if uerr := c.unwindState(prevRaw, hadRaw); uerr != nil {
+			return lerr
+		}
+		return lerr
+	}
+	return nil
 }
 
 // Halt is halt: record the reason, then move to HALTED.
@@ -78,6 +88,7 @@ func (c *Campaign) Halt(reason string) error {
 		return err
 	}
 	defer c.UnlockProcess()
+	prevRaw, hadRaw := c.rawState() // r16 unwind law
 	st, err := c.State()
 	if err != nil {
 		return err
@@ -86,7 +97,15 @@ func (c *Campaign) Halt(reason string) error {
 	if err := c.save(st); err != nil {
 		return err
 	}
-	return c.SetPhase("HALTED", reason)
+	if err := c.SetPhase("HALTED", reason); err != nil {
+		// r16: SetPhase unwinds ITS save; ours (halt_reason with no
+		// event) needs its own unwind — back to the pre-Halt bytes.
+		if uerr := c.unwindState(prevRaw, hadRaw); uerr != nil {
+			return err
+		}
+		return err
+	}
+	return nil
 }
 
 // Complete is complete: the sanctioned way to close a pass — an operator
@@ -109,6 +128,7 @@ func (c *Campaign) Complete(actor, reason string) (validation.Value, error) {
 		return validation.VNull(), err
 	}
 	defer c.UnlockProcess()
+	prevRaw, hadRaw := c.rawState() // r16 unwind law
 	actor = strings.TrimSpace(actor)
 	reason = strings.TrimSpace(reason)
 	if actor == "" {
@@ -133,8 +153,15 @@ func (c *Campaign) Complete(actor, reason string) (validation.Value, error) {
 		kv("actor", validation.VStr(actor)),
 		kv("reason", validation.VStr(reason)),
 	)
-	if _, err := c.Log("campaign.completed", &c.CampaignID, &data); err != nil {
-		return validation.VNull(), err
+	if _, lerr := c.Log("campaign.completed", &c.CampaignID, &data); lerr != nil {
+		// r16: the ledger refused — UNWIND the state
+		// write (PinSnapshot's r9 discipline,
+		// generalized): a decision the log never
+		// recorded must not live in the projection.
+		if uerr := c.unwindState(prevRaw, hadRaw); uerr != nil {
+			return validation.VNull(), lerr
+		}
+		return validation.VNull(), lerr
 	}
 	if err := c.SetPhase("COMPLETE", actor+": "+reason); err != nil {
 		return validation.VNull(), err
@@ -185,6 +212,7 @@ func (c *Campaign) SetCostCeiling(ceil *validation.Value, actor string) (validat
 		return validation.VNull(), err
 	}
 	defer c.UnlockProcess()
+	prevRaw, hadRaw := c.rawState() // r16 unwind law
 	st, err := c.State()
 	if err != nil {
 		return validation.VNull(), err
@@ -205,8 +233,15 @@ func (c *Campaign) SetCostCeiling(ceil *validation.Value, actor string) (validat
 		kv("new", newV),
 		kv("actor", validation.VStr(actor)),
 	)
-	if _, err := c.Log("budget.limit_set", nil, &data); err != nil {
-		return validation.VNull(), err
+	if _, lerr := c.Log("budget.limit_set", nil, &data); lerr != nil {
+		// r16: the ledger refused — UNWIND the state
+		// write (PinSnapshot's r9 discipline,
+		// generalized): a decision the log never
+		// recorded must not live in the projection.
+		if uerr := c.unwindState(prevRaw, hadRaw); uerr != nil {
+			return validation.VNull(), lerr
+		}
+		return validation.VNull(), lerr
 	}
 	return objAt(st, "budget"), nil
 }
@@ -226,6 +261,7 @@ func (c *Campaign) SetDiscoveryBudget(maxFindings int64, actor string) (validati
 		return validation.VNull(), err
 	}
 	defer c.UnlockProcess()
+	prevRaw, hadRaw := c.rawState() // r16 unwind law
 	if maxFindings < 1 {
 		return validation.VNull(), fmt.Errorf("max_discovery_findings must be a positive integer")
 	}
@@ -245,8 +281,15 @@ func (c *Campaign) SetDiscoveryBudget(maxFindings int64, actor string) (validati
 		kv("new", validation.VInt(maxFindings)),
 		kv("actor", validation.VStr(actor)),
 	)
-	if _, err := c.Log("budget.discovery_set", nil, &data); err != nil {
-		return validation.VNull(), err
+	if _, lerr := c.Log("budget.discovery_set", nil, &data); lerr != nil {
+		// r16: the ledger refused — UNWIND the state
+		// write (PinSnapshot's r9 discipline,
+		// generalized): a decision the log never
+		// recorded must not live in the projection.
+		if uerr := c.unwindState(prevRaw, hadRaw); uerr != nil {
+			return validation.VNull(), lerr
+		}
+		return validation.VNull(), lerr
 	}
 	return objAt(st, "budget"), nil
 }

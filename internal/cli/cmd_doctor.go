@@ -107,9 +107,21 @@ func printDoctor(r *Runner, rep validation.Value) {
 			mb(objFlt(st, "size_before")), mb(objFlt(st, "size_after")),
 			mb(objFlt(st, "bytes_freed")))
 		if objAt(st, "events_mirror_rebuilt").B {
-			fmt.Fprintln(r.Out, "  rebuilt the events mirror from "+
-				"events.jsonl (the ledger is the truth; the projection "+
-				"was stale)")
+			msg := "  rebuilt the events mirror from events.jsonl (the " +
+				"ledger is the truth; the projection was stale)"
+			if d := objAt(st, "events_mirror_delta"); d.Kind == validation.Obj {
+				if ch := objInt(d, "changed"); ch > 0 {
+					msg += fmt.Sprintf(": %d events ADOPTED IN EDITED "+
+						"FORM — the chain verifies but content differed "+
+						"from the projection; if you did not run the "+
+						"rewrite, treat the campaign dir as tampered",
+						ch)
+				} else {
+					msg += fmt.Sprintf(" (%d kept, %d adopted from log)",
+						objInt(d, "kept"), objInt(d, "added_from_log"))
+				}
+			}
+			fmt.Fprintln(r.Out, msg)
 		}
 		if ref := objAt(st, "events_mirror_refused"); ref.Kind == validation.Str {
 			fmt.Fprintf(r.Out, "  events mirror NOT rebuilt: %s\n"+

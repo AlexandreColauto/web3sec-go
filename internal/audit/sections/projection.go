@@ -18,6 +18,7 @@ import (
 	"websec/internal/state"
 	"websec/internal/validation"
 
+	"strings"
 	"websec/internal/costs"
 )
 
@@ -114,6 +115,43 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 		// stay byte-identical to the ported output.
 		for _, msg := range costs.CostMirrorProblems(c) {
 			proj = append(proj, validation.VStr(msg))
+		}
+		// r16: chains/ was the last projection with NO direction either
+		// way — MaterializeChain logs chain.materialized(_unproven) and
+		// writes chains/CHAIN-*.json; deleting or forging a doc moved
+		// nothing. Events->docs catches vanished chains; docs->events
+		// catches hand-planted chains claiming a materialization that
+		// never ran (both presence-gated by the file/dir being empty).
+		chainEvents := map[string]string{}
+		for _, e := range events {
+			if typ := objStr(e, "type"); typ == "chain.materialized" ||
+				typ == "chain.materialized_unproven" {
+				chainEvents[objStr(e, "ref")] = typ
+			}
+		}
+		docNames := map[string]bool{}
+		for _, path := range validation.ListPrefixed(c.ChainsDir,
+			"CHAIN-", ".json") {
+			base := filepath.Base(path)
+			docNames[strings.TrimSuffix(base, ".json")] = true
+		}
+		for id := range chainEvents {
+			if !docNames[id] {
+				proj = append(proj, validation.VStr(fmt.Sprintf(
+					"the ledger materialized chain %s but chains/%s.json "+
+						"is gone — a chain the campaign still proposes "+
+						"(terminals, super-findings) with no document",
+					id, id)))
+			}
+		}
+		for name := range docNames {
+			if _, ok := chainEvents[name]; !ok {
+				proj = append(proj, validation.VStr(fmt.Sprintf(
+					"chains/%s.json exists with no chain.materialized "+
+						"event — hand-planted chains bypass the floor and "+
+						"provenance laws; chains are owed through "+
+						"`webv2 chains --materialize`", name)))
+			}
 		}
 	}
 	return validation.VObj(

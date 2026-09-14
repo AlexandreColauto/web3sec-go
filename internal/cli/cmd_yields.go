@@ -47,6 +47,15 @@ func runYields(root string, args []string, r *Runner) int {
 		if err != nil {
 			return err
 		}
+		// r16: "advisory, never gates" is about the pipeline, not a
+		// license to print fiction over a damaged mirror — the same
+		// cross-check budget refuses on applies here (divergence from
+		// the ported cmd_yields, which predates the cost projection).
+		if probs := costs.CostMirrorProblems(c); len(probs) > 0 {
+			return fmt.Errorf("cost projection is damaged (%d problem(s), "+
+				"first: %s) — yields would price advice on untrusted "+
+				"spend; `webv2 audit` lists every problem", len(probs), probs[0])
+		}
 		rep, err := costs.YieldReport(c)
 		if err != nil {
 			return err

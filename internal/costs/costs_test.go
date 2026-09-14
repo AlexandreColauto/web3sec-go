@@ -266,3 +266,48 @@ func TestBudgetRefusesADamagedMirror(t *testing.T) {
 		t.Fatalf("refusal must name a problem: %v", err)
 	}
 }
+
+// TestCostMirrorComparesSpendNotJustIds pins r16 P1-1: the first cut
+// of the mirror law matched cost_id strings only — appending a second
+// row under an EXISTING id doubled booked spend ($15 -> $1,014, budget
+// EXCEEDED, audit PASS), and rewriting a row's amount hid inside its
+// own id. The law now compares count AND amount AND kind per id.
+func TestCostMirrorComparesSpendNotJustIds(t *testing.T) {
+	c := camp(t)
+	id := ""
+	if ev, err := RecordCost(c, RecordOpts{Kind: "model",
+		AmountUSD: 15.0, Actor: "op"}); err != nil {
+		t.Fatal(err)
+	} else {
+		id = objStr(ev, "cost_id")
+	}
+	f := filepath.Join(c.Dir, "costs.jsonl")
+	raw, _ := os.ReadFile(f)
+	// Duplicate id, inflated amount:
+	if err := os.WriteFile(f, append(raw, []byte(
+		`{"cost_id": "`+id+`", "at": "2026-01-01T00:00:00+00:00", "kind": "model", "amount_usd": 999.0, "actor": "op"}`+"\n")...),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := BudgetStatus(c); err == nil ||
+		!strings.Contains(err.Error(), "duplicated") {
+		t.Fatalf("duplicated cost row must refuse the gate: %v", err)
+	}
+	// Back to one row, but with the AMOUNT edited:
+	if err := os.WriteFile(f, []byte(
+		`{"cost_id": "`+id+`", "at": "2026-01-01T00:00:00+00:00", "kind": "model", "amount_usd": 0.01, "actor": "op"}`+"\n"),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	probs := CostMirrorProblems(c)
+	found := false
+	for _, p := range probs {
+		if strings.Contains(p, "edited in the file") &&
+			strings.Contains(p, "0.01") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("an amount rewrite must burn naming both numbers: %v", probs)
+	}
+}

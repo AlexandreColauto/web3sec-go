@@ -119,6 +119,7 @@ func (c *Campaign) RegisterArtifact(kind, path, note string, snapshotID *string)
 		return "", err
 	}
 	defer c.UnlockProcess()
+	prevRaw, hadRaw := c.rawState() // r16 unwind law
 	if _, err := os.Stat(path); err != nil {
 		// p.exists() is False on ANY stat failure -> FileNotFoundError(p)
 		// whose str() is the path itself.
@@ -166,8 +167,14 @@ func (c *Campaign) RegisterArtifact(kind, path, note string, snapshotID *string)
 		kv("kind", validation.VStr(kind)),
 		kv("path", validation.VStr(path)),
 	)
-	if _, err := c.Log("artifact.registered", &id, &data); err != nil {
-		return "", err
+	if _, lerr := c.Log("artifact.registered", &id, &data); lerr != nil {
+		// r16: ledger refused — UNWIND (see phases.go
+		// for the law; a state change with no event is
+		// the projection lie every audit direction hunts).
+		if uerr := c.unwindState(prevRaw, hadRaw); uerr != nil {
+			return "", lerr
+		}
+		return "", lerr
 	}
 	return id, nil
 }
@@ -211,6 +218,7 @@ func (c *Campaign) PruneArtifact(artifactID, reason string) (validation.Value, e
 		return validation.VNull(), err
 	}
 	defer c.UnlockProcess()
+	prevRaw, hadRaw := c.rawState() // r16 unwind law
 	st, err := c.State()
 	if err != nil {
 		return validation.VNull(), err
@@ -238,8 +246,14 @@ func (c *Campaign) PruneArtifact(artifactID, reason string) (validation.Value, e
 		kv("path", objAt(rec, "path")),
 		kv("reason", validation.VStr(reason)),
 	)
-	if _, err := c.Log("artifact.pruned", &artifactID, &data); err != nil {
-		return validation.VNull(), err
+	if _, lerr := c.Log("artifact.pruned", &artifactID, &data); lerr != nil {
+		// r16: ledger refused — UNWIND (see phases.go
+		// for the law; a state change with no event is
+		// the projection lie every audit direction hunts).
+		if uerr := c.unwindState(prevRaw, hadRaw); uerr != nil {
+			return validation.VNull(), lerr
+		}
+		return validation.VNull(), lerr
 	}
 	return rec, nil
 }

@@ -24,7 +24,20 @@ type LogVerdict struct {
 // VerifyLog is verify_log: seq contiguity, the hash chain (every
 // prev_hash must equal its predecessor's event_hash and every
 // event_hash must recompute), and the state tail vs the log suffix.
-// Catches a hand-edited, reordered, inserted, or truncated log ANYWHERE.
+// Catches a hand-edited, reordered, inserted, or truncated log ANYWHERE
+// — with one boundary r16 spells out: the chain is an UNKEYED sha256
+// over the event's own fields, so it detects ACCIDENTAL and casual
+// damage, not a determined rewriter: anyone who can edit events.jsonl
+// can recompute the whole chain and produce a log that verifies green
+// over fabricated events. Against that adversary the chain is FORMAT,
+// not integrity; the real guard is filesystem custody of the campaign
+// dir (and out-of-band copies if the campaign must survive its own
+// host). doctor's mirror rebuild rides on that honesty: it trusts a
+// chain-valid ledger, because a tamperer who recomputed the chain could
+// also have written the state directly — the rebuild adds no new
+// exposure, but it also cannot detect what it normalizes. Every verify
+// red therefore says "repair via doctor", and doctor DISCLOSES the
+// content delta it adopts (counts + first divergences), never silently.
 //
 // A line that is not valid JSON (or not an object) is REPORTED, not
 // raised; chain/seq/tail checks are skipped past a malformed line.

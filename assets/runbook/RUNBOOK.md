@@ -1555,7 +1555,7 @@ webv2 exploit <C> F-xxx (--paid | --unpaid) [--arg A]              who pays, and
 webv2 enforce <C> NAME [--contract 0x..] [--json]                  write/read stage table for one variable or concept key (L-03)
 webv2 symmetry <C> [--family 0x..] [--json]                        family custody-primitive matrix + divergences (L-04)
 webv2 cost <C> --kind K --amount USD [--trajectory T] [--actor A]  record an operator-reported cost row
-webv2 yields <C>                                                   cost-adjusted discovery yield (advisory)
+webv2 yields <C>                                                   cost-adjusted discovery yield (advisory; refuses a damaged cost mirror)
 webv2 relations <C> [--rebuild]                                    research memory graph (typed edges)
 webv2 resemble <C> <finding>                                       capability-coverage delta (derived)
 

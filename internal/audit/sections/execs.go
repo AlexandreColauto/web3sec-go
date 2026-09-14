@@ -75,6 +75,20 @@ func Execs(c *state.Campaign) (validation.Value, error) {
 		for _, rec := range execs {
 			seen[objStr(rec, "exec_id")] = true
 		}
+		// r16 P2 ATTEMPTED, REFUSED after the golden proved it wrong:
+		// the records-without-events direction (planted-run detection,
+		// legacy-gated by "the campaign has exec events at all") looked
+		// sound against unit fixtures — but the frozen P4 golden holds
+		// legitimate seeded records in campaigns that DO speak execs
+		// for their own runs. Nothing in the record or the ledger says
+		// "seeded": a plant and a twin-era seed are byte-identical
+		// shapes. Flagging them breaks the golden contract; skipping
+		// them would mask plants. The direction is therefore NOT
+		// policed (the mirror direction — event without its record —
+		// is, right below). Planted exec dirs stay visible to `execs
+		// --json` reviewers through their provenance fields; custody of
+		// execs/ is a filesystem-trust question like the hash chain's
+		// (see the verifylog boundary note).
 		for _, e := range evts {
 			typ := objStr(e, "type")
 			if typ != "sandbox.exec.registered" && typ != "sandbox.exec" {

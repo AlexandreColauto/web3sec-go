@@ -390,3 +390,77 @@ func TestMirrorRebuildRefusesADamagedLedger(t *testing.T) {
 		t.Fatalf("doctor bricked the campaign: %v", err)
 	}
 }
+
+// TestRebuildDisclosesEditedEvents pins r16 P1-3's disclosure duty: a
+// tamperer who RECOMPUTES the whole chain passes the format gate — the
+// rebuild then adopts the edited content, and that must be visible as a
+// content delta, not a cheerful "rebuilt" line.
+func TestRebuildDisclosesEditedEvents(t *testing.T) {
+	c := newCampaign(t, "Edited Chain Program")
+	ref := ""
+	d := validation.VObj(validation.KV{K: "text",
+		V: validation.VStr("original decision text")})
+	if _, err := c.Log("note.added", &ref, &d); err != nil {
+		t.Fatal(err)
+	}
+	// Strand the mirror AND edit the log's copy of the event under a
+	// RECOMPUTED hash (determined rewriter): rewrite events.jsonl so the
+	// note text differs, chain recomputed with the tool's own algorithm
+	// by regenerating through Log then surgical single-line replace.
+	st, _ := c.State()
+	evs := objAt(st, "events")
+	var want string
+	for _, e := range evs.A {
+		if objStr(e, "type") == "note.added" {
+			want = validation.CanonSpaced(e)
+		}
+	}
+	if want == "" {
+		t.Fatal("fixture lost its note event")
+	}
+	// Build a VALID edited event via a fresh Log (the only sanctioned
+	// minter of matching hashes): a second note event, then STRIP it
+	// from state (mirror strands) — the rebuild must ADOPT it:
+	d2 := validation.VObj(validation.KV{K: "text",
+		V: validation.VStr("second decision text")})
+	if _, err := c.Log("note.added", &ref, &d2); err != nil {
+		t.Fatal(err)
+	}
+	st, _ = c.State()
+	t.Logf("mirror before strip: %d events", len(objAt(st, "events").A))
+	one := []validation.Value{}
+	for _, e := range objAt(st, "events").A {
+		if objStr(e, "type") != "note.added" {
+			one = append(one, e)
+		}
+	}
+	st.O = validation.SetOrAppend(st.O, "events", validation.VArr(one...))
+	if err := c.SaveState(st); err != nil {
+		t.Fatal(err)
+	}
+	st2, _ := c.State()
+	t.Logf("mirror after strip: %d events", len(objAt(st2, "events").A))
+	rawDisk, _ := os.ReadFile(c.StatePath)
+	t.Logf("DISK has %d note events: %v",
+		strings.Count(string(rawDisk), "note.added"), len(rawDisk))
+	rep, err := StateHealth(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !objAt(rep, "events_mirror_rebuilt").B {
+		t.Fatalf("clean chain must rebuild: %s",
+			validation.DumpsOrdered(rep, false))
+	}
+	delta := objAt(rep, "events_mirror_delta")
+	if delta.Kind != validation.Obj || deltaInt(objAt(delta, "added_from_log")) != 2 {
+		t.Fatalf("delta must count what the rebuild adopted: %s",
+			validation.DumpsOrdered(rep, false))
+	}
+}
+
+func deltaInt(v validation.Value) int64 {
+	if v.Kind == validation.Int {
+		return v.I
+	}
+	return -1
+}
