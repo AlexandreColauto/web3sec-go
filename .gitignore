@@ -11,3 +11,6 @@ dist/
 # out of the tree on purpose — third-party citations inside them)
 Beyond Smart Contracts_*.md
 Deconstructing Claims, Validating AI, and Weighting Risks_*.md
+
+# runtime baseline store when a binary is invoked from the repo root
+baselines/
