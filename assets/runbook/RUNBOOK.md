@@ -1570,6 +1570,7 @@ webv2 exec <C> --profile P --command CMD [--workdir W] [--finding F] [--timeout 
 webv2 artifact-register <C> PATH [--kind poc|detector|trace|...] [--note N]
 webv2 artifact-list <C> [--kind K]                                 list registered artifacts
 webv2 artifact-reconcile <C> [--dry]                               re-hash the registry after an external rewrite
+webv2 artifact-prune <artifact_id> --reason R [--json]             retire a registry row (warns if a live bind cites it)
 webv2 invariant-verify <C> INV-xxx (--artifact ART | --exec E)     CHECKED_AGAINST_CODE (pass exactly one)
 webv2 invariant-contradict <C> INV-xxx --evidence FILE#L|ART-xxx   mark an invariant CONTRADICTED (falsified by code)
 webv2 hint <C> --kind priority|exclusion|detector|note --content C [--source-ref ID] [--actor A]
