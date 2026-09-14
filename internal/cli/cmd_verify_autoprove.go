@@ -15,10 +15,12 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"websec/internal/harness"
 	"websec/internal/invariants"
@@ -640,6 +642,22 @@ func storeReportCopy(c *state.Campaign, digest string,
 	// steps re-creates the wedge this rail removes.
 	if err := os.Chmod(p, 0o444); err != nil {
 		return "", err
+	}
+	// The file is durable; the NAME is not until the directory entry is
+	// synced. Without this, power loss can leave the campaign holding a
+	// registry row and a harness_run event whose digest-named file never
+	// landed — audit correctly burns evidence that the disk simply lost,
+	// and the operator has to re-bind to restore it. Best-effort by
+	// necessity (some filesystems refuse directory fsync with EINVAL):
+	// a refusal that is not "this FS cannot" is surfaced.
+	if d, derr := os.Open(dir); derr == nil {
+		serr := d.Sync()
+		d.Close()
+		if serr != nil && !errors.Is(serr, syscall.EINVAL) &&
+			!errors.Is(serr, syscall.ENOTSUP) {
+			return "", fmt.Errorf("cannot fsync the report store %s: %w",
+				dir, serr)
+		}
 	}
 	return p, nil
 }
