@@ -311,3 +311,22 @@ func TestCostMirrorComparesSpendNotJustIds(t *testing.T) {
 		t.Fatalf("an amount rewrite must burn naming both numbers: %v", probs)
 	}
 }
+
+// TestBudgetRefusesAnUnreadableLedger pins r17 P2#4: the mirror helper
+// once returned "no problems" when the ledger could not be read at all,
+// so `budget` priced spend off costs.jsonl alone while verify screamed.
+func TestBudgetRefusesAnUnreadableLedger(t *testing.T) {
+	c := camp(t)
+	if _, err := RecordCost(c, RecordOpts{Kind: "model",
+		AmountUSD: 42.0, Actor: "op"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(c.Dir, "events.jsonl"),
+		[]byte("GARBAGE"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := BudgetStatus(c); err == nil ||
+		!strings.Contains(err.Error(), "cannot be cross-checked") {
+		t.Fatalf("spend over an unreadable ledger must refuse: %v", err)
+	}
+}

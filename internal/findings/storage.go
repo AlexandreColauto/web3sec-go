@@ -154,3 +154,45 @@ func PinnedFindingID() string {
 	pinnedFindingCounter++
 	return "F-" + hex.EncodeToString(h[:])[:12]
 }
+
+// SaveThenLog is the findings-package sibling of the state package's
+// unwind law (r17): a finding file written while its ledger event was
+// refused is a projection lie — for TERMINAL statuses (DISPROVED,
+// DUPLICATE) it is worse than a lie, it is a one-way door (the
+// transition table refuses to reopen what the log never recorded).
+// Callers capture the pre-save bytes through this helper; on log
+// refusal the FILE is restored before the error returns.
+func SaveThenLog(campaign *state.Campaign, finding *validation.Value,
+	log func() error) error {
+	id := objStr(*finding, "finding_id")
+	path := FindingPath(campaign, id)
+	prevRaw, hadRaw, perr := prevBytes(path)
+	if perr != nil && !os.IsNotExist(perr) {
+		return perr
+	}
+	if err := SaveFinding(campaign, finding); err != nil {
+		return err
+	}
+	if err := log(); err != nil {
+		if rerr := restoreBytes(path, prevRaw, hadRaw); rerr != nil {
+			return err
+		}
+		return err
+	}
+	return nil
+}
+
+func prevBytes(path string) ([]byte, bool, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false, err
+	}
+	return raw, true, nil
+}
+
+func restoreBytes(path string, raw []byte, had bool) error {
+	if !had {
+		return os.Remove(path)
+	}
+	return os.WriteFile(path, raw, 0o644)
+}

@@ -172,6 +172,7 @@ func SetFloorPolicy(campaign *state.Campaign, bugClass, floor, actor,
 		}
 		remaining = append(remaining, e)
 	}
+	prevRaw, hadRaw := campaign.RawState() // r17 unwind law
 	st.O = validation.SetOrAppend(st.O, "floor_policy",
 		validation.VArr(append(remaining, entry)...))
 	if err := saveStateFunc(campaign, st); err != nil {
@@ -184,6 +185,11 @@ func SetFloorPolicy(campaign *state.Campaign, bugClass, floor, actor,
 		kv("replaced", validation.VBool(replaced)),
 	)
 	if _, err := campaign.Log("floor_policy.set", &bugClass, &data); err != nil {
+		// r17: loud today (the floor_policy projection burns red) — but
+		// loud is not the law: half-landings should NOT exist. Restore.
+		if uerr := campaign.UnwindState(prevRaw, hadRaw); uerr != nil {
+			return validation.VNull(), err
+		}
 		return validation.VNull(), err
 	}
 	return entry, nil
@@ -226,6 +232,7 @@ func ClearFloorPolicy(campaign *state.Campaign, bugClass, actor, reason string) 
 	// raised bar converts that finding into mandatory verification queue
 	// work (briefing/rank show it), it does not silently invalidate the
 	// recorded status. Silent is exactly what the gate refuses to be.
+	prevRaw, hadRaw := campaign.RawState() // r17 unwind law
 	st.O = validation.SetOrAppend(st.O, "floor_policy", validation.VArr(remaining...))
 	if err := saveStateFunc(campaign, st); err != nil {
 		return err
@@ -235,6 +242,12 @@ func ClearFloorPolicy(campaign *state.Campaign, bugClass, actor, reason string) 
 		kv("reason", validation.VStr(reason)),
 	)
 	_, err = campaign.Log("floor_policy.cleared", &bugClass, &data)
+	if err != nil {
+		// r17: unwind (see SetFloorPolicy).
+		if uerr := campaign.UnwindState(prevRaw, hadRaw); uerr != nil {
+			return err
+		}
+	}
 	return err
 }
 

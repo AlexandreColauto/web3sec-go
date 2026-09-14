@@ -146,10 +146,24 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 			want = events[len(events)-len(stTail.A):]
 		}
 		if !arraysEq(stTail.A, want) {
-			problems = append(problems,
-				"state event tail does not match the log "+
-					"suffix — the ledger is the truth; run `webv2 doctor` "+
-					"on this campaign to rebuild the mirror from it")
+			// r17: the repair route must not be an unwitting laundering
+			// step. A LONGER projection tail than the log has is the
+			// truncation signature: doctor trusts the log, so running it
+			// ADOPTS the shorter history. Say so at the moment of power.
+			msg := "state event tail does not match the log " +
+				"suffix — the ledger is the truth; run `webv2 doctor` " +
+				"on this campaign to rebuild the mirror from it"
+			if len(stTail.A) > len(events) {
+				msg = fmt.Sprintf("state event tail is LONGER than the log "+
+					"(%d projected vs %d logged) — events are GONE from "+
+					"the tail; a truncated log still verifies its chain, "+
+					"and doctor rebuilds TO it, adopting the loss. If you "+
+					"did not cut it, treat the campaign dir as tampered "+
+					"before repairing (investigate, copy the dir); "+
+					"`webv2 doctor` then reports exactly what it erases",
+					len(stTail.A), len(events))
+			}
+			problems = append(problems, msg)
 		}
 	}
 

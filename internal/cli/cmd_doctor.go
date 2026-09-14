@@ -116,6 +116,16 @@ func printDoctor(r *Runner, rep validation.Value) {
 						"from the projection; if you did not run the "+
 						"rewrite, treat the campaign dir as tampered",
 						ch)
+				} else if dp := objInt(d, "dropped_from_projection"); dp > 0 {
+					// r17: tail truncation is the CHEAPEST forgery (seq
+					// and chain stay valid when you delete the end) —
+					// the rebuild must say what it erased, not just
+					// count what it kept.
+					msg += fmt.Sprintf(": %d events the projection remembered "+
+						"are GONE from the log — a truncated tail keeps the "+
+						"chain valid, so if you did not cut it, treat the "+
+						"campaign dir as tampered (%d kept, %d adopted)",
+						dp, objInt(d, "kept"), objInt(d, "added_from_log"))
 				} else {
 					msg += fmt.Sprintf(" (%d kept, %d adopted from log)",
 						objInt(d, "kept"), objInt(d, "added_from_log"))

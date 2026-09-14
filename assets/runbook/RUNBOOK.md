@@ -1563,7 +1563,7 @@ webv2 floors <C> [--json] [set|unset CLASS FLOOR --actor A --reason R]   # effec
 webv2 budget <C> [--set USD] [--clear] [--set-discovery N] [--actor A] [--json]
 webv2 price <C> {set,table} [asset] [usd] [--source S] [--as-of TS] [--actor A]   # the asset-price table (every USD figure names its row)
 webv2 price-basis <C> <finding> PRICE-xxx                          pin a finding's USD figures to a price-table row
-webv2 execs <C> [--id E] [--json]                                  the exec ledger (every sandboxed command + verdict)
+webv2 execs <C> [--id E] [--json]                                  the exec ledger (every sandboxed command + verdict; an eventless PLANTED record is indistinguishable from a twin-era seeded one — execs/ custody is a filesystem-trust question)
 webv2 classify <C> EXEC-xxx                                        classify a FAILED exec (environment/setup/logic/unknown)
 
 webv2 exec <C> --profile P --command CMD [--workdir W] [--finding F] [--timeout T] [--env K=V] [--dry-run]   # sandboxed run -> EXEC record

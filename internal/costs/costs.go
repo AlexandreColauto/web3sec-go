@@ -712,7 +712,13 @@ func setKey(v *validation.Value, key string, val validation.Value) {
 func CostMirrorProblems(c *state.Campaign) []string {
 	evts, err := c.Events()
 	if err != nil {
-		return nil // the ledger verdict belongs to verify; not ours to invent
+		// r17 P2: an UNREADABLE ledger is strictly worse than a damaged
+		// mirror — returning nil here priced spend off the rows alone
+		// while verify screamed red ("cost: $42.00 spent" on a GARBAGE
+		// log). "The ledger verdict belongs to verify" justified
+		// silence, not authority to evaluate spend against nothing.
+		return []string{"the event ledger is unreadable, so recorded " +
+			"costs cannot be cross-checked: " + err.Error()}
 	}
 	var costEvts []validation.Value
 	refs := map[string]bool{}

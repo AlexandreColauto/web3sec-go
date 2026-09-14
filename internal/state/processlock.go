@@ -139,3 +139,14 @@ func (c *Campaign) rawState() ([]byte, bool) {
 	}
 	return raw, true
 }
+
+// RawState and UnwindState are the exported seams of the unwind law for
+// packages that compose state writes with their own Log calls (floors,
+// evalscore, probes) — the same discipline as the state package's own
+// methods: snapshot with RawState BEFORE saving, restore with
+// UnwindState when the ledger refuses.
+func (c *Campaign) RawState() ([]byte, bool) { return c.rawState() }
+
+func (c *Campaign) UnwindState(raw []byte, had bool) error {
+	return c.unwindState(raw, had)
+}

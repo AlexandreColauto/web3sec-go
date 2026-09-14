@@ -344,6 +344,11 @@ func (c *Campaign) refreshArtifact(artifactID, reason, actor, newKind string) (v
 	a.O = validation.SetOrAppend(a.O, "refresh_count", validation.VInt(count+1))
 	arts.A[idx] = a
 	st.O = validation.SetOrAppend(st.O, "artifacts", arts)
+	// r17: capture disk bytes BEFORE this save — under the caller's lock
+	// they are the last CONSISTENT state (refresh is only reached while
+	// a locked method runs; the disk has not been touched since its
+	// load).
+	prevRaw, hadRaw := c.rawState()
 	if err := c.save(st); err != nil {
 		return validation.VNull(), err
 	}
@@ -360,6 +365,15 @@ func (c *Campaign) refreshArtifact(artifactID, reason, actor, newKind string) (v
 			validation.VStr(migrated))
 	}
 	if _, err := c.Log("artifact.refreshed", &artifactID, &data); err != nil {
+		// r17 P1: the refresh half-landed SILENTLY — projection shows
+		// the new sha + count, the log has no artifact.refreshed, and
+		// audit stays green because the only refreshed check runs
+		// log->state. UNWIND, like every other save-then-log site
+		// (the r16 headline said "every": prune/register got it,
+		// refresh had been skipped by the converter).
+		if uerr := c.unwindState(prevRaw, hadRaw); uerr != nil {
+			return validation.VNull(), err
+		}
 		return validation.VNull(), err
 	}
 	return a, nil

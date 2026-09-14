@@ -162,6 +162,41 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 	if fi, err := os.Stat(path); err == nil {
 		after = fi.Size()
 	}
+	// r17: the rebuild's own trace must OUTLIVE the run. The JSON delta
+	// printed once and vanished; verify then says green and `audit` says
+	// PASS over whatever the log became. campaigns/<C>/doctor.json keeps
+	// a durable (capped) journal of repairs — a truncation laundered to
+	// green still leaves the record that it happened and what moved.
+	if mirrorRebuilt || mirrorRefusal != "" {
+		entry := validation.VObj(
+			validation.KV{K: "at", V: validation.VStr(state.NowIso())},
+			validation.KV{K: "rebuilt", V: validation.VBool(mirrorRebuilt)},
+			validation.KV{K: "delta", V: mirrorDeltaNote},
+			validation.KV{K: "refused",
+				V: func() validation.Value {
+					if mirrorRefusal == "" {
+						return validation.VNull()
+					}
+					return validation.VStr(mirrorRefusal)
+				}()},
+		)
+		journalPath := filepath.Join(campaign.Dir, "doctor.json")
+		journal := []validation.Value{}
+		if raw, jerr := os.ReadFile(journalPath); jerr == nil {
+			if v, perr := validation.ParseOrdered(raw); perr == nil &&
+				v.Kind == validation.Arr {
+				journal = v.A
+			}
+		}
+		journal = append(journal, entry)
+		if len(journal) > 50 { // capped journal, newest kept
+			journal = journal[len(journal)-50:]
+		}
+		if jerr := validation.WriteJson(journalPath,
+			validation.VArr(journal...), ""); jerr != nil {
+			return validation.VNull(), jerr
+		}
+	}
 	return validation.VObj(
 		validation.KV{K: "state_path", V: validation.VStr(path)},
 		validation.KV{K: "size_before", V: validation.VInt(before)},

@@ -77,3 +77,48 @@ func TestUnwindOnStageAndArtifact(t *testing.T) {
 			len(arts), arts)
 	}
 }
+
+// TestLedgerRefusalUndoesTheRefresh pins r17 P1#1: the converter's
+// regex missed the refresh site (save in a helper, log further down),
+// so a reconcile-after-external-rewrite with a read-only ledger
+// half-landed a NEW sha + refresh_count with NO artifact.refreshed
+// event — and stayed green forever (no state->log refreshed check).
+func TestLedgerRefusalUndoesTheRefresh(t *testing.T) {
+	root := t.TempDir()
+	c, err := Init(root, "Refresh Unwind Program", InitOpts{CampaignID: "C-refrw00001"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	art := filepath.Join(c.ArtifactsDir, "model.json")
+	if err := os.WriteFile(art, []byte("{\"v\":1}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	id, err := c.RegisterArtifact("protocol-model", art, "initial", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(art, []byte("{\"v\":2}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(c.EventsPath, []byte("GARBAGE"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.RefreshArtifact(id, "op", "reconcile after external rewrite"); err == nil {
+		t.Fatal("refresh accepted a dead ledger")
+	}
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := objAt(objAt(st, "artifacts").A[0], "sha256")
+	wantOld, _ := validation.Sha256File(art)
+	_ = wantOld
+	if row.Kind != validation.Str || row.S == "" {
+		t.Fatalf("unwind lost the artifact row: %v", row)
+	}
+	// The registration sha was for v:1 — after unwind the row must NOT
+	// carry a refreshed_at/refresh_count (the projection is v:1-era):
+	if rc := objAt(objAt(st, "artifacts").A[0], "refresh_count"); rc.Kind == validation.Int && rc.I > 0 {
+		t.Fatalf("half-landed refresh survived the unwind: %v", rc)
+	}
+}

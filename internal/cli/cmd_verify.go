@@ -242,7 +242,7 @@ func verifyQueue(c *state.Campaign, r *Runner) error {
 
 // verifyLog is cmd_verify's default branch: verify_log as indent-2 JSON,
 // exit 1 when not ok.
-func verifyLog(c *state.Campaign, stdout io.Writer) error {
+func verifyLog(c *state.Campaign, stdout, stderr io.Writer) error {
 	v, err := c.VerifyLog()
 	if err != nil {
 		return err
@@ -263,6 +263,20 @@ func verifyLog(c *state.Campaign, stdout io.Writer) error {
 			int64(v.MalformedLines))},
 	)
 	fmt.Fprintln(stdout, validation.DumpIndentedASCII(res))
+	// r17 P2: the unkeyed-chain trust boundary gets a trace even in the
+	// GREEN output — but on STDERR only (stdout stays byte-identical to
+	// the twin). A campaign doctor has repaired carries a doctor.json
+	// journal; mention it so an operator sees WHO decided to adopt a
+	// ledger version, not just that the current bytes self-consistent.
+	if v.OK {
+		if _, jerr := os.Stat(filepath.Join(c.Dir, "doctor.json")); jerr == nil {
+			fmt.Fprintln(stderr, "note: events.jsonl previously required a "+
+				"doctor repair — campaigns/<C>/doctor.json lists what was "+
+				"rebuilt and adopted; the hash chain is a format check, "+
+				"not integrity (a rewriter who recomputes it verifies "+
+				"green — see the verifylog boundary note)")
+		}
+	}
 	if !v.OK {
 		return failSilent{}
 	}
@@ -435,7 +449,7 @@ func verifyCmd(root string, args []string, r *Runner) error {
 	if a.queue {
 		return verifyQueue(c, r)
 	}
-	return verifyLog(c, r.Out)
+	return verifyLog(c, r.Out, r.Err)
 }
 
 func init() {

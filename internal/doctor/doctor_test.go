@@ -464,3 +464,50 @@ func deltaInt(v validation.Value) int64 {
 	}
 	return -1
 }
+
+// TestTailTruncationIsDisclosedNotLaundered pins r17 P1#3: deleting the
+// ledger's LAST line keeps the chain valid, verify routes the operator
+// to doctor — and doctor used to erase the projection's memory of the
+// event silently (dropped was computed but only the changed>0 branch
+// spoke). Now the human line names the drop and campaigns/<C>/doctor.json
+// keeps a durable trace after the terminal scrollback is gone.
+func TestTailTruncationIsDisclosedNotLaundered(t *testing.T) {
+	c := newCampaign(t, "Truncated Tail Program")
+	ref := ""
+	d := validation.VObj(validation.KV{K: "text", V: validation.VStr("tail")})
+	if _, err := c.Log("note.added", &ref, &d); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(c.EventsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimRight(string(raw), "\n"), "\n")
+	if err := os.WriteFile(c.EventsPath,
+		[]byte(lines[0]+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// verify (the route INTO doctor) must warn about the loss:
+	if v, err := c.VerifyLog(); err != nil || v.OK ||
+		!strings.Contains(strings.Join(v.Problems, " "), "LONGER than the log") {
+		t.Fatalf("truncated tail must make verify warn before doctor: %+v",
+			v.Problems)
+	}
+	rep, err := StateHealth(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	delta := objAt(rep, "events_mirror_delta")
+	if delta.Kind != validation.Obj ||
+		deltaInt(objAt(delta, "dropped_from_projection")) != 1 {
+		t.Fatalf("dropped must be counted: %s",
+			validation.DumpsOrdered(rep, false))
+	}
+	jraw, err := os.ReadFile(filepath.Join(c.Dir, "doctor.json"))
+	if err != nil {
+		t.Fatalf("durable repair trace missing: %v", err)
+	}
+	if !strings.Contains(string(jraw), "dropped_from_projection") {
+		t.Fatalf("journal must persist the drop: %s", jraw)
+	}
+}

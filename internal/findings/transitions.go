@@ -326,11 +326,14 @@ func transition(campaign *state.Campaign, findingID, toStatus, reason string,
 	if fromStatus == "DUPLICATE" && toStatus == "HYPOTHESIS" {
 		clearDuplicateOf(&finding)
 	}
-	if err := SaveFinding(campaign, &finding); err != nil {
-		return validation.VNull(), err
-	}
-	if err := logStatus(campaign, &finding, fromStatus, toStatus, reason,
-		actor); err != nil {
+	// r17 P1: a TERMINAL status without its event is a one-way door —
+	// the transition table cannot reopen what the log never recorded,
+	// so a refused Log must RESTORE the finding file (SaveThenLog, the
+	// findings sibling of the state package's unwind law).
+	if err := SaveThenLog(campaign, &finding, func() error {
+		return logStatus(campaign, &finding, fromStatus, toStatus,
+			reason, actor)
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	if toStatus == "CONFIRMED" {
@@ -717,11 +720,15 @@ func SetCriticVerdict(campaign *state.Campaign, findingID, verdict,
 	meta := asDict(objAt(finding, "dedup_meta"))
 	meta.O = validation.SetOrAppend(meta.O, "critic_reasoning", validation.VStr(reasoning))
 	finding.O = validation.SetOrAppend(finding.O, "dedup_meta", meta)
-	if err := SaveFinding(campaign, &finding); err != nil {
-		return validation.VNull(), err
-	}
-	data := validation.VObj(validation.KV{K: "verdict", V: validation.VStr(verdict)})
-	if _, err := campaign.Log("finding.critic", &findingID, &data); err != nil {
+	if err := SaveThenLog(campaign, &finding, func() error {
+		// r17: unwind law (see move) — file+event land together or not
+		// at all.
+		data := validation.VObj(validation.KV{K: "verdict", V: validation.VStr(verdict)})
+		if _, lerr := campaign.Log("finding.critic", &findingID, &data); lerr != nil {
+			return lerr
+		}
+		return nil
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return finding, nil
@@ -770,11 +777,14 @@ func SetTriagerOutlook(campaign *state.Campaign, findingID, outcome,
 		validation.KV{K: "reason", V: validation.VStr(stripped)},
 	))
 	finding.O = validation.SetOrAppend(finding.O, "verification", ver)
-	if err := SaveFinding(campaign, &finding); err != nil {
-		return validation.VNull(), err
-	}
-	data := validation.VObj(validation.KV{K: "outcome", V: validation.VStr(outcome)})
-	if _, err := campaign.Log("finding.triager_outlook", &findingID, &data); err != nil {
+	if err := SaveThenLog(campaign, &finding, func() error {
+		// r17: unwind law (see move).
+		data := validation.VObj(validation.KV{K: "outcome", V: validation.VStr(outcome)})
+		if _, lerr := campaign.Log("finding.triager_outlook", &findingID, &data); lerr != nil {
+			return lerr
+		}
+		return nil
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return finding, nil
@@ -806,15 +816,18 @@ func SetShieldAdjudication(campaign *state.Campaign, findingID string,
 		validation.KV{K: "actor", V: validation.VStr(actor)},
 	))
 	finding.O = validation.SetOrAppend(finding.O, "verification", ver)
-	if err := SaveFinding(campaign, &finding); err != nil {
-		return validation.VNull(), err
-	}
-	data := validation.VObj(
-		validation.KV{K: "extracts", V: validation.VBool(extracts)},
-		validation.KV{K: "actor", V: validation.VStr(actor)},
-	)
-	if _, err := campaign.Log("finding.shield_adjudication", &findingID,
-		&data); err != nil {
+	if err := SaveThenLog(campaign, &finding, func() error {
+		// r17: unwind law (see move).
+		data := validation.VObj(
+			validation.KV{K: "extracts", V: validation.VBool(extracts)},
+			validation.KV{K: "actor", V: validation.VStr(actor)},
+		)
+		if _, lerr := campaign.Log("finding.shield_adjudication", &findingID,
+			&data); lerr != nil {
+			return lerr
+		}
+		return nil
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return finding, nil
@@ -865,16 +878,19 @@ func auditPrecondition(campaign *state.Campaign, finding *validation.Value,
 	pre := objAt(*finding, "preconditions")
 	pre.A[i] = p
 	finding.O = validation.SetOrAppend(finding.O, "preconditions", pre)
-	if err := SaveFinding(campaign, finding); err != nil {
-		return validation.VNull(), err
-	}
-	data := validation.VObj(
-		validation.KV{K: "description", V: validation.VStr(loggedDesc)},
-		validation.KV{K: "enforced", V: validation.VStr(value)},
-	)
 	fid := objStr(*finding, "finding_id")
-	if _, err := campaign.Log("finding.precondition_audited", &fid,
-		&data); err != nil {
+	if err := SaveThenLog(campaign, finding, func() error {
+		// r17: unwind law (see move).
+		data := validation.VObj(
+			validation.KV{K: "description", V: validation.VStr(loggedDesc)},
+			validation.KV{K: "enforced", V: validation.VStr(value)},
+		)
+		if _, lerr := campaign.Log("finding.precondition_audited", &fid,
+			&data); lerr != nil {
+			return lerr
+		}
+		return nil
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return *finding, nil
@@ -955,12 +971,15 @@ func FlagPossibleDuplicate(campaign *state.Campaign, findingID,
 	}
 	dedup.O = validation.SetOrAppend(dedup.O, "possible_duplicate_of", lst)
 	finding.O = validation.SetOrAppend(finding.O, "dedup", dedup)
-	if err := SaveFinding(campaign, &finding); err != nil {
-		return validation.VNull(), err
-	}
-	data := validation.VObj(validation.KV{K: "of", V: validation.VStr(ofFindingID)})
-	if _, err := campaign.Log("finding.possible_duplicate", &findingID,
-		&data); err != nil {
+	if err := SaveThenLog(campaign, &finding, func() error {
+		// r17: unwind law (see move).
+		data := validation.VObj(validation.KV{K: "of", V: validation.VStr(ofFindingID)})
+		if _, lerr := campaign.Log("finding.possible_duplicate", &findingID,
+			&data); lerr != nil {
+			return lerr
+		}
+		return nil
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return finding, nil
