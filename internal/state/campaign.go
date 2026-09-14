@@ -134,11 +134,25 @@ func Init(root, program string, opts InitOpts) (*Campaign, error) {
 	if _, err := os.Stat(c.StatePath); err == nil {
 		return nil, fmt.Errorf("campaign already exists: %s", c.Dir)
 	}
+	dirsMade := false
+	// r14 (P2#7): a refused init used to leave an empty campaign skeleton
+	// — every later `ls campaigns/` showed a ghost that ListCampaigns
+	// skips and no verb can address. If Init refuses, it removes what
+	// it created; only after some directory exists does the cleanup
+	// apply (we never delete what this call did not make).
+	defer func() {
+		if dirsMade && c != nil {
+			if _, serr := os.Stat(c.StatePath); serr != nil {
+				os.RemoveAll(c.Dir)
+			}
+		}
+	}()
 	for _, d := range []string{c.Dir, c.FindingsDir, c.ArtifactsDir,
 		c.MemoryDir, c.ChainsDir, c.ExecsDir} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			return nil, err
 		}
+		dirsMade = true
 	}
 	// Two separate now_iso() calls, as in Python (they may differ).
 	createdAt := nowIso()
@@ -200,17 +214,21 @@ func (c *Campaign) State() (validation.Value, error) {
 
 // save is _save: bump updated_at in place (key position kept) and
 // re-write with validation.
-func (c *Campaign) save(st validation.Value) error {
-	// r13: every state write is a read-modify-write of a projection —
-	// across processes that is corruption (a sibling webv2 appending its
-	// event between our State() and this rename loses its record with
-	// BOTH processes reporting success). The campaign lock serializes
-	// writers; nested calls (Log -> save) reuse the held lock by depth
-	// count. NOTE the limit: the depth gate is per-process — two
-	// GOROUTINES of one process calling save concurrently behave as
-	// they did before (c.mu has always guarded only Log's window); this
-	// closes the cross-process hole the r13 critic executed, not a
-	// general goroutine-safety claim.
+func (c *Campaign) save(st validation.Value) error { return c.SaveState(st) }
+
+// SaveState is campaign._save — THE canonical state writer, exported
+// because r14 caught four twin packages (floors, probes, evalscore,
+// orchestrator's scope) re-implementing _save locally, and every private
+// re-implementation had silently opted out of the cross-process lock:
+// two racing `floors set` lost one another's update with both exiting 0.
+// The twin body is unchanged (updated_at replaced in place, key position
+// kept, campaign_state schema); the lock is the only addition. NEVER
+// write StatePath from outside this function — the law in
+// processlock.go: any read-modify-write of campaign_state holds the
+// campaign lock for its whole duration (depth-counted re-entry; the
+// per-process caveat from r13 still stands: cross-process is closed,
+// goroutine-safety is not claimed).
+func (c *Campaign) SaveState(st validation.Value) error {
 	if err := c.plock.lock(c.lockPath()); err != nil {
 		return err
 	}
@@ -389,6 +407,12 @@ func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
 // on a missing file, so a pin never runs against no prior state (r10
 // audit noted the reachability; the guard stays, the fact is recorded).
 func (c *Campaign) unwindState(prev []byte, hadPrev bool) error {
+	// r14: a rollback IS a state write — a racing process must not land
+	// its update between our decision to unwind and the rename.
+	if err := c.plock.lock(c.lockPath()); err != nil {
+		return err
+	}
+	defer c.plock.unlock()
 	if !hadPrev {
 		return os.Remove(c.StatePath)
 	}

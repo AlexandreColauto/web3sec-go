@@ -130,6 +130,21 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 	}
 	fmt.Fprintf(stdout, "pinned %s (%s, %d files)\n",
 		objStr(snap, "snapshot_id"), objStr(src, "ladder"), objInt(src, "file_count"))
+	if root := objStr(src, "root"); root != "" {
+		if n, err := snapshot.PinnedSymlinkCount(root); err == nil && n > 0 {
+			// r14: custody is a claim, so the pin says what it does
+			// NOT take: links are copied as links and hashed as
+			// links — the bytes behind them stay outside the
+			// campaign.
+			word := "entries"
+			if n == 1 {
+				word = "entry"
+			}
+			fmt.Fprintf(stdout, "  note: %d pinned %s symlinked — the "+
+				"copy keeps the link, not what it points at; materialize "+
+				"(cp -rL) first if the pin must stand alone\n", n, word)
+		}
+	}
 	if cfg := objAt(snap, "config"); cfg.Kind == validation.Obj && len(cfg.O) > 0 {
 		fmt.Fprintf(stdout, "  toolchain: %s — solc %s (detected from the pinned tree)\n",
 			objStr(cfg, "build_system"), objStr(cfg, "compiler"))

@@ -197,6 +197,10 @@ func moveCmd(root string, args []string, r *Runner) error {
 	if err != nil {
 		return err
 	}
+	// r14: capture the grants BEFORE the move — the terminal law kills
+	// them, and both doors into a terminal must say so (supersede got
+	// the warning in r13; `move` was the mute twin).
+	before, beforeErr := findings.LoadFinding(c, pos[1])
 	f, err := findings.TransitionWith(c, pos[1], pos[2], reason,
 		findings.TransitionOpts{Actor: actor, Adjacent: adjacent,
 			AdjacentClear: adjacentClear, DuplicateOf: duplicateOf})
@@ -212,6 +216,13 @@ func moveCmd(root string, args []string, r *Runner) error {
 	}
 	fmt.Fprintf(r.Out, "%s: %s (evidence level %s)\n", pos[1],
 		objStr(f, "status"), level)
+	if beforeErr == nil {
+		// survivor nil: the row itself carries its grants onward only
+		// while LIVE — a terminal row answers nothing, so "still
+		// listed" proves nothing here (unlike supersede, where a
+		// successor genuinely re-grants).
+		warnDyingGrants(r.Err, pos[1], objStr(f, "status"), before, nil)
+	}
 	return nil
 }
 

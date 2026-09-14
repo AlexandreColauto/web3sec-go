@@ -256,3 +256,83 @@ func TestCanonicalMatchesCompact(t *testing.T) {
 		t.Errorf("canonical: %s", got)
 	}
 }
+
+// TestSymlinksHashAsThemselves pins r14 issue 5: the ported walk
+// followed links, so a pin's "immutable" hash depended on bytes outside
+// the campaign — editing an outside target made audit LIE ("the pinned
+// copy was modified" when zero bytes of it moved), and anyone with
+// write access to a target could permanently red any pin. Links now
+// hash (and merkle) as their own target string, symmetric between
+// source and staged copy; outside edits are inert, copy edits fire.
+func TestSymlinksHashAsThemselves(t *testing.T) {
+	root := t.TempDir()
+	tree := filepath.Join(root, "tree")
+	if err := os.MkdirAll(tree, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(root, "outside.sol")
+	if err := os.WriteFile(outside, []byte("contract S {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tree, "a.sol"),
+		[]byte("contract A {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(tree, "link.sol")); err != nil {
+		t.Fatal(err)
+	}
+	h1, n1, err := ContentHash(tree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n1 != 2 {
+		t.Fatalf("pinned %d files, want 2 (link counts as one)", n1)
+	}
+	m1, err := SourceMerkleRoot(tree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Mutate the OUTSIDE target: nothing the campaign custodies moved.
+	if err := os.WriteFile(outside, []byte("contract MUTATED{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h2, _, err := ContentHash(tree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m2, err := SourceMerkleRoot(tree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h1 != h2 || m1 != m2 {
+		t.Fatalf("outside bytes leaked into the pin's identity: %s/%s vs %s/%s",
+			h1[:8], m1[:8], h2[:8], m2[:8])
+	}
+	// The STAGED copy (stageTree preserves links as links) hashes
+	// IDENTICAL to the source — the audit's equality is between the two
+	// trees the campaign owns.
+	st, err := stageTree(tree, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer discardStaged(st)
+	h3, _, err := ContentHash(st.staging)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h3 != h1 {
+		t.Fatalf("source and staged copy disagree: %s vs %s", h1[:8], h3[:8])
+	}
+	// A real change INSIDE custody (link removed from the copy) must
+	// move the hash.
+	if err := os.Remove(filepath.Join(st.staging, "link.sol")); err != nil {
+		t.Fatal(err)
+	}
+	h4, _, err := ContentHash(st.staging)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h4 == h1 {
+		t.Fatal("deleting the link from the copy left the hash unmoved")
+	}
+}

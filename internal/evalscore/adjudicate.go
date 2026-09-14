@@ -267,13 +267,10 @@ func adjudicationValue(a Adjudication) validation.Value {
 // saveState is campaign._save (unexported in the state twin): bump updated_at
 // in place and re-write the projection under the campaign_state schema.
 func saveState(c *state.Campaign, st validation.Value) error {
-	for i := range st.O {
-		if st.O[i].K == "updated_at" {
-			st.O[i].V = validation.VStr(state.NowIso())
-			break
-		}
-	}
-	return validation.WriteJson(c.StatePath, st, "campaign_state")
+	// r14: this local _save re-implementation bypassed the campaign
+	// lock (unlocked read-modify-write racing another process). The
+	// twin body now lives in exactly one place: state.SaveState.
+	return c.SaveState(st)
 }
 
 // Record validates, refuses a finding id that is not in the campaign's LIVE
@@ -299,6 +296,12 @@ func Record(c *state.Campaign, a Adjudication) (Adjudication, error) {
 	}
 	a.At = state.NowIso()
 	entry := adjudicationValue(a)
+	// r14: load->save of adjudications is one read-modify-write unit —
+	// racing `verdict` calls used to drop an adjudication silently.
+	if err := c.LockProcess(); err != nil {
+		return Adjudication{}, err
+	}
+	defer c.UnlockProcess()
 	st, err := c.State()
 	if err != nil {
 		return Adjudication{}, err

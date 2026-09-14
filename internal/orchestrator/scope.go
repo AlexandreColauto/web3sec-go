@@ -29,12 +29,25 @@ func (o *Orchestrator) Scope(policyPath string) (validation.Value, error) {
 		if err != nil {
 			return validation.VNull(), err
 		}
+		// r14: the policy_path stamp is a read-modify-write of
+		// campaign_state; it must hold the campaign lock for the whole
+		// window like every other writer (state.SaveState law). Twin
+		// shape kept — this write does not bump updated_at (Python's
+		// scope path writes the file directly), so the lock is taken
+		// explicitly around the SAME bytes, not routed through
+		// SaveState.
+		if err := o.C.LockProcess(); err != nil {
+			return validation.VNull(), err
+		}
 		doc, err := validation.ReadJson(o.C.StatePath)
 		if err != nil {
+			o.C.UnlockProcess()
 			return validation.VNull(), err
 		}
 		doc.O = validation.SetOrAppend(doc.O, "policy_path", validation.VStr(saved))
-		if err := validation.WriteJson(o.C.StatePath, doc, "campaign_state"); err != nil {
+		err = validation.WriteJson(o.C.StatePath, doc, "campaign_state")
+		o.C.UnlockProcess()
+		if err != nil {
 			return validation.VNull(), err
 		}
 	}

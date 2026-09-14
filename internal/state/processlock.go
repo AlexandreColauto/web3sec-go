@@ -9,7 +9,12 @@
 // atomicity is not concurrency control; an OS advisory lock is.
 //
 // The law: any sequence that READS ledger or state and APPENDS/WITES it
-// must hold the campaign lock for its whole duration. That is Log (read
+// must hold the campaign lock for its whole duration — r14 found that
+// locking only the WRITE half (SaveState) still lost updates when the
+// State() load happened outside; so the load-modify-write windows
+// (floors Set/Clear, probes SetBlank, evalscore Record, orchestrator
+// scope) take LockProcess at entry and the depth count rides through
+// SaveState/Log re-entry. That is Log (read
 // tail → append → mirror-save) and every save (read-modify-write via
 // State()). Lock discipline mirrors the rest of this package: loud
 // failure, never silent skip — a lock that cannot be taken within the

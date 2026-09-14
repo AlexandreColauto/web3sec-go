@@ -298,6 +298,28 @@ func TestSupersedeWarnsWhenGrantsDie(t *testing.T) {
 		!strings.Contains(errS, "no longer grant") {
 		t.Fatalf("stderr must name the dead grant: %q (out %q)", errS, out)
 	}
+	// r14: the MOVE door into the same terminal must warn identically —
+	// one law, every door.
+	c3, root3 := t15Campaign(t, "move-grants")
+	g := supersedeIngest(t, c3)
+	gf, err := findings.LoadFinding(c3, g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gf.O = validation.SetOrAppend(gf.O, "capabilities", validation.VObj(
+		validation.KV{K: "granted", V: validation.VArr(
+			validation.VStr("flash_loan"))},
+		validation.KV{K: "required", V: validation.VArr()}))
+	if err := findings.SaveFinding(c3, &gf); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS3 := run(t, "--root", root3, "move", c3.CampaignID,
+		g, "SUPERSEDED", "--reason", "retire via the move door",
+		"--actor", "op")
+	if code != 0 || !strings.Contains(errS3, "flash_loan") {
+		t.Fatalf("move into terminal must warn about the dead grant: "+
+			"exit %d stderr %q", code, errS3)
+	}
 	// Successor WITHOUT the grant warns; a campaign where nothing dies
 	// stays quiet (supersedeIngest rows carry no grants at all).
 	c2, root2 := t15Campaign(t, "supersede-nogrant")

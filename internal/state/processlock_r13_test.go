@@ -2,6 +2,7 @@ package state
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -121,3 +122,128 @@ func lockWorker() {
 }
 
 var _ = filepath.Join
+
+// TestConcurrentLoadModifyWritesLoseNothing pins r14's P0: r13 locked
+// the WRITE (SaveState) but the twin floors path loads State() in a
+// SEPARATE window, so two processes could still interleave
+// read-A/write-A/read-B/write-B and the last state agreed with neither
+// ledger (state said 39, ledger said 34 — both exit 0). The law now:
+// the load-modify-write window holds the lock end to end. Workers here
+// imitate floors.SetFloorPolicy's exact shape (State -> edit -> SaveState
+// -> Log) against the same campaign.
+func TestConcurrentLoadModifyWritesLoseNothing(t *testing.T) {
+	if os.Getenv("WEBV2_LMWWORKER") != "" {
+		lmwWorker()
+	}
+	root := t.TempDir()
+	if _, err := Init(root, "Lock Race Program",
+		InitOpts{CampaignID: "C-lmwrace001"}); err != nil {
+		t.Fatal(err)
+	}
+	self, _ := os.Executable()
+	var wg sync.WaitGroup
+	for i := 0; i < 6; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			cmd := exec.Command(self, "-test.run=TestConcurrentLoadModifyWritesLoseNothing")
+			cmd.Env = append(os.Environ(),
+				"WEBV2_LMWWORKER=1", "WEBV2_LOCKROOT="+root,
+				"WEBV2_LOCKID=C-lmwrace001",
+				fmt.Sprintf("WEBV2_WORKER=%d", i))
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Errorf("worker %d: %v\n%s", i, err, out)
+			}
+		}(i)
+	}
+	wg.Wait()
+	c, err := Open(root, "C-lmwrace001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	evts, err := c.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Each worker appended one entry to probe_blanks-like list "floor_policy"
+	// via a raw projection edit; the final state must contain EVERY class
+	// exactly once and its winner per class must equal the LAST event for
+	// that class — a lost update shows as a missing class or a mismatch.
+	byClassLedger := map[string]validation.Value{}
+	for _, e := range evts {
+		if objStr(e, "type") != "floor_policy.set" {
+			continue
+		}
+		byClassLedger[objStr(e, "ref")] = objAt(e, "data")
+	}
+	if len(byClassLedger) != 6 {
+		t.Fatalf("ledger lost a class: %d of 6", len(byClassLedger))
+	}
+	rows := objAt(st, "floor_policy")
+	if len(rows.A) != 6 {
+		t.Fatalf("state lost an update: %d rows, want 6", len(rows.A))
+	}
+	for _, r := range rows.A {
+		d := byClassLedger[objStr(r, "class")]
+		if objStr(d, "reason") != objStr(r, "reason") {
+			t.Fatalf("state and ledger disagree for %s: %q vs %q",
+				objStr(r, "class"), objStr(r, "reason"), objStr(d, "reason"))
+		}
+	}
+}
+
+// lmwWorker mirrors floors.SetFloorPolicy's window: READ, edit, WRITE,
+// LOG — with the lock taken at entry exactly like the production fix.
+func lmwWorker() {
+	i := os.Getenv("WEBV2_WORKER")
+	c, err := Open(os.Getenv("WEBV2_LOCKROOT"), os.Getenv("WEBV2_LOCKID"))
+	if err != nil {
+		os.Exit(1)
+	}
+	if err := c.LockProcess(); err != nil {
+		os.Stderr.WriteString(err.Error())
+		os.Exit(1)
+	}
+	defer c.UnlockProcess()
+	st, err := c.State()
+	if err != nil {
+		os.Exit(1)
+	}
+	cls := "class-" + i
+	policy := objAt(st, "floor_policy")
+	var kept []validation.Value
+	for _, e := range policy.A {
+		if objStr(e, "class") == cls {
+			continue
+		}
+		kept = append(kept, e)
+	}
+	entry := validation.VObj(
+		validation.KV{K: "class", V: validation.VStr(cls)},
+		validation.KV{K: "floor", V: validation.VStr("E4")},
+		validation.KV{K: "actor", V: validation.VStr("worker")},
+		validation.KV{K: "reason", V: validation.VStr("worker reason " + i + " xxxx")},
+		validation.KV{K: "at", V: validation.VStr("2026-01-01T00:00:00+00:00")},
+	)
+	st.O = validation.SetOrAppend(st.O, "floor_policy", validation.VArr(append(kept, entry)...))
+	if err := c.SaveState(st); err != nil {
+		os.Stderr.WriteString(err.Error())
+		os.Exit(1)
+	}
+	ref := cls
+	data := validation.VObj(
+		validation.KV{K: "floor", V: validation.VStr("E4")},
+		validation.KV{K: "actor", V: validation.VStr("worker")},
+		validation.KV{K: "reason", V: validation.VStr("worker reason " + i + " xxxx")},
+		validation.KV{K: "replaced", V: validation.VBool(false)},
+	)
+	if _, err := c.Log("floor_policy.set", &ref, &data); err != nil {
+		os.Stderr.WriteString(err.Error())
+		os.Exit(1)
+	}
+	os.Exit(0)
+}

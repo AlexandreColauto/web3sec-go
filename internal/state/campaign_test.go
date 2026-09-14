@@ -320,3 +320,24 @@ func objVal(v validation.Value, key string) validation.Value {
 	}
 	return validation.VNull()
 }
+
+// TestRefusedInitLeavesNoSkeleton pins r14 issue 7: an init that dies
+// on schema validation used to deposit an empty campaigns/C-xxxx/ tree
+// — invisible to ListCampaigns, immortal to every verb.
+func TestRefusedInitLeavesNoSkeleton(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Init(root, "p", InitOpts{CampaignID: "C-tooshort11"}); err == nil {
+		t.Fatal("short program accepted")
+	}
+	if _, err := os.Stat(filepath.Join(root, "campaigns", "C-tooshort11")); !os.IsNotExist(err) {
+		t.Fatalf("refused init left a skeleton: %v", err)
+	}
+	// The success path is untouched: full tree + state.
+	c, err := Init(root, "Lock Program", InitOpts{CampaignID: "C-keepme0000"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(c.StatePath); err != nil {
+		t.Fatalf("good init damaged: %v", err)
+	}
+}

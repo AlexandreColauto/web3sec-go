@@ -90,8 +90,13 @@ per-campaign advisory lock (`campaigns/<C>/campaign.lock` — OS metadata,
 never an artifact, appears in no projection). A second `webv2` racing it
 waits up to five seconds, then fails loudly with "campaign is locked by
 another process" — let the running command finish and retry; the lock is
-what keeps two concurrent `hint`/`snap` invocations from interleaving the
-ledger.
+what keeps two concurrent commands from interleaving. The lock spans the
+whole read-modify-write window — load, edit, write, log — for every path
+that touches `campaign_state.json`, including `floors`, `probes blank`,
+`verdict`, and `scope`, and the row+event pairs for waivers and costs.
+Projection damage is repairable, not terminal: if `verify` reports the
+events mirror no longer matches the log, `webv2 doctor <C>` rebuilds the
+mirror from the ledger — the log is the truth and is never rewritten.
 
 Exit codes follow one shared shape, with a boundary worth knowing exactly:
 **0** did what was asked (including a truthful empty result). **1** is a

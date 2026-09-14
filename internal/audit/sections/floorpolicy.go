@@ -74,6 +74,28 @@ func floorPolicyProblems(pol, events []validation.Value) []validation.Value {
 				validation.PyRepr(cls), pyStrValue(objAt(entry, "floor")),
 				validation.PyRepr(objAt(d, "floor")))))
 		}
+		// r14: the level was policed but the ATTRIBUTION was not — the
+		// floor law ("the decision is data, attributed, reasoned and
+		// logged") is only enforceable if the audit checks the actor and
+		// the reason too. An unflocked era let a racing set rewrite the
+		// live row's reason while its event said another (the replay
+		// matched on floor and stayed green): WHO decided and WHY is now
+		// compared like the level is. (Divergence from the ported
+		// section, same family as the projection un-gating — the twin
+		// checked less.)
+		for _, field := range []struct{ key, what string }{
+			{"actor", "who decided"},
+			{"reason", "the written reason"},
+		} {
+			if !pyEqual(objAt(d, field.key), objAt(entry, field.key)) {
+				problems = append(problems, validation.VStr(fmt.Sprintf(
+					"floor_policy for %s records %s=%s but the log's "+
+						"last set says %s — %s drifted from the ledger",
+					validation.PyRepr(cls), field.key,
+					pyStrValue(objAt(entry, field.key)),
+					validation.PyRepr(objAt(d, field.key)), field.what)))
+			}
+		}
 	}
 	for _, k := range cur.order {
 		if !polHasClass(pol, cur.ref[k]) {

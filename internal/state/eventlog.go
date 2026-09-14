@@ -209,3 +209,34 @@ func objAt(v validation.Value, key string) validation.Value {
 	}
 	return validation.VNull()
 }
+
+// EventsMirrorFromLog is the sanctioned rebuild of the state's events
+// mirror: parse the log, keep exactly what a fresh Log would have kept
+// (tailEvents over the whole chain). doctor owns calling it; verify owns
+// NAMING it. The log is the truth — a projection may be rebuilt from it,
+// never the reverse.
+func (c *Campaign) EventsMirrorFromLog() ([]validation.Value, error) {
+	lines, err := c.logLines()
+	if err != nil {
+		return nil, err
+	}
+	var all []validation.Value
+	for _, ln := range lines {
+		v, perr := validation.ParseOrdered([]byte(ln))
+		if perr != nil {
+			return nil, fmt.Errorf("events.jsonl line %d does not parse (%v)",
+				len(all)+1, perr)
+		}
+		all = append(all, v)
+	}
+	if len(all) == 0 {
+		return []validation.Value{}, nil
+	}
+	// Re-run the tail rule over the full history: fold every event
+	// through tailEvents exactly as the live mirror did.
+	var mirror []validation.Value
+	for _, e := range all {
+		mirror = tailEvents(mirror, e)
+	}
+	return mirror, nil
+}

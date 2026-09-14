@@ -149,6 +149,15 @@ func SetFloorPolicy(campaign *state.Campaign, bugClass, floor, actor,
 		kv("at", validation.VStr(nowIsoFunc())),
 	)
 	// schema-validated by campaign._save (campaign_state covers floor_policy)
+	// r14: LOAD through SAVE is one read-modify-write unit — a sibling
+	// `floors set` between our State() and our rename used to vanish
+	// (both exit 0, state says 39, ledger says 34). The campaign lock
+	// spans the window; the depth count rides straight through
+	// saveStateFunc into state.SaveState.
+	if err := campaign.LockProcess(); err != nil {
+		return validation.VNull(), err
+	}
+	defer campaign.UnlockProcess()
 	st, err := campaign.State()
 	if err != nil {
 		return validation.VNull(), err
@@ -184,6 +193,11 @@ func SetFloorPolicy(campaign *state.Campaign, bugClass, floor, actor,
 // (falls back to the built-in table). A class with no override yields an error
 // whose twin is Python's KeyError — errors.Is(err, ErrNoFloorOverride).
 func ClearFloorPolicy(campaign *state.Campaign, bugClass, actor, reason string) error {
+	// r14: same read-modify-write window as SetFloorPolicy — one lock.
+	if err := campaign.LockProcess(); err != nil {
+		return err
+	}
+	defer campaign.UnlockProcess()
 	if strings.TrimSpace(actor) == "" {
 		return errors.New("clearing a floor override must name its actor")
 	}

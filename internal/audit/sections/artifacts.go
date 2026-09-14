@@ -1,5 +1,13 @@
 // Section 2: artifacts — re-hash every registered file; a mismatch means
 // the content changed AFTER registration (or the hash was forged).
+//
+// Direction law (r14, documenting what r13 made explicit for execs):
+// this section is registry->disk only. A file sitting in artifacts/
+// with NO state row is NOT flagged: artifacts/ doubles as the staging
+// ground for reports and probe scratch, so unregistered bytes are
+// normal operation, not corruption — and they make no claim, so there
+// is no lie to catch. The reverse direction (state row with no file,
+// or file not hashing as registered) burns red: that IS the claim.
 package sections
 
 import (

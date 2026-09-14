@@ -130,6 +130,13 @@ func RecordCost(c *state.Campaign, opts RecordOpts) (validation.Value, error) {
 	}
 	// The JSONL split policy: costs.jsonl is written with bare json.dumps
 	// (ensure_ascii=True), unlike every other JSONL in the tree.
+	// r14: row + cost.recorded event are ONE unit (the projection audit
+	// cross-checks both directions); hold the campaign lock across both,
+	// exactly like the waiver pair.
+	if err := c.LockProcess(); err != nil {
+		return validation.VNull(), err
+	}
+	defer c.UnlockProcess()
 	if err := validation.AppendJsonlAscii(costsPath(c),
 		validation.DumpsOrdered(entry, true)); err != nil {
 		return validation.VNull(), err

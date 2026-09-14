@@ -164,6 +164,12 @@ func SetBlank(c *state.Campaign, axis, anchorBlind, reason,
 		kv("actor", validation.VStr(strings.TrimSpace(actor))),
 		kv("at", validation.VStr(state.NowIso())),
 	)
+	// r14: load->save of probe_blanks is one read-modify-write unit; the
+	// campaign lock spans the window (depth re-entry via SaveState).
+	if err := c.LockProcess(); err != nil {
+		return validation.VNull(), err
+	}
+	defer c.UnlockProcess()
 	st, err := c.State()
 	if err != nil {
 		return validation.VNull(), err

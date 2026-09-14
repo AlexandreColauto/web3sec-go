@@ -27,13 +27,10 @@ func SetSaveState(f func(*state.Campaign, validation.Value) error) {
 // defaultSaveState is campaign._save: updated_at is replaced in place and the
 // state re-written under the campaign_state schema.
 func defaultSaveState(c *state.Campaign, st validation.Value) error {
-	for i := range st.O {
-		if st.O[i].K == "updated_at" {
-			st.O[i].V = validation.VStr(state.NowIso())
-			break
-		}
-	}
-	return validation.WriteJson(c.StatePath, st, "campaign_state")
+	// r14: this local _save re-implementation bypassed the campaign
+	// lock (unlocked read-modify-write racing another process). The
+	// twin body now lives in exactly one place: state.SaveState.
+	return c.SaveState(st)
 }
 
 // CampaignSurface is campaign_surface: the campaign's

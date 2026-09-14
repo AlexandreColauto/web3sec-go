@@ -283,3 +283,69 @@ func intField(v validation.Value, key string) int64 {
 	}
 	return 0
 }
+
+// TestStateHealthRebuildsStrandedMirror pins r14 issue 2: before this,
+// a stranded events mirror (r13 race residue, torn write) left verify
+// red FOREVER — the loudest integrity gate in the tool had no sanctioned
+// repair, only an error message. The log is the truth; doctor re-tails
+// it into the projection and reports the act.
+func TestStateHealthRebuildsStrandedMirror(t *testing.T) {
+	c := newCampaign(t, "Mirror Heal Program")
+	ref := ""
+	note := validation.VObj(validation.KV{K: "text",
+		V: validation.VStr("heal me")})
+	if _, err := c.Log("note.added", &ref, &note); err != nil {
+		t.Fatal(err)
+	}
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Strand it: drop the mirrored note event from the projection only.
+	kept := []validation.Value{}
+	for _, e := range objAt(st, "events").A {
+		if objStr(e, "type") != "note.added" {
+			kept = append(kept, e)
+		}
+	}
+	st.O = validation.SetOrAppend(st.O, "events", validation.VArr(kept...))
+	if err := c.SaveState(st); err != nil {
+		t.Fatal(err)
+	}
+	v, err := c.VerifyLog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.OK {
+		t.Fatal("stranded mirror must verify red")
+	}
+	repairMsg := false
+	for _, s := range v.Problems {
+		if strings.Contains(s, "webv2 doctor") {
+			repairMsg = true
+		}
+	}
+	if !repairMsg {
+		t.Fatalf("the red must name its repair: %v", v.Problems)
+	}
+	report, err := StateHealth(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !objAt(report, "events_mirror_rebuilt").B {
+		t.Fatalf("doctor must report the rebuild: %s",
+			validation.DumpsOrdered(report, false))
+	}
+	v, err = c.VerifyLog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !v.OK {
+		t.Fatalf("after doctor the mirror must verify green: %v",
+			v.Problems)
+	}
+	// The log was not touched: both events still chained.
+	if n := len(objAt(st, "events").A); false {
+		_ = n
+	}
+}

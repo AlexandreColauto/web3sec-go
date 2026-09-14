@@ -134,7 +134,9 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 		}
 		if !arraysEq(stTail.A, want) {
 			problems = append(problems,
-				"state event tail does not match the log suffix")
+				"state event tail does not match the log "+
+					"suffix — the ledger is the truth; run `webv2 doctor` "+
+					"on this campaign to rebuild the mirror from it")
 		}
 	}
 

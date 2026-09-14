@@ -40,8 +40,9 @@ var LockfileNames = []string{
 }
 
 type fileEntry struct {
-	rel string // posix, relative to root
-	abs string
+	rel  string // posix, relative to root
+	abs  string
+	link bool // symlink entry: hashed as its target string (r14)
 }
 
 // pinnedFiles is _pinned_files: the files a snapshot's digests cover —
@@ -67,9 +68,21 @@ func pinnedFiles(root string) ([]fileEntry, error) {
 		if p == rootAbs {
 			return nil
 		}
-		// is_file(): follows symlinks; broken links and dirs drop out.
-		st, err := os.Stat(p)
-		if err != nil || !st.Mode().IsRegular() {
+		// r14 divergence from the ported is_file() (which followed
+		// links): a symlink whose TARGET was hashed made the pin's
+		// "immutable" content depend on bytes outside the campaign —
+		// edit one outside file and every pin hashing it reds with
+		// "the pinned copy was modified", a causally false claim
+		// (nothing in the copy moved), while the copy itself cannot
+		// reproduce what was hashed. Links are now walked like the
+		// tree copy treats them (stageTree copies links as links): a
+		// link entry is the link itself. Broken links and dirs drop
+		// out as before.
+		li, lerr := os.Lstat(p)
+		if lerr != nil {
+			return nil
+		}
+		if li.Mode()&os.ModeSymlink == 0 && !li.Mode().IsRegular() {
 			return nil
 		}
 		for _, part := range strings.Split(p, string(os.PathSeparator)) {
@@ -83,8 +96,9 @@ func pinnedFiles(root string) ([]fileEntry, error) {
 			}
 		}
 		files = append(files, fileEntry{
-			rel: strings.TrimPrefix(p, rootAbs+string(os.PathSeparator)),
-			abs: p,
+			rel:  strings.TrimPrefix(p, rootAbs+string(os.PathSeparator)),
+			abs:  p,
+			link: li.Mode()&os.ModeSymlink != 0,
 		})
 		return nil
 	})
@@ -134,6 +148,20 @@ func ContentHash(root string) (string, int, error) {
 	}
 	h := sha256.New()
 	for _, f := range files {
+		if f.link {
+			// The link ITSELF is the content: readlink(2)'s string,
+			// same framing as files. Deterministic across pin and
+			// copy (stageTree preserves the exact target string).
+			tgt, err := os.Readlink(f.abs)
+			if err != nil {
+				return "", 0, err
+			}
+			putLen8(h, int64(len(f.rel)))
+			h.Write([]byte(f.rel))
+			putLen8(h, int64(len(tgt)))
+			h.Write([]byte(tgt))
+			continue
+		}
 		st, err := os.Stat(f.abs)
 		if err != nil {
 			return "", 0, err
@@ -168,6 +196,27 @@ func FileLeaf(p, root string) ([]byte, error) {
 	rel := pAbs
 	if strings.HasPrefix(pAbs, rootAbs+string(os.PathSeparator)) {
 		rel = strings.TrimPrefix(pAbs, rootAbs+string(os.PathSeparator))
+	}
+	// r14 (same custody law as ContentHash, one layer down): a symlink's
+	// leaf is the LEAF STRING framed over the link's own framing —
+	// sha256(8be(len(rel)) + rel + 8be(len(target)) + target). Callers
+	// (SourceMerkleRoot, LockfileLeaves) inherit it: the merkle of the
+	// copied tree equals the merkle of the source even when an outside
+	// target mutates, because neither ever reads the outside bytes.
+	// Divergence from the ported _file_leaf (followed the file); the
+	// byte vectors pinned in tests use regular files only.
+	if li, lerr := os.Lstat(pAbs); lerr == nil &&
+		li.Mode()&os.ModeSymlink != 0 {
+		tgt, rerr := os.Readlink(pAbs)
+		if rerr != nil {
+			return nil, rerr
+		}
+		h := sha256.New()
+		putLen8(h, int64(len(rel)))
+		h.Write([]byte(rel))
+		putLen8(h, int64(len(tgt)))
+		h.Write([]byte(tgt))
+		return h.Sum(nil), nil
 	}
 	data, err := os.ReadFile(pAbs)
 	if err != nil {
@@ -262,4 +311,22 @@ func lockfileSet() map[string]struct{} {
 		lockfileSetMemo = m
 	}
 	return lockfileSetMemo
+}
+
+// PinnedSymlinkCount is how many pinned entries are symlinks (r14): the
+// snap CLI discloses them — a pin holding links references bytes outside
+// the campaign's custody, and the operator must know the copy is only
+// self-contained in CONTENT sense, not in PATH sense.
+func PinnedSymlinkCount(root string) (int, error) {
+	files, err := pinnedFiles(root)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, f := range files {
+		if f.link {
+			n++
+		}
+	}
+	return n, nil
 }

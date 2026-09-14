@@ -89,6 +89,21 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 		}
 		setKey(&st, "artifacts", arts)
 	}
+	// r14: the events mirror is a PROJECTION of the log, and an unflocked
+	// era (or the r13 twin-package race) can strand it mid-file — verify
+	// goes red forever with no verb to fix it. Doctor owns repairs of
+	// projection-only damage: rebuild the tail from the log (the log is
+	// never touched; its chain is the truth). Reported, never silent.
+	mirrorRebuilt := false
+	if fresh, merr := campaign.EventsMirrorFromLog(); merr == nil {
+		if validation.CanonSpaced(objAt(st, "events")) !=
+			validation.CanonSpaced(validation.Value{Kind: validation.Arr,
+				A: fresh}) {
+			st.O = validation.SetOrAppend(st.O, "events",
+				validation.Value{Kind: validation.Arr, A: fresh})
+			mirrorRebuilt = true
+		}
+	}
 	// no schema validation on the repair write: doctor's job is to make the
 	// file loadable again, not to re-judge its shape — a state that drifted
 	// from the schema must still be repairable (the audit is what judges).
@@ -106,6 +121,7 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 		validation.KV{K: "bytes_freed", V: validation.VInt(before - after)},
 		validation.KV{K: "notes_truncated", V: validation.VArr(truncated...)},
 		validation.KV{K: "repaired_at", V: validation.VStr(state.NowIso())},
+		validation.KV{K: "events_mirror_rebuilt", V: validation.VBool(mirrorRebuilt)},
 	), nil
 }
 
