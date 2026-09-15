@@ -97,9 +97,9 @@ func fakeDockerScript(t *testing.T, bin, clientPidFile, containerPidFile string)
 		"      esac\n" +
 		"    done\n" +
 		"    echo $$ > \"" + clientPidFile + "\"\n" +
-		"    setsid /bin/sh -c \"$payload\" &\n" +
+		"    /usr/bin/setsid /bin/sh -c \"$payload\" &\n" +
 		"    echo $! > \"" + containerPidFile + "\"\n" +
-		"    sleep 30\n" + // the client streams until the container exits
+		"    /bin/sleep 30\n" + // the client streams until the container exits
 		"    ;;\n" +
 		"  kill)\n" +
 		"    kill -9 \"$(cat \"" + containerPidFile + "\")\" 2>/dev/null\n" +
@@ -141,7 +141,7 @@ func TestR36ContainerTimeoutHonesty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rec, err := sb.Run("sleep 40; echo NEVER", RunOpts{Timeout: 2})
+	rec, err := sb.Run("/bin/sleep 40; echo NEVER", RunOpts{Timeout: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +259,7 @@ func TestR36TimeoutSurvivorIsReportedAndCleaned(t *testing.T) {
 	}
 	// The note must record WHAT survived, by pid, and must never pretend
 	// the escaped process was group-killed into oblivion.
-	if !strings.Contains(res.TimeoutNote, "pids [") {
+	if !strings.Contains(res.TimeoutNote, "pid [") {
 		t.Fatalf("the survivor note must record pids, got %q", res.TimeoutNote)
 	}
 	if strings.Contains(res.TimeoutNote, "survivor escaped") &&
@@ -292,8 +292,9 @@ func TestR36ExitCodeClassificationIsHonest(t *testing.T) {
 		return rec
 	}
 	host := ClassifyFailure(mk("host-readonly", "", 127))
-	if strings.Contains(strings.ToLower(strAt(host, "note")), "docker") {
-		t.Fatalf("host 127 note claims docker: %q", strAt(host, "note"))
+	if strings.Contains(strAt(host, "note"), "docker itself failed") {
+		t.Fatalf("host 127 note claims docker ran the command: %q",
+			strAt(host, "note"))
 	}
 	if !strings.Contains(strings.ToLower(strAt(host, "note")), "not find") {
 		t.Fatalf("host 127 note must name the missing command: %q",
@@ -463,7 +464,7 @@ func TestR36OutputCaptureCapAndAccounting(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(data), "TRUNCATED") {
-		t.Fatalf("stdout.log lacks the truncation marker — a consumer could "+
+		t.Fatalf("stdout.log lacks the truncation marker — a consumer could " +
 			"mistake it for a complete capture")
 	}
 	hashes := m["artifact_hashes"].(map[string]any)

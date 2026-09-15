@@ -81,9 +81,7 @@ func defaultClassifyFailure(rec validation.Value) validation.Value {
 	var signals []string
 
 	if exitCode != nil && (*exitCode == 125 || *exitCode == 126 || *exitCode == 127) {
-		return classifyResult("environment", []string{
-			"docker-level exit code " + strconv.FormatInt(*exitCode, 10)},
-			"docker itself failed before the command ran")
+		return classifyDockerLevelExit(rec, *exitCode, text)
 	}
 	solcFailed := solcErrRe.MatchString(text)
 	if solcFailed {
@@ -132,6 +130,78 @@ func defaultClassifyFailure(rec validation.Value) validation.Value {
 		"unknown": "unclassified; routed as setup (the cheap error)",
 	}
 	return classifyResult(cls, signals, notes[cls])
+}
+
+// classifyDockerLevelExit names the REAL state behind exit 125/126/127
+// (r36 F3: the old classifier claimed "docker itself failed before the
+// command ran" for every profile — a lie on host profiles, where no
+// docker is involved, and on a container command-not-found, whose output
+// proves the command DID run).
+//
+//   - 125 is docker's own contract for `docker run` failing itself — only
+//     meaningful on a container profile;
+//   - 126/127 come from the shell that executed the command: on a host
+//     profile they are a missing binary / not-executable; in a container
+//     the captured output distinguishes "the command ran and was not
+//     found" (its output is in the logs) from a docker client/runtime
+//     failure (docker's own error text), and absence of output is
+//     reported as INCONCLUSIVE, never resolved by invention.
+func classifyDockerLevelExit(rec validation.Value, ec int64,
+	text string) validation.Value {
+	profile := strAt(rec, "profile")
+	code := strconv.FormatInt(ec, 10)
+	if profile != "" && HostProfile(profile) {
+		switch ec {
+		case 127:
+			return classifyResult("environment", []string{
+				"exit 127 on host profile " + profile +
+					" (no docker involved)"},
+				"exit 127: the host shell could not find the command — "+
+					"check PATH and the binary name (docker is not involved "+
+					"on this profile)")
+		case 126:
+			return classifyResult("environment", []string{
+				"exit 126 on host profile " + profile +
+					" (no docker involved)"},
+				"exit 126: the command was found but is not executable — "+
+					"check permissions (docker is not involved on this profile)")
+		default:
+			return classifyResult("environment", []string{
+				"exit 125 on host profile " + profile +
+					" (no docker involved)"},
+				"exit 125 on a host profile: no docker is involved — the "+
+					"command itself exited 125 (permission/exec failure)")
+		}
+	}
+	// Container profile (or a record without a profile key, where docker's
+	// own exit-code contract applies).
+	if ec == 125 {
+		return classifyResult("environment", []string{
+			"docker-level exit code " + code},
+			"docker itself failed before the command ran (exit 125 is "+
+				"docker's own code for a `docker run` failure)")
+	}
+	if dockerErrRe.MatchString(text) {
+		return classifyResult("environment", []string{
+			"docker-level exit code " + code,
+			"docker/daemon error text in the captured output"},
+			"the docker client/runtime failed before or around the command "+
+				"(docker's error text is in the captured output)")
+	}
+	if strings.TrimSpace(text) != "" {
+		return classifyResult("environment", []string{
+			"exit " + code + " with captured output present",
+			"the command ran"},
+			"the command RAN inside the container and was not found or "+
+				"not executable (exit "+code+"; its output is in "+
+				"stdout.log/stderr.log)")
+	}
+	return classifyResult("environment", []string{
+		"exit " + code + " with no captured output — inconclusive"},
+		"exit "+code+" with NO captured output: inconclusive between "+
+			"'the docker client failed before the command ran' and 'the "+
+			"command was not found and its shell error was lost' — inspect "+
+			"the daemon; this classification does not guess which")
 }
 
 // errorNotAssert applies `Error: (?!.*assert)`: an "Error: " whose line does

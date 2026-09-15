@@ -15,7 +15,8 @@ it bites when it is wrong. Every command below was run on this box
    model invariants)                                (BODY markers, rule name scaffold-owned)
  operator fills BODY  ──────────▶ artifacts/harness/<INV>/INV.mspec
                                   exec --profile minicertora ────▶ PATH shim `minicertora`
-                                    (host profile: network none, fs readonly)
+                                    (host profile: network none, unconfined host filesystem — the record says
+                                    so; only deny-rule tripwires apply)
                                     ◀──── one JSON line per rule (build_report)
                                   verify --harness-result INV-x --exec EXEC-x
                                     → rung on verification.harness

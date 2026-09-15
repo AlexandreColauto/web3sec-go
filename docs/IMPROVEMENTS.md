@@ -1,5 +1,41 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-15 — r36 (glm-5.3-flash critic): the sandbox said "was killed" while the payload was still running
+
+Thirteen rounds had hammered the bind/audit re-derivation line, so this round went at a surface nobody had audited: the
+sandbox exec path. The finding that matters most is a lie in the ledger. A container profile's timeout killed only the
+host-side `docker run` CLIENT — the process group signal never reaches the container, and the client is SIGKILLed at the
+same instant, so it has no chance to relay anything. The record was written at t=4s saying "timed out after 4s and was
+killed" while `docker ps` showed the container `Up`, running its full 40-second command with network on the fork-runner
+profile, unrecorded and invisible: the exact evidence path (E4/E5) the project exists to make trustworthy. The container
+is now identified up front and stopped by id before the group kill completes, and a container that cannot be identified
+or stopped is not described as killed. A second containment lie was narrower but the same species: a `setsid` escapee
+survives the timeout, and the note framed that purely as an output problem ("partial output withheld") without ever
+saying a process was still executing — it now says so, attempts the cleanup it can, and still withholds the partial bytes.
+
+The rest of the round was ordinary fidelity, which is where this class of bug lives. exit 126/127 were classified as
+"docker itself failed before the command ran" for EVERY profile, including host profiles where no docker exists and
+in-container command-not-found where the command demonstrably ran (its `pwd`/`ls` output is in the capture); the
+classification now uses the profile and the evidence. `--workdir` was recorded verbatim, so one record described
+different directories depending on where the operator stood, and a symlinked workdir produced an `input_hashes` entry
+of `{'.': ''}` — a FABRICATED empty digest presented as evidence, because the walker treated the symlink root as a file;
+the record now names the resolved directory the process actually ran in and never emits a digest it could not compute.
+A `host-readonly` record asserted `environment.filesystem: "readonly"` while the run wrote the host disk — the label now
+describes what the profile really enforces (unconfined host, deny-rule tripwires), and the RUNBOOK and the two
+MINICERTORA docs that repeated the old claim are corrected with it. And there was no output cap at all on capture: a
+200 MB stdout was kept in full at ~817 MB peak RSS; captures are now capped at 10 MiB per stream with the true byte
+counts, a truncation flag and an in-file marker (additive JSON keys only), so a capped capture can never be mistaken for
+a complete one.
+
+At the CLI boundary the same round tightened the operator contract: `exec --timeout 0` and negative timeouts are refused
+with the documented exit code (the Python twin accepts them and produces an immediate TimeoutExpired; the divergence is
+recorded in docs/archive/KNOWN_DIVERGENCES.md rather than matched), and the timeout/limit arguments were pinned at the
+boundary. The schema change for the new capture-accounting key required an asset manifest resync, which is how the round
+noticed it had touched a hashed asset at all.
+
+Verified with real docker: a `sleep 40` command under `--timeout 4` leaves no running container and a note that is
+true. gofmt/go vet clean, 70/70 packages, runbook-walkthrough and golden GREEN.
+
 ## 2026-09-14 — r36 (b-ai critic): the surfaces nobody had attacked, and two repairs that never happened
 
 Thirteen rounds had hardened the bind/audit re-derivation line, so this round went where no round had been: the sandbox's

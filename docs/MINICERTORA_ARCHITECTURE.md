@@ -74,7 +74,9 @@ squash is nearly lossless, and the loss is recorded, not hidden.
 ### L0 — Toolchain plane (presence-gated, pinned, host-side)
 
 - **Profile `minicertora`** beside `halmos`/`forge-fuzz` in
-  `internal/sandbox/profiles.go`: network `none`, filesystem `readonly`,
+  `internal/sandbox/profiles.go`: network `none`, host-classified — the
+  record labels the filesystem by what the profile really enforces (a host
+  run is unconfined; it is NOT read-only),
   `HostProfile` → true (so it can never back E4+ evidence — the same rail
   that already forces fork repro for real PoCs). Add it to the
   `sandbox_execution.schema.json` profile enum (additive; golden bytes move

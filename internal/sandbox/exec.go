@@ -6,6 +6,7 @@
 package sandbox
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -23,6 +24,14 @@ import (
 
 const timeSecond = time.Second
 
+// CaptureTotal is the true byte accounting of one capped capture (r36 F6).
+type CaptureTotal struct {
+	// Total is every byte the process wrote to the stream.
+	Total int64
+	// Kept is the number of bytes retained under the cap.
+	Kept int64
+}
+
 // ProcResult is one finished subprocess (Python's CompletedProcess).
 type ProcResult struct {
 	ReturnCode int
@@ -33,8 +42,70 @@ type ProcResult struct {
 	// instead of the wrapper claiming a clean kill (r22 F1: a record
 	// that says "was killed" when nothing died is a lie + destroyed
 	// stdout). Faked/injected results leave it empty = plain wording.
+	// r36 F1/F2: it also carries the container's fate (killed / still
+	// running / unidentifiable) and the escaped-survivor pids.
 	TimeoutNote string
+	// KillUnconfirmed is set when a timeout/abnormal-death kill could not
+	// be confirmed to have stopped every process and container — the
+	// record then must NOT claim "and was killed" (r36 F1).
+	KillUnconfirmed bool
+	// OutputWithheld is set when captured bytes were not read because a
+	// survivor was still writing them — the byte totals are unknown, not
+	// zero (r36 F6: absence, never a fabricated count).
+	OutputWithheld bool
+	// StdoutCap/StderrCap describe exactly which bytes Stdout/Stderr hold.
+	StdoutCap CaptureTotal
+	StderrCap CaptureTotal
 }
+
+// outputCaptureLimitBytes is the DELIBERATE cap on captured stdout/stderr,
+// per stream (r36 F6: the exec path used to keep everything — a 200MB
+// write put ~817MB peak RSS on webv2 with no truncation marker and no
+// size accounting). 10MiB per stream (20MiB worst case) is far above any
+// meaningful build/test log and keeps memory bounded. The TRUE byte counts
+// and the truncation land in the record's `output_capture` object, and the
+// in-file marker line means a truncated log can never pass as complete.
+// A package var (not a const) so tests can lower it to stay fast; the
+// recorded cap_bytes always reflects the value in force.
+var outputCaptureLimitBytes int64 = 10 << 20
+
+// cappedWriter captures at most limit bytes while COUNTING everything
+// written: the child is never throttled or blocked, excess bytes are
+// dropped from memory only.
+type cappedWriter struct {
+	limit int64
+	buf   bytes.Buffer
+	total int64
+}
+
+func newCappedWriter(limit int64) *cappedWriter { return &cappedWriter{limit: limit} }
+
+func (w *cappedWriter) Write(p []byte) (int, error) {
+	w.total += int64(len(p))
+	if room := w.limit - int64(w.buf.Len()); room > 0 {
+		if int64(len(p)) > room {
+			w.buf.Write(p[:room])
+		} else {
+			w.buf.Write(p)
+		}
+	}
+	return len(p), nil // dropping the excess is not an error for the child
+}
+
+func (w *cappedWriter) String() string { return w.buf.String() }
+
+func (w *cappedWriter) cap() CaptureTotal {
+	return CaptureTotal{Total: w.total, Kept: int64(w.buf.Len())}
+}
+
+// Platform hooks for the timeout cleanup (procsig_unix.go installs the
+// /proc-walking implementations; non-linux leaves them nil, which the
+// timeout path reports honestly as "cannot enumerate survivors").
+var (
+	survivorsOfFn   func(root int) (pids []int, ok bool)
+	killSurvivorFn  func(pid int) bool
+	survivorAliveFn func(pid int) bool
+)
 
 // runFunc executes a subprocess. dir is the working directory ("" = inherit),
 // env is the FULL environment (nil = inherit), and a timeout surfaces as
@@ -46,7 +117,12 @@ type runFunc func(argv []string, dir string, env []string,
 // errTimeout is subprocess.TimeoutExpired.
 var errTimeout = fmt.Errorf("timed out")
 
-var runProc runFunc = realRunProc
+var runProc runFunc
+
+// realRunProc refers to runProc (stopContainer kills the payload
+// container through the seam), so the seam is wired in init, not a var
+// initializer.
+func init() { runProc = realRunProc }
 
 // realRunProc is subprocess.run(capture_output=True, text=True, timeout=...).
 func realRunProc(argv []string, dir string, env []string,
@@ -58,68 +134,312 @@ func realRunProc(argv []string, dir string, env []string,
 	if env != nil {
 		cmd.Env = env
 	}
-	var out, errB strings.Builder
-	cmd.Stdout, cmd.Stderr = &out, &errB
+	out := newCappedWriter(outputCaptureLimitBytes)
+	errB := newCappedWriter(outputCaptureLimitBytes)
+	cmd.Stdout, cmd.Stderr = out, errB
 	// r21 F1: own process group, so the timeout kill reaches wrapper
 	// CHILDREN (the pipe-holders), not just the direct child.
 	setProcGroup(cmd)
 	if err := cmd.Start(); err != nil {
 		return ProcResult{Stdout: out.String(), Stderr: errB.String()}, err
 	}
+	// r36 F1: pin the container name the killing side will use to stop
+	// the payload container. (The process-tree snapshot happens at
+	// TIMEOUT time, inside timeoutProcResult: at start time the payload
+	// may not have forked its escapees yet, and while the direct child
+	// still lives its ppid links are intact.)
+	containerName := containerNameFromArgv(argv)
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	select {
 	case err := <-done:
-		return ProcResult{ReturnCode: exitCode(err), Stdout: out.String(),
-			Stderr: errB.String()}, nil
+		return finishedProcResult(err, out, errB, containerName), nil
 	case <-timer.C:
 		// r21 F1: kill the whole process GROUP. The direct child of a
 		// probe is often a WRAPPER (uv shims are #!/bin/sh scripts);
 		// killing only the shell leaves its child holding the stdout
 		// pipe — Wait never returns, and the r19 grace-return read the
 		// shared Builders while a copier goroutine still wrote: a DATA
-		// RACE on top of a goroutine leak. Setpgid (at Start, below)
+		// RACE on top of a goroutine leak. Setpgid (at Start, above)
 		// makes the group kill reach the survivors, so Wait lands and
-		// the Builders are quiescent before we read them.
-		killGroup(cmd)
-		killDone := make(chan struct{})
-		go func() {
-			ticker := time.NewTicker(500 * time.Millisecond)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-killDone:
-					return
-				case <-ticker.C:
-					killGroup(cmd)
-				}
-			}
-		}()
-		grace := time.NewTimer(5 * time.Second)
-		defer grace.Stop()
-		waited := false
-		select {
-		case <-done:
-			waited = true
-		case <-grace.C:
-		}
-		close(killDone)
-		if !waited {
-			// The pathological arm, now only for survivors that RE-FORKED
-			// OUT of the group (setsid): the pgid kill by number lands
-			// for every wrapper shape the r22 probe enumerated. Reading
-			// the Builders would race a live copier, so bytes are
-			// withheld — and the record says EXACTLY what happened
-			// instead of claiming a kill that escaped.
-			return ProcResult{ReturnCode: -1, TimeoutNote: "; its process group was SIGKILLed, but a pipe-holding " +
-					"survivor escaped the group (partial output withheld)"},
-				errTimeout
-		}
-		return ProcResult{ReturnCode: -1, Stdout: out.String(),
-			Stderr: errB.String()}, errTimeout
+		// the Builders are quiescent before we read them. r36 F1/F2:
+		// the group kill alone is not enough — the container payload
+		// (not our child) and setsid() escapees are handled by
+		// timeoutProcResult, which reports exactly what was and was
+		// not killed.
+		return timeoutProcResult(cmd, done, containerName, out, errB)
 	}
+}
+
+// finishedProcResult builds the result of a child that Wait reaped. When
+// the death was ABNORMAL (a signal — e.g. something killed the `docker
+// run` client out from under us), the payload container may have outlived
+// its client: stop it by name and record the truth (r36 F1).
+func finishedProcResult(err error, out, errB *cappedWriter,
+	containerName string) ProcResult {
+	res := ProcResult{ReturnCode: exitCode(err), Stdout: out.String(),
+		Stderr: errB.String(), StdoutCap: out.cap(), StderrCap: errB.cap()}
+	if err == nil || res.ReturnCode >= 0 || containerName == "" {
+		return res
+	}
+	switch state := stopContainer(containerName); state {
+	case "killed":
+		res.TimeoutNote = "; the docker client died abnormally (signal) — " +
+			"the payload container '" + containerName + "' was killed by " +
+			"the cleanup"
+	case "running":
+		res.TimeoutNote = "; the docker client died abnormally (signal) — " +
+			"the payload container '" + containerName + "' COULD NOT BE " +
+			"KILLED and is STILL RUNNING (docker ps --filter name=" +
+			containerName + ")"
+		res.KillUnconfirmed = true
+	case "unknown":
+		res.TimeoutNote = "; the docker client died abnormally (signal) — " +
+			"the state of payload container '" + containerName + "' could " +
+			"not be determined; it may still be running"
+		res.KillUnconfirmed = true
+	}
+	return res
+}
+
+// stopContainer kills the named container from the killing side (r36 F1)
+// and reports docker's own view of the outcome: "killed" (the kill was
+// observed to succeed), "exited"/"absent" (not running), "running"
+// (SURVIVED the kill) or "unknown" (state could not be determined).
+// Bounded: the inner docker calls carry their own timeouts. An empty name
+// returns "" (no container involved).
+func stopContainer(name string) string {
+	if name == "" {
+		return ""
+	}
+	res, err := runProc([]string{"docker", "kill", name}, "", nil,
+		15*timeSecond)
+	if err == nil && res.ReturnCode == 0 {
+		return "killed"
+	}
+	return containerState(name)
+}
+
+// containerState asks docker whether the named container is running,
+// distinguishing "not running" (exited / never started) from "could not
+// determine" — the record may claim the former, only ever suspect the
+// latter (absence is inconclusive, never evidence).
+func containerState(name string) string {
+	ins, err := runProc([]string{"docker", "inspect", "-f",
+		"{{.State.Running}}", name}, "", nil, 10*timeSecond)
+	if err == nil && ins.ReturnCode == 0 {
+		switch strings.TrimSpace(ins.Stdout) {
+		case "true":
+			return "running"
+		case "false":
+			return "exited"
+		}
+	}
+	if err == nil && strings.Contains(ins.Stderr, "No such object") {
+		return "absent"
+	}
+	return "unknown"
+}
+
+// containerNameFromArgv extracts the --name value of a `docker run` argv
+// ("" when absent — the container cannot then be identified).
+func containerNameFromArgv(argv []string) string {
+	for i, a := range argv {
+		if a == "--name" && i+1 < len(argv) {
+			return argv[i+1]
+		}
+		if strings.HasPrefix(a, "--name=") {
+			return strings.TrimPrefix(a, "--name=")
+		}
+	}
+	return ""
+}
+
+// withContainerName pins a deterministic container name onto a `docker
+// run` argv so the killing side can stop the payload by name (r36 F1: a
+// timeout used to kill only the host-side docker client, leaving the
+// container running the full command, unseen and unrecorded).
+func withContainerName(argv []string, name string) []string {
+	if len(argv) < 2 || argv[0] != "docker" || argv[1] != "run" {
+		return argv
+	}
+	if containerNameFromArgv(argv) != "" {
+		return argv // already pinned
+	}
+	out := make([]string, 0, len(argv)+2)
+	out = append(out, argv[:2]...)
+	out = append(out, "--name", name)
+	return append(out, argv[2:]...)
+}
+
+// timeoutProcResult is the timer-fired arm: stop the payload container by
+// name CONCURRENTLY with the host-side group kill (r36 F1 — the payload
+// cannot outlive the record by waiting for us), then reap whatever
+// escaped the group by pid (r36 F2), and build the honest note.
+func timeoutProcResult(cmd *exec.Cmd, done <-chan error,
+	containerName string, out, errB *cappedWriter) (ProcResult, error) {
+	// r36 F2: snapshot the payload's process tree BEFORE the group kill —
+	// at timeout time the payload has fully forked, and while the direct
+	// child still lives its ppid links are intact. After the kill the
+	// orphans are reparented and can no longer be attributed.
+	var descendants []int
+	enumerated := false
+	if survivorsOfFn != nil {
+		descendants, enumerated = survivorsOfFn(cmd.Process.Pid)
+	}
+	groupKilled := killGroup(cmd)
+	killDone := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-killDone:
+				return
+			case <-ticker.C:
+				killGroup(cmd)
+			}
+		}
+	}()
+	containerCh := make(chan string, 1)
+	go func() { containerCh <- stopContainer(containerName) }()
+	grace := time.NewTimer(5 * time.Second)
+	defer grace.Stop()
+	waited := false
+	select {
+	case <-done:
+		waited = true
+	case <-grace.C:
+	}
+	close(killDone)
+	// r36 F2: pid-level cleanup for survivors that re-forked OUT of the
+	// group (setsid) — unreachable by the pgid kill, still our same-uid
+	// descendants.
+	killedPids, remaining := reapEscaped(descendants, enumerated)
+	containerState := <-containerCh
+
+	var note strings.Builder
+	unconfirmed := !groupKilled
+	switch containerState {
+	case "":
+		// No container in this argv (host profile) — nothing to say...
+		// unless the argv WAS a docker run we could not read, which
+		// containerNameFromArgv already signalled via "" — see the
+		// "none" case below.
+	case "killed":
+		note.WriteString("; the container '" + containerName +
+			"' was killed")
+	case "exited", "absent":
+		note.WriteString("; the container '" + containerName +
+			"' is not running (" + containerState + ")")
+	case "running":
+		note.WriteString("; the container '" + containerName +
+			"' COULD NOT BE KILLED and is STILL RUNNING (docker ps --filter name=" +
+			containerName + ")")
+		unconfirmed = true
+	case "unknown":
+		note.WriteString("; the container '" + containerName +
+			"' could not be identified/stopped — it may still be running")
+		unconfirmed = true
+	}
+	if containerName != "" && containerState == "" {
+		note.WriteString("; the payload container could not be identified " +
+			"from the docker argv — it may still be running")
+		unconfirmed = true
+	}
+	if !waited {
+		// The pathological arm, now only for survivors that RE-FORKED
+		// OUT of the group (setsid) or a wedged kill: reading the
+		// Builders would race a live copier, so bytes are withheld —
+		// and the record says EXACTLY what happened instead of claiming
+		// a kill that escaped.
+		if !enumerated {
+			note.WriteString("; its process group was SIGKILLed, but a " +
+				"pipe-holding survivor escaped the group and may STILL BE " +
+				"RUNNING (the platform cannot enumerate survivors to clean " +
+				"up) (partial output withheld)")
+		} else if len(remaining) > 0 {
+			note.WriteString(fmt.Sprintf("; a process escaped the process "+
+				"group and REMAINS RUNNING after the cleanup attempt "+
+				"(pids %v) (partial output withheld)", remaining))
+			unconfirmed = true
+		} else if len(killedPids) > 0 {
+			note.WriteString(fmt.Sprintf("; a pipe-holding survivor escaped "+
+				"the process group — the cleanup SIGKILLed it by pid %v "+
+				"(partial output withheld)", killedPids))
+		} else {
+			// Something still holds the output pipe (Wait never returned)
+			// but no escapee could be attributed: report the unknown
+			// honestly — a process IS still running, we just cannot name
+			// it (r36 F2).
+			note.WriteString("; its process group was SIGKILLed, but " +
+				"something still holds the output pipe and could not be " +
+				"identified — it may still be running (partial output " +
+				"withheld)")
+			unconfirmed = true
+		}
+		return ProcResult{ReturnCode: -1, KillUnconfirmed: unconfirmed,
+			OutputWithheld: true, TimeoutNote: note.String()}, errTimeout
+	}
+	if len(remaining) > 0 {
+		note.WriteString(fmt.Sprintf("; a process escaped the process group "+
+			"and REMAINS RUNNING after the cleanup attempt (pids %v)",
+			remaining))
+		unconfirmed = true
+	} else if len(killedPids) > 0 {
+		note.WriteString(fmt.Sprintf("; a pipe-holding survivor escaped the "+
+			"process group — the cleanup SIGKILLed it by pid %v", killedPids))
+	}
+	return ProcResult{ReturnCode: -1, Stdout: out.String(),
+		Stderr: errB.String(), StdoutCap: out.cap(), StderrCap: errB.cap(),
+		KillUnconfirmed: unconfirmed, TimeoutNote: note.String()}, errTimeout
+}
+
+// reapEscaped SIGKILLs the snapshot survivors still alive after the group
+// kill (r36 F2: the setsid escapee is unreachable by the pgid kill but is
+// still our same-uid descendant) and reports the outcome.
+func reapEscaped(descendants []int, enumerated bool) (killed, remaining []int) {
+	if !enumerated {
+		return nil, nil
+	}
+	var alive []int
+	for _, pid := range descendants {
+		if pid > 1 && survivorAliveFn != nil && survivorAliveFn(pid) {
+			alive = append(alive, pid)
+		}
+	}
+	if len(alive) == 0 {
+		return nil, nil
+	}
+	for _, pid := range alive {
+		if killSurvivorFn != nil {
+			killSurvivorFn(pid)
+		}
+	}
+	// Give the reaper a beat, then re-check liveness.
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		still := 0
+		for _, pid := range alive {
+			if survivorAliveFn(pid) {
+				still++
+			}
+		}
+		if still == 0 {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	for _, pid := range alive {
+		if survivorAliveFn(pid) {
+			remaining = append(remaining, pid)
+		} else {
+			killed = append(killed, pid)
+		}
+	}
+	return killed, remaining
 }
 
 func exitCode(err error) int {
@@ -202,6 +522,13 @@ func (s *Sandbox) Run(command string, opts RunOpts) (validation.Value, error) {
 			return validation.VNull(), err
 		}
 		containerArgv, container = argv, meta.Container
+		// r36 F1: pin a deterministic container name so the killing side
+		// (timeout or abnormal client death) can stop the payload
+		// container by name instead of killing only the docker client.
+		// (Preview's argv keeps the reference shape; the name is a
+		// per-exec runtime detail.)
+		containerArgv = withContainerName(containerArgv,
+			"webv2-exec-"+strings.ToLower(execID))
 	}
 
 	outDir := filepath.Join(s.Campaign.ExecsDir, execID)
@@ -242,11 +569,25 @@ func (s *Sandbox) Run(command string, opts RunOpts) (validation.Value, error) {
 			pyListRepr(violations))}
 	}
 
-	exitStatus, stdout, stderr := s.execute(containerArgv, command, opts)
-	if err := os.WriteFile(stdoutPath, []byte(stdout), 0o644); err != nil {
+	exitStatus, stdout, stderr, caps := s.execute(containerArgv, command, opts)
+	// r36 F6: stdout.log/stderr.log hold the KEPT bytes; when a stream was
+	// truncated, the in-file marker line is appended so no consumer can
+	// mistake a truncated capture for a complete one. artifact_hashes
+	// cover exactly the bytes on disk (capped payload + marker line).
+	stdoutBytes := []byte(stdout)
+	if caps.stdoutTruncated() {
+		stdoutBytes = append(stdoutBytes, truncationMarker("stdout",
+			caps.StdoutKept, caps.StdoutTotal)...)
+	}
+	stderrBytes := []byte(stderr)
+	if caps.stderrTruncated() {
+		stderrBytes = append(stderrBytes, truncationMarker("stderr",
+			caps.StderrKept, caps.StderrTotal)...)
+	}
+	if err := os.WriteFile(stdoutPath, stdoutBytes, 0o644); err != nil {
 		return validation.VNull(), err
 	}
-	if err := os.WriteFile(stderrPath, []byte(stderr), 0o644); err != nil {
+	if err := os.WriteFile(stderrPath, stderrBytes, 0o644); err != nil {
 		return validation.VNull(), err
 	}
 	hashes := validation.VObj(
@@ -256,6 +597,7 @@ func (s *Sandbox) Run(command string, opts RunOpts) (validation.Value, error) {
 	record = setKey(record, "finished_at", validation.VStr(nowIso()))
 	record = setKey(record, "exit_status", validation.VInt(int64(exitStatus)))
 	record = setKey(record, "artifact_hashes", hashes)
+	record = setKey(record, "output_capture", outputCaptureValue(caps))
 	if err := validation.WriteJson(path, record, "sandbox_execution"); err != nil {
 		return validation.VNull(), err
 	}
@@ -281,8 +623,13 @@ func (s *Sandbox) record(execID, command string, opts RunOpts,
 	}
 	sort.SliceStable(keys, func(i, j int) bool { return keys[i].S < keys[j].S })
 	var workdir validation.Value = validation.VNull()
+	var workdirResolved validation.Value = validation.VNull()
 	if opts.Workdir != nil {
 		workdir = validation.VStr(*opts.Workdir)
+		// r36 F4: the record must also name the RESOLVED directory the
+		// process actually ran in — the operator's string is kept in
+		// `workdir` (pinned shape), `workdir_resolved` is additive.
+		workdirResolved = validation.VStr(resolvedPath(*opts.Workdir))
 	}
 	return validation.VObj(
 		validation.KV{K: "exec_id", V: validation.VStr(execID)},
@@ -292,6 +639,7 @@ func (s *Sandbox) record(execID, command string, opts RunOpts,
 		validation.KV{K: "artifact_id", V: optStrValue(opts.ArtifactID)},
 		validation.KV{K: "command", V: validation.VStr(command)},
 		validation.KV{K: "workdir", V: workdir},
+		validation.KV{K: "workdir_resolved", V: workdirResolved},
 		validation.KV{K: "policy_verdict", V: verdict},
 		validation.KV{K: "environment", V: environmentValue(
 			toolVersions(), keys, s.Profile)},
@@ -315,9 +663,11 @@ func (s *Sandbox) record(execID, command string, opts RunOpts,
 // `sequence run` dying with exit -1 because run_sequence passes no timeout).
 const defaultRunTimeout = 300
 
-// execute runs the container argv or the host shell command.
+// execute runs the container argv or the host shell command. It returns
+// the exit status, the kept stdout/stderr, and the true capture accounting
+// (r36 F6).
 func (s *Sandbox) execute(containerArgv []string, command string,
-	opts RunOpts) (int, string, string) {
+	opts RunOpts) (int, string, string, captureStats) {
 	secs := opts.Timeout
 	if secs <= 0 {
 		secs = defaultRunTimeout
@@ -342,13 +692,21 @@ func (s *Sandbox) execute(containerArgv []string, command string,
 		// The never-ran path below appends its reason "so the exec record
 		// explains itself"; a TIMEOUT must be no different (critic r3):
 		// -1 alone cannot tell a killed sleeper from a wedged test suite.
+		// r36 F1: when the kill could not be confirmed (a container or a
+		// setsid survivor still running), the record must NOT claim
+		// "was killed".
 		stderr := res.Stderr
 		if stderr != "" && !strings.HasSuffix(stderr, "\n") {
 			stderr += "\n"
 		}
-		return -1, res.Stdout, stderr +
-			fmt.Sprintf("sandbox: timed out after %gs and was killed%s\n",
-				timeout.Seconds(), res.TimeoutNote)
+		base := fmt.Sprintf("sandbox: timed out after %gs and was killed",
+			timeout.Seconds())
+		if res.KillUnconfirmed {
+			base = fmt.Sprintf("sandbox: timed out after %gs — the kill "+
+				"could not be fully confirmed", timeout.Seconds())
+		}
+		return -1, res.Stdout, stderr + base + res.TimeoutNote + "\n",
+			capsOf(res)
 	}
 	if err != nil {
 		// The process never ran — a missing workdir, no docker on PATH, an
@@ -356,14 +714,98 @@ func (s *Sandbox) execute(containerArgv []string, command string,
 		// returning it recorded a successful execution (exit_status 0) for
 		// something that never happened. Report -1 and put the reason in
 		// stderr so the exec record explains itself instead of looking like
-		// a clean run of a command that produced no output.
+		// a clean run of a command that produced no output. res.TimeoutNote
+		// here carries the r36 F1 abnormal-death container note.
 		stderr := res.Stderr
 		if stderr != "" && !strings.HasSuffix(stderr, "\n") {
 			stderr += "\n"
 		}
-		return -1, res.Stdout, stderr + "sandbox: " + err.Error() + "\n"
+		return -1, res.Stdout, stderr + "sandbox: " + err.Error() +
+			res.TimeoutNote + "\n", capsOf(res)
 	}
-	return res.ReturnCode, res.Stdout, res.Stderr
+	if res.TimeoutNote != "" {
+		// Abnormal-death cleanup note on an otherwise reaped child (r36
+		// F1): the container's fate is part of the record.
+		stderr := res.Stderr
+		if stderr != "" && !strings.HasSuffix(stderr, "\n") {
+			stderr += "\n"
+		}
+		res.Stderr = stderr + "sandbox: " +
+			strings.TrimPrefix(res.TimeoutNote, "; ") + "\n"
+	}
+	return res.ReturnCode, res.Stdout, res.Stderr, capsOf(res)
+}
+
+// captureStats is the true byte accounting of one execution's captured
+// output (r36 F6). Withheld means the bytes were never read (a live
+// copier held them) — the totals are unknown, never zero.
+type captureStats struct {
+	StdoutTotal, StderrTotal int64
+	StdoutKept, StderrKept   int64
+	Withheld                 bool
+}
+
+func (c captureStats) stdoutTruncated() bool {
+	return !c.Withheld && c.StdoutTotal > c.StdoutKept
+}
+
+func (c captureStats) stderrTruncated() bool {
+	return !c.Withheld && c.StderrTotal > c.StderrKept
+}
+
+// capsOf maps a ProcResult's capture accounting; faked proc results carry
+// no accounting, so the kept strings themselves become the totals (that
+// IS what was captured).
+func capsOf(res ProcResult) captureStats {
+	caps := captureStats{
+		StdoutTotal: res.StdoutCap.Total, StdoutKept: res.StdoutCap.Kept,
+		StderrTotal: res.StderrCap.Total, StderrKept: res.StderrCap.Kept,
+		Withheld: res.OutputWithheld,
+	}
+	if caps.StdoutTotal == 0 && caps.StdoutKept == 0 && res.Stdout != "" {
+		caps.StdoutTotal, caps.StdoutKept =
+			int64(len(res.Stdout)), int64(len(res.Stdout))
+	}
+	if caps.StderrTotal == 0 && caps.StderrKept == 0 && res.Stderr != "" {
+		caps.StderrTotal, caps.StderrKept =
+			int64(len(res.Stderr)), int64(len(res.Stderr))
+	}
+	return caps
+}
+
+// truncationMarker is the in-file truncation marker: a consumer reading
+// stdout.log/stderr.log directly can never mistake a truncated capture
+// for a complete one (r36 F6).
+func truncationMarker(stream string, kept, total int64) []byte {
+	return []byte(fmt.Sprintf(
+		"\n[sandbox: %s TRUNCATED — kept the first %d of %d bytes (cap %d); "+
+			"the record's output_capture carries the true counts]\n",
+		stream, kept, total, outputCaptureLimitBytes))
+}
+
+// outputCaptureValue renders the additive `output_capture` object (r36
+// F6): the deliberate cap, the TRUE byte counts, and whether any stream
+// was truncated. When output was withheld (a live copier held it), the
+// totals are null — absence, never a fabricated count.
+func outputCaptureValue(caps captureStats) validation.Value {
+	stdoutTotal := validation.VInt(caps.StdoutTotal)
+	stderrTotal := validation.VInt(caps.StderrTotal)
+	if caps.Withheld {
+		stdoutTotal = validation.VNull()
+		stderrTotal = validation.VNull()
+	}
+	return validation.VObj(
+		validation.KV{K: "cap_bytes", V: validation.VInt(outputCaptureLimitBytes)},
+		validation.KV{K: "stdout_total_bytes", V: stdoutTotal},
+		validation.KV{K: "stdout_truncated", V: validation.VBool(caps.stdoutTruncated())},
+		validation.KV{K: "stderr_total_bytes", V: stderrTotal},
+		validation.KV{K: "stderr_truncated", V: validation.VBool(caps.stderrTruncated())},
+		validation.KV{K: "output_withheld", V: validation.VBool(caps.Withheld)},
+		validation.KV{K: "note", V: validation.VStr(
+			"artifact_hashes cover exactly the stdout.log/stderr.log bytes " +
+				"kept on disk (the capped payload plus, when truncated, the " +
+				"marker line)")},
+	)
 }
 
 func envStrings(env []EnvVar) []string {
@@ -483,8 +925,11 @@ func RegisterExec(c *state.Campaign, opts RegisterOpts) (validation.Value, error
 		finished = *opts.FinishedAt
 	}
 	var workdir validation.Value = validation.VNull()
+	var workdirResolved validation.Value = validation.VNull()
 	if opts.Workdir != nil {
 		workdir = validation.VStr(*opts.Workdir)
+		// r36 F4: additive resolved path (the operator's string is kept).
+		workdirResolved = validation.VStr(resolvedPath(*opts.Workdir))
 	}
 	record := validation.VObj(
 		validation.KV{K: "exec_id", V: validation.VStr(execID)},
@@ -494,6 +939,7 @@ func RegisterExec(c *state.Campaign, opts RegisterOpts) (validation.Value, error
 		validation.KV{K: "artifact_id", V: optStrValue(opts.ArtifactID)},
 		validation.KV{K: "command", V: validation.VStr(opts.Command)},
 		validation.KV{K: "workdir", V: workdir},
+		validation.KV{K: "workdir_resolved", V: workdirResolved},
 		validation.KV{K: "policy_verdict", V: verdict},
 		validation.KV{K: "environment", V: environmentValue(
 			validation.VObj(), nil, opts.Profile)},
@@ -539,8 +985,22 @@ func environmentValue(tools validation.Value, envKeys []validation.Value,
 		validation.KV{K: "network_access",
 			V: validation.VStr(profileNetwork[profile])},
 		validation.KV{K: "filesystem",
-			V: validation.VStr(profileFilesystem[profile])},
+			V: validation.VStr(profileFilesystemLabel(profile))},
 	)
+}
+
+// profileFilesystemLabel is the HONEST filesystem label for a profile
+// (r36 F5): a host profile executes UNCONFINED on this host — nothing
+// enforces readonly (the deny rules are static tripwires, not a
+// boundary) — so the record must not assert "readonly" while the run
+// writes the host filesystem. Container profiles keep their label (the
+// container IS the enforcement mechanism).
+func profileFilesystemLabel(profile string) string {
+	if HostProfile(profile) {
+		return "host (unconfined — nothing enforces readonly; deny-rule " +
+			"tripwires only)"
+	}
+	return profileFilesystem[profile]
 }
 
 // LoadExec is load_exec: the stored exec record, or the FileNotFoundError
@@ -576,34 +1036,49 @@ func AllExecs(c *state.Campaign) ([]validation.Value, error) {
 
 // shaFile is _sha.
 func shaFile(path string) string {
+	digest, _ := shaFileErr(path)
+	return digest
+}
+
+// shaFileErr is shaFile with the error surfaced, so a hash that cannot be
+// computed can be reported instead of silently digesting nothing.
+func shaFileErr(path string) (string, error) {
 	fh, err := os.Open(path)
 	if err != nil {
-		return ""
+		return "", err
 	}
 	defer fh.Close()
 	h := sha256.New()
 	if _, err := io.Copy(h, fh); err != nil {
-		return ""
+		return "", err
 	}
-	return hex.EncodeToString(h.Sum(nil))
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// hashDir is _hash_dir: relative path -> sha256 for every file under d,
-// in sorted relative-path order ([] when d is nil or absent).
+// hashDir is _hash_dir: relative path -> sha256 for every file under the
+// RESOLVED directory d, in sorted relative-path order ([] when d is nil
+// or absent). r36 F4: the root is resolved first, so a symlink workdir
+// hashes the directory the process actually ran in instead of producing
+// the fabricated {'.': ”} the old Lstat-on-symlink path emitted; and a
+// digest that cannot be computed is recorded EXPLICITLY as
+// "sha256-unavailable (...)" — never as an empty string, which a
+// consumer could mistake for a real digest (an empty digest is a
+// fabrication; absence or an explicit failure, nothing else).
 func hashDir(d *string) validation.Value {
 	if d == nil {
 		return validation.VObj()
 	}
-	fi, err := os.Stat(*d)
+	root := resolvedPath(*d)
+	fi, err := os.Stat(root)
 	if err != nil || !fi.IsDir() {
 		return validation.VObj()
 	}
 	var rels []string
-	_ = filepath.WalkDir(*d, func(p string, e os.DirEntry, err error) error {
+	_ = filepath.WalkDir(root, func(p string, e os.DirEntry, err error) error {
 		if err != nil || e.IsDir() {
 			return nil
 		}
-		rel, relErr := filepath.Rel(*d, p)
+		rel, relErr := filepath.Rel(root, p)
 		if relErr == nil {
 			rels = append(rels, rel)
 		}
@@ -612,8 +1087,13 @@ func hashDir(d *string) validation.Value {
 	sort.Strings(rels)
 	o := make([]validation.KV, 0, len(rels))
 	for _, rel := range rels {
-		o = append(o, validation.KV{K: rel,
-			V: validation.VStr(shaFile(filepath.Join(*d, rel)))})
+		digest, err := shaFileErr(filepath.Join(root, rel))
+		if err != nil {
+			o = append(o, validation.KV{K: rel, V: validation.VStr(
+				"sha256-unavailable (" + err.Error() + ")")})
+			continue
+		}
+		o = append(o, validation.KV{K: rel, V: validation.VStr(digest)})
 	}
 	return validation.VObj(o...)
 }

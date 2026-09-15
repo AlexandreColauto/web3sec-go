@@ -9,15 +9,28 @@ package cli
 
 import (
 	"fmt"
+	"io"
+	"math"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
+
 	"websec/internal/findings"
 
 	"websec/internal/sandbox"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
+
+// maxTimeoutSeconds is the largest --timeout the sandbox can honor without
+// lying: execute() builds the kill timer as time.Duration(secs) *
+// time.Second, and a second count past MaxInt64/1e9 wraps that duration
+// (a negative or near-zero timer would kill the command instantly while
+// the record claimed a timeout of absurd length). The CLI refuses the
+// value instead of letting the sandbox fabricate such a record.
+const maxTimeoutSeconds = math.MaxInt64 / int64(time.Second)
 
 // pyNegativeNumberRe is argparse's _negative_number_matcher: a token that
 // looks like a negative number is still a usable value.
@@ -110,6 +123,29 @@ func runExec(root string, args []string, r *Runner) int {
 					return r.fail(root, argErrf("exec",
 						"argument --timeout: invalid int value: %s",
 						validation.PyReprStr(val)))
+				}
+				// A zero or negative timeout cannot be honored: the
+				// sandbox clamps it to its 300s default, so the operator
+				// would silently get the opposite of what they asked
+				// (and the record would carry no trace of the request).
+				// Refuse at the boundary, name the state and the fix.
+				if n <= 0 {
+					return r.fail(root, argErrf("exec",
+						"argument --timeout: must be a positive number of "+
+							"seconds (got %d) — the sandbox cannot honor a "+
+							"zero or negative timeout; re-run with --timeout N "+
+							"where N >= 1", n))
+				}
+				// Absurdly large: past this bound the sandbox's kill
+				// timer wraps and the run would be killed instantly while
+				// the record claimed a timeout of the requested length —
+				// a lying record. Refuse the value instead.
+				if n > maxTimeoutSeconds || n > int64(^uint(0)>>1) {
+					return r.fail(root, argErrf("exec",
+						"argument --timeout: %d seconds exceeds the largest "+
+							"timeout the sandbox can honor (%d) — re-run with "+
+							"a smaller --timeout", n, int64(min(
+							maxTimeoutSeconds, int64(^uint(0)>>1)))))
 				}
 				timeout, haveTimeout = int(n), true
 			case "--env":
@@ -326,6 +362,17 @@ func execRun(c *state.Campaign, campaignID, profile, command, workdir,
 	}
 	exit := objAt(rec, "exit_status")
 	if exit.Kind == validation.Int && exit.I != 0 {
+		// r36 F1/F6 at the CLI boundary: the operator hears the sandbox's
+		// own account of a failed run, not just "exit=-1". The note is
+		// forwarded VERBATIM from the record's stderr log (or not at all
+		// — absence stays inconclusive); the capture note repeats only
+		// what the record's output_capture object actually states.
+		if note, ok := sandboxNote(rec); ok {
+			fmt.Fprintf(r.Out, "  %s\n", note)
+		}
+		if msg := captureNote(rec); msg != "" {
+			fmt.Fprintf(r.Out, "  %s\n", msg)
+		}
 		res := sandbox.ClassifyFailure(rec)
 		class := objStr(res, "class")
 		if class == "environment" || class == "setup" || class == "unknown" {
@@ -335,6 +382,83 @@ func execRun(c *state.Campaign, campaignID, profile, command, workdir,
 		}
 	}
 	return 0
+}
+
+// sandboxNote returns the sandbox's own note from the exec record's stderr
+// log: execute() appends exactly one "sandbox: " line (the timeout / kill
+// / never-ran account) as the LAST line of stderr, so only a bounded tail
+// of the file is read and only a final line carrying that prefix is
+// forwarded — a command cannot forge the note by printing "sandbox: "
+// mid-stream, and a log with no such line (a twin-era or
+// externally-reported record) forwards nothing rather than an invention.
+func sandboxNote(rec validation.Value) (string, bool) {
+	p := objStr(rec, "stderr_path")
+	if p == "" {
+		return "", false
+	}
+	fi, err := os.Stat(p)
+	if err != nil || !fi.Mode().IsRegular() || fi.Size() == 0 {
+		return "", false
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		return "", false
+	}
+	defer f.Close()
+	const tailBytes = 8 << 10
+	if fi.Size() > tailBytes {
+		if _, err := f.Seek(fi.Size()-tailBytes, io.SeekStart); err != nil {
+			return "", false
+		}
+	}
+	raw, err := io.ReadAll(f)
+	if err != nil {
+		return "", false
+	}
+	last := strings.TrimRight(string(raw), "\n")
+	if i := strings.LastIndexByte(last, '\n'); i >= 0 {
+		last = last[i+1:]
+	}
+	if !strings.HasPrefix(last, "sandbox: ") {
+		return "", false
+	}
+	return last, true
+}
+
+// captureNote renders what the record's output_capture object says about a
+// capped or withheld capture (r36 F6): the operator learns at run time
+// that the log on disk is incomplete, with the counts the record actually
+// carries — never a fabricated total, never a promise mint has not made.
+func captureNote(rec validation.Value) string {
+	oc := objAt(rec, "output_capture")
+	if oc.Kind != validation.Obj {
+		return ""
+	}
+	parts := []string{}
+	for _, stream := range []struct{ name, flag, total string }{
+		{"stdout", "stdout_truncated", "stdout_total_bytes"},
+		{"stderr", "stderr_truncated", "stderr_total_bytes"},
+	} {
+		if f := objAt(oc, stream.flag); f.Kind != validation.Bool || !f.B {
+			continue
+		}
+		total := objAt(oc, stream.total)
+		capV := objAt(oc, "cap_bytes")
+		if total.Kind == validation.Int && capV.Kind == validation.Int {
+			parts = append(parts, fmt.Sprintf(
+				"%s truncated: the run wrote %d bytes and the capture keeps "+
+					"at most %d — the log on disk is marked truncated",
+				stream.name, total.I, capV.I))
+			continue
+		}
+		parts = append(parts, stream.name+
+			" truncated: the true byte count is not in the record")
+	}
+	if w := objAt(oc, "output_withheld"); w.Kind == validation.Bool && w.B {
+		parts = append(parts, "output totals unknown: the capture was "+
+			"withheld (output_withheld in the record)")
+	}
+	return strings.Join(parts, "; ")
 }
 
 // isKnownProfile reports whether the name is one of the sandbox profiles.

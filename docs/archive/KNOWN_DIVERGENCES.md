@@ -937,3 +937,11 @@ against an empty workspace.
   the golden suite proves the bytes now match (delete the normalization,
   re-run `scripts/golden.sh` green).
 - Nothing may be normalized by the golden checker without a row here.
+
+## `exec --timeout 0` / a negative timeout
+
+The Python twin accepts `--timeout 0` (and negatives) and lets the harness
+produce an immediate `TimeoutExpired`. This build REFUSES them (exit 2) and
+says why — a zero timeout is a run that cannot happen, and a negative one is
+not a duration. Fail-closed, deliberately divergent: `docs/` records it here
+rather than silently matching a twin behaviour that produces no evidence.

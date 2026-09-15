@@ -17,6 +17,10 @@
     "artifact_id": { "type": ["string", "null"] },
     "command":     { "type": "string", "minLength": 1 },
     "workdir":     { "type": ["string", "null"] },
+    "workdir_resolved": {
+      "type": ["string", "null"],
+      "description": "r36 F4 (additive): the RESOLVED directory the process actually ran in (symlinks resolved, absolute); `workdir` keeps the operator's verbatim string"
+    },
     "policy_verdict": {
       "type": "object",
       "additionalProperties": false,
@@ -34,7 +38,7 @@
         "tool_versions": { "type": "object", "additionalProperties": { "type": "string" } },
         "env_keys": { "type": "array", "items": { "type": "string" }, "description": "names only, never values" },
         "network_access": { "enum": ["none", "fork-rpc-only", "bridge-host-gateway", "full"] },
-        "filesystem":     { "enum": ["readonly", "sandbox-tmp", "workspace"] }
+        "filesystem":     { "enum": ["readonly", "sandbox-tmp", "workspace", "host (unconfined — nothing enforces readonly; deny-rule tripwires only)"] }
       }
     },
     "container": {
@@ -73,6 +77,21 @@
       "type": "object",
       "additionalProperties": { "type": "string" },
       "description": "produced artifacts: path -> sha256"
+    },
+    "output_capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "r36 F6 (additive): the deliberate cap on captured stdout/stderr plus the TRUE byte counts and truncation flags; output_withheld means the bytes were never read (a live copier held them) and the totals are unknown — null, never zero",
+      "properties": {
+        "cap_bytes":          { "type": "integer" },
+        "stdout_total_bytes": { "type": ["integer", "null"] },
+        "stdout_truncated":   { "type": "boolean" },
+        "stderr_total_bytes": { "type": ["integer", "null"] },
+        "stderr_truncated":   { "type": "boolean" },
+        "output_withheld":    { "type": "boolean" },
+        "note":               { "type": "string" }
+      },
+      "required": ["cap_bytes", "stdout_truncated", "stderr_truncated", "output_withheld"]
     }
   }
 }

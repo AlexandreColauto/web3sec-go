@@ -64,8 +64,9 @@ webv2 env doctor <C-xxx>    # + checks the box against the evidence floor THIS c
 
 The bounded SMT prover (§harness notes, `--scaffold minicertora`) is a HOST
 tool too: the `minicertora` sandbox profile runs a `minicertora` shim on
-PATH — network `none`, filesystem `readonly`, host-classified, so it can
-never back E4+ evidence by itself. Install the shim once so plain
+PATH — network `none`, host-classified (the record says what the profile
+really enforces: a host run is unconfined, with deny-rule tripwires, NOT a
+read-only filesystem), so it can never back E4+ evidence by itself. Install the shim once so plain
 `minicertora <C.sol> <INV.mspec>` works from ANY directory:
 
 ```bash
@@ -913,6 +914,10 @@ webv2 classify <C-xxx> EXEC-xxx        # classify a FAILED exec: environment / s
 - Forge output is checked for **MEANINGFULNESS** before minting: "No tests
   found" (Ran 0 tests) or a failing suite cannot back evidence — the output
   must show a test actually ran and passed. Truncated logs are rejected.
+(Note the other direction: `exec` itself CAPS captured output — 10 MiB per
+stream — and a capped capture is marked in the record with the true byte
+counts and a truncation flag, so a consumer can never mistake it for the
+whole output; the mint gate's rule above is about the forge summary.)
 - A FAILED exec is classified on the spot: **ENVIRONMENT** (daemon down, image
   missing, solc download cut — fix the environment, do NOT spend a
   fresh-context retry), **SETUP** (retry in a fresh context with the failure
