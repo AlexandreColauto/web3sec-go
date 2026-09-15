@@ -198,12 +198,27 @@ func planOutputTrackedSurfaces(c *state.Campaign, stdout, stderr io.Writer) {
 	modelPath := filepath.Join(c.ArtifactsDir, "protocol_model.json")
 	model, err := validation.ReadJson(modelPath)
 	if err != nil {
-		if st, serr := os.Stat(modelPath); serr != nil &&
-			!os.IsNotExist(serr) {
+		// r46: three geometries, three words — and the DIRECTORY case must
+		// not fall through to silence. A directory named
+		// protocol_model.json makes ReadJson fail with EISDIR while Stat
+		// SUCCEEDS, which the first cut of this disclosure mis-handled (the
+		// `!st.IsDir()` guard swallowed it): print showed nothing, exactly
+		// like the absent case, while brief's sibling block correctly
+		// reported the section unavailable. Absence alone stays silent —
+		// that is the documented additive behaviour.
+		st, serr := os.Stat(modelPath)
+		switch {
+		case serr != nil && os.IsNotExist(serr):
+			// genuinely absent: no disclosure, no bytes
+		case serr != nil:
 			fmt.Fprintf(stderr, "WARNING: %s cannot be read (%v) — the "+
 				"tracked-surfaces block is omitted, not absent\n",
 				modelPath, serr)
-		} else if serr == nil && !st.IsDir() {
+		case st.IsDir():
+			fmt.Fprintf(stderr, "WARNING: %s is a directory, not a model "+
+				"file — the tracked-surfaces block is omitted, not absent\n",
+				modelPath)
+		default:
 			fmt.Fprintf(stderr, "WARNING: %s cannot be parsed (%v) — the "+
 				"tracked-surfaces block is omitted, not absent\n",
 				modelPath, err)

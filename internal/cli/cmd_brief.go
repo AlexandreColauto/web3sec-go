@@ -272,11 +272,14 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 	}
 	for _, s := range objListAt(ch, "stale_artifacts") {
 		// r9 (critic): the reason must tell the truth about the geometry.
-		// "active pin moved" is only honest when a pin EXISTS to move;
-		// the common unpinned case is "computed before any pin was made"
-		// — nothing moved, and (twin law) an unpinned artifact is simply
-		// never reusable, which deserves that plain sentence, not a
-		// story about a pin that never was.
+		// "active pin moved" is only honest when a pin EXISTS to move.
+		// r46: "computed before any pin existed" was a story the recorded
+		// field cannot support — stale_snapshot == "unpinned" says the
+		// artifact was hashed on the UNPINNED tree, which is equally true
+		// when a pin exists but the artifact was computed outside it (the
+		// critic's repro: `snap --exclude bulk`, then `index`, then
+		// `brief` claimed no pin ever existed while one did). Say what the
+		// field establishes: the workspace it hashed was not pinned.
 		from, active := objStr(s, "stale_snapshot"), snapshot
 		if active == "(none)" {
 			active = ""
@@ -284,14 +287,14 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 		why := "active pin moved"
 		switch {
 		case from == "" || from == "unpinned":
-			why = "computed before any pin existed"
+			why = "computed on the unpinned workspace"
 		case active == "":
 			why = "the campaign has no active pin anymore"
 		}
 		if from == "" || from == "unpinned" {
 			// One clause, not two: "computed on unpinned, computed
 			// before any pin existed" said the same thing twice.
-			why = "computed before any pin existed"
+			why = "computed on the unpinned workspace"
 			from = ""
 		} else {
 			why = "computed on " + from + ", " + why

@@ -1,5 +1,29 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-15 — r46 (glm-5.3-flash critic): confirmation round — the 9 holds, and two P3s in the closure itself
+
+A confirmation round at the closure commit asked whether the previous round's 9/10 ("no P1 or P2 with a repro") still held
+after the fixes, and it does: every new refusal fires at the right time (a fresh campaign still runs init through doctor
+green, no refusal fires on a genuinely absent file), plan's twin-pinned stdout is byte-identical to the absent-model case
+with the disclosure on stderr only, the sequencepoc refusal reaches all three consumers without making an honest
+campaign red, and the new differential rail was shown to BITE by scratch mutation rather than by reading — reverting
+either `pinnedCompiler` copy fails the test. The forgery battery again produced no certified falsehood: a fully re-signed
+CONFIRMED forgery passes verify and audit but `gate` still re-derives and refuses four of six clauses.
+
+The round did find two P3s — one of them mine, introduced by the closure. The `plan` disclosure I added handled an
+unreadable file and a parse failure but let the EISDIR geometry fall through to silence: a DIRECTORY named
+`protocol_model.json` makes the read fail while `os.Stat` succeeds, and my `!st.IsDir()` guard swallowed exactly that
+case, so `plan` printed nothing while `brief`'s sibling block correctly said the section was unavailable. The switch now
+names all three geometries (absent stays silent, unreadable names the errno, a directory says it is a directory, an
+unparseable file says so) and the warning verb matches the failure. The second P3 was older: `brief`'s STALE reason for
+an unpinned artifact said "computed before any pin existed", a history the recorded field does not establish —
+`stale_snapshot == "unpinned"` says the artifact was hashed on the unpinned tree, which is equally true when a pin
+exists but the artifact was computed outside it (the critic's `snap --exclude bulk` repro produced a pin while the line
+claimed none ever existed). The sentence is now "computed on the unpinned workspace", and the r9 test that pinned the old
+string was updated to assert the new truth — including that the reason must NOT claim no pin ever existed.
+
+Gates: gofmt/go vet clean, 70/70 packages, runbook-walkthrough and golden GREEN.
+
 ## 2026-09-15 — r45 (glm-5.3-flash critic): score 9/10 — no P1 or P2 with a repro
 
 Round 45 is the first clean sheet on the two shapes that matter: no chain-valid forgery rendered a claim the evidence did
@@ -909,7 +933,7 @@ words()-folded content-word sets, and every inert gate form ([] , blank,
 below-bar) is ONE match-nothing symbol distinct from no-gate; a hand-scaled
 chain failure in StaleBugClass now says "successor unreadable" instead of
 going silent; the brief's STALE line tells which geometry actually holds
-("computed before any pin existed" — nothing moved); the exit-code
+("computed before any pin existed" — nothing moved); the exit-code [r46: the unpinned sentence is now "computed on the unpinned workspace" — stale_snapshot=="unpinned" establishes that the artifact was hashed unpinned, not that no pin ever existed, which a subsequent pin makes false (see the r46 entry).]
 convention (0/1/2 families) got its one RUNBOOK paragraph. r9: 8/10.
 
 ## 2026-09-13 — critic round 8: equality means WHAT THE CODE SEES

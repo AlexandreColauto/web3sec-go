@@ -8,7 +8,11 @@ import (
 // TestBriefStaleMessageGeometry pins r9-5: the STALE reason must describe
 // the geometry that actually holds — no "pin moved" story when the
 // campaign was never pinned, and the moved-pin case names both ids'
-// difference.
+// difference. r46 tightened the unpinned sentence: the recorded field
+// (stale_snapshot == "unpinned") establishes that the artifact was hashed
+// on the UNPINNED tree, not that no pin ever existed (a pin can exist
+// while the artifact was computed outside it), so the reason now says the
+// former rather than telling a story the field cannot support.
 func TestBriefStaleMessageGeometry(t *testing.T) {
 	c, root := t15Campaign(t, "stale-msg")
 	if code, out, errS := run(t, "--root", root, "index", c.CampaignID,
@@ -27,8 +31,14 @@ func TestBriefStaleMessageGeometry(t *testing.T) {
 			t.Fatalf("unpinned campaign must not be told a pin moved: %q",
 				line)
 		}
-		if !strings.Contains(line, "before any pin existed") {
-			t.Fatalf("unpinned STALE must say the truth: %q", line)
+		if !strings.Contains(line, "computed on the unpinned workspace") {
+			t.Fatalf("unpinned STALE must say what the field establishes "+
+				"(the artifact was hashed unpinned), not a history it "+
+				"cannot know: %q", line)
+		}
+		if strings.Contains(line, "before any pin existed") {
+			t.Fatalf("the reason must not assert that no pin ever existed "+
+				"— stale_snapshot does not record that: %q", line)
 		}
 	}
 }
