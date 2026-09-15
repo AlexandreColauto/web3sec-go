@@ -335,9 +335,13 @@ func TestInvocationBoundIsClickShaped(t *testing.T) {
 		// a lookalike inside another word names no flag.
 		{"lookalike suffix", "--loop-boundx 4", 0},
 		{"lookalike halmos", "--loopx 5", 0},
-		// absurd widths keep the guard's reading (UNSTATED), never a
-		// wrapped number.
-		{"absurd positive", "--loop-bound 99999999999999999999999999", 0},
+		// absurd widths: a POSITIVE one is a bound the twin really
+		// bound (Python bignums), so it must never read as UNSTATED
+		// (r31 F2: the class this row used to pin); a NEGATIVE one is
+		// degenerate whatever its magnitude, because < 1 is what the
+		// twin raises for.
+		{"absurd positive is capped, never UNSTATED",
+			"--loop-bound 99999999999999999999999999", BoundCapped},
 		{"absurd negative", "--loop-bound -99999999999999999999999999",
 			BoundDegenerate},
 	} {

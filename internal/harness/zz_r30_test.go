@@ -576,8 +576,11 @@ func TestR30ParseRegressionsStayGreen(t *testing.T) {
 			"miniprover run '--loop-bound 0'", 0},
 		{"a `#` comment is dropped by the shell",
 			"miniprover run --loop-bound 4 # --loop-bound 0", 4},
-		{"`--` ends the options, so the flag after it is positional",
-			"miniprover run --loop-bound 4 -- --loop-bound 0", 4},
+		{"`--` ends the options, but an option-looking token after it " +
+			"leaves the argv underivable (r31 F3: click's positional " +
+			"reading and an unparsed flag are indistinguishable there)",
+			"miniprover run --loop-bound 4 -- --loop-bound 0",
+			BoundUnreadable},
 		{"a value the tool refuses floors instead of reading as 0",
 			"--loop-bound 4.5", BoundDegenerate},
 		{"an expansion that could BE the flag is unreadable",

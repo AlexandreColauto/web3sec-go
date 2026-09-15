@@ -314,14 +314,44 @@ but the scaffold bytes are gone, the burn says exactly that — it no
 longer claims the record's stdout/stderr digests were 'bound to' the
 scaffold.
 
-The invocation parse is shell-then-click faithful since r29: the
-recorded command is lexed the way a shell would split it (quotes, a '#'
-comment at a word boundary, the '--' end-of-options terminator, tab
-separators) and the value is read the way Python's int() reads it — so a
-flag inside a quoted argument is an argument, a comment is not a flag,
-and a construct the parser cannot model faithfully FLOORS the run
-(invocation-unreadable) instead of guessing a number — for EVERY kind,
-through one shared predicate, so the kind that exists because of the
+The invocation parse is shell-then-click faithful since r29. The
+recorded command is lexed the way a shell would split it: quotes (single
+quotes literal end to end; in double quotes a backslash escapes only
+`$`, `` ` ``, `"` and `\`), a `#` comment at a word boundary, a backslash
+escape, the `--` end-of-options terminator, and `$` forms — an expansion
+only before a name start, `{`, `(`, a digit or a special parameter, and a
+LITERAL `$` before anything else, so `$;` still separates commands, `$ `
+still separates words and `$'` still opens a quote (r31: the old arm
+swallowed the character after every `$`, so a hidden `;` let the second
+command of `forge test --match-path $; --fuzz-runs 500` bind k=500 while
+the first command never saw the flag at all, and the mirror read a stated
+`--loop-bound 7` as unstated). The value is read the way Python's int()
+reads it, its RANGE included: the whole int64 range is exact, and a stated
+bound wider than int64 records the saturating 9223372036854775807 with a
+`k>=…` summary instead of the `bound UNSTATED` the earlier 2^62 guard
+produced (r31). So a flag inside a quoted argument is an argument and a
+comment is not a flag.
+
+What FLOORS the run as invocation-unreadable instead of guessing a
+number, for EVERY kind through one shared predicate: an unmatched quote, a
+trailing backslash, an unterminated expansion, a command list (a newline,
+`;` or `&` with a command after it), a pipeline or subshell, a redirection,
+a brace expression, an expansion where an option could be or in a bound
+value, and — since r31 — an ambiguous option ARITY: an option-looking
+token immediately followed by another one, as in
+`--timeout-ms --loop-bound 4`, `--contract --loop-bound 4` or
+`--loop-bound 4 -- --loop-bound 0`, where only the owning tool's table says
+whether the first eats the second and the two readings disagree about the
+bound itself. That floor's direction of risk is a REFUSED run whose option
+really is a boolean flag (`halmos check -v --loop 100`). Two residuals
+stay unmodelled, and their risk runs the other way: the POSITIONAL arity
+of the tool (the twin's click takes one positional and refuses
+`--loop-bound 4 -- x y`, while halmos and forge take many, so a positional
+tail can still bless a bound for an invocation the twin would refuse), and
+a BOUND flag's own value arity, which click settles by taking the next
+element whatever it looks like (`--loop-bound --loop-bound 4` is still
+named as the degenerate statement click refuses, never as an ambiguity).
+The one shared predicate is why the kind that exists because of the
 degenerate-flag rule cannot be the one that skips it (r30: the
 minicertora arm tested only the stated-degenerate sentinel while the
 other two floored on both). Only space, tab and newline separate words,

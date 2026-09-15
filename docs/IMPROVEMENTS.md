@@ -1,5 +1,42 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — r31 (b-ai critic): one character after `$`, and a suite that was blind to the whole family
+
+F1 (P1) was a single line with five consequences. expansionSpan returned the two runes after any `$`, so the character
+following `$` was swallowed — including `;`, `&`, `|`, newline, space, tab, quote and backslash. A POSIX shell treats
+`$` before a non-name character as a LITERAL `$` and lexes the next character as itself. The dangerous direction: in
+`forge test --match-path $; --fuzz-runs 500` the `;` hid inside a token, so the command-list floor never fired, the
+first command (the one that actually ran — /bin/sh exited 127 on the second) never saw `--fuzz-runs`, and the trailing
+flag was read as the real invocation: bind exit 0 with `proved-bounded (forge-fuzz, k=500)` and a GREEN audit, because
+the audit re-derives through the same function and the same (wrong) tokens. The same door led to the minicertora kind
+r30 had just closed by another route. The mirror direction was a ledger lie: `--contract $ --loop-bound 7` merged
+`$ --loop-bound` into one token and reported the bound UNSTATED while the shell ran the flag. Third symptom, same
+line: `$'` swallowed the opening quote, so the closing quote opened a region and an honest command was refused as
+having an unmatched quote. Cure: `$` is an expansion only before a name start, `{`, `(`, a digit or a special
+parameter, and a literal `$` before anything else — so `$;` separates, `$ ` separates and `$'` opens a quote.
+
+The uncomfortable part is the test blindness, and it is worth recording as a habit: the auditor applied the fix as an
+overlay mutation and ALL SEVENTY PACKAGES stayed green — a mutation that changes a law-governed decision survived the
+entire suite, because no test anywhere contained `$;`, `$&`, `$'`, `$ ` or `$\`. Two other neutralizations the same
+round tried (a tokenizer predicate and the BoundFromFlags `< 1` test) were caught immediately, so the blindness was
+specific to the `$` family, not to the suite's rigor in general: a differential test is only as good as the shapes it
+enumerates, and the shapes a lexer gets wrong are exactly the ones nobody thought to write down.
+
+F2 (P2): a stated bound above 2^62 was rendered `bound UNSTATED` — the overflow mapping treated values that FIT in
+int64 (MaxInt64 itself, 2^62+1) as overflow and mapped them to 0, and the twin, with Python bignums, simply binds
+them. The whole int64 range is now exact, a bound wider than that records the saturating MaxInt64 with a `k>=…`
+summary rather than claiming the invocation named no bound, and the false refusal reason in reportmap.go ("is 0 — the
+twin refuses degenerate bounds" for a bound of 2^63+1) now quotes the exact digits and names the real state. F3 (P2,
+docs vs code): the user doc promised that every construct the parser cannot model FLOORS the run, while option ARITY
+was a disclosed non-modelling that could still bless a bound for an invocation click would refuse — the deterministic
+subset (an option immediately followed by an option-looking token) now floors as ambiguous arity, and the doc states
+the modelled set and the residuals plainly instead of a blanket claim. F4 (P3): the r30 memo cited
+`TestR30SeparatorsFollowTheShell`, which does not exist; the shipped test is `TestR30ShellSeparators`.
+
+Pinned by TestR31ExpansionBoundariesFollowTheShell (shell-differential argv with the observed argv in the comment),
+the `$;` end-to-end floor pin, TestR31BoundFromFlagsBeyondInt64RefusalStays, TestR31bRangeRefusalNamesTheExactDigits,
+the arity pins and their honest controls; gofmt/go vet clean, 70/70 packages, runbook-walkthrough and golden GREEN.
+
 ## 2026-09-14 — r30 (b-ai critic): the floor skipped the one kind it exists for, and the digits lied
 
 The r29 lexer was attacked with the strongest method used so far: a 119-command differential against a stub binary under a
@@ -30,7 +67,7 @@ P2-1: VT, FF and CR were treated as word separators. A shell splits on space, ta
 that wrong fact. Behaviour and test are fixed, with the /bin/sh argv evidence recorded in the comment.
 
 Pinned by TestR30MinicertoraUnreadableInvocationFloors, TestR30DecimalDigitSweepsEveryNdCodePoint,
-TestR30NdBlockTableMatchesTheTwin, TestR30SeparatorsFollowTheShell and TestR29BoundFloorsIsTheOneQuestion; gofmt/go vet
+TestR30NdBlockTableMatchesTheTwin, TestR30ShellSeparators and TestR29BoundFloorsIsTheOneQuestion; gofmt/go vet
 clean, 70/70 packages, runbook-walkthrough and golden GREEN.
 
 ## 2026-09-14 — r29 (b-ai critic): the rail switched itself off with one string, and the two sides read different bytes

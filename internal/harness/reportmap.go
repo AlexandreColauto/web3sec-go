@@ -82,6 +82,22 @@ func BoundFromFlags(flags validation.Value) (k int, stated, ok bool,
 	case validation.Null:
 		return 0, false, true, ""
 	case validation.Int:
+		// r31 F2: when the exact digits live in Big, v.I is a truncated
+		// 0 — reporting that as "is 0" would name a degenerate bound the
+		// twin never saw. Name the real state instead (the refusal
+		// itself is unchanged: this ledger's slot cannot hold it).
+		if v.Big != "" {
+			exact := validation.IntText(v)
+			if strings.HasPrefix(exact, "-") {
+				return 0, false, false, fmt.Sprintf(
+					"is %s — the twin refuses degenerate bounds (<1; a "+
+						"k=0 'proof' checks only the initial state)",
+					exact)
+			}
+			return 0, false, false, fmt.Sprintf(
+				"is %s — wider than the int64 slot this ledger holds "+
+					"(the twin would run under it)", exact)
+		}
 		if v.I < 1 {
 			return 0, false, false, fmt.Sprintf(
 				"is %d — the twin refuses degenerate bounds (<1; a "+

@@ -20,6 +20,7 @@ package harness
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -69,15 +70,62 @@ const BoundDegenerate = -1
 // catches a stated degenerate value but NOT this one. Ask BoundFloors(k)
 // instead. MapMinicertoraInvoc (minicertora.go) was the one such site
 // outside this file until r30 P1-1 widened it; every floor site now asks
-// the one predicate, and a new one must too.
+// the one predicate, and a new one must too. BoundCapped is the reason the
+// predicate is not spelled `k < 0` at the call sites either: it is a
+// STATED bound, so a caller that floored every negative would refuse a run
+// that really named a bound (r31 F2).
 const BoundUnreadable = -2
+
+// BoundCapped is a STATED bound whose exact value does not fit in int64
+// (r31 F2). Python's int — and therefore click's type=int and the twin's
+// VerifierFlags — is arbitrary precision, so
+// `forge test --fuzz-runs 99999999999999999999999999` really did run under
+// that bound; only OUR parse cannot hold it. It is therefore NOT
+// "unstated" (the r28 reading: the value was mapped to 0 and the run
+// rendered "proved bounded (bound UNSTATED)" with a null bounded_k) and
+// NOT a floor: the invocation did state a bound.
+//
+// It is its own value so every rendering can say LOWER BOUND rather than
+// assert a smaller EXACT number than the tool ran under (boundText renders
+// ">=9223372036854775807"), while BoundK saturates the recorded bounded_k
+// to MaxInt64 — the same stand-in (and the same carried digits) the cli's
+// own Python-int reader uses for an unbounded `--max-stages`
+// (parsePyInt). A value that is exactly MaxInt64 is NOT capped: the whole
+// int64 range is a legal stated bound.
+const BoundCapped = -3
 
 // BoundFloors reports whether a parsed invocation bound floors the run:
 // true for a STATED degenerate bound (BoundDegenerate) and for a command
 // the parse could not read (BoundUnreadable). UNSTATED (0) and every
 // stated N >= 1 do not floor — 0 is "the invocation named no bound", a
 // display fact, never a boundary at which something ran.
-func BoundFloors(k int) bool { return k < 0 }
+//
+// BoundCapped is the one negative value that does NOT floor (r31 F2): it
+// is a stated bound that is merely too wide for int64. The test stays
+// written as `k < 0` minus that exception on purpose — a NEW negative
+// sentinel a future round adds floors by default (fail-closed) instead of
+// riding along as a stated bound because someone forgot to list it.
+func BoundFloors(k int) bool { return k < 0 && k != BoundCapped }
+
+// boundText renders a stated bound as the NUMBER inside a summary: a
+// capped bound must never render as a smaller EXACT number than the tool
+// ran under (r31 F2), so it renders as a lower bound; every other value is
+// its own digits.
+func boundText(k int) string {
+	if k == BoundCapped {
+		return ">=" + strconv.FormatInt(math.MaxInt64, 10)
+	}
+	return strconv.Itoa(k)
+}
+
+// boundClause is boundText with the "k" the proved-bounded summaries carry:
+// "k=4" for a stated value, "k>=9223372036854775807" for a capped one.
+func boundClause(k int) string {
+	if k == BoundCapped {
+		return "k" + boundText(k)
+	}
+	return "k=" + boundText(k)
+}
 
 // boundFloorSummary is the one-line reason a floored invocation carries.
 // The "degenerate-bound" prefix is load-bearing: disposition.go
@@ -138,7 +186,10 @@ func MapRun(kind Kind, out []byte, timedOut bool, k int,
 	unreadable ...string) (rung string, summary string) {
 	text := string(out)
 	if timedOut {
-		return RungInconclusive, fmt.Sprintf("timeout after %ds", k)
+		// boundText, not %d: a capped bound (r31 F2) must not print as
+		// the negative sentinel nor as a smaller exact number.
+		return RungInconclusive,
+			fmt.Sprintf("timeout after %ss", boundText(k))
 	}
 	if BoundFloors(k) {
 		return RungInconclusive, boundFloorSummary(k, unreadable...)
@@ -181,16 +232,20 @@ func mapHalmos(text string, k int) (string, string) {
 						"no bound >= 1)"
 			}
 			return RungProvedBounded,
-				fmt.Sprintf("proved bounded (k=%d)", n)
+				fmt.Sprintf("proved bounded (%s)", boundClause(n))
 		}
 		if hasBoundedFlag(text) {
-			n := BoundK(Halmos, []byte(text), k)
-			if n < 1 {
+			// No k=<n> marker parsed, so the invocation's own bound is
+			// what this run ran under. Render IT rather than the
+			// saturated slot BoundK records, so a capped invocation
+			// (-3) still reads as a LOWER bound instead of printing
+			// the stand-in as an exact number (r31 F2).
+			if k < 1 && k != BoundCapped {
 				return RungProvedBounded,
 					"proved bounded (bound UNSTATED)"
 			}
 			return RungProvedBounded,
-				fmt.Sprintf("proved bounded (k=%d)", n)
+				fmt.Sprintf("proved bounded (%s)", boundClause(k))
 		}
 		return RungInconclusive, "inconclusive (exit output unmapped)"
 	}
@@ -218,11 +273,14 @@ func mapForgeFuzz(text string, k int) (string, string) {
 		// r26 F3 mirror: forge's runs count rides the invocation, so an
 		// invocation that named none states no bound — the summary must
 		// say so rather than print a "k=0" nobody stated (F11's law:
-		// a null bound renders UNSTATED).
-		if k < 1 {
+		// a null bound renders UNSTATED). BoundCapped is the exception
+		// (r31 F2): it is a STATED bound too wide for int64, so it
+		// renders as a lower bound instead of "unstated".
+		if k < 1 && k != BoundCapped {
 			return RungProvedBounded, "proved bounded (bound UNSTATED)"
 		}
-		return RungProvedBounded, fmt.Sprintf("proved bounded (k=%d)", k)
+		return RungProvedBounded,
+			fmt.Sprintf("proved bounded (%s)", boundClause(k))
 	}
 	return RungInconclusive, "inconclusive (exit output unmapped)"
 }
@@ -232,6 +290,12 @@ func mapForgeFuzz(text string, k int) (string, string) {
 // whose runs count rides the invocation) the k the runner was invoked
 // with. Only meaningful when MapRun returned proved-bounded; callers must
 // not consult it for other rungs (their bounded_k is null).
+//
+// A capped bound (BoundCapped, r31 F2) saturates to MaxInt64 rather than
+// returning 0: the slot must record the STATED bound as the largest number
+// this ledger can hold, never null. The summary wording (boundText) is what
+// says the recorded number is a lower bound; the slot keeps the same
+// saturating stand-in the cli's own Python-int reader uses.
 func BoundK(kind Kind, out []byte, k int) int {
 	if kind == Halmos {
 		if n, ok := parseK(string(out)); ok {
@@ -242,8 +306,11 @@ func BoundK(kind Kind, out []byte, k int) int {
 			if n == BoundDegenerate {
 				return 0
 			}
-			return n
+			return saturate(n)
 		}
+	}
+	if k == BoundCapped {
+		return math.MaxInt64
 	}
 	if k < 1 {
 		return 0
@@ -251,8 +318,20 @@ func BoundK(kind Kind, out []byte, k int) int {
 	return k
 }
 
+// saturate maps a parsed bound onto the int64 slot: everything but
+// BoundCapped is already a number in range.
+func saturate(k int) int {
+	if k == BoundCapped {
+		return math.MaxInt64
+	}
+	return k
+}
+
 // parseK reads the first k=<n> marker. ok=false when absent or unparsable
-// (callers fall back to the invocation k).
+// (callers fall back to the invocation k). A marker is a Python int, so
+// the whole int64 range parses exactly and a WIDER marker parses to
+// BoundCapped — the run did state a bound, and the summary must say it is
+// a lower bound instead of calling it unstated (r31 F2).
 func parseK(text string) (n int, ok bool) {
 	m := kMarker.FindStringSubmatch(text)
 	if m == nil {
@@ -261,6 +340,9 @@ func parseK(text string) (n int, ok bool) {
 	n, err := atoiClamped(m[1])
 	if err != nil {
 		return 0, false
+	}
+	if n == BoundCapped {
+		return BoundCapped, true
 	}
 	if n < 1 {
 		// Parsed, but degenerate: the marker states a bound below 1.
@@ -391,20 +473,26 @@ func truncateRunes(s string, n int) string {
 	return string(r)
 }
 
-// atoiClamped is Atoi rejecting empty input (regexp already guarantees
-// digits; the clamp guards absurd widths from shifting int range).
+// atoiClamped reads the digits of a k=<n> marker. The regexp already
+// guarantees digits, so the only error is a non-digit byte (kept as a
+// guard). The FULL int64 range is accepted (r31 F2: MaxInt64 was read as
+// an overflow and the marker silently discarded); a wider value is a legal
+// Python int that this parse cannot hold, so it saturates to BoundCapped
+// rather than erroring — the run stated a bound, and dropping the marker
+// would let the summary fall back to a number the output never named.
 func atoiClamped(s string) (int, error) {
-	n := 0
+	n := uint64(0)
 	for _, c := range []byte(s) {
 		if c < '0' || c > '9' {
 			return 0, fmt.Errorf("harness: bad k marker %q", s)
 		}
-		n = n*10 + int(c-'0')
-		if n > 1<<62 {
-			return 0, fmt.Errorf("harness: k marker %q overflows", s)
+		d := uint64(c - '0')
+		if n > (uint64(math.MaxInt64)-d)/10 {
+			return BoundCapped, nil
 		}
+		n = n*10 + d
 	}
-	return n, nil
+	return int(n), nil
 }
 
 func isASCIILetter(c byte) bool {
@@ -423,17 +511,21 @@ func TimedOutBit(exitStatus int) bool {
 // InvocationBound parses the bound flag out of an exec command string:
 // halmos's --loop N, forge's --fuzz-runs N (both `--flag N` and
 // `--flag=N`), minicertora's --loop-bound N. 0 = unstated: the number
-// only feeds display text, never a rung. Three further answers are
+// only feeds display text, never a rung. Four further answers are
 // possible, and two of them floor (BoundFloors):
 //
 //	0                 the invocation named no bound (UNSTATED, not zero)
-//	N >= 1            the value click would have bound
+//	N >= 1            the value click would have bound (MaxInt64 included)
+//	BoundCapped       the invocation stated a bound WIDER than int64;
+//	                  a stated bound, so it does NOT floor, and its
+//	                  summary renders a lower bound (r31 F2)
 //	BoundDegenerate   the invocation states a bound no tool would have
 //	                  executed under (a value below 1, a value that is
 //	                  not a Python int, a flag with no value at all, or
 //	                  two different tools' bound flags in one command)
 //	BoundUnreadable   the command string cannot be lexed faithfully at
-//	                  all (see InvocationBoundReason for the construct)
+//	                  all, or its option arity is underivable (see
+//	                  InvocationBoundReason for the construct)
 //
 // r28 F1: the parse is CLICK-SHAPED, because the twin's CLI is a click
 // option (`@click.option("--loop-bound", type=int, default=4)`) and click
@@ -521,18 +613,46 @@ type boundFlagOcc struct {
 // That floors too — it is not last-wins, because there is no single tool
 // whose parameter both occurrences could be.
 //
-// Two things are deliberately NOT modeled, and are stated rather than
-// guessed at. (1) The arity of the OTHER options: an option that takes a
-// value eats the next element, so in `--timeout-ms --loop-bound 4` click
-// raises ("'--loop-bound' is not a valid integer" for --timeout-ms) while
-// this parse reads a bound flag and its value 4. Which options take a
-// value is the owning tool's table, and this ONE function is kind-blind
-// on purpose (halmos, forge and minicertora share it); the r28 regex read
-// the same command the same way. (2) Positional arity: the twin's CLI
-// takes exactly one positional, so `--loop-bound 4 extra` is a UsageError
-// there and a bound of 4 here — a positional count is not a bound
-// statement, and halmos/forge take many positionals.
+// r31 F3: the arity of an option whose table this function does not have
+// is no longer guessed at. When an option token is immediately followed by
+// another option-looking token, whether the first one EATS the second is
+// the owning tool's table — and the two readings disagree about the bound
+// itself: click's reading (the option takes a value) refuses the
+// invocation, while a boolean-flag reading binds the 4 that follows. So
+// the argv is not derivable and the parse floors as unreadable, naming the
+// pair (ambiguousOptionArity):
+//
+//	--timeout-ms --loop-bound 4   -> floor (a value slot or a flag?)
+//	--contract --loop-bound 4     -> floor
+//	--loop-bound 4 -- --loop-bound 0 -> floor (what follows the `--`
+//	                                  terminator is option-looking, and
+//	                                  the parse cannot tell an unparsed
+//	                                  flag from the positional value
+//	                                  click reads there)
+//
+// Two exceptions are deliberate. A BOUND flag's arity IS known: it takes
+// the next element as its value, whatever it looks like, so
+// `--loop-bound --loop-bound 4` keeps its older, accurate answer
+// (BoundDegenerate: click refuses "'--loop-bound' is not a valid integer").
+// An option carrying its value inline (`--solc-path=/usr/bin/solc
+// --loop-bound 4`) has no arity question left to ask, so it stays honest.
+//
+// One thing is still deliberately NOT modeled, and is stated rather than
+// guessed at: POSITIONAL arity. The twin's CLI takes exactly one
+// positional, so `--loop-bound 4 extra extra2` is a UsageError there and a
+// bound of 4 here (and `--loop-bound 4 -- x y` likewise) — a positional
+// count is not a bound statement, halmos and forge take many positionals,
+// and the documented minicertora invocation takes two
+// (`minicertora V.sol INV.mspec`). docs/MINIPROVER_INTEGRATION.md states
+// this residual and its direction of risk: a positional tail can still
+// bless a bound for an invocation the twin's click would refuse. A
+// positional token that does NOT look like an option cannot move the bound
+// (it is some other option's value or a plain file), which is why only the
+// option-looking pairs above floor.
 func boundFromArgv(toks []shToken) (int, string) {
+	if why := ambiguousOptionArity(toks); why != "" {
+		return BoundUnreadable, "option arity is ambiguous (" + why + ")"
+	}
 	var occs []boundFlagOcc
 	pending := -1  // occs index of a bound flag awaiting the NEXT element
 	value := false // the last element was an option that may take a value
@@ -623,11 +743,14 @@ func boundFromArgv(toks []shToken) (int, string) {
 	case intOverflowNegative:
 		return BoundDegenerate, ""
 	case intOverflowPositive:
-		// Absurdly wide but positive: keep r28's reading (UNSTATED),
-		// never a wrapped number. Python has bignums, so click itself
-		// would accept this value — the limit is ours, and it is stated
-		// as "no bound", not as a bound.
-		return 0, ""
+		// Python bignums accept this value, so click bound it and the
+		// tool ran under it: the invocation DID state a bound, and the
+		// r28 reading ("no bound", 0) let the whole record render
+		// "proved bounded (bound UNSTATED)" with a null bounded_k
+		// (r31 F2). The parse cannot hold the number, so it saturates:
+		// BoundCapped is a STATED bound whose summary says "k>=" and
+		// whose recorded bounded_k is MaxInt64.
+		return BoundCapped, ""
 	}
 	if n < 1 {
 		// STATED and degenerate ("--loop 0", "--fuzz-runs=0",
@@ -643,6 +766,43 @@ func boundFromArgv(toks []shToken) (int, string) {
 // "--" terminator (which boundFromArgv handles first).
 func isOptionWord(w string) bool {
 	return strings.HasPrefix(w, "-") && w != "-" && w != "--"
+}
+
+// looksLikeOption is the WIDER textual test the arity floor asks (r31 F3):
+// it begins with '-' and is not the bare "-". It counts the `--`
+// terminator (the requirement's own definition of option-looking), because
+// a `-`-prefixed element after `--` is exactly where an unparsed flag and a
+// positional value become indistinguishable — and it counts an element
+// carrying its value inline, which ambiguousOptionArity then excepts by
+// text, not by position.
+func looksLikeOption(w string) bool {
+	return strings.HasPrefix(w, "-") && w != "-"
+}
+
+// ambiguousOptionArity names the first adjacent pair of option-looking
+// tokens whose option arity this parse cannot derive (r31 F3), "" when
+// there is none. A pair is skipped when the FIRST of the two settles its
+// own arity: an inline `=` gives it its value in place, and a bound flag
+// takes the next element as its value by click's own rule (so its shape
+// lands in the bound parser's accurate degenerate arm instead of here).
+//
+// The pair is reported as text for the floor summary, which caps and
+// one-lines it: the reason must name the ambiguity, not merely its class.
+func ambiguousOptionArity(toks []shToken) string {
+	for i := 0; i+1 < len(toks); i++ {
+		a, b := toks[i].text, toks[i+1].text
+		if !looksLikeOption(a) || !looksLikeOption(b) {
+			continue
+		}
+		if strings.Contains(a, "=") {
+			continue // `--opt=v`: arity settled without a table
+		}
+		if _, _, _, bound := boundOptionWord(a); bound {
+			continue // a bound flag's arity is known: one value
+		}
+		return oneLine(a, 40) + " followed by " + oneLine(b, 40)
+	}
+	return ""
 }
 
 // boundOptionWord splits an argv element as a bound long option. ok is
@@ -668,7 +828,14 @@ type intParse int
 const (
 	intOK intParse = iota
 	intNotAnInt
+	// intOverflowPositive is a POSITIVE Python int too wide for int64:
+	// click accepts it (bignums), so the invocation STATED a bound this
+	// parse cannot hold. It is not an error and not "unstated" (r31 F2).
 	intOverflowPositive
+	// intOverflowNegative is a NEGATIVE value too wide for int64. Its
+	// sign is what decides it: every negative bound is < 1, which the
+	// twin's VerifierFlags raises for — so this arm is degenerate in the
+	// same way `--loop-bound -1` is, whatever the magnitude.
 	intOverflowNegative
 )
 
@@ -680,6 +847,17 @@ const (
 // by decimalDigit's block table (the twin's own Nd data). A value that is
 // not an integer at all is intNotAnInt: click raises a UsageError for it,
 // so the run is impossible rather than unbounded.
+//
+// The range arm is int64-wide on purpose (r31 F2): Python's int has no
+// limit, so the only honest boundary is OUR storage. A value in
+// [MinInt64, MaxInt64] is returned EXACTLY — MaxInt64 is a legal stated
+// bound, not an overflow, and the r28 guard at 1<<62 wrongly collapsed
+// both MaxInt64 and 2^62+1 into "no bound was stated". A positive value
+// wider than int64 is intOverflowPositive, which the caller turns into the
+// saturating BoundCapped (a stated bound, rendered as a lower bound); a
+// negative one is intOverflowNegative, which is degenerate like every
+// other value below 1. A negative magnitude of exactly 2^63 is MinInt64,
+// which is representable and lands in the n < 1 degenerate arm.
 func parseClickInt(raw string) (int, intParse) {
 	s := strings.TrimSpace(raw) // int() strips whitespace, "\n4" included
 	if s == "" {
@@ -691,7 +869,13 @@ func parseClickInt(raw string) (int, intParse) {
 		neg = s[0] == '-'
 		i = 1
 	}
-	n, digits, underscore, overflow := 0, 0, false, false
+	// Magnitude accumulates in uint64 so a legal MinInt64 (|value| ==
+	// 2^63) is representable while 2^63+1 is not.
+	limit := uint64(math.MaxInt64)
+	if neg {
+		limit = uint64(math.MaxInt64) + 1
+	}
+	n, digits, underscore, overflow := uint64(0), 0, false, false
 	for i < len(s) {
 		r, size := utf8.DecodeRuneInString(s[i:])
 		if r == '_' {
@@ -711,10 +895,10 @@ func parseClickInt(raw string) (int, intParse) {
 		underscore = false
 		digits++
 		if !overflow {
-			if n > (1<<62)/10 {
+			if n > (limit-uint64(d))/10 {
 				overflow = true
-			} else if n = n*10 + d; n > 1<<62 {
-				overflow = true
+			} else {
+				n = n*10 + uint64(d)
 			}
 		}
 		i += size
@@ -729,9 +913,12 @@ func parseClickInt(raw string) (int, intParse) {
 		return 0, intOverflowPositive
 	}
 	if neg {
-		n = -n
+		if n == limit {
+			return math.MinInt64, intOK // -2^63 fits int64 exactly
+		}
+		return -int(n), intOK
 	}
-	return n, intOK
+	return int(n), intOK
 }
 
 // ndBlockStarts is the start — the ZERO — of every Unicode Nd (decimal
@@ -820,6 +1007,11 @@ func decimalDigit(r rune) (int, bool) {
 //     expansions inside them are single words;
 //   - outside quotes a backslash escapes the next rune, and a backslash
 //     before a newline is a line continuation;
+//   - '$' begins an expansion only before a name start, '{', '(', a digit
+//     or a special parameter; before ANYTHING else it is a LITERAL '$' and
+//     the next rune is lexed as itself (r31 F1), so `$;` still ends the
+//     command, `$ ` still separates words, `$'` still opens a quote and a
+//     trailing '$' is one character of the word;
 //   - '#' opens a comment only at a WORD BOUNDARY ("4#x" is a value, and
 //     a quoted '#' is a word), and a comment runs to the end of the line;
 //   - a `--` element is returned as itself: click's end-of-options rule
@@ -914,10 +1106,18 @@ func lexCommand(command string) ([]shToken, string) {
 			word.WriteRune(rs[i+1])
 			i++
 		case c == '$' || c == '`':
-			started, unknown = true, true
+			started = true
 			span, last, construct := expansionSpan(rs, i)
 			if construct != "" {
 				return nil, construct
+			}
+			// Only a span that CONSUMED runes is an expansion, whose
+			// substituted value is not derivable from the text. A
+			// literal '$' (r31 F1) consumes nothing and is known
+			// exactly, so it must not mark the word unknown — a word
+			// is unknown if ANY part of it was substituted.
+			if last > i {
+				unknown = true
 			}
 			word.WriteString(span)
 			i = last
@@ -981,10 +1181,16 @@ func lexDoubleQuoted(rs []rune, i int, word *strings.Builder,
 				word.WriteRune('\\')
 			}
 		case '$', '`':
-			*unknown = true
 			span, last, construct := expansionSpan(rs, j)
 			if construct != "" {
 				return 0, construct
+			}
+			// As above: the literal '$' (r31 F1) is known text, so
+			// it must not mark the word unknown by itself. A '$'
+			// before the closing '"' is literal too, which is what
+			// makes `"a$"` one word instead of an unmatched quote.
+			if last > j {
+				*unknown = true
 			}
 			word.WriteString(span)
 			j = last
@@ -997,9 +1203,30 @@ func lexDoubleQuoted(rs []rune, i int, word *strings.Builder,
 
 // expansionSpan consumes the shell expansion that begins at rs[i] ('$' or
 // '`') and returns its literal text plus the index of its last rune. The
-// text is carried so a refusal can quote what the parse saw; the token is
-// marked unknown either way, because the VALUE the shell substitutes is
-// not derivable from the command string.
+// text is carried so a refusal can quote what the parse saw; a span that
+// CONSUMES runes (last > i) is an expansion, whose substituted value is
+// not derivable from the command string, so its caller marks the token
+// unknown. A span that consumes nothing is the LITERAL '$' below: the text
+// is known exactly, so it marks the token unknown NOT (r31 F1).
+//
+// r31 F1: the r29/r30 default arm swallowed ONE rune after every '$', so
+// `$;` was one token and the ';' inside it stopped separating. A POSIX
+// shell reads '$' followed by a character that cannot begin a parameter as
+// a LITERAL '$' and lexes that character itself, so
+//
+//	--match-path $; --fuzz-runs 500   is a command LIST in the shell
+//	                                  (/bin/sh exits 127 on the second
+//	                                  command), not an invocation that
+//	                                  named --fuzz-runs 500;
+//	--contract $ --loop-bound 7       names loop_bound 7 (the space
+//	                                  separates, the '$' is a value);
+//	--solc-path $'x --loop-bound 7'   is the one word `$x --loop-bound 7`
+//	                                  (the ' opens a quoted region), not
+//	                                  an unmatched quote.
+//
+// Only a POSIX name start, '{', '(', a digit or a special parameter stays
+// an expansion. Everything else — ';', '&', '|', a newline, space, TAB, a
+// quote, a backslash — is lexed as itself by the caller.
 func expansionSpan(rs []rune, i int) (string, int, string) {
 	if rs[i] == '`' {
 		for j := i + 1; j < len(rs); j++ {
@@ -1062,9 +1289,28 @@ func expansionSpan(rs []rune, i int) (string, int, string) {
 			j++
 		}
 		return string(rs[i:j]), j - 1, ""
-	default:
+	case isSpecialParam(n):
 		return string(rs[i : i+2]), i + 1, "" // $1, $?, $@, $$, $-, ...
+	default:
+		// '$' before anything else is a LITERAL '$' (r31 F1): the
+		// caller lexes rs[i+1] as itself, so a separator after '$'
+		// still separates and a quote after it still quotes.
+		return "$", i, ""
 	}
+}
+
+// isSpecialParam reports the one-rune parameter a POSIX shell expands after
+// a '$' besides a name, a digit or a brace/paren form: the special
+// parameters. A digit is a positional parameter ($1); the rest are the
+// shell's own ($*, $@, $#, $?, $-, $$, $!). Every OTHER rune after '$' is
+// literal (r31 F1) — including a non-ASCII digit, which is not a positional
+// parameter to any shell.
+func isSpecialParam(r rune) bool {
+	switch r {
+	case '*', '@', '#', '?', '-', '$', '!':
+		return true
+	}
+	return r >= '0' && r <= '9'
 }
 
 // isNameStart reports a POSIX name's first rune ($VAR/$var_1 forms).

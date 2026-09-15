@@ -76,8 +76,12 @@ func TestR29InvocationBoundMatchesShellThenClick(t *testing.T) {
 			BoundDegenerate},
 		{"shell drops the comment; twin binds 4 (an honest run)",
 			"miniprover run --loop-bound 4 # --loop-bound 0", 4},
-		{"click stops at --; twin binds the flag before it",
-			"miniprover run --loop-bound 4 -- --loop-bound 0", 4},
+		{"an option-looking token after the `--` terminator leaves " +
+			"the argv underivable (r31 F3: click reads a positional " +
+			"there, this parse cannot tell the two apart) — the flag " +
+			"before it no longer decides",
+			"miniprover run --loop-bound 4 -- --loop-bound 0",
+			BoundUnreadable},
 		{"quoted: one argv element, click sees no flag at all",
 			"sh -c 'miniprover run --loop-bound 99'", 0},
 		{"TAB is a separator; twin binds 4",
@@ -108,8 +112,9 @@ func TestR29InvocationBoundMatchesShellThenClick(t *testing.T) {
 		{"negative, both forms", "miniprover run --loop-bound -1",
 			BoundDegenerate},
 		{"negative, = form", "--loop-bound=-1", BoundDegenerate},
-		{"absurd width, positive: UNSTATED (r28 reading)",
-			"--loop-bound 99999999999999999999999999", 0},
+		{"absurd width, positive: a STATED bound the twin bound, " +
+			"capped (r31 F2: the r28 reading was UNSTATED)",
+			"--loop-bound 99999999999999999999999999", BoundCapped},
 		{"absurd width, negative: degenerate",
 			"--loop-bound -99999999999999999999999999", BoundDegenerate},
 		{"lookalike suffix names no flag",
@@ -150,12 +155,22 @@ func TestR29InvocationBoundMatchesShellThenClick(t *testing.T) {
 			"miniprover run --loop-bound 4 &", 4},
 
 		// ---- `--` and positional tails ---------------------------
-		{"flags after -- are positional",
-			"miniprover run -- --loop-bound 0", 0},
-		{"flags after -- are positional, even a foreign name",
-			"miniprover run --loop-bound 4 -- --fuzz-runs 7", 4},
+		// r31 F3: `--` still ends the options (the rows below show a
+		// positional tail leaving the bound alone), but a token that
+		// LOOKS like an option on the far side of the terminator is
+		// where click's positional reading and an unparsed flag become
+		// indistinguishable, so the argv is not derivable and floors.
+		{"flags after -- are positional, but an option-looking one " +
+			"leaves the argv underivable",
+			"miniprover run -- --loop-bound 0", BoundUnreadable},
+		{"a foreign bound name after -- is the same ambiguity",
+			"miniprover run --loop-bound 4 -- --fuzz-runs 7",
+			BoundUnreadable},
 		{"a positional tail does not disturb the bound",
 			"miniprover run --loop-bound 4 extra", 4},
+		{"a positional tail that is not option-looking is still a " +
+			"plain file argument",
+			"minicertora V.sol INV.mspec --loop-bound 4", 4},
 
 		// ---- values: Python int() semantics ----------------------
 		{"underscores between digits", "miniprover run --loop-bound 4_0_0",
@@ -217,8 +232,9 @@ func TestR29InvocationBoundMatchesShellThenClick(t *testing.T) {
 			"miniprover run --loop-bound 4 --loop-bound=8", 8},
 		{"an inline-value option does not swallow the next flag",
 			"miniprover run --solc-path=/abs/solc --loop-bound 4", 4},
-		{"a leading -- must keep ending options",
-			"-- --loop-bound 0", 0},
+		{"a leading -- must keep ending options, and the " +
+			"option-looking token after it floors as ambiguous",
+			"-- --loop-bound 0", BoundUnreadable},
 
 		// ---- two tools' bound flags in one command ---------------
 		{"two different bound flags: no tool accepts both",
