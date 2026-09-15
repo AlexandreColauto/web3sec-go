@@ -49,7 +49,8 @@ func Artifacts(c *state.Campaign) (validation.Value, error) {
 			// still reported ok:true — so nulling sha256 in the state file
 			// (schema-legal) and rewriting the artifact passed the integrity
 			// audit. It is a problem now: the fix is one
-			// `webv2 artifact refresh <id> --reason ...` (which re-hashes).
+			// `webv2 artifact-reconcile <campaign>` (which re-hashes the row
+			// against the bytes on disk and logs artifact.refreshed).
 			problems = append(problems, validation.VStr(fmt.Sprintf(
 				"%s: registered without a sha256 — content unverified (%s)",
 				objStr(a, "artifact_id"), path)))

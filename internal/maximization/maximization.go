@@ -884,12 +884,24 @@ func CompleteLadder(c *state.Campaign, findingID, actor string) (validation.Valu
 	}
 	f, err := findings.LoadFinding(c, findingID)
 	if err != nil {
+		// r40 follow-up: the ladder was ALREADY saved above, so this
+		// refusal left it reading complete with no ledger event and no
+		// stamped finding — the same gate-completes-with-zero-events burn
+		// the WaiveLadder fix closed, one call site over. Restore the pair
+		// before returning, like the ledger-refusal arm below.
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
+
 		return validation.VNull(), err
 	}
 	mx := asObj(objAt(f, "maximization"))
 	mx.O = validation.SetOrAppend(mx.O, "disposition", validation.VStr("complete"))
 	f.O = validation.SetOrAppend(f.O, "maximization", mx)
 	if err := findings.SaveFinding(c, &f); err != nil {
+		// r40 follow-up: same shape — the ladder save stands, the finding
+		// stamp did not, and no event was ever appended. Restore, so a
+		// failed completion cannot leave a gate reading DONE.
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
+
 		return validation.VNull(), err
 	}
 	data := validation.VObj(kvOf("actor", validation.VStr(actor)))

@@ -1011,7 +1011,8 @@ func (c *Campaign) ReconcileArtifacts(dry bool) (validation.Value, error) {
 			// here would invent a baseline from whatever is on disk now.
 			// Reported as unchanged, and since 2026-09-10 the audit really does
 			// flag it (it used to skip the row and still report ok) — the
-			// operator's fix is an explicit `artifact refresh` on that id.
+			// operator's fix is an explicit `webv2 artifact-reconcile
+			// <campaign>`, which re-hashes the row against the bytes on disk.
 			unchanged++
 			continue
 		}
