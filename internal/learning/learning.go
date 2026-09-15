@@ -468,7 +468,7 @@ func ReflectionEntry(c *state.Campaign, o ReflectionOpts) (validation.Value, err
 		kv("process_improvements", strArr(o.ProcessImprovements)))
 	path := filepath.Join(c.Dir, "learnings.jsonl")
 	data := validation.VObj(kv("round", validation.VInt(o.Round)))
-	if err := appendJsonlThenLog(c, path, validation.DumpsOrdered(entry, false),
+	if err := state.AppendJsonlThenLog(c, path, validation.DumpsOrdered(entry, false),
 		func() error {
 			_, lerr := c.Log("reflection.recorded", nil, &data)
 			return lerr
@@ -513,7 +513,7 @@ func PlannerHint(c *state.Campaign, o HintOpts) (validation.Value, error) {
 	data := validation.VObj(
 		kv("kind", validation.VStr(o.Kind)),
 		kv("actor", validation.VStr(o.Actor)))
-	if err := appendJsonlThenLog(c, path, validation.DumpsOrdered(row, false),
+	if err := state.AppendJsonlThenLog(c, path, validation.DumpsOrdered(row, false),
 		func() error {
 			_, lerr := c.Log("learning.planner_hint", &hid, &data)
 			return lerr
@@ -536,7 +536,7 @@ func LoadPlannerHints(c *state.Campaign, kind *string) ([]validation.Value, erro
 	}
 	out := []validation.Value{}
 	for _, line := range strings.Split(string(raw), "\n") {
-		if strings.TrimSpace(line) == "" {
+		if state.BlankLine(line) {
 			continue
 		}
 		row, err := ReadJSONLine(line)
@@ -668,7 +668,7 @@ func BenchmarkCase(c *state.Campaign, o BenchmarkOpts) (validation.Value, error)
 	path := filepath.Join(c.Dir, "benchmarks.jsonl")
 	cid := objStr(c4, "case_id")
 	data := validation.VObj(kv("name", validation.VStr(o.Name)))
-	if err := appendJsonlThenLog(c, path, validation.DumpsOrdered(c4, false),
+	if err := state.AppendJsonlThenLog(c, path, validation.DumpsOrdered(c4, false),
 		func() error {
 			_, lerr := c.Log("benchmark.recorded", &cid, &data)
 			return lerr
@@ -676,52 +676,6 @@ func BenchmarkCase(c *state.Campaign, o BenchmarkOpts) (validation.Value, error)
 		return validation.VNull(), err
 	}
 	return c4, nil
-}
-
-// appendJsonlThenLog is the r36 UNWIND-ON-REFUSAL dance for this package's
-// append-only JSONL writers (learnings.jsonl, planner_hints.jsonl,
-// benchmarks.jsonl). A row here is a campaign artifact exactly like a finding
-// file: a row that lands while its event is refused is a half-write no audit
-// ever sees (neither JSONL is audited), and the retry after the refusal heals
-// appends a SECOND row for the same single event. Same discipline as
-// findings.SaveThenLog / linksThenLog, with the whole snapshot -> append ->
-// log -> restore window under the campaign lock the inner Log re-enters by
-// depth: snapshot the file's bytes, append the row, attempt the log, and on
-// refusal restore those exact bytes — or remove a file that did not exist yet,
-// never create an empty one.
-func appendJsonlThenLog(c *state.Campaign, path, line string,
-	log func() error) error {
-	if err := c.LockProcess(); err != nil {
-		return err
-	}
-	defer c.UnlockProcess()
-	prevRaw, perr := os.ReadFile(path)
-	had := perr == nil
-	if perr != nil && !os.IsNotExist(perr) {
-		return perr
-	}
-	if err := validation.AppendJsonl(path, line); err != nil {
-		return err
-	}
-	if err := log(); err != nil {
-		rerr := error(nil)
-		if had {
-			rerr = os.WriteFile(path, prevRaw, 0o644)
-		} else {
-			rerr = os.Remove(path)
-		}
-		if rerr != nil {
-			// A FAILED restore means the row bytes are still AHEAD of the
-			// refused event — the exact half-land this helper exists to
-			// prevent. Name both failures so no caller can report a clean
-			// unwind that never happened.
-			return fmt.Errorf("%w (UNWIND ALSO FAILED: %v — %s holds "+
-				"post-write bytes with no event; repair by hand before "+
-				"continuing)", err, rerr, filepath.Base(path))
-		}
-		return err
-	}
-	return nil
 }
 
 // ---- small shared helpers -------------------------------------------------

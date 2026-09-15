@@ -1,5 +1,35 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-15 — r38 (deepseek-v4.1-flash critic): a refusal that left its own evidence behind
+
+No forgery got through this round and no container escaped — the first clean sheet on those two — but four P2s came out of
+the ledger's edges. The worst is a writer that contradicts the law it was fixed under: r36 gave `hint`/`memory` the
+unwind-on-refusal dance and its memo concluded that "a twenty-writer sweep under the same lock showed every other writer
+unwinding cleanly, so the leak was theirs alone". That sentence was false. `cost` and `waive` append their JSONL row
+BEFORE the ledger append and never restore it on refusal, so the honest refusal an operator can hit — a projection longer
+than the log — leaves `costs.jsonl` holding a row with no `cost.recorded` event. The refusal message forbids hand-editing
+and points at `doctor`; doctor heals the mirror but cannot remove the ghost row; no sanctioned verb removes a cost row;
+so the audit is red forever with "ghost spend", `budget` refuses to price the campaign, and the only exit is the hand-edit
+the message forbids. A retry doubles the damage. Both writers now use the same snapshot-append-log-restore helper (one
+implementation, moved where both packages can reach it), and the repro pins the file byte-identical after a refusal.
+
+The other three were about the ledger telling the truth at its boundaries. Two "blank line" predicates had drifted apart —
+the heal decision trimmed Unicode whitespace while `verify` accepted only ASCII — so a ledger holding a single U+00A0
+line was "genesis" to the write path: the write appended over it and left a ledger its own `verify` could never parse
+(chained: 0, permanent red) while `doctor` silently skipped the same line and certified the mirror. There is one predicate
+now, with the fail-closed semantic written down (blank means ASCII framing whitespace only; a Unicode-space line is a
+record verify cannot parse, so the heal refuses it), and the two other JSONL readers that carried their own copy — costs
+and learning — call it too. The genesis heal also stated a loss count it could not know: `dropped_tail` was the mirror's
+size, and the mirror is capped at 1000, so a 1012-event loss and a 100 000-event loss both disclosed "1000"; a capped
+disclosure now says the number is a lower bound. And the mirror classifier accepted ANY suffix-aligned projection as
+tail-aligned health, though that branch exists only for the cap window — a hand-edited projection keeping the last 3
+events of a 1006-line ledger was adopted silently, verify went green, and 997 mirrored events vanished permanently. The
+branch now requires the cap; a head hole takes the refusal path.
+
+Also fixed from this round's reports: a comment in phases.go asserted that U+00A0 "is not stripped by either" predicate —
+false, and precisely the misunderstanding that produced the split. Gates: gofmt/go vet clean, 70/70 packages,
+runbook-walkthrough and golden GREEN.
+
 ## 2026-09-15 — r37 (state/repair round): a sanctioned prune left the audit red with a FALSE accusation
 
 The round drove real commands at the surfaces the bind/audit rounds never touched: 1005 sequential appends, 50 racing
@@ -201,7 +231,7 @@ burns as a title no bind can write, and the collision rail runs for it like for 
 
 The other critic went to surfaces no recent round had touched and found two more. The genesis heal keyed on the ledger
 file's EXISTENCE: `rm events.jsonl` healed the mirror, rewound it to the new chain's tail and disclosed
-`ledger_rewound{dropped_tail:N}` in the first event — but `: > events.jsonl` (truncate to zero bytes, the ordinary
+`ledger_rewound{dropped_tail:N}` in the first event (r38: N is a lower bound when the projection was at its cap — the mirror only held its window, so the record now says `mirror_capped: true` rather than stating an unknowable total) — but `: > events.jsonl` (truncate to zero bytes, the ordinary
 shell shape of a bad restore or a crash) took the append path instead: the write reported success, the mirror kept the
 dead events, `verify` was red forever accusing the operator of tampering, and the disclosure never landed, so `doctor`'s
 repair laundered the loss with no record of it. A zero-byte ledger is genesis now, with the same rewind and the same

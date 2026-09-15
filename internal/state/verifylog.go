@@ -23,7 +23,11 @@ type LogVerdict struct {
 
 // VerifyLog is verify_log: seq contiguity, the hash chain (every
 // prev_hash must equal its predecessor's event_hash and every
-// event_hash must recompute), and the state tail vs the log suffix.
+// event_hash must recompute), and the state tail vs the log's mirror
+// rule — the last min(E, mirrorCap) events, CONTENT AND LENGTH (r38
+// P2-4: a mirror that kept only the log's last 3 events matched its own
+// tail window and was certified, so the 997 dropped from its head were
+// invisible; the length is part of the invariant).
 // Catches a hand-edited, reordered, inserted, or truncated log ANYWHERE
 // — with one boundary r16 spells out: the chain is an UNKEYED sha256
 // over the event's own fields, so it detects ACCIDENTAL and casual
@@ -68,7 +72,11 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 				rest = ""
 			}
 			lineNo++
-			if isBlank(line) {
+			// r38 P2-1: the ONE framing predicate, shared with logLines /
+			// doctor (blankLine in eventlog.go). Unicode whitespace alone
+			// is NOT blank — it is a record this decoder cannot parse,
+			// reported below, never skipped.
+			if blankLine(line) {
 				continue
 			}
 			ev, err := validation.ParseOrdered([]byte(line))
@@ -145,6 +153,20 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 		if len(stTail.A) <= len(events) {
 			want = events[len(events)-len(stTail.A):]
 		}
+		// r38 P2-4: the mirror rule (tailEvents) keeps exactly
+		// min(E, mirrorCap) events, so length is part of the invariant —
+		// comparing CONTENT against the tail window of the mirror's own
+		// length certified ANY suffix. A mirror holding only the last 3
+		// events of a 1006-event log matched its own window perfectly and
+		// passed, so verify/audit certified a projection that had lost the
+		// 997 events at its head. The content check stays first (its
+		// messages and the longer-than-the-log case are unchanged); the
+		// length gate only judges a mirror whose content ALREADY matches,
+		// which is exactly the head-hole shape.
+		wantLen := len(events)
+		if wantLen > mirrorCap {
+			wantLen = mirrorCap
+		}
 		if !arraysEq(stTail.A, want) {
 			// r17: the repair route must not be an unwitting laundering
 			// step. A LONGER projection tail than the log has is the
@@ -164,6 +186,18 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 					len(stTail.A), len(events))
 			}
 			problems = append(problems, msg)
+		} else if len(stTail.A) != wantLen {
+			problems = append(problems, fmt.Sprintf(
+				"state event tail holds %d event(s) where the projection "+
+					"rule keeps %d for a %d-event log — the content matches "+
+					"the log suffix, but the mirror is not the rule's window: "+
+					"its HEAD is missing (mirrored events were dropped from "+
+					"the front, and the %d survivor(s) are all that is left "+
+					"of the projection) or it holds rows beyond the cap. "+
+					"Nothing here may certify that projection; run `webv2 "+
+					"doctor` to rebuild the mirror from the log (it reports "+
+					"the delta it adopts)",
+				len(stTail.A), wantLen, len(events), len(stTail.A)))
 		}
 	}
 
@@ -241,7 +275,9 @@ func readWaiverRowsR12(path string) ([]validation.Value, error, int) {
 	}
 	var out []validation.Value
 	for i, ln := range strings.Split(string(raw), "\n") {
-		if strings.TrimSpace(ln) == "" {
+		// r38 P2-1: the shared framing predicate — a U+00A0-only waiver
+		// line is a parse error below, never silently skipped.
+		if blankLine(ln) {
 			continue
 		}
 		v, perr := validation.ParseOrdered([]byte(ln))
@@ -274,15 +310,6 @@ func pyStr(v validation.Value) string {
 	default:
 		return validation.PyRepr(v)
 	}
-}
-
-func isBlank(line string) bool {
-	for _, r := range line {
-		if r != ' ' && r != '\t' && r != '\r' && r != '\n' && r != '\v' && r != '\f' {
-			return false
-		}
-	}
-	return true
 }
 
 // arraysEq is Python list equality (deep, element-wise).

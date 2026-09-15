@@ -115,10 +115,12 @@ func (c *Campaign) Halt(reason string) error {
 // PROJECTION: a later stage run moves it on its own; the closure event
 // stays on the log as the record of the decision.
 //
-// Deviation: Python's str.strip() uses the Unicode White_Space set;
-// strings.TrimSpace uses unicode.IsSpace. The sets differ on a handful
-// of obscure codepoints (e.g. U+00A0 is not stripped by either, but a
-// few C1 controls differ); operator-typed actor/reason is unaffected.
+// Deviation: Python's str.strip() uses the Unicode White_Space set and Go's
+// strings.TrimSpace uses unicode.IsSpace; the two differ on a few control
+// codepoints (U+00A0 is stripped by BOTH, which is why r38 found the ledger
+// blank-line predicates disagreeing — see blankLine/BlankLine in eventlog.go,
+// now the one predicate every JSONL reader uses). Operator-typed
+// actor/reason is unaffected.
 func (c *Campaign) Complete(actor, reason string) (validation.Value, error) {
 	// r15: load->edit->write of campaign_state is one unit;
 	// the campaign lock spans the WHOLE window (the entry that

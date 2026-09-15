@@ -105,20 +105,26 @@ func Waive(c *state.Campaign, stage, subject, reason, actor string) (validation.
 	// across the append AND the Log. A hard crash between the two still
 	// burns red loudly — that residue is inherent to a two-store pair
 	// without a shared commit, and the red is honest.
-	if err := c.LockProcess(); err != nil {
-		return validation.VNull(), err
-	}
-	defer c.UnlockProcess()
-	if err := validation.AppendJsonl(WaiversPath(c), pyJSONDumps(row)); err != nil {
-		return validation.VNull(), err
-	}
+	// r38 P2-2: a REFUSED Log is that shape's sibling and must not leave
+	// the waiver half-landed — pre-r38 the row was appended first and the
+	// Log error returned with the row still on disk, so a truncated
+	// ledger (mirror longer than the log) recorded a waiver the ledger
+	// never did: VerifyLog red-lines "a waiver without its event" and the
+	// retry appended a SECOND row. state.AppendJsonlThenLog is the shared
+	// r36 unwind-on-refusal dance (snapshot -> append -> log -> restore
+	// the exact pre-write bytes on refusal), the same one the cost pair
+	// and learning's JSONL writers use.
 	ref := stage
 	data := validation.VObj(
 		kv("subject", validation.VStr(subj)),
 		kv("actor", validation.VStr(actor)),
 		kv("reason", validation.VStr(trimmed)),
 	)
-	if _, err := c.Log("completion.waived", &ref, &data); err != nil {
+	if err := state.AppendJsonlThenLog(c, WaiversPath(c), pyJSONDumps(row),
+		func() error {
+			_, lerr := c.Log("completion.waived", &ref, &data)
+			return lerr
+		}); err != nil {
 		return validation.VNull(), err
 	}
 	return row, nil

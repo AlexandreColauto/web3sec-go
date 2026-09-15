@@ -1402,9 +1402,17 @@ last record that fully existed.
    first write heals it exactly like a missing log — the state mirror rewinds
    to the new chain's tail and the first event discloses
    `ledger_rewound{dropped_tail:N}`, so the loss is on the record instead of
-   being laundered by the repair. A log that still HOLDS records while the
-   mirror projects more is refused (not healed) until the doctor step below
-   re-derives it.
+   being laundered by the repair. N is a LOWER BOUND and the record says so
+   (`mirror_capped: true` when the projection was at its 1000-event cap): the
+   mirror only ever held its own window, so on a longer campaign the true loss
+   cannot be known — read a capped disclosure as "at least N events are gone",
+   never as the total. A log that still HOLDS records while the mirror
+   projects more is refused (not healed) until the doctor step below
+   re-derives it; so is a mirror whose records are a SUFFIX of the log but not
+   its cap window (a projection with a hole in its head is not health), and a
+   ledger holding only characters that are not ASCII framing whitespace — a
+   line of Unicode space is a RECORD this tool cannot parse, so the heal
+   refuses it instead of appending over it (r38).
 
    **The cost is real and it is not silent:** every event after the cut is
    LOST. Those side effects must be redone through the CLI (re-running the

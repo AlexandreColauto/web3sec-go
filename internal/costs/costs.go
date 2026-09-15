@@ -133,14 +133,16 @@ func RecordCost(c *state.Campaign, opts RecordOpts) (validation.Value, error) {
 	// r14: row + cost.recorded event are ONE unit (the projection audit
 	// cross-checks both directions); hold the campaign lock across both,
 	// exactly like the waiver pair.
-	if err := c.LockProcess(); err != nil {
-		return validation.VNull(), err
-	}
-	defer c.UnlockProcess()
-	if err := validation.AppendJsonlAscii(costsPath(c),
-		validation.DumpsOrdered(entry, true)); err != nil {
-		return validation.VNull(), err
-	}
+	// r38 P2-2: the unit is only atomic if a REFUSED c.Log restores the
+	// row — the pre-r38 code appended first and returned the log error
+	// with the row still on disk, so a truncated ledger (mirror longer
+	// than the log) left a ghost row that CostMirrorProblems red-lines
+	// forever, the budget refuses to price the campaign, doctor heals the
+	// mirror but cannot delete a cost row, and the retry appended a
+	// SECOND row. state.AppendJsonlAsciiThenLog is the shared r36
+	// unwind-on-refusal dance (one implementation, used by learning and
+	// the waiver pair too): snapshot -> append -> log -> restore the
+	// exact pre-write bytes on refusal.
 	ref := objStr(entry, "cost_id")
 	data := validation.VObj(
 		validation.KV{K: "kind", V: validation.VStr(opts.Kind)},
@@ -148,7 +150,11 @@ func RecordCost(c *state.Campaign, opts RecordOpts) (validation.Value, error) {
 		validation.KV{K: "trajectory", V: optStr(opts.Trajectory)},
 		validation.KV{K: "actor", V: validation.VStr(opts.Actor)},
 	)
-	if _, err := c.Log("cost.recorded", &ref, &data); err != nil {
+	if err := state.AppendJsonlAsciiThenLog(c, costsPath(c),
+		validation.DumpsOrdered(entry, true), func() error {
+			_, lerr := c.Log("cost.recorded", &ref, &data)
+			return lerr
+		}); err != nil {
 		return validation.VNull(), err
 	}
 	return entry, nil
@@ -165,7 +171,7 @@ func LoadCosts(c *state.Campaign) ([]validation.Value, error) {
 	}
 	var out []validation.Value
 	for i, line := range strings.Split(strings.TrimSuffix(string(raw), "\n"), "\n") {
-		if strings.TrimSpace(line) == "" {
+		if state.BlankLine(line) {
 			continue
 		}
 		v, err := validation.ParseOrdered([]byte(line))

@@ -8,6 +8,46 @@ import (
 	"websec/internal/validation"
 )
 
+// blankLine is THE blank-line predicate for the JSONL framing: the one
+// answer every consumer of a framed file gives — logLines (the heal
+// decision), VerifyLog, EventsMirrorFromLog (doctor's rebuild) and
+// readWaiverRowsR12. Before r38 there were two copies that DISAGREED:
+// logLines/doctor trimmed with strings.TrimSpace (Unicode IsSpace, which
+// strips U+00A0 and friends) while verify's isBlank accepted only ASCII.
+//
+// The semantics are an explicit decision, not an accident: blank means the
+// ASCII framing whitespace this writer may ever emit (' ', '\t', '\r',
+// '\n', '\v', '\f') and nothing else. A line made of UNICODE whitespace
+// alone — U+00A0 is the ordinary paste/`\u00a0` shape — is a RECORD, not a
+// blank: neither validation.ParseOrdered (Go encoding/json, ASCII
+// whitespace only) nor the CPython json this port mirrors can parse it, so
+// verify/audit must report it and doctor must refuse to rebuild over it.
+// The fail-closed law decides the direction: a line verify cannot parse is
+// not something the heal may append over. Under the old split a ledger
+// holding ONLY a U+00A0 line was "genesis" to the write path — it appended
+// a success line over it, and the resulting ledger was malformed forever
+// (verify red, chained:0, audit rc 1) while doctor silently skipped the
+// same line and certified the mirror.
+//
+// Byte iteration, not runes: every byte of a multi-byte rune is >= 0x80,
+// so any non-ASCII byte answers "not blank" without decoding.
+func blankLine(line string) bool { return BlankLine(line) }
+
+// BlankLine is the exported form of THE blank-line predicate, so the other
+// JSONL readers in the tree (costs, learning) answer the same way instead
+// of carrying their own strings.TrimSpace copy — r38's finding was exactly
+// a predicate that agreed with itself in one package and not in another.
+func BlankLine(line string) bool {
+	for i := 0; i < len(line); i++ {
+		switch line[i] {
+		case ' ', '\t', '\r', '\n', '\v', '\f':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // logLines is _log_lines: the raw non-empty log lines, one read.
 func (c *Campaign) logLines() ([]string, error) {
 	raw, err := os.ReadFile(c.EventsPath)
@@ -19,7 +59,7 @@ func (c *Campaign) logLines() ([]string, error) {
 	}
 	var out []string
 	for _, ln := range strings.Split(string(raw), "\n") {
-		if strings.TrimSpace(ln) != "" {
+		if !blankLine(ln) {
 			out = append(out, ln)
 		}
 	}
@@ -48,6 +88,9 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 		return validation.VNull(), err
 	}
 	rewoundDropped := 0
+	// rewoundCapped marks the case where the mirror was AT its cap, so the
+	// count below is a lower bound and not the loss (r38 P2-3).
+	rewoundCapped := false
 	// r12 + r34: writing into a ledger that holds NO RECORDS is genesis —
 	// the previous ledger (and whatever the state mirror still carries of
 	// it) is gone. The first append must rewind the mirror to the new
@@ -66,11 +109,16 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 	// repair laundered the loss with no record of it. Truncation-to-empty
 	// is the ordinary shell shape.
 	//
-	// A file holding only a newline, or only whitespace, has no records
-	// either (logLines and verify both skip blank lines) and heals
-	// identically — an explicit decision, not an accident. A TORN tail is
-	// NOT genesis: it is refused below with the line attributed, because
-	// its last record exists but is incomplete.
+	// A file holding only a newline, or only ASCII whitespace, has no
+	// records either (logLines and verify both answer blankLine) and heals
+	// identically — an explicit decision, not an accident. r38 P2-1: ONLY
+	// that ASCII set. A line of Unicode whitespace (U+00A0 alone) is a
+	// record this decoder cannot parse, so it is NOT genesis: it falls
+	// through to the parse below and the write is REFUSED, naming the line.
+	// Appending over it (the pre-r38 split) produced a malformed-forever
+	// ledger that verify/audit red-line and doctor's rebuild must refuse. A
+	// TORN tail is NOT genesis either: it is refused below with the line
+	// attributed, because its last record exists but is incomplete.
 	if len(lines) == 0 {
 		// r34: read the mirror only to learn what the dead ledger left
 		// behind. The rewind itself lands WITH the new event (below), so
@@ -83,6 +131,15 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 			return validation.VNull(), gerr
 		}
 		rewoundDropped = len(objAt(st, "events").A)
+		// r38 P2-3: tailEvents keeps the last mirrorCap events, so a
+		// mirror that has EVER been truncated holds EXACTLY mirrorCap
+		// events — 1000 mirrored events stand equally for a 1000-event
+		// campaign and a 100 000-event one. Below the cap the count is
+		// exact (a projection that never reached the cap never dropped
+		// anything); at the cap the true total is unknowable from here and
+		// the disclosure below says so instead of stating the count as the
+		// loss.
+		rewoundCapped = rewoundDropped >= mirrorCap
 	}
 	var last validation.Value
 	hasLast := false
@@ -196,11 +253,27 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 		if dataV.Kind != validation.Obj {
 			dataV = validation.VObj()
 		}
+		lr := []validation.KV{
+			kv("dropped_tail", validation.VInt(int64(rewoundDropped))),
+		}
+		if rewoundCapped {
+			// r38 P2-3: the count is NOT the loss when the mirror was at
+			// its cap — it is the MIRRORED TAIL that was dropped, and the
+			// true loss is UNKNOWN. The keys are additive so a below-cap
+			// disclosure keeps its exact, unchanged shape.
+			lr = append(lr,
+				kv("mirror_capped", validation.VBool(true)),
+				kv("dropped_tail_meaning", validation.VStr(fmt.Sprintf(
+					"events dropped from the state mirror's capped tail; "+
+						"the mirror was at its %d-event cap, so the total "+
+						"number of events the campaign ever held is UNKNOWN "+
+						"(dropped_tail is a lower bound, not the loss)",
+					mirrorCap))),
+			)
+		}
+		lr = append(lr, kv("at", validation.VStr(nowIso())))
 		dataV.O = validation.SetOrAppend(dataV.O, "ledger_rewound",
-			validation.VObj(
-				kv("dropped_tail", validation.VInt(int64(rewoundDropped))),
-				kv("at", validation.VStr(nowIso())),
-			))
+			validation.VObj(lr...))
 	}
 	if lagAdopted > 0 {
 		// r37b (F4): the lag heal is DISCLOSED inside the new event
@@ -263,11 +336,19 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 	return event, nil
 }
 
+// mirrorCap is the state-mirror rule's one number: the projection keeps
+// the last mirrorCap events (prior mirrorCap-1 + the new one); the log
+// keeps everything. tailEvents, the genesis disclosure and
+// classifyLaggingMirror's tail-window branch all read THIS constant — the
+// cap used to be spelled "999"/"1000" in three places, so the classifier's
+// health branch and the projection rule could drift apart.
+const mirrorCap = 1000
+
 // tailEvents is the state-mirror rule: the state file keeps the last
 // 1000 events (prior 999 + the new one); the log keeps everything.
 func tailEvents(have []validation.Value, add validation.Value) []validation.Value {
-	if len(have) > 999 {
-		return append(have[len(have)-999:], add)
+	if len(have) >= mirrorCap {
+		return append(have[len(have)-(mirrorCap-1):], add)
 	}
 	return append(have, add)
 }
@@ -278,10 +359,11 @@ func tailEvents(have []validation.Value, add validation.Value) []validation.Valu
 // makes the shape INCONCLUSIVE and the write refuses rather than adopting
 // (absence is inconclusive) — and returns the parsed events plus how many
 // of them the mirror was BEHIND: 0 for a healthy capped mirror aligned
-// with the ledger's tail, > 0 for a sanctioned crash shape the caller
-// heals by re-deriving from the ledger. Anything else — a mid-ledger hole
-// or edited rows — returns the refusal, naming both counts and the seq
-// the projection skips.
+// with the ledger's tail (m == mirrorCap, the only shape the tail-window
+// branch may certify — r38 P2-4), > 0 for a sanctioned crash shape the
+// caller heals by re-deriving from the ledger. Anything else — a
+// mid-ledger hole, a mirror that lost its HEAD, or edited rows — returns
+// the refusal, naming both counts and the seq the projection skips.
 func classifyLaggingMirror(lines []string, mirror []validation.Value) (
 	[]validation.Value, int, error) {
 	n, m := len(lines), len(mirror)
@@ -311,7 +393,19 @@ func classifyLaggingMirror(lines []string, mirror []validation.Value) (
 	// Tail-aligned: a healthy campaign whose ledger outgrew the
 	// projection cap (the mirror IS the ledger's tail window) — appending
 	// keeps the alignment, nothing to heal.
-	if m > 0 && aligned(n-m) {
+	//
+	// r38 P2-4: the precondition INCLUDES m == mirrorCap, because this
+	// branch exists precisely for the cap window — a projection truncated
+	// by tailEvents always holds exactly mirrorCap events. Without it the
+	// branch claimed ANY suffix of the ledger as health, so a mirror that
+	// had lost its HEAD (only the last 3 events of a 1006-event ledger
+	// survive) was certified tail-aligned: it never reached the mid-hole
+	// refusal or the cap-window scan BELOW, the next write exited 0 with no
+	// disclosure, and 997 mirrored events were gone permanently and
+	// invisibly. Every other suffix-aligned shape falls through to the
+	// refusal — a mirror missing its head has lost mirrored events the
+	// write may not adopt.
+	if m == mirrorCap && aligned(n-m) {
 		return logEvents, 0, nil
 	}
 	// A proper prefix of the ledger (an empty mirror included): the
@@ -324,14 +418,15 @@ func classifyLaggingMirror(lines []string, mirror []validation.Value) (
 	// crash shape on a long campaign. The pre-crash projection held the
 	// last 1000 of a ledger that has since grown, so scan the offsets a
 	// correct pre-crash mirror could have started at.
-	if m == 1000 { // tailEvents' cap: the projection never holds more
+	if m == mirrorCap { // tailEvents' cap: the projection never holds more
 		for off := 1; off+m <= n-1; off++ {
 			if aligned(off) {
 				return logEvents, n - off - m, nil
 			}
 		}
 	}
-	// Not a lagging copy: a mid-ledger HOLE. Name both counts and the
+	// Not a lagging copy: a HOLE — the mirror's head is missing, rows were
+	// dropped mid-ledger, or rows were edited. Name both counts and the
 	// first position where the mirror stops tracking the ledger.
 	div := m
 	for i := 0; i < m && i < n; i++ {
@@ -355,13 +450,14 @@ func classifyLaggingMirror(lines []string, mirror []validation.Value) (
 		"events.jsonl holds %d event(s) but the state projection mirrors "+
 			"%d — and the projection is not a lagging copy of the ledger: "+
 			"at mirrored position %d it holds seq %d where the ledger "+
-			"holds seq %d, a HOLE in the middle of the projection (or "+
-			"edited rows). Appending cannot repair either shape and the "+
-			"old behaviour baked it in behind a success line; the ledger "+
-			"itself is intact and nothing is lost, so the write is refused "+
-			"rather than adopting the misalignment. Copy the campaign dir "+
-			"for evidence, then run `webv2 doctor` (it rebuilds the mirror "+
-			"from the log and reports exactly what it changes)",
+			"holds seq %d, a HOLE in the projection (its head is missing, "+
+			"rows were dropped mid-ledger, or rows were edited). Appending "+
+			"cannot repair any of those shapes and the old behaviour baked "+
+			"it in behind a success line; the ledger itself is intact and "+
+			"nothing is lost from IT, so the write is refused rather than "+
+			"adopting the misalignment. Copy the campaign dir for evidence, "+
+			"then run `webv2 doctor` (it rebuilds the mirror from the log "+
+			"and reports exactly what it changes)",
 		n, m, div, divSeq, wantSeq)
 }
 
@@ -449,7 +545,7 @@ func (c *Campaign) EventsMirrorFromLog() ([]validation.Value, error) {
 	}
 	var all []validation.Value
 	for i, ln := range lines {
-		if strings.TrimSpace(ln) == "" {
+		if blankLine(ln) {
 			continue
 		}
 		v, perr := validation.ParseOrdered([]byte(ln))
