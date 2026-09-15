@@ -282,7 +282,15 @@ the digest it pins (r33: a forged row could print `REPORT-000000000000`
 over a different pin, or cite an exec that never existed), and the
 one-proof-one-row law is re-derived per property — the first event naming
 a given proof keeps its rung, and a later row claiming the same proof
-burns naming the collision (r33) — the very functions
+burns naming the collision (r33). An EMPTY property title is not "no
+claim" but a title no bind can write, so it burns rather than switching
+the collision rail off (r34: two rows claiming one proof under an empty
+title both displayed a blessing). And the registry's one-row-per-path
+law is enforced by the verb the RUNBOOK names as the sanctioned mutation
+path: re-registering a registered path refreshes it in place, or
+migrates it when the kind changes, recording `kind_migrated` (r34: the
+verb appended a second row for the same path while the RUNBOOK told
+operators a path holds one row) — the very functions
   `verify --autoprove` now calls at bind time (r25 F2: ownership was
   paperwork; a forged pair over honest registry bytes still has to
   reproduce rung, summary and bound). The bind stores a

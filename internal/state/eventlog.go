@@ -48,26 +48,41 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 		return validation.VNull(), err
 	}
 	rewoundDropped := 0
-	// r12: writing into a MISSING log is genesis — the previous ledger
-	// (and whatever the state mirror still carries of it) is gone. The
-	// first append must rewind the mirror to the new ledger's own tail;
-	// appending onto a stale mirror stranded `verify`/audit's
-	// "state event tail" check forever — a heal that could not fully
-	// heal. Rewinding before the append keeps the mirror honest from the
-	// first event of the new chain.
-	if _, serr := os.Stat(c.EventsPath); os.IsNotExist(serr) {
+	// r12 + r34: writing into a ledger that holds NO RECORDS is genesis —
+	// the previous ledger (and whatever the state mirror still carries of
+	// it) is gone. The first append must rewind the mirror to the new
+	// ledger's own tail; appending onto a stale mirror stranded
+	// `verify`/audit's "state event tail" check forever — a heal that
+	// could not fully heal. Rewinding before the append keeps the mirror
+	// honest from the first event of the new chain.
+	//
+	// r34 (F2): "holds no records" — NOT "the file is absent" — is the
+	// test. The old os.Stat probe healed `rm events.jsonl` and let the
+	// SAME loss spelled as a zero-byte file (`: > events.jsonl`, a bad
+	// restore, a crash that kept the inode) take the opposite branch: one
+	// event appended over the empty log, SUCCESS reported, the mirror left
+	// holding the dead tail, `verify` red forever on "state event tail is
+	// LONGER than the log", and no ledger_rewound anywhere — so doctor's
+	// repair laundered the loss with no record of it. Truncation-to-empty
+	// is the ordinary shell shape.
+	//
+	// A file holding only a newline, or only whitespace, has no records
+	// either (logLines and verify both skip blank lines) and heals
+	// identically — an explicit decision, not an accident. A TORN tail is
+	// NOT genesis: it is refused below with the line attributed, because
+	// its last record exists but is incomplete.
+	if len(lines) == 0 {
+		// r34: read the mirror only to learn what the dead ledger left
+		// behind. The rewind itself lands WITH the new event (below), so
+		// an append that is refused after this point cannot leave the
+		// projection emptied with no ledger_rewound anywhere — the mirror
+		// would then be the only record those events ever existed, and
+		// the loss would be invisible (verify skips an empty tail).
 		st, gerr := c.State()
 		if gerr != nil {
 			return validation.VNull(), gerr
 		}
-		if n := len(objAt(st, "events").A); n > 0 {
-			st.O = validation.SetOrAppend(st.O, "events",
-				validation.VArr())
-			if werr := c.save(st); werr != nil {
-				return validation.VNull(), werr
-			}
-			rewoundDropped = n
-		}
+		rewoundDropped = len(objAt(st, "events").A)
 	}
 	var last validation.Value
 	hasLast := false
@@ -82,6 +97,36 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 					"repair path, do not hand-edit this file", len(lines), err)
 		}
 		hasLast = true
+	}
+	// r34 (F2), the neighbouring shape: a ledger that still PARSES is not
+	// automatically writable. Cutting the log to a prefix of its own bytes
+	// at a record boundary (`head -n 1`, a partial restore) leaves a chain
+	// that still verifies, so nothing objects until the projection
+	// disagrees — and that projection is then the ONLY surviving copy of
+	// the events that were cut. The pre-r34 path appended anyway, printed
+	// success, and stranded verify on "state event tail is LONGER than the
+	// log" with no ledger_rewound anywhere. Adopting that loss is a
+	// deliberate operator act, not a side effect of the next write: only
+	// `webv2 doctor` may rebuild the mirror FROM the log (it reports the
+	// drop and journals it in doctor.json). Refuse here, name the counts,
+	// and name the sanctioned repair.
+	if hasLast {
+		st, serr := c.State()
+		if serr != nil {
+			return validation.VNull(), serr
+		}
+		if mirror := objAt(st, "events"); mirror.Kind == validation.Arr &&
+			len(mirror.A) > len(lines) {
+			return validation.VNull(), fmt.Errorf(
+				"events.jsonl holds %d event(s) but the state projection "+
+					"mirrors %d — %d mirrored event(s) are GONE from the "+
+					"ledger tail, and the projection is the only surviving "+
+					"copy of them; the write is refused rather than "+
+					"adopting the loss. Copy the campaign dir for evidence, "+
+					"then run `webv2 doctor` (it rebuilds the mirror from "+
+					"the log and reports exactly what it drops)",
+				len(lines), len(mirror.A), len(mirror.A)-len(lines))
+		}
 	}
 	prevHash := GenesisHash
 	if hasLast {
@@ -137,6 +182,12 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 	var have []validation.Value
 	if existing.Kind == validation.Arr {
 		have = existing.A
+	}
+	if rewoundDropped > 0 {
+		// r34: genesis — the mirror's stale tail is dropped HERE, in the
+		// same write that lands the new event, never in a save of its own
+		// (a refused append must not empty the projection).
+		have = nil
 	}
 	st.O = validation.SetOrAppend(st.O, "events", validation.Value{Kind: validation.Arr,
 		A: tailEvents(have, event)})

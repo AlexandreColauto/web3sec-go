@@ -1389,6 +1389,14 @@ last record that fully existed.
    PY
    ```
 
+   **A ledger cut to ZERO bytes is genesis, not a red campaign (r34):** the
+   first write heals it exactly like a missing log — the state mirror rewinds
+   to the new chain's tail and the first event discloses
+   `ledger_rewound{dropped_tail:N}`, so the loss is on the record instead of
+   being laundered by the repair. A log that still HOLDS records while the
+   mirror projects more is refused (not healed) until the doctor step below
+   re-derives it.
+
    **The cost is real and it is not silent:** every event after the cut is
    LOST. Those side effects must be redone through the CLI (re-running the
    command appends a fresh event), and the loss — the cut time, the surviving

@@ -1,5 +1,34 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — r34 (two b-ai critics): an off-switch in the new rail, and a heal that only worked for `rm`
+
+The rail critics scored 8/10 and 7/10, and both findings were about *when a check runs*, not about what it decides.
+The one-proof-one-row law landed in r33 with an off-switch: reportProofCollisionBurn reads the event's property title
+and returns "no collision" when that title is EMPTY, without ever consulting the first claimant. So a chain-valid
+campaign with two rows claiming the same proof under the title `""` printed TWO unqualified blessing lines, while the
+same campaign with the title `p1` burned the second correctly — the only difference was the string, and the verb itself
+refuses an empty `--property` outright because a title that cannot be attributed cannot be bound. An empty title now
+burns as a title no bind can write, and the collision rail runs for it like for any other.
+
+The other critic went to surfaces no recent round had touched and found two more. The genesis heal keyed on the ledger
+file's EXISTENCE: `rm events.jsonl` healed the mirror, rewound it to the new chain's tail and disclosed
+`ledger_rewound{dropped_tail:N}` in the first event — but `: > events.jsonl` (truncate to zero bytes, the ordinary
+shell shape of a bad restore or a crash) took the append path instead: the write reported success, the mirror kept the
+dead events, `verify` was red forever accusing the operator of tampering, and the disclosure never landed, so `doctor`'s
+repair laundered the loss with no record of it. A zero-byte ledger is genesis now, with the same rewind and the same
+disclosure; the neighbouring shapes are each decided explicitly (a whitespace-only ledger, a prefix truncation, and the
+torn tail, which keeps its refusal).
+
+And the RUNBOOK's own hard rule turned out to be false for the verb it names: "a path holds ONE registry row:
+re-registering it under a different `--kind` migrates that row (the refresh event records `kind_migrated: old→new`) and
+prunes any ghost rows at the same path" — but `artifact-register` called the APPEND primitive, so registering the same
+path twice under two kinds left two rows and a PASSing audit. Since the RUNBOOK is an anchor, the code moved to it:
+re-registering now refreshes in place or migrates with `kind_migrated` recorded, prunes ghosts, and the documented
+stdout shapes were checked against the verb before the change. Two honest residuals are recorded rather than smoothed
+over: `--note`/`--snapshot_id` are still ignored on the re-register path (no law states otherwise), and a log longer
+than the mirror that is not the mirror's suffix still ends red-and-doctor rather than being healed on append (a
+per-append content comparison was judged too costly).
+
 ## 2026-09-14 — r33 (two b-ai critics): one record, two readers; and rails the audit only thought it had
 
 The lexer critic scored 8/10 — the per-tool parse, the floor unification and the digit table held under a differential against

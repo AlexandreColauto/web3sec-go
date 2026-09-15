@@ -458,7 +458,7 @@ func harnessEvidenceRecheck(c *state.Campaign,
 		if msg := reportProofCollisionBurn(events, iid, last); msg != "" {
 			return msg
 		}
-		return recheckRegistryEvidence(c, iid, last, kind, exec)
+		return recheckRegistryEvidence(c, iid, h, last, kind, exec)
 	case strings.HasPrefix(exec, "EXEC-"):
 		return recheckExecEvidence(c, events, iid, entry, h, last, exec, kind)
 	}
@@ -812,8 +812,31 @@ func recheckExecEvidence(c *state.Campaign, events []validation.Value,
 	}
 	return ""
 }
-func recheckRegistryEvidence(c *state.Campaign, iid string,
+func recheckRegistryEvidence(c *state.Campaign, iid string, h,
 	last validation.Value, kind harness.Kind, exec string) string {
+	// r34 F1: the title is the ATTRIBUTION, and the bind's autoprove door
+	// asks for it FIRST — cli.verifyAutoprove's opening check refuses an
+	// empty one ("verify --autoprove needs --property <exact title the
+	// prover gave the property> — attribution is exact-match by design")
+	// before it opens the report, loads links or scans the holder ledger. A
+	// report rung whose event carries no title therefore names a property NO
+	// BIND CAN WRITE, and nothing downstream may resolve it: an empty
+	// property_outcomes[""] entry is not evidence of anything, and this arm
+	// used to hand it straight to DecideReport's exact lookup (which found
+	// the "" key) while reportProofCollisionBurn's `prop == ""` early return
+	// switched the one-proof-one-row rail off — so a chain-valid pair
+	// claiming "" audited GREEN with an unqualified blessing line over bytes
+	// a fresh bind refuses without ever reading them. Absence is not "no
+	// claim" on a report rung: the rung is not backed. The check sits FIRST
+	// for the same reason the bind's does — this is the verb's own order.
+	if prop := objStr(last, "property"); prop == "" {
+		return fmt.Sprintf("%s: the last harness_run event for this report "+
+			"rung carries property %s — no bind can write an empty title "+
+			"(verify --autoprove refuses one outright: \"needs --property "+
+			"<exact title the prover gave the property> — attribution is "+
+			"exact-match by design\"), so the rung's proof is attributed to "+
+			"no title and it is not backed", iid, validation.PyReprStr(prop))
+	}
 	dig := objStr(last, "report_sha256")
 	if dig == "" {
 		// r32b F2: r23's report_sha256 is the pin that makes a report rung
@@ -907,6 +930,29 @@ func recheckRegistryEvidence(c *state.Campaign, iid string,
 		if v := objAt(last, "bounded_k"); v.Kind == validation.Int {
 			return fmt.Sprintf("%s: the pinned report states no bound; "+
 				"the event pins bounded_k %d — inflated", iid, v.I)
+		}
+		// r34 F1's ADJACENT ARM: the same off-switch one field over — a
+		// BLANK bound. For a property whose rollup is bound UNSTATED
+		// (MapReport returns a nil bound) the bind writes bounded_k null and
+		// NO proof sidecar, and the arm above found "nothing to compare" in
+		// both fields. But the DISPLAY line's k is harnessBoundK(h): the
+		// slot's bounded_k when it is an integer, ELSE the slot proof's
+		// bounds.loop_bound — the minicertora/scaffold fallback. A chain-valid
+		// forgery that adds a proof subtree to the slot and re-lands the
+		// matching harness_run event (proof_sha256 over those very bytes,
+		// bounded_k still null) therefore printed
+		// "INV-3: PROVEN-BOUNDED (miniprover, k=999999, REPORT-…)" over a
+		// pinned report that states no bound at all, and audited GREEN: no
+		// mapper wrote a bound for these bytes, so the k the line renders is
+		// a number the evidence denies. The mirror direction (a derived bound
+		// the line does not render) is already closed by the event arm above
+		// plus harnessRungBacked's slot/event kind+value comparison.
+		if shown, ok := harnessBoundK(h); ok {
+			return fmt.Sprintf("%s: the pinned report states no bound (the "+
+				"rollup is bound UNSTATED) and the event pins none, but the "+
+				"stored harness slot renders k=%s from its proof subtree — a "+
+				"bound these bytes never stated; the rung is not backed", iid,
+				shown)
 		}
 	} else if v := objAt(last, "bounded_k"); v.Kind != validation.Int ||
 		v.I != int64(*bk) {
@@ -1018,25 +1064,46 @@ func recheckRegistryEvidence(c *state.Campaign, iid string,
 //     only a DIFFERENT one, so an invariant re-binding its own proof (a
 //     newer report for the same property — the re-bind the verb explicitly
 //     discloses with a warning — or a byte-identical re-bind) stays green;
-//   - an event with no `property` field is not a claim (the exec-bound
-//     payload carries none), and a rung with a blank property claims
-//     nothing, so both are skipped. Anything ELSE is a claim, pin or no pin:
-//     the bind's scan reads the property and nothing else.
+//   - an event with no `property` field is not a CLAIMANT — it holds no
+//     title, so it can never be named as the row that bound one (the
+//     exec-bound payload carries none, and the holder must be a row that
+//     actually stated the title);
+//   - r34 F1: but a REPORT rung with a blank or absent title is NOT "no
+//     claim" — it is a title no bind can write (cli.verifyAutoprove's first
+//     check refuses an empty --property before it reads the report), so it
+//     is a claim like any other and the rail below runs for it. The opening
+//     `prop == ""` early return was an OFF-SWITCH: two rows claiming "" over
+//     one pinned proof both displayed an unqualified blessing (and
+//     recheckRegistryEvidence then resolved the report's
+//     property_outcomes[""] entry, which no bind ever asked for). The
+//     blank title's own burn ("no bind can write …", in
+//     recheckRegistryEvidence) and this rail therefore both fire, and no
+//     pair of rows can both display a blessing. The claimant-side blank stays
+//     a non-claimant deliberately: accusing the exec-bound row that has no
+//     property field of holding the blank title would put a false
+//     attribution in the audit's problems. Anything ELSE is a claim, pin or
+//     no pin: the bind's scan reads the property and nothing else.
 //
-// "" when the event carries no property, or when the first claimant IS this
-// invariant.
+// "" when the first claimant IS this invariant (its own rung is a refresh or
+// a collision-free claim).
 func reportProofCollisionBurn(events []validation.Value, iid string,
 	last validation.Value) string {
 	prop := objStr(last, "property")
-	if prop == "" {
-		return ""
-	}
 	firstInv, firstExec, firstPin := "", "", ""
 	for _, ev := range events {
 		if objStr(ev, "type") != "harness_run" {
 			continue
 		}
 		d := objAt(ev, "data")
+		// r34 F1: a claimant must CARRY a title. objStr alone reads an
+		// absent/non-string field as "", which would let an exec-bound event
+		// (no property field at all) be named as the holder of the blank
+		// title — a holder that never claimed it. For every non-blank title
+		// this is the same claimant set as before: "" folds equal to no
+		// non-blank title.
+		if objAt(d, "property").Kind != validation.Str {
+			continue
+		}
 		if !harness.SamePropertyName(objStr(d, "property"), prop) {
 			continue
 		}
