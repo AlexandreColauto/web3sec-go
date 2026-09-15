@@ -197,13 +197,27 @@ func Init(root, program string, opts InitOpts) (retC *Campaign, retErr error) {
 }
 
 // Open is Campaign.open: the state file must exist.
+//
+// r45a: the old body folded EVERY stat error into "no such campaign", so an
+// unsearchable campaign directory or campaigns/ (EACCES) told the operator
+// that the campaign they are looking at does not exist — and the sentence is
+// load-bearing: internal/cli keys its "you are not in the workspace" hint on
+// the exact phrase, so a permission failure also produced a wrong workspace
+// diagnosis. Only os.IsNotExist is absence (no campaign_state.json: a
+// campaign was never made here, or a dangling symlink — a fact). Any other
+// error (EACCES, ENOTDIR, EIO) is a READ failure this call could not perform
+// and refuses, naming the campaign directory and the errno; it must never
+// wear the absence sentence.
 func Open(root, campaignID string) (*Campaign, error) {
 	c, err := newCampaign(root, campaignID)
 	if err != nil {
 		return nil, err
 	}
 	if _, err := os.Stat(c.StatePath); err != nil {
-		return nil, fmt.Errorf("no such campaign: %s", c.Dir)
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("no such campaign: %s", c.Dir)
+		}
+		return nil, fmt.Errorf("the campaign %s cannot be read: %v", c.Dir, err)
 	}
 	return c, nil
 }

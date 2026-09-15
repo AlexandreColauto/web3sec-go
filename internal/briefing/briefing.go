@@ -320,16 +320,73 @@ func MemoryRecallHints(campaign *state.Campaign) ([]string, error) {
 
 // ---- critical-hunt sections ------------------------------------------------
 
-func chArtifact(campaign *state.Campaign, name string) *validation.Value {
+// chArtifact reads one critical-hunt artifact. nil means the artifact is
+// genuinely ABSENT — the section it feeds is legitimately empty.
+//
+// r45a: the old body returned nil for EVERY stat/ReadJson error, so
+// `chmod 000 archetype_prescreen.json` (or a torn document, or an ENOTDIR
+// path) rendered as "this campaign has no prescreen" — a section silently
+// dropped while the file the operator owns sat right there. Only
+// os.IsNotExist is absence; every other error is a read failure this call
+// could not perform, and it is DISCLOSED by name and errno through
+// readProblems (BuildBrief folds those into the top-level problems block the
+// cockpit prints). The section is still omitted — but no longer as a
+// falsehood.
+func chArtifact(campaign *state.Campaign, name string,
+	readProblems *[]string) *validation.Value {
 	p := filepath.Join(campaign.ArtifactsDir, name)
 	if _, err := os.Stat(p); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		note(readProblems, unreadableNote(name, err))
 		return nil
 	}
 	doc, err := validation.ReadJson(p)
 	if err != nil {
+		note(readProblems, unreadableNote(name, err))
 		return nil
 	}
 	return &doc
+}
+
+// unreadableNote is the r45a wording for a file that EXISTS but could not be
+// read: it names the file and the errno, and says plainly that the section is
+// omitted rather than absent (the fix for the fold, not a cosmetic rewording).
+func unreadableNote(name string, err error) string {
+	return fmt.Sprintf("%s could not be read: %v — section omitted, not absent",
+		name, err)
+}
+
+// unreadableSection is the same disclosure as a section value: the caller
+// promotes the named message into the problems block and does NOT render the
+// section, so no ranking/table is ever computed from input that was not read.
+func unreadableSection(name string, err error) validation.Value {
+	return validation.VObj(kv("unreadable",
+		validation.VStr(unreadableNote(name, err))))
+}
+
+// noteProblem appends a read-failure disclosure to the top-level problems
+// block unless the very same sentence is already there: two independent
+// readers can fail on the same file (the critical-hunt reader of
+// structural_index.json and the criticality ranker), and a diagnostic list
+// that repeats one sentence verbatim reads as two problems.
+func noteProblem(problems []string, msg string) []string {
+	for _, have := range problems {
+		if have == msg {
+			return problems
+		}
+	}
+	return append(problems, msg)
+}
+
+// unavailableLine is the in-section disclosure for the two line views
+// (TrackedSurfaces, ChainAssumptions): their signature IS the display list
+// the cockpit prints, so a read failure is a named line in that list —
+// rendered exactly where the section would have been.
+func unavailableLine(name string, err error, what string) string {
+	return fmt.Sprintf("- UNAVAILABLE: %s could not be read: %v — %s",
+		name, err, what)
 }
 
 // freshOrNone is roles._fresh_artifact's staleness rule: an artifact is
@@ -353,8 +410,8 @@ func note(problems *[]string, msg string) {
 
 // ChPrescreen is _ch_prescreen.
 func ChPrescreen(campaign *state.Campaign,
-	problems *[]string) (*validation.Value, error) {
-	raw := chArtifact(campaign, "archetype_prescreen.json")
+	problems *[]string, readProblems *[]string) (*validation.Value, error) {
+	raw := chArtifact(campaign, "archetype_prescreen.json", readProblems)
 	if raw == nil {
 		return nil, nil
 	}
@@ -402,8 +459,8 @@ func ChPrescreen(campaign *state.Campaign,
 
 // ChForkdiff is _ch_forkdiff.
 func ChForkdiff(campaign *state.Campaign,
-	problems *[]string) (*validation.Value, error) {
-	raw := chArtifact(campaign, "fork_diff.json")
+	problems *[]string, readProblems *[]string) (*validation.Value, error) {
+	raw := chArtifact(campaign, "fork_diff.json", readProblems)
 	if raw == nil {
 		return nil, nil
 	}
@@ -433,8 +490,8 @@ func ChForkdiff(campaign *state.Campaign,
 
 // ChRecency is _ch_recency.
 func ChRecency(campaign *state.Campaign,
-	problems *[]string) ([]validation.Value, error) {
-	raw := chArtifact(campaign, "recency.json")
+	problems *[]string, readProblems *[]string) ([]validation.Value, error) {
+	raw := chArtifact(campaign, "recency.json", readProblems)
 	if raw == nil {
 		return []validation.Value{}, nil
 	}
@@ -496,12 +553,13 @@ func ChRecency(campaign *state.Campaign,
 }
 
 // ChAmplifiers is _ch_amplifiers.
-func ChAmplifiers(campaign *state.Campaign, problems *[]string) validation.Value {
+func ChAmplifiers(campaign *state.Campaign, problems *[]string,
+	readProblems *[]string) validation.Value {
 	empty := func() validation.Value {
 		return validation.VObj(kv("detected", validation.VObj()),
 			kv("boosted_classes", validation.VArr()))
 	}
-	raw := chArtifact(campaign, "structural_index.json")
+	raw := chArtifact(campaign, "structural_index.json", readProblems)
 	if raw == nil {
 		return empty()
 	}
@@ -1228,7 +1286,15 @@ func Bounty(campaign *state.Campaign) (validation.Value, error) {
 		return validation.VObj(kv("policy", validation.VNull()),
 			kv("evaluated", validation.VArr())), nil
 	}
-	if _, err := os.Stat(policyPath); err != nil {
+	// r45: an unreadable policy file is NOT an absent policy. NotExist keeps
+	// rendering policy:null (a campaign with no policy loaded); any other
+	// stat error refuses naming the path, instead of claiming the operator
+	// never loaded one.
+	if _, serr := os.Stat(policyPath); serr != nil {
+		if !os.IsNotExist(serr) {
+			return validation.VNull(), fmt.Errorf(
+				"the bounty policy %s cannot be read: %v", policyPath, serr)
+		}
 		return validation.VObj(kv("policy", validation.VNull()),
 			kv("evaluated", validation.VArr())), nil
 	}
@@ -1287,14 +1353,24 @@ func Bounty(campaign *state.Campaign) (validation.Value, error) {
 // the caller presence-gates on len, so a component-free campaign's brief
 // bytes are unchanged. Findings may anchor on these surfaces; structidx
 // never indexes them.
+//
+// r45a: a model that EXISTS but could not be read is NOT "no components": the
+// old body returned nil for every stat/ReadJson error, so `chmod 000
+// protocol_model.json` made the whole block disappear from the cockpit. The
+// read failure is now a named UNAVAILABLE line this caller prints in place of
+// the block; genuine absence still yields no lines at all.
 func TrackedSurfaces(campaign *state.Campaign) []string {
 	modelPath := filepath.Join(campaign.ArtifactsDir, "protocol_model.json")
+	const what = "tracked surfaces unknown, not absent"
 	if _, err := os.Stat(modelPath); err != nil {
-		return nil
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return []string{unavailableLine("protocol_model.json", err, what)}
 	}
 	model, err := validation.ReadJson(modelPath)
 	if err != nil {
-		return nil
+		return []string{unavailableLine("protocol_model.json", err, what)}
 	}
 	return protocolgraph.ComponentSurfaceLines(model)
 }
@@ -1311,14 +1387,22 @@ func TrackedSurfaces(campaign *state.Campaign) []string {
 // the caller gates on len, so a legacy campaign's brief bytes are
 // unchanged. Findings never anchor on these lines; structidx never indexes
 // them.
+//
+// r45a: a model that EXISTS but could not be read must not render as "no
+// assumptions declared" — the same fold as TrackedSurfaces above, with the
+// same fix: a named UNAVAILABLE line instead of a silently missing section.
 func ChainAssumptions(campaign *state.Campaign) []string {
 	modelPath := filepath.Join(campaign.ArtifactsDir, "protocol_model.json")
+	const what = "the assumption table is unknown, not empty"
 	if _, err := os.Stat(modelPath); err != nil {
-		return nil
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return []string{unavailableLine("protocol_model.json", err, what)}
 	}
 	model, err := validation.ReadJson(modelPath)
 	if err != nil {
-		return nil
+		return []string{unavailableLine("protocol_model.json", err, what)}
 	}
 	rows, gaps := protocolgraph.AssumptionTable(model)
 	if len(rows) == 0 {
@@ -1462,6 +1546,14 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 
 	huntProblems := []string{}
 
+	// r45a: read failures get their own sink. huntProblems keeps its existing
+	// semantics (Python's critical_hunt.problems: malformed-input notes only),
+	// while readProblems is folded into the top-level problems block — the one
+	// diagnostic list the cockpit prints — so a section that is omitted
+	// because its input could not be READ is disclosed instead of rendering
+	// as a section that is legitimately empty.
+	readProblems := []string{}
+
 	// feedback-triage A5: the stage ledger also carries sub-stage rows the
 	// orchestrator emits per pass (discovery-specialist,
 	// hypothesis-triage, dedup-normalization, independent-reproduction,
@@ -1502,21 +1594,26 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 			campaign.CampaignID+" --rebuild")
 	}
 
-	prescreen, err := ChPrescreen(campaign, &huntProblems)
+	prescreen, err := ChPrescreen(campaign, &huntProblems, &readProblems)
 	if err != nil {
 		return validation.VNull(), err
 	}
-	forkDiff, err := ChForkdiff(campaign, &huntProblems)
+	forkDiff, err := ChForkdiff(campaign, &huntProblems, &readProblems)
 	if err != nil {
 		return validation.VNull(), err
 	}
-	recency, err := ChRecency(campaign, &huntProblems)
+	recency, err := ChRecency(campaign, &huntProblems, &readProblems)
 	if err != nil {
 		return validation.VNull(), err
 	}
-	amplifiers := ChAmplifiers(campaign, &huntProblems)
+	amplifiers := ChAmplifiers(campaign, &huntProblems, &readProblems)
 	toolFlags := ChToolFlags(campaign, &huntProblems)
 	invSection := ChInvariants(campaign, &huntProblems)
+	// r45a: the artifacts above exist but could not be read — say so in the
+	// cockpit-visible problems list instead of letting the sections vanish.
+	for _, msg := range readProblems {
+		problems = noteProblem(problems, msg)
+	}
 	stale, err := roles.StaleArtifacts(campaign)
 	if err != nil {
 		return validation.VNull(), err
@@ -1735,9 +1832,25 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	}
 
 	// criticality coverage (task 8)
-	if crit, ok, err := criticalityBlock(campaign, all, plan, planErr); err != nil {
-		return validation.VNull(), err
-	} else if ok {
+	//
+	// r45a: criticalityBlock answers "the section is omitted, as when the
+	// model is absent" for a model or structural index that EXISTS but could
+	// not be read. It now hands that failure back as an `unreadable`
+	// disclosure instead of (model) silently dropping the section or (index)
+	// ranking criticality against a fabricated empty index; the message goes
+	// into the problems block, and the section itself stays unset.
+	crit, critOK, critErr := criticalityBlock(campaign, all, plan, planErr)
+	if critErr != nil {
+		return validation.VNull(), critErr
+	}
+	if msg := objStr(crit, "unreadable"); msg != "" {
+		problems = noteProblem(problems, msg)
+		// The problems key was captured when `brief` was built, above; this
+		// disclosure is discovered after that, so the block is re-set (key
+		// position kept — the key already exists) rather than lost.
+		setKey(&brief, "problems", strArr(problems))
+	}
+	if critOK {
 		setKey(&brief, "criticality", crit)
 	}
 
@@ -1758,24 +1871,42 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 
 // criticalityBlock is build_brief's criticality section. ok=false means the
 // section is omitted (Python's `except Exception: pass`).
+//
+// r45a: ok=false is the genuine-absence answer only. A protocol_model.json or
+// structural_index.json that EXISTS but could not be read (chmod 000, EISDIR,
+// ENOTDIR, a torn document) is a read failure: the old body folded it into
+// "no model" (section silently gone) or into a fabricated EMPTY index, which
+// ranked every component as uncovered from structure it never read. Both now
+// return the `unreadable` disclosure, which BuildBrief names in the problems
+// block; no ranking is computed from unread input.
 func criticalityBlock(campaign *state.Campaign, all []validation.Value,
 	plan validation.Value, planErr error) (validation.Value, bool, error) {
 	modelPath := filepath.Join(campaign.ArtifactsDir, "protocol_model.json")
 	if _, err := os.Stat(modelPath); err != nil {
-		return validation.VNull(), false, nil
+		if os.IsNotExist(err) {
+			return validation.VNull(), false, nil
+		}
+		return unreadableSection("protocol_model.json", err), false, nil
 	}
 	model, err := validation.ReadJson(modelPath)
 	if err != nil {
-		return validation.VNull(), false, nil
+		return unreadableSection("protocol_model.json", err), false, nil
 	}
 	indexPath := filepath.Join(campaign.ArtifactsDir, "structural_index.json")
 	var index validation.Value
 	foundIndex := false
-	if _, err := os.Stat(indexPath); err == nil {
-		if doc, err := validation.ReadJson(indexPath); err == nil {
-			index = doc
-			foundIndex = true
+	if _, err := os.Stat(indexPath); err != nil {
+		if !os.IsNotExist(err) {
+			return unreadableSection("structural_index.json", err), false, nil
 		}
+		// genuinely absent: the empty default below is the documented shape
+		// for a campaign that never wrote an index.
+	} else {
+		doc, rerr := validation.ReadJson(indexPath)
+		if rerr != nil {
+			return unreadableSection("structural_index.json", rerr), false, nil
+		}
+		index, foundIndex = doc, true
 	}
 	if !foundIndex {
 		index = validation.VObj(kv("nodes", validation.VArr()),

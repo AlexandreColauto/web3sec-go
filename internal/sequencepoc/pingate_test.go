@@ -60,7 +60,11 @@ func sid(t *testing.T, c *state.Campaign) string {
 
 func TestSnapshotHasForkTargetSourceOnlyIsFalse(t *testing.T) {
 	c := pinGateCampaign(t)
-	if SnapshotHasForkTarget(c) {
+	has, err := SnapshotHasForkTarget(c)
+	if err != nil {
+		t.Fatalf("a readable source-only pin is not a refusal: %v", err)
+	}
+	if has {
 		t.Fatal("a source-only pin has no fork target")
 	}
 }
@@ -72,7 +76,11 @@ func TestSnapshotHasForkTargetTrueWithDeploymentPin(t *testing.T) {
 	if _, err := snapshot.AttachDeploymentPin(c, sid(t, c), dep); err != nil {
 		t.Fatal(err)
 	}
-	if !SnapshotHasForkTarget(c) {
+	has, err := SnapshotHasForkTarget(c)
+	if err != nil {
+		t.Fatalf("a readable deployment pin is not a refusal: %v", err)
+	}
+	if !has {
 		t.Fatal("deployment pin must count as a fork target")
 	}
 }
@@ -123,7 +131,11 @@ func TestChainPinAlsoCountsAsForkTarget(t *testing.T) {
 	if _, err := snapshot.AttachChainPin(c, sid(t, c), chain); err != nil {
 		t.Fatal(err)
 	}
-	if !SnapshotHasForkTarget(c) {
+	has, err := SnapshotHasForkTarget(c)
+	if err != nil {
+		t.Fatalf("a readable chain pin is not a refusal: %v", err)
+	}
+	if !has {
 		t.Fatal("chain pin must count as a fork target")
 	}
 	if !OnchainSequenceRequired(c, multiStep(t)) {
@@ -133,7 +145,11 @@ func TestChainPinAlsoCountsAsForkTarget(t *testing.T) {
 
 func TestNoActiveSnapshotIsFalse(t *testing.T) {
 	c := testCampaign(t)
-	if SnapshotHasForkTarget(c) {
+	has, err := SnapshotHasForkTarget(c)
+	if err != nil {
+		t.Fatalf("no snapshot is a fact, not a refusal: %v", err)
+	}
+	if has {
 		t.Fatal("no snapshot: false")
 	}
 	if OnchainSequenceRequired(c, multiStep(t)) {

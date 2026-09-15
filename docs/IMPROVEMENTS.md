@@ -1,5 +1,30 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-15 — r45 (glm-5.3-flash critic): score 9/10 — no P1 or P2 with a repro
+
+Round 45 is the first clean sheet on the two shapes that matter: no chain-valid forgery rendered a claim the evidence did
+not support, and no honest documented workflow ended in a false statement, a permanent red or a lost record that the
+critic could reproduce. The rubric's 9-band is "no P1 or P2 with a repro", so the audit's stated bar is met at this
+commit — with the full list of what was attacked and could not be broken, and an explicit list of what remains.
+
+What the round did find was the tail of the error-class family that r42, r43 and r44 had each cut a slice from, and the
+critic enumerated every remaining member rather than probing at random: `state.Open` folded every stat errno into "no
+such campaign" (at the ROOT of every surface, one door below r44's `ListCampaigns` fix — `chmod 000
+campaigns/<C>/campaign_state.json` made every verb deny the campaign the operator was looking at); `readPriceRows` folded
+a `ReadJson` error into "missing", so the audit accused the operator of deleting a `prices.json` that existed; four
+briefing folds turned a stat or read failure into "no artifact/model" and made sections of the operator cockpit silently
+vanish at exit 0; and — the sharpest of the "no hold" group — `sequencepoc.SnapshotHasForkTarget` answered `false` for an
+UNREADABLE pin manifest, which made the audit's sequence-coverage section report "no fork target on the active snapshot —
+on-chain sequence coverage is not required" and satisfied the CONFIRMED gate's sequence clause, i.e. a read the tool
+could not perform opened a proof requirement. The critic proved that one by code read but could not drive it end to end
+(sibling refusals masked it), so it stayed unscored; it is fixed here, together with the E5+ floor gate's stat-gated pin
+read and the two masked folds in `envgo`.
+
+The same round found the rail that pins the two `pinnedCompiler` transcriptions together did not exist (only
+`ClassifyFailure` had a differential test), and that the copies had already drifted — envgo folded falsy compiler values
+via `truthy()`, sandbox folded only `Null`. They are now one semantics with the differential test that keeps them one.
+Gates: gofmt/go vet clean, 70/70 packages, runbook-walkthrough and golden GREEN.
+
 ## 2026-09-15 — r44 (glm-5.3-flash critic): the fix did not reach the whole audit
 
 Round 43 taught the evidence readers to refuse an unreadable store; round 44 found that two evidence classes were read by
@@ -23,7 +48,7 @@ while its three siblings refuse; both say what they know now.
 The error-class sweep also reached the compiler-pin rail: `pinnedCompiler` in both seams folded an unreadable pin
 manifest (and the active-snapshot lookup's own error) into "no compiler pinned", so `env doctor` reported the benign
 "na — no compiler pinned by the active snapshot" when the truth was that the pin could not be read. A pin the tool could
-not read is not a pin that does not exist; the doctor row is now a FAIL naming the read failure. Advisory folds in the
+not read is not a pin that does not exist; the doctor row is now a FAIL naming the read failure. [CORRECTED, r45: the envgo-seam surface is the `env doctor` command, which exits 1 with a top-level `error:` line rather than rendering a FAIL row; the FAIL-row shape lives in the sandbox preflight seam. Both refuse, so the behaviour claim holds, but the memo described a row the CLI does not print.] Advisory folds in the
 evaluation section and the roles' private memory listing were closed too, the latter by calling the shared reader instead
 of reimplementing it. Gates: gofmt/go vet clean, 70/70 packages, runbook-walkthrough and golden GREEN.
 

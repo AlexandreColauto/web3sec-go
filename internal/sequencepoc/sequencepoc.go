@@ -92,22 +92,51 @@ func IsSequenceRequired(finding validation.Value) bool {
 
 // SnapshotHasForkTarget is snapshot_has_fork_target: true iff the ACTIVE
 // snapshot pins a fork target — a deployment or a chain. Reads the pin FILE
-// in the immutable tree, not the state mirror. Total: no active snapshot /
-// unreadable pin -> false, never raises.
-func SnapshotHasForkTarget(campaign *state.Campaign) bool {
+// in the immutable tree, not the state mirror.
+//
+// The pair is (has, err). (false, nil) is the FACT that there is no active
+// snapshot or no pin manifest at all (ENOENT). Every other stat/read failure
+// is a REFUSAL naming the path and the errno: a pin the tool could not read
+// is not a pin that does not exist, and r45b closed the older "any error ->
+// false" fold that let EACCES be answered as "no fork target".
+func SnapshotHasForkTarget(campaign *state.Campaign) (bool, error) {
 	sid, err := campaign.ActiveSnapshotIDOrNone()
-	if err != nil || sid == nil || *sid == "" {
-		return false
+	if err != nil {
+		return false, err
+	}
+	if sid == nil || *sid == "" {
+		return false, nil
 	}
 	pinPath := filepath.Join(campaign.Dir, "snapshots", *sid, "snapshot.json")
-	if _, err := os.Stat(pinPath); err != nil {
-		return false
+	if st, serr := os.Stat(pinPath); serr != nil {
+		if os.IsNotExist(serr) {
+			return false, nil // genuinely no fork target
+		}
+		return false, fmt.Errorf("the active snapshot's pin manifest %s "+
+			"cannot be read: %v", pinPath, serr)
+	} else if st.IsDir() {
+		return false, fmt.Errorf("the active snapshot's pin manifest %s is a "+
+			"directory", pinPath)
 	}
 	pin, err := validation.ReadJson(pinPath)
 	if err != nil {
-		return false
+		return false, fmt.Errorf("the active snapshot's pin manifest %s "+
+			"cannot be read: %v", pinPath, err)
 	}
-	return validation.PyTruthy(objAt(pin, "deployment")) || validation.PyTruthy(objAt(pin, "chain"))
+	return validation.PyTruthy(objAt(pin, "deployment")) ||
+		validation.PyTruthy(objAt(pin, "chain")), nil
+}
+
+// OnchainSequenceRequiredErr is onchain_sequence_required with the refusal
+// carried: a pin the tool could not read is returned as an error naming the
+// path and the errno — never as "not required". Error-aware callers (the
+// CONFIRMED gate) use this form.
+func OnchainSequenceRequiredErr(campaign *state.Campaign,
+	finding validation.Value) (bool, error) {
+	if !IsSequenceRequired(finding) {
+		return false, nil
+	}
+	return SnapshotHasForkTarget(campaign)
 }
 
 // OnchainSequenceRequired is onchain_sequence_required: the ON-CHAIN-shaped
@@ -115,9 +144,21 @@ func SnapshotHasForkTarget(campaign *state.Campaign) bool {
 // snapshot has a fork target MUST be proven with a multi-tx fork PoC. The
 // gate keys off the deployment pin, not the step count, because steps in a
 // logic bug are not transactions.
+//
+// The wired seam contract (findings/forkpoc SetOnchainSequenceRequired) is a
+// bare bool and cannot carry an error, so this form is FAIL-CLOSED: a
+// sequenced finding whose pin could not be read keeps the requirement — it
+// never answers false ("not required") for a pin the tool failed to read, and
+// therefore never discharges the audit row, the CONFIRMED-gate clause or the
+// fork-PoC evidence floor. Callers that can carry an error use
+// OnchainSequenceRequiredErr for the named refusal.
 func OnchainSequenceRequired(campaign *state.Campaign,
 	finding validation.Value) bool {
-	return IsSequenceRequired(finding) && SnapshotHasForkTarget(campaign)
+	required, err := OnchainSequenceRequiredErr(campaign, finding)
+	if err != nil {
+		return true
+	}
+	return required
 }
 
 // fail is _fail: the ValueError text naming the offending field.

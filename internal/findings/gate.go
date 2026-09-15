@@ -323,6 +323,44 @@ func firstRunes(s string, n int) string {
 	return string(rs[:n])
 }
 
+// activeForkTargetPin reads the ACTIVE snapshot's pin manifest — the same
+// FILE sequencepoc reads for snapshot_has_fork_target, in the immutable tree,
+// never the state mirror.
+//
+// The triple is (pin, present, err). present=false with err=nil is the FACT
+// that there is no active snapshot or no pin manifest at all (ENOENT). Any
+// other stat/read failure is a REFUSAL naming the path and the errno: a pin
+// the tool could not read must never be folded into "no deployment/chain pin"
+// (r45b — the r44 pinnedCompiler shape).
+func activeForkTargetPin(campaign *state.Campaign) (validation.Value, bool, error) {
+	sid, err := campaign.ActiveSnapshotIDOrNone()
+	if err != nil {
+		return validation.VNull(), false, err
+	}
+	if sid == nil || *sid == "" {
+		return validation.VNull(), false, nil
+	}
+	pinPath := filepath.Join(campaign.Dir, "snapshots", *sid, "snapshot.json")
+	if st, serr := os.Stat(pinPath); serr != nil {
+		if os.IsNotExist(serr) {
+			return validation.VNull(), false, nil
+		}
+		return validation.VNull(), false, fmt.Errorf(
+			"the active snapshot's pin manifest %s cannot be read: %v",
+			pinPath, serr)
+	} else if st.IsDir() {
+		return validation.VNull(), false, fmt.Errorf(
+			"the active snapshot's pin manifest %s is a directory", pinPath)
+	}
+	pin, rerr := validation.ReadJson(pinPath)
+	if rerr != nil {
+		return validation.VNull(), false, fmt.Errorf(
+			"the active snapshot's pin manifest %s cannot be read: %v",
+			pinPath, rerr)
+	}
+	return pin, true, nil
+}
+
 // ReachabilityDiagnostic is reachability_diagnostic: the structural
 // prerequisites for reaching *minLevel* IN THIS CAMPAIGN. E5/E6 evidence is
 // not a matter of effort but of infrastructure. bugClass nil is Python's
@@ -341,21 +379,14 @@ func ReachabilityDiagnostic(campaign *state.Campaign, minLevel string,
 	// the state mirror carries only the lean registry row (id/pass/pinned);
 	// the pins themselves live in the snapshot FILE inside the immutable
 	// tree — read the file, not the mirror.
-	sid, err := campaign.ActiveSnapshotIDOrNone()
+	pin, present, err := activeForkTargetPin(campaign)
 	if err != nil {
 		return nil, err
 	}
 	hasDep, hasChain := false, false
-	if sid != nil && *sid != "" {
-		pinPath := filepath.Join(campaign.Dir, "snapshots", *sid, "snapshot.json")
-		if _, statErr := os.Stat(pinPath); statErr == nil {
-			pin, err := validation.ReadJson(pinPath)
-			if err != nil {
-				return nil, err
-			}
-			hasDep = validation.PyTruthy(objAt(pin, "deployment"))
-			hasChain = validation.PyTruthy(objAt(pin, "chain"))
-		}
+	if present {
+		hasDep = validation.PyTruthy(objAt(pin, "deployment"))
+		hasChain = validation.PyTruthy(objAt(pin, "chain"))
 	}
 	if !(hasDep || hasChain) {
 		missing = append(missing,
@@ -630,6 +661,15 @@ func (g *gateRun) reproductionTier(repro validation.Value, floor string) {
 func (g *gateRun) sequenceCoverage(repro validation.Value) error {
 	if !onchainSequenceRequiredFunc(g.campaign, g.finding) {
 		return nil
+	}
+	// r45b: the predicate is fail-closed on a pin the tool could not read
+	// (it answers "required", never "not required"). Read the pin here as
+	// well: when THAT read fails, the clause cannot be judged, so the gate
+	// refuses with the path and the errno instead of reporting missing
+	// sequence coverage the operator cannot act on. A genuinely absent pin
+	// (ENOENT) is a fact and falls through to the normal clause.
+	if _, _, err := activeForkTargetPin(g.campaign); err != nil {
+		return err
 	}
 	execs, err := state.AllExecs(g.campaign)
 	if err != nil {

@@ -215,7 +215,14 @@ func pinnedCompiler(c *state.Campaign) (*string, error) {
 			"cannot be read: %v", pinPath, err)
 	}
 	compiler := objAt(objAt(pin, "config"), "compiler")
-	if !truthy(compiler) {
+	// Python's `if compiler:` truthiness — validation.PyTruthy is the
+	// canonical predicate, so a FALSY-BUT-PRESENT pin (0, false, "", 0.0) is
+	// no pin and str() renders a truthy scalar ("0.8.24", "0.8.24, --opt",
+	// 1.5). r45b: envgo/preflight.go and sandbox/envseam.go carry this one
+	// transcription twice; they had drifted (truthy() vs Null-only) and are
+	// reconciled here to the canonical predicate, pinned by the r45b
+	// differential test.
+	if !validation.PyTruthy(compiler) {
 		return nil, nil
 	}
 	text := scalarText(compiler)

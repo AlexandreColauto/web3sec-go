@@ -11,6 +11,7 @@ package sections
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -31,7 +32,10 @@ func PriceTable(c *state.Campaign) (validation.Value, error) {
 		}
 	}
 	tablePath := filepath.Join(c.Dir, "prices.json")
-	rows, fileFound := readPriceRows(tablePath)
+	rows, fileFound, err := readPriceRows(tablePath)
+	if err != nil {
+		return validation.Value{}, err
+	}
 	if !fileFound && len(priceEvents) == 0 {
 		return validation.Value{}, ErrSkip // never priced anything
 	}
@@ -110,12 +114,26 @@ func PriceTable(c *state.Campaign) (validation.Value, error) {
 }
 
 // readPriceRows loads the table file if present: rows, found.
-func readPriceRows(path string) ([]validation.Value, bool) {
+//
+// r45a: the old body returned (nil, false) for EVERY ReadJson error — "the
+// file is not there" — so `chmod 000 prices.json` made this section print TWO
+// false absence claims (the log's row "has no such row", and prices.json
+// "missing entirely") about a file the operator is looking at. Only
+// os.IsNotExist is absence; anything else (EACCES, EISDIR, ENOTDIR, a torn
+// document) is a read failure and REFUSES, naming the file and the errno, so
+// the audit section fails instead of inventing an absence. This is the
+// semantics `webv2 price <C> table` already has (pricing.LoadTable propagates
+// the same read error).
+func readPriceRows(path string) ([]validation.Value, bool, error) {
 	doc, err := validation.ReadJson(path)
 	if err != nil {
-		return nil, false
+		if os.IsNotExist(err) {
+			return nil, false, nil // genuinely no table file: absence is a fact
+		}
+		return nil, false, fmt.Errorf("the price table %s cannot be read: %v",
+			path, err)
 	}
-	return listOf(objAt(doc, "prices")), true
+	return listOf(objAt(doc, "prices")), true, nil
 }
 
 // pyStripStr is Python str.strip() on a CLI-visible string.

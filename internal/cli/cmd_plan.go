@@ -9,6 +9,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -86,11 +87,11 @@ func runPlan(root string, args []string, r *Runner) error {
 	if objAt(res, "read_only").B {
 		fmt.Fprint(r.Err, planNote)
 	}
-	return planOutput(c, res, r.Out, asJSON)
+	return planOutput(c, res, r.Out, r.Err, asJSON)
 }
 
 // planOutput renders the plan view: JSON when --json, else the operator text.
-func planOutput(c *state.Campaign, res validation.Value, stdout io.Writer,
+func planOutput(c *state.Campaign, res validation.Value, stdout, stderr io.Writer,
 	asJSON bool) error {
 	p, perr := planner.LoadPlanReadonly(c)
 	if perr != nil {
@@ -99,7 +100,7 @@ func planOutput(c *state.Campaign, res validation.Value, stdout io.Writer,
 	if asJSON {
 		return planOutputJSON(c, res, p, stdout)
 	}
-	return planOutputText(c, res, p, stdout)
+	return planOutputText(c, res, p, stdout, stderr)
 }
 
 // planOutputJSON is the --json branch: the lens checklist and the divergence
@@ -137,10 +138,10 @@ func planOutputJSON(c *state.Campaign, res, p validation.Value,
 // planOutputText is the human view: work queue, reachability, the lens
 // checklist and the divergence gate.
 func planOutputText(c *state.Campaign, res, p validation.Value,
-	stdout io.Writer) error {
+	stdout, stderr io.Writer) error {
 	planOutputQueue(res, stdout)
 	planOutputReachability(res, stdout)
-	planOutputTrackedSurfaces(c, stdout)
+	planOutputTrackedSurfaces(c, stdout, stderr)
 	if p.Kind != validation.Obj {
 		return nil
 	}
@@ -186,13 +187,27 @@ func planOutputReachability(res validation.Value, stdout io.Writer) {
 
 // planOutputTrackedSurfaces is the G9 opaque-surface block in the plan
 // view: the model's tracked-but-opaque components as tracked surfaces.
-// Presence-gated (the additive convention): no model file, an unreadable
-// one, or no components — no bytes, so a component-free plan view is
-// unchanged.
-func planOutputTrackedSurfaces(c *state.Campaign, stdout io.Writer) {
-	model, err := validation.ReadJson(filepath.Join(c.ArtifactsDir,
-		"protocol_model.json"))
+// Presence-gated (the additive convention): no model file, or no components —
+// no bytes, so a component-free plan view is unchanged.
+//
+// r45: an UNREADABLE model is not an absent one. The section is still omitted
+// (stdout is twin-pinned, so no line may be added there), but the omission is
+// disclosed on STDERR, which is free: the operator learns the block is missing
+// because the file could not be read, not because the model has no components.
+func planOutputTrackedSurfaces(c *state.Campaign, stdout, stderr io.Writer) {
+	modelPath := filepath.Join(c.ArtifactsDir, "protocol_model.json")
+	model, err := validation.ReadJson(modelPath)
 	if err != nil {
+		if st, serr := os.Stat(modelPath); serr != nil &&
+			!os.IsNotExist(serr) {
+			fmt.Fprintf(stderr, "WARNING: %s cannot be read (%v) — the "+
+				"tracked-surfaces block is omitted, not absent\n",
+				modelPath, serr)
+		} else if serr == nil && !st.IsDir() {
+			fmt.Fprintf(stderr, "WARNING: %s cannot be parsed (%v) — the "+
+				"tracked-surfaces block is omitted, not absent\n",
+				modelPath, err)
+		}
 		return
 	}
 	for _, ln := range planner.TrackedSurfacesSection(model) {

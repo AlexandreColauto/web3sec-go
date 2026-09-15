@@ -541,10 +541,25 @@ func CampaignRequirements(campaign *state.Campaign) (validation.Value, error) {
 	}
 	if sid := objStr(st, "active_snapshot_id"); sid != "" {
 		meta := filepath.Join(campaign.Dir, "snapshots", sid, "snapshot.json")
-		if pathExists(meta) {
-			pin, err := validation.ReadJson(meta)
-			if err != nil {
-				return validation.VNull(), err
+		// r45b: the pin manifest is read, not merely stat'ed. ENOENT is the
+		// FACT "no chain pin on the active snapshot" (the advisory below
+		// stands); every other stat/read failure is a REFUSAL naming the path
+		// and the errno — an unreadable pin is not an absent pin.
+		pst, perr := os.Stat(meta)
+		switch {
+		case perr != nil && os.IsNotExist(perr):
+			// no pin manifest at all: nothing pinned, nothing to refuse
+		case perr != nil:
+			return validation.VNull(), fmt.Errorf("the active snapshot's pin "+
+				"manifest %s cannot be read: %v", meta, perr)
+		case pst.IsDir():
+			return validation.VNull(), fmt.Errorf("the active snapshot's pin "+
+				"manifest %s is a directory", meta)
+		default:
+			pin, rerr := validation.ReadJson(meta)
+			if rerr != nil {
+				return validation.VNull(), fmt.Errorf("the active snapshot's "+
+					"pin manifest %s cannot be read: %v", meta, rerr)
 			}
 			chainPin = truthy(objAt(pin, "chain"))
 		}
@@ -581,12 +596,24 @@ func SolcProbe(campaign *state.Campaign, imageProbe validation.Value) (
 		return nil, err
 	}
 	pinPath := filepath.Join(campaign.Dir, "snapshots", *sid, "snapshot.json")
-	if !pathExists(pinPath) {
-		return nil, nil
+	// r45b: this reader used pathExists (any stat error -> false) and folded
+	// a ReadJson error into (nil, nil) = "no solc required". ENOENT is the
+	// FACT that nothing is pinned; any other failure is a REFUSAL naming the
+	// path and the errno.
+	if pst, perr := os.Stat(pinPath); perr != nil {
+		if os.IsNotExist(perr) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("the active snapshot's pin manifest %s cannot "+
+			"be read: %v", pinPath, perr)
+	} else if pst.IsDir() {
+		return nil, fmt.Errorf("the active snapshot's pin manifest %s is a "+
+			"directory", pinPath)
 	}
 	pin, err := validation.ReadJson(pinPath)
 	if err != nil {
-		return nil, nil
+		return nil, fmt.Errorf("the active snapshot's pin manifest %s cannot "+
+			"be read: %v", pinPath, err)
 	}
 	compiler := objStr(objAt(pin, "config"), "compiler")
 	if compiler == "" {
