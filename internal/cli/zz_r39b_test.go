@@ -98,10 +98,18 @@ func TestR39bDoctorHumanSurfaceNamesTheLoss(t *testing.T) {
 				mode, out)
 		}
 		// ...and the loss is named IN ADDITION, never instead.
-		if !strings.Contains(out, "the projection lost 3 events that the "+
-			"journal records") {
+		// r40c P3: and named in the right DIRECTION — the 3 rows exist
+		// only in the projection; the log is the store that no longer
+		// holds them (doctor.json: dropped_from_projection == 3).
+		if !strings.Contains(out, "3 event(s) the projection remembered are "+
+			"GONE from the log") {
 			t.Errorf("doctor %v: stdout omits the erased 3 events: %q",
 				mode, out)
+		}
+		if strings.Contains(out, "the projection lost") {
+			t.Errorf("doctor %v: the r39 sentence is inverted again — the "+
+				"projection did not lose the rows, the LOG no longer holds "+
+				"them: %q", mode, out)
 		}
 		// (b) no claim the comparison cannot support.
 		if strings.Contains(out, "all the evidence here") {

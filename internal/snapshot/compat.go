@@ -28,6 +28,66 @@ func snapPath(c *state.Campaign, snapshotID string) (string, error) {
 	return filepath.Join(snapDir, "snapshot.json"), nil
 }
 
+// pinThenLog is the snapshot package's r40e UNWIND-ON-REFUSAL door for the
+// post-pin attachment writers. snapshot.json is campaign TRUTH: the trust
+// gate (AssertSnapshotCompatible / ReverifyRequired), coverage's
+// active-deployment read and `snap` all consume it, and its `manifest` block
+// is re-derived from the pin it describes. AttachDeploymentPin and
+// AttachChainPin rewrite that file and then APPEND
+// snapshot.deployment_attached / snapshot.chain_attached — a refused append
+// (torn ledger, mirror lag or hole, held lock, unreadable ledger) used to
+// leave the new deployment/chain pin on disk with no event, so the campaign
+// read as pinned to reality the ledger never recorded, and the retry after
+// the heal wrote a SECOND pin over the first.
+//
+// So the file's bytes are snapshotted before the write, the whole
+// snapshot -> write -> append -> restore window is held under the campaign
+// process lock the inner Log re-enters by depth, and ANY refusal restores
+// those exact bytes — or removes a file that did not exist yet, never
+// creating an empty one. A FAILED restore means the pin bytes are still
+// AHEAD of the refused event; name both failures so no caller can report a
+// clean unwind that never happened.
+//
+// The pin path itself (PinSourceSnapshot) does not need this door: it writes
+// into a brand-new dir behind the r8 half-pin rollback (pin.go:370-397), so
+// a refused snapshot.excluded removes what it installed.
+func pinThenLog(c *state.Campaign, path string, write func() error,
+	log func() error) error {
+	if err := c.LockProcess(); err != nil {
+		return err
+	}
+	defer c.UnlockProcess()
+	prevRaw, perr := os.ReadFile(path)
+	had := perr == nil
+	if perr != nil && !os.IsNotExist(perr) {
+		return perr
+	}
+	restore := func() error {
+		if had {
+			return os.WriteFile(path, prevRaw, 0o644)
+		}
+		if rerr := os.Remove(path); rerr != nil && !os.IsNotExist(rerr) {
+			return rerr
+		}
+		return nil
+	}
+	fail := func(err error) error {
+		if rerr := restore(); rerr != nil {
+			return fmt.Errorf("%w (UNWIND ALSO FAILED: %v — %s holds "+
+				"post-write bytes with no event; repair by hand before "+
+				"continuing)", err, rerr, filepath.Base(path))
+		}
+		return err
+	}
+	if err := write(); err != nil {
+		return fail(err)
+	}
+	if err := log(); err != nil {
+		return fail(err)
+	}
+	return nil
+}
+
 // AttachDeploymentPin is attach_deployment_pin: attach/replace the
 // deployment pin (what is actually on-chain), refresh the manifest so it
 // describes the new pin, schema-validate on write, and log
@@ -46,9 +106,6 @@ func AttachDeploymentPin(c *state.Campaign, snapshotID string, deployment valida
 	if snap, err = RefreshManifest(snap, snapDir); err != nil {
 		return validation.VNull(), err
 	}
-	if err := validation.WriteJson(path, snap, "snapshot"); err != nil {
-		return validation.VNull(), err
-	}
 	n := 0
 	if contracts := sget(deployment, "contracts"); contracts.Kind == validation.Arr {
 		n = len(contracts.A)
@@ -57,7 +114,13 @@ func AttachDeploymentPin(c *state.Campaign, snapshotID string, deployment valida
 		validation.KV{K: "contracts", V: validation.VInt(int64(n))},
 		validation.KV{K: "network", V: sget(deployment, "network")},
 	)
-	if _, err := c.Log("snapshot.deployment_attached", &snapshotID, &data); err != nil {
+	// r40e: the deployment pin and its event land together or not at all.
+	if err := pinThenLog(c, path,
+		func() error { return validation.WriteJson(path, snap, "snapshot") },
+		func() error {
+			_, lerr := c.Log("snapshot.deployment_attached", &snapshotID, &data)
+			return lerr
+		}); err != nil {
 		return validation.VNull(), err
 	}
 	return snap, nil
@@ -80,13 +143,16 @@ func AttachChainPin(c *state.Campaign, snapshotID string, chain validation.Value
 	if snap, err = RefreshManifest(snap, snapDir); err != nil {
 		return validation.VNull(), err
 	}
-	if err := validation.WriteJson(path, snap, "snapshot"); err != nil {
-		return validation.VNull(), err
-	}
 	data := validation.VObj(
 		validation.KV{K: "fork_block", V: sget(chain, "fork_block")},
 	)
-	if _, err := c.Log("snapshot.chain_attached", &snapshotID, &data); err != nil {
+	// r40e: the chain pin and its event land together or not at all.
+	if err := pinThenLog(c, path,
+		func() error { return validation.WriteJson(path, snap, "snapshot") },
+		func() error {
+			_, lerr := c.Log("snapshot.chain_attached", &snapshotID, &data)
+			return lerr
+		}); err != nil {
 		return validation.VNull(), err
 	}
 	return snap, nil

@@ -623,22 +623,25 @@ func RecordEconomicImpact(campaign *state.Campaign, findingID string,
 			return validation.VNull(), err
 		}
 	}
-	if err := findings.SaveFinding(campaign, &f); err != nil {
-		return validation.VNull(), err
-	}
-	if _, err := Calibrate(campaign, findingID); err != nil {
-		return validation.VNull(), err
-	}
-	data := validation.VObj(
-		validation.KV{K: "extractable_usd", V: extractableUSD},
-		validation.KV{K: "max_loss_usd", V: maxLossUSD},
-	)
-	if reversedUnpriceable {
-		data.O = append(data.O, validation.KV{K: "reversed_unpriceable",
-			V: validation.VBool(true)})
-	}
-	if _, err := campaign.Log("finding.impact_recorded", &findingID,
-		&data); err != nil {
+	// r40: the finding file is the state half of the pair; Calibrate's own
+	// save+log sits inside the log closure, so a refusal ANYWHERE in the
+	// chain unwinds the whole verb back to its pre-write bytes (Calibrate's
+	// own SaveThenLog restores its step, then this one restores the verb's).
+	if err := findings.SaveThenLog(campaign, &f, func() error {
+		if _, err := Calibrate(campaign, findingID); err != nil {
+			return err
+		}
+		data := validation.VObj(
+			validation.KV{K: "extractable_usd", V: extractableUSD},
+			validation.KV{K: "max_loss_usd", V: maxLossUSD},
+		)
+		if reversedUnpriceable {
+			data.O = append(data.O, validation.KV{K: "reversed_unpriceable",
+				V: validation.VBool(true)})
+		}
+		_, lerr := campaign.Log("finding.impact_recorded", &findingID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return findings.LoadFinding(campaign, findingID)
@@ -706,20 +709,24 @@ func RecordUnpriceable(campaign *state.Campaign, findingID, ceiling, reason,
 	*impact = validation.SetOrAppend(*impact, "ceiling", validation.VStr(ceiling))
 	*impact = popKey(*impact, "extractable_usd")
 	*impact = popKey(*impact, "max_loss_usd")
-	if err := findings.SaveFinding(campaign, &f); err != nil {
-		return validation.VNull(), err
-	}
-	if _, err := Calibrate(campaign, findingID); err != nil {
-		return validation.VNull(), err
-	}
-	data := validation.VObj(
-		validation.KV{K: "finding", V: validation.VStr(findingID)},
-		validation.KV{K: "ceiling", V: validation.VStr(ceiling)},
-		validation.KV{K: "reason", V: validation.VStr(reason)},
-		validation.KV{K: "actor", V: validation.VStr(actor)},
-	)
-	if _, err := campaign.Log("finding.unpriceable", &findingID,
-		&data); err != nil {
+	// r40: priceable:false IS the named decision and findings.UnpriceableDecision
+	// reads it back state-only — a decision on disk without its event is
+	// byte-for-byte the hand-edited shape audit red-lines. Unwind on
+	// refusal; Calibrate nests inside the log closure (same as
+	// RecordEconomicImpact).
+	if err := findings.SaveThenLog(campaign, &f, func() error {
+		if _, err := Calibrate(campaign, findingID); err != nil {
+			return err
+		}
+		data := validation.VObj(
+			validation.KV{K: "finding", V: validation.VStr(findingID)},
+			validation.KV{K: "ceiling", V: validation.VStr(ceiling)},
+			validation.KV{K: "reason", V: validation.VStr(reason)},
+			validation.KV{K: "actor", V: validation.VStr(actor)},
+		)
+		_, lerr := campaign.Log("finding.unpriceable", &findingID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return findings.LoadFinding(campaign, findingID)
@@ -756,12 +763,14 @@ func Calibrate(campaign *state.Campaign, findingID string) (validation.Value, er
 	}
 	riskV.O = validation.SetOrAppend(riskV.O, "impact_vector", iv)
 	f.O[ri].V = riskV
-	if err := findings.SaveFinding(campaign, &f); err != nil {
-		return validation.VNull(), err
-	}
+	// r40: the risk block (band included) is gate-read state; a stored
+	// calibration without its finding.calibrated event is a verdict the
+	// ledger never issued. Unwind on refusal.
 	data := validation.VObj(validation.KV{K: "band", V: objAt(validated, "band")})
-	if _, err := campaign.Log("finding.calibrated", &findingID,
-		&data); err != nil {
+	if err := findings.SaveThenLog(campaign, &f, func() error {
+		_, lerr := campaign.Log("finding.calibrated", &findingID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return riskV, nil

@@ -75,6 +75,48 @@ func SaveTable(campaign *state.Campaign, table *validation.Value) (string, error
 	return p, nil
 }
 
+// saveTableThenLog is the pricing sibling of the state package's
+// AppendJsonlThenLog and the findings package's SaveThenLog (r40b P2-2):
+// a prices.json row written while its price.set event was REFUSED is a
+// ghost row the audit red-lines permanently — a retry adds a SECOND row
+// for the same asset, doctor repairs projections only, and no verb
+// removes a price row. So the file's bytes are snapshotted before the
+// write, and a refused log restores those exact bytes — or removes a
+// file that did not exist yet, never creating an empty one. A FAILED
+// restore means the row bytes are still AHEAD of the refused event; name
+// both failures so no caller can report a clean unwind that never
+// happened.
+func saveTableThenLog(campaign *state.Campaign, table *validation.Value,
+	log func() error) error {
+	p := path(campaign)
+	prevRaw, perr := os.ReadFile(p)
+	had := perr == nil
+	if perr != nil && !os.IsNotExist(perr) {
+		return perr
+	}
+	restore := func() error {
+		if had {
+			return os.WriteFile(p, prevRaw, 0o644)
+		}
+		if rerr := os.Remove(p); rerr != nil && !os.IsNotExist(rerr) {
+			return rerr
+		}
+		return nil
+	}
+	if _, err := SaveTable(campaign, table); err != nil {
+		return err
+	}
+	if err := log(); err != nil {
+		if rerr := restore(); rerr != nil {
+			return fmt.Errorf("%w (UNWIND ALSO FAILED: %v — %s holds "+
+				"post-write bytes with no event; repair by hand before "+
+				"continuing)", err, rerr, tableName)
+		}
+		return err
+	}
+	return nil
+}
+
 // SetPrice is set_price: record one price row. Rows are append-only per
 // asset: the newest is effective, older rows stay for reproducing past
 // quantifications.
@@ -110,9 +152,8 @@ func SetPrice(campaign *state.Campaign, asset string, usd float64, source,
 	prices := objAt(table, "prices")
 	prices.A = append(prices.A, row)
 	table.O = validation.SetOrAppend(table.O, "prices", prices)
-	if _, err := SaveTable(campaign, &table); err != nil {
-		return validation.VNull(), err
-	}
+	// r40b P2-2: the row without its price.set event is a ghost the audit
+	// can never repair. Unwind.
 	data := validation.VObj(
 		validation.KV{K: "asset", V: objAt(row, "asset")},
 		validation.KV{K: "usd", V: objAt(row, "usd")},
@@ -121,7 +162,10 @@ func SetPrice(campaign *state.Campaign, asset string, usd float64, source,
 		validation.KV{K: "actor", V: validation.VStr(actor)},
 	)
 	ref := objStr(row, "price_id")
-	if _, err := campaign.Log("price.set", &ref, &data); err != nil {
+	if err := saveTableThenLog(campaign, &table, func() error {
+		_, lerr := campaign.Log("price.set", &ref, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return row, nil

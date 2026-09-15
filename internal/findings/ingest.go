@@ -408,14 +408,19 @@ func ingestHypothesis(campaign *state.Campaign, payload validation.Value,
 	// The finding is written AFTER any slot charge: the slot is a budget, and
 	// a crash between the two writes must cost the operator a slot
 	// (recoverable, visible) rather than hand out a free one.
-	if err := SaveFinding(campaign, &p); err != nil {
-		return validation.VNull(), err
-	}
 	advisory := classAdvisoryFunc(rootClass, campaign)
 	warnings := IntakeCheckpoint(p, trajectory, campaign.CampaignID, campaign)
-	if _, err := campaign.Log("finding.ingested", &fid,
-		ingestLogData(trajectory, stage, model, rootClass, advisory,
-			warnings)); err != nil {
+	// r40b P2 sweep: the finding file without its finding.ingested event is
+	// a live HYPOTHESIS the ledger never recorded — and the retry after the
+	// heal ingests the payload AGAIN (two findings, one event, the dedup
+	// mirror none the wiser). Unwind: on a refused log the pre-write state
+	// is the file's absence, which restoreBytes puts back exactly.
+	if err := SaveThenLog(campaign, &p, func() error {
+		_, lerr := campaign.Log("finding.ingested", &fid,
+			ingestLogData(trajectory, stage, model, rootClass, advisory,
+				warnings))
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	// A2: scan the pinned source for in-code acknowledgements around the

@@ -105,30 +105,40 @@ func ArchivePlan(campaign *state.Campaign, opts ArchiveOpts) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(dest, raw, 0o644); err != nil { // byte-identical
-		return "", err
-	}
 	priorities := len(listOf(plan, "priorities"))
 	note := "superseded campaign plan " + pad4(version) + " (" +
 		itoa(priorities) + " priorities)"
-	aid, err := campaign.RegisterOrRefresh("plan.superseded", dest, note, nil,
-		reason)
-	if err != nil {
-		return "", err
-	}
-	sha, err := validation.Sha256File(dest)
-	if err != nil {
-		return "", err
-	}
-	data := validation.VObj(
-		kv("path", validation.VStr(dest)),
-		kv("source_path", validation.VStr(src)),
-		kv("version", validation.VStr(pad4(version))),
-		kv("priorities", validation.VInt(int64(priorities))),
-		kv("sha256_of_superseded", validation.VStr(sha)),
-		kv("reason", validation.VStr(reason)),
-	)
-	if _, err := campaign.Log("plan.superseded", &aid, &data); err != nil {
+	// r40e: the archive copy and its ledger record (artifact.registered,
+	// then plan.superseded) land together or not at all. The refusal an
+	// operator can hit lands at the registration's own append inside
+	// RegisterOrRefresh — its unwind drops the row, and without this door
+	// the byte-identical copy stayed on disk unregistered and unrecorded,
+	// accumulating one orphan per refused rebuild (the version counter
+	// mints the next one on the retry). planWindow restores the pre-write
+	// state, which for a fresh archive is "no file at all".
+	if err := planWindow(campaign, dest,
+		func() error { return os.WriteFile(dest, raw, 0o644) },
+		func() error {
+			aid, rerr := campaign.RegisterOrRefresh("plan.superseded", dest,
+				note, nil, reason)
+			if rerr != nil {
+				return rerr
+			}
+			sha, serr := validation.Sha256File(dest)
+			if serr != nil {
+				return serr
+			}
+			data := validation.VObj(
+				kv("path", validation.VStr(dest)),
+				kv("source_path", validation.VStr(src)),
+				kv("version", validation.VStr(pad4(version))),
+				kv("priorities", validation.VInt(int64(priorities))),
+				kv("sha256_of_superseded", validation.VStr(sha)),
+				kv("reason", validation.VStr(reason)),
+			)
+			_, lerr := campaign.Log("plan.superseded", &aid, &data)
+			return lerr
+		}); err != nil {
 		return "", err
 	}
 	return dest, nil

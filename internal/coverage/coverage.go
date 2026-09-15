@@ -96,6 +96,60 @@ func Save(c *state.Campaign, cov *validation.Value) (string, error) {
 	return Path(c), nil
 }
 
+// saveThenLog is the coverage package's r40e UNWIND-ON-REFUSAL door — the
+// sibling of state.AppendJsonlThenLog / findings.SaveThenLog for the
+// coverage ledger, which is a whole-file artifact rather than an
+// append-only row. coverage.json is campaign TRUTH: the uncovered-critical
+// gates, the funnel/UNKNOWN accounting and the reports all read it, so a
+// sweep row that lands while its coverage.sweep event is REFUSED (torn
+// ledger, mirror lag or hole, held lock, unreadable ledger) is a
+// disposition the ledger never recorded — and the retry after the heal
+// writes a SECOND row for the one event. So the file's bytes are
+// snapshotted before the write, the whole snapshot -> write -> append ->
+// restore window is held under the campaign process lock the inner Log
+// re-enters by depth, and a refused append restores those exact bytes — or
+// removes a file that did not exist yet, never creating an empty one. A
+// FAILED restore means the row bytes are still AHEAD of the refused event;
+// name both failures so no caller can report a clean unwind that never
+// happened.
+func saveThenLog(c *state.Campaign, cov *validation.Value,
+	log func() error) error {
+	if err := c.LockProcess(); err != nil {
+		return err
+	}
+	defer c.UnlockProcess()
+	path := Path(c)
+	prevRaw, perr := os.ReadFile(path)
+	had := perr == nil
+	if perr != nil && !os.IsNotExist(perr) {
+		return perr
+	}
+	restore := func() error {
+		if had {
+			return os.WriteFile(path, prevRaw, 0o644)
+		}
+		if rerr := os.Remove(path); rerr != nil && !os.IsNotExist(rerr) {
+			return rerr
+		}
+		return nil
+	}
+	fail := func(err error) error {
+		if rerr := restore(); rerr != nil {
+			return fmt.Errorf("%w (UNWIND ALSO FAILED: %v — the coverage "+
+				"ledger holds post-write bytes with no event; repair by "+
+				"hand before continuing)", err, rerr)
+		}
+		return err
+	}
+	if _, err := Save(c, cov); err != nil {
+		return fail(err)
+	}
+	if err := log(); err != nil {
+		return fail(err)
+	}
+	return nil
+}
+
 // InitFromIndex is init_from_index: every in-scope contract starts as
 // `unknown`, every entry point as unreviewed.
 func InitFromIndex(c *state.Campaign, index, model validation.Value) (validation.Value, error) {
@@ -328,15 +382,18 @@ func RecordSweep(c *state.Campaign, contract, trajectory string,
 		}
 		rows.A[i] = row
 		cov.O = validation.SetOrAppend(cov.O, "contracts", rows)
-		if _, err := Save(c, &cov); err != nil {
-			return validation.VNull(), err
-		}
 		data := validation.VObj(
 			kv("contract", validation.VStr(contract)),
 			kv("trajectory", validation.VStr(trajectory)),
 			kv("complete", validation.VBool(opts.Complete)),
 		)
-		if _, err := c.Log("coverage.sweep", nil, &data); err != nil {
+		// r40e: the sweep row without its coverage.sweep event is a
+		// disposition no later reader can see; unwind the ledger write on a
+		// refused append.
+		if err := saveThenLog(c, &cov, func() error {
+			_, lerr := c.Log("coverage.sweep", nil, &data)
+			return lerr
+		}); err != nil {
 			return validation.VNull(), err
 		}
 		return row, nil

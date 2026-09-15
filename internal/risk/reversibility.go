@@ -51,18 +51,21 @@ func RecordReversibility(campaign *state.Campaign, findingID, mode string) (vali
 		riskV.O = validation.SetOrAppend(riskV.O, "reversibility", validation.VStr(mode))
 	}
 	f.O[ri].V = riskV
-	if err := findings.SaveFinding(campaign, &f); err != nil {
-		return validation.VNull(), err
-	}
-	if _, err := Calibrate(campaign, findingID); err != nil {
-		return validation.VNull(), err
-	}
-	data := validation.VObj(
-		validation.KV{K: "mode", V: validation.VStr(mode)},
-		validation.KV{K: "cleared", V: validation.VBool(cleared)},
-	)
-	if _, err := campaign.Log("finding.reversibility_set", &findingID,
-		&data); err != nil {
+	// r40: the classification is a named weight in validated_risk — a
+	// stored mode without its event is a risk input the ledger never
+	// recorded. Unwind on refusal; Calibrate nests inside the log closure
+	// (same as RecordEconomicImpact / RecordUnpriceable).
+	if err := findings.SaveThenLog(campaign, &f, func() error {
+		if _, err := Calibrate(campaign, findingID); err != nil {
+			return err
+		}
+		data := validation.VObj(
+			validation.KV{K: "mode", V: validation.VStr(mode)},
+			validation.KV{K: "cleared", V: validation.VBool(cleared)},
+		)
+		_, lerr := campaign.Log("finding.reversibility_set", &findingID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return findings.LoadFinding(campaign, findingID)

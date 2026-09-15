@@ -282,6 +282,17 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 
 // readWaiverRowsR12 reads waivers.jsonl (missing file = nil, nil): the
 // same one-object-per-line framing, parsed with the ledger's decoder.
+//
+// r40c P2-3: this reader and completion.Waivers answer the SAME frame for
+// the same bytes — "\n"-delimited physical lines, blankness decided by
+// BlankLine. They used to disagree: this one split on "\n" while the
+// completion reader used CPython's str.splitlines(), whose boundary set
+// includes U+0085/U+2028/U+2029. A waiver reason carrying one of those runes
+// raw (json.dumps(ensure_ascii=False) leaves them raw) was ONE green row
+// here and TWO fragments there — verify certified a disposition the proof
+// never consulted. The writer escapes those three codepoints now
+// (completion/pyjson.go), and completion.Waivers frames on the physical
+// line, so a legacy raw row reads identically on both sides.
 func readWaiverRowsR12(path string) ([]validation.Value, error, int) {
 	raw, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
@@ -293,8 +304,10 @@ func readWaiverRowsR12(path string) ([]validation.Value, error, int) {
 	var out []validation.Value
 	for i, ln := range strings.Split(string(raw), "\n") {
 		// r38 P2-1: the shared framing predicate — a U+00A0-only waiver
-		// line is a parse error below, never silently skipped.
-		if blankLine(ln) {
+		// line is a parse error below, never silently skipped. Named
+		// explicitly as the EXPORTED BlankLine so the pairing with
+		// completion.Waivers is visible at the call site.
+		if BlankLine(ln) {
 			continue
 		}
 		v, perr := validation.ParseOrdered([]byte(ln))

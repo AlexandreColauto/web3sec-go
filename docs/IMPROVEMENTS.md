@@ -1,5 +1,35 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-15 — r40 (deepseek-v4.1-flash critic): the ninth ladder site, and the verb families nobody migrated
+
+This round found one P1 and three P2s, all the same law: a verb that writes a side artifact and then appends its ledger
+event, with no unwind when the append is refused. The P1 was in the ladder family. Eight of the nine ladder write sites
+call the r18 `restoreLadderPair` on a refused log; `ladder waive` was the ninth and had none. So a waive that FAILED —
+a five-character reason, refused for the documented >=10-char rule AFTER the ladder and the finding had already been
+saved — left the ladder saying `{"state": "waived"}` and the finding's disposition `waived`, and then
+`prove --stage maximal-exploitation` reported **DONE [authoritative]** with `verify` green, `audit` PASS, ZERO ledger
+events anchoring the waiver and no `waivers.jsonl` at all. A command that printed "failed" and exited 2 had certified a
+gate. The same shape is reachable through the ledger-refusal door with a perfectly valid reason. Validation now happens
+before anything is written and every refusal restores the ladder and the finding.
+
+The P2s were the flagship verbs of two other families: `ingest` wrote a finding file and then failed to log (the retry
+DOUBLED the payload — two HYPOTHESIS rows, one event), and `price set` wrote a row and then failed to log, which the
+audit rail does see — "prices.json carries a row the log never priced (ghost price_id)" — permanently, because nothing
+can remove a price row and a retry adds a second one for the same asset. Both now use the shared snapshot-write-log-
+restore door. The third P2 was a framing disagreement rather than an ordering one: the waiver writer emits
+`ensure_ascii=False` and escapes only control bytes below 0x20, so a reason containing U+2028/U+2029/U+0085 lands raw,
+while the audit's reader splits on newlines and the writer's reader splits on Python's line set. A sanctioned
+`waive --reason` with such a character therefore reported success, `verify` stayed green, and the proof died with
+"unexpected EOF" because no waiver in the file could ever be consulted — precisely the failure the RUNBOOK calls a
+guarded bug.
+
+The sweep the critic asked for — "whole verb families were simply never migrated" — found the same shape in invariants
+(status flips the gates read), learning, risk, planner, coverage, probes, snapshot and pipeline. Qualifying sites now
+unwind through each package's existing door; sites that only rewrite re-derivable artifacts were left alone with the
+reason recorded. Two leftovers were reported rather than fixed and are named in the next memo: `CompleteLadder`
+completes a gate when the FINDING write fails (the same burn, one call site over), and the artifacts audit section
+still tells the operator to run a command that does not exist.
+
 ## 2026-09-15 — r39 (deepseek-v4.1-flash critic): the executor that outlived its own refusal
 
 Two P2s and three P3s this round, and the strongest was about a writer that contradicted the law it was supposed to be

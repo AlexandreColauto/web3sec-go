@@ -189,6 +189,51 @@ func SaveLinks(c *state.Campaign, links validation.Value) (string, error) {
 	return out, nil
 }
 
+// linksThenLog is the r40 unwind-on-refusal law for the INVARIANT_LINKS
+// surface — the invariants-package home of the door cli/cmd_verify_harness.go
+// holds for harness rungs (its exact twin): the registry is campaign STATE
+// exactly like a finding file is, and several of its keys are STATUS FLIPS
+// the gates read (test_status for coverage/uncovered-critical, status for
+// the verification axis). A save that lands while its event is refused
+// leaves a verified/contradicted/violated invariant the ledger never
+// recorded — a half-landed rung invisible to audit. Same discipline as
+// findings.SaveThenLog: hold the campaign process lock across the
+// snapshot→save→log→restore window (the registry is a SHARED multi-key
+// file; a whole-file restore over a sibling writer's concurrent change
+// would revert its rung while its event stands — the same r21 F9 reason
+// the CLI twin locks), snapshot the file pre-write, restore together on
+// refusal.
+func linksThenLog(c *state.Campaign, save func() error, log func() error) error {
+	path := linksPath(c)
+	if err := c.LockProcess(); err != nil {
+		return err
+	}
+	defer c.UnlockProcess()
+	prevRaw, perr := os.ReadFile(path)
+	had := perr == nil
+	if perr != nil && !os.IsNotExist(perr) {
+		return perr
+	}
+	if err := save(); err != nil {
+		return err
+	}
+	if err := log(); err != nil {
+		rerr := error(nil)
+		if had {
+			rerr = os.WriteFile(path, prevRaw, 0o644)
+		} else {
+			rerr = os.Remove(path)
+		}
+		if rerr != nil {
+			return fmt.Errorf("%w (UNWIND ALSO FAILED: %v — the links "+
+				"file holds a rung with no event; repair by hand)", err,
+				rerr)
+		}
+		return err
+	}
+	return nil
+}
+
 // migrateLegacyEntries is _migrate_legacy_entries: normalize pre-structured
 // entries in place exactly once (test_status takes the old status value,
 // status resets to UNVERIFIED, source derives from the live documented set),
@@ -244,18 +289,26 @@ func migrateLegacyEntries(c *state.Campaign, links *validation.Value) (bool, err
 		))
 	}
 	*links = setObjKey(*links, "invariants", reg)
-	if _, err := SaveLinks(c, *links); err != nil {
-		return false, err
-	}
-	for _, m := range migrated {
-		ref := objStr(m, "id")
-		data := validation.VObj(
-			pair("old_status", objAt(m, "old_status")),
-			pair("source", objAt(m, "source")),
-		)
-		if _, err := c.Log("invariant.migrated", &ref, &data); err != nil {
-			return false, err
+	// r40: the migration is DESTRUCTIVE and one-shot (once an entry carries
+	// test_status it never re-migrates), so a save whose event is refused
+	// is a mutation the ledger never records and a retry can never re-log.
+	if err := linksThenLog(c, func() error {
+		_, serr := SaveLinks(c, *links)
+		return serr
+	}, func() error {
+		for _, m := range migrated {
+			ref := objStr(m, "id")
+			data := validation.VObj(
+				pair("old_status", objAt(m, "old_status")),
+				pair("source", objAt(m, "source")),
+			)
+			if _, lerr := c.Log("invariant.migrated", &ref, &data); lerr != nil {
+				return lerr
+			}
 		}
+		return nil
+	}); err != nil {
+		return false, err
 	}
 	return true, nil
 }
@@ -336,11 +389,16 @@ func SeedFromModel(c *state.Campaign, model validation.Value) (validation.Value,
 		return validation.VNull(), err
 	}
 	links = setObjKey(links, "invariants", reg)
-	if _, err := SaveLinks(c, links); err != nil {
-		return validation.VNull(), err
-	}
 	count := validation.VObj(pair("count", validation.VInt(int64(len(invs.A)))))
-	if _, err := c.Log("invariants.seeded", nil, &count); err != nil {
+	// r40: fresh registry entries are campaign state the audit reads; a
+	// seeded registry without its invariants.seeded event is a half-land.
+	if err := linksThenLog(c, func() error {
+		_, serr := SaveLinks(c, links)
+		return serr
+	}, func() error {
+		_, lerr := c.Log("invariants.seeded", nil, &count)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return links, nil
@@ -485,14 +543,19 @@ func LinkFinding(c *state.Campaign, invariantID, findingID string,
 	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
 	reg.O = validation.SetOrAppend(reg.O, invariantID, entry)
 	links = setObjKey(links, "invariants", reg)
-	if _, err := SaveLinks(c, links); err != nil {
-		return validation.VNull(), err
-	}
 	data := validation.VObj(
 		pair("finding", validation.VStr(findingID)),
 		pair("violated", validation.VBool(violated)),
 	)
-	if _, err := c.Log("invariant.linked_finding", &invariantID, &data); err != nil {
+	// r40: test_status "violated" (and violated_by) is a gate-read flip —
+	// coverage and uncovered_critical draw from it. Unwind on refusal.
+	if err := linksThenLog(c, func() error {
+		_, serr := SaveLinks(c, links)
+		return serr
+	}, func() error {
+		_, lerr := c.Log("invariant.linked_finding", &invariantID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return entry, nil
@@ -524,11 +587,15 @@ func LinkTest(c *state.Campaign, invariantID, artifactID string) (validation.Val
 	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
 	reg.O = validation.SetOrAppend(reg.O, invariantID, entry)
 	links = setObjKey(links, "invariants", reg)
-	if _, err := SaveLinks(c, links); err != nil {
-		return validation.VNull(), err
-	}
 	data := validation.VObj(pair("artifact", validation.VStr(artifactID)))
-	if _, err := c.Log("invariant.linked_test", &invariantID, &data); err != nil {
+	// r40: the test_status flip to "held" is a gate-read state change.
+	if err := linksThenLog(c, func() error {
+		_, serr := SaveLinks(c, links)
+		return serr
+	}, func() error {
+		_, lerr := c.Log("invariant.linked_test", &invariantID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return entry, nil
@@ -692,11 +759,17 @@ func VerifyInvariantStatement(c *state.Campaign, invariantID,
 	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
 	reg.O = validation.SetOrAppend(reg.O, invariantID, entry)
 	links = setObjKey(links, "invariants", reg)
-	if _, err := SaveLinks(c, links); err != nil {
-		return validation.VNull(), err
-	}
 	data := validation.VObj(pair("artifact", validation.VStr(artifactID)))
-	if _, err := c.Log("invariant.verified", &invariantID, &data); err != nil {
+	// r40: the verification axis may only move with its event — a save
+	// that lands CHECKED_AGAINST_CODE while invariant.verified is refused
+	// asserts a verification nobody logged.
+	if err := linksThenLog(c, func() error {
+		_, serr := SaveLinks(c, links)
+		return serr
+	}, func() error {
+		_, lerr := c.Log("invariant.verified", &invariantID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return entry, nil
@@ -724,11 +797,16 @@ func ContradictInvariantStatement(c *state.Campaign, invariantID,
 	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
 	reg.O = validation.SetOrAppend(reg.O, invariantID, entry)
 	links = setObjKey(links, "invariants", reg)
-	if _, err := SaveLinks(c, links); err != nil {
-		return validation.VNull(), err
-	}
 	data := validation.VObj(pair("evidence", validation.VStr(evidenceRef)))
-	if _, err := c.Log("invariant.contradicted", &invariantID, &data); err != nil {
+	// r40: a CONTRADICTED entry without its event blocks dependent
+	// findings on state the ledger never recorded. Unwind on refusal.
+	if err := linksThenLog(c, func() error {
+		_, serr := SaveLinks(c, links)
+		return serr
+	}, func() error {
+		_, lerr := c.Log("invariant.contradicted", &invariantID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return entry, nil

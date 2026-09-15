@@ -340,16 +340,19 @@ func MarkLens(campaign *state.Campaign, plan validation.Value, lensID,
 			validation.PyReprStr(lensID) + " in the campaign plan")
 	}
 	plan.O = validation.SetOrAppend(plan.O, "lenses", lenses)
-	if _, err := SavePlan(campaign, plan); err != nil {
-		return validation.VNull(), err
-	}
 	data := validation.VObj(
 		kv("status", validation.VStr(outcome)),
 		kv("reason", optStr(opts.Reason)),
 		kv("ref", optStr(opts.Ref)),
 		kv("actor", validation.VStr(actor)),
 	)
-	if _, err := campaign.Log("plan.lens_status", &lensID, &data); err != nil {
+	// r40e: a lens attestation is a plan mutation the gates read (a closed
+	// lens is a covered family); a refused plan.lens_status must put the
+	// pre-write plan bytes back (planThenLog).
+	if err := planThenLog(campaign, plan, func() error {
+		_, lerr := campaign.Log("plan.lens_status", &lensID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return plan, nil

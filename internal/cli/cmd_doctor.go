@@ -190,10 +190,23 @@ func printDoctor(r *Runner, rep validation.Value) {
 				// remembered events were erased with no line naming them.
 				// The human surface may not omit what the JSON discloses.
 				if ch > 0 && dp > 0 {
-					msg += fmt.Sprintf("; the projection lost %d events that "+
-						"the journal records — the rebuild erased them from "+
-						"the mirror (%d kept, %d adopted from the log)",
-						dp, kept, ad)
+					// r40c P3: this sentence was INVERTED — it said
+					// "the projection lost N events that the journal
+					// records", but the journal is exactly the store
+					// that no longer holds them: dp rows exist only in
+					// the OLD projection, and the rebuilt mirror is
+					// derived from the log (which is why doctor.json
+					// calls the count dropped_from_projection). Say what
+					// is known, in the sibling branch's own words: the
+					// projection REMEMBERED them, the log no longer
+					// holds them, and the rebuild erased them from the
+					// mirror. The parenthetical stays the delta's own
+					// numbers.
+					msg += fmt.Sprintf("; %d event(s) the projection "+
+						"remembered are GONE from the log — the rebuild "+
+						"adopted the log's shorter history and erased "+
+						"them from the mirror (%d kept, %d adopted "+
+						"from the log)", dp, kept, ad)
 				}
 				if ch > 0 && ad > 0 {
 					msg += fmt.Sprintf("; the rebuild adopted %d event(s) "+

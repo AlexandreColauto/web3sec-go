@@ -920,21 +920,47 @@ func WaiveLadder(c *state.Campaign, findingID, reason, actor string) (validation
 		kvOf("reason", validation.VStr(strings.TrimSpace(reason))),
 		kvOf("actor", validation.VStr(actor)),
 		kvOf("at", validation.VStr(nowIso()))))
+	// r40 P1: WaiveLadder was the NINTH ladder write site and the only one
+	// without the r18 unwind. It saved the ladder, stamped the finding and
+	// only THEN called completion.Waive, so EVERY refusal of that call —
+	// the >=10-char reason rule, an empty actor, or the ledger refusing
+	// the completion.waived append — returned with both files already
+	// rewritten: a ladder reading {"state":"waived"} that no ledger event
+	// anchors, no waiver row (waivers.jsonl absent), and verify/audit
+	// green over it. The refusal can land AFTER the pair is touched (the
+	// rule lives in completion.Waive, which runs last by design — hoisting
+	// it here would duplicate completion's validation and its Python
+	// strip/len semantics), so the door is the class-wide one: snapshot
+	// BOTH files before the first write and restore them on any refusal.
+	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
+	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
+		// A refused or short write can still have put bytes on disk
+		// (temp+rename that failed after the rename, ENOSPC mid-write).
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	f, err := findings.LoadFinding(c, findingID)
 	if err != nil {
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	mx := asObj(objAt(f, "maximization"))
 	mx.O = validation.SetOrAppend(mx.O, "disposition", validation.VStr("waived"))
 	f.O = validation.SetOrAppend(f.O, "maximization", mx)
 	if err := findings.SaveFinding(c, &f); err != nil {
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	if _, err := completion.Waive(c, "maximal-exploitation", findingID,
 		reason, actor); err != nil {
+		// r40 P1: the ledger refused the completion.waived append (its own
+		// waiver row is unwound by state.AppendJsonlThenLog) or the
+		// reason/actor rule fired before that append wrote anything. Either
+		// way the ladder doc and the finding are already rewritten and must
+		// come back: a refused waive must not leave a gate-completing state
+		// anywhere (see restoreLadderPair).
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	return lad, nil

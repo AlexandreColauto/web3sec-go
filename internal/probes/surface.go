@@ -1,6 +1,8 @@
 package probes
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 
@@ -349,6 +351,18 @@ func surfaceStats(axes, missing []validation.Value) validation.Value {
 
 // RunProbes is run_probes: write artifacts/probe_surface.json, register it
 // through the living-artifact path and log one `probes.run` event.
+//
+// The whole write -> register -> log window is the r40e unwind-on-refusal
+// site: the surface file is campaign TRUTH (the emission, symmetry and
+// closure gates read its rows, axes and blind keys), and its registration
+// APPENDS its own ledger event (artifact.registered / artifact.refreshed —
+// the refresh pins the new bytes' sha256). A refused append used to leave
+// the rebuilt surface on disk while the registration's own unwind reverted
+// the registry row to the OLD sha — audit section 2 then burns "content
+// hash mismatch" on a surface whose build the ledger never recorded. So the
+// file's bytes are snapshotted before the write and restored on ANY refusal
+// in the window, under the campaign process lock the inner append re-enters
+// by depth.
 func RunProbes(c *state.Campaign, index, model validation.Value, perAxis,
 	total, floor int) (validation.Value, error) {
 	surface, err := BuildSurfaceOpts(index, model, perAxis, total, floor, "",
@@ -357,21 +371,62 @@ func RunProbes(c *state.Campaign, index, model validation.Value, perAxis,
 		return validation.VNull(), err
 	}
 	out := filepath.Join(c.ArtifactsDir, "probe_surface.json")
-	if err := validation.WriteJson(out, surface, "probe_surface"); err != nil {
-		return validation.VNull(), err
-	}
 	stats := vGet(surface, "stats")
-	// Python: register_or_refresh("probe-surface", out, reason=...) — the
-	// note stays "" and only the refresh reason carries the counts.
-	if _, err := c.RegisterOrRefresh("probe-surface", out, "",
-		nil, sprintf("%d rows across %d axes", vInt(stats, "emitted"),
-			vInt(stats, "probes"))); err != nil {
-		return validation.VNull(), err
-	}
-	if err := logProbesRun(c, surface, perAxis, total, floor); err != nil {
+	if err := surfaceThenLog(c, out, func() error {
+		if werr := validation.WriteJson(out, surface, "probe_surface"); werr != nil {
+			return werr
+		}
+		// Python: register_or_refresh("probe-surface", out, reason=...) —
+		// the note stays "" and only the refresh reason carries the counts.
+		if _, rerr := c.RegisterOrRefresh("probe-surface", out, "",
+			nil, sprintf("%d rows across %d axes", vInt(stats, "emitted"),
+				vInt(stats, "probes"))); rerr != nil {
+			return rerr
+		}
+		return logProbesRun(c, surface, perAxis, total, floor)
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return surface, nil
+}
+
+// surfaceThenLog is the probes package's r40e UNWIND-ON-REFUSAL door for the
+// probe-surface artifact — the whole-file sibling of
+// state.AppendJsonlThenLog (findings.SaveThenLog for finding files). It
+// holds the campaign process lock across the snapshot -> write -> append ->
+// restore window, snapshots the file's bytes first, and on ANY refusal
+// restores those exact bytes — or removes a file that did not exist yet,
+// never creating an empty one. A FAILED restore means the surface bytes are
+// still AHEAD of the refused event; name both failures so no caller can
+// report a clean unwind that never happened.
+func surfaceThenLog(c *state.Campaign, path string, write func() error) error {
+	if err := c.LockProcess(); err != nil {
+		return err
+	}
+	defer c.UnlockProcess()
+	prevRaw, perr := os.ReadFile(path)
+	had := perr == nil
+	if perr != nil && !os.IsNotExist(perr) {
+		return perr
+	}
+	restore := func() error {
+		if had {
+			return os.WriteFile(path, prevRaw, 0o644)
+		}
+		if rerr := os.Remove(path); rerr != nil && !os.IsNotExist(rerr) {
+			return rerr
+		}
+		return nil
+	}
+	if err := write(); err != nil {
+		if rerr := restore(); rerr != nil {
+			return fmt.Errorf("%w (UNWIND ALSO FAILED: %v — the probe "+
+				"surface holds post-write bytes with no event; repair by "+
+				"hand before continuing)", err, rerr)
+		}
+		return err
+	}
+	return nil
 }
 
 // logProbesRun is run_probes' `probes.run` event payload.

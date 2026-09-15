@@ -222,16 +222,18 @@ func RecordMitigationScan(c *state.Campaign, findingID string) (bool, error) {
 		// leave a citation behind.
 		f = ClearMitigationCitation(f)
 	}
-	if err := SaveFinding(c, &f); err != nil {
-		return false, err
-	}
+	// r40b P3 sweep: the mitigation stamp without its event lets a scan
+	// "cover" a finding twice with one ledger row (the ackscan twin, which
+	// took this door in the r18 P2 sweep). Unwind.
 	data := validation.VObj(
 		validation.KV{K: "finding_id", V: validation.VStr(findingID)},
 		validation.KV{K: "hit", V: validation.VBool(hit)},
 		validation.KV{K: "mitigation", V: rec},
 	)
-	if _, err := c.Log("finding.mitigation_scanned", &findingID,
-		&data); err != nil {
+	if err := SaveThenLog(c, &f, func() error {
+		_, lerr := c.Log("finding.mitigation_scanned", &findingID, &data)
+		return lerr
+	}); err != nil {
 		return false, err
 	}
 	return hit, nil

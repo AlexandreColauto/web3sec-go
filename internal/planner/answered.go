@@ -87,12 +87,14 @@ func MarkAnswered(campaign *state.Campaign, plan validation.Value, priorityID,
 	}
 	priorities[g.idx] = p
 	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(priorities...))
-	if _, err := SavePlan(campaign, plan); err != nil {
-		return validation.VNull(), err
-	}
 	data := statusData(outcome, opts, ref, anchorSet, anchorRec)
-	if _, err := campaign.Log("plan.priority_status", &priorityID,
-		&data); err != nil {
+	// r40e: the closure IS the plan file's status flip; a refused
+	// plan.priority_status must put the pre-write bytes back (planThenLog),
+	// or the gates read a closed priority the ledger never recorded.
+	if err := planThenLog(campaign, plan, func() error {
+		_, lerr := campaign.Log("plan.priority_status", &priorityID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return plan, nil
@@ -500,17 +502,18 @@ func SiblingRescan(campaign *state.Campaign, finding validation.Value,
 		kv("sibling_of", validation.VStr(fid)),
 	))
 	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(prios...))
-	if _, err := SavePlan(campaign, plan); err != nil {
-		return "", err
-	}
 	data := validation.VObj(
 		kv("priority_id", validation.VStr(pid)),
 		kv("adjacent", validation.VStr(pyStrip(opts.Adjacent))),
 		kv("families", strArr(sortedKeys(toks))),
 		kv("actor", validation.VStr(actor)),
 	)
-	if _, err := campaign.Log("plan.sibling_priority", &fid,
-		&data); err != nil {
+	// r40e: the spawned sibling is a plan mutation; a refused
+	// plan.sibling_priority must leave the plan byte-identical (planThenLog).
+	if err := planThenLog(campaign, plan, func() error {
+		_, lerr := campaign.Log("plan.sibling_priority", &fid, &data)
+		return lerr
+	}); err != nil {
 		return "", err
 	}
 	return pid, nil

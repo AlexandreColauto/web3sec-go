@@ -1,6 +1,7 @@
 package probes
 
 import (
+	"fmt"
 	"strings"
 	"unicode/utf8"
 
@@ -170,6 +171,14 @@ func SetBlank(c *state.Campaign, axis, anchorBlind, reason,
 		return validation.VNull(), err
 	}
 	defer c.UnlockProcess()
+	// r40e: the attestation lives in campaign_state (probe_blanks), and the
+	// audit re-derives it from the ledger — blankProblems red-lines an
+	// attested axis with no probes.blank event as "hand-edited". So the
+	// pre-write state bytes are the snapshot of the r16 unwind law, taken
+	// BEFORE the load-modify-write, and a refused probes.blank append puts
+	// them back (state.RawState/UnwindState are the exported seam for
+	// packages that compose a state write with their own Log).
+	prevRaw, hadRaw := c.RawState()
 	st, err := c.State()
 	if err != nil {
 		return validation.VNull(), err
@@ -198,6 +207,15 @@ func SetBlank(c *state.Campaign, axis, anchorBlind, reason,
 	)
 	ref := resolved.Lens
 	if _, err := c.Log("probes.blank", &ref, &data); err != nil {
+		// r40e: the ledger refused — UNWIND the state write (the r16 law,
+		// via the exported seam): an attestation the log never recorded is
+		// exactly what the surface audit reads as a hand-edited blank.
+		if uerr := c.UnwindState(prevRaw, hadRaw); uerr != nil {
+			return validation.VNull(), fmt.Errorf("%w (UNWIND ALSO FAILED: "+
+				"%v — campaign_state still holds a probe_blanks attestation "+
+				"with no probes.blank event; repair by hand before "+
+				"continuing)", err, uerr)
+		}
 		return validation.VNull(), err
 	}
 	return entry, nil

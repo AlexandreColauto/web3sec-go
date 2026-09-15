@@ -92,6 +92,70 @@ func findingCapabilityLabels(c *state.Campaign, findingID *string,
 	return capabilities.NormalizeLabels(strList(objAt(caps, key)))
 }
 
+// writeThenLog is the r40 unwind-on-refusal door for the learning package's
+// WHOLE-FILE writers (memory rows, stripped rows) — the state package's
+// AppendJsonlThenLog discipline applied to a WriteJson artifact instead of an
+// append-only row: snapshot every path pre-write, write, log, and on a
+// refused log (torn ledger, mirror lag or hole, held lock) restore those
+// exact bytes — or remove a file that did not exist yet, never creating an
+// empty one. The whole window is held under the campaign process lock (the
+// inner Log re-enters it by depth). A FAILED restore means the artifact
+// bytes are still AHEAD of the refused event — name both failures so no
+// caller can report a clean unwind that never happened.
+func writeThenLog(c *state.Campaign, paths []string, write func() error,
+	log func() error) error {
+	if err := c.LockProcess(); err != nil {
+		return err
+	}
+	defer c.UnlockProcess()
+	type snap struct {
+		path string
+		raw  []byte
+		had  bool
+	}
+	snaps := make([]snap, 0, len(paths))
+	for _, p := range paths {
+		raw, err := os.ReadFile(p)
+		had := err == nil
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		snaps = append(snaps, snap{path: p, raw: raw, had: had})
+	}
+	restore := func() error {
+		var rerr error
+		for _, s := range snaps {
+			if s.had {
+				rerr = os.WriteFile(s.path, s.raw, 0o644)
+			} else {
+				rerr = os.Remove(s.path)
+				if os.IsNotExist(rerr) {
+					rerr = nil // a missing file the failed write never created
+				}
+			}
+			if rerr != nil {
+				return rerr
+			}
+		}
+		return nil
+	}
+	fail := func(err error) error {
+		if rerr := restore(); rerr != nil {
+			return fmt.Errorf("%w (UNWIND ALSO FAILED: %v — %s holds "+
+				"post-write bytes with no event; repair by hand before "+
+				"continuing)", err, rerr, filepath.Base(paths[0]))
+		}
+		return err
+	}
+	if err := write(); err != nil {
+		return fail(err)
+	}
+	if err := log(); err != nil {
+		return fail(err)
+	}
+	return nil
+}
+
 // QueueMemory is queue_memory: queue a memory candidate. promotion_status
 // starts as 'pending' and NOTHING in this codebase can flip it to promoted —
 // only ApproveMemory with an explicit human approver does.
@@ -167,16 +231,21 @@ func QueueMemory(c *state.Campaign, o QueueOpts) (validation.Value, error) {
 	}
 	mid := objStr(mem, "memory_id")
 	path := filepath.Join(c.MemoryDir, mid+".json")
-	if err := validation.WriteJson(path, mem, ""); err != nil {
-		return validation.VNull(), err
-	}
 	data := validation.VObj(
 		kv("kind", validation.VStr(o.Kind)),
 		kv("status", validation.VStr(o.Status)),
 		kv("rejection_class", strOrNull(rejectionClass)),
 		kv("deciding_propositions",
 			validation.VInt(int64(len(o.DecidingPropositions)))))
-	if _, err := c.Log("memory.queued", &mid, &data); err != nil {
+	// r40: a queued row on disk without its memory.queued event is an
+	// inbox candidate the ledger never recorded — and the retry after the
+	// heal would queue a SECOND row for the one event. Unwind on refusal.
+	if err := writeThenLog(c, []string{path}, func() error {
+		return validation.WriteJson(path, mem, "")
+	}, func() error {
+		_, lerr := c.Log("memory.queued", &mid, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return mem, nil
@@ -263,11 +332,16 @@ func ApproveMemory(c *state.Campaign, memoryID, approver string) (validation.Val
 	if err := validation.Validate(mem, "memory", 1); err != nil {
 		return validation.VNull(), err
 	}
-	if err := validation.WriteJson(path, mem, ""); err != nil {
-		return validation.VNull(), err
-	}
 	data := validation.VObj(kv("approver", validation.VStr(approver)))
-	if _, err := c.Log("memory.approved", &memoryID, &data); err != nil {
+	// r40: the approval flip is the HUMAN GATE's state — PromotionCommands
+	// refuses to promote anything not human-approved, so a flip without
+	// its event is a gate decision the ledger never recorded. Unwind.
+	if err := writeThenLog(c, []string{path}, func() error {
+		return validation.WriteJson(path, mem, "")
+	}, func() error {
+		_, lerr := c.Log("memory.approved", &memoryID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return mem, nil
@@ -320,9 +394,6 @@ func RejectMemory(c *state.Campaign, memoryID, reason, rejectionClass string) (v
 	if err := validation.Validate(mem, "memory", 1); err != nil {
 		return validation.VNull(), err
 	}
-	if err := validation.WriteJson(path, mem, ""); err != nil {
-		return validation.VNull(), err
-	}
 	rc := validation.VNull()
 	if rejectionClass != "" {
 		rc = validation.VStr(rejectionClass)
@@ -330,7 +401,15 @@ func RejectMemory(c *state.Campaign, memoryID, reason, rejectionClass string) (v
 	data := validation.VObj(
 		kv("reason", validation.VStr(reason)),
 		kv("rejection_class", rc))
-	if _, err := c.Log("memory.rejected", &memoryID, &data); err != nil {
+	// r40: a row flipped to "rejected" without its event is a reviewer's
+	// "no" nobody recorded — and the schema keeps no reason field, so the
+	// event IS the record. Unwind on refusal.
+	if err := writeThenLog(c, []string{path}, func() error {
+		return validation.WriteJson(path, mem, "")
+	}, func() error {
+		_, lerr := c.Log("memory.rejected", &memoryID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
 	return mem, nil
@@ -400,14 +479,23 @@ func StripCampaignMemoryField(root, field, actor, reason string) (validation.Val
 		// The rows are written BEFORE the event: the event claims the strip
 		// happened, so it may only be logged once it did. (Logging first left
 		// a hash-chained record of work that a failed write never performed.)
-		for _, p := range targets {
-			row := rows[p]
-			row.O = removeKey(row.O, field)
-			if err := validation.WriteJson(p, row, ""); err != nil {
-				return validation.VNull(), err
+		// r40: and the whole strip now unwinds together when the event is
+		// refused — the removal is destructive and sanctioned ONLY by its
+		// event, so rows stripped with no event are exactly the hand-edit
+		// shape this verb exists to avoid.
+		if err := writeThenLog(c, targets, func() error {
+			for _, p := range targets {
+				row := rows[p]
+				row.O = removeKey(row.O, field)
+				if err := validation.WriteJson(p, row, ""); err != nil {
+					return err
+				}
 			}
-		}
-		if _, err := c.Log("memory.field-stripped", &ref, &data); err != nil {
+			return nil
+		}, func() error {
+			_, lerr := c.Log("memory.field-stripped", &ref, &data)
+			return lerr
+		}); err != nil {
 			return validation.VNull(), err
 		}
 		out = append(out, validation.VObj(

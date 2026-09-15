@@ -48,10 +48,22 @@ func WaiversPath(c *state.Campaign) string {
 }
 
 // Waivers is waivers(): the recorded waiver rows, optionally filtered by
-// stage ("" = no filter). Python reads with str.splitlines(), so a reason
-// containing a raw line boundary (U+2028 and friends) splits the row in
-// half and the parse fails — the same structural failure here, though the
-// error text is Go's, not Python's JSONDecodeError.
+// stage ("" = no filter).
+//
+// r40c P2-3: the frame is the file's OWN frame — one row per "\n"-delimited
+// physical line, blanks decided by state.BlankLine, THE one framing
+// predicate — exactly what state.readWaiverRowsR12 (the reader verify and
+// the audit use) does. Before this the reader used CPython's
+// str.splitlines(), which counts U+2028/U+2029/U+0085 as row breaks: the
+// writer's raw separator split the row in half, the first fragment died
+// with a bare "unexpected EOF" naming no file/line, the proof read "open"
+// while verify said ok:true, and the recorded waiver was never consulted.
+// The writer no longer emits those raw (pyjson.go escapes them), and rows
+// written BEFORE that fix — the ones already on disk — now read here the
+// same way the audit reader reads them: as the single valid JSON row their
+// bytes are. The alternative — teaching this reader the exotic separators —
+// would leave the two readers disagreeing on everything a hypothetical
+// third writer emits; there is one frame now, and it is the physical line.
 func Waivers(c *state.Campaign, stage string) ([]validation.Value, error) {
 	raw, err := os.ReadFile(WaiversPath(c))
 	if os.IsNotExist(err) {
@@ -61,13 +73,19 @@ func Waivers(c *state.Campaign, stage string) ([]validation.Value, error) {
 		return nil, err
 	}
 	rows := []validation.Value{}
-	for _, ln := range pySplitLines(string(raw)) {
-		if pyStrip(ln) == "" {
+	for i, ln := range strings.Split(string(raw), "\n") {
+		// state.BlankLine, never a local copy: r38's finding was two
+		// packages answering "blank" differently about the same bytes (a
+		// U+00A0-only line is a RECORD here, as it is for every other
+		// JSONL reader in the tree).
+		if state.BlankLine(ln) {
 			continue
 		}
 		row, err := validation.ParseOrdered([]byte(ln))
 		if err != nil {
-			return nil, err
+			// r13: a bare JSON error makes the operator diff the file by
+			// eye — name the file and the physical line.
+			return nil, fmt.Errorf("waivers.jsonl line %d: %v", i+1, err)
 		}
 		if stage != "" && objStr(row, "stage") != stage {
 			continue
