@@ -872,45 +872,17 @@ func harnessReportedCompilers(raw []byte) []string {
 	return out
 }
 
-// linksThenLog is the r20 F3 law for the INVARIANT_LINKS surface: the
-// rung is campaign STATE (artifacts/invariant_links.json) exactly like
-// a finding file is — a save that lands while its event is refused
-// leaves the ledger asserting a verification nobody logged, and the
-// half-landed rung is invisible to audit. Same discipline as
-// findings.SaveThenLog: snapshot the file pre-write, restore together
-// on refusal. (SaveThenLogMany's sibling, one fewer package import.)
+// linksThenLog is the cli-side FORWARDING door onto the one implementation of
+// the r20 F3 law for the INVARIANT_LINKS surface, invariants.LinksThenLog
+// (r42 P3-b): the rung is campaign STATE (artifacts/invariant_links.json)
+// exactly like a finding file is — a save that lands while its event is
+// refused leaves the ledger asserting a verification nobody logged, and the
+// half-landed rung is invisible to audit. The law's discipline (snapshot the
+// file pre-write, hold the campaign process lock across the
+// snapshot→save→log→restore window — the r21 F9 reason — and restore
+// together on refusal) lives in the invariants package now. This name stays
+// because this file's harness rungs and cmd_verify_autoprove.go's rung call
+// it; it must remain a forwarder, never a second copy of the body.
 func linksThenLog(c *state.Campaign, save func() error, log func() error) error {
-	path := filepath.Join(c.ArtifactsDir, "invariant_links.json")
-	// r21 F9: the links file is a SHARED multi-key registry — a
-	// whole-file restore over a sibling writer's concurrent change would
-	// revert its rung while its event stands. Hold the campaign process
-	// lock across the snapshot→save→log→restore window (the same lock
-	// Log itself takes, re-entrant by depth).
-	if err := c.LockProcess(); err != nil {
-		return err
-	}
-	defer c.UnlockProcess()
-	prevRaw, perr := os.ReadFile(path)
-	had := perr == nil
-	if perr != nil && !os.IsNotExist(perr) {
-		return perr
-	}
-	if err := save(); err != nil {
-		return err
-	}
-	if err := log(); err != nil {
-		rerr := error(nil)
-		if had {
-			rerr = os.WriteFile(path, prevRaw, 0o644)
-		} else {
-			rerr = os.Remove(path)
-		}
-		if rerr != nil {
-			return fmt.Errorf("%w (UNWIND ALSO FAILED: %v — the links "+
-				"file holds a rung with no event; repair by hand)", err,
-				rerr)
-		}
-		return err
-	}
-	return nil
+	return invariants.LinksThenLog(c, save, log)
 }

@@ -189,22 +189,33 @@ func SaveLinks(c *state.Campaign, links validation.Value) (string, error) {
 	return out, nil
 }
 
-// linksThenLog is the r40 unwind-on-refusal law for the INVARIANT_LINKS
-// surface — the invariants-package home of the door cli/cmd_verify_harness.go
-// holds for harness rungs (its exact twin): the registry is campaign STATE
-// exactly like a finding file is, and several of its keys are STATUS FLIPS
-// the gates read (test_status for coverage/uncovered-critical, status for
-// the verification axis). A save that lands while its event is refused
-// leaves a verified/contradicted/violated invariant the ledger never
-// recorded — a half-landed rung invisible to audit. Same discipline as
-// findings.SaveThenLog: hold the campaign process lock across the
-// snapshot→save→log→restore window (the registry is a SHARED multi-key
-// file; a whole-file restore over a sibling writer's concurrent change
-// would revert its rung while its event stands — the same r21 F9 reason
-// the CLI twin locks), snapshot the file pre-write, restore together on
-// refusal.
-func linksThenLog(c *state.Campaign, save func() error, log func() error) error {
+// LinksThenLog is the r20 F3 / r40 unwind-on-refusal law for the
+// INVARIANT_LINKS surface, and its ONE home (r42 P3-b): the registry is
+// campaign STATE (artifacts/invariant_links.json) exactly like a finding file
+// is, and several of its keys are STATUS FLIPS the gates read (test_status
+// for coverage/uncovered-critical, status for the verification axis). A save
+// that lands while its event is refused leaves a verified/contradicted/
+// violated invariant the ledger never recorded — a half-landed rung invisible
+// to audit, and the ledger asserting a verification nobody logged. Same
+// discipline as findings.SaveThenLog (SaveThenLogMany's sibling, one fewer
+// package import): snapshot the file pre-write, restore together on refusal,
+// and hold the campaign process lock across the snapshot→save→log→restore
+// window — the registry is a SHARED multi-key file; a whole-file restore over
+// a sibling writer's concurrent change would revert its rung while its event
+// stands — the same r21 F9 reason the CLI door needs.
+//
+// r42 P3-b: this door existed twice, byte-equivalent including the r21 F9 lock
+// note, as invariants.linksThenLog and cli.linksThenLog. The project's law is
+// one implementation of a law, so the cli copy is now a forwarding door
+// (cli/cmd_verify_harness.go) that calls this one for the harness rungs and
+// for cmd_verify_autoprove.go's rung.
+func LinksThenLog(c *state.Campaign, save func() error, log func() error) error {
 	path := linksPath(c)
+	// r21 F9: the links file is a SHARED multi-key registry — a
+	// whole-file restore over a sibling writer's concurrent change would
+	// revert its rung while its event stands. Hold the campaign process
+	// lock across the snapshot→save→log→restore window (the same lock
+	// Log itself takes, re-entrant by depth).
 	if err := c.LockProcess(); err != nil {
 		return err
 	}
@@ -292,7 +303,7 @@ func migrateLegacyEntries(c *state.Campaign, links *validation.Value) (bool, err
 	// r40: the migration is DESTRUCTIVE and one-shot (once an entry carries
 	// test_status it never re-migrates), so a save whose event is refused
 	// is a mutation the ledger never records and a retry can never re-log.
-	if err := linksThenLog(c, func() error {
+	if err := LinksThenLog(c, func() error {
 		_, serr := SaveLinks(c, *links)
 		return serr
 	}, func() error {
@@ -392,7 +403,7 @@ func SeedFromModel(c *state.Campaign, model validation.Value) (validation.Value,
 	count := validation.VObj(pair("count", validation.VInt(int64(len(invs.A)))))
 	// r40: fresh registry entries are campaign state the audit reads; a
 	// seeded registry without its invariants.seeded event is a half-land.
-	if err := linksThenLog(c, func() error {
+	if err := LinksThenLog(c, func() error {
 		_, serr := SaveLinks(c, links)
 		return serr
 	}, func() error {
@@ -549,7 +560,7 @@ func LinkFinding(c *state.Campaign, invariantID, findingID string,
 	)
 	// r40: test_status "violated" (and violated_by) is a gate-read flip —
 	// coverage and uncovered_critical draw from it. Unwind on refusal.
-	if err := linksThenLog(c, func() error {
+	if err := LinksThenLog(c, func() error {
 		_, serr := SaveLinks(c, links)
 		return serr
 	}, func() error {
@@ -589,7 +600,7 @@ func LinkTest(c *state.Campaign, invariantID, artifactID string) (validation.Val
 	links = setObjKey(links, "invariants", reg)
 	data := validation.VObj(pair("artifact", validation.VStr(artifactID)))
 	// r40: the test_status flip to "held" is a gate-read state change.
-	if err := linksThenLog(c, func() error {
+	if err := LinksThenLog(c, func() error {
 		_, serr := SaveLinks(c, links)
 		return serr
 	}, func() error {
@@ -763,7 +774,7 @@ func VerifyInvariantStatement(c *state.Campaign, invariantID,
 	// r40: the verification axis may only move with its event — a save
 	// that lands CHECKED_AGAINST_CODE while invariant.verified is refused
 	// asserts a verification nobody logged.
-	if err := linksThenLog(c, func() error {
+	if err := LinksThenLog(c, func() error {
 		_, serr := SaveLinks(c, links)
 		return serr
 	}, func() error {
@@ -800,7 +811,7 @@ func ContradictInvariantStatement(c *state.Campaign, invariantID,
 	data := validation.VObj(pair("evidence", validation.VStr(evidenceRef)))
 	// r40: a CONTRADICTED entry without its event blocks dependent
 	// findings on state the ledger never recorded. Unwind on refusal.
-	if err := linksThenLog(c, func() error {
+	if err := LinksThenLog(c, func() error {
 		_, serr := SaveLinks(c, links)
 		return serr
 	}, func() error {

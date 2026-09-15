@@ -10,6 +10,14 @@ import (
 
 // EventLog is audit.py section 1: report["sections"]["event_log"] =
 // campaign.verify_log().
+//
+// r42c P3: the delegation is the point, not a shortcut — the section owns no
+// second copy of any ledger law. A torn tail (events.jsonl whose last byte
+// is not a newline, the shape the write path's framing guard refuses) is
+// therefore reported here as ok:false with the tail problem in `problems`,
+// and the audit can no longer say PASS over a ledger its own writer calls
+// unusable. Judging the tail here as well would be two implementations of
+// one law, which is exactly how verify and audit would drift apart again.
 func EventLog(c *state.Campaign) (validation.Value, error) {
 	v, err := c.VerifyLog()
 	if err != nil {

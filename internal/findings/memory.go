@@ -155,6 +155,16 @@ func memoryCheckKey(ids []string, mode validation.Value) string {
 // reason, see IrrelevantReason) — sharing only the catch-all label is NOT
 // the corpus being silent on the lineage. Entries recorded before B3 are
 // left exactly as they are.
+//
+// r42 P3-a: the signal is derived from the RECORD, never from the batch of
+// checks this call happened to add. Every recorded entry that still owes a
+// corpus.gap — the verdict travels with the entry (relevance +
+// recalled_irrelevant), so "owes one" is recomputable from the file — is
+// re-derived on every call and emitted unless the LEDGER already holds that
+// event; see emitOwedCorpusGaps. A refused gap append is therefore
+// retryable: the next call re-derives it instead of reporting the
+// truth-shaped `finding.memory_checked {"added": 0}` no-op while the
+// relevance signal stays unrecorded.
 func RecordMemoryCheck(campaign *state.Campaign, findingID string,
 	checks []validation.Value) (validation.Value, error) {
 	finding, err := LoadFinding(campaign, findingID)
@@ -182,9 +192,8 @@ func RecordMemoryCheck(campaign *state.Campaign, findingID string,
 		return validation.VNull(), err
 	}
 	added, irrelevant := 0, 0
-	var gaps []validation.Value
 	for _, c := range checks {
-		key, entry, gap, err := memoryCheckEntry(c, rowsByID, finding)
+		key, entry, owesGap, err := memoryCheckEntry(c, rowsByID, finding)
 		if err != nil {
 			return validation.VNull(), err
 		}
@@ -194,9 +203,8 @@ func RecordMemoryCheck(campaign *state.Campaign, findingID string,
 		existing.A = append(existing.A, entry)
 		seen[key] = struct{}{}
 		added++
-		if gap.Kind == validation.Obj {
+		if owesGap {
 			irrelevant++
-			gaps = append(gaps, gap)
 		}
 	}
 	prov.O = validation.SetOrAppend(prov.O, "memory_checks", existing)
@@ -228,28 +236,167 @@ func RecordMemoryCheck(campaign *state.Campaign, findingID string,
 	}
 	// The gap events trail the authoritative file+event pair on purpose: the
 	// pair cannot be un-appended once logged, and a check that DID land may
-	// still owe its corpus.gap signal. A refusal here is reported, but the
+	// still owe its corpus.gap signal. A refusal there is reported, but the
 	// recorded check is already honest — the ledger holds its event.
-	for i := range gaps {
-		if _, err := campaign.Log("corpus.gap", &findingID,
-			&gaps[i]); err != nil {
-			return validation.VNull(), err
-		}
+	//
+	// r42 P3-a: the owed set is recomputed from the RECORDED entries (which
+	// now include the ones added above), not from this call's batch, so a
+	// signal a previous, refused append never landed is emitted by the
+	// retry. emitOwedCorpusGaps reads the ledger for what already landed.
+	if err := emitOwedCorpusGaps(campaign, findingID, finding, existing); err != nil {
+		return validation.VNull(), err
 	}
 	return finding, nil
 }
 
+// emitOwedCorpusGaps logs the corpus.gap signal for every RECORDED check
+// entry that still owes one and whose event the ledger does not already
+// hold. It is the one place the signal is emitted, and it derives both the
+// owed set and the payload from the recorded state.
+//
+// r42 P3-a: the payloads used to be built only for the checks that were NEW
+// in the call, and the recorded entry carried no way back to them — once the
+// entry was written, a refused corpus.gap append could never be recomputed.
+// Every retry then saw a duplicate check, emitted nothing and reported
+// `finding.memory_checked {"added": 0}` forever while the relevance signal
+// stayed unrecorded: the retry lied by omission, and absence of the signal
+// was read as "nothing to say". Re-deriving it from the entry (which carries
+// the verdict: relevance + recalled_irrelevant) plus the ledger (which
+// carries what landed) makes the signal land-or-be-retryable: the absence
+// that re-arms the retry is the EVENT's, read off the log itself, and a log
+// that cannot be read refuses instead of guessing that the signal landed.
+//
+// Refusals are reported, never swallowed, and one refused append does not
+// strand the others: every owed signal is attempted and the first refusal is
+// returned. Nothing is unwound — the entry and its finding.memory_checked
+// anchor have landed, and the next call re-derives whatever is still missing.
+func emitOwedCorpusGaps(c *state.Campaign, findingID string,
+	finding, recorded validation.Value) error {
+	var owed []validation.Value
+	for _, e := range recorded.A {
+		if corpusGapOwed(e) {
+			owed = append(owed, e)
+		}
+	}
+	if len(owed) == 0 {
+		return nil
+	}
+	logged, err := loggedCorpusGaps(c, findingID)
+	if err != nil {
+		return err
+	}
+	var firstErr error
+	for _, e := range owed {
+		if _, ok := logged[corpusGapKey(findingID, e)]; ok {
+			continue
+		}
+		gap := corpusGapPayload(finding, e)
+		if _, lerr := c.Log("corpus.gap", &findingID, &gap); lerr != nil {
+			if firstErr == nil {
+				firstErr = lerr
+			}
+		}
+	}
+	return firstErr
+}
+
+// corpusGapOwed reports whether one RECORDED check entry still owes its
+// corpus.gap signal. memoryCheckEntry stamps recalled_irrelevant exactly
+// when the entry's own relevance verdict found no overlapping row, and the
+// verdict subtree travels with the entry — so the question is answered from
+// the file alone, with no second computation of the overlap. Entries
+// recorded before B3 carry no relevance subtree and never owed a signal:
+// they are deliberately NOT re-armed (their history stays as it is).
+func corpusGapOwed(entry validation.Value) bool {
+	if entry.Kind != validation.Obj {
+		return false
+	}
+	if v := objAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
+		return false
+	}
+	rel := objAt(entry, "relevance")
+	if rel.Kind != validation.Obj {
+		return false
+	}
+	overlapping := objAt(rel, "overlapping")
+	return overlapping.Kind == validation.Arr && len(overlapping.A) == 0
+}
+
+// corpusGapKey identifies one corpus.gap signal — owed or landed — by the
+// finding, the check's mode and its cited id set, the same triple
+// memoryCheckKey dedupes on, in a canonical encoding (no separator can be
+// forged inside an id).
+func corpusGapKey(findingID string, entry validation.Value) string {
+	return findingID + "\x01" + validation.PyRepr(objAt(entry, "mode")) +
+		"\x01" + validation.CanonCompact(strArr(
+		valueStrings(objAt(entry, "memory_ids"))))
+}
+
+// corpusGapPayload builds one corpus.gap event payload from a RECORDED check
+// entry: the ONE implementation of the signal's shape, used both when the
+// entry lands and when a later call re-emits it. The reason comes from the
+// entry's own relevance verdict — never from a fresh look at the live store,
+// where the cited rows may have moved since: the event states the verdict the
+// record holds. lineage names the finding's tags as they stand when the
+// signal is finally emitted.
+func corpusGapPayload(finding, entry validation.Value) validation.Value {
+	ids := valueStrings(objAt(entry, "memory_ids"))
+	reasonCode, reason := IrrelevantReason(objAt(entry, "relevance"), ids)
+	return validation.VObj(
+		validation.KV{K: "finding", V: validation.VStr(objStr(finding,
+			"finding_id"))},
+		validation.KV{K: "memory_ids", V: strArr(ids)},
+		validation.KV{K: "mode", V: objAt(entry, "mode")},
+		validation.KV{K: "lineage", V: strArr(LineageTags(finding))},
+		validation.KV{K: "reason_code", V: validation.VStr(reasonCode)},
+		validation.KV{K: "reason", V: validation.VStr(reason)},
+	)
+}
+
+// loggedCorpusGaps is the set of corpus.gap signals the ledger already holds
+// for one finding, keyed like corpusGapKey. The log is the complete record
+// of what landed (the state mirror keeps only a tail), so an entry whose
+// event is present is not re-emitted — no duplicate signal — while one whose
+// event is absent still is. A ledger that cannot be read returns the error:
+// the caller refuses rather than assuming a signal landed.
+func loggedCorpusGaps(c *state.Campaign, findingID string) (map[string]struct{},
+	error) {
+	events, err := c.Events()
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]struct{}{}
+	for _, ev := range events {
+		if objStr(ev, "type") != "corpus.gap" {
+			continue
+		}
+		data := objAt(ev, "data")
+		// Either spelling of the finding identifies the event: the write
+		// path sets both, and matching both directions can only avoid a
+		// duplicate signal, never manufacture one.
+		if objStr(ev, "ref") != findingID &&
+			objStr(data, "finding") != findingID {
+			continue
+		}
+		out[corpusGapKey(findingID, data)] = struct{}{}
+	}
+	return out, nil
+}
+
 // memoryCheckEntry validates one check against the visible store and builds
-// its dedup key + stamped entry (Python's in-loop body), plus the corpus.gap
-// payload when the check cites no overlapping row (Null otherwise).
+// its dedup key + stamped entry (Python's in-loop body), reporting whether
+// the entry owes the corpus.gap signal. The payload itself is not built here:
+// corpusGapPayload derives it from the entry, so a check that lands now and a
+// check whose signal is re-emitted later produce the same bytes through ONE
+// implementation.
 func memoryCheckEntry(c validation.Value,
 	rowsByID map[string]validation.Value, finding validation.Value) (
-	string, validation.Value, validation.Value, error) {
+	string, validation.Value, bool, error) {
 	ids := valueStrings(objAt(c, "memory_ids"))
 	mode := objAt(c, "mode")
 	if mode.Kind != validation.Str ||
 		(mode.S != "negative" && mode.S != "comparative") {
-		return "", validation.VNull(), validation.VNull(), fmtUnknownMode(mode)
+		return "", validation.VNull(), false, fmtUnknownMode(mode)
 	}
 	var unknown []string
 	for _, mid := range ids {
@@ -258,7 +405,7 @@ func memoryCheckEntry(c validation.Value,
 		}
 	}
 	if len(unknown) > 0 {
-		return "", validation.VNull(), validation.VNull(),
+		return "", validation.VNull(), false,
 			fmtUnknownMemoryIDs(unknown)
 	}
 	sortedIDs := sortedStrings(ids)
@@ -271,26 +418,14 @@ func memoryCheckEntry(c validation.Value,
 	)
 	relevance := MemoryCheckRelevance(finding, ids, rowsByID)
 	entry.O = append(entry.O, validation.KV{K: "relevance", V: relevance})
-	var gap validation.Value
 	if overlapping := objAt(relevance, "overlapping"); len(overlapping.A) == 0 {
 		entry.O = append(entry.O,
 			validation.KV{K: "recalled_irrelevant", V: validation.VBool(true)})
-		reasonCode, reason := IrrelevantReason(relevance, sortedIDs)
-		gap = validation.VObj(
-			validation.KV{K: "finding", V: validation.VStr(objStr(finding,
-				"finding_id"))},
-			validation.KV{K: "memory_ids", V: strArr(sortedIDs)},
-			validation.KV{K: "mode", V: mode},
-			validation.KV{K: "lineage",
-				V: strArr(LineageTags(finding))},
-			validation.KV{K: "reason_code", V: validation.VStr(reasonCode)},
-			validation.KV{K: "reason", V: validation.VStr(reason)},
-		)
 	}
 	if note := objAt(c, "note"); validation.PyTruthy(note) {
 		entry.O = append(entry.O, validation.KV{K: "note", V: note})
 	}
-	return memoryCheckKey(ids, mode), entry, gap, nil
+	return memoryCheckKey(ids, mode), entry, corpusGapOwed(entry), nil
 }
 
 // joinComma is ", ".join(items).

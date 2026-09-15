@@ -1,5 +1,33 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-15 — r42 (glm-5.3-flash critic): the unwind destroyed the record it was protecting
+
+The P1 is the sharpest lesson of the whole sequence, because it was a bug in the CURE. Rounds 40 and 41 gave the ladder
+family the unwind-on-refusal door; round 42 found that the door's snapshot helper, `prevFile`, folded EVERY read error
+into "the file did not exist" — so when a finding file was *unreadable* rather than *absent*, `restoreLadderPair`
+faithfully restored "absence" by DELETING the operator's finding. The repro is four commands: ingest, `ladder start`,
+`chmod 000` the finding, `ladder waive`. The waive fails with "permission denied" and the finding is simply gone — the
+message never says the tool deleted it, the ladder doc survives pointing at a finding that no longer exists, and
+`verify` says ok:true with `audit` PASS and `doctor` silent. Every other door in the tree (findings.prevBytes,
+appendJsonlThenLog, both linksThenLog copies) already drew the line between IsNotExist and everything else; the ladder
+family was the one place it was blurred. The snapshot now aborts before any write on a non-NotExist read error, the
+restore never removes bytes the pre-call state had, and the door finally NAMES its own failure instead of returning void
+while the other doors say "UNWIND ALSO FAILED".
+
+Two more falsehoods fell in the same round. Every health surface certified a ledger that the write path itself calls
+corruption: with the trailing newline removed from events.jsonl, every mutating verb refuses forever with "torn write or
+external edit", while `verify` printed ok:true, `doctor` exited 0 silently and `audit` PASSed — the one corruption class
+the writer guards was invisible to all three readers. `verify` now reports the torn tail naming the file and the shape,
+doctor discloses instead of certifying, and the audit section no longer passes; the honest shapes (a complete last
+record, an empty ledger, the documented in-flight crash) stay green. An unreadable ledger used to read as "zero events"
+and verify green whenever the mirror was empty — closed too. And in `recall`, the `corpus.gap` payloads were computed
+only for non-duplicate checks, so a refused gap event could never be re-emitted: the retry logged `{"added": 0}` forever
+while the relevance signal stayed unrecorded. Pending gaps are now recomputed from the recorded state.
+
+Also: `linksThenLog` existed twice (invariants and the CLI), byte-equivalent including its own lock comment — the
+project's "one implementation of a law" doctrine broken by a law about duplication; the CLI now forwards to the
+package's door.
+
 ## 2026-09-15 — r41 (deepseek-v4.1-flash critic): the sweep proved a scanner, not the absence of leaks
 
 Round 40 had just declared the unwind sweep finished. Round 41 found it had missed the package it was proudest of and
@@ -36,7 +64,10 @@ saved — left the ladder saying `{"state": "waived"}` and the finding's disposi
 `prove --stage maximal-exploitation` reported **DONE [authoritative]** with `verify` green, `audit` PASS, ZERO ledger
 events anchoring the waiver and no `waivers.jsonl` at all. A command that printed "failed" and exited 2 had certified a
 gate. The same shape is reachable through the ledger-refusal door with a perfectly valid reason. Validation now happens
-before anything is written and every refusal restores the ladder and the finding.
+before anything is written and every refusal restores the ladder and the finding. [CORRECTED, r42: the first clause was
+false when written — the >=10-char reason rule still lives in completion.Waive, called LAST, after both saves; only the
+restore made that refusal look like it happened first. The r42 P1 was worse than an overclaim: the restore itself could
+DELETE an unreadable finding, so the sentence was briefly false in the opposite direction. Both clauses are true now.]
 
 The P2s were the flagship verbs of two other families: `ingest` wrote a finding file and then failed to log (the retry
 DOUBLED the payload — two HYPOTHESIS rows, one event), and `price set` wrote a row and then failed to log, which the

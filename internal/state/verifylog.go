@@ -1,6 +1,7 @@
 package state
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,6 +20,105 @@ type LogVerdict struct {
 	Chained         int
 	LegacyUnchained int
 	MalformedLines  int
+}
+
+// LedgerTail is the framing verdict for a ledger's tail — the ONE
+// reader-side answer to the write path's own refusal predicate
+// (validation.checkJsonlTail, atomicio.go): a NON-EMPTY ledger whose last
+// byte is not '\n' cannot be appended to, because the next append would
+// merge two records into one unreadable line.
+//
+// r42c P3, a false certification: every mutating verb refused such a
+// ledger forever — "torn write or external edit ... restore the file from
+// a snapshot or truncate" — while verify printed {"ok": true, "problems":
+// []} exit 0, doctor billed the campaign clean (exit 0, no warning), and
+// audit said PASS. The one corruption class the WRITER refuses was
+// invisible to all three readers, so verify affirmatively certified a
+// state its own writer calls unusable. The readers answer the writer's
+// question now.
+//
+// The byte shape is genuinely AMBIGUOUS, and the verdict says so rather
+// than guessing: "a final record present but not newline-terminated" is
+// indistinguishable between (a) an in-flight append that lost the
+// terminating byte, (b) a torn write that lost only the newline, and (c)
+// an external edit that deleted it. All three are the same bytes and all
+// three are equally un-appendable, so the reader refuses all three without
+// claiming which one happened. What stays GREEN is exact: any ledger whose
+// last byte IS '\n' (whatever its last record is, complete or not) and a
+// ledger with no bytes at all (or no file) — the framing guard permits the
+// first append to both, and genesis is not damage. A tear that cut INTO
+// the final record is already reported by the malformed-line problem (the
+// RUNBOOK's torn-log walkthrough names that line and nothing else), so it
+// is not re-reported as a tail problem: one damage, one attribution — see
+// the finalSegmentMalformed gate in VerifyLog.
+type LedgerTail struct {
+	// Present is "the ledger file exists on disk".
+	Present bool
+	// Size is the file's byte length.
+	Size int64
+	// Torn is "Present && Size > 0 && the last byte is not '\n'".
+	Torn bool
+	// TailBytes counts the bytes after the last '\n' (the whole file when it
+	// holds no newline at all, the blank whitespace tail included). It is 0
+	// unless Torn.
+	TailBytes int
+}
+
+// ledgerTail is THE framing predicate: one pure function of a ledger's
+// bytes, so VerifyLog (which already holds them) and doctor
+// (LedgerTailFraming) answer from the same code and cannot drift apart.
+// The test is the writer's own: the last byte. It is stated in bytes, not
+// in lines, because a ledger of "   " is genesis by CONTENT and still
+// un-appendable by FRAMING — the write path refuses it, so a reader may
+// not call it health.
+func ledgerTail(raw []byte) LedgerTail {
+	lt := LedgerTail{Present: true, Size: int64(len(raw))}
+	if len(raw) == 0 || raw[len(raw)-1] == '\n' {
+		return lt
+	}
+	lt.Torn = true
+	if i := bytes.LastIndexByte(raw, '\n'); i >= 0 {
+		lt.TailBytes = len(raw) - i - 1
+	} else {
+		lt.TailBytes = len(raw)
+	}
+	return lt
+}
+
+// LedgerTailFraming is ledgerTail over the campaign's events.jsonl. A
+// missing ledger is (Present=false, Torn=false) — the framing guard allows
+// the first append to a log that does not exist yet — and a read failure is
+// returned as an error so the caller must DISCLOSE it: a reader that could
+// not read the ledger has no evidence about it and may not certify it.
+func (c *Campaign) LedgerTailFraming() (LedgerTail, error) {
+	raw, err := os.ReadFile(c.EventsPath)
+	if os.IsNotExist(err) {
+		return LedgerTail{}, nil
+	}
+	if err != nil {
+		return LedgerTail{}, err
+	}
+	return ledgerTail(raw), nil
+}
+
+// TornTailProblem is THE problem sentence for a torn ledger tail: one
+// definition, three surfaces — verify reports it among its problems, audit
+// surfaces verify's problems verbatim (the event_log section), and doctor
+// discloses it in log_validation instead of certifying the campaign clean.
+// It names the file and the SHAPE (a final record not terminated by a
+// newline), the consequence (every mutating verb refuses the file), and the
+// only repair (cut back to the last complete record). It does NOT repeat
+// the writer's guess that the record is "incomplete": the bytes cannot say
+// that (the reader sees a parseable record just as often), so neither does
+// this sentence — it says what is observable instead.
+func TornTailProblem(file string, tailBytes int) string {
+	return fmt.Sprintf("%s: the ledger does not end in a newline — %d "+
+		"trailing byte(s) are unterminated, so its final record is not "+
+		"terminated by one (torn write or external edit; the bytes cannot "+
+		"say which). The framing guard every mutating verb runs refuses to "+
+		"append to this file, so the campaign cannot be written to until "+
+		"the tail is cut back to the last complete record; nothing here "+
+		"may certify a ledger its own writer calls unusable", file, tailBytes)
 }
 
 // VerifyLog is verify_log: seq contiguity, the hash chain (every
@@ -53,8 +153,22 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 	events := []validation.Value{}
 	problems := []string{}
 	malformed := 0
+	tail := LedgerTail{}
+	// finalSegmentMalformed records that the unterminated final segment was
+	// ALREADY reported as a malformed line: the same damage must not be
+	// counted twice, and the RUNBOOK's torn-log walkthrough shows that tear
+	// as the line problem alone.
+	finalSegmentMalformed := false
+	// ledgerReadable gates the mirror rule below: comparing a projection
+	// against a ledger that was never read is not a check, it is a guess.
+	ledgerReadable := true
 
-	if raw, err := os.ReadFile(c.EventsPath); err == nil {
+	raw, readErr := os.ReadFile(c.EventsPath)
+	switch {
+	case readErr == nil:
+		// r42c P3: the tail framing is judged from the same bytes the
+		// records are parsed from.
+		tail = ledgerTail(raw)
 		lineNo := 0
 		rest := string(raw)
 		for len(rest) > 0 {
@@ -66,6 +180,10 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 				}
 			}
 			line := rest[:idx]
+			// unterminated: this segment runs to the end of the file with
+			// no newline after it — the shape checkJsonlTail refuses to
+			// append behind.
+			unterminated := idx >= len(rest)
 			if idx < len(rest) {
 				rest = rest[idx+1:]
 			} else {
@@ -77,11 +195,18 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 			// is NOT blank — it is a record this decoder cannot parse,
 			// reported below, never skipped.
 			if blankLine(line) {
+				// A blank unterminated tail is still an unterminated tail
+				// (the writer refuses "   " exactly as it refuses a torn
+				// record): it is NOT marked malformed here, so the tail
+				// problem below reports it.
 				continue
 			}
 			ev, err := validation.ParseOrdered([]byte(line))
 			if err != nil {
 				malformed++
+				if unterminated {
+					finalSegmentMalformed = true
+				}
 				problems = append(problems,
 					fmt.Sprintf("line %d: not valid JSON (%s) — integrity past this point is unverifiable",
 						lineNo, err.Error()))
@@ -89,6 +214,9 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 			}
 			if ev.Kind != validation.Obj {
 				malformed++
+				if unterminated {
+					finalSegmentMalformed = true
+				}
 				problems = append(problems,
 					fmt.Sprintf("line %d: event is not a JSON object — integrity past this point is unverifiable",
 						lineNo))
@@ -96,6 +224,29 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 			}
 			events = append(events, ev)
 		}
+	case os.IsNotExist(readErr):
+		// No ledger at all is genesis, not damage: the framing guard
+		// permits the first append to a file that does not exist and the
+		// zero-event campaign is honestly green (r39b's genesis case).
+	default:
+		// r42c P3: an unreadable ledger used to fall through as
+		// "zero events" and be certified green whenever the mirror was
+		// empty. A reader that could not read the file has no evidence
+		// about it, so it says so and judges nothing else.
+		ledgerReadable = false
+		problems = append(problems, fmt.Sprintf(
+			"events.jsonl: unreadable (%v) — the ledger was never read, so "+
+				"its records, chain, tail and mirror cannot be judged",
+			readErr))
+	}
+
+	// r42c P3: the framing law, judged BEFORE the malformed early return so
+	// a torn tail is never hidden behind an unrelated malformed line, and
+	// PREPENDED so the 10-problem cap cannot drop the one corruption class
+	// the write path itself refuses.
+	if tail.Torn && !finalSegmentMalformed {
+		problems = append([]string{TornTailProblem("events.jsonl",
+			tail.TailBytes)}, problems...)
 	}
 
 	if malformed > 0 {
@@ -106,6 +257,16 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 			Chained:         0,
 			LegacyUnchained: 0,
 			MalformedLines:  malformed,
+		}, nil
+	}
+
+	if !ledgerReadable {
+		// Nothing past this point is knowable: there is no record list to
+		// check the chain against and no log to compare the mirror to.
+		return LogVerdict{
+			Events:   0,
+			OK:       false,
+			Problems: problems[:min(len(problems), 10)],
 		}, nil
 	}
 

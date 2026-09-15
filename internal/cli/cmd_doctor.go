@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"websec/internal/doctor"
+	"websec/internal/state"
 	"websec/internal/validation"
 )
 
@@ -113,6 +114,54 @@ func runDoctor(root string, args []string, r *Runner) int {
 				return err
 			}
 		}
+		// r42c P3: the ledger's tail framing is part of the bill, and the
+		// doctor used to omit it entirely. events.jsonl whose last byte is
+		// not a newline is the ONE corruption class every mutating verb
+		// refuses forever ("torn write or external edit ... restore the
+		// file from a snapshot or truncate"), yet doctor read the log only
+		// through the mirror rebuild — which parses that tail happily — and
+		// exited 0 with no warning at all: a clean bill over a campaign
+		// nothing can write to. doctor cannot repair it (the ledger has no
+		// repair verb by design: rewriting the chain is the one thing the
+		// log exists to prevent — see the RUNBOOK's torn-log recovery) and
+		// it must not certify it either, so it DISCLOSES the same sentence
+		// verify reports, in the JSON as log_validation and in the human
+		// view as a leading WARNING.
+		//
+		// Every mode discloses, --snapshot-only included: no mode of the
+		// health verb may bill a campaign clean while its ledger is
+		// un-appendable. The exit code stays 0, the r37b precedent for a
+		// state no verb can load: doctor's rc answers "did the health run
+		// reach its end", not "is the campaign healthy", and it is the
+		// loud, machine-readable disclosure (not the status) that stops
+		// this being a certification.
+		if rep.Kind == validation.Obj {
+			lt, lerr := c.LedgerTailFraming()
+			if lerr != nil {
+				rep.O = validation.SetOrAppend(rep.O, "log_validation",
+					validation.VObj(
+						validation.KV{K: "ok", V: validation.VBool(false)},
+						validation.KV{K: "path",
+							V: validation.VStr(c.EventsPath)},
+						validation.KV{K: "error", V: validation.VStr(
+							"events.jsonl: unreadable (" + lerr.Error() +
+								") — the ledger was never read, so this bill " +
+								"says nothing about it")}))
+			} else if lt.Torn {
+				rep.O = validation.SetOrAppend(rep.O, "log_validation",
+					validation.VObj(
+						validation.KV{K: "ok", V: validation.VBool(false)},
+						validation.KV{K: "path",
+							V: validation.VStr(c.EventsPath)},
+						validation.KV{K: "tail_terminated",
+							V: validation.VBool(false)},
+						validation.KV{K: "tail_bytes",
+							V: validation.VInt(int64(lt.TailBytes))},
+						validation.KV{K: "error", V: validation.VStr(
+							state.TornTailProblem("events.jsonl",
+								lt.TailBytes))}))
+			}
+		}
 		if asJSON {
 			t14PrintJSON(r.Out, rep)
 			return nil
@@ -124,6 +173,17 @@ func runDoctor(root string, args []string, r *Runner) int {
 
 // printDoctor is the human view (cli.py's f-strings, verbatim).
 func printDoctor(r *Runner, rep validation.Value) {
+	// r42c P3: the ledger disclosure comes FIRST — before the size bill —
+	// so a run over an un-appendable ledger never reads clean (the r37b
+	// state_validation precedent). The wording carries neither "snapshot"
+	// nor "state:", the two substrings the --state-only / --snapshot-only
+	// surface pins forbid leaking into each other's view.
+	if lv := objAt(rep, "log_validation"); lv.Kind == validation.Obj &&
+		objAt(lv, "ok").Kind == validation.Bool && !objAt(lv, "ok").B {
+		fmt.Fprintf(r.Out, "  WARNING: the event ledger is NOT certifiable — "+
+			"%s\n  doctor does not repair the ledger (no verb rewrites the "+
+			"log by design); this bill is NOT clean\n", objStr(lv, "error"))
+	}
 	if st := objAt(rep, "state"); st.Kind == validation.Obj {
 		if sv := objAt(st, "state_validation"); sv.Kind == validation.Obj &&
 			!objAt(sv, "ok").B {
