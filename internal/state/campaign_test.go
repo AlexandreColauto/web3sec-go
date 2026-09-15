@@ -33,7 +33,10 @@ func TestInitCreatesLayout(t *testing.T) {
 			t.Errorf("%s must be a dir", p)
 		}
 	}
-	got := ListCampaigns(root)
+	got, err := ListCampaigns(root)
+	if err != nil {
+		t.Fatalf("ListCampaigns: %v", err)
+	}
 	if len(got) != 1 || got[0] != c.CampaignID {
 		t.Errorf("ListCampaigns: %v", got)
 	}

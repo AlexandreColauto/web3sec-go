@@ -11,6 +11,7 @@
 package sandbox
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -354,8 +355,11 @@ func defaultSandboxPreflight(c *state.Campaign, workdir, profile *string) (
 		}
 	}
 
-	version := pinnedCompiler(c)
-	if version == nil {
+	version, perr := pinnedCompiler(c)
+	if perr != nil {
+		check("solc", "fail", "the active snapshot's pin manifest cannot be "+
+			"read, so the compiler pin cannot be judged: "+perr.Error(), nil)
+	} else if version == nil {
 		check("solc", "na", "no compiler pinned by the active snapshot — "+
 			"nothing to check against", nil)
 	} else if !SolcVersionPin(*version) {
@@ -435,33 +439,48 @@ func defaultSandboxPreflight(c *state.Campaign, workdir, profile *string) (
 
 // pinnedCompiler is the compiler version the active snapshot's toolchain
 // detection pinned (str(compiler).split(",")[0].strip()), or nil.
-func pinnedCompiler(c *state.Campaign) *string {
+func pinnedCompiler(c *state.Campaign) (*string, error) {
 	if c == nil {
-		return nil
+		return nil, nil
 	}
 	sid, err := c.ActiveSnapshotIDOrNone()
-	if err != nil || sid == nil {
-		return nil
+	if err != nil {
+		// r44: this used to fold a read failure into "no active snapshot",
+		// i.e. into "no compiler pinned" — the r42/r43 error-class blunder
+		// on the compiler-pin rail. A pin the tool could not read is not a
+		// pin that does not exist.
+		return nil, err
+	}
+	if sid == nil {
+		return nil, nil
 	}
 	pinPath := filepath.Join(c.Dir, "snapshots", *sid, "snapshot.json")
-	if !pathExists(pinPath) {
-		return nil
+	if st, serr := os.Stat(pinPath); serr != nil {
+		if os.IsNotExist(serr) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("the active snapshot's pin manifest %s "+
+			"cannot be read: %v", pinPath, serr)
+	} else if st.IsDir() {
+		return nil, fmt.Errorf("the active snapshot's pin manifest %s is a "+
+			"directory", pinPath)
 	}
 	pin, err := validation.ReadJson(pinPath)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("the active snapshot's pin manifest %s "+
+			"cannot be read: %v", pinPath, err)
 	}
 	compiler := objAt(objAt(pin, "config"), "compiler")
 	if compiler.Kind == validation.Null {
-		return nil
+		return nil, nil
 	}
 	text := scalarText(compiler)
 	if text == "" {
-		return nil
+		return nil, nil
 	}
 	first := strings.SplitN(text, ",", 2)[0]
 	first = strings.TrimSpace(first)
-	return &first
+	return &first, nil
 }
 
 // scalarText is Python's str() for the JSON scalars a compiler pin can hold.

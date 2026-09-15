@@ -1314,29 +1314,17 @@ func LoadExec(c *state.Campaign, execID string) (validation.Value, error) {
 
 // AllExecs is all_execs: every EXEC record, sorted by path.
 //
-// r43a: an absent execs/ directory means the campaign has no runs, and an
-// empty list is honest there. An execs/ directory that cannot be listed is a
-// different thing — "zero execs" is a claim about a store, and a store that
-// could not be read supports no claim — so it refuses, naming the path. The
-// old code stat'ed the directory and returned an empty list for ANY error,
-// EACCES included.
+// r44a: ONE implementation per law. The body moved to state.AllExecs and this
+// is a thin alias. r43a fixed the refusal on THIS side while the state twin —
+// the one the audit's exec section reads — still returned an empty list for
+// any error: two functions with one name and OPPOSITE refusal semantics are a
+// bug in themselves, and `chmod 000 <c>/execs/` certified `audit PASS
+// execs=0` through the state reader. sandbox imports state (never the
+// reverse), so the canonical reader lives on the state side; the r43a
+// contract is unchanged — absent store is empty, unlistable store refuses
+// naming the path and the errno.
 func AllExecs(c *state.Campaign) ([]validation.Value, error) {
-	matches, err := validation.ListSubPrefixedOptional(c.ExecsDir, "EXEC-",
-		"exec_record.json")
-	if err != nil {
-		return nil, fmt.Errorf("the exec store %s cannot be listed: %v",
-			c.ExecsDir, err)
-	}
-	sort.Strings(matches)
-	out := make([]validation.Value, 0, len(matches))
-	for _, p := range matches {
-		v, err := validation.ReadJson(p)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, v)
-	}
-	return out, nil
+	return state.AllExecs(c)
 }
 
 // shaFile is _sha.

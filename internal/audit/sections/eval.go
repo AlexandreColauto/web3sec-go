@@ -104,13 +104,46 @@ func Eval(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.Value{}, err
 	}
+	// r44c: the live set is read ONCE, here, and a READ ERROR REFUSES.
+	//
+	// The section used to read it late (below) and fold any error into an
+	// empty set, and — worse — evalscore.Score was called first: Score has
+	// no error channel (its brief), so a findings read failure came back as
+	// ok=false and the section returned ErrSkip, i.e. the section silently
+	// VANISHED from the report for a store it never read. The two shapes are
+	// now separated by reading the store here, before Score:
+	//
+	//   * absent findings/ is an empty campaign — that fold lives in
+	//     findings.LoadAllFindings itself (ListPrefixedOptional), so a
+	//     genuinely missing store still yields the empty set, both presence
+	//     gates still close, and the section renders exactly the bytes it
+	//     rendered before;
+	//   * anything else (EACCES, ENOTDIR, EIO, an unreadable or unparseable
+	//     FIND-*.json row) propagates: "no live findings in suite-matched
+	//     programs" is a claim about a store, and a store that could not be
+	//     read supports no such claim.
+	//
+	// With the store proven readable here, the only remaining meaning of
+	// Score's ok=false (below) is the presence gate itself: the campaign's
+	// pinned program matches no suite case. (Score re-reads the same store;
+	// a store that breaks between the two reads is the one residual this
+	// cannot distinguish, and closing it needs an error channel evalscore
+	// does not have.)
+	live, err := findings.LoadLiveFindings(c)
+	if err != nil {
+		return validation.Value{}, fmt.Errorf(
+			"the eval section cannot read the live findings store of %s: %v",
+			c.CampaignID, err)
+	}
 	rep, ok := evalscore.Score(c, cases)
 	if !ok {
 		return validation.Value{}, ErrSkip
 	}
 	st, err := c.State()
 	if err != nil {
-		return validation.Value{}, ErrSkip
+		// Score read the state a moment ago; reaching here means the store
+		// changed under us. A read error is a refusal, never a skip.
+		return validation.Value{}, err
 	}
 	program := ""
 	for _, kv := range st.O {
@@ -168,14 +201,13 @@ func Eval(c *state.Campaign) (validation.Value, error) {
 
 	// I3: acceptance score-band precision + the fabrication ledger. The
 	// scope is the one evalscore already scores for this campaign (its
-	// matched program); the live set is read again here because the
-	// section — not evalscore — is what owns the risk import. A read
-	// failure leaves the set empty, which closes both presence gates: the
-	// block is an advisory addition and never fails the section.
-	liveByProgram := map[string][]validation.Value{}
-	if live, lerr := findings.LoadLiveFindings(c); lerr == nil {
-		liveByProgram[program] = live
-	}
+	// matched program); the live set is the one read at the TOP of this
+	// function (r44c: it was read AGAIN here and a failure left it empty,
+	// which silently rendered "0 live findings in scope" for a store the
+	// section could not read — a read error is a refusal, and it is refused
+	// before Score). Both blocks below stay presence-gated on that set, so
+	// a campaign with no live finding renders the same bytes as before.
+	liveByProgram := map[string][]validation.Value{program: live}
 	bandRows, unscorable, fabricated, fabByBand := evalscore.Bands(
 		[]string{program}, liveByProgram, cases, riskScore)
 	inScope := len(liveByProgram[program])

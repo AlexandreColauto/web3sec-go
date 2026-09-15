@@ -344,7 +344,33 @@ func SnapshotScope(campaign *state.Campaign) (validation.Value, error) {
 		), nil
 	}
 	snapDir := filepath.Join(campaign.Dir, "snapshots", *sid)
-	if fi, err := os.Stat(snapDir); err != nil || !fi.IsDir() {
+	fi, serr := os.Stat(snapDir)
+	if serr != nil && !os.IsNotExist(serr) {
+		// r44b P3-a: this used to be one branch — `if fi, err :=
+		// os.Stat(snapDir); err != nil || !fi.IsDir()` — so EVERY stat
+		// error, EACCES included, rendered as exists:false + "snapshot
+		// <id> directory missing". With `chmod 000 <c>/snapshots/` the
+		// directory is there but unreadable (stat needs +x on the parent):
+		// doctor said the pin was MISSING in both surfaces, which is a
+		// claim about absence drawn from a read failure. Doctor's rc stays
+		// 0 — its documented precedent: the bill discloses, it does not
+		// fail — so the REASON has to be the truth, and the note retracts
+		// the absence claim by name. A genuinely absent pin (NotExist)
+		// keeps the r37b shape below, message-for-message.
+		return validation.VObj(
+			validation.KV{K: "active_snapshot", V: validation.VStr(*sid)},
+			validation.KV{K: "exists", V: validation.VBool(false)},
+			validation.KV{K: "read_error", V: validation.VStr(serr.Error())},
+			validation.KV{K: "note", V: validation.VStr("the snapshot store " +
+				snapDir + " could not be read: " + serr.Error() +
+				" — a read failure is NOT proof the pin is absent; fix the " +
+				"permissions on snapshots/ and re-run")},
+		), nil
+	}
+	if serr != nil || !fi.IsDir() {
+		// Genuinely missing (NotExist), or a path occupied by something
+		// that is not a directory: the pin's directory is not there, which
+		// is what this shape has always said.
 		return validation.VObj(
 			validation.KV{K: "active_snapshot", V: validation.VStr(*sid)},
 			validation.KV{K: "exists", V: validation.VBool(false)},
@@ -354,11 +380,20 @@ func SnapshotScope(campaign *state.Campaign) (validation.Value, error) {
 	}
 	metaPath := filepath.Join(snapDir, "snapshot.json")
 	meta := validation.VObj()
-	if pathExists(metaPath) {
+	if _, metaErr := os.Stat(metaPath); metaErr == nil {
 		meta, err = validation.ReadJson(metaPath)
 		if err != nil {
 			return validation.VNull(), err
 		}
+	} else if !os.IsNotExist(metaErr) {
+		// r44b P3-a: this was `if pathExists(metaPath)`, and pathExists
+		// folded EVERY stat error into false — an unsearchable pin dir
+		// (mode 0400) read as "this pin has no manifest", so the report
+		// carried source_root:null and the file walk below billed 0 files
+		// over a tree nobody could read. A manifest that cannot be stat'ed
+		// decides nothing: refuse with the path and the errno.
+		return validation.VNull(), fmt.Errorf(
+			"the snapshot store %s cannot be read: %v", metaPath, metaErr)
 	}
 	files, err := walkFiles(snapDir)
 	if err != nil {
@@ -451,7 +486,18 @@ func walkFiles(root string) ([]string, error) {
 		}
 		fi, err := os.Stat(p)
 		if err != nil {
-			return nil
+			if os.IsNotExist(err) {
+				// The entry vanished between the listing and the stat, or
+				// the name is a broken symlink: absence, not a read failure.
+				return nil
+			}
+			// r44b P3-a: this used to `return nil` on EVERY stat error, so a
+			// pin dir that lists but cannot be searched (mode 0400 — the
+			// names come back, the stat of each entry does not) made the
+			// scope report "0 files, 0.0 MB": the r37b empty-but-present
+			// lie, over a tree this run never read. It is the same fold as
+			// the missing manifest above, and both refuse.
+			return fmt.Errorf("the snapshot store %s cannot be read: %v", p, err)
 		}
 		if fi.Mode().IsRegular() {
 			out = append(out, p)
@@ -507,11 +553,6 @@ func setKey(v *validation.Value, key string, val validation.Value) {
 		}
 	}
 	v.O = append(v.O, validation.KV{K: key, V: val})
-}
-
-func pathExists(p string) bool {
-	_, err := os.Stat(p)
-	return err == nil
 }
 
 // itoa is str(int).

@@ -18,7 +18,9 @@ package sections
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -27,6 +29,29 @@ import (
 	"websec/internal/state"
 	"websec/internal/validation"
 )
+
+// stdoutUnreadableBurn is the ONE refusal for a captured stdout the audit
+// could not read: the rung is named, the exec is named, and the errno the
+// shared reader observed is carried verbatim. All three rung arms that
+// re-derive from stored bytes return exactly this.
+func stdoutUnreadableBurn(iid, exec string, err error) string {
+	return fmt.Sprintf("%s: exec %s stdout unreadable (%v) — the "+
+		"evidence behind the rung cannot be re-checked", iid, exec, err)
+}
+
+// stdoutAbsent reports whether a harness.ReadExecStdout failure is the
+// documented ABSENCE of the capture — nothing was ever captured
+// (ErrNoCapturedStdout), or the file the record names is not there any more
+// (a pruned/aged-out witness) — as opposed to a READ failure on a capture
+// that IS present. Only the not-exist class is folded into absence; EACCES,
+// ENOTDIR and EIO are refusals, the same contract as
+// validation.ListPrefixedOptional (r44b P3-b).
+func stdoutAbsent(err error) bool {
+	if errors.Is(err, harness.ErrNoCapturedStdout) {
+		return true
+	}
+	return errors.Is(err, os.ErrNotExist)
+}
 
 // unbackedSuffix qualifies a harness_runs line whose blessing THIS section
 // could not back (harnessRungBacked or harnessEvidenceRecheck burned it).
@@ -718,9 +743,7 @@ func recheckExecEvidence(c *state.Campaign, events []validation.Value,
 	// bind never read.
 	raw, rerr := harness.ReadExecStdout(filepath.Join(c.ExecsDir, exec), rec)
 	if rerr != nil {
-		return fmt.Sprintf("%s: exec %s stdout unreadable (%v) — the "+
-			"evidence behind the rung cannot be re-checked", iid, exec,
-			rerr)
+		return stdoutUnreadableBurn(iid, exec, rerr)
 	}
 	// r28b F3: the audit re-derives through the SAME decision entry point
 	// the bind used, with the SAME arguments — the recorded-hash arm, the
@@ -1188,9 +1211,7 @@ func recheckMapRunEvidence(c *state.Campaign, events []validation.Value,
 	// the same length (see recheckExecEvidence).
 	raw, rerr := harness.ReadExecStdout(filepath.Join(c.ExecsDir, exec), rec)
 	if rerr != nil {
-		return fmt.Sprintf("%s: exec %s stdout unreadable (%v) — the "+
-			"evidence behind the rung cannot be re-checked", iid, exec,
-			rerr)
+		return stdoutUnreadableBurn(iid, exec, rerr)
 	}
 	scaffold, scaffoldWhy := harnessScaffoldArtifactBytes(c, events, iid,
 		kind)
@@ -1234,7 +1255,13 @@ func recheckInconclusive(c *state.Campaign, events []validation.Value,
 	kind harness.Kind) string {
 	recs, err := state.AllExecs(c)
 	if err != nil {
-		return ""
+		// r44a: the silence below ("aged-out witness: nothing to re-derive
+		// against") is reserved for a witness that is genuinely ABSENT from a
+		// store that WAS listed. A ledger that could not be listed is a
+		// refusal, and folding it into the absent case would let this arm
+		// pass over evidence it never read. Same text as the sibling arm in
+		// recheckExecEvidence: the rung is named and burned.
+		return fmt.Sprintf("%s: the exec ledger cannot be read (%v)", iid, err)
 	}
 	var rec validation.Value
 	for _, e := range recs {
@@ -1248,11 +1275,23 @@ func recheckInconclusive(c *state.Campaign, events []validation.Value,
 	}
 	// r29b F2: the bind's own reader (candidate order and 1MB cap included),
 	// so a decoration the mapper drew from the capped bytes is not compared
-	// against a longer file. A read failure keeps this arm's silence —
-	// absence is not proof of a lie.
+	// against a longer file.
+	//
+	// r44b P3-b: this arm used to `return ""` on EVERY read failure, while
+	// the two sibling arms above refuse with stdoutUnreadableBurn. The
+	// aged-out silence belongs to the witness that is genuinely ABSENT from
+	// a store that was listed (ErrNoCapturedStdout, or a capture the record
+	// names and prunes — the r24 scope law: torching an old, pruned witness
+	// dir would punish honesty with noise); a capture that is PRESENT and
+	// cannot be READ (EACCES, ENOTDIR, EIO) is a refusal, not absence, and
+	// folding the two together let a decorated inconclusive rung stand over
+	// bytes this audit never read. Only stdoutAbsent folds.
 	raw, rerr := harness.ReadExecStdout(filepath.Join(c.ExecsDir, exec), rec)
 	if rerr != nil {
-		return ""
+		if !stdoutAbsent(rerr) {
+			return stdoutUnreadableBurn(iid, exec, rerr)
+		}
+		return "" // aged-out witness: nothing to re-derive against
 	}
 	es := harness.RecordExitStatus(rec)
 	// Same entry point as the bind (r27 F1, r28b F3): the decision —

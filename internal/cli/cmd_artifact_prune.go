@@ -14,6 +14,10 @@ package cli
 // which campaign under --root to touch. An id no campaign holds is the
 // exit-2 usage error naming that id; an id two campaigns hold (reachable
 // only by a hand-edited pair of registries) refuses rather than guessing.
+// r44a: an id no READABLE campaign holds is not the same claim — an
+// unlistable campaigns/ store refuses with exit 1 naming the store and the
+// errno, never the exit-2 "unknown artifact" for an artifact the store may
+// well hold (state.ListCampaigns grew the error for exactly this).
 //
 // CITE WARNING, never a gate. The bind's cite-guard refuses to prune a row
 // a live bind cites — but that is the BIND's discipline, not the operator's:
@@ -153,11 +157,21 @@ func artifactPruneCmd(root string, args []string, r *Runner) error {
 // caller renders the exit-2 unknown-artifact refusal). Two campaigns
 // holding one id is impossible by minting (random ids) and possible only
 // by a hand-edited registry: named and refused, never guessed.
+//
+// r44a: an unlistable campaigns/ directory is NOT "no campaign holds the id".
+// ListCampaigns now refuses instead of returning an empty list, and that
+// error propagates (exit 1, naming the store) rather than letting this
+// function answer "unknown artifact" — exit 2 — for an artifact the
+// unreadable store may well hold.
 func pruneLookup(root, artID string) (*state.Campaign, validation.Value, error) {
 	var found *state.Campaign
 	var row validation.Value
 	foundIn := ""
-	for _, cid := range state.ListCampaigns(root) {
+	cids, err := state.ListCampaigns(root)
+	if err != nil {
+		return nil, validation.VNull(), err
+	}
+	for _, cid := range cids {
 		c, err := state.Open(root, cid)
 		if err != nil {
 			return nil, validation.VNull(), err

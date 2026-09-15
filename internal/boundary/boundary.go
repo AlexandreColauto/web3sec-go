@@ -14,7 +14,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -214,7 +213,15 @@ func validatePlanKinds(kind string, payload validation.Value,
 		}
 		return nil
 	}
-	known := campaignMemoryIDs(campaign)
+	// r44c: the id set is a READ of the memory store. A store that cannot be
+	// listed refuses here — as a plain error, NOT a BoundaryError: "unknown
+	// memory row" would accuse the model's payload of a defect the store read
+	// never established. The caller must surface the refusal as the
+	// infrastructure failure it is rather than re-requesting the model.
+	known, err := campaignMemoryIDs(campaign)
+	if err != nil {
+		return err
+	}
 	if d := objAt(payload, "differs_from_memory"); d.Kind == validation.Arr {
 		for _, item := range d.A {
 			if item.Kind != validation.Obj {
@@ -414,33 +421,56 @@ func validateReproducerRequest(payload validation.Value,
 	return nil
 }
 
-// campaignMemoryIDs is _campaign_memory_ids.
-func campaignMemoryIDs(campaign *state.Campaign) map[string]bool {
+// campaignMemoryIDs is _campaign_memory_ids: the memory ids a
+// differs_from_memory citation is resolved against. The listing goes through
+// learning.AllMemory — the ONE implementation of "the campaign's memory
+// rows" — and the shared store through its one home, sharedmem.
+//
+// r44c: this used to re-list memory/ locally with its own os.ReadDir, folding
+// every listing error into "no ids"; the shared half swallowed its error the
+// same way. Both reads are fail-closed downstream (a citation of a real prior
+// would be rejected as an "unknown memory row"), so the fold never let a bad
+// hypothesis through — but it turned a store that could not be read into a
+// false accusation, and it was a second reader of the same store with its own
+// tolerance. A read error is now a refusal, named, and the caller refuses the
+// response instead of judging it against an empty id set.
+//
+// One deliberate divergence from the twin, kept explicit: the twin keyed the
+// local half on the file STEM (p.stem); these ids come from each row's
+// declared memory_id. Every row the tool itself writes lands at
+// memory/MEM-<memory_id>.json (QueueMemory/ApproveMemory), so stem ==
+// memory_id for every store a verb can produce; the declared id is also the
+// identity a citation actually names. A hand-planted row whose stem and body
+// disagree is a store defect this reader does not silently privilege.
+func campaignMemoryIDs(campaign *state.Campaign) (map[string]bool, error) {
+	rows, err := learning.AllMemory(campaign)
+	if err != nil {
+		return nil, err
+	}
 	ids := map[string]bool{}
-	entries, err := os.ReadDir(filepath.Join(campaign.Dir, "memory"))
-	if err == nil {
-		for _, e := range entries {
-			name := e.Name()
-			if !e.IsDir() && strings.HasPrefix(name, "MEM-") &&
-				strings.HasSuffix(name, ".json") {
-				ids[strings.TrimSuffix(name, ".json")] = true
-			}
+	for _, r := range rows {
+		if mid := objStr(r, "memory_id"); mid != "" {
+			ids[mid] = true
 		}
 	}
-	if wrapped, err := sharedmem.LoadSharedMemory(campaign.Root); err == nil {
-		for _, w := range wrapped {
-			r := w
-			if w.Kind == validation.Obj {
-				if row := objAt(w, "row"); row.Kind != validation.Null {
-					r = row
-				}
-			}
-			if mid := objStr(r, "memory_id"); mid != "" {
-				ids[mid] = true
+	wrapped, err := sharedmem.LoadSharedMemory(campaign.Root)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"the shared memory store for %s cannot be read: %v",
+			campaign.Root, err)
+	}
+	for _, w := range wrapped {
+		r := w
+		if w.Kind == validation.Obj {
+			if row := objAt(w, "row"); row.Kind != validation.Null {
+				r = row
 			}
 		}
+		if mid := objStr(r, "memory_id"); mid != "" {
+			ids[mid] = true
+		}
 	}
-	return ids
+	return ids, nil
 }
 
 // RecordRejection is record_rejection: log a rejected generation as a

@@ -70,42 +70,53 @@ func Execs(c *state.Campaign) (validation.Value, error) {
 	// without its record is now a problem. (Records without events stay
 	// lenient — legacy campaigns predate the event, same rule as
 	// projection's state->log direction.)
-	if evts, err := c.Events(); err == nil {
-		seen := map[string]bool{}
-		for _, rec := range execs {
-			seen[objStr(rec, "exec_id")] = true
-		}
-		// r16 P2 ATTEMPTED, REFUSED after the golden proved it wrong:
-		// the records-without-events direction (planted-run detection,
-		// legacy-gated by "the campaign has exec events at all") looked
-		// sound against unit fixtures — but the frozen P4 golden holds
-		// legitimate seeded records in campaigns that DO speak execs
-		// for their own runs. Nothing in the record or the ledger says
-		// "seeded": a plant and a twin-era seed are byte-identical
-		// shapes. Flagging them breaks the golden contract; skipping
-		// them would mask plants. The direction is therefore NOT
-		// policed (the mirror direction — event without its record —
-		// is, right below). Planted exec dirs stay visible to `execs
-		// --json` reviewers through their provenance fields; custody of
-		// execs/ is a filesystem-trust question like the hash chain's
-		// (see the verifylog boundary note).
-		for _, e := range evts {
-			typ := objStr(e, "type")
-			if typ != "sandbox.exec.registered" && typ != "sandbox.exec" {
-				continue
-			}
-			eid := objStr(e, "ref")
-			if eid == "" || seen[eid] {
-				continue
-			}
-			problems = append(problems, validation.VStr(
-				fmt.Sprintf("%s: the ledger records exec %s but no "+
-					"exec record survives on disk — delete the events "+
-					"only through a sanctioned verb, never the store",
-					typ, eid)))
-		}
-	} else if !os.IsNotExist(err) {
+	// r44c: the ledger is read ONCE, and any error from that read REFUSES.
+	// The tolerant `if evts, err := c.Events(); err == nil { ... } else if
+	// !os.IsNotExist(err) { return err }` shape this replaces read as "the
+	// direction is skipped whenever the ledger is unreadable": absent
+	// events.jsonl is ALREADY folded to an empty log inside
+	// (*state.Campaign).Events (logLines -> IsNotExist -> nil, nil), so the
+	// else-arm's os.IsNotExist test could never be true and every error that
+	// survives the read — EACCES, EISDIR, ENOTDIR, a torn line — is a read
+	// failure, not an absence. A read error is a refusal: this section
+	// exists to find the ledger/record divergence, and skipping the ledger
+	// half on an unreadable ledger silently drops exactly that residue.
+	evts, err := c.Events()
+	if err != nil {
 		return validation.Value{}, err
+	}
+	seen := map[string]bool{}
+	for _, rec := range execs {
+		seen[objStr(rec, "exec_id")] = true
+	}
+	// r16 P2 ATTEMPTED, REFUSED after the golden proved it wrong:
+	// the records-without-events direction (planted-run detection,
+	// legacy-gated by "the campaign has exec events at all") looked
+	// sound against unit fixtures — but the frozen P4 golden holds
+	// legitimate seeded records in campaigns that DO speak execs
+	// for their own runs. Nothing in the record or the ledger says
+	// "seeded": a plant and a twin-era seed are byte-identical
+	// shapes. Flagging them breaks the golden contract; skipping
+	// them would mask plants. The direction is therefore NOT
+	// policed (the mirror direction — event without its record —
+	// is, right below). Planted exec dirs stay visible to `execs
+	// --json` reviewers through their provenance fields; custody of
+	// execs/ is a filesystem-trust question like the hash chain's
+	// (see the verifylog boundary note).
+	for _, e := range evts {
+		typ := objStr(e, "type")
+		if typ != "sandbox.exec.registered" && typ != "sandbox.exec" {
+			continue
+		}
+		eid := objStr(e, "ref")
+		if eid == "" || seen[eid] {
+			continue
+		}
+		problems = append(problems, validation.VStr(
+			fmt.Sprintf("%s: the ledger records exec %s but no "+
+				"exec record survives on disk — delete the events "+
+				"only through a sanctioned verb, never the store",
+				typ, eid)))
 	}
 	return validation.VObj(
 		KV("checked", validation.VInt(int64(len(execs)))),

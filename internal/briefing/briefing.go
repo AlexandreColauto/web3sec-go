@@ -1808,7 +1808,19 @@ func criticalityBlock(campaign *state.Campaign, all []validation.Value,
 		}
 	}
 	execBlobs := []string{}
-	if recs, err := sandbox.AllExecs(campaign); err == nil {
+	// r44a: this used to be `if recs, err := ...; err == nil`, which swallowed
+	// the whole error class. AllExecs folds a genuinely ABSENT execs/ store
+	// into an empty list with a nil error, so the tolerant shape already
+	// covers absence — and a non-nil error can only mean the store could not
+	// be listed. Swallowing THAT would drop every exec blob and let the
+	// coverage pass below assert components "uncovered" from evidence it
+	// never read: a read error is a refusal, not "not found", so it
+	// propagates (the caller renders it).
+	recs, err := sandbox.AllExecs(campaign)
+	if err != nil {
+		return validation.VNull(), false, err
+	}
+	{
 		for _, rec := range recs {
 			if rec.Kind != validation.Obj {
 				continue

@@ -1,5 +1,32 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-15 — r44 (glm-5.3-flash critic): the fix did not reach the whole audit
+
+Round 43 taught the evidence readers to refuse an unreadable store; round 44 found that two evidence classes were read by
+other code. The audit's exec section went through `state.AllExecs`, a SECOND implementation of the same reader that still
+folded every errno into "dir absent" — while the sandbox's own `AllExecs` had been migrated in r43, so the tree held two
+functions with the same name and opposite refusal semantics (the "one implementation per law" doctrine broken by a
+reader the audit depends on). With `chmod 000 execs/` — or a regular file where the directory should be — the section
+reported "audit PASS ... execs=0 problem(s)" while findings/ and chains/ refused correctly in the same run. `state` now
+owns the one implementation (sandbox delegates to it), absence still reads as empty, and an unreadable store is a refusal
+naming path and errno; `state.ListCampaigns` got the same treatment, because folding its read error made
+`artifact-prune` answer "unknown artifact" — an exit-2 refusal about a thing that may well exist — for an unreadable
+campaign store.
+
+The other half of the P1 was the snapshots section, whose docstring promises "the audit verifies that claim instead of
+trusting it": it discarded the `ReadDir` error behind an `os.Stat` that had succeeded, so an unreadable `snapshots/`
+turned `{"checked": 1, "problems": [], "ok": true}` into `{"checked": 0, "problems": [], "ok": true}` — the section
+verified ZERO pins and passed. It now fails naming the store. Doctor's `--snapshot-only` had the same fold in miniature
+(an unreadable store read as "MISSING — directory missing"), and `recheckInconclusive` kept one ledger-read arm silent
+while its three siblings refuse; both say what they know now.
+
+The error-class sweep also reached the compiler-pin rail: `pinnedCompiler` in both seams folded an unreadable pin
+manifest (and the active-snapshot lookup's own error) into "no compiler pinned", so `env doctor` reported the benign
+"na — no compiler pinned by the active snapshot" when the truth was that the pin could not be read. A pin the tool could
+not read is not a pin that does not exist; the doctor row is now a FAIL naming the read failure. Advisory folds in the
+evaluation section and the roles' private memory listing were closed too, the latter by calling the shared reader instead
+of reimplementing it. Gates: gofmt/go vet clean, 70/70 packages, runbook-walkthrough and golden GREEN.
+
 ## 2026-09-15 — r43 (glm-5.3-flash critic): an unreadable directory read as an empty one
 
 Round 42 taught the tree to tell "absent" from "unreadable" at ONE file; round 43 found the same blunder at the root of

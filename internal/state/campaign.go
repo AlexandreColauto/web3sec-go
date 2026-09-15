@@ -252,26 +252,62 @@ func (c *Campaign) SaveState(st validation.Value) error {
 
 // ListCampaigns is list_campaigns: sorted ids of campaigns with a state
 // file under root/campaigns.
-func ListCampaigns(root string) []string {
+//
+// r44a: the result grew an error because the old signature could only say
+// "no campaigns", and it said it for EVERY ReadDir error. Absence is a fact —
+// a root with no campaigns/ directory yet has no campaigns, and an empty list
+// is the honest answer — but a campaigns/ directory that cannot be LISTED
+// supports no claim about which campaigns exist, and neither does one whose
+// entries cannot be examined. Folding EACCES/ENOTDIR/EIO into "no campaigns"
+// is how artifact-prune came to render its exit-2 "unknown artifact" refusal
+// for an artifact that may well exist: the very campaign holding it was
+// silently dropped from the loop. So:
+//
+//   - campaigns/ missing: empty list, nil error;
+//   - campaigns/ unlistable: refusal naming the directory and the errno;
+//   - an entry that cannot be stat'ed: refusal (its campaign-ness is
+//     undecidable — only os.IsNotExist, a dangling symlink or a racing
+//     deletion, is a fact and skips the row);
+//   - an entry with no campaign_state.json: not a campaign, skipped (that is
+//     the layout filter, and it is os.IsNotExist's job to say so).
+func ListCampaigns(root string) ([]string, error) {
 	cdir := filepath.Join(root, "campaigns")
 	entries, err := os.ReadDir(cdir)
 	if err != nil {
-		return nil
+		if os.IsNotExist(err) {
+			return nil, nil // no campaigns yet: an honest empty answer
+		}
+		return nil, fmt.Errorf("the campaign store %s cannot be listed: %v",
+			cdir, err)
 	}
 	var out []string
 	for _, e := range entries {
 		// os.Stat (not e.IsDir): a symlinked campaign dir is a valid
 		// campaign; ReadDir's entry type reports the link, not the target.
-		fi, err := os.Stat(filepath.Join(cdir, e.Name()))
-		if err != nil || !fi.IsDir() {
+		ep := filepath.Join(cdir, e.Name())
+		fi, err := os.Stat(ep)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue // dangling link / raced deletion: no campaign here
+			}
+			return nil, fmt.Errorf("the campaign entry %s cannot be examined: %v",
+				ep, err)
+		}
+		if !fi.IsDir() {
 			continue
 		}
-		if _, err := os.Stat(filepath.Join(cdir, e.Name(), "campaign_state.json")); err == nil {
-			out = append(out, e.Name())
+		statePath := filepath.Join(ep, "campaign_state.json")
+		if _, err := os.Stat(statePath); err != nil {
+			if os.IsNotExist(err) {
+				continue // a directory without a state file is not a campaign
+			}
+			return nil, fmt.Errorf("the campaign %s cannot be read: %v",
+				e.Name(), err)
 		}
+		out = append(out, e.Name())
 	}
 	sort.Strings(out)
-	return out
+	return out, nil
 }
 
 // --- snapshot pins (Task 11; compat/attach layers land in Task 12) --------

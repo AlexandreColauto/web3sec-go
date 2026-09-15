@@ -2,10 +2,8 @@ package roles
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"websec/internal/corpus"
 	"websec/internal/findings"
@@ -160,8 +158,11 @@ func findingSummary(f validation.Value) validation.Value {
 // metadata.
 func knownNonIssues(campaign *state.Campaign, bugClass *string,
 	limit int) (validation.Value, error) {
-	negative := rankNegative(negativeRows(devRows(loadMemoryRows(campaign))),
-		bugClass)
+	rows, err := loadMemoryRows(campaign)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	negative := rankNegative(negativeRows(devRows(rows)), bugClass)
 	active, err := campaign.ActiveSnapshotIDOrNone()
 	if err != nil {
 		return validation.VNull(), err
@@ -196,41 +197,42 @@ func knownNonIssues(campaign *state.Campaign, bugClass *string,
 	), nil
 }
 
-// loadMemoryRows is every candidate row: campaign-local memory/MEM-*.json in
-// name order, then the shared store (wrapped {scope, program_key, row}
-// entries unwrapped to the flat shape).
-func loadMemoryRows(campaign *state.Campaign) []validation.Value {
-	rows := []validation.Value{}
-	memDir := filepath.Join(campaign.Dir, "memory")
-	if entries, err := os.ReadDir(memDir); err == nil {
-		names := []string{}
-		for _, e := range entries {
-			if !e.IsDir() && strings.HasPrefix(e.Name(), "MEM-") &&
-				strings.HasSuffix(e.Name(), ".json") {
-				names = append(names, e.Name())
-			}
-		}
-		sort.Strings(names)
-		for _, n := range names {
-			row, err := validation.ReadJson(filepath.Join(memDir, n))
-			if err != nil {
+// loadMemoryRows is every candidate row: the campaign's own memory store,
+// read through learning.AllMemory, then the shared store (wrapped {scope,
+// program_key, row} entries unwrapped to the flat shape).
+//
+// r44c: this used to re-list memory/ with its own os.ReadDir and its own
+// tolerance — every listing error was folded into "no local rows", and a row
+// whose JSON did not parse was silently SKIPPED. learning.AllMemory is the
+// one implementation of that listing (validation.ListPrefixedOptional, the
+// r43 helper): absence of the store stays an empty campaign, and anything
+// else refuses naming the store. Two readers with the same job and opposite
+// tolerances are a bug; there is now one. The shared-store half is read by
+// its one home too (sharedmem.LoadSharedMemory) and its refusal propagates:
+// a proposer-context block built while a prior store could not be listed
+// would tell the model "no priors", which is a claim the read does not
+// support.
+func loadMemoryRows(campaign *state.Campaign) ([]validation.Value, error) {
+	rows, err := learning.AllMemory(campaign)
+	if err != nil {
+		return nil, err
+	}
+	wrapped, err := sharedmem.LoadSharedMemory(campaign.Root)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"the shared memory store for %s cannot be read: %v",
+			campaign.Root, err)
+	}
+	for _, w := range wrapped {
+		if w.Kind == validation.Obj {
+			if r := objAt(w, "row"); r.Kind != validation.Null {
+				rows = append(rows, r)
 				continue
 			}
-			rows = append(rows, row)
 		}
+		rows = append(rows, w)
 	}
-	if wrapped, err := sharedmem.LoadSharedMemory(campaign.Root); err == nil {
-		for _, w := range wrapped {
-			if w.Kind == validation.Obj {
-				if r := objAt(w, "row"); r.Kind != validation.Null {
-					rows = append(rows, r)
-					continue
-				}
-			}
-			rows = append(rows, w)
-		}
-	}
-	return rows
+	return rows, nil
 }
 
 // devRows is the leakage-partition guard: held-out/training rows are

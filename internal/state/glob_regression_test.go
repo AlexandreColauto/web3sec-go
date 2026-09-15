@@ -57,7 +57,10 @@ func TestListCampaignsIncludesSymlinkedDirs(t *testing.T) {
 	if err := os.Symlink(real, link); err != nil {
 		t.Skipf("symlink not supported here: %v", err)
 	}
-	got := ListCampaigns(root)
+	got, err := ListCampaigns(root)
+	if err != nil {
+		t.Fatalf("ListCampaigns: %v", err)
+	}
 	found := map[string]bool{}
 	for _, n := range got {
 		found[n] = true
