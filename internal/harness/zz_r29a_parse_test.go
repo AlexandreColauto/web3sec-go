@@ -33,7 +33,13 @@ package harness
 //
 // The shell half is what makes rows 8-12 of the finding diverge: a `#`
 // comment is dropped by the shell, `--` is passed through, a quoted
-// argument stays ONE argv element, and TAB separates words.
+// argument stays ONE argv element, and TAB separates words. Space and TAB
+// (plus newline, which separates COMMANDS here) are the ONLY IFS
+// whitespace: CR, VT and FF are ordinary word characters, so
+// `--loop-bound\v4` is one argv element and names no bound at all —
+// measured against /bin/sh, evidence in zz_r30_test.go
+// (TestR30ShellSeparators, r30 P2-1: this file used to pin VT as a
+// separator, which invented a flag the tool never received).
 
 import (
 	"strings"
@@ -185,7 +191,18 @@ func TestR29InvocationBoundMatchesShellThenClick(t *testing.T) {
 		{"a repeated flag with no value still errors",
 			"miniprover run --loop-bound 4 --loop-bound",
 			BoundDegenerate},
-		{"VT separates words", "miniprover run --loop-bound\v4", 4},
+		{"VT is NOT a separator: /bin/sh hands the tool ONE argv " +
+			"element `--loop-bound\\v4`, which click refuses — no " +
+			"bound was ever named", "miniprover run --loop-bound\v4", 0},
+		{"FF is NOT a separator either",
+			"miniprover run --loop-bound\f4", 0},
+		{"CR is NOT a separator either",
+			"miniprover run --loop-bound\r4", 0},
+		{"a trailing VT stays inside the value, and Python's int() " +
+			"strips it (int('4\\v') == 4)",
+			"miniprover run --loop-bound 4\v", 4},
+		{"a trailing CR stays inside the value too",
+			"miniprover run --loop-bound 4\r", 4},
 		{"an = with an empty value errors even with a following word",
 			"miniprover run --loop-bound= 4", BoundDegenerate},
 		{"a newline inside quotes is part of the value, and int() " +
@@ -245,11 +262,12 @@ func TestR29InvocationBoundMatchesShellThenClick(t *testing.T) {
 // summary must keep the "degenerate-bound" prefix, because that is the
 // vocabulary Disposition reads; the construct detail rides after it.
 //
-// MapMinicertoraInvoc (minicertora.go — a file this change does not own)
-// still tests `invBound == BoundDegenerate`, so it floors a stated
-// degenerate bound but NOT BoundUnreadable yet: that site has to ask
-// BoundFloors (see the note on the BoundUnreadable constant), which is
-// why its summary is not pinned here.
+// MapMinicertoraInvoc (minicertora.go) used to test
+// `invBound == BoundDegenerate`, so it floored a stated degenerate bound
+// but NOT BoundUnreadable. r30 P1-1 widened it to BoundFloors — the same
+// predicate MapRun asks — so the minicertora arm now floors an unreadable
+// invocation too and names the construct; that half is pinned end to end
+// in zz_r30_test.go (TestR30MinicertoraUnreadableInvocationFloors).
 func TestR29UnreadableInvocationNamesTheConstruct(t *testing.T) {
 	for _, tc := range []struct {
 		name    string

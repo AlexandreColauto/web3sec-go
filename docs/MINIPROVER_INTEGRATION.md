@@ -320,7 +320,16 @@ comment at a word boundary, the '--' end-of-options terminator, tab
 separators) and the value is read the way Python's int() reads it — so a
 flag inside a quoted argument is an argument, a comment is not a flag,
 and a construct the parser cannot model faithfully FLOORS the run
-(invocation-unreadable) instead of guessing a number. The LAST
+(invocation-unreadable) instead of guessing a number — for EVERY kind,
+through one shared predicate, so the kind that exists because of the
+degenerate-flag rule cannot be the one that skips it (r30: the
+minicertora arm tested only the stated-degenerate sentinel while the
+other two floored on both). Only space, tab and newline separate words,
+because that is what a shell does (r30: VT/FF/CR were split, inventing a
+flag the tool never received), and the digit table is the twin's own
+Unicode data rather than a walk over Go's (r30: four adjacent
+mathematical Nd blocks decoded 0..8 as 9 — a blessing for a stated zero,
+a ledger lie for a stated one). The LAST
 occurrence wins and the value may be signed, so
 `--loop-bound 4 --loop-bound 0` floors exactly as the twin would refuse
 it, and `--loop-bound -1` is a stated degenerate bound rather than an

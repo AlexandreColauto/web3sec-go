@@ -1,5 +1,38 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — r30 (b-ai critic): the floor skipped the one kind it exists for, and the digits lied
+
+The r29 lexer was attacked with the strongest method used so far: a 119-command differential against a stub binary under a
+real /bin/sh AND against the twin's own click command in its venv, plus an exhaustive sweep of every Unicode Nd code
+point against Python's int(). The lexer's shape held — 81 agreements, and every over-refusal was a documented floor
+class — but three things did not.
+
+P1-1: the unreadable-invocation floor reached only two of the three kinds. MapRun floored on both sentinels, and its own
+comment said the minicertora site must be widened to match, but MapMinicertoraInvoc still tested only the
+stated-degenerate one — so for minicertora, the kind that exists because the twin refuses degenerate flags, a command
+/bin/sh cannot even parse ('--loop-bound \'4, an unmatched quote; or '--loop-bound 4; echo x'; or
+'--loop-bound $(nproc)', where the twin really runs with k=<nproc> and the ledger then records a k the tool never ran
+under) blessed a PROVEN stdout as proved-bounded k=4, and the audit agreed. The docs already claimed the floor was
+unconditional, so this was code catching up to its own manual — and the cure is one predicate (BoundFloors) rather than
+a second hand-rolled test. Tamper-probed: reverting to the single-sentinel test reproduces the auditor's line verbatim
+('proved bounded (k=4) (unbound: ...)'), restoring it passes, file byte-identical.
+
+P1-2: sixteen lines of digit decoding were wrong for 36 code points. decimalDigit walked down while unicode.IsDigit held,
+on the premise that every Nd block is ten consecutive code points — but four mathematical blocks are adjacent
+(U+1D7D8..U+1D7FF), so a digit there walked into the previous block and decoded to 9. Direction mattered: a stated
+zero (twin: int() = 0, the twin's own guard raises, no run) blessed k=9, and a stated one recorded k=9 where the tool
+ran with 1. The table is now the twin's Unicode data, decoded by locating the containing block, proved by an exhaustive
+sweep of every Nd code point against the embedded expectation, and coupled deliberately to the twin: a Go upgrade that
+adds Nd points fails that test loudly instead of silently flooring honest runs.
+
+P2-1: VT, FF and CR were treated as word separators. A shell splits on space, tab and newline only, so
+'--loop-bound\v4' is ONE argv element — splitting it invented a flag the tool never received, and a shipped test pinned
+that wrong fact. Behaviour and test are fixed, with the /bin/sh argv evidence recorded in the comment.
+
+Pinned by TestR30MinicertoraUnreadableInvocationFloors, TestR30DecimalDigitSweepsEveryNdCodePoint,
+TestR30NdBlockTableMatchesTheTwin, TestR30SeparatorsFollowTheShell and TestR29BoundFloorsIsTheOneQuestion; gofmt/go vet
+clean, 70/70 packages, runbook-walkthrough and golden GREEN.
+
 ## 2026-09-14 — r29 (b-ai critic): the rail switched itself off with one string, and the two sides read different bytes
 
 r28 unified the decision into harness.DecideBound and the critic's verdict was exact: "the same function" had become

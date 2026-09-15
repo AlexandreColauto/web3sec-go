@@ -329,6 +329,20 @@ func DecideBound(kind Kind, inv validation.Value, raw []byte,
 	rec validation.Value, scaffold []byte, timedOut bool, k, exitStatus int,
 	ruleName string) (rung, summary string, proof validation.Value,
 	boundedK *int) {
+	// The invocation-unreadable construct, for the FLOOR summary (r30
+	// P1-1). It is produced by the SAME parse the callers used to compute
+	// k — InvocationBoundReason over the record's own command, the one
+	// reader being RecordCommand — so the summary can name the exact
+	// construct ("unmatched single quote") without a second lexer, and
+	// only when the bound itself says the parse failed. Only the
+	// minicertora arm is handed it: MapRun's halmos/forge floor wording is
+	// byte-pinned by the cli's stored stdout and must not move.
+	invReason := ""
+	if k == BoundUnreadable {
+		if _, why := InvocationBoundReason(RecordCommand(rec)); why != "" {
+			invReason = why
+		}
+	}
 	if len(scaffold) == 0 {
 		// r29b F3(a): the question is whether this record carries HARNESS
 		// FILE hash evidence — a recorded key naming a scaffold file — not
@@ -343,7 +357,7 @@ func DecideBound(kind Kind, inv validation.Value, raw []byte,
 				validation.VNull(), nil
 		}
 		return decideMappedKind(kind, raw, timedOut, k, exitStatus,
-			ruleName, unboundSuffix)
+			ruleName, unboundSuffix, invReason)
 	}
 	sum := sha256.Sum256(scaffold)
 	hexSum := hex.EncodeToString(sum[:])
@@ -361,7 +375,7 @@ func DecideBound(kind Kind, inv validation.Value, raw []byte,
 					validation.VNull(), nil
 			}
 			return decideMappedKind(kind, raw, timedOut, k, exitStatus,
-				ruleName, "")
+				ruleName, "", invReason)
 		}
 	}
 	if harnessNamed {
@@ -382,14 +396,15 @@ func DecideBound(kind Kind, inv validation.Value, raw []byte,
 			validation.VNull(), nil
 	}
 	return decideMappedKind(kind, raw, timedOut, k, exitStatus, ruleName,
-		unboundSuffix)
+		unboundSuffix, invReason)
 }
 
 // decideMappedKind dispatches one bound run to its kind's mapper: an
 // untimed minicertora run through MapMinicertoraInvoc (exit status, rule
-// name and the invocation bound k, so a degenerate --loop-bound never
-// binds), everything else — including a timed-out minicertora run, which
-// must never reach the JSONL mapper — through MapRun.
+// name, the invocation bound k and the unreadable construct when the bound
+// parse failed, so neither a degenerate --loop-bound nor an unlexable
+// command ever binds), everything else — including a timed-out minicertora
+// run, which must never reach the JSONL mapper — through MapRun.
 //
 // The timed-out minicertora run is the one kind whose MapRun summary would
 // lie: MapRun renders "timeout after <k>s", but the caller-passed k is the
@@ -399,7 +414,7 @@ func DecideBound(kind Kind, inv validation.Value, raw []byte,
 // "inconclusive (no clean completion)" otherwise. halmos/forge-fuzz keep
 // MapRun's byte-pinned "timeout after %ds".
 func decideMappedKind(kind Kind, raw []byte, timedOut bool, k,
-	exitStatus int, ruleName, suffix string) (string, string,
+	exitStatus int, ruleName, suffix, invReason string) (string, string,
 	validation.Value, *int) {
 	if kind == MiniCertora && timedOut {
 		summary := "inconclusive (no clean completion)"
@@ -416,9 +431,13 @@ func decideMappedKind(kind Kind, raw []byte, timedOut bool, k,
 		// invocation-level floor as the audit's re-derivation —
 		// MapMinicertoraInvoc refuses a command whose own bound flag
 		// states a degenerate value (--loop-bound 0), which the twin
-		// raises for, and never hands out a bounded_k below 1.
+		// raises for, and never hands out a bounded_k below 1. r30 P1-1:
+		// that floor is BoundFloors, so a command the invocation parse
+		// cannot read at all (an unmatched quote, a command list, an
+		// expansion in the value) refuses here too, and the construct
+		// rides along so the stored summary names it.
 		rung, summary, proof, bk := MapMinicertoraInvoc(raw,
-			exitStatus, ruleName, k)
+			exitStatus, ruleName, k, invReason)
 		return rung, summary + suffix, proof, bk
 	}
 	rung, summary, bk := decideMapped(kind, raw, timedOut, k, suffix)

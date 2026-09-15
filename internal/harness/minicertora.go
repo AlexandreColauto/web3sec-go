@@ -24,9 +24,11 @@
 // (miniprover/verifier/unit.py) — so it floors to inconclusive with the
 // "degenerate-bound" vocabulary disposition.go already classifies as
 // escalate-bound, and hands out no bounded_k (0 and negatives alike). The
-// invocation axis is MapMinicertoraInvoc: a command that states a
-// degenerate bound (--loop-bound 0) describes a run no tool can have
-// executed, whatever the stdout says.
+// invocation axis is MapMinicertoraInvoc, on the SAME predicate MapRun
+// asks (BoundFloors, r30 P1-1): a command that states a degenerate bound
+// (--loop-bound 0), or one the invocation parse cannot read at all
+// (--loop-bound '4, --loop-bound 4; echo x, --loop-bound $(nproc)),
+// describes a run no tool can have executed, whatever the stdout says.
 //
 // Timeout law: it lives in the CALLER, but this mapper keeps its own
 // fail-closed floor. `verify --harness-result` checks harnessTimedOut and
@@ -48,14 +50,14 @@ import (
 // The degenerate-bound refusal vocabulary, shared with outcome.go rather
 // than re-worded: disposition.go classifies the "degenerate-bound" inner
 // text as EscalateBound, so a second wording class here would silently
-// drop the advice. The run form is mapHalmos's parsed-marker wording, the
-// invocation form is MapRun's stated-flag wording.
-const (
-	mcDegenerateRunSummary = "inconclusive (degenerate-bound: the run " +
-		"states no bound >= 1)"
-	mcDegenerateInvocationSummary = "inconclusive (degenerate-bound: the " +
-		"invocation states no bound >= 1)"
-)
+// drop the advice. The run form is mapHalmos's parsed-marker wording; the
+// INVOCATION form is not spelled here at all — boundFloorSummary
+// (outcome.go) is its one home, so the degenerate half ("…the invocation
+// states no bound >= 1)") and the unreadable half ("…invocation-unreadable:
+// <construct>)") can never drift apart between MapRun and this mapper
+// (r30 P1-1).
+const mcDegenerateRunSummary = "inconclusive (degenerate-bound: the run " +
+	"states no bound >= 1)"
 
 // MapMinicertora maps one MiniCertora run (the raw stdout bytes, the exec
 // record's exit_status, and the scaffold-pinned rule name) onto the rung
@@ -116,18 +118,32 @@ func MapMinicertora(raw []byte, exitStatus int, ruleName string) (rung,
 }
 
 // MapMinicertoraInvoc is the INVOCATION-level floor the bind and the audit
-// share. The exec command can itself state a degenerate bound
-// (--loop-bound 0), and the twin raises for loop_bound < 1 before a run
-// ever starts, so a record claiming one describes a run no tool can have
-// executed — whatever its stdout says. invBound is
-// harness.InvocationBound(command): BoundDegenerate (-1) for a stated flag
-// below 1, 0 for a command that names none, N >= 1 for a stated bound.
+// share. The exec command can itself state a bound no tool would have run
+// under, and the twin raises for loop_bound < 1 before a run ever starts,
+// so a record claiming one describes a run no tool can have executed —
+// whatever its stdout says. invBound is
+// harness.InvocationBound(command): 0 for a command that names none,
+// N >= 1 for a stated bound, and either FLOORING sentinel for a bound that
+// cannot be honoured — BoundDegenerate (-1) for a stated flag below 1 and
+// BoundUnreadable (-2) for a command string the parse cannot lex at all.
 //
-// Every verdict on a degenerate invocation is refused, not just PROVEN:
-// it is the FLAG the tool refuses, so no verdict line under it is tool
-// output either. The summary is MapRun's own degenerate-bound wording (the
-// inner class Disposition maps to EscalateBound) and the floor is total —
-// no proof sidecar, no bounded_k.
+// The floor test is BoundFloors — the SAME predicate MapRun uses, never a
+// hand-written `invBound == BoundDegenerate` (r30 P1-1): that narrower test
+// caught a stated degenerate value and let an UNREADABLE command through,
+// so a record whose command was `--loop-bound '4` (unmatched quote) or
+// `--loop-bound 4; echo x` (a command list) or `--loop-bound $(nproc)` (an
+// expansion in the value) bound proved-bounded over a run nothing could
+// have executed. The wording comes from boundFloorSummary (outcome.go), the
+// one home: "invocation-unreadable: <construct>" when the caller hands the
+// construct in (optional variadic, exactly like MapRun, and the construct
+// must be the SAME parse's InvocationBoundReason), the degenerate
+// invocation wording otherwise. The inner class Disposition maps to
+// EscalateBound either way, and the floor is total — no proof sidecar, no
+// bounded_k.
+//
+// Every verdict on a floored invocation is refused, not just PROVEN: it is
+// the FLAG the tool refuses (or the argv the parse cannot derive), so no
+// verdict line under it is tool output either.
 //
 // MapMinicertora's own signature is untouched for its other callers; both
 // the bind and section 11's re-derivation reach it through ONE dispatcher —
@@ -135,12 +151,13 @@ func MapMinicertora(raw []byte, exitStatus int, ruleName string) (rung,
 // bind's whole decision, hash arm and Validate re-render included, moved
 // here from cli.harnessMapBound, and sections.recheckExecEvidence /
 // recheckInconclusive now call that same entry point) — so the audit
-// reproduces the bind's decision byte-for-byte.
+// reproduces the bind's decision byte-for-byte, the invocation-unreadable
+// detail included (r30 P1-1).
 func MapMinicertoraInvoc(raw []byte, exitStatus int, ruleName string,
-	invBound int) (rung, summary string, proof validation.Value,
-	boundedK *int) {
-	if invBound == BoundDegenerate {
-		return RungInconclusive, mcDegenerateInvocationSummary,
+	invBound int, unreadable ...string) (rung, summary string,
+	proof validation.Value, boundedK *int) {
+	if BoundFloors(invBound) {
+		return RungInconclusive, boundFloorSummary(invBound, unreadable...),
 			validation.VNull(), nil
 	}
 	rung, summary, proof, boundedK = MapMinicertora(raw, exitStatus, ruleName)
