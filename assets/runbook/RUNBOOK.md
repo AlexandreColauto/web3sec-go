@@ -115,9 +115,11 @@ RUN time by some verbs (a `move`/`verdict`/`mint` naming a finding that does
 not exist). **2** is "you asked about something the machine cannot even
 locate": every argparse refusal, and the dependency/lookup misses that
 check preconditions up front (an index missing before `probes run`, no plan
-before `answered`, an unknown id passed to `impact`/`invariant-verify`/
-`execs --id`). The 1-vs-2 line inside the "unknown id" family is a
-historical split that still varies per verb — treat 2 as "fix the
+before `answered`, an unknown id passed to `invariant-verify`/`execs --id`,
+or a `harness`/`artifact` id that names no registry row). The 1-vs-2 line
+inside the "unknown id" family is a historical split that still varies per
+verb — `impact` naming a finding that does not exist is the run-time shape
+and exits **1**, as the paragraph above says — treat 2 as "fix the
 invocation or the precondition", never as "wrong", and never read the two
 codes as different verdicts about your WORK.
 

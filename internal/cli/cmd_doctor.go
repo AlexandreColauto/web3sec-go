@@ -84,6 +84,28 @@ func runDoctor(root string, args []string, r *Runner) int {
 			if err != nil {
 				return err
 			}
+			// r37b (F6): StateHealth parses the RAW state bytes and never
+			// schema-validates, so a schema-dead state (budget:
+			// "not-an-object") got the same clean bill a healthy campaign
+			// gets — rc 0, "state: ... -> ...", nothing flagged — while
+			// every other verb (the default doctor included, through
+			// SnapshotScope's Campaign.State) refused rc 1. Refusing here
+			// outright is NOT on the table: doctor is the one repair path
+			// for a drifted state (the r14/r15 law — a state that fails
+			// the schema must stay repairable — and the r36b note-cap
+			// convergence pins both stand on --state-only reaching a
+			// schema-dead file). So the run proceeds, but the bill stops
+			// being clean: the JSON carries state_validation{ok,error}
+			// and the human line says plainly that the state is
+			// unreadable and what was NOT checked.
+			if _, verr := c.State(); verr != nil {
+				st.O = validation.SetOrAppend(st.O, "state_validation",
+					validation.VObj(
+						validation.KV{K: "ok", V: validation.VBool(false)},
+						validation.KV{K: "error",
+							V: validation.VStr(verr.Error())},
+					))
+			}
 			rep = validation.VObj(validation.KV{K: "state", V: st})
 		default:
 			rep, err = doctor.Doctor(c)
@@ -103,6 +125,16 @@ func runDoctor(root string, args []string, r *Runner) int {
 // printDoctor is the human view (cli.py's f-strings, verbatim).
 func printDoctor(r *Runner, rep validation.Value) {
 	if st := objAt(rep, "state"); st.Kind == validation.Obj {
+		if sv := objAt(st, "state_validation"); sv.Kind == validation.Obj &&
+			!objAt(sv, "ok").B {
+			// r37b (F6): a schema-dead state may not bill as green. This
+			// line precedes the size bill so the run never reads clean.
+			fmt.Fprintf(r.Out, "  WARNING: campaign_state.json cannot be "+
+				"parsed/validated (%s) — this bill is NOT clean: the "+
+				"note-cap repair ran against raw bytes and every "+
+				"schema-gated check was NOT performed; no other verb "+
+				"can load this state\n", objStr(sv, "error"))
+		}
 		fmt.Fprintf(r.Out, "state: %s -> %s (freed %s)\n",
 			mb(objFlt(st, "size_before")), mb(objFlt(st, "size_after")),
 			mb(objFlt(st, "bytes_freed")))
@@ -111,11 +143,26 @@ func printDoctor(r *Runner, rep validation.Value) {
 				"ledger is the truth; the projection was stale)"
 			if d := objAt(st, "events_mirror_delta"); d.Kind == validation.Obj {
 				if ch := objInt(d, "changed"); ch > 0 {
-					msg += fmt.Sprintf(": %d events ADOPTED IN EDITED "+
-						"FORM — the chain verifies but content differed "+
-						"from the projection; if you did not run the "+
-						"rewrite, treat the campaign dir as tampered",
-						ch)
+					// r37b (F3): the delta is POSITIONAL (mirrorDelta
+					// compares same-index rows), so a mid-ledger hole
+					// shifts every later row and counts as "changed"
+					// although nobody edited a byte — the r34/r37b crash
+					// window produces exactly that shape. The old wording
+					// asserted "ADOPTED IN EDITED FORM", which this
+					// evidence cannot know. Name what is known — the
+					// mirror and the log disagree at N same-index
+					// positions; an edited payload, a mid-ledger hole or
+					// a shifted alignment are indistinguishable from the
+					// count alone — and keep the safe instruction: the
+					// genuine tamper case must not read as benign.
+					msg += fmt.Sprintf(": %d mirrored events DISAGREE "+
+						"with the log at the same positions — this "+
+						"positional delta is all the evidence here, and "+
+						"an edited payload, a mid-ledger hole or a "+
+						"shifted alignment are indistinguishable from "+
+						"it; if you did not run the rewrite, treat the "+
+						"campaign dir as tampered until a diff against "+
+						"a known-good copy settles which", ch)
 				} else if dp := objInt(d, "dropped_from_projection"); dp > 0 {
 					// r17: tail truncation is the CHEAPEST forgery (seq
 					// and chain stay valid when you delete the end) —
@@ -153,6 +200,15 @@ func printDoctor(r *Runner, rep validation.Value) {
 	if snap := objAt(rep, "snapshot"); snap.Kind == validation.Obj {
 		if objAt(snap, "active_snapshot").Kind == validation.Null {
 			fmt.Fprintln(r.Out, "snapshot: "+objStr(snap, "note"))
+		} else if ex := objAt(snap, "exists"); ex.Kind == validation.Bool && !ex.B {
+			// r37b (F2): a MISSING ground-truth pin used to render as
+			// "snapshot <id>: None files, 0.0 MB" — an empty-but-present
+			// snapshot — because this branch had no exists/note case and
+			// the missing shape carries no files/bytes keys at all. The
+			// JSON honestly says exists:false + note; the human line
+			// carries the same fact now.
+			fmt.Fprintf(r.Out, "snapshot %s: MISSING — %s\n",
+				objStr(snap, "active_snapshot"), objStr(snap, "note"))
 		} else {
 			fmt.Fprintf(r.Out, "snapshot %s: %s files, %s\n",
 				objStr(snap, "active_snapshot"),

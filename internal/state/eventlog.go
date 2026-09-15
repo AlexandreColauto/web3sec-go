@@ -110,22 +110,65 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 	// `webv2 doctor` may rebuild the mirror FROM the log (it reports the
 	// drop and journals it in doctor.json). Refuse here, name the counts,
 	// and name the sanctioned repair.
+	// r37b (F4): the crash window was closed in ONE direction only. r13
+	// made append->mirror-save atomic against other processes; r34 (the
+	// refusal below) covers a mirror LONGER than the log. The remaining
+	// direction is a mirror SHORTER than the log — the crash (or SIGKILL)
+	// between the log append and the mirror save leaves the projection one
+	// or more events behind, and the pre-r37b write appended onto the
+	// STALE mirror: the new event landed at the projection's tail while
+	// the ledger events it had never mirrored stayed unmirrored — a HOLE
+	// in the middle of the projection ([0,1,2] rolled back to [0,1], the
+	// next write mirrors [0,1,3]), baked in behind a rc=0 success line and
+	// found only later by verify's generic tail mismatch. Two shapes live
+	// in that gap and they take different branches, judged against the
+	// PARSED ledger (absence of proof here is a refusal, never an
+	// adoption — classifyLaggingMirror below):
+	//
+	//   - a clean LAGGING copy — a proper prefix of the ledger, or the
+	//     capped tail window of an earlier shorter ledger (the sanctioned
+	//     crash shape): nothing is lost, every unmirrored event is still
+	//     IN the ledger, so the write heals by re-deriving the projection
+	//     tail FROM the log (the same direction doctor's sanctioned
+	//     rebuild uses, never the reverse) and DISCLOSES the adoption in
+	//     the new event's hashed data (mirror_lag_healed, below). A heal
+	//     says what it did: without the disclosure a healed mirror and a
+	//     tampered one are indistinguishable afterwards.
+	//   - anything else — a mid-ledger hole (rows that skip a seq while
+	//     later seqs are present) or edited rows — cannot be repaired by
+	//     appending, so the write refuses exactly like the truncation
+	//     case above, naming both counts and the seq the projection
+	//     skips. The ledger is intact and nothing is dropped: this is a
+	//     refusal to ADOPT a misalignment, not a record of a loss, and
+	//     doctor's rebuild (which reports its delta) stays the only
+	//     sanctioned repair.
+	var lagEvents []validation.Value
+	lagAdopted := 0
 	if hasLast {
 		st, serr := c.State()
 		if serr != nil {
 			return validation.VNull(), serr
 		}
-		if mirror := objAt(st, "events"); mirror.Kind == validation.Arr &&
-			len(mirror.A) > len(lines) {
-			return validation.VNull(), fmt.Errorf(
-				"events.jsonl holds %d event(s) but the state projection "+
-					"mirrors %d — %d mirrored event(s) are GONE from the "+
-					"ledger tail, and the projection is the only surviving "+
-					"copy of them; the write is refused rather than "+
-					"adopting the loss. Copy the campaign dir for evidence, "+
-					"then run `webv2 doctor` (it rebuilds the mirror from "+
-					"the log and reports exactly what it drops)",
-				len(lines), len(mirror.A), len(mirror.A)-len(lines))
+		if mirror := objAt(st, "events"); mirror.Kind == validation.Arr {
+			switch mlen := len(mirror.A); {
+			case mlen > len(lines):
+				return validation.VNull(), fmt.Errorf(
+					"events.jsonl holds %d event(s) but the state projection "+
+						"mirrors %d — %d mirrored event(s) are GONE from the "+
+						"ledger tail, and the projection is the only surviving "+
+						"copy of them; the write is refused rather than "+
+						"adopting the loss. Copy the campaign dir for evidence, "+
+						"then run `webv2 doctor` (it rebuilds the mirror from "+
+						"the log and reports exactly what it drops)",
+					len(lines), len(mirror.A), len(mirror.A)-len(lines))
+			case mlen < len(lines):
+				var lerr error
+				lagEvents, lagAdopted, lerr =
+					classifyLaggingMirror(lines, mirror.A)
+				if lerr != nil {
+					return validation.VNull(), lerr
+				}
+			}
 		}
 	}
 	prevHash := GenesisHash
@@ -159,6 +202,22 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 				kv("at", validation.VStr(nowIso())),
 			))
 	}
+	if lagAdopted > 0 {
+		// r37b (F4): the lag heal is DISCLOSED inside the new event
+		// (hashed, like r13's ledger_rewound): the projection jumped
+		// forward this write, and the ledger itself now says how many of
+		// its own events it adopted into the mirror. A heal discloses
+		// what it did — a projection that silently jumps forward leaves
+		// the auditor nothing to distinguish heal from tamper.
+		if dataV.Kind != validation.Obj {
+			dataV = validation.VObj()
+		}
+		dataV.O = validation.SetOrAppend(dataV.O, "mirror_lag_healed",
+			validation.VObj(
+				kv("adopted_from_log", validation.VInt(int64(lagAdopted))),
+				kv("at", validation.VStr(nowIso())),
+			))
+	}
 	event := validation.VObj(
 		kv("seq", validation.VInt(int64(len(lines)))),
 		kv("at", validation.VStr(nowIso())),
@@ -189,6 +248,13 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 		// (a refused append must not empty the projection).
 		have = nil
 	}
+	if lagAdopted > 0 {
+		// r37b (F4): re-derive the projection tail from the LEDGER (the
+		// truth), not from the stale mirror — appending onto the stale
+		// mirror is what baked mid-ledger holes. tailEvents below keeps
+		// the projection's own 1000-event rule.
+		have = lagEvents
+	}
 	st.O = validation.SetOrAppend(st.O, "events", validation.Value{Kind: validation.Arr,
 		A: tailEvents(have, event)})
 	if err := c.save(st); err != nil {
@@ -204,6 +270,99 @@ func tailEvents(have []validation.Value, add validation.Value) []validation.Valu
 		return append(have[len(have)-999:], add)
 	}
 	return append(have, add)
+}
+
+// classifyLaggingMirror judges a state mirror that holds FEWER events
+// than the ledger (the r37b F4 crash-window shape). It parses the whole
+// ledger — alignment is judged event by event, so a torn line anywhere
+// makes the shape INCONCLUSIVE and the write refuses rather than adopting
+// (absence is inconclusive) — and returns the parsed events plus how many
+// of them the mirror was BEHIND: 0 for a healthy capped mirror aligned
+// with the ledger's tail, > 0 for a sanctioned crash shape the caller
+// heals by re-deriving from the ledger. Anything else — a mid-ledger hole
+// or edited rows — returns the refusal, naming both counts and the seq
+// the projection skips.
+func classifyLaggingMirror(lines []string, mirror []validation.Value) (
+	[]validation.Value, int, error) {
+	n, m := len(lines), len(mirror)
+	logEvents := make([]validation.Value, 0, n)
+	for i, ln := range lines {
+		ev, perr := validation.ParseOrdered([]byte(ln))
+		if perr != nil {
+			return nil, 0, fmt.Errorf("events.jsonl line %d does not "+
+				"parse (%v) — the projection mirrors %d event(s) but the "+
+				"ledger holds %d, and the write cannot confirm the mirror "+
+				"is a clean lagging copy of a damaged ledger; repair the "+
+				"torn line first (verify names it)", i+1, perr, m, n)
+		}
+		logEvents = append(logEvents, ev)
+	}
+	eq := func(a, b validation.Value) bool {
+		return validation.CanonSpaced(a) == validation.CanonSpaced(b)
+	}
+	aligned := func(off int) bool {
+		for i := 0; i < m; i++ {
+			if !eq(mirror[i], logEvents[off+i]) {
+				return false
+			}
+		}
+		return true
+	}
+	// Tail-aligned: a healthy campaign whose ledger outgrew the
+	// projection cap (the mirror IS the ledger's tail window) — appending
+	// keeps the alignment, nothing to heal.
+	if m > 0 && aligned(n-m) {
+		return logEvents, 0, nil
+	}
+	// A proper prefix of the ledger (an empty mirror included): the
+	// sanctioned crash shape on a ledger within the cap — every
+	// unmirrored event is still in the ledger, heal by adopting.
+	if m == 0 || aligned(0) {
+		return logEvents, n - m, nil
+	}
+	// The capped window of an earlier, shorter ledger: the sanctioned
+	// crash shape on a long campaign. The pre-crash projection held the
+	// last 1000 of a ledger that has since grown, so scan the offsets a
+	// correct pre-crash mirror could have started at.
+	if m == 1000 { // tailEvents' cap: the projection never holds more
+		for off := 1; off+m <= n-1; off++ {
+			if aligned(off) {
+				return logEvents, n - off - m, nil
+			}
+		}
+	}
+	// Not a lagging copy: a mid-ledger HOLE. Name both counts and the
+	// first position where the mirror stops tracking the ledger.
+	div := m
+	for i := 0; i < m && i < n; i++ {
+		if !eq(mirror[i], logEvents[i]) {
+			div = i
+			break
+		}
+	}
+	divSeq, wantSeq := int64(-1), int64(-1)
+	if div < m {
+		if s := objAt(mirror[div], "seq"); s.Kind == validation.Int {
+			divSeq = s.I
+		}
+	}
+	if div < n {
+		if s := objAt(logEvents[div], "seq"); s.Kind == validation.Int {
+			wantSeq = s.I
+		}
+	}
+	return nil, 0, fmt.Errorf(
+		"events.jsonl holds %d event(s) but the state projection mirrors "+
+			"%d — and the projection is not a lagging copy of the ledger: "+
+			"at mirrored position %d it holds seq %d where the ledger "+
+			"holds seq %d, a HOLE in the middle of the projection (or "+
+			"edited rows). Appending cannot repair either shape and the "+
+			"old behaviour baked it in behind a success line; the ledger "+
+			"itself is intact and nothing is lost, so the write is refused "+
+			"rather than adopting the misalignment. Copy the campaign dir "+
+			"for evidence, then run `webv2 doctor` (it rebuilds the mirror "+
+			"from the log and reports exactly what it changes)",
+		n, m, div, divSeq, wantSeq)
 }
 
 // NextSeq is next_seq: the number of log lines.

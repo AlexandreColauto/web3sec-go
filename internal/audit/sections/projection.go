@@ -82,9 +82,47 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 		}
 	}
 
-	// refresh_refs: refs of artifact.refreshed.
+	// refresh_refs: refs of artifact.refreshed. r37a: the check is
+	// ORDER-AWARE. Before, any refreshed ref with no state row was a
+	// problem — but a SANCTIONED artifact-prune retires the row while the
+	// log keeps its trail (artifact.registered, any artifact.refreshed,
+	// then artifact.pruned), so the honest sequence register -> refresh ->
+	// prune audited RED with a false accusation: the row is absent
+	// BECAUSE the log's own pruned event retired it. The matrix, each row
+	// decided explicitly:
+	//
+	//   refreshed-then-pruned (state row absent, last refresh BEFORE the
+	//   prune): history — the prune is exactly why the row is gone. PASS.
+	//
+	//   pruned-then-re-registered-under-a-new-id: registration mints a
+	//   fresh uuid (state.id.go newId), so the new id has its own
+	//   registered event and its own row; the old id's prune stays
+	//   history and its row-1 verdict is unchanged. PASS (both ids).
+	//
+	//   pruned-then-refreshed (a refresh event for the id AFTER its
+	//   prune, no re-registration under the SAME id): impossible through
+	//   the verbs — prune removes the row, refresh requires it, and a
+	//   re-register would carry a different id — so any refresh seq
+	//   after the first prune seq means the log (or the state) was
+	//   hand-altered. REFUSE LOUDLY, with its own message, never the
+	//   generic one and never a silent skip.
+	//
+	//   a prune for an id that was never registered: still a problem —
+	//   prune retires a registered row, so an unregistered prune is a
+	//   forged trail (new check below).
+	//
+	//   a state row that survives its own prune: still a problem — prune
+	//   removes the row and nothing sanctioned puts it back (a heal
+	//   re-registers under a NEW id), so a surviving row is a hand-edit
+	//   of campaign_state (new check below).
+	//
+	// The whole block stays presence-gated (a campaign with neither
+	// refreshed nor pruned events stays byte-identical to the ported
+	// output), and the generic message is kept byte-identical for the
+	// case that genuinely is one (refresh with no prune and no row).
 	refreshRefs := refsOf(events, "artifact.refreshed")
-	if len(refreshRefs) > 0 {
+	prunedRefs := refsOf(events, "artifact.pruned")
+	if len(refreshRefs) > 0 || len(prunedRefs) > 0 {
 		artIDs := map[string]struct{}{}
 		for _, a := range objAt(st, "artifacts").A {
 			artID := objStr(a, "artifact_id")
@@ -92,11 +130,49 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 				artIDs[artID] = struct{}{}
 			}
 		}
+		_, refreshLast := refSeqBounds(events, "artifact.refreshed")
+		pruneFirst, _ := refSeqBounds(events, "artifact.pruned")
 		for _, r := range sortedKeys(refreshRefs) {
-			if _, ok := artIDs[r]; !ok {
+			if _, ok := artIDs[r]; ok {
+				continue
+			}
+			if pseq, pruned := pruneFirst[r]; pruned {
+				// A later refresh than the earliest prune cannot be
+				// explained by the verbs: refuse loudly (matrix row 3).
+				if lseq, seen := refreshLast[r]; seen && lseq > pseq {
+					proj = append(proj, validation.VStr(
+						fmt.Sprintf("log records artifact.refreshed for %s after its artifact.pruned event — a pruned row cannot refresh and a re-register mints a new id, so the log or the state has been hand-altered",
+							validation.PyReprStr(r))))
+				}
+				// Otherwise: refreshed-then-pruned — the prune is the
+				// log's own account of why the row is absent. History,
+				// not a problem (matrix row 1).
+				continue
+			}
+			proj = append(proj, validation.VStr(
+				fmt.Sprintf("log records artifact.refreshed for %s but the state has no such artifact",
+					validation.PyReprStr(r))))
+		}
+		// Matrix row 4: a prune for an id the ledger never registered.
+		// artifactRefs is the artifact.registered ref set computed above;
+		// every pruned row was once a registered row, so the registered
+		// event must be on the log.
+		for _, r := range sortedKeys(prunedRefs) {
+			if _, ok := artifactRefs[r]; !ok {
 				proj = append(proj, validation.VStr(
-					fmt.Sprintf("log records artifact.refreshed for %s but the state has no such artifact",
+					fmt.Sprintf("log records artifact.pruned for %s but no artifact.registered event for it — a prune retires a registered row, so this trail is forged",
 						validation.PyReprStr(r))))
+			}
+		}
+		// Matrix row 5: a state row that survived its own prune. The
+		// sanctioned heal re-registers under a NEW id, so no id in the
+		// state may also carry an artifact.pruned event.
+		for _, a := range objAt(st, "artifacts").A {
+			id := objStr(a, "artifact_id")
+			if _, ok := pruneFirst[id]; ok {
+				proj = append(proj, validation.VStr(
+					fmt.Sprintf("state lists artifact %s but the log records artifact.pruned for it — a retired row reappeared in the state; the sanctioned heal is artifact-register, which mints a new id",
+						validation.PyReprStr(id))))
 			}
 		}
 	}
@@ -196,6 +272,35 @@ func superOf(events []validation.Value) map[string]struct{} {
 		}
 	}
 	return out
+}
+
+// refSeqBounds scans the events of one type and returns, per non-empty
+// string ref, the seq of the FIRST and LAST event carrying it. Events
+// without a usable seq (non-int) or ref are skipped; the log guarantees
+// one int seq per line (state.eventlog writes kv("seq", ...)), so in
+// practice every event contributes. r37a: order-aware projection needs
+// the sequence numbers, not just the ref set.
+func refSeqBounds(events []validation.Value, typ string) (first, last map[string]int64) {
+	first = map[string]int64{}
+	last = map[string]int64{}
+	for _, e := range events {
+		if objStr(e, "type") != typ {
+			continue
+		}
+		r := objAt(e, "ref")
+		if r.Kind != validation.Str || r.S == "" {
+			continue
+		}
+		seq := objAt(e, "seq")
+		if seq.Kind != validation.Int {
+			continue
+		}
+		if _, ok := first[r.S]; !ok {
+			first[r.S] = seq.I
+		}
+		last[r.S] = seq.I
+	}
+	return first, last
 }
 
 // sortedKeys returns the sorted string keys of a set (Python sorted(ref)).

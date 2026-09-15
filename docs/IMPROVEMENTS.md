@@ -1,5 +1,40 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-15 — r37 (glm-5.3-flash critic): a sanctioned prune drove the audit red with a false accusation
+
+The state/repair round turned up the kind of bug that only shows when a documented workflow is run end to end. The
+projection checker compared the log against the state and knew nothing about ORDER: register an artifact, rewrite the
+file externally, `artifact-reconcile` (which logs `artifact.refreshed`), then `artifact-prune --reason ...` (which logs
+`artifact.pruned`) — and the audit failed forever with "[projection] log records artifact.refreshed for ... but the state
+has no such artifact". The accusation is false: the row is absent because the log's own pruned event retired it, which
+is exactly what the cheat sheet advertises. Every sanctioned heal then failed — doctor rewrote nothing relevant,
+reconcile reported "0 checked", re-registering minted a different id — leaving a forbidden hand-edit of
+campaign_state.json as the only way out. The checker is order-aware now: a refresh followed by a prune is history, not a
+problem, and the rest of the matrix is decided explicitly (prune then re-register under a new id stays history;
+refresh-after-prune and a state row surviving its own prune still refuse loudly; a prune naming a never-registered id
+still fires). Six pins cover the matrix.
+
+Two more holes were about the heal telling the truth. A crash between the log append and the mirror save (an append
+without save) left the mirror with a HOLE in the middle — [0,1,2,4] — and the next write reported success, baking the
+gap in permanently; the write path refused only the mirror-LONGER direction. It now treats a mid-hole like the
+truncation case (naming both counts and the missing seq) while a mirror that is a proper prefix keeps healing as
+before. And doctor's human surface was hiding what its JSON disclosed: with `snapshots/<active-id>/` deleted the JSON
+said `exists:false` with a note while the human line printed "None files, 0.0 MB" — a missing ground-truth pin reading
+as an empty-but-present snapshot; `doctor --state-only` likewise printed a clean bill over a state no other verb could
+parse.
+
+One finding was a doc bug, and the RUNBOOK's own law decided it: the exit-code table listed `impact` with an unknown
+finding under **2** ("you asked about something the machine cannot even locate"), while the binary exits **1** — the
+run-time shape the preceding sentence already describes. The anchor now says what the code does.
+
+Also in this round: a sandbox pin was failing for a reason that had nothing to do with the sandbox. `pgrep -f "sleep
+40"` matches ANY `sleep 40` on the box, and a leaked docker container from the previous round's verification owned
+three such processes, so the pin reported a group-kill escape that never happened. The pin now checks the law (the
+survivor does not COMPLETE — it writes a marker if it does) on its own run, with no dependence on the global process
+table, and the leaked `Created` containers were cleaned up. The disk that killed three agent runs in this stretch was
+also found and cleared: an in-repo Go build cache had grown to 19 GB and /tmp to 13 GB, which is what "disk quota
+exceeded" was really about while the agents were dying mid-task.
+
 ## 2026-09-15 — r36 (glm-5.3-flash critic): the sandbox said "was killed" while the payload was still running
 
 Thirteen rounds had hammered the bind/audit re-derivation line, so this round went at a surface nobody had audited: the
