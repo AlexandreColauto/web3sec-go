@@ -1,5 +1,51 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-15 — r37 (state/repair round): a sanctioned prune left the audit red with a FALSE accusation
+
+The round drove real commands at the surfaces the bind/audit rounds never touched: 1005 sequential appends, 50 racing
+writers, SIGKILLed holders, a hand-forged re-chained ledger, a full doctor damage matrix. Most of it held — the lock
+waits five seconds and fails loudly with the exact documented message, the torn line refuses behind a named problem,
+genesis heal and prefix-rewind disclose — and two claims the critics of earlier rounds asserted turned out load-bearing
+enough to break.
+
+F1 (P2): the projection check was ORDER-BLIND to `artifact.pruned`. The sequence register -> rewrite externally ->
+`artifact-reconcile` -> `artifact-prune` is fully sanctioned — the cheat sheet itself advertises "retire a registry row
+(the log keeps the trail)" — yet the audit went permanently RED with "log records artifact.refreshed for OTH-... but the
+state has no such artifact", an accusation that is false (the row is absent BECAUSE the log's own prune event retired
+it). No sanctioned heal existed: doctor rewrote nothing relevant, reconcile said "0 checked", re-registering mints a
+DIFFERENT id — only a forbidden hand-edit of campaign_state.json could green it. The check now compares event order: a
+refresh is history when a later `artifact.pruned` retires the same id; the whole matrix is pinned both ways (refresh
+AFTER a prune with no re-register stays a problem — a pruned row cannot refresh; a prune with no registration for that
+id stays a problem — a prune retires a registered row; a state row that survives its own prune stays a problem). The
+generic message stays byte-identical for the shape that genuinely is a missing row, which is what the ported twin's
+output pins. Tamper-probed: disabling the exclusion reproduces the auditor's false accusation verbatim; the pin fails,
+and the restore is byte-identical.
+
+F4 (P2): a mirror rolled back behind the log by MORE than a suffix — a mid-ledger hole, seq 3 missing from the middle
+while seq 4 is present — baked silently: the next write returned success, rc 0, and nothing said so at write time.
+Log() only refused the mirror-LONGER direction; the r13/r34 disclosure machinery clearly meant to close this window and
+didn't. The write now distinguishes the three crash shapes explicitly: a lagging PREFIX heals by re-deriving the tail
+FROM the log (the direction doctor's sanctioned rebuild uses) and discloses the adoption as hashed event data
+(mirror_lag_healed) — without the disclosure a healed mirror and a tampered one would be indistinguishable afterwards;
+a mid-hole or edited row refuses exactly like the truncation case, naming both counts and the skipped seq, leaving the
+ledger intact for doctor's rebuild. F3/F2/F6 are the honesty triad of the same surface: doctor's tamper warning now
+separates "the projection disagrees positionally" from "someone edited bytes" (a crash hole must not be addressed as
+forgery); a deleted snapshot pin prints its missing-pin note on the HUMAN surface, not just in --json ("None files,
+0.0 MB" understated a destroyed ground-truth into a benign-looking empty); and `doctor --state-only` refuses to bill a
+schema-dead state green — it says plainly that the state is unreadable and what was NOT checked.
+
+The round also closed two environment findings while it was in there: the wrapper-survivor pin had a 1-second window
+that a loaded box (docker tests hammering beside it) could starve before `echo start` ran, blaming the killer for the
+scheduler's silence — the window is sized for fork/exec under load with the grace ceiling scaled with it, so "the kill
+lands instantly" still bites. And the twin-parity question got a definitive answer of the no-hold kind: the Python
+campaign twin was retired 2026-09-09 (RUNBOOK lines 12-15), no command is marked twin-pinned, and
+/home/xand/Projects/miniprover is the MiniProver autoprover — a data contract, not a stdout pin. F7's claimed RUNBOOK
+bug (impact under 2) did not survive checking: the file already scopes the 1-vs-2 split and lists `impact` as a
+run-time shape under 1.
+
+Pinned by TestZZR37a* (six projection rows) and TestR37b* (six heal/doctor pins); gofmt/go vet clean, 70/70 packages,
+runbook-walkthrough and golden GREEN.
+
 ## 2026-09-15 — r37 (glm-5.3-flash critic): a sanctioned prune drove the audit red with a false accusation
 
 The state/repair round turned up the kind of bug that only shows when a documented workflow is run end to end. The
