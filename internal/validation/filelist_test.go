@@ -18,7 +18,10 @@ func TestListPrefixedSelectsPrefixSuffix(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(dir, "F-dir.json"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	got := ListPrefixed(dir, "F-", ".json")
+	got, err := ListPrefixed(dir, "F-", ".json")
+	if err != nil {
+		t.Fatalf("ListPrefixed: %v", err)
+	}
 	want := []string{
 		filepath.Join(dir, "F-a.json"), filepath.Join(dir, "F-b.json")}
 	if len(got) != len(want) {
@@ -47,14 +50,32 @@ func TestListPrefixedSurvivesGlobMetacharacters(t *testing.T) {
 	if m, _ := filepath.Glob(filepath.Join(root, "F-*.json")); len(m) != 0 {
 		t.Fatalf("precondition: Glob unexpectedly matched %v", m)
 	}
-	if got := ListPrefixed(root, "F-", ".json"); len(got) != 1 {
+	got, err := ListPrefixed(root, "F-", ".json")
+	if err != nil {
+		t.Fatalf("ListPrefixed: %v", err)
+	}
+	if len(got) != 1 {
 		t.Errorf("ListPrefixed = %v, want the single F- row", got)
 	}
 }
 
+// TestListPrefixedMissingDirIsEmpty pins the missing-directory half of the
+// contract after r43a split it from the unreadable half: the primitive hands
+// the os.ReadDir error back (IsNotExist, because absence is a fact the caller
+// may interpret), and the Optional form — the one every optional campaign
+// subdirectory reader uses — is empty without error.
 func TestListPrefixedMissingDirIsEmpty(t *testing.T) {
-	if got := ListPrefixed(filepath.Join(t.TempDir(), "nope"), "F-", ".json"); len(got) != 0 {
-		t.Errorf("got %v, want empty", got)
+	missing := filepath.Join(t.TempDir(), "nope")
+	got, err := ListPrefixed(missing, "F-", ".json")
+	if len(got) != 0 {
+		t.Errorf("ListPrefixed = %v, want empty", got)
+	}
+	if !os.IsNotExist(err) {
+		t.Errorf("ListPrefixed error = %v, want IsNotExist", err)
+	}
+	opt, err := ListPrefixedOptional(missing, "F-", ".json")
+	if err != nil || len(opt) != 0 {
+		t.Errorf("ListPrefixedOptional = %v, %v; want empty, nil", opt, err)
 	}
 }
 
@@ -74,7 +95,10 @@ func TestListSubPrefixedIsTheExecLayout(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(dir, "EXEC-d"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	got := ListSubPrefixed(dir, "EXEC-", "exec_record.json")
+	got, err := ListSubPrefixed(dir, "EXEC-", "exec_record.json")
+	if err != nil {
+		t.Fatalf("ListSubPrefixed: %v", err)
+	}
 	want := []string{
 		filepath.Join(dir, "EXEC-a", "exec_record.json"),
 		filepath.Join(dir, "EXEC-b", "exec_record.json")}

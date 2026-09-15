@@ -184,8 +184,18 @@ func verifyExecReference(campaign *state.Campaign, item validation.Value,
 	}
 	// No citation. Design law #4: E4+ evidence names its EXEC record.
 	var matching []validation.Value
-	paths := validation.ListSubPrefixed(campaign.ExecsDir, "EXEC-",
-		"exec_record.json")
+	// r43a: an absent execs/ directory means this campaign has no runs, so
+	// the "no EXEC record ... exists" refusal below is true. An execs/
+	// directory that cannot be listed is a different fact — the absence of a
+	// matching record cannot be asserted — so it refuses here, naming the
+	// store, instead of claiming the search came up empty.
+	paths, err := validation.ListSubPrefixedOptional(campaign.ExecsDir,
+		"EXEC-", "exec_record.json")
+	if err != nil {
+		return fmt.Errorf("the exec store %s cannot be listed, so this "+
+			"evidence cannot be checked against the campaign's runs: %v",
+			campaign.ExecsDir, err)
+	}
 	sort.Strings(paths)
 	for _, p := range paths {
 		rec, err := validation.ReadJson(p)

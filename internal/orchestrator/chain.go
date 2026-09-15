@@ -14,6 +14,7 @@
 package orchestrator
 
 import (
+	"fmt"
 	"os"
 	"sort"
 
@@ -308,11 +309,24 @@ func defaultChainReport(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	matches := validation.ListPrefixed(c.ChainsDir, "CHAIN-", ".json")
+	// r43a: the materialized-chain list is read from chains/; an absent
+	// directory is a campaign with nothing materialized yet, while a
+	// directory that cannot be listed refuses — "zero materialized chains" is
+	// a claim the chain_report must not make about a store it could not read.
+	matches, err := validation.ListPrefixedOptional(c.ChainsDir, "CHAIN-",
+		".json")
+	if err != nil {
+		return validation.VNull(), fmt.Errorf(
+			"the chain store %s cannot be listed: %v", c.ChainsDir, err)
+	}
 	materialized := []validation.Value{}
 	for _, p := range matches {
 		if _, err := os.Stat(p); err != nil {
-			continue
+			if os.IsNotExist(err) {
+				continue
+			}
+			return validation.VNull(), fmt.Errorf(
+				"the chain %s cannot be examined: %v", p, err)
 		}
 		doc, err := validation.ReadJson(p)
 		if err != nil {

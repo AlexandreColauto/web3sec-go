@@ -35,7 +35,14 @@ func Unpriceable(c *state.Campaign) (validation.Value, error) {
 	}
 	var problems []validation.Value
 	checked := 0
-	for _, p := range findingFiles(c) {
+	// r43a: findingFiles refuses on a finding store it cannot list; that
+	// refusal must reach the audit as a refusal rather than this section
+	// silently checking zero findings.
+	files, err := findingFiles(c)
+	if err != nil {
+		return validation.Value{}, err
+	}
+	for _, p := range files {
 		fdata, err := validation.ReadJson(p)
 		if err != nil {
 			// unreadable/invalid: section 4 already reports it

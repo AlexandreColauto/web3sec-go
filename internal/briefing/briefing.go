@@ -68,16 +68,22 @@ func Materializable(campaign *state.Campaign) ([]validation.Value, error) {
 		}
 	}
 	memberSets := [][]string{}
-	if dirExists(campaign.ChainsDir) {
-		paths := validation.ListPrefixed(campaign.ChainsDir, "CHAIN-", ".json")
-		sort.Strings(paths)
-		for _, p := range paths {
-			doc, err := validation.ReadJson(p)
-			if err != nil {
-				return nil, err
-			}
-			memberSets = append(memberSets, strListOf(objAt(doc, "members")))
+	// r43a: an absent chains/ directory is a campaign with nothing
+	// materialized; a chains/ directory that cannot be listed refuses — the
+	// old `if dirExists(...)` guard read an unreadable store as "no chains".
+	paths, err := validation.ListPrefixedOptional(campaign.ChainsDir,
+		"CHAIN-", ".json")
+	if err != nil {
+		return nil, fmt.Errorf("the chain store %s cannot be listed: %v",
+			campaign.ChainsDir, err)
+	}
+	sort.Strings(paths)
+	for _, p := range paths {
+		doc, err := validation.ReadJson(p)
+		if err != nil {
+			return nil, err
 		}
+		memberSets = append(memberSets, strListOf(objAt(doc, "members")))
 	}
 	props, err := chainengine.FindChains(campaign, 2)
 	if err != nil {

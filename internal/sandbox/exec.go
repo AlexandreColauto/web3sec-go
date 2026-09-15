@@ -1313,12 +1313,20 @@ func LoadExec(c *state.Campaign, execID string) (validation.Value, error) {
 }
 
 // AllExecs is all_execs: every EXEC record, sorted by path.
+//
+// r43a: an absent execs/ directory means the campaign has no runs, and an
+// empty list is honest there. An execs/ directory that cannot be listed is a
+// different thing — "zero execs" is a claim about a store, and a store that
+// could not be read supports no claim — so it refuses, naming the path. The
+// old code stat'ed the directory and returned an empty list for ANY error,
+// EACCES included.
 func AllExecs(c *state.Campaign) ([]validation.Value, error) {
-	if _, err := os.Stat(c.ExecsDir); err != nil {
-		return nil, nil
-	}
-	matches := validation.ListSubPrefixed(c.ExecsDir, "EXEC-",
+	matches, err := validation.ListSubPrefixedOptional(c.ExecsDir, "EXEC-",
 		"exec_record.json")
+	if err != nil {
+		return nil, fmt.Errorf("the exec store %s cannot be listed: %v",
+			c.ExecsDir, err)
+	}
 	sort.Strings(matches)
 	out := make([]validation.Value, 0, len(matches))
 	for _, p := range matches {

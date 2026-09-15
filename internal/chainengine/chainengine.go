@@ -5,6 +5,7 @@
 package chainengine
 
 import (
+	"fmt"
 	"os"
 	"sort"
 
@@ -298,12 +299,26 @@ func ChainReport(c *state.Campaign) (validation.Value, error) {
 
 // chainDocs reads chains/CHAIN-*.json in sorted path order; onlyTerminal
 // keeps the docs carrying a truthy `terminal` (terminal_report's filter).
+//
+// r43a: an absent chains/ directory is an empty campaign; a chains/ directory
+// that cannot be listed refuses (a proof/finding built on "zero chains" must
+// not stand when the chain store was unreadable). The per-row os.Stat is
+// honest about its own three cases too: a row that vanished is the layout
+// filter, anything else means the row cannot be examined at all.
 func chainDocs(c *state.Campaign, onlyTerminal bool) ([]validation.Value, error) {
-	matches := validation.ListPrefixed(c.ChainsDir, "CHAIN-", ".json")
+	matches, err := validation.ListPrefixedOptional(c.ChainsDir, "CHAIN-",
+		".json")
+	if err != nil {
+		return nil, fmt.Errorf("the chain store %s cannot be listed: %v",
+			c.ChainsDir, err)
+	}
 	out := []validation.Value{}
 	for _, p := range matches {
 		if _, err := os.Stat(p); err != nil {
-			continue
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("the chain %s cannot be examined: %v", p, err)
 		}
 		doc, err := validation.ReadJson(p)
 		if err != nil {

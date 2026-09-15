@@ -205,9 +205,21 @@ func proofBountyGate(c *state.Campaign) (validation.Value, error) {
 // that was never generated (a hand-written report), is stale.
 func proofReport(c *state.Campaign) (validation.Value, error) {
 	p := filepath.Join(campaignDir(c), "report.md")
-	if !fileExists(p) {
+	// r43 P3: a stat error is NOT absence. Folding EACCES into "no report"
+	// misattributes an unreadable file to a missing one (the r42/r43
+	// error-class blunder in miniature). NotExist stays the honest "no
+	// report"; anything else refuses with the errno named.
+	if st, serr := os.Stat(p); serr != nil {
+		if !os.IsNotExist(serr) {
+			return validation.VNull(), fmt.Errorf(
+				"report.md: unreadable (%v) — cannot judge whether a report "+
+					"exists, so the report-freshness proof judges nothing", serr)
+		}
 		return proofResult(false, []string{"report.md — report.generate()"},
 			"no report"), nil
+	} else if st.IsDir() {
+		return validation.VNull(), fmt.Errorf(
+			"report.md: is a directory — cannot judge report freshness")
 	}
 	events, err := c.Events()
 	if err != nil {
@@ -266,19 +278,29 @@ func proofLearning(c *state.Campaign) (validation.Value, error) {
 		return validation.VNull(), err
 	}
 	mems := []validation.Value{}
-	if dirExists(c.MemoryDir) {
-		matches := validation.ListPrefixed(c.MemoryDir, "MEM-", ".json")
+	// r43a: an absent memory/ directory is a campaign with no memory rows
+	// yet. A memory/ directory that cannot be listed is a refusal — the old
+	// `if dirExists(...)` guard read an unreadable store as "no memory
+	// entries", which is the ground the learning proof stands on.
+	//
+	// r43b (P3-3): kept, not deleted. This was reported as a vestigial
+	// `if err != nil`; the call now returns ([]string, error) and hands back
+	// every failure that is not the directory's own absence, so the branch
+	// below is live — TestR43bMemoryStoreGuardIsLive fails if it stops
+	// firing. The guard is honest because it reads THAT error, the one the
+	// call just produced, and not a stale one left in scope.
+	matches, err := validation.ListPrefixedOptional(c.MemoryDir, "MEM-", ".json")
+	if err != nil {
+		return validation.VNull(), fmt.Errorf(
+			"the memory store %s cannot be listed: %v", c.MemoryDir, err)
+	}
+	sort.Strings(matches)
+	for _, p := range matches {
+		m, err := validation.ReadJson(p)
 		if err != nil {
 			return validation.VNull(), err
 		}
-		sort.Strings(matches)
-		for _, p := range matches {
-			m, err := validation.ReadJson(p)
-			if err != nil {
-				return validation.VNull(), err
-			}
-			mems = append(mems, m)
-		}
+		mems = append(mems, m)
 	}
 	linked := map[string]bool{}
 	for _, m := range mems {
@@ -301,8 +323,20 @@ func proofLearning(c *state.Campaign) (validation.Value, error) {
 	}
 	lp := filepath.Join(campaignDir(c), "learnings.jsonl")
 	reflected := false
-	if raw, err := os.ReadFile(lp); err == nil {
+	// r43 P3: an unreadable learnings.jsonl must not read as "no reflection
+	// entry" — that accuses the operator of skipping the reflection step
+	// when the tool simply could not read the file. NotExist is the honest
+	// empty case (fail-closed: not reflected); any other error refuses.
+	raw, rerr := os.ReadFile(lp)
+	switch {
+	case rerr == nil:
 		reflected = pyStrip(string(raw)) != ""
+	case os.IsNotExist(rerr):
+	default:
+		return validation.VNull(), fmt.Errorf(
+			"learnings.jsonl: unreadable (%v) — cannot judge whether the "+
+				"reflection entry landed, so the reflection proof judges "+
+				"nothing", rerr)
 	}
 	if !reflected {
 		items = append(items, proofItem{"*",

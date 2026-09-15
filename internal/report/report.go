@@ -885,7 +885,14 @@ func Generate(campaign *state.Campaign) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	chainPaths := validation.ListPrefixed(campaign.ChainsDir, "CHAIN-", ".json")
+	// r43a: a report renders "no materialized chains" only when the chain
+	// store really is empty; an unreadable store refuses, naming the path.
+	chainPaths, err := validation.ListPrefixedOptional(campaign.ChainsDir,
+		"CHAIN-", ".json")
+	if err != nil {
+		return "", fmt.Errorf("the chain store %s cannot be listed: %v",
+			campaign.ChainsDir, err)
+	}
 	sort.Strings(chainPaths)
 	chains := []validation.Value{}
 	for _, p := range chainPaths {

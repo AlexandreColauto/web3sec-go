@@ -1,5 +1,30 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-15 — r43 (glm-5.3-flash critic): an unreadable directory read as an empty one
+
+Round 42 taught the tree to tell "absent" from "unreadable" at ONE file; round 43 found the same blunder at the root of
+the evidence path, where it certified a campaign. `validation.ListPrefixed` returned `nil` on ANY `os.ReadDir` error,
+documented as "a missing or unreadable dir is an empty list", and `ListSubPrefixed` did the same for its inner stat.
+Seventeen call sites read findings, chains, memory and execs through it, so with `chmod 000 findings/` the evidence
+audit that had just reported a red for a planted junk record reported `audit PASS: ... findings=0 problem(s)` — and it
+did not stop at a green bill: with the directory readable, `prove` reported the maximal-exploitation stage and five
+others as open/erroring; with `chmod 000 findings/` every one of them reported **DONE [authoritative]**, because
+`findingsWith -> LoadAllFindings -> ListPrefixed` returned zero findings and each "every CONFIRMED finding needs X"
+clause passed vacuously. `doctor` stayed silent and `status` printed an empty findings map. An unreadable directory was
+byte-for-byte indistinguishable from an empty campaign.
+
+The helper now returns an error and the three cases are separate: DOES NOT EXIST (legitimately empty — a fresh campaign
+still audits green), READABLE (the list), and READ FAILED (a refusal naming the path and the errno). Every call site was
+migrated by hand with its decision written down; an explicit `...Optional` variant exists for the directories that may
+legitimately be absent, and no evidence-auditing path may use it. Two more sites of the same class fell with it: an
+unreadable `report.md` was reported as "no report" and an unreadable `learnings.jsonl` as "no reflection entry" —
+both now name the read failure instead of accusing the operator of skipping a step.
+
+Two message fixes from the same round: `--version` claimed "not built from a git checkout" whenever the VCS stamp was
+absent, which is false for a worktree build (it now states only what is known — no stamp in this binary — and names the
+plausible causes without asserting one), and trajectory's `os.Stat` failure no longer reports a stat error as "names a
+finding that does not exist". Gates: gofmt/go vet clean, 70/70 packages, runbook-walkthrough and golden GREEN.
+
 ## 2026-09-15 — r42 (glm-5.3-flash critic): the unwind destroyed the record it was protecting
 
 The P1 is the sharpest lesson of the whole sequence, because it was a bug in the CURE. Rounds 40 and 41 gave the ladder

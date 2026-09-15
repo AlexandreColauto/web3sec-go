@@ -69,7 +69,14 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 	ingested := refsOf(events, "finding.ingested")
 	chainSuper := superOf(events)
 	if len(ingested) > 0 || len(chainSuper) > 0 {
-		for _, p := range findingFiles(c) {
+		// r43a: a finding store that cannot be listed refuses; the old
+		// silent-empty read made this direction vacuous exactly when the
+		// store was unreadable.
+		findingPaths, ferr := findingFiles(c)
+		if ferr != nil {
+			return validation.Value{}, ferr
+		}
+		for _, p := range findingPaths {
 			fid := filepath.Base(p)
 			fid = fid[:len(fid)-len(".json")]
 			_, inIngested := ingested[fid]
@@ -206,8 +213,18 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 			}
 		}
 		docNames := map[string]bool{}
-		for _, path := range validation.ListPrefixed(c.ChainsDir,
-			"CHAIN-", ".json") {
+		// r43a: "no chain documents" is the premise that makes both
+		// directions below vacuous (no doc -> nothing hand-planted; and with
+		// no docs, every materialized event reads as "is gone"). An
+		// unreadable chains/ directory must therefore refuse, not read as
+		// empty.
+		chainPaths, cerr := validation.ListPrefixedOptional(c.ChainsDir,
+			"CHAIN-", ".json")
+		if cerr != nil {
+			return validation.Value{}, fmt.Errorf(
+				"the chain store %s cannot be listed: %v", c.ChainsDir, cerr)
+		}
+		for _, path := range chainPaths {
 			base := filepath.Base(path)
 			docNames[strings.TrimSuffix(base, ".json")] = true
 		}

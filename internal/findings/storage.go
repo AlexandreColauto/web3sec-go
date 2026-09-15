@@ -54,8 +54,19 @@ func LoadFinding(campaign *state.Campaign, findingID string) (validation.Value, 
 // (created_at, finding_id) — deterministic regardless of the random-UUID
 // filenames (the dedup processing-order contract; filename glob order is
 // random per run).
+//
+// r43a: a findings/ directory that does not exist is an empty campaign (the
+// Optional form), but a findings/ directory that CANNOT be listed is a
+// refusal naming the path. Every proof clause of the form "every CONFIRMED
+// finding needs X" passes vacuously on an empty list, so answering "no
+// findings" for an unreadable store certified stages that were never proven.
 func LoadAllFindings(campaign *state.Campaign) ([]validation.Value, error) {
-	matches := validation.ListPrefixed(campaign.FindingsDir, "F-", ".json")
+	matches, err := validation.ListPrefixedOptional(campaign.FindingsDir,
+		"F-", ".json")
+	if err != nil {
+		return nil, fmt.Errorf("the findings store %s cannot be listed: %v",
+			campaign.FindingsDir, err)
+	}
 	out := make([]validation.Value, 0, len(matches))
 	for _, p := range matches {
 		v, err := validation.ReadJson(p)

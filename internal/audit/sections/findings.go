@@ -6,7 +6,6 @@ package sections
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 
@@ -14,20 +13,28 @@ import (
 	"websec/internal/validation"
 )
 
-// findingFiles is Python's fdir.glob("F-*.json"): sorted finding file
-// paths ([] when the dir is missing). Shared by sections 4 and 5.
-func findingFiles(c *state.Campaign) []string {
-	if _, err := os.Stat(c.FindingsDir); err != nil {
-		return nil
+// findingFiles is Python's fdir.glob("F-*.json"): sorted finding file paths.
+// Shared by sections 4, 5 and the projection. r43a: a missing findings/
+// directory is a campaign with no findings ([] — a fresh campaign still
+// audits green), but a findings/ directory that cannot be listed is a
+// refusal: reporting "checked: 0" for a store the audit could not read is
+// exactly the pass that let an unreadable evidence store certify clean.
+func findingFiles(c *state.Campaign) ([]string, error) {
+	matches, err := validation.ListPrefixedOptional(c.FindingsDir, "F-", ".json")
+	if err != nil {
+		return nil, fmt.Errorf("the findings store %s cannot be listed: %v",
+			c.FindingsDir, err)
 	}
-	matches := validation.ListPrefixed(c.FindingsDir, "F-", ".json")
 	sort.Strings(matches)
-	return matches
+	return matches, nil
 }
 
 // Findings is audit.py section 4: {checked, problems, ok}.
 func Findings(c *state.Campaign) (validation.Value, error) {
-	files := findingFiles(c)
+	files, err := findingFiles(c)
+	if err != nil {
+		return validation.Value{}, err
+	}
 	var problems []validation.Value
 	for _, p := range files {
 		v, err := validation.ReadJson(p)

@@ -76,8 +76,17 @@ func runStatus(root string, args []string, stdout io.Writer) error {
 
 // statusFindings mirrors the counts loop of Orchestrator.status: findings
 // ordered by (created_at, finding_id), counts in first-appearance order.
+//
+// r43a: a missing findings/ directory means a campaign with no findings yet
+// and prints the empty count map as before; a findings/ directory that cannot
+// be listed is a refusal — printing {"findings": {}} for an unreadable store
+// is a status that reports a count it never took.
 func statusFindings(c *state.Campaign) (validation.Value, error) {
-	paths := validation.ListPrefixed(c.FindingsDir, "F-", ".json")
+	paths, err := validation.ListPrefixedOptional(c.FindingsDir, "F-", ".json")
+	if err != nil {
+		return validation.VNull(), fmt.Errorf(
+			"the findings store %s cannot be listed: %v", c.FindingsDir, err)
+	}
 	type row struct {
 		created, fid, status string
 	}

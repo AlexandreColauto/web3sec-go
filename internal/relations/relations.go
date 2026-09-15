@@ -181,8 +181,16 @@ func mintInto(c *state.Campaign, rels *[]validation.Value, kind string,
 // ---- deterministic minters -------------------------------------------------
 
 // chainsOf is _chains: CHAIN-*.json sorted by path.
+//
+// r43a: an absent chains/ directory is an empty campaign; a chains/ directory
+// that cannot be listed refuses rather than reporting zero chains — relation
+// minting reads these docs to decide what exists.
 func chainsOf(c *state.Campaign) ([]validation.Value, error) {
-	paths := validation.ListPrefixed(c.ChainsDir, "CHAIN-", ".json")
+	paths, err := validation.ListPrefixedOptional(c.ChainsDir, "CHAIN-", ".json")
+	if err != nil {
+		return nil, fmt.Errorf("the chain store %s cannot be listed: %v",
+			c.ChainsDir, err)
+	}
 	out := make([]validation.Value, 0, len(paths))
 	for _, p := range paths {
 		v, err := validation.ReadJson(p)

@@ -443,12 +443,23 @@ func StripCampaignMemoryField(root, field, actor, reason string) (validation.Val
 			continue
 		}
 		memdir := filepath.Join(cdir, "memory")
-		if fi, err := os.Stat(memdir); err != nil || !fi.IsDir() {
+		memfi, serr := os.Stat(memdir)
+		if serr != nil {
+			if os.IsNotExist(serr) {
+				continue // no memory/ directory: nothing to strip
+			}
+			// r43a: a memory/ directory that cannot be examined is not an
+			// empty one; skipping it would under-report the strip.
+			return validation.VNull(), fmt.Errorf(
+				"the memory directory %s cannot be examined: %v", memdir, serr)
+		}
+		if !memfi.IsDir() {
 			continue
 		}
-		paths := validation.ListPrefixed(memdir, "", ".json")
+		paths, err := validation.ListPrefixedOptional(memdir, "", ".json")
 		if err != nil {
-			return validation.VNull(), err
+			return validation.VNull(), fmt.Errorf(
+				"the memory store %s cannot be listed: %v", memdir, err)
 		}
 		sort.Strings(paths)
 		rows := make(map[string]validation.Value, len(paths))
@@ -660,8 +671,16 @@ func PendingMemory(c *state.Campaign) ([]validation.Value, error) {
 }
 
 // AllMemory is all_memory: every MEM-*.json row, filename-sorted.
+//
+// r43a: an absent memory/ directory is an empty campaign; a memory/ directory
+// that cannot be listed refuses, naming the path — a reader with no evidence
+// about the store must not answer "no memory rows".
 func AllMemory(c *state.Campaign) ([]validation.Value, error) {
-	paths := validation.ListPrefixed(c.MemoryDir, "MEM-", ".json")
+	paths, err := validation.ListPrefixedOptional(c.MemoryDir, "MEM-", ".json")
+	if err != nil {
+		return nil, fmt.Errorf("the memory store %s cannot be listed: %v",
+			c.MemoryDir, err)
+	}
 	out := make([]validation.Value, 0, len(paths))
 	for _, p := range paths {
 		row, err := validation.ReadJson(p)

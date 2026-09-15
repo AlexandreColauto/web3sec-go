@@ -349,6 +349,12 @@ func VerifyTrajectory(campaign *state.Campaign) (validation.Value, error) {
 // every `ref`/`data.finding_id` that names an F- finding must resolve to
 // readable finding JSON. A malformed event reports; an unreadable contract
 // is a real error and is returned.
+//
+// The finding probe keeps its three cases apart, like every other reader of
+// the findings store (r43b/P3-2): ENOENT is absence and is reported as such;
+// any other stat failure is a read failure, reported by naming the path and
+// the error, never as an absent finding; a file that stats but does not
+// parse is reported as unreadable JSON.
 func eventProblems(campaign *state.Campaign,
 	e validation.Value) ([]string, error) {
 	problems := []string{}
@@ -379,10 +385,23 @@ func eventProblems(campaign *state.Campaign,
 		if fid.Kind != validation.Str || !strings.HasPrefix(fid.S, "F-") {
 			continue
 		}
-		if _, err := os.Stat(findings.FindingPath(campaign, fid.S)); err != nil {
-			problems = append(problems, fmt.Sprintf(
-				"seq %s (%s): %s %s names a finding that does not exist",
-				seq, etype, pair.where, fid.S))
+		path := findings.FindingPath(campaign, fid.S)
+		if _, err := os.Stat(path); err != nil {
+			if os.IsNotExist(err) {
+				problems = append(problems, fmt.Sprintf(
+					"seq %s (%s): %s %s names a finding that does not exist",
+					seq, etype, pair.where, fid.S))
+			} else {
+				// r43b (P3-2): only ENOENT is evidence of absence. Any
+				// other stat failure (EACCES, ENAMETOOLONG, EIO) means the
+				// probe could not examine the path at all — it has no
+				// evidence about the finding, so it names the read failure
+				// and the path and judges nothing else. Fail-closed either
+				// way: both are problems.
+				problems = append(problems, fmt.Sprintf(
+					"seq %s (%s): %s %s cannot be read: %s: %v",
+					seq, etype, pair.where, fid.S, path, err))
+			}
 		} else if _, err := findings.LoadFinding(campaign, fid.S); err != nil {
 			problems = append(problems, fmt.Sprintf(
 				"seq %s (%s): %s %s is not readable JSON: %v", seq, etype,

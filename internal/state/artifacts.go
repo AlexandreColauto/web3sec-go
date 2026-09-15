@@ -835,16 +835,19 @@ func citationLinks(c *Campaign) (validation.Value, error) {
 // citationFindings reads the findings store (findings/F-*.json, the layout
 // findings.storage uses). A missing store is no findings; a store that cannot
 // be listed or a file that cannot be read is an error, never "no citations".
+//
+// r43a: the same distinction is now expressed by the listing helper itself
+// (ListPrefixedOptional folds ONLY IsNotExist into emptiness), so this reader
+// no longer pre-stat's the directory — one read, one place the decision is
+// made.
 func citationFindings(c *Campaign) ([]validation.Value, error) {
-	if _, err := os.ReadDir(c.FindingsDir); err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
+	paths, err := validation.ListPrefixedOptional(c.FindingsDir, "F-", ".json")
+	if err != nil {
 		return nil, fmt.Errorf("the findings store %s cannot be listed: %v",
 			c.FindingsDir, err)
 	}
 	var out []validation.Value
-	for _, p := range validation.ListPrefixed(c.FindingsDir, "F-", ".json") {
+	for _, p := range paths {
 		raw, err := os.ReadFile(p)
 		if err != nil {
 			return nil, fmt.Errorf("the finding %s cannot be read: %v", p, err)

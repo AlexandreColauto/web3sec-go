@@ -6,10 +6,16 @@ package version
 // operator running a stale binary cannot tell it is stale, so a fixed defect
 // (DEFECT-1) gets re-litigated as a live one. The identity rides Go's own VCS
 // stamping (runtime/debug.ReadBuildInfo: vcs.revision/vcs.time/vcs.modified,
-// recorded automatically on every build from a git checkout — -trimpath and
-// CGO_ENABLED=0 do not remove it), so no ldflags wiring, no release-script
-// change, and no CI change is needed. A binary built outside a git tree
-// (tarball, -buildvcs=false) reports "unknown" instead of a lie.
+// recorded automatically on builds Go stamps — -trimpath and CGO_ENABLED=0 do
+// not remove it), so no ldflags wiring, no release-script change, and no CI
+// change is needed.
+//
+// r43b (P3-1): "on every build from a git checkout" was itself a lie of the
+// kind this file exists to avoid. Go's buildvcs emits NO stamp for some
+// sanctioned builds — a git WORKTREE build is the reported one — so a
+// stamped-when-possible binary that says "not built from a git checkout"
+// asserts a cause it never verified. Absence of a stamp is the fact; the
+// causes are possibilities. Describe() names them as such and nothing more.
 
 import (
 	"os"
@@ -61,9 +67,16 @@ func Dirty() bool {
 }
 
 // Describe is the `webv2 --version` line.
+//
+// r43b: an unstamped binary states the fact (no VCS stamp in this binary) and,
+// at most, the plausible causes — never one asserted cause. A worktree build
+// is stamped-when-possible but carries no stamp, so claiming "not built from a
+// git checkout" would be false exactly where the stamp matters.
 func Describe() string {
 	if !Known() {
-		return "webv2 " + Unknown + " (no VCS stamp: not built from a git checkout)"
+		return "webv2 " + Unknown + " (no VCS stamp in this binary; " +
+			"plausibly a git-worktree build, a -buildvcs=false build, " +
+			"or a build from an exported tree)"
 	}
 	out := "webv2 " + Commit()
 	if tm := BuildTime(); tm != "" {
