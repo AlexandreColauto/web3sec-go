@@ -238,8 +238,9 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		// but an EARLIER bind may pin this row's digest — pruning it
 		// then would burn the prior, honest rung on §11 for an
 		// operator hiccup that touched nothing of theirs. Cite-check
-		// first: prune only an orphan.
-		if cited, cerr := artifactCitedByLiveBinds(c, regDig); cerr == nil &&
+		// first, BY ROW ID (r35 F1: the id is what an id-shaped
+		// citation names), and prune only an orphan.
+		if cited, cerr := artifactCitedByLiveBinds(c, artID); cerr == nil &&
 			!cited {
 			_, perr := c.PruneArtifact(artID,
 				"pruned: bind refused — "+err.Error())
@@ -406,37 +407,19 @@ func autoproveSameName(a, b string) bool {
 	return harness.SamePropertyName(a, b)
 }
 
-// artifactCitedByLiveBinds: does any harness_run event still name this
-// digest as evidence? (The refused bind wrote none — the unwind restored
-// the ledger — so this asks about the OTHER rows.) Two arms, ONE predicate
-// (artifactEventCitesDig, next to the prune verb that reads it): the event
-// names the digest as its report_sha256, OR the event names an exec whose
-// record pins the digest in input_hashes/artifact_hashes (N1: the EXEC
-// rungs, whose evidence is the hashed scaffold bytes — the bind's guard
-// and the prune verb's warning must not disagree about what "cited"
-// means).
-func artifactCitedByLiveBinds(c *state.Campaign, dig string) (bool,
+// artifactCitedByLiveBinds: does any live evidence still name this registry
+// row? The implementation is state.ArtifactCitedByLiveBinds — the ONE cite
+// predicate (r35 F1), which answers BOTH shapes: the row's sha256 as a bind
+// pinned it (a harness_run event's report_sha256, or an exec record the event
+// names hashing it in input_hashes/artifact_hashes — N1's EXEC rungs) AND the
+// row's own id where an event or a registry field names it (a
+// harness_scaffold event's ref, a verified_by link, a finding's artifact_id).
+// This helper is the cli's spelling of that same decision so the bind's
+// guard, the ghost-prune and the prune verb's warning cannot disagree.
+func artifactCitedByLiveBinds(c *state.Campaign, id string) (bool,
 	error) {
-	if dig == "" {
-		return false, nil
-	}
-	events, err := c.Events()
-	if err != nil {
-		return false, err
-	}
-	pins, err := artifactCitedExecIDs(events, c, dig)
-	if err != nil {
-		return false, err
-	}
-	for _, ev := range events {
-		if objStr(ev, "type") != "harness_run" {
-			continue
-		}
-		if artifactEventCitesDig(objAt(ev, "data"), dig, pins) {
-			return true, nil
-		}
-	}
-	return false, nil
+	cited, _, err := state.ArtifactCitedByLiveBinds(c, id)
+	return cited, err
 }
 
 // harnessRowForPath: the registry row currently holding this path

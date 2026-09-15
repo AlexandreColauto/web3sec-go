@@ -16,19 +16,26 @@ package cli
 // only by a hand-edited pair of registries) refuses rather than guessing.
 //
 // CITE WARNING, never a gate. The bind's cite-guard refuses to prune a row
-// a live harness_run event cites — but that is the BIND's discipline, not
-// the operator's: this verb reuses the same guard and its predicate
-// (artifactCitedByLiveBinds / artifactEventCitesDig) to SCAN, names on
-// stderr the artifact and every invariant whose blessing cites the row's
-// sha256 — whether the event pinned that digest as its report_sha256 or
+// a live bind cites — but that is the BIND's discipline, not the operator's:
+// this verb reuses the SAME predicate (state.ArtifactCitedByLiveBinds, the
+// one cite predicate — the cli helpers below only delegate to it) to SCAN,
+// names on stderr the artifact and every invariant whose blessing cites the
+// row's sha256 — whether the event pinned that digest as its report_sha256 or
 // named an EXEC whose record hashed the row as the bytes the run took in
-// (N1: the EXEC rungs' evidence is the hashed scaffold, and the scan that
-// saw only report_sha256 pruned such a row with EMPTY stderr) — says on
-// that same line that the evidence is being removed and that audit section
-// 11 will now report that rung unbacked (UNBACKED) — and then prunes
-// anyway. The burn that follows is the honest cost of an explicit operator
-// act, so there is deliberately no --force flag to make it look
-// conditional.
+// (N1: the EXEC rungs' evidence is the hashed scaffold, and the scan that saw
+// only report_sha256 pruned such a row with EMPTY stderr) — says on that same
+// line that the evidence is being removed and that audit section 11 will now
+// report that rung unbacked (UNBACKED) — and then prunes anyway. The burn
+// that follows is the honest cost of an explicit operator act, so there is
+// deliberately no --force flag to make it look conditional.
+//
+// r35 F1: the row may also be cited BY ID (a harness_scaffold event's ref,
+// a verified_by link, a finding's artifact_id) — the shape byte equality
+// cannot see. The sha sentence above names the invariants the sha arm found;
+// when the citation is an identity one, the warning prints the predicate's
+// own `why` instead, because "an invariant the citing event does not name"
+// would misdescribe a scaffold or verified_by citation. Same line shape, same
+// warn-then-prune, exact state named.
 //
 // Success prints the retired row in artifact-register's line shape
 // (`{id}: kind={kind} path={path}`); --json prints the row as object with
@@ -97,13 +104,16 @@ func artifactPruneCmd(root string, args []string, r *Runner) error {
 		return t14ExitErr(2, "artifact prune failed: unknown artifact %s",
 			validation.PyReprStr(artID))
 	}
-	// The citation the bind's cite-guard protects: does a harness_run event
-	// still name this row's digest? Same predicate, same decision function
-	// the bind path calls — the verb must not hold a second opinion about
-	// what "cited" means.
+	// The citation the bind's cite-guard protects: does any live evidence
+	// still name this row — its sha256, or the row's own id (r35 F1)? ONE
+	// predicate, state.ArtifactCitedByLiveBinds: the verb must not hold a
+	// second opinion about what "cited" means, and the decision it takes here
+	// is the same one the ghost-prune takes.
 	dig := objStr(row, "sha256")
-	cited, err := artifactCitedByLiveBinds(c, dig)
+	cited, why, err := state.ArtifactCitedByLiveBinds(c, artID)
 	if err != nil {
+		// The citation could not be checked: refuse to prune on an unknown
+		// (the row survives, and the error names the unreadable source).
 		return err
 	}
 	if cited {
@@ -111,14 +121,17 @@ func artifactPruneCmd(root string, args []string, r *Runner) error {
 		if aerr != nil {
 			return aerr
 		}
-		subject := "an invariant the citing event does not name"
 		if len(ids) > 0 {
-			subject = strings.Join(ids, ", ")
+			fmt.Fprintf(r.Err, "WARNING: artifact %s holds the report bytes a "+
+				"harness_run event cites for %s — pruning removes the "+
+				"blessing's evidence; audit section 11 will now report that "+
+				"rung unbacked (UNBACKED)\n", artID, strings.Join(ids, ", "))
+		} else {
+			fmt.Fprintf(r.Err, "WARNING: artifact %s is cited by live "+
+				"evidence — %s; pruning removes that evidence and audit "+
+				"section 11 will report the citing rung unbacked (UNBACKED)\n",
+				artID, why)
 		}
-		fmt.Fprintf(r.Err, "WARNING: artifact %s holds the report bytes a "+
-			"harness_run event cites for %s — pruning removes the "+
-			"blessing's evidence; audit section 11 will now report that "+
-			"rung unbacked (UNBACKED)\n", artID, subject)
 	}
 	rec, err := c.PruneArtifact(artID, reason)
 	if err != nil {
@@ -177,10 +190,11 @@ func pruneLookup(root, artID string) (*state.Campaign, validation.Value, error) 
 }
 
 // pruneCitedInvariants lists the invariants whose harness_run events pin
-// dig, in event order and deduplicated. It is the naming half of the
-// cite-guard: artifactCitedByLiveBinds decides "cited" with the identical
-// predicate (artifactEventCitesDig over the set artifactCitedExecIDs
-// builds) and this collects the ids the warning must name.
+// dig, in event order and deduplicated. It is the naming half of the cite
+// guard: state.ArtifactCitedByLiveBinds decides "cited" with the identical
+// predicate (state.ArtifactEventCitesDig over the set
+// state.ArtifactCitedExecIDs builds) and this collects the ids the warning
+// must name.
 func pruneCitedInvariants(c *state.Campaign, dig string) ([]string, error) {
 	if dig == "" {
 		return nil, nil
@@ -213,95 +227,23 @@ func pruneCitedInvariants(c *state.Campaign, dig string) ([]string, error) {
 	return ids, nil
 }
 
-// artifactEventCitesDig is THE cite predicate, one home for both callers
-// (the bind's cite-guard through artifactCitedByLiveBinds, and the prune
-// verb's warning). A live harness_run event cites dig when EITHER
-//
-//   - its own data.report_sha256 IS dig — the report-bound rungs
-//     (miniprover autoprove, minicertora report binds), whose event names
-//     the exact bytes it mapped; OR
-//   - it names an exec (data.exec) whose recorded exec pins dig in
-//     input_hashes / artifact_hashes — the EXEC rungs, whose evidence is
-//     the scaffold file the sandbox hashed as the run's input (N1: the
-//     scaffold artifact row was prunable with an EMPTY stderr, because the
-//     scan saw only report_sha256, while the usage line and the RUNBOOK
-//     both promise the warning whenever a live bind cites the row).
+// artifactEventCitesDig and artifactCitedExecIDs are the cli's spelling of
+// the two CONTENT arms. The implementations live in package state (r35 F1:
+// state.ArtifactEventCitesDig / state.ArtifactCitedExecIDs), where the ONE
+// cite predicate reads them too — the ghost-prune, the bind's cite-guard and
+// this verb's warning must not be able to disagree about what "cited" means,
+// and before r35 the same logic existed here and would have been copied a
+// third time.
 func artifactEventCitesDig(d validation.Value, dig string,
 	citedExecs map[string]bool) bool {
-	if dig == "" {
-		return false
-	}
-	if objStr(d, "report_sha256") == dig {
-		return true
-	}
-	id := objStr(d, "exec")
-	return id != "" && citedExecs[id]
+	return state.ArtifactEventCitesDig(d, dig, citedExecs)
 }
 
-// artifactCitedExecIDs is the second cite arm's resolution: the exec ids
-// that a live harness_run event names AND whose exec record pins dig. It
-// is a LOCAL re-read of the harness bind's hash reader (cmd_verify_harness
-// .go's harnessRecordedHashes, owned elsewhere, which this file must not
-// edit): the same two maps, the same "non-empty string VALUE is a hash"
-// rule — reimplemented here so the prune verb agrees with the bind instead
-// of holding a second opinion about what the bind recorded.
-//
-// "Live" is the same notion the report arm already used: every harness_run
-// event on the append-only ledger (nothing removes one; a superseded bind
-// is still a bind the audit re-derives). Reading an extra event as cited
-// burns nothing — it only makes the warning more conservative.
+// artifactCitedExecIDs is state.ArtifactCitedExecIDs through the cli's
+// historical signature (see the state function for the arm's law).
 func artifactCitedExecIDs(events []validation.Value, c *state.Campaign,
 	dig string) (map[string]bool, error) {
-	if dig == "" {
-		return nil, nil
-	}
-	named := map[string]bool{}
-	for _, ev := range events {
-		if objStr(ev, "type") != "harness_run" {
-			continue
-		}
-		if id := objStr(objAt(ev, "data"), "exec"); id != "" {
-			named[id] = true
-		}
-	}
-	if len(named) == 0 {
-		return nil, nil
-	}
-	execs, err := state.AllExecs(c)
-	if err != nil {
-		return nil, err
-	}
-	pins := map[string]bool{}
-	for _, rec := range execs {
-		id := objStr(rec, "exec_id")
-		if named[id] && artifactExecPins(rec, dig) {
-			pins[id] = true
-		}
-	}
-	return pins, nil
-}
-
-// artifactExecPins: does one exec record pin dig among the bytes the run
-// took in (input_hashes) or produced (artifact_hashes)? The record maps a
-// file NAME to a sha256 STRING; only non-empty strings are hashes, so a
-// null/absent/scalar map contributes nothing (same filter as the bind's
-// reader).
-func artifactExecPins(rec validation.Value, dig string) bool {
-	if dig == "" {
-		return false
-	}
-	for _, key := range []string{"input_hashes", "artifact_hashes"} {
-		m := objAt(rec, key)
-		if m.Kind != validation.Obj {
-			continue
-		}
-		for _, kv := range m.O {
-			if kv.V.Kind == validation.Str && kv.V.S == dig {
-				return true
-			}
-		}
-	}
-	return false
+	return state.ArtifactCitedExecIDs(events, c, dig)
 }
 
 func init() {

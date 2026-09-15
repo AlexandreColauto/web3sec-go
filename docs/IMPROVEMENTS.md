@@ -1,5 +1,40 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — r35 (b-ai critic): the cure for a false law destroyed the evidence it was protecting
+
+The r34 cure was right about the disease and wrong about its blast radius. It made `artifact-register` honour the
+RUNBOOK's "a path holds one registry row" by routing the verb through `RegisterOrRefresh` — whose ghost loop called
+`PruneArtifact` unconditionally. That loop was now the ONLY prune site in the tree without a cite check: the bind path
+keeps a cited row ("r25 F4: NEVER destroy evidence a LIVE bind still cites") and the operator verb warns before pruning,
+both through the same predicate. The justification written into the code — "every ghost resolves to the SAME file as the
+row that replaces it, so the copy would be an unverifiable duplicate with no provenance value" — was false, and the
+auditor falsified it with a repro: the citation that matters is by ROW ID, not by bytes. A `harness_scaffold` event's
+`ref` names the scaffold row outright, so re-registering that path retired the row section 11 re-derives from, turned a
+green rung `(UNBACKED)` with EMPTY stderr, and the loss was permanent — the log is append-only and ids are uuid-random,
+so re-running `verify --scaffold` prints "unchanged" and re-binding refuses "the scaffold artifact … is not registered";
+`artifact-reconcile` reports it unchanged and `doctor` does not resurrect it. The sibling verb, in the identical state,
+warned correctly.
+
+The cure moved the decision into package `state` as ONE exported predicate — `ArtifactCitedByLiveBinds` — that answers
+from the campaign's own sources: by content (the row's sha pinned by a live `harness_run`, or by an exec record that
+event names, in `input_hashes`/`artifact_hashes`) and by identity (a `harness_scaffold` ref, the invariants registry's
+`verified_by`/`tests`/`contradiction` fields, an invariant or finding event's payload, a finding's `artifact_id`). The
+cli's helper now delegates to it, so the bind guard, the prune verb's warning and the ghost loop cannot drift apart. A
+cited ghost is KEPT and disclosed on stderr (naming the row, its kind, the citation, and the fact that the path now
+holds two rows — the honest state, because a cited row cannot be retired by a re-registration); an uncited ghost is
+still pruned, so the RUNBOOK law holds for the shape it was written for. And every arm is consulted rather than
+short-circuiting on the first hit: a scaffold row is cited BOTH ways, and the operator reading the warning is entitled
+to the whole reason — the early return was hiding the id-citation that makes the row unretirable. An arm whose source
+cannot be read returns an error, which the caller reports instead of pruning on an unknown: a check that cannot read its
+sources is not a clearance to destroy. Tamper-probed: forcing the ghost loop's cite check to false reproduces the
+auditor's red campaign, and restoring the file is byte-identical.
+
+Two process notes worth keeping. The two agents that ran this fix were both cut off before writing their final reports
+(the second left the tree not compiling, mid-edit) — so the round's evidence had to be re-established by hand: build,
+battery, tamper probe, gates. And one of the delivered pins asserted the display line in the wrong letter case
+(`proved-bounded` where the audit renders `PROVEN-BOUNDED`), which is a reminder that a test failing for a cosmetic
+reason is still a test that was never observed to pass. Both are recorded here rather than smoothed away.
+
 ## 2026-09-14 — r34 (two b-ai critics): an off-switch in the new rail, and a heal that only worked for `rm`
 
 The rail critics scored 8/10 and 7/10, and both findings were about *when a check runs*, not about what it decides.

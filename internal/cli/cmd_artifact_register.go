@@ -10,6 +10,15 @@ package cli
 // comment at the call site). A path that is NOT registered keeps the
 // reference bytes: the same id line and the same immutability notice, both
 // pinned by cmd_artifact_register_test.go.
+//
+// DEVIATION (r35 F1, 2026-09-16): a same-path ghost whose row id a live
+// citation still names is KEPT, not pruned (the RUNBOOK's one-row law is
+// about the shape that law was written for; the cited shape is the evidence
+// audit section 11 re-derives, and the log is append-only so retiring it is
+// permanent). The verb's STDOUT first line is unchanged —
+// "<ID>: kind=K path=P" — and the kept-row disclosure rides stderr, the
+// documented convention for warnings. A kept ghost means the path now holds
+// two rows, and the verb says so.
 
 import (
 	"fmt"
@@ -95,7 +104,7 @@ func runArtifactRegister(root string, args []string, r *Runner) int {
 		return r.withErr(root, func() error { return err })
 	}
 	// r34 F3: RegisterOrRefresh, not RegisterArtifact. The RUNBOOK's hard rule
-	// for the operator (assets/runbook/RUNBOOK.md:1645-1650) makes this verb
+	// for the operator (assets/runbook/RUNBOOK.md:1652-1660) makes this verb
 	// the sanctioned re-registration path and states the law it must honour:
 	// "A path holds one registry row: re-registering it under a different
 	// --kind migrates that row (the refresh event records kind_migrated:
@@ -106,12 +115,37 @@ func runArtifactRegister(root string, args []string, r *Runner) int {
 	// event was ever written. RegisterArtifact stays the append primitive for
 	// the callers that mean to mint a row (RegisterOrRefresh's own
 	// path-not-registered branch); this verb is not one of them.
-	aid, err := c.RegisterOrRefresh(kind, path, note, snap,
+	//
+	// r35 F1: RegisterOrRefreshKeptGhosts, not RegisterOrRefresh, because the
+	// ghost half of that law is CITE-CHECKED (state.ArtifactCitedByLiveBinds)
+	// and the operator is owed the report: a same-path row whose id a live
+	// citation still names — a harness_scaffold event's ref is the one that
+	// burns section 11's rung FOREVER, since the log is append-only and the id
+	// is uuid-random — is kept, and this verb says which rows it kept and
+	// why. An UNCITED ghost is still pruned (one row per path for the shape
+	// the RUNBOOK law was written for).
+	aid, kept, err := c.RegisterOrRefreshKeptGhosts(kind, path, note, snap,
 		artifactRegisterRefreshReason)
 	if err != nil {
 		return r.withErr(root, func() error { return err })
 	}
 	fmt.Fprintf(r.Out, "%s: kind=%s path=%s\n", aid, kind, path)
+	// The kept-row report rides stderr, the documented convention for
+	// warnings (artifact-prune's cite warning is the sibling) — the stdout
+	// shape above is the RUNBOOK's contract and stays byte-identical.
+	if len(kept) > 0 {
+		rows := make([]string, 0, len(kept)+1)
+		rows = append(rows, aid)
+		for _, g := range kept {
+			fmt.Fprintf(r.Err, "WARNING: registry row %s (kind=%s) at %s was "+
+				"NOT retired — %s\n", g.ArtifactID, g.Kind, path, g.Citation)
+			rows = append(rows, g.ArtifactID)
+		}
+		fmt.Fprintf(r.Err, "WARNING: %s now holds %d registry rows (%s): "+
+			"the kept row(s) are the evidence the citation above still names, "+
+			"so a re-registration may not retire them — audit section 11 "+
+			"re-derives them by id\n", path, len(rows), strings.Join(rows, ", "))
+	}
 	// The id line is unchanged for both shapes (the id is the row's, and on
 	// the refresh path it is the row that was ALREADY there). What follows
 	// depends on which happened, because the historical notice is only true

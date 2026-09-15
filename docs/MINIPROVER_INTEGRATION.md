@@ -290,7 +290,13 @@ law is enforced by the verb the RUNBOOK names as the sanctioned mutation
 path: re-registering a registered path refreshes it in place, or
 migrates it when the kind changes, recording `kind_migrated` (r34: the
 verb appended a second row for the same path while the RUNBOOK told
-operators a path holds one row) — the very functions
+operators a path holds one row). That law stops at a CITED row (r35):
+the ghost prune asks the same one cite predicate the bind's guard and
+the prune verb ask — both halves of it, by content AND by row id, since
+a scaffold event's `ref` names a row outright where byte equality cannot
+look — and a cited ghost is KEPT and disclosed on stderr instead of
+being retired, because the id it names is the evidence section 11
+re-derives and no re-registration can mint it again — the very functions
   `verify --autoprove` now calls at bind time (r25 F2: ownership was
   paperwork; a forged pair over honest registry bytes still has to
   reproduce rung, summary and bound). The bind stores a
