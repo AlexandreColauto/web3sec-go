@@ -172,7 +172,14 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	// about an absent exit status (it read 0 there, the bind reads -2).
 	timedOut := harnessTimedOut(rec)
 	exitStatus := harness.RecordExitStatus(rec)
-	k := invocationBound(harnessCommand(rec), kind)
+	// r32 F1/F2/F8: the invocation bound is read from the record by the ONE
+	// reader — the command field's SHAPE first (a present non-string is an
+	// unreadable invocation, never an absent one), then the parse shaped by
+	// THIS kind (forge's u32/clap rules, halmos's and minicertora's Python
+	// ints, and a foreign bound flag as a floor). harness.DecideBound
+	// re-reads the same record through the same reader, so the bind and
+	// section 11's re-derivation cannot disagree about any of it.
+	k := harness.RecordInvocationBound(kind, rec)
 	_ = pinSource
 	ruleName := harness.MspecRuleName(a.harnessResult)
 	// Validate renders from the same value the scaffold command rendered
@@ -673,14 +680,27 @@ func harnessCommand(rec validation.Value) string {
 }
 
 // invocationBound parses the invocation bound out of an exec command —
-// harness.InvocationBound owns the parse now (r28: click-shaped, LAST
-// flag wins, signed values, < 1 -> harness.BoundDegenerate), so the
-// comment that used to live here would only duplicate it. This wrapper
-// stays because the cli's call site is part of the bound decision's
-// audit trail.
+// harness.InvocationBoundKind owns the parse, and the KIND is part of it.
+//
+// r32 F1/F2: this wrapper used to take the kind and throw it away
+// (`_ = kind`), so ONE Python-flavoured reading was applied to three tools
+// with three command-line languages: `forge test --fuzz-runs 4_000` (real
+// forge: "error: invalid value '4_000' … invalid digit found in string")
+// read as 4000, a repeated --fuzz-runs read last-wins although clap
+// refuses it, and a LONE foreign bound flag (`forge test --loop 3`) was
+// bound as if forge had a --loop. Carrying the kind makes the value
+// semantics the owning tool's and floors a foreign bound flag as the
+// invocation the tool would refuse.
+//
+// The production call site reads the record through
+// harness.RecordInvocationBound instead of composing this with
+// harnessCommand, because the record's command field must be read with its
+// SHAPE (r32 F8: a `command` that is an ARRAY or a NUMBER is a stated
+// invocation, not an absent one). This wrapper stays for callers that hold
+// a command string (and for the S2 regression table), and it is the
+// string-level half of exactly that reader.
 func invocationBound(command string, kind harness.Kind) int {
-	_ = kind
-	return harness.InvocationBound(command)
+	return harness.InvocationBoundKind(kind, command)
 }
 
 // harnessMapBound is the bind's rung decision, delegated to the ONE home in

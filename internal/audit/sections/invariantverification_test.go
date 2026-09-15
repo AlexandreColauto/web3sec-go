@@ -79,6 +79,12 @@ func backEvent(t *testing.T, c *state.Campaign, iid string,
 		return // malformed: no line, no event (skip arm's world)
 	}
 	data := validation.VObj(
+		// r32b F3: the KIND rides the event too — every mapper has written
+		// it since the harness slots landed, and harnessRungBacked now
+		// refuses a slot whose kind no event carries (the r29b fixture
+		// file already had to write it by hand, which is how this
+		// omission was found).
+		KV("kind", validation.VStr(objStr(h, "kind"))),
 		KV("rung", validation.VStr(objStr(h, "rung"))),
 		KV("exec", validation.VStr(objStr(h, "exec"))),
 		KV("invariant", validation.VStr(iid)),
@@ -287,9 +293,13 @@ func TestInvariantVerificationHarnessLines(t *testing.T) {
 	}
 }
 
-// TestInvariantVerificationHarnessSkipsMalformed pins the fail-soft read:
-// an entry whose harness object lacks exec contributes no line (and no
-// problem — the field is informational, not a verdict input).
+// TestInvariantVerificationHarnessSkipsMalformed used to pin the fail-soft
+// read: an entry whose harness object lacked exec contributed no line AND no
+// problem. r32b F3 closed that: the slot STATES a rung ("inconclusive"), so
+// the blank required field is a shape no mapper writes (kind, rung and exec
+// land together) — it must BURN, naming exec, while still contributing no
+// line (there is nothing renderable). Only a run with NO rung at all may be
+// skipped silently.
 func TestInvariantVerificationHarnessSkipsMalformed(t *testing.T) {
 	c, err := state.Init(t.TempDir(), "Acme Program", state.InitOpts{})
 	if err != nil {
@@ -307,8 +317,19 @@ func TestInvariantVerificationHarnessSkipsMalformed(t *testing.T) {
 		t.Fatal(err)
 	}
 	if h := objAt(v, "harness_runs"); h.Kind != validation.Null {
-		t.Fatalf("malformed harness must contribute no key, got %s",
+		t.Fatalf("an unrenderable rung must contribute no line, got %s",
 			validation.CanonCompact(h))
+	}
+	if objAt(v, "ok").B {
+		t.Fatalf("a stated rung with a blank exec must burn: %s",
+			validation.CanonCompact(v))
+	}
+	joined := ""
+	for _, p := range objAt(v, "problems").A {
+		joined += p.S
+	}
+	if !strings.Contains(joined, "carries no exec") {
+		t.Fatalf("the burn must name the missing field, got %q", joined)
 	}
 }
 
@@ -1006,9 +1027,13 @@ func TestInvariantVerificationDecoratedInconclusiveStaysQuiet(t *testing.T) {
 	}
 }
 
-// TestAutoprovePropResolutionLaw pins the resolution rule itself: exact
-// key wins (the bind is exact-match only), a lone fold-equal spelling
-// still attributes, spelling soup attributes NOTHING.
+// TestAutoprovePropResolutionLaw pins the resolution rule itself (r32b F1
+// tightened it): the bind's lookup is EXACT-only, and the audit now runs the
+// very same function — harness.ReportProperty, called by
+// harness.DecideReport — so a fold-equal spelling attributes NOTHING. r26
+// F1's fold fallback (a lone "  P  " attributing to "P") was a lookup the
+// bind never makes, and it is gone: a forged event naming "P1" for a report
+// keyed "p1" now burns instead of re-deriving.
 func TestAutoprovePropResolutionLaw(t *testing.T) {
 	proven := validation.VObj(
 		KV("outcome", validation.VStr("PROVEN")),
@@ -1022,29 +1047,30 @@ func TestAutoprovePropResolutionLaw(t *testing.T) {
 		KV("property_outcomes", validation.VObj(
 			KV("p", viol),
 			KV("P", proven))))
-	got, why := autoproveProp(rep, "P")
-	if why != "" || objStr(got, "outcome") != "PROVEN" {
-		t.Fatalf("exact key must win: %v %v", got, why)
+	got, ok := harness.ReportProperty(rep, "P")
+	if !ok || objStr(got, "outcome") != "PROVEN" {
+		t.Fatalf("exact key must win: %v %v", got, ok)
 	}
-	if got, _ := autoproveProp(rep, "p"); objStr(got, "outcome") !=
-		"VIOLATED" {
-		t.Fatalf("lowercase exact key must win too: %v", got)
+	if got, ok := harness.ReportProperty(rep, "p"); !ok ||
+		objStr(got, "outcome") != "VIOLATED" {
+		t.Fatalf("lowercase exact key must win too: %v %v", got, ok)
 	}
-	// One fold-equal spelling only: legacy tolerance, still attributed.
+	// One fold-equal spelling only: the bind's fieldOf finds NOTHING here,
+	// so neither may the audit.
 	lone := validation.VObj(
 		KV("property_outcomes", validation.VObj(
 			KV("  P  ", proven))))
-	if got, why := autoproveProp(lone, "P"); why != "" ||
-		objStr(got, "outcome") != "PROVEN" {
-		t.Fatalf("a lone folded spelling must attribute: %v %v", got, why)
+	if got, ok := harness.ReportProperty(lone, "P"); ok {
+		t.Fatalf("a fold-equal spelling must not attribute (the bind is "+
+			"exact-only): %v", got)
 	}
-	// Spelling soup: two fold-equal keys, no exact key — refuse.
+	// Spelling soup: two fold-equal keys, no exact key — nothing either.
 	soup := validation.VObj(
 		KV("property_outcomes", validation.VObj(
 			KV(" p", viol),
 			KV("P ", proven))))
-	if _, why := autoproveProp(soup, "P"); why == "" {
-		t.Fatalf("ambiguous spelling must refuse attribution")
+	if got, ok := harness.ReportProperty(soup, "P"); ok {
+		t.Fatalf("ambiguous spelling must not attribute: %v", got)
 	}
 }
 

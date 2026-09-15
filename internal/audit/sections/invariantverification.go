@@ -58,7 +58,17 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 		if e.Kind != validation.Obj {
 			continue
 		}
-		if line, ok := harnessRunLine(iid, e); ok {
+		line, ok := harnessRunLine(iid, e)
+		// r32b F3: harnessRunLine returns ok=false for a slot that STATES
+		// a rung while kind or exec is blank — and BOTH backing checks
+		// used to live inside `if ok`, so ONE empty string dropped the
+		// invariant with no line and NO problem ("audit PASS"). Only a run
+		// with no rung at all may be skipped silently; every other
+		// required-field blank burns, naming the field.
+		if burn := harnessSlotShapeBurn(iid, e); burn != "" {
+			problems = append(problems, validation.VStr(burn))
+		}
+		if ok {
 			// r26 D4: the display line and the burn are ONE observation.
 			// This section can refuse to back a blessing (a pruned
 			// REPORT row, a deleted EXEC) while still printing the
@@ -146,6 +156,46 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 		out = append(out, KV("harness_runs", validation.VArr(runs...)))
 	}
 	return validation.VObj(out...), nil
+}
+
+// harnessSlotShapeBurn is r32b F3: the burn for a stored harness object
+// that STATES a rung while a required field is blank. harnessRunLine
+// returns ok=false for that shape (it cannot render a line), and both
+// backing checks live under `if ok` — so before this, blanking ONE field
+// (reproduced with exec="") silently dropped the invariant: no line, no
+// problem, "audit PASS".
+//
+// The rule is the finding's, verbatim: only a run with NO rung at all may
+// be skipped silently (the rung IS the claim; without it there is nothing
+// to back). A stated rung with a blank required field is a shape no mapper
+// writes — every bind writes kind, rung and exec together (cli.harnessField,
+// autoproveEventData) — so it is a hand edit or a half-landed write, and it
+// must burn naming the field that is missing. Returns "" when there is
+// nothing to read (no harness object) or nothing claimed (no rung).
+func harnessSlotShapeBurn(iid string, e validation.Value) string {
+	h := objAt(objAt(e, "verification"), "harness")
+	if h.Kind != validation.Obj {
+		return "" // no harness object: no run, nothing to back
+	}
+	rung := objStr(h, "rung")
+	if rung == "" {
+		return "" // no rung at all: the sanctioned silent skip
+	}
+	missing := []string{}
+	for _, key := range []string{"kind", "exec"} {
+		if objStr(h, key) == "" {
+			missing = append(missing, key)
+		}
+	}
+	if len(missing) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%s: the stored harness object states rung %s but "+
+		"carries no %s — the bind writes kind, rung and exec together, so "+
+		"no mapper produced this slot (hand edit or a half-landed write); "+
+		"a rung with a blank required field is not a run this section can "+
+		"read, and it is not backed", iid, validation.PyReprStr(rung),
+		strings.Join(missing, " and "))
 }
 
 // harnessRunLine renders one invariant's verification.harness rung as the
@@ -297,6 +347,21 @@ func harnessRungBacked(events []validation.Value, iid string,
 				return fmt.Sprintf("%s: the last harness_run event names "+
 					"no rung for the stored %s — the slot is unbacked", iid,
 					validation.PyReprStr(want))
+			}
+			// r32b F3's adjacent arm: the same field-level blank in the
+			// EVENT side of `kind`. The slot's kind is what the display
+			// line prints as the run's provenance ("INV-1: PROVEN-BOUNDED
+			// (minicertora, …)") and what harnessEvidenceRecheck selects
+			// the mapper by, so an event that carries NO kind cannot back
+			// that render — no mapper writes a kindless event (the pre-r22
+			// payload remark above predates the kind-keyed rails), so the
+			// only shapes here are a hand edit and a half-land.
+			if key == "kind" && want != "" && got == "" {
+				return fmt.Sprintf("%s: the last harness_run event names "+
+					"no kind for the stored rung %s — the slot's kind is "+
+					"the run's provenance and no event carries it; the "+
+					"slot is unbacked", iid,
+					validation.PyReprStr(objStr(h, "rung")))
 			}
 			continue
 		}
@@ -726,7 +791,29 @@ func recheckRegistryEvidence(c *state.Campaign, iid string,
 	last validation.Value) string {
 	dig := objStr(last, "report_sha256")
 	if dig == "" {
-		return "" // pre-r23 autoprove event; refresh will pin it
+		// r32b F2: r23's report_sha256 is the pin that makes a report rung
+		// checkable at all — the digest names the bytes this bind mapped
+		// and the campaign store holds them. The old `return ""` here
+		// ("pre-r23 autoprove event; refresh will pin it") was a carve-out
+		// in NO doc and reachable by deleting ONE field: no registry
+		// lookup happened, no re-derivation ran, and the run still
+		// displayed as an UNQUALIFIED blessing ("INV-1: PROVEN-BOUNDED
+		// (miniprover, k=4, REPORT-…)") with nothing to say those bytes
+		// exist nowhere.
+		//
+		// There is no carve-out left, and none is needed: this arm is
+		// reached only when the event's exec is REPORT-<digest> or the
+		// slot kind is the report kind (harnessEvidenceRecheck), so every
+		// shape arriving here IS a report run, and cli.verifyAutoprove
+		// writes report_sha256 on every event it lands — a report
+		// provenance without a digest is a shape no bind produced.
+		// Absence is inconclusive, never a blessing.
+		return fmt.Sprintf("%s: the last harness_run event names report "+
+			"provenance (%s, rung %s) but pins no report_sha256 — the "+
+			"bytes it blessed are named nowhere, so the mapping cannot be "+
+			"re-derived from them; the rung is not backed", iid,
+			validation.PyReprStr(objStr(last, "exec")),
+			validation.PyReprStr(objStr(last, "rung")))
 	}
 	st, err := c.State()
 	if err != nil {
@@ -761,24 +848,25 @@ func recheckRegistryEvidence(c *state.Campaign, iid string,
 			"(%v) — the store does not hold what the bind named", iid,
 			perr)
 	}
-	prop, why := autoproveProp(rep, objStr(last, "property"))
-	if why != "" {
-		return fmt.Sprintf("%s: %s", iid, why)
+	// r32b F1: the SAME decision entry point the bind runs, over the SAME
+	// inputs — the pinned copy's bytes, the property name the event binds,
+	// and the flags inside those bytes. harness.DecideReport owns the five
+	// run-level gates (publish_problems' shape and emptiness, published,
+	// review_error, the review_findings SHAPE, SUSPECT attribution), the
+	// EXACT property lookup (ReportProperty — the bind's own rule, no fold
+	// fallback) and the typed bound, and it ends in harness.MapReport.
+	// Before this the audit re-derived only rung/summary/bounded_k, so a
+	// chain-valid report copy whose ONLY difference was a SUSPECT finding
+	// (or published:false) audited green over bytes a fresh bind refuses
+	// with exit 2.
+	dec := harness.DecideReport(rep, objStr(last, "property"))
+	if dec.Gate != harness.GateNone {
+		return fmt.Sprintf("%s: the pinned report bytes fail the bind's "+
+			"%s gate (%s) — a fresh bind of these very bytes is refused, "+
+			"so no mapper produced this event; the rung is not backed",
+			iid, dec.Gate, strings.TrimRight(dec.Refusal, "\n"))
 	}
-	if prop.Kind != validation.Obj {
-		return fmt.Sprintf("%s: the pinned report does not attempt the "+
-			"property the event binds (%s) — provenance and evidence "+
-			"disagree", iid, validation.PyReprStr(
-			objStr(last, "property")))
-	}
-	k, kStated, kOK, _ := harness.BoundFromFlags(objAt(rep, "flags"))
-	if !kOK {
-		return fmt.Sprintf("%s: the pinned report carries a degenerate "+
-			"bound the mapper would refuse — those bytes cannot have "+
-			"produced this event", iid)
-	}
-	rung, summary, bk := harness.MapReport(objStr(prop, "outcome"),
-		objAt(prop, "per_rule"), k, kStated)
+	rung, summary, bk := dec.Rung, dec.Summary, dec.BoundedK
 	if want := objStr(last, "rung"); want != rung {
 		return fmt.Sprintf("%s: the pinned report re-derives to rung "+
 			"%s; the event claims %s — the mapping did not come from "+
@@ -803,44 +891,12 @@ func recheckRegistryEvidence(c *state.Campaign, iid string,
 	return ""
 }
 
-// autoproveProp resolves the bound property the way the BIND does:
-// cli.fieldOf is an EXACT key lookup, so an exact hit wins outright.
-// The fold fallback survives only for a SINGLE fold-equal key (legacy
-// spelling); a report carrying several fold-equal keys and no exact hit
-// pins no attributable truth, and the auditor must refuse rather than
-// pick — r26 F1: the original fold-FIRST-HIT read a different truth
-// than the bind had and burned an honest rung (the very
-// bind==audit-derivation claim r25 F2 made). Returns a refusal reason
-// when the property cannot be attributed at all.
-func autoproveProp(rep validation.Value, name string) (validation.Value,
-	string) {
-	po := objAt(rep, "property_outcomes")
-	if po.Kind != validation.Obj {
-		return validation.VNull(), ""
-	}
-	for _, kv := range po.O {
-		if kv.K == name {
-			return kv.V, ""
-		}
-	}
-	var hit validation.Value
-	n := 0
-	for _, kv := range po.O {
-		if strings.EqualFold(strings.TrimSpace(kv.K),
-			strings.TrimSpace(name)) {
-			hit = kv.V
-			n++
-		}
-	}
-	if n > 1 {
-		return validation.VNull(), fmt.Sprintf("the pinned report carries "+
-			"%d fold-equal spellings of the bound property %s and no "+
-			"exact key — no single truth is attributable (the bind is "+
-			"exact-match only, so this event cannot be reproduced from "+
-			"these bytes)", n, validation.PyReprStr(name))
-	}
-	return hit, ""
-}
+// autoproveProp was r26 F1's EXACT-first resolution with a single
+// fold-equal fallback. r32b F1 deleted it: the fallback is a lookup the
+// bind never makes (cli.fieldOf is exact-only), so a forged event naming
+// "P1" for a report keyed "p1" re-derived a mapping the bind refuses. The
+// one lookup now lives in harness.ReportProperty, called by
+// harness.DecideReport, which both the bind and this section run.
 
 // recheckMapRunEvidence extends the read-time law to halmos/forge-fuzz
 // (r25 F1: the kind-skip arm was E5's open door — a chain-valid forged
@@ -986,17 +1042,24 @@ func recheckInconclusive(c *state.Campaign, events []validation.Value,
 	if !wantOK {
 		return "" // the pair renders no advice: nothing to fabricate
 	}
-	if harness.RecordTimedOut(rec) {
-		// A run that never completed can only be the runtime floor: any
-		// OTHER named class is fabricated over a process that was
-		// killed (by law its partial bytes map to no verdict).
-		if wantCls != harness.EscalateRuntime {
-			return fmt.Sprintf("%s: exec %s never completed (exit %d) "+
-				"and its bytes re-derive the runtime floor; the bound "+
-				"pair claims advice class %q — a disposition no run of "+
-				"these bytes can carry", iid, exec, es, wantCls)
-		}
-		return ""
+	if harness.RecordTimedOut(rec) && gotCls == harness.EscalateRuntime &&
+		wantCls != harness.EscalateRuntime {
+		// A run that never completed, whose bytes re-derive the runtime
+		// floor: any OTHER named class is fabricated over a process that
+		// was killed (by law its partial bytes map to no verdict).
+		//
+		// r32 F3: the arm keys on the class the BYTES re-derive, not on
+		// the timeout alone. A flooring invocation bound floors on the
+		// timeout path too (same predicate as everywhere else), so a
+		// timed-out run of a degenerate command re-derives
+		// `degenerate-bound` and its stored pair may legitimately carry
+		// that class — the old arm burned exactly that honest pair while
+		// the generic comparison below already catches any real
+		// divergence.
+		return fmt.Sprintf("%s: exec %s never completed (exit %d) "+
+			"and its bytes re-derive the runtime floor; the bound "+
+			"pair claims advice class %q — a disposition no run of "+
+			"these bytes can carry", iid, exec, es, wantCls)
 	}
 	if !gotOK {
 		// No named disposition in the bytes (plumbing floor), yet the

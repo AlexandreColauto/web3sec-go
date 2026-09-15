@@ -1,5 +1,45 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — r32 (two b-ai critics): three tools, one parser; and five gates the audit never read
+
+Two critics attacked in parallel for the first time — one devoted to the invocation lexer with 286 differentially-tested
+command shapes against /bin/sh, the real binaries and the twin, the other to every remaining surface. Both found P1s, and
+both were the same species of mistake as the rounds before: a decision made in one place and not re-derived in the other,
+or a fact about the world that the code assumed rather than measured.
+
+The lexer critic's first finding was that "shell-then-click faithful" was faithful to the wrong tool. The bound flag was
+parsed with PYTHON int() semantics for all three kinds, but forge is Rust/clap: it rejects `4_000`, Arabic-Indic digits,
+`500\r` and anything above u32, and it refuses a repeated flag — every one of which the ledger happily recorded as a
+number (k=4000, k=4, k=500, k=4294967296, k=7) with a green audit, for invocations under which no forge process exists.
+Second: the flag FAMILIES are per tool — `forge test --loop 3` bound k=3 for a forge run (forge: "unexpected argument
+'--loop' found"), and the same for halmos given forge's flag and minicertora given forge's flag; the existing guard only
+noticed two of the known flags together. The parse is now kind-aware, with each tool's own accepted forms and its own
+flag names, and anything the tool would refuse floors the run. Third: a `command` that was not a string at all (an argv
+ARRAY, or a number) read as an ABSENT command, so a stated-and-degenerate invocation was blessed as `bound UNSTATED` —
+the same asymmetry the exit-status arm had been hardened against in r28b. Fourth: the timeout arm returned its summary
+BEFORE the floor check and printed the invocation BOUND as a duration ("timeout after -1s" for a 0.77 s record; "timeout
+after 4s" where the flag was --fuzz-runs 4), losing the escalation class on the minicertora path as well.
+
+The second critic went after the report rung. The bind decides whether a report may bless an invariant through five gates
+— published, publish_problems, review_error, the review_findings shape, and SUSPECT attribution — and all five lived only
+in the cli: §11 re-derived rung, summary and bounded_k and nothing else, so a forged campaign whose pinned copy differed
+from a blessed one by a single SUSPECT review finding audited GREEN (exit 0, "invariant_verification=0 problem(s)") while
+a fresh bind of those very bytes exits 2 with "the independent review flagged property p1 as SUSPECT — rule is vacuous".
+The same critic showed the audit treating an ABSENT evidence pin as a blessing: delete `report_sha256` from the event,
+reseal the chain, prune the row and delete every copy, and the human output still printed `PROVEN-BOUNDED (… REPORT-…)`
+unqualified, though nothing in the campaign held those bytes. And a third: `harnessRunLine` returned early unless kind,
+rung and exec were ALL non-empty, so blanking `exec` dropped the invariant with no line and no problem at all.
+
+All of it is fixed: the five gates moved into package harness behind `harness.DecideReport`, which is what both the bind
+and §11 now call; the audit's fold-equal property fallback was deleted so both sides use the bind's exact-match rule; an
+absent pin burns rather than blessing silently; a stated rung with a blank required field burns naming the field; the
+timeout arm no longer prints a bound as seconds and no longer loses the floor's class; and the invocation parse is
+per-tool (with the flags each tool actually has). Three stale pins and fixtures had to move with the semantics, and each
+one is recorded here rather than quietly re-baselined: `TestInvocationBoundFlags` (the two cross-family rows now floor —
+minicertora has no `--loop`), the prune fixture (a report the bind would refuse is no longer a valid "honest bind"
+fixture), and the timeout advice rail (it keyed on the timeout alone, which now legitimately carries a flooring class).
+Pinned across both packages; gofmt/go vet clean, 70/70 packages, runbook-walkthrough and golden GREEN.
+
 ## 2026-09-14 — r31 (b-ai critic): one character after `$`, and a suite that was blind to the whole family
 
 F1 (P1) was a single line with five consequences. expansionSpan returned the two runes after any `$`, so the character

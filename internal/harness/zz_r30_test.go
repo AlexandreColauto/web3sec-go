@@ -381,22 +381,43 @@ func TestR30AdjacentNdBlocksDecodeHonestly(t *testing.T) {
 	//	                            impossible, so the invoked bound floors
 	//	int(chr(0x1D7D9)) == 1   -> an honest k=1
 	//	int(ten double-struck digits) == 123456789
+	//
+	// r32 F1: these are the TWIN's answers, so they are pinned against the
+	// twin's command line (miniprover/minicertora), not forge's. forge
+	// 1.8.1 is Rust/clap and refuses every non-ASCII digit outright:
+	// OBSERVED `forge test --fuzz-runs ٤٢` -> "error: invalid value '٤٢'
+	// for '--fuzz-runs <RUNS>': invalid digit found in string" (exit 2).
+	// The rows below therefore keep the Nd-decoding evidence on the tool
+	// that has it, and pin forge's floor next to it.
 	zero, one := string(rune(0x1D7D8)), string(rune(0x1D7D9))
-	if got := InvocationBound("forge test --fuzz-runs " + zero); got !=
+	if got := InvocationBound("miniprover run --loop-bound " + zero); got !=
 		BoundDegenerate {
 		t.Fatalf("U+1D7D8 is the digit 0, which the twin raises for: "+
 			"got %d (the r29 walk-down read 9 and blessed it)", got)
 	}
-	if got := InvocationBound("forge test --fuzz-runs " + one); got != 1 {
+	if got := InvocationBound("miniprover run --loop-bound " + one); got !=
+		1 {
 		t.Fatalf("U+1D7D9 is the digit 1, an honest k=1: got %d", got)
 	}
 	ten := ""
 	for d := rune(0); d <= 9; d++ {
 		ten += string(rune(0x1D7E2) + d)
 	}
-	if got := InvocationBound("forge test --fuzz-runs " + ten); got !=
+	if got := InvocationBound("miniprover run --loop-bound " + ten); got !=
 		123456789 {
 		t.Fatalf("ten sans-serif digits are 123456789: got %d", got)
+	}
+	for _, form := range []string{
+		"forge test --fuzz-runs ",
+		"forge test --fuzz-runs=",
+	} {
+		for _, v := range []string{zero, one, ten} {
+			if got := InvocationBound(form + v); got != BoundDegenerate {
+				t.Fatalf("forge's u32 parser accepts no Nd digit: "+
+					"InvocationBound(%q) = %d, want BoundDegenerate",
+					form+v, got)
+			}
+		}
 	}
 	// A digit rune the table does not cover stays unparseable: the
 	// superscript two is a digit to str.isdigit() but int("²") raises, so

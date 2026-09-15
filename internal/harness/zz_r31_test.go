@@ -584,6 +584,20 @@ func reflect_Equal(got, want []string) bool {
 // UNSTATED)" with a null bounded_k while the tool really ran under
 // 9223372036854775807.
 //
+// r32 F1 splits the FORMS this table used to apply uniformly. The rule
+// ("in int64 exactly, saturating beyond it") is the TWIN's, because Python
+// ints are arbitrary precision — so it is pinned against halmos's and
+// minicertora's command lines. forge's --fuzz-runs is a Rust u32 and the
+// width evidence below floors there instead: OBSERVED
+//
+//	forge test --fuzz-runs 4294967295 -> accepted (u32::MAX)
+//	forge test --fuzz-runs 4294967296 -> Error: failed to extract foundry
+//	                                     config: ... expected u32 for
+//	                                     setting `fuzz.runs`
+//
+// (and every value in this table is wider than u32). Reading MaxInt64 as a
+// stated forge bound was itself the r32 lie.
+//
 // MUTATION (restore `if n > 1<<62 { return 0, fmt.Errorf(...) }` in
 // atoiClamped / the 1<<62 clamp in parseClickInt): the 2^62+1, MaxInt64,
 // MaxInt64+1 and 2^100 rows all report 0 (UNSTATED) instead of their
@@ -610,8 +624,6 @@ func TestR31BoundRangeIsExactToInt64(t *testing.T) {
 			BoundDegenerate},
 	} {
 		for _, form := range []string{
-			"forge test --fuzz-runs ",
-			"forge test --fuzz-runs=",
 			"halmos check --loop ",
 			"halmos check --loop=",
 			"miniprover run --loop-bound ",
@@ -623,6 +635,26 @@ func TestR31BoundRangeIsExactToInt64(t *testing.T) {
 						form+tc.value, got, tc.want)
 				}
 			})
+		}
+		// The same values through forge's parser: refused, because a
+		// u32 cannot hold any of them (r32 F1). Not "unstated", not a
+		// capped bound — an invocation forge answers with a config
+		// error or an invalid-digit error.
+		for _, form := range []string{
+			"forge test --fuzz-runs ",
+			"forge test --fuzz-runs=",
+		} {
+			t.Run(tc.name+" / forge refuses / "+strings.TrimSpace(form),
+				func(t *testing.T) {
+					got := InvocationBoundKind(ForgeFuzz,
+						form+tc.value)
+					if got != BoundDegenerate ||
+						!BoundFloors(got) {
+						t.Fatalf("InvocationBoundKind(forge-fuzz, %q) = "+
+							"%d, want the floor (%d)", form+tc.value,
+							got, BoundDegenerate)
+					}
+				})
 		}
 	}
 	// Parse level, so the failure names the reader rather than the
@@ -658,15 +690,23 @@ func TestR31BoundRangeIsExactToInt64(t *testing.T) {
 // MUTATION (restore the r28 intOverflowPositive arm, `return 0, ""`): the
 // MaxInt64 row renders "proved bounded (bound UNSTATED)" with a nil
 // bounded_k, and the widened row does the same.
+//
+// r32 F1: the rows run over HALMOS's command line (--loop), because that
+// is a tool whose int is unbounded AND whose invocation bound is what the
+// summary renders (MapRun's bounded-flag arm). forge's --fuzz-runs is a
+// Rust u32 and REFUSES every value here (OBSERVED: "expected u32 for
+// setting `fuzz.runs`"), which the control at the end pins so the capped
+// arm can never quietly migrate back to forge.
 func TestR31StatedBoundIsNeverRenderedUnstated(t *testing.T) {
 	const max = "9223372036854775807"
-	cmd := "forge test --fuzz-runs " + max
+	cmd := "halmos check --loop " + max
 	k := InvocationBound(cmd)
 	if k != math.MaxInt64 {
 		t.Fatalf("InvocationBound(%q) = %d, want MaxInt64", cmd, k)
 	}
-	rung, summary, _, bk := DecideBound(ForgeFuzz, validation.VNull(),
-		[]byte(forgePass), r31ExecRecord(cmd), nil, false, k, 0, "INV-1")
+	rung, summary, _, bk := DecideBound(Halmos, rdInv("x"),
+		[]byte(halmosProvedFlag), r31ExecRecord(cmd), nil, false, k, 0,
+		"INV-1")
 	if rung != RungProvedBounded {
 		t.Fatalf("a stated MaxInt64 bound must bind: %q %q", rung, summary)
 	}
@@ -680,14 +720,15 @@ func TestR31StatedBoundIsNeverRenderedUnstated(t *testing.T) {
 	}
 	// Beyond int64: the same saturating stand-in, said as a lower bound.
 	const wide = "99999999999999999999999999"
-	wk := InvocationBound("forge test --fuzz-runs " + wide)
+	wideCmd := "halmos check --loop " + wide
+	wk := InvocationBound(wideCmd)
 	if wk != BoundCapped || BoundFloors(wk) {
 		t.Fatalf("a bound wider than int64 is STATED (capped), not a "+
 			"floor: %d floors=%v", wk, BoundFloors(wk))
 	}
-	wRung, wSummary, _, wBK := DecideBound(ForgeFuzz, validation.VNull(),
-		[]byte(forgePass), r31ExecRecord("forge test --fuzz-runs "+wide),
-		nil, false, wk, 0, "INV-1")
+	wRung, wSummary, _, wBK := DecideBound(Halmos, rdInv("x"),
+		[]byte(halmosProvedFlag), r31ExecRecord(wideCmd), nil, false,
+		wk, 0, "INV-1")
 	if wRung != RungProvedBounded || wBK == nil || *wBK != math.MaxInt64 {
 		t.Fatalf("capped record = %q %q %v, want proved-bounded with "+
 			"bounded_k %d", wRung, wSummary, wBK, math.MaxInt64)
@@ -698,6 +739,24 @@ func TestR31StatedBoundIsNeverRenderedUnstated(t *testing.T) {
 	}
 	if strings.Contains(wSummary, "UNSTATED") {
 		t.Fatalf("a capped bound is stated: %q", wSummary)
+	}
+	// forge, the same two values: REFUSED (u32), never capped. The
+	// OBSERVED refusal is "foundry config error: invalid value unsigned
+	// int `4294967296`, expected u32 for setting `fuzz.runs`"; a wider
+	// value is refused at the same layer.
+	for _, v := range []string{max, wide} {
+		fcmd := "forge test --fuzz-runs " + v
+		if got := InvocationBoundKind(ForgeFuzz, fcmd); !BoundFloors(got) {
+			t.Fatalf("forge must refuse %q (u32), got %d", fcmd, got)
+		}
+		fRung, fSummary, _, fBK := DecideBound(ForgeFuzz,
+			validation.VNull(), []byte(forgePass), r31ExecRecord(fcmd),
+			nil, false, InvocationBoundKind(ForgeFuzz, fcmd), 0, "INV-1")
+		if fRung != RungInconclusive || fBK != nil ||
+			!strings.Contains(fSummary, "expected u32") {
+			t.Fatalf("forge %q = %q %q %v, want an inconclusive floor "+
+				"naming the u32 refusal", v, fRung, fSummary, fBK)
+		}
 	}
 	// The halmos marker half: the output's own k=<n> is the run's
 	// statement, so a marker past int64 saturates identically.

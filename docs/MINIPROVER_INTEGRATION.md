@@ -270,7 +270,8 @@ time, from the artifacts the event names:
   mutually-consistent JSON files.
 * `REPORT-*` provenance (autoprove): the pinned `report_sha256` must
   exist as a registry digest **and** those bytes are re-decided through
-  `harness.BoundFromFlags` + `harness.MapReport` — the very functions
+  `harness.DecideReport` (which calls `harness.BoundFromFlags` and
+`harness.MapReport`, so the report rung's gates are re-derived too) — the very functions
   `verify --autoprove` now calls at bind time (r25 F2: ownership was
   paperwork; a forged pair over honest registry bytes still has to
   reproduce rung, summary and bound). The bind stores a
@@ -313,6 +314,17 @@ a foreign sha still refuses. When a record carries a harness-file hash
 but the scaffold bytes are gone, the burn says exactly that — it no
 longer claims the record's stdout/stderr digests were 'bound to' the
 scaffold.
+
+The invocation parse is PER-TOOL since r32: a bound flag is read with the
+semantics of the CLI that would have received it, because the three tools
+are three different command-line parsers. forge is Rust/clap — ASCII
+digits only, no underscores, no sign, must fit u32, and its flag may not
+repeat — while minicertora and halmos are Python. A value the tool would
+reject cannot be read as a number, and a bound flag belonging to another
+tool's family floors the run, because the tool has no such option (the
+r30 round's Python-int reading let `forge test --fuzz-runs 4_000` record
+k=4000 for an invocation forge refuses outright, and let a lone
+`--loop 3` bind a forge run).
 
 The invocation parse is shell-then-click faithful since r29. The
 recorded command is lexed the way a shell would split it: quotes (single

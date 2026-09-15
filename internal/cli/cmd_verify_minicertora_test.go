@@ -750,9 +750,12 @@ func TestInvocationBoundFlags(t *testing.T) {
 		want    int
 	}{
 		{"--loop-bound 8", 8},
-		{"--loop 100", 100},
+		// r32 F2: the flag families are per-tool. minicertora's click has
+		// no --loop and no --fuzz-runs (`No such option`), so a lone
+		// foreign bound flag is an invocation the tool refuses -> floor.
+		{"--loop 100", -1}, // harness.BoundDegenerate
 		{"--loop-bound=8", 8},
-		{"--fuzz-runs 200", 200},
+		{"--fuzz-runs 200", -1}, // harness.BoundDegenerate
 		{"--loopx 5", 0},
 	} {
 		if got := invocationBound(tc.command, "minicertora"); got != tc.want {

@@ -405,18 +405,31 @@ func TestR29BoundFloorsIsTheOneQuestion(t *testing.T) {
 		t.Fatalf("class-only floor must dispose: %q %q %v", summary,
 			cls, ok)
 	}
-	// A readable command carries no construct, floors included: the
-	// reason channel must not invent one.
+	// A readable command that names no FOREIGN bound flag carries no
+	// construct, floors included: the reason channel must not invent one.
+	//
+	// r32 F2 moved the last row out of this list: `--loop-bound 4
+	// --fuzz-runs 7` IS readable, and it is now refused WITH a reason —
+	// minicertora has no --fuzz-runs, so naming the flag and the tool is
+	// the honest floor (OBSERVED: `minicertora --fuzz-runs 200 a.sol
+	// a.mspec` -> "Error: No such option '--fuzz-runs'.").
 	for _, cmd := range []string{
 		"miniprover run --loop-bound 4",
 		"miniprover run --loop-bound 0",
 		"miniprover run --loop-bound 4.5",
-		"miniprover run --loop-bound 4 --fuzz-runs 7",
 		"",
 	} {
 		if k, why := InvocationBoundReason(cmd); why != "" {
 			t.Fatalf("readable command %q reports construct %q (k=%d)",
 				cmd, why, k)
 		}
+	}
+	if k, why := InvocationBoundReason(
+		"miniprover run --loop-bound 4 --fuzz-runs 7"); k !=
+		BoundDegenerate || !BoundFloors(k) {
+		t.Fatalf("a foreign bound flag must floor: (%d, %q)", k, why)
+	} else if !strings.Contains(why, "--fuzz-runs") ||
+		!strings.Contains(why, "minicertora") {
+		t.Fatalf("the refusal must name the flag and the tool: %q", why)
 	}
 }

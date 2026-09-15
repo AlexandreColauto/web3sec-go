@@ -21,6 +21,7 @@ package harness
 import (
 	"fmt"
 	"math"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -130,14 +131,27 @@ func boundClause(k int) string {
 // boundFloorSummary is the one-line reason a floored invocation carries.
 // The "degenerate-bound" prefix is load-bearing: disposition.go
 // classifies it (EscalateBound), and a distinct second wording class here
-// would silently drop that advice. An unreadable invocation appends the
-// construct that stopped the parse, so the summary names the exact
-// observed state instead of only the class.
+// would silently drop that advice. It is the ONE wording home for every
+// floor — MapRun, MapMinicertoraInvoc and the minicertora timeout arm all
+// call it — so the label can never drift between the arms.
+//
+// Two labels, one class. "invocation-unreadable" is the r29/r30 vocabulary
+// for a command the parse could not read faithfully (the construct is
+// appended); "invocation-refused" is the r32 F1/F2 vocabulary for an
+// invocation the parse READ, whose own tool would refuse it — a value the
+// tool's argument parser rejects, or a bound flag another tool family
+// owns. Both are the same floor class and the same predicate
+// (BoundFloors); only the sentence differs, because an unreadable command
+// and a refused one are different observations and the summary must not
+// claim either it did not make.
 func boundFloorSummary(k int, unreadable ...string) string {
 	const prefix = "inconclusive (degenerate-bound: "
 	why := ""
 	if len(unreadable) > 0 {
 		why = oneLine(unreadable[0], maxConstruct)
+	}
+	if why != "" && k == BoundDegenerate {
+		return prefix + "invocation-refused: " + why + ")"
 	}
 	if k == BoundUnreadable || why != "" {
 		if why == "" {
@@ -165,13 +179,13 @@ func oneLine(s string, n int) string {
 }
 
 // MapRun maps raw runner output to (rung, summary). kind selects the
-// branch; timedOut forces inconclusive ("timeout after <k>s" — k is the
-// caller-passed bound, never read from the wall); k is the bound the
-// runner was invoked with (forge-fuzz proved-bounded carries it as
-// bounded_k; halmos prefers a parsed k=<n> marker — see BoundK). Any
-// FLOORING bound (BoundFloors: a stated bound below 1, or a command the
-// invocation parse could not read at all) floors the run whatever the
-// output says: no rung rides a bound no tool would have executed under.
+// branch; timedOut forces inconclusive ("inconclusive (timeout)"); k is
+// the bound the runner was invoked with (forge-fuzz proved-bounded carries
+// it as bounded_k; halmos prefers a parsed k=<n> marker — see BoundK). Any
+// FLOORING bound (BoundFloors: a stated bound below 1, a value the tool's
+// own parser refuses, or a command the invocation parse could not read at
+// all) floors the run whatever the output says AND whatever the timeout
+// says: no rung rides a bound no tool would have executed under.
 //
 // The optional unreadable argument is InvocationBoundReason's construct
 // detail, so a caller that holds the command can make the stored floor
@@ -182,14 +196,24 @@ func oneLine(s string, n int) string {
 // way the summary keeps the "degenerate-bound" prefix disposition.go
 // classifies as EscalateBound — a second wording class in that position
 // would silently drop the advice (r29 F4).
+//
+// r32 F3: the timeout arm used to run BEFORE the floor test and print the
+// BOUND as a duration ("timeout after 4s" for a run invoked with
+// --fuzz-runs 4, "timeout after -1s" for --fuzz-runs 0), so a killed run
+// both escaped the floor and stated a number that was never a number of
+// seconds. Now the FLOOR decides first (same predicate, same class), and
+// the timeout summary carries NO number at all: this call site has no
+// record and therefore no elapsed wall-clock to report, and substituting
+// the bound is exactly the lie. A caller that can read real seconds must
+// render them itself rather than hand MapRun a bound to print.
 func MapRun(kind Kind, out []byte, timedOut bool, k int,
 	unreadable ...string) (rung string, summary string) {
 	text := string(out)
 	if timedOut {
-		// boundText, not %d: a capped bound (r31 F2) must not print as
-		// the negative sentinel nor as a smaller exact number.
-		return RungInconclusive,
-			fmt.Sprintf("timeout after %ss", boundText(k))
+		if BoundFloors(k) {
+			return RungInconclusive, boundFloorSummary(k, unreadable...)
+		}
+		return RungInconclusive, "inconclusive (timeout)"
 	}
 	if BoundFloors(k) {
 		return RungInconclusive, boundFloorSummary(k, unreadable...)
@@ -515,14 +539,18 @@ func TimedOutBit(exitStatus int) bool {
 // possible, and two of them floor (BoundFloors):
 //
 //	0                 the invocation named no bound (UNSTATED, not zero)
-//	N >= 1            the value click would have bound (MaxInt64 included)
+//	N >= 1            the value the owning tool's parser bound (MaxInt64
+//	                  included, for the two Python tools)
 //	BoundCapped       the invocation stated a bound WIDER than int64;
 //	                  a stated bound, so it does NOT floor, and its
-//	                  summary renders a lower bound (r31 F2)
+//	                  summary renders a lower bound (r31 F2). Reachable
+//	                  only through Python's bignums: forge's u32 refuses
+//	                  such a value outright (r32 F1)
 //	BoundDegenerate   the invocation states a bound no tool would have
-//	                  executed under (a value below 1, a value that is
-//	                  not a Python int, a flag with no value at all, or
-//	                  two different tools' bound flags in one command)
+//	                  executed under (a value below 1, a value the owning
+//	                  parser refuses, a repeated --fuzz-runs, a flag with
+//	                  no value at all, or two different tools' bound
+//	                  flags in one command)
 //	BoundUnreadable   the command string cannot be lexed faithfully at
 //	                  all, or its option arity is underivable (see
 //	                  InvocationBoundReason for the construct)
@@ -537,11 +565,13 @@ func TimedOutBit(exitStatus int) bool {
 // match was evidence for a run the twin refuses to make. LAST occurrence
 // decides, exactly as click does: a degenerate flag last floors the whole
 // invocation even after an honest one, while a degenerate flag followed by
-// an honest one does not floor.
+// an honest one does not floor. r32 F1 narrows that rule to the tools it
+// is true of: click and argparse bind last-wins, clap does not, so a
+// repeated --fuzz-runs floors.
 //
 // r29 F4: it is SHELL-SHAPED first. The input is the recorded COMMAND
 // STRING, not an argv, so the parse lexes it the way a POSIX shell would
-// split it (lexCommand) and only then binds options the way click would
+// split it (lexCommand) and only then binds options the way the tool would
 // (boundFromArgv). The old regex scanned the raw text, which read a
 // `#`-comment's flag as the real one, read the flag out of a QUOTED
 // argument (where click sees one positional), read a value across a `--`
@@ -550,9 +580,48 @@ func TimedOutBit(exitStatus int) bool {
 // empty / missing values, which the twin refuses outright. Flags that the
 // lexer cannot place are no longer guessed: the parse reports
 // BoundUnreadable and the run floors.
+//
+// r32 F1/F2: it is TOOL-SHAPED too, and this kind-free entry point has no
+// kind to shape it with — it derives the tool from the command itself (the
+// program name argv[0], else the single bound-flag family the command
+// names). Callers that hold the harness kind (the bind) must use
+// InvocationBoundKind so the value semantics are the owning tool's.
 func InvocationBound(command string) int {
 	k, _ := InvocationBoundReason(command)
 	return k
+}
+
+// InvocationBoundKind is InvocationBound for a caller that KNOWS the
+// harness kind (r32 F1/F2). The kind decides which tool's command line the
+// record's command must be read with, and the three tools do not agree:
+//
+//   - forge (forge-fuzz) is Rust/clap over foundry's config: --fuzz-runs
+//     takes ASCII digits only, at most u32, at least 1, and the flag may
+//     not repeat;
+//   - halmos and minicertora are Python CLIs (argparse / click), whose
+//     type=int is Python's int(): surrounding whitespace, a sign,
+//     underscores between digits and any Nd digit are all values, and a
+//     repeated flag is last-wins.
+//
+// The cli's wrapper used to take this kind and throw it away (`_ = kind`),
+// so ONE Python-flavoured parse was applied to all three and real forge
+// rejections ("--fuzz-runs 4_000" -> "invalid digit found in string")
+// still blessed a bound no forge ever ran under. This is that wrapper's
+// parse, with the kind kept.
+func InvocationBoundKind(kind Kind, command string) int {
+	k, _ := InvocationBoundKindReason(kind, command)
+	return k
+}
+
+// InvocationBoundKindReason is InvocationBoundKind plus the construct or
+// refusal that made the invocation unusable ("" for every invocation the
+// tool would accept, including the ones that name no bound).
+func InvocationBoundKindReason(kind Kind, command string) (int, string) {
+	toks, construct := lexCommand(command)
+	if construct != "" {
+		return BoundUnreadable, construct
+	}
+	return boundFromArgv(toks, kind)
 }
 
 // InvocationBoundReason is InvocationBound plus the construct that made
@@ -562,12 +631,270 @@ func InvocationBound(command string) int {
 // ("invocation-unreadable: unmatched single quote") instead of only the
 // class. The exported InvocationBound keeps its signature — cli and the
 // audit both call it — and delegates here.
+//
+// It is the KIND-FREE reading: with no kind, the tool is derived from the
+// command itself (its argv[0] when that names one of the three tools,
+// else the single bound-flag family it states), which is what section 11's
+// re-derivation can do with the record alone. Callers that know the kind
+// (the bind does: --kind or the scaffold's suffix) must use
+// InvocationBoundKindReason instead, so the value semantics are the owning
+// tool's.
 func InvocationBoundReason(command string) (int, string) {
-	toks, construct := lexCommand(command)
-	if construct != "" {
-		return BoundUnreadable, construct
+	return InvocationBoundKindReason("", command)
+}
+
+// ---------------------------------------------------------------------
+// r32 F1/F2: which tool owns a bound flag, and what each tool's command
+// line actually accepts.
+// ---------------------------------------------------------------------
+
+// invocationTool names the real CLI whose command line a record's command
+// must be, and therefore whose argument parser decides whether the
+// invocation exists at all.
+type invocationTool uint8
+
+const (
+	toolForge invocationTool = iota
+	toolHalmos
+	toolMiniCertora
+)
+
+// String is the program name a floor summary names.
+func (t invocationTool) String() string {
+	switch t {
+	case toolForge:
+		return "forge"
+	case toolHalmos:
+		return "halmos"
 	}
-	return boundFromArgv(toks)
+	return "minicertora"
+}
+
+// boundFlag is the ONE bound flag the tool actually has, VERIFIED against
+// the installed binaries (r32 F2):
+//
+//	forge test --loop 3        -> error: unexpected argument '--loop' found
+//	forge test --loop-bound 3  -> error: unexpected argument '--loop-bound'
+//	halmos --fuzz-runs 500     -> halmos: error: unrecognized arguments:
+//	                              --fuzz-runs 500
+//	minicertora --fuzz-runs 200 a.sol a.mspec -> Error: No such option
+//	                              '--fuzz-runs'.
+func (t invocationTool) boundFlag() string {
+	switch t {
+	case toolForge:
+		return "--fuzz-runs"
+	case toolHalmos:
+		return "--loop"
+	}
+	return "--loop-bound"
+}
+
+// toolForBoundFlag maps a bound flag NAME to its owning tool. ok=false for
+// every other word, so only the three bound-looking names are ever
+// cross-checked: an unrelated unknown option keeps its current behaviour
+// (r32 F2 is deliberately NOT "any unknown option floors").
+func toolForBoundFlag(name string) (invocationTool, bool) {
+	switch name {
+	case "--fuzz-runs":
+		return toolForge, true
+	case "--loop":
+		return toolHalmos, true
+	case "--loop-bound":
+		return toolMiniCertora, true
+	}
+	return 0, false
+}
+
+// toolForKind maps a harness kind to the tool whose command line the
+// record must be. ok=false for a kind with no bound flag of its own — the
+// report-bound kind "miniprover", the empty kind, and every unknown
+// spelling — which keep the kind-free reading.
+func toolForKind(kind Kind) (invocationTool, bool) {
+	switch kind {
+	case ForgeFuzz:
+		return toolForge, true
+	case Halmos:
+		return toolHalmos, true
+	case MiniCertora:
+		return toolMiniCertora, true
+	}
+	return 0, false
+}
+
+// toolForProgram names the tool an argv[0] denotes, by BASENAME: a
+// recorded command may run an absolute path
+// ("/root/.foundry/bin/forge"). It is the fallback the KIND-FREE reader
+// has, and it is what makes `forge test --loop 3` floor for a caller that
+// holds only the command string. The twin answers to two names — the Go
+// kind's MiniCertora and the Python CLI's own "miniprover".
+func toolForProgram(arg0 string) (invocationTool, bool) {
+	switch filepath.Base(arg0) {
+	case "forge":
+		return toolForge, true
+	case "halmos":
+		return toolHalmos, true
+	case "minicertora", "miniprover":
+		return toolMiniCertora, true
+	}
+	return 0, false
+}
+
+// invocationToolOf names the tool whose command line this argv is, in the
+// order the evidence is trusted: the KIND when the caller has one (the
+// harness kind is the bind's own statement about which tool ran), else the
+// program argv[0] names, else the single bound-flag family the command
+// states. ok=false when none of the three exists (an unrecognized program
+// and two families), which leaves the mixed-family rule below to floor.
+func invocationToolOf(toks []shToken, occs []boundFlagOcc,
+	kind Kind) (invocationTool, bool) {
+	if t, ok := toolForKind(kind); ok {
+		return t, true
+	}
+	if len(toks) > 0 && !toks[0].unknown &&
+		!strings.HasPrefix(toks[0].text, "-") {
+		if t, ok := toolForProgram(toks[0].text); ok {
+			return t, true
+		}
+	}
+	first, _ := toolForBoundFlag(occs[0].name)
+	for _, o := range occs[1:] {
+		if t, _ := toolForBoundFlag(o.name); t != first {
+			return 0, false
+		}
+	}
+	return first, true
+}
+
+// toolRefusal is the tool's own wording for an option it does not have,
+// OBSERVED on this box (r32 F2). It rides the floor summary after the flag
+// the tool refuses, so the ledger names both the flag and the observed
+// rejection rather than only a class.
+func toolRefusal(t invocationTool) string {
+	switch t {
+	case toolForge:
+		return "unexpected argument"
+	case toolHalmos:
+		return "unrecognized arguments"
+	}
+	return "No such option"
+}
+
+// forgeMaxRuns is u32's top: foundry's fuzz.runs is a u32 and the config
+// layer refuses anything wider ("foundry config error: invalid value
+// unsigned int `4294967296`, expected u32 for setting `fuzz.runs`").
+const forgeMaxRuns = int64(4294967295)
+
+// parseBoundValue reads a bound flag's value the way the tool that OWNS
+// the flag does, and returns the bound plus the refusal to name when the
+// tool would not have run this invocation at all ("" = accepted).
+//
+// forge (r32 F1) — Rust's u32 FromStr plus foundry's own config check.
+// OBSERVED with the installed forge 1.8.1:
+//
+//	forge test --fuzz-runs 4_000      -> error: invalid value '4_000' for
+//	                                     '--fuzz-runs <RUNS>': invalid digit
+//	                                     found in string              (exit 2)
+//	forge test --fuzz-runs ٤٢         -> same "invalid digit found in string"
+//	forge test --fuzz-runs $'500\r'   -> same "invalid digit found in string"
+//	forge test --fuzz-runs ' 5'       -> same "invalid digit found in string"
+//	forge test --fuzz-runs ''         -> "cannot parse integer from empty
+//	                                     string"
+//	forge test --fuzz-runs +5         -> accepted (u32::from_str takes '+')
+//	forge test --fuzz-runs 0005       -> accepted (5)
+//	forge test --fuzz-runs 4294967295 -> accepted (u32::MAX)
+//	forge test --fuzz-runs 4294967296 -> Error: failed to extract foundry
+//	                                     config: ... expected u32 for
+//	                                     setting `fuzz.runs`          (exit 1)
+//	forge test --fuzz-runs 0          -> foundry config error: `fuzz.runs`
+//	                                     must be greater than 0
+//	forge test --fuzz-runs=-1         -> "invalid digit found in string"
+//
+// So: an optional leading '+' then ASCII digits only — no whitespace, no
+// underscores, no Unicode Nd digit, no '-', and the value must fit u32 and
+// be at least 1. BoundCapped is unreachable here on purpose: a value
+// beyond u32 is one forge REFUSES, not a stated bound too wide for our
+// slot (r31 F2's capped reading held only because the parse assumed every
+// tool spoke Python bignums).
+//
+// Every other family keeps Python's int semantics, which is what click and
+// argparse really do — OBSERVED:
+//
+//	halmos --loop 4_000 / ٤٢ / +5 / 0 / -1 / 4294967296 -> all accepted
+//	halmos --loop 0x10 / 1e3 / ''  -> usage error (exit 2)
+//	halmos --loop 4 --loop 7       -> accepted, last wins (argparse)
+//	minicertora --loop-bound 4_000 a.sol a.mspec -> accepted (click)
+//	minicertora --loop-bound 0x10 a.sol a.mspec  -> Error: Invalid value
+//	                                     for '--loop-bound': '0x10' is not
+//	                                     a valid integer.
+//	minicertora --loop-bound 0 a.sol a.mspec -> {"verdict": "UNKNOWN",
+//	                                     "details": "--loop-bound must be
+//	                                     >= 1, got 0"}
+//	minicertora --loop-bound 4 --loop-bound 0 a.sol a.mspec -> the 0 wins
+//
+// The <1 floor on the Python side is the twin's own rule (the minicertora
+// CLI answers "must be >= 1", and the twin raises in VerifierFlags), which
+// is why a stated 0 still floors rather than binding a proof about nothing
+// (r26 F3).
+func parseBoundValue(tool invocationTool, raw string) (int, string) {
+	if tool == toolForge {
+		return parseForgeRuns(raw)
+	}
+	n, status := parseClickInt(raw)
+	switch status {
+	case intNotAnInt:
+		// click/argparse: "'4.5' is not a valid integer." The
+		// invocation is impossible, so it states no bound any tool ran
+		// under. No reason string: the r26/r27 wording for a stated
+		// degenerate value is pinned byte-for-byte.
+		return BoundDegenerate, ""
+	case intOverflowNegative:
+		return BoundDegenerate, ""
+	case intOverflowPositive:
+		// Python bignums accept this value, so the tool really bound
+		// it (r31 F2: the invocation DID state a bound, and calling it
+		// "unstated" rendered "proved bounded (bound UNSTATED)" with a
+		// null bounded_k). Still no reason: it is accepted, not refused.
+		return BoundCapped, ""
+	}
+	if n < 1 {
+		return BoundDegenerate, ""
+	}
+	return n, ""
+}
+
+// parseForgeRuns reads --fuzz-runs the way forge 1.8.1 does (evidence in
+// parseBoundValue's comment) and names the tool and the observed reason
+// when the value is one forge rejects.
+func parseForgeRuns(raw string) (int, string) {
+	bad := func(reason string) (int, string) {
+		return BoundDegenerate, fmt.Sprintf("forge --fuzz-runs %s: %s",
+			oneLine(raw, 16), reason)
+	}
+	if raw == "" {
+		return bad(`cannot parse integer from empty string`)
+	}
+	i := 0
+	if raw[0] == '+' {
+		i = 1
+	}
+	if i == len(raw) {
+		return bad("invalid digit found in string")
+	}
+	n := int64(0)
+	for ; i < len(raw); i++ {
+		c := raw[i]
+		if c < '0' || c > '9' {
+			return bad("invalid digit found in string")
+		}
+		n = n*10 + int64(c-'0')
+		if n > forgeMaxRuns {
+			return bad("expected u32 for fuzz.runs")
+		}
+	}
+	if n < 1 {
+		return bad("fuzz.runs must be greater than 0")
+	}
+	return int(n), ""
 }
 
 // shToken is one argv element the way a POSIX shell would hand it to the
@@ -586,9 +913,14 @@ type boundFlagOcc struct {
 	has   bool   // a value was present (an inline `=` or a following word)
 }
 
-// boundFromArgv reads the bound out of a lexed argv the way click's parser
-// and the twin's VerifierFlags would, verified against the twin's own
-// click command (miniprover/.venv, click 8.5.0):
+// boundFromArgv reads the bound out of a lexed argv the way the tool that
+// owns the flag would. The KIND (r32 F1) selects that tool: the three
+// harness kinds are three command-line languages, and the value semantics
+// below are per FAMILY, not per kind, so the flag name alone decides which
+// parser reads a value.
+//
+// The twin's own click command (miniprover/.venv, click 8.5.0) and the
+// installed CLIs were both measured:
 //
 //	['--loop-bound','4','--loop-bound','0'] -> 0 (and VerifierFlags raises)
 //	['--loop-bound','+4'] -> 4        ['--loop-bound','4_000'] -> 4000
@@ -599,19 +931,27 @@ type boundFlagOcc struct {
 //	                                      eaten as the first value)
 //	['--loop-bound','4','--','--loop-bound','0'] -> 4 (`--` ends options)
 //	['--loop-bound','4','--fuzz-runs','7'] -> UsageError (no such option)
+//	['--fuzz-runs','4_000'] -> clap error (invalid digit found in string)
+//	['--fuzz-runs','4','--fuzz-runs','7'] -> clap error (cannot be used
+//	                                      multiple times)
 //
 // An option is an argv element whose text is exactly the flag, or
 // `flag=value` (the shell has already removed the quotes, so a QUOTED
 // flag name is still an option while a quoted `'… --loop-bound 99'` is
 // one positional argument and names none). A repeated option binds
-// LAST-WINS. A value click would refuse (not a Python int, or below 1) is
-// a STATED impossible invocation: BoundDegenerate, never "unstated".
+// LAST-WINS — for the two Python tools, which is what their parsers do;
+// forge refuses a repeat outright, because clap does. A value the owning
+// tool refuses (not a Python int, below 1, not a u32 for forge) is a
+// STATED impossible invocation: BoundDegenerate, never "unstated", with
+// the tool and the observed reason named when there is one to name.
 //
 // A command naming two DIFFERENT bound flags is one no tool could have
 // run: halmos owns --loop, minicertora --loop-bound, forge-fuzz
-// --fuzz-runs, and click answers "No such option" for the foreign name.
-// That floors too — it is not last-wins, because there is no single tool
-// whose parameter both occurrences could be.
+// --fuzz-runs, and every tool answers "no such option"/"unexpected
+// argument" for a foreign name. That floors too — it is not last-wins,
+// because there is no single tool whose parameter both occurrences could
+// be. r32 F2: the SAME floor now fires for a LONE foreign flag, which is
+// the shape the old two-flag-only guard missed.
 //
 // r31 F3: the arity of an option whose table this function does not have
 // is no longer guessed at. When an option token is immediately followed by
@@ -649,7 +989,7 @@ type boundFlagOcc struct {
 // positional token that does NOT look like an option cannot move the bound
 // (it is some other option's value or a plain file), which is why only the
 // option-looking pairs above floor.
-func boundFromArgv(toks []shToken) (int, string) {
+func boundFromArgv(toks []shToken, kind Kind) (int, string) {
 	if why := ambiguousOptionArity(toks); why != "" {
 		return BoundUnreadable, "option arity is ambiguous (" + why + ")"
 	}
@@ -721,42 +1061,66 @@ func boundFromArgv(toks []shToken) (int, string) {
 	if len(occs) == 0 {
 		return 0, ""
 	}
+	// r32 F2: a bound-looking flag that ANOTHER family owns is a flag the
+	// tool named by the kind (or by argv[0], for the kind-free reader)
+	// does not have, and its argument parser refuses the whole command:
+	// `forge test --loop 3` -> "error: unexpected argument '--loop'
+	// found", `halmos --fuzz-runs 500` -> "unrecognized arguments",
+	// `minicertora --fuzz-runs 200` -> "No such option". The old guard
+	// fired only when TWO of the known bound flags appeared together, so
+	// a LONE foreign flag bound proved-bounded (forge-fuzz, k=3) for a
+	// run real forge never started. The floor names the flag and the tool
+	// (the one that would refuse), and it stays a FLOOR rather than
+	// last-wins: there is no single tool whose parameter these
+	// occurrences could all be.
+	if want, known := invocationToolOf(toks, occs, kind); known {
+		for _, o := range occs {
+			if owner, bound := toolForBoundFlag(o.name); bound &&
+				owner != want {
+				return BoundDegenerate, want.String() + " has no " +
+					o.name + " option (" + toolRefusal(want) + ")"
+			}
+		}
+	}
 	for _, o := range occs[1:] {
 		if o.name != occs[0].name {
-			// Two tools' bound flags in one command: whatever ran,
-			// click refused one of them, so no execution exists under
+			// Two tools' bound flags in one command, and not even the
+			// program name settles which tool ran: whatever it was,
+			// it refused one of them, so no execution exists under
 			// this invocation to carry a bound.
-			return BoundDegenerate, ""
+			return BoundDegenerate, "two tools' bound flags in one " +
+				"command (" + occs[0].name + " and " + o.name + ")"
 		}
 	}
 	last := occs[len(occs)-1]
+	tool, _ := toolForBoundFlag(last.name)
 	if !last.has {
-		// click: "Option '--loop-bound' requires an argument."
+		// The tool's own rule: click's "Option '--loop-bound' requires an
+		// argument", clap's "a value is required for '--fuzz-runs <RUNS>'
+		// but none was supplied". No value was stated, so the invocation
+		// is impossible, never unbounded. The wording stays the r26/r27
+		// class-only one (no reason): a missing value is not a value the
+		// tool's parser REFUSED, it is one that never arrived.
 		return BoundDegenerate, ""
 	}
-	n, status := parseClickInt(last.value)
-	switch status {
-	case intNotAnInt:
-		// click: "'4.5' is not a valid integer." The invocation is
-		// impossible, so it states no bound any tool ran under.
-		return BoundDegenerate, ""
-	case intOverflowNegative:
-		return BoundDegenerate, ""
-	case intOverflowPositive:
-		// Python bignums accept this value, so click bound it and the
-		// tool ran under it: the invocation DID state a bound, and the
-		// r28 reading ("no bound", 0) let the whole record render
-		// "proved bounded (bound UNSTATED)" with a null bounded_k
-		// (r31 F2). The parse cannot hold the number, so it saturates:
-		// BoundCapped is a STATED bound whose summary says "k>=" and
-		// whose recorded bounded_k is MaxInt64.
-		return BoundCapped, ""
+	if tool == toolForge && len(occs) > 1 {
+		// clap refuses a repeated --fuzz-runs outright (OBSERVED:
+		// "forge test --fuzz-runs 0 --fuzz-runs 7" -> "error: the
+		// argument '--fuzz-runs <RUNS>' cannot be used multiple
+		// times", exit 2). Last-wins is click's rule, not forge's, so
+		// `--fuzz-runs 0 --fuzz-runs 7` bound k=7 for a command no
+		// forge process ever accepted (r32 F1).
+		return BoundDegenerate, "forge: repeated " + last.name +
+			" (cannot be used multiple times)"
 	}
-	if n < 1 {
-		// STATED and degenerate ("--loop 0", "--fuzz-runs=0",
-		// "--loop-bound -1", "--loop-bound <Nd zero>"): not unstated,
-		// and not a bound any tool would have run under.
-		return BoundDegenerate, ""
+	n, why := parseBoundValue(tool, last.value)
+	if why != "" {
+		return BoundDegenerate, why
+	}
+	if BoundFloors(n) {
+		// A stated value below 1 (or a Python-int-wide one): the class
+		// wording is pinned, so the reason stays empty.
+		return n, ""
 	}
 	return n, ""
 }

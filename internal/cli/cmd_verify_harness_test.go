@@ -119,6 +119,20 @@ func harnessScaffoldSHA(t *testing.T, c *state.Campaign) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// r32ForgeScaffoldSHA is harnessScaffoldSHA for the forge-fuzz scaffold:
+// the forge skeleton is artifacts/harness/INV-1/F.t.sol (halmos's is
+// H.t.sol, which harnessScaffoldSHA reads).
+func r32ForgeScaffoldSHA(t *testing.T, c *state.Campaign) string {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(c.ArtifactsDir, "harness",
+		"INV-1", "F.t.sol"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
+}
+
 // harnessEntry is the registry entry after the run.
 func harnessEntry(t *testing.T, c *state.Campaign) validation.Value {
 	t.Helper()
@@ -311,8 +325,17 @@ func TestVerifyHarnessResultKilledStatus(t *testing.T) {
 		t.Fatalf("rung = %s, want the timeout branch (a killed run's "+
 			"bytes are partial by definition)", validation.CanonCompact(h))
 	}
-	if objStr(h, "summary") != "timeout after 8s" {
-		t.Fatalf("summary = %q, want the MapRun timeout wording",
+	// r32 F3: the summary must NOT carry a number. The old wording was
+	// "timeout after 8s" — the BOUND (--loop 8) printed in the seconds
+	// slot, and this record's wall clock was never 8s. MapRun holds no
+	// record, so it has no real elapsed time to report and says so
+	// without a number.
+	if objStr(h, "summary") != "inconclusive (timeout)" {
+		t.Fatalf("summary = %q, want the numberless timeout wording",
+			objStr(h, "summary"))
+	}
+	if strings.Contains(objStr(h, "summary"), "8") {
+		t.Fatalf("the timeout summary printed the BOUND as a duration: %q",
 			objStr(h, "summary"))
 	}
 	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
@@ -904,7 +927,7 @@ func TestR27MinicertoraDegenerateBoundFloorsTheBind(t *testing.T) {
 			if acode, aout, aerr := run(t, "--root", root, "audit",
 				c.CampaignID); acode != 0 {
 				t.Fatalf("audit must agree with the floored bind: exit %d "+
-					"out=%.300q err=%q", acode, aout, aerr)
+					"out=%.4000q err=%q", acode, aout, aerr)
 			}
 		})
 	}
@@ -994,4 +1017,502 @@ func TestR27MinicertoraHonestRunIsByteUnchanged(t *testing.T) {
 		t.Fatalf("an honest bind must audit green: exit %d out=%.300q err=%q",
 			code, aout, aerr)
 	}
+}
+
+// ---------------------------------------------------------------------
+// r32: the invocation bound is read by the OWNING tool's rule
+// ---------------------------------------------------------------------
+
+// r32ExecCommandValue writes one EXEC the way the sandbox would, except
+// that `command` is whatever JSON value the caller passes — the record read
+// path (state.AllExecs -> validation.ReadJson) does no schema check, which
+// is exactly the r32 F8 hole.
+func r32ExecCommandValue(t *testing.T, c *state.Campaign, execID,
+	stdout string, command validation.Value, omitCommand bool,
+	hashes map[string]string, exitStatus int64) {
+	t.Helper()
+	dir := filepath.Join(c.ExecsDir, execID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stdoutPath := filepath.Join(dir, "stdout.log")
+	if err := os.WriteFile(stdoutPath, []byte(stdout), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	kvs := []validation.KV{
+		kvT("exec_id", validation.VStr(execID)),
+		kvT("campaign_id", validation.VStr(c.CampaignID)),
+		kvT("profile", validation.VStr("forge")),
+		kvT("origin", validation.VStr("locally-executed")),
+		kvT("started_at", validation.VStr("2026-09-11T05:06:07+00:00")),
+		kvT("finished_at", validation.VStr("2026-09-11T05:06:07+00:00")),
+		kvT("exit_status", validation.VInt(exitStatus)),
+		kvT("stdout_path", validation.VStr(stdoutPath)),
+	}
+	if !omitCommand {
+		kvs = append(kvs, kvT("command", command))
+	}
+	if hashes != nil {
+		hk := make([]validation.KV, 0, len(hashes))
+		for k, v := range hashes {
+			hk = append(hk, kvT(k, validation.VStr(v)))
+		}
+		kvs = append(kvs, kvT("input_hashes", validation.VObj(hk...)))
+	}
+	rec := validation.VObj(kvs...)
+	if err := os.WriteFile(filepath.Join(dir, "exec_record.json"),
+		[]byte(validation.CanonCompact(rec)+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestR32ForgeBoundFollowsForgeEndToEnd is F1's end-to-end pin at the
+// level it broke: the cli's invocationBound wrapper discarded the kind, so
+// a record invoking `forge test --fuzz-runs 4_000` bound a GREEN
+// proved-bounded blessing with k=4000 although no forge run exists under
+// that value. Each row quotes the real tool's rejection (OBSERVED, forge
+// 1.8.1) and must floor — rung inconclusive, bounded_k null, and the
+// summary naming forge and the reason.
+func TestR32ForgeBoundFollowsForgeEndToEnd(t *testing.T) {
+	rows := []struct {
+		name   string
+		cmd    string
+		reason string
+	}{
+		// forge test --fuzz-runs 4_000
+		//   -> error: invalid value '4_000' for '--fuzz-runs <RUNS>':
+		//      invalid digit found in string
+		{"underscore grouping", "forge test --fuzz-runs 4_000",
+			"invalid digit found in string"},
+		// forge test --fuzz-runs ٤٢ -> same "invalid digit found in
+		// string" (Rust is ASCII-only).
+		{"arabic-indic digit", "forge test --fuzz-runs \u0664\u0662",
+			"invalid digit found in string"},
+		// forge test --fuzz-runs $'500\r' -> same "invalid digit found in
+		// string".
+		{"carriage return", "forge test --fuzz-runs 500\r",
+			"invalid digit found in string"},
+		// forge test --fuzz-runs 4294967296 -> Error: failed to extract
+		// foundry config: ... expected u32 for setting `fuzz.runs`.
+		{"u32 overflow", "forge test --fuzz-runs 4294967296",
+			"expected u32"},
+		// forge test --fuzz-runs 0 --fuzz-runs 7 -> error: the argument
+		// '--fuzz-runs <RUNS>' cannot be used multiple times. (The old
+		// reading bound 7 here.)
+		{"repeated flag", "forge test --fuzz-runs 0 --fuzz-runs 7",
+			"cannot be used multiple times"},
+		// forge test --fuzz-runs 0 -> foundry config error: `fuzz.runs`
+		// must be greater than 0.
+		{"zero", "forge test --fuzz-runs 0",
+			"must be greater than 0"},
+	}
+	for _, tc := range rows {
+		t.Run(tc.name, func(t *testing.T) {
+			c, root := harnessCamp(t, "forge-fuzz", "")
+			execID := "EXEC-0000000050"
+			harnessExec(t, c, execID, r26ForgePass, tc.cmd,
+				map[string]string{"F.t.sol": r32ForgeScaffoldSHA(t, c)}, 0)
+			code, out, errS := run(t, "--root", root, "verify",
+				c.CampaignID, "--harness-result", "INV-1",
+				"--exec", execID, "--kind", "forge-fuzz")
+			if code != 0 {
+				t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+			}
+			if strings.Contains(out, "proved-bounded") {
+				t.Fatalf("no forge ran under %q, so nothing may be "+
+					"bounded: %q", tc.cmd, out)
+			}
+			h := objAt(objAt(harnessEntry(t, c), "verification"),
+				"harness")
+			if objStr(h, "rung") != "inconclusive" {
+				t.Fatalf("rung = %s, want the floor",
+					validation.CanonCompact(h))
+			}
+			summary := objStr(h, "summary")
+			if !strings.Contains(summary, "degenerate-bound") ||
+				!strings.Contains(summary, "forge") ||
+				!strings.Contains(summary, tc.reason) {
+				t.Fatalf("summary = %q, want the degenerate-bound "+
+					"vocabulary naming forge and %q", summary,
+					tc.reason)
+			}
+			if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+				t.Fatalf("bounded_k = %s, want null",
+					validation.CanonCompact(bk))
+			}
+			if cls, _, ok := harness.Disposition(summary); !ok ||
+				cls != harness.EscalateBound {
+				t.Fatalf("Disposition(%q) = %q ok=%v, want "+
+					"escalate-bound", summary, cls, ok)
+			}
+			if acode, aout, aerr := run(t, "--root", root, "audit",
+				c.CampaignID); acode != 0 {
+				t.Fatalf("bind==audit: the audit must not burn the "+
+					"floored bind (exit %d out=%.300q err=%q)", acode,
+					aout, aerr)
+			}
+		})
+	}
+	// Control: a value forge ACCEPTS still binds, with the real bound.
+	c, root := harnessCamp(t, "forge-fuzz", "")
+	execID := "EXEC-0000000051"
+	harnessExec(t, c, execID, r26ForgePass, "forge test --fuzz-runs 500",
+		map[string]string{"F.t.sol": r32ForgeScaffoldSHA(t, c)}, 0)
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID, "--kind",
+		"forge-fuzz")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
+	if objStr(h, "rung") != "proved-bounded" {
+		t.Fatalf("an accepted forge value must still bind: %s",
+			validation.CanonCompact(h))
+	}
+	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Int || bk.I != 500 {
+		t.Fatalf("bounded_k = %s, want 500", validation.CanonCompact(bk))
+	}
+}
+
+// TestR32ForeignBoundFlagEndToEnd is F2's end-to-end pin: a LONE
+// bound-looking flag that belongs to ANOTHER tool's family used to bind
+// proved-bounded for the wrong tool. Each row quotes the real tool's
+// refusal and must floor, naming the flag and the tool.
+func TestR32ForeignBoundFlagEndToEnd(t *testing.T) {
+	// forge-fuzz bound to `forge test --loop 3`:
+	//   forge test --loop 3 -> error: unexpected argument '--loop' found
+	t.Run("forge has no --loop", func(t *testing.T) {
+		c, root := harnessCamp(t, "forge-fuzz", "")
+		execID := "EXEC-0000000052"
+		harnessExec(t, c, execID, r26ForgePass, "forge test --loop 3",
+			map[string]string{"F.t.sol": r32ForgeScaffoldSHA(t, c)}, 0)
+		code, out, errS := run(t, "--root", root, "verify",
+			c.CampaignID, "--harness-result", "INV-1", "--exec", execID,
+			"--kind", "forge-fuzz")
+		if code != 0 {
+			t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+		}
+		if strings.Contains(out, "proved-bounded") {
+			t.Fatalf("forge refuses --loop, so nothing may be bounded: %q",
+				out)
+		}
+		h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
+		summary := objStr(h, "summary")
+		if objStr(h, "rung") != "inconclusive" ||
+			!strings.Contains(summary, "--loop") ||
+			!strings.Contains(summary, "forge") ||
+			!strings.Contains(summary, "unexpected argument") {
+			t.Fatalf("the floor must name the flag, the tool and its "+
+				"refusal: %s", validation.CanonCompact(h))
+		}
+		if acode, aout, aerr := run(t, "--root", root, "audit",
+			c.CampaignID); acode != 0 {
+			t.Fatalf("bind==audit: exit %d out=%.4000q err=%q", acode,
+				aout, aerr)
+		}
+	})
+	// halmos bound to `halmos check --fuzz-runs 500`:
+	//   halmos: error: unrecognized arguments: --fuzz-runs 500
+	t.Run("halmos has no --fuzz-runs", func(t *testing.T) {
+		c, root := harnessCamp(t, "halmos", "")
+		execID := "EXEC-0000000053"
+		harnessExec(t, c, execID, harnessProvedStdout,
+			"halmos check --fuzz-runs 500",
+			map[string]string{"H.t.sol": harnessScaffoldSHA(t, c)}, 0)
+		code, out, errS := run(t, "--root", root, "verify",
+			c.CampaignID, "--harness-result", "INV-1", "--exec", execID,
+			"--kind", "halmos")
+		if code != 0 {
+			t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+		}
+		if strings.Contains(out, "proved-bounded") {
+			t.Fatalf("halmos refuses --fuzz-runs, so nothing may be "+
+				"bounded: %q", out)
+		}
+		h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
+		summary := objStr(h, "summary")
+		if objStr(h, "rung") != "inconclusive" ||
+			!strings.Contains(summary, "--fuzz-runs") ||
+			!strings.Contains(summary, "halmos") ||
+			!strings.Contains(summary, "unrecognized arguments") {
+			t.Fatalf("the floor must name the flag, the tool and its "+
+				"refusal: %s", validation.CanonCompact(h))
+		}
+		if acode, aout, aerr := run(t, "--root", root, "audit",
+			c.CampaignID); acode != 0 {
+			t.Fatalf("bind==audit: exit %d out=%.4000q err=%q", acode,
+				aout, aerr)
+		}
+	})
+	// minicertora bound to `minicertora V.sol INV.mspec --fuzz-runs 500`:
+	//   Error: No such option '--fuzz-runs'.
+	t.Run("minicertora has no --fuzz-runs", func(t *testing.T) {
+		c, root := mcCamp(t, "r32-foreign-mc")
+		execID := "EXEC-0000000054"
+		mcHarnessExec(t, c, execID, mcProvenLine,
+			"minicertora V.sol INV.mspec --fuzz-runs 500",
+			map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, 0)
+		code, out, errS := run(t, "--root", root, "verify",
+			c.CampaignID, "--harness-result", "INV-1", "--exec", execID,
+			"--kind", "minicertora")
+		if code != 0 {
+			t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+		}
+		if strings.Contains(out, "proved-bounded") {
+			t.Fatalf("the twin refuses --fuzz-runs, so nothing may be "+
+				"bounded: %q", out)
+		}
+		h := mcHarness(t, c)
+		summary := objStr(h, "summary")
+		if objStr(h, "rung") != "inconclusive" ||
+			!strings.Contains(summary, "--fuzz-runs") ||
+			!strings.Contains(summary, "minicertora") ||
+			!strings.Contains(summary, "No such option") {
+			t.Fatalf("the floor must name the flag, the tool and its "+
+				"refusal: %s", validation.CanonCompact(h))
+		}
+		if acode, aout, aerr := run(t, "--root", root, "audit",
+			c.CampaignID); acode != 0 {
+			t.Fatalf("bind==audit: exit %d out=%.4000q err=%q", acode,
+				aout, aerr)
+		}
+	})
+	// The boundary r32 F2 must not widen: a flag the tool HAS plus an
+	// unrelated unknown option still binds.
+	c, root := harnessCamp(t, "forge-fuzz", "")
+	execID := "EXEC-0000000055"
+	harnessExec(t, c, execID, r26ForgePass,
+		"forge test --fuzz-runs 500 --loopx 5 --ffi",
+		map[string]string{"F.t.sol": r32ForgeScaffoldSHA(t, c)}, 0)
+	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
+		"--harness-result", "INV-1", "--exec", execID, "--kind",
+		"forge-fuzz")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(out, "proved-bounded") ||
+		!strings.Contains(out, "k=500") {
+		t.Fatalf("an unrelated unknown option must not floor an honest "+
+			"bound: %q", out)
+	}
+}
+
+// TestR32NonStringCommandEndToEnd is F8's end-to-end pin: a record whose
+// `command` is an ARRAY (["forge","test","--fuzz-runs","0"]) or a NUMBER
+// (500) is a STATED, degenerate invocation — not an absent one. The old
+// reader (objStr/recordStr) returned "" for both, "" parses as "no bound
+// flag", and the run bound proved-bounded (bound UNSTATED) with a GREEN
+// audit although the command was right there.
+func TestR32NonStringCommandEndToEnd(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		shape string
+		val   validation.Value
+	}{
+		{"array command", "JSON array", validation.VArr(
+			validation.VStr("forge"), validation.VStr("test"),
+			validation.VStr("--fuzz-runs"), validation.VStr("0"))},
+		{"number command", "JSON number", validation.VInt(500)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, root := harnessCamp(t, "forge-fuzz", "")
+			execID := "EXEC-0000000056"
+			r32ExecCommandValue(t, c, execID, r26ForgePass, tc.val,
+				false, map[string]string{
+					"F.t.sol": r32ForgeScaffoldSHA(t, c)}, 0)
+			code, out, errS := run(t, "--root", root, "verify",
+				c.CampaignID, "--harness-result", "INV-1",
+				"--exec", execID, "--kind", "forge-fuzz")
+			if code != 0 {
+				t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+			}
+			if strings.Contains(out, "proved-bounded") {
+				t.Fatalf("a stated-but-unreadable invocation must not "+
+					"be bounded: %q", out)
+			}
+			h := objAt(objAt(harnessEntry(t, c), "verification"),
+				"harness")
+			summary := objStr(h, "summary")
+			if objStr(h, "rung") != "inconclusive" {
+				t.Fatalf("rung = %s, want the floor",
+					validation.CanonCompact(h))
+			}
+			if !strings.Contains(summary, "degenerate-bound") ||
+				!strings.Contains(summary, "not a string") ||
+				!strings.Contains(summary, tc.shape) {
+				t.Fatalf("the floor must name the shape %q: %q",
+					tc.shape, summary)
+			}
+			if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+				t.Fatalf("bounded_k = %s, want null",
+					validation.CanonCompact(bk))
+			}
+			// The audit catches the same plant twice, on two rails:
+			// section 3 rejects the record itself (the
+			// sandbox_execution schema requires a non-empty STRING
+			// command: {"type":"string","minLength":1}), and the harness
+			// rail floors the bind instead of blessing the UNSTATED
+			// bound — which is the half r32 F8 found missing.
+			acode, aout, _ := run(t, "--root", root, "audit",
+				c.CampaignID)
+			if acode == 0 {
+				t.Fatalf("a non-string command must be a schema "+
+					"problem for section 3: %q", aout)
+			}
+			if !strings.Contains(aout, "execs=1 problem") {
+				t.Fatalf("section 3 must flag the record: %q", aout)
+			}
+		})
+	}
+	// The documented other half: a MISSING (absent or null) command is
+	// genuinely "no invocation on record" — no flag, no value, no tool — so
+	// it keeps today's reading and the run maps with the UNSTATED bound.
+	// That cannot bless a degenerate invocation: there is no command text
+	// to carry one, and the summary asserts no number at all.
+	for _, tc := range []struct {
+		name   string
+		val    validation.Value
+		absent bool
+	}{
+		{"absent command", validation.VNull(), true},
+		{"null command", validation.VNull(), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, root := harnessCamp(t, "forge-fuzz", "")
+			execID := "EXEC-0000000057"
+			r32ExecCommandValue(t, c, execID, r26ForgePass, tc.val,
+				tc.absent, map[string]string{
+					"F.t.sol": r32ForgeScaffoldSHA(t, c)}, 0)
+			code, out, errS := run(t, "--root", root, "verify",
+				c.CampaignID, "--harness-result", "INV-1",
+				"--exec", execID, "--kind", "forge-fuzz")
+			if code != 0 {
+				t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+			}
+			h := objAt(objAt(harnessEntry(t, c), "verification"),
+				"harness")
+			if objStr(h, "rung") != "proved-bounded" ||
+				!strings.Contains(objStr(h, "summary"), "UNSTATED") {
+				t.Fatalf("a record with no command maps with an "+
+					"UNSTATED bound: %s",
+					validation.CanonCompact(h))
+			}
+			if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+				t.Fatalf("an UNSTATED bound must not ride the slot: %s",
+					validation.CanonCompact(bk))
+			}
+		})
+	}
+}
+
+// TestR32TimeoutNoLongerPrintsTheBoundAsSeconds is F3's end-to-end pin. A
+// killed run used to print the BOUND in the seconds slot — observed in the
+// finding: "timeout after -1s" for --fuzz-runs 0, "timeout after 4s" for a
+// run whose wall clock was 2.76s, "timeout after 7s" for a duplicate — and
+// a flooring bound escaped the floor entirely on this path.
+func TestR32TimeoutNoLongerPrintsTheBoundAsSeconds(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		cmd      string
+		exit     int64
+		wantSub  string
+		mustFail string
+	}{
+		{"killed under --fuzz-runs 0", "forge test --fuzz-runs 0", -1,
+			"degenerate-bound", ""},
+		{"killed under --fuzz-runs 4", "forge test --fuzz-runs 4", -1,
+			"inconclusive (timeout)", "4s"},
+		{"signal-death under a duplicate",
+			"forge test --fuzz-runs 0 --fuzz-runs 7", 137,
+			"degenerate-bound", "7s"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, root := harnessCamp(t, "forge-fuzz", "")
+			execID := "EXEC-0000000058"
+			harnessExec(t, c, execID, r26ForgePass, tc.cmd,
+				map[string]string{"F.t.sol": r32ForgeScaffoldSHA(t, c)},
+				tc.exit)
+			code, out, errS := run(t, "--root", root, "verify",
+				c.CampaignID, "--harness-result", "INV-1",
+				"--exec", execID, "--kind", "forge-fuzz")
+			if code != 0 {
+				t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+			}
+			h := objAt(objAt(harnessEntry(t, c), "verification"),
+				"harness")
+			summary := objStr(h, "summary")
+			if objStr(h, "rung") != "inconclusive" {
+				t.Fatalf("a killed run never binds a rung: %s",
+					validation.CanonCompact(h))
+			}
+			if !strings.Contains(summary, tc.wantSub) {
+				t.Fatalf("summary = %q, want it to contain %q", summary,
+					tc.wantSub)
+			}
+			if strings.Contains(summary, "timeout after") {
+				t.Fatalf("the timeout summary still prints a bound as a "+
+					"duration: %q", summary)
+			}
+			if tc.mustFail != "" &&
+				strings.Contains(summary, tc.mustFail) {
+				t.Fatalf("summary %q carries the bound %q as seconds",
+					summary, tc.mustFail)
+			}
+			if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+				t.Fatalf("bounded_k = %s, want null",
+					validation.CanonCompact(bk))
+			}
+			if acode, aout, aerr := run(t, "--root", root, "audit",
+				c.CampaignID); acode != 0 {
+				t.Fatalf("bind==audit: exit %d out=%.300q err=%q",
+					acode, aout, aerr)
+			}
+		})
+	}
+	// The minicertora class half: a killed run under a bound the twin
+	// would REFUSE used to lose its escalation entirely — the summary said
+	// "no clean completion", which disposition.go keys to EscalateRuntime,
+	// so the operator was told to raise the wall clock for a command that
+	// cannot start. It must key EscalateBound instead.
+	t.Run("minicertora killed under a refused bound", func(t *testing.T) {
+		c, root := mcCamp(t, "r32-timeout-mc")
+		execID := "EXEC-0000000059"
+		mcHarnessExec(t, c, execID, mcProvenLine,
+			"minicertora V.sol INV.mspec --loop-bound 0",
+			map[string]string{"artifacts/harness/INV-1/INV.mspec": mcScaffoldSHA(t, c)}, -1)
+		code, out, errS := run(t, "--root", root, "verify",
+			c.CampaignID, "--harness-result", "INV-1", "--exec", execID,
+			"--kind", "minicertora")
+		if code != 0 {
+			t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+		}
+		h := mcHarness(t, c)
+		summary := objStr(h, "summary")
+		if objStr(h, "rung") != "inconclusive" {
+			t.Fatalf("a killed run never binds: %s",
+				validation.CanonCompact(h))
+		}
+		if !strings.Contains(summary, "degenerate-bound") ||
+			strings.Contains(summary, "timeout after") {
+			t.Fatalf("the minicertora timeout floor must keep the "+
+				"degenerate-bound class and no duration: %q", summary)
+		}
+		cls, advice, ok := harness.Disposition(summary)
+		if !ok || cls != harness.EscalateBound || advice == "" {
+			t.Fatalf("Disposition(%q) = %q %q %v, want "+
+				"escalate-bound (the advice the runtime class dropped)",
+				summary, cls, advice, ok)
+		}
+		// OPEN ITEM (r32 F3, file not owned by this change): the audit
+		// still burns this legitimate floor. recheckInconclusive's
+		// timed-out arm in internal/audit/sections/invariantverification.go
+		// (the `if harness.RecordTimedOut(rec)` branch returning "a
+		// disposition no run of these bytes can carry") hard-codes
+		// EscalateRuntime for ANY killed minicertora run, so it rejects the
+		// escalate-bound class F3 requires — although the same function
+		// already re-derived the class through harness.DecideBound a few
+		// lines above. The fix belongs to that arm (let it fall through to
+		// the existing gotCls != wantCls comparison). Asserted here at the
+		// bind only, so this test pins the law and not the stale rail.
+	})
 }

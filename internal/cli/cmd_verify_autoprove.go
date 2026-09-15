@@ -113,96 +113,20 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	}
 	// The run-level gates FIRST: a rollup over a run the prover itself
 	// refuses to publish is not evidence of anything.
-	// r19 P2: publish_problems is the prover's own veto list — binding a
-	// rollup over a report that carries problems (even with published
-	// true, a contradiction the prover itself refuses to emit) launders
-	// them; refuse and show them verbatim.
-	probsPre := objAt(rep, "publish_problems")
-	if probsPre.Kind != validation.Null && probsPre.Kind != validation.Arr {
-		// r20 F6: the veto list is a LIST by contract — a scalar there is
-		// either a lie or a bug; both refuse better than bind.
-		return t14ExitErr(2, "verify --autoprove: malformed "+
-			"publish_problems (kind %v, contract: array) — the veto list "+
-			"is machine-authored; refusing to read a broken contract\n",
-			probsPre.Kind)
+	//
+	// r19 P2 / r20 F6 / r22 F2 / r22 F5 / r24 F3 / r25 F2 — and, since
+	// r32b F1, ALL FIVE GATES PLUS THE EXACT PROPERTY LOOKUP AND THE TYPED
+	// BOUND live in harness.DecideReport, the SAME function section 11 now
+	// re-derives from the pinned copy's bytes with the property name the
+	// event binds. They used to exist only here, so the audit blessed a
+	// report rung (a SUSPECT finding, published:false) that a fresh bind of
+	// those very bytes refuses. One implementation, one sentence: the
+	// Refusal is this verb's own text, byte for byte.
+	dec := harness.DecideReport(rep, a.property)
+	if dec.Gate != harness.GateNone {
+		return t14ExitErr(2, "verify --autoprove: %s", dec.Refusal)
 	}
-	if len(objKVs(probsPre)) > 0 {
-		msgs := []string{}
-		for _, pv := range probsPre.A {
-			msgs = append(msgs, scalarStr(pv))
-		}
-		return t14ExitErr(2, "verify --autoprove: the report carries "+
-			"publish_problems (%s)%s\n", joinOrDash(msgs),
-			map[bool]string{
-				true: " while claiming published — internally " +
-					"contradictory; nothing binds",
-				false: " — the run is unpublished; nothing binds",
-			}[t26Truthy(rep, "published")])
-	}
-	if !t26Truthy(rep, "published") {
-		probs := []string{}
-		for _, p := range objAt(rep, "publish_problems").A {
-			probs = append(probs, scalarStr(p))
-		}
-		return t14ExitErr(2, "verify --autoprove: the prover did NOT "+
-			"publish this run — nothing is blessed (problems: %s)\n",
-			joinOrDash(probs))
-	}
-	po := objAt(rep, "property_outcomes")
-	if po.Kind != validation.Obj {
-		return t14ExitErr(2, "verify --autoprove: report carries no "+
-			"property_outcomes map — contract broken\n")
-	}
-	prop, ok := fieldOf(po, a.property)
-	if !ok {
-		names := []string{}
-		for _, kv := range po.O {
-			names = append(names, kv.K)
-		}
-		return t14ExitErr(2, "verify --autoprove: property %s is not in "+
-			"this run (the prover attempted: %s) — exact-match only\n",
-			validation.PyReprStr(a.property), joinOrDash(names))
-	}
-	// r22 F2: the prover records review_error precisely so "no findings"
-	// and "no review" never look alike — a run whose review role
-	// CRASHED carries an EMPTY findings list that means nothing. Law:
-	// an unmade check is never a cleared check.
-	if re := objStr(rep, "review_error"); re != "" {
-		return t14ExitErr(2, "verify --autoprove: the independent review "+
-			"NEVER RAN (%s) — PROVEN binds without it only by "+
-			"inattention; refusing\n", re)
-	}
-	if v := objAt(rep, "review_findings"); v.Kind != validation.Arr {
-		// r22 F5: the twin ALWAYS emits an array — null, absent, or
-		// scalar are all foreign contracts. An unreadable gate input
-		// reads as "nothing flagged" to nothing: refuse.
-		return t14ExitErr(2, "verify --autoprove: malformed "+
-			"review_findings (kind %v, contract: array) — the gate "+
-			"reads the review's output; a broken one is never empty "+
-			"enough to pass\n", v.Kind)
-	}
-	if sus := autoproveSuspects(rep, a.property); sus != "" {
-		return t14ExitErr(2, "verify --autoprove: the independent review "+
-			"flagged property %s as SUSPECT — %s — a PROVEN verdict next "+
-			"to a suspect review is the most expensive state there is; "+
-			"the rung is refused, fix the rule or waive with reason\n",
-			a.property, sus)
-	}
-	outcome := objStr(prop, "outcome")
-	perRule := objAt(prop, "per_rule")
-	// r24 F3: the bound is READ TYPED — a float is truncation, a
-	// string/big is a foreign shape, and the twin's VerifierFlags
-	// raises for loop_bound<1, so 0 is by definition NOT twin output
-	// (r25 F3: honoring k=0 would bless a proof-about-nothing with a
-	// loudly stated bound). r25 F2: the decision itself moved to
-	// harness.MapReport — the audit re-derives from the SAME function,
-	// so bind-time and read-time can never disagree.
-	k, kStated, kOK, kWhy := harness.BoundFromFlags(objAt(rep, "flags"))
-	if !kOK {
-		return t14ExitErr(2, "verify --autoprove: flags.loop_bound %s; "+
-			"this report is not a twin output and will not bind\n", kWhy)
-	}
-	rung, summary, bk := harness.MapReport(outcome, perRule, k, kStated)
+	rung, summary, bk := dec.Rung, dec.Summary, dec.BoundedK
 	if AutoproveSwapSeam != nil {
 		AutoproveSwapSeam() // test-only: write the file post-parse
 	}
@@ -264,7 +188,7 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	}
 	artID, err := c.RegisterOrRefresh("harness", copyPath,
 		"miniprover report bound to "+a.autoprove+" (property "+
-			a.property+", rollup "+outcome+")", nil,
+			a.property+", rollup "+dec.Outcome+")", nil,
 		rebindReason)
 	if err != nil {
 		return err
@@ -327,51 +251,6 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 			len(objKVs(cm)))
 	}
 	return nil
-}
-
-// autoproveSuspects renders the reasons of SUSPECT review findings for
-// one property ("" when none) — PROVEN must not bind over them.
-func autoproveSuspects(rep validation.Value, property string) string {
-	out := []string{}
-	for _, f := range objAt(rep, "review_findings").A {
-		// r20 F2: the prover stores the review LLM's verdict VERBATIM —
-		// "SUSPECT"/"Suspect" is the same word and the same danger; the
-		// gate is case-insensitive by law.
-		// r21 F2: the gate is FAIL-CLOSED against the shapes an LLM
-		// review actually emits: verdict is TRIMMED as well as
-		// case-folded (" suspect " is the same flag), and a finding
-		// element that is not an object (a bare string was the critic's
-		// dodge) has NO property to match — it counts against EVERY
-		// property. Unparseable warning is never cleared warning.
-		if f.Kind != validation.Obj {
-			out = append(out, "malformed review finding (non-object): "+
-				scalarStr(f))
-			continue
-		}
-		v := strings.ToLower(strings.TrimSpace(objStr(f, "verdict")))
-		if v != "" && v != "suspect" {
-			continue
-		}
-		if f2 := objAt(f, "property"); f2.Kind != validation.Str {
-			out = append(out, "suspect-flagged finding with no property "+
-				"attribution — counted against every property")
-			continue
-		}
-		if !autoproveSameName(objStr(f, "property"), property) {
-			continue
-		}
-		out = append(out, scalarStr(objAt(f, "reason")))
-	}
-	return strings.Join(out, "; ")
-}
-
-func fieldOf(o validation.Value, key string) (validation.Value, bool) {
-	for _, kv := range objKVs(o) {
-		if kv.K == key {
-			return kv.V, true
-		}
-	}
-	return validation.VNull(), false
 }
 
 func objKVs(o validation.Value) []validation.KV {

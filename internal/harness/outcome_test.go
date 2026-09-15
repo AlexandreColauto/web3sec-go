@@ -152,7 +152,7 @@ func TestMapRunTable(t *testing.T) {
 			false, 100, RungInconclusive,
 			"inconclusive (exit output unmapped)", 0},
 		{"halmos timeout wins over output", Halmos, halmosFail, true,
-			300, RungInconclusive, "timeout after 300s", 0},
+			300, RungInconclusive, "inconclusive (timeout)", 0},
 		{"halmos empty is inconclusive", Halmos, "", false, 100,
 			RungInconclusive, "inconclusive (exit output unmapped)", 0},
 		{"halmos noisy log is inconclusive", Halmos, halmosNoisy, false,
@@ -162,7 +162,7 @@ func TestMapRunTable(t *testing.T) {
 		{"forge proved bounded", ForgeFuzz, forgePass, false, 256,
 			RungProvedBounded, "k=256", 256},
 		{"forge timeout", ForgeFuzz, forgePass, true, 256,
-			RungInconclusive, "timeout after 256s", 0},
+			RungInconclusive, "inconclusive (timeout)", 0},
 		{"forge empty is inconclusive", ForgeFuzz, "", false, 256,
 			RungInconclusive, "inconclusive (exit output unmapped)", 0},
 		{"forge noisy log is inconclusive", ForgeFuzz, forgeNoisy,
@@ -314,8 +314,17 @@ func TestInvocationBoundIsClickShaped(t *testing.T) {
 			"--loop-bound 4", 4},
 		{"halmos last degenerate floors", "halmos check --loop 100 " +
 			"--loop 0", BoundDegenerate},
-		{"forge last honest wins", "forge test --fuzz-runs 0 " +
-			"--fuzz-runs 256", 256},
+		// r32 F1: last-wins is CLICK's rule, not clap's. OBSERVED on this
+		// box with forge 1.8.1:
+		//   forge test --fuzz-runs 0 --fuzz-runs 7
+		//     -> error: the argument '--fuzz-runs <RUNS>' cannot be used
+		//        multiple times   (exit 2)
+		// so no forge ran under either value and the run cannot carry a
+		// bound. (This row used to pin 256 — the last-wins reading that
+		// applied Python's parser to a Rust CLI.)
+		{"forge repeats are refused (clap: cannot be used multiple " +
+			"times)", "forge test --fuzz-runs 0 --fuzz-runs 256",
+			BoundDegenerate},
 		// signed tokens: both forms click's type=int accepts.
 		{"negative space form", "--loop-bound -1", BoundDegenerate},
 		{"negative equals form", "--loop-bound=-1", BoundDegenerate},

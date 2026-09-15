@@ -100,8 +100,107 @@ func RecordTimedOut(rec validation.Value) bool {
 // RecordCommand is the exec record's command string ("" when absent). The
 // invocation bound is InvocationBound(RecordCommand(rec)) for both the bind
 // and the audit.
+//
+// r32 F8: a command field that is PRESENT but not a string is NOT an
+// absent command, and this reader must not launder one into the other —
+// RecordCommandField is the shape-aware reader both halves now use, and
+// RecordInvocationBoundReason is the bound it feeds. This one keeps its
+// signature (and its "" for a non-string) because callers that only want
+// "the command text, if any" — cli.harnessCompilerPin's --solc-path scan —
+// have no floor to raise.
 func RecordCommand(rec validation.Value) string {
-	return recordStr(rec, "command")
+	cmd, _, _ := RecordCommandField(rec)
+	return cmd
+}
+
+// RecordCommandField reads the exec record's `command` field with its
+// SHAPE: the command string, whether the record STATES an invocation at
+// all, and — for a field that is present but not a string — the reason the
+// invocation cannot be read.
+//
+// r32 F8: this is the asymmetry r28b closed for exit_status. The record
+// read path does no schema check, so a forged record could carry `command`
+// as an ARRAY (["forge","test","--fuzz-runs","0"]) or a NUMBER (500).
+// RecordCommand's string reader returned "" for both, "" parses as "no
+// bound flag", and the run was blessed "proved bounded (bound UNSTATED)"
+// although the command was stated AND degenerate — a blessing over an
+// invocation nothing can even read.
+//
+//	absent key  -> ("", false, ""): genuinely "no invocation on record".
+//	null value  -> ("", false, ""): the same statement in its explicit
+//	               spelling, which is why the two share an arm.
+//	string      -> (s, true, "")
+//	anything else -> ("", true, "the record's command field is not a
+//	               string (JSON <shape>)"), and the caller floors it as
+//	               UNREADABLE.
+//
+// Why absent/null may keep its old behaviour: with no command on record
+// there is no invocation to be degenerate ABOUT — no flag, no value, no
+// tool — so the rung rests on the run's own output and the summary can only
+// say "bound UNSTATED". It asserts no number, and no tool could have been
+// refused a flag the record does not contain. (Absence is still not
+// evidence of a clean run: the exit status gates that separately, and
+// r28b F2 floors an absent exit_status.) A present non-string, by
+// contrast, IS a statement about how the tool was invoked — one written in
+// a shape no command line can have — so it floors.
+func RecordCommandField(rec validation.Value) (command string, present bool,
+	why string) {
+	v := recordField(rec, "command")
+	switch v.Kind {
+	case validation.Str:
+		return v.S, true, ""
+	case validation.Null:
+		return "", false, ""
+	}
+	return "", true, "the record's command field is not a string (JSON " +
+		commandShapeName(v) + ")"
+}
+
+// commandShapeName names the JSON shape of a command field the record read
+// path accepted without a schema check, for the floor summary ("JSON
+// array", "JSON number"). It names the SHAPE, never a guess at the value.
+func commandShapeName(v validation.Value) string {
+	switch v.Kind {
+	case validation.Arr:
+		return "array"
+	case validation.Int:
+		return "number"
+	case validation.Flt:
+		return "number"
+	case validation.Bool:
+		return "boolean"
+	case validation.Obj:
+		return "object"
+	}
+	return "value"
+}
+
+// RecordInvocationBoundReason is THE reading of an exec record's invocation
+// bound: the shape check (RecordCommandField, r32 F8) and then the
+// tool-shaped parse (InvocationBoundKindReason, r32 F1/F2) with the
+// harness KIND the caller holds.
+//
+// Both halves of the law read it: the bind (cli.verifyHarnessResult) and
+// harness.DecideBound's own authoritative re-read, so section 11's
+// re-derivation — which passes whatever bound it computed — cannot hold a
+// second opinion about a record whose command is a foreign flag's, a
+// value the tool refuses, or a shape that is not a string at all.
+func RecordInvocationBoundReason(kind Kind, rec validation.Value) (int,
+	string) {
+	cmd, present, why := RecordCommandField(rec)
+	if why != "" {
+		return BoundUnreadable, why
+	}
+	if !present {
+		return 0, ""
+	}
+	return InvocationBoundKindReason(kind, cmd)
+}
+
+// RecordInvocationBound is RecordInvocationBoundReason without the reason.
+func RecordInvocationBound(kind Kind, rec validation.Value) int {
+	k, _ := RecordInvocationBoundReason(kind, rec)
+	return k
 }
 
 // InvValue is the invariant value harness.Scaffold renders from: the
@@ -329,16 +428,23 @@ func DecideBound(kind Kind, inv validation.Value, raw []byte,
 	rec validation.Value, scaffold []byte, timedOut bool, k, exitStatus int,
 	ruleName string) (rung, summary string, proof validation.Value,
 	boundedK *int) {
-	// The invocation-unreadable construct, for the FLOOR summary (r30
-	// P1-1). It is produced by the SAME parse the callers used to compute
-	// k — InvocationBoundReason over the record's own command, the one
-	// reader being RecordCommand — so the summary can name the exact
-	// construct ("unmatched single quote") without a second lexer, and
-	// only when the bound itself says the parse failed. Only the
-	// minicertora arm is handed it: MapRun's halmos/forge floor wording is
-	// byte-pinned by the cli's stored stdout and must not move.
+	// The invocation floor, re-read HERE from the record with the kind
+	// (r32 F1/F2/F8). The caller-passed k is what the bind or the audit
+	// computed, and section 11 still computes it kind-free
+	// (harness.InvocationBound(harness.RecordCommand(rec))), so this is
+	// where the two halves are kept one opinion: a record whose command
+	// states a value its tool refuses, names a bound flag another family
+	// owns, or is not a string at all floors whichever k arrived. Only a
+	// FLOORING re-read overrides the caller — an honest k for a record
+	// with no readable command (every pre-r32 test fixture and the
+	// report-bound arm) is left exactly as it was.
 	invReason := ""
-	if k == BoundUnreadable {
+	if rk, why := RecordInvocationBoundReason(kind, rec); BoundFloors(rk) {
+		k, invReason = rk, why
+	} else if k == BoundUnreadable {
+		// A caller-supplied unreadable bound over a command this re-read
+		// could read (a kind-free caller's floor): keep the floor and
+		// name the construct through the same reader.
 		if _, why := InvocationBoundReason(RecordCommand(rec)); why != "" {
 			invReason = why
 		}
@@ -407,16 +513,28 @@ func DecideBound(kind Kind, inv validation.Value, raw []byte,
 // run, which must never reach the JSONL mapper — through MapRun.
 //
 // The timed-out minicertora run is the one kind whose MapRun summary would
-// lie: MapRun renders "timeout after <k>s", but the caller-passed k is the
-// loop bound, not a number of seconds. Step 0 gives it its own wording,
-// produced here BEFORE the MapRun call: "inconclusive (no clean completion;
-// loop bound was N)" when the invocation names a bound, the clause-free
-// "inconclusive (no clean completion)" otherwise. halmos/forge-fuzz keep
-// MapRun's byte-pinned "timeout after %ds".
+// lie: MapRun renders the run's rung, but the caller-passed k is the loop
+// bound, not a number of seconds. Step 0 gave it its own wording,
+// produced here BEFORE the MapRun call: "inconclusive (no clean
+// completion; loop bound was N)" when the invocation names a bound, the
+// clause-free "inconclusive (no clean completion)" otherwise — a runtime
+// floor (EscalateRuntime: re-run with a larger wall-clock).
+//
+// r32 F3: the FLOOR is asked FIRST on this arm too. "no clean completion"
+// is the runtime class, so a run killed under a bound the twin would have
+// refused (--loop-bound 0) lost the escalate-bound advice it is owed and
+// was told to re-run with a larger timeout instead — advice about a
+// command that cannot start at all. Same predicate (BoundFloors), same
+// wording home (boundFloorSummary), same class as the untimed arm.
 func decideMappedKind(kind Kind, raw []byte, timedOut bool, k,
 	exitStatus int, ruleName, suffix, invReason string) (string, string,
 	validation.Value, *int) {
 	if kind == MiniCertora && timedOut {
+		if BoundFloors(k) {
+			return RungInconclusive,
+				boundFloorSummary(k, invReason) + suffix,
+				validation.VNull(), nil
+		}
 		summary := "inconclusive (no clean completion)"
 		if k > 0 {
 			summary = fmt.Sprintf(
@@ -440,14 +558,21 @@ func decideMappedKind(kind Kind, raw []byte, timedOut bool, k,
 			exitStatus, ruleName, k, invReason)
 		return rung, summary + suffix, proof, bk
 	}
-	rung, summary, bk := decideMapped(kind, raw, timedOut, k, suffix)
+	rung, summary, bk := decideMapped(kind, raw, timedOut, k, suffix,
+		invReason)
 	return rung, summary, validation.VNull(), bk
 }
 
-// decideMapped runs MapRun and attaches bounded_k for proved-bounded.
+// decideMapped runs MapRun and attaches bounded_k for proved-bounded. why
+// is the invocation's own reason ("" when there is none); MapRun ignores
+// it unless the bound floors, but a halmos/forge floor must name the tool
+// and the observed refusal exactly like the minicertora arm always has
+// (r32 F1/F2 — before this, DecideBound handed the reason only to
+// MapMinicertoraInvoc, so a forge floor said only "the invocation states
+// no bound >= 1").
 func decideMapped(kind Kind, raw []byte, timedOut bool, k int,
-	suffix string) (string, string, *int) {
-	rung, summary := MapRun(kind, raw, timedOut, k)
+	suffix, why string) (string, string, *int) {
+	rung, summary := MapRun(kind, raw, timedOut, k, why)
 	summary += suffix
 	if rung != RungProvedBounded {
 		return rung, summary, nil

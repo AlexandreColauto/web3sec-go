@@ -56,9 +56,18 @@ func t27CitedFixture(t *testing.T, c *state.Campaign, iid, exec string) (string,
 		kv("outcome", validation.VStr("PROVEN")),
 		kv("per_rule", validation.VObj(kv("inv_p", validation.VStr("PROVEN")))),
 	)
+	// r32: the audit re-derives the bind's published/review gates, so the
+	// fixture must be a report a fresh bind would actually accept — it no
+	// longer merely has to look like one.
 	rep := validation.VObj(
+		kv("schema_version", validation.VStr("1.0")),
+		kv("published", validation.VBool(true)),
+		kv("publish_problems", validation.VArr()),
+		kv("review_independent", validation.VBool(true)),
+		kv("capabilities_missing", validation.VArr()),
 		kv("flags", validation.VObj(kv("loop_bound", validation.VInt(100)))),
 		kv("property_outcomes", validation.VObj(kv("p", prop))),
+		kv("review_findings", validation.VArr()),
 	)
 	path := filepath.Join(c.Root, "report.json")
 	if err := validation.WriteJson(path, rep, ""); err != nil {
