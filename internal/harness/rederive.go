@@ -97,9 +97,10 @@ func RecordTimedOut(rec validation.Value) bool {
 	return TimedOutBit(RecordExitStatus(rec))
 }
 
-// RecordCommand is the exec record's command string ("" when absent). The
-// invocation bound is InvocationBound(RecordCommand(rec)) for both the bind
-// and the audit.
+// RecordCommand is the exec record's command string ("" when absent). It is
+// the TEXT, not the reading: the invocation bound both halves use is
+// RecordInvocationBound(KIND, rec), which shapes the parse by the tool the
+// rung's kind names (r33 F1).
 //
 // r32 F8: a command field that is PRESENT but not a string is NOT an
 // absent command, and this reader must not launder one into the other —
@@ -108,6 +109,14 @@ func RecordTimedOut(rec validation.Value) bool {
 // signature (and its "" for a non-string) because callers that only want
 // "the command text, if any" — cli.harnessCompilerPin's --solc-path scan —
 // have no floor to raise.
+//
+// The pre-r33 sentence here ("The invocation bound is
+// InvocationBound(RecordCommand(rec)) for both the bind and the audit") was
+// TRUE when it was written and became the F1 lie: the bind had already moved
+// to the kind-aware reader while all three section-11 sites still passed the
+// kind-free one, so one record could be read two ways. Both halves read
+// RecordInvocationBound now; nothing in either package calls the kind-free
+// reader for a rung's bound.
 func RecordCommand(rec validation.Value) string {
 	cmd, _, _ := RecordCommandField(rec)
 	return cmd
@@ -430,9 +439,13 @@ func DecideBound(kind Kind, inv validation.Value, raw []byte,
 	boundedK *int) {
 	// The invocation floor, re-read HERE from the record with the kind
 	// (r32 F1/F2/F8). The caller-passed k is what the bind or the audit
-	// computed, and section 11 still computes it kind-free
-	// (harness.InvocationBound(harness.RecordCommand(rec))), so this is
-	// where the two halves are kept one opinion: a record whose command
+	// computed — both now read it with RecordInvocationBound(kind, rec)
+	// (r33 F1: the audit's three sites used to pass the KIND-FREE
+	// InvocationBound(RecordCommand(rec)), so a command naming a real tool
+	// other than the record's kind — `halmos --fuzz-runs 4000` bound as
+	// --kind forge-fuzz — got an honest 4000 from the bind and a floor
+	// from the audit, and this re-read could not close the gap because
+	// only a FLOORING re-read overrides the caller). A command that
 	// states a value its tool refuses, names a bound flag another family
 	// owns, or is not a string at all floors whichever k arrived. Only a
 	// FLOORING re-read overrides the caller — an honest k for a record

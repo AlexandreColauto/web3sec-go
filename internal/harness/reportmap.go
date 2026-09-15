@@ -106,6 +106,7 @@ type ReportGate string
 
 const (
 	GateNone                 ReportGate = ""
+	GateSchemaVersion        ReportGate = "schema_version"
 	GatePublishProblemsShape ReportGate = "publish_problems-shape"
 	GatePublishProblems      ReportGate = "publish_problems"
 	GatePublished            ReportGate = "published"
@@ -116,6 +117,157 @@ const (
 	GateSuspect              ReportGate = "suspect"
 	GateLoopBound            ReportGate = "flags.loop_bound"
 )
+
+// ReportSchemaMajor is the schema_version family this build speaks: the
+// report contract is 1.x, so "1.0" and the "1.0.3" patch form are both
+// understood while "2.0" (a future major) and an ABSENT version (the
+// pre-1.0 shape) are not.
+//
+// r33 F3: this constant used to live only in package cli
+// (autoproveSchemaMajor, cmd_verify_autoprove.go), where the verb refused
+// the report at its own door — while harness.DecideReport never read
+// schema_version at all. A chain-valid forged campaign pinning a report
+// whose schema_version was "2.0" (or absent) therefore audited GREEN with a
+// blessing line, and a fresh bind of those very bytes exited 2: one byte
+// string, two verdicts, because the gate lived on one side only. It now
+// rides the ONE decision (DecideReportSchema, called first by DecideReport
+// and by the verb's own early arm), so the refusal sentence and the state
+// it names exist once.
+const ReportSchemaMajor = "1."
+
+// reportSchemaAbsent names the state a report with no readable
+// schema_version is in. It is the verb's own wording (the ABSENT default its
+// door applied, moved here with the gate) because the refusal sentence is
+// one string.
+const reportSchemaAbsent = "ABSENT (pre-1.0 report)"
+
+// DecideReportSchema is the schema_version gate as a decision of its own:
+// GateSchemaVersion with the bind's Refusal sentence when the report's
+// schema_version does not belong to ReportSchemaMajor's family (an absent or
+// non-string version reads as "" and refuses, naming the ABSENT state), else
+// GateNone.
+//
+// It is a separate exported entry point only so the verb can ask the
+// question at its historical position — before it touches links, the
+// property-holder ledger scan or the exec ledger — while the sentence stays
+// the ONE decision's. DecideReport calls it first, so the audit re-derives
+// exactly what the verb's door refused (r33 F3).
+func DecideReportSchema(rep validation.Value) ReportDecision {
+	sv := rpObjStr(rep, "schema_version")
+	if strings.HasPrefix(sv, ReportSchemaMajor) {
+		return ReportDecision{}
+	}
+	name := sv
+	if name == "" {
+		name = reportSchemaAbsent
+	}
+	return ReportDecision{Gate: GateSchemaVersion,
+		Refusal: fmt.Sprintf("report schema_version %s is not understood "+
+			"(this build speaks %s0.x) — refusing to best-effort a "+
+			"contract change\n", validation.PyReprStr(name),
+			ReportSchemaMajor)}
+}
+
+// ReportKind is the fourth kind a bind writes: cli.verifyAutoprove's
+// report-bound rung, whose mapper is MapReport over the registered report
+// bytes (never MapRun/MapMinicertoraInvoc over a run's captured stdout).
+// It is written on the slot and on the event by
+// cmd_verify_autoprove.go, so the pairing below is the bind's own.
+//
+// r33 F4/F5: this was package sections' harnessReportKind. The kind/
+// evidence pairing is a property of the BIND's write path, so its one home
+// is the decision package both halves share.
+const ReportKind = Kind("miniprover")
+
+// ReportExecLabel is the provenance label a report-bound bind writes for its
+// own pin: "REPORT-" + the first 12 hex digits of the report digest
+// (cli.verifyAutoprove). Both halves call it — the verb to write the label,
+// section 11 to check that a stored label names the bytes it is pinned to
+// (r33 F4(b)) — so the label rule cannot drift into two spellings.
+//
+// The truncation is defensive about a SHORT digest: a real digest is 64 hex
+// characters (validation.Sha256Hex) and never hits the guard, but a
+// hand-edited registry row could carry a shorter sha, and a label rule that
+// panicked on it would take the audit down instead of burning the row.
+func ReportExecLabel(digest string) string {
+	if len(digest) > 12 {
+		digest = digest[:12]
+	}
+	return "REPORT-" + digest
+}
+
+// ReportProvenanceReason is the ONE reading of the (kind, exec, report pin)
+// triple a report-bound rung carries, and returns "" when the pairing is one
+// the bind could have written, else the sentence that says why not.
+//
+// The bind's report path writes exactly two shapes (cmd_verify_autoprove.go):
+//
+//   - no --exec: kind ReportKind and exec ReportExecLabel(pin) — the digest
+//     NAMES the bytes that were mapped, and it is the only label the verb
+//     invents;
+//   - --exec EXEC-x: kind ReportKind and exec = that ledger exec id, after
+//     harnessExecRecord proved the ledger holds it (that half needs the
+//     ledger and lives in section 11).
+//
+// So:
+//
+//   - a REPORT- provenance under any kind but ReportKind is a pairing no
+//     mapper produces: the report arm re-derives from the pinned report
+//     bytes with MapReport, and an exec-shaped kind (halmos, forge-fuzz,
+//     minicertora) claims the rung came from a captured stdout that was
+//     never read. r33 F5. NOTE the report arm still RUNS for such a pairing
+//     — the audit re-derives from the bytes first and burns the mismatch
+//     after (r29b F1(a): a kind-shaped skip is the hole r29 closed, and the
+//     digest/registry burns must keep firing first so a report row that is
+//     missing from the store still says so);
+//   - a REPORT- label whose digest prefix is not the pin's is a label that
+//     does not name the bytes on record: the DISPLAY prints it as the
+//     witness ("INV-1: PROVEN-BOUNDED (miniprover, k=4, REPORT-…)"), so a
+//     label free to disagree with the pin is a printed lie about which
+//     report was mapped. r33 F4(b).
+func ReportProvenanceReason(kind Kind, exec, digest string) string {
+	if !strings.HasPrefix(exec, "REPORT-") {
+		return ""
+	}
+	if kind != ReportKind {
+		return fmt.Sprintf("the run is pinned to report bytes "+
+			"(%s) with REPORT- provenance, but the stored kind is %s — "+
+			"the report-bound bind writes kind %s for a report rung, and "+
+			"%s is an exec-bound kind whose mapper reads the run's own "+
+			"captured stdout; no mapper produced this pairing, so the "+
+			"rung is not backed", validation.PyReprStr(digest),
+			validation.PyReprStr(string(kind)),
+			validation.PyReprStr(string(ReportKind)),
+			validation.PyReprStr(string(kind)))
+	}
+	if want := ReportExecLabel(digest); exec != want {
+		return fmt.Sprintf("the rung's exec label is %s but the pinned "+
+			"report bytes hash to %s (the bind writes %s) — the printed "+
+			"provenance does not name the evidence on record, so the "+
+			"rung is not backed", validation.PyReprStr(exec),
+			validation.PyReprStr(digest), validation.PyReprStr(want))
+	}
+	return ""
+}
+
+// SamePropertyName is the ONE property-title comparison of the autoprove
+// rail (r33 F2). Property titles are AGENT-authored strings, so identity
+// folds case and surrounding whitespace while display keeps the first
+// spelling. Three call sites share it:
+//
+//   - cli.autoprovePropertyHolder (the bind's one-property-one-invariant
+//     rail) via cli.autoproveSameName;
+//   - ReportSuspects' SUSPECT attribution;
+//   - section 11's duplicate-attribution rail, which must collide on exactly
+//     the pairs the bind's holder scan collides on — if the bind folds, the
+//     audit folds.
+//
+// It was rpSameName (and, separately, an identical cli helper): two
+// implementations of one law is the shape this round is about, so both are
+// now spellings of this function.
+func SamePropertyName(a, b string) bool {
+	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
+}
 
 // ReportDecision is DecideReport's answer: either Gate != GateNone with the
 // bind's Refusal sentence, or the mapped rung/summary/bounded_k.
@@ -141,6 +293,13 @@ type ReportDecision struct {
 // refuses. The bind's bytes are unchanged for every shape the report
 // contract can carry.
 func DecideReport(rep validation.Value, property string) ReportDecision {
+	// r33 F3: the schema gate is the FIRST gate, because it is the first
+	// gate at the bind's own door (cli.verifyAutoprove checks it before it
+	// loads links or scans the ledger). A report whose contract this build
+	// does not speak cannot be read at all, so nothing below it may fire.
+	if dec := DecideReportSchema(rep); dec.Gate != GateNone {
+		return dec
+	}
 	probsPre := objAtRP(rep, "publish_problems")
 	if probsPre.Kind != validation.Null && probsPre.Kind != validation.Arr {
 		// r20 F6: the veto list is a LIST by contract — a scalar there is
@@ -303,14 +462,22 @@ func ReportSuspects(rep validation.Value, property string) string {
 	return strings.Join(out, "; ")
 }
 
-// rpSameName is cli.autoproveSameName verbatim: property titles are
+// rpSameName was cli.autoproveSameName verbatim: property titles are
 // AGENT-authored strings — the same verbatim-slop class r21 F2 fixed for
 // verdicts. Attribution and consumption fold case + edges (display keeps
 // the first spelling; identity is the folded form). NOTE this is the
 // SUSPECT gate's matching rule only: the property whose OUTCOME is read is
 // resolved by ReportProperty's exact lookup.
+//
+// r33 F2 collapsed the two copies (this one and the cli helper) into
+// SamePropertyName: a fold spelled twice is a fold that can drift, and
+// section 11's duplicate rail must collide exactly where the bind does.
+// rpSameName is the SUSPECT gate's spelling of SamePropertyName — the same
+// fold the bind's property-holder scan uses (r33 F2), so a review finding
+// flagged against " P1 " is a finding against the property "p1" the bind
+// would collide on.
 func rpSameName(a, b string) bool {
-	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
+	return SamePropertyName(a, b)
 }
 
 // rpObjStr mirrors cli.objStr BYTE-FOR-BYTE: the string only when the field

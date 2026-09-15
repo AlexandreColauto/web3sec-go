@@ -1,5 +1,31 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — r33 (two b-ai critics): one record, two readers; and rails the audit only thought it had
+
+The lexer critic scored 8/10 — the per-tool parse, the floor unification and the digit table held under a differential against
+the real binaries — and its one P2 was the recurring shape again: the BIND read the record with the kind-aware invocation
+reader while all three section-11 sites read it with the kind-free one, and the shared decision only lets the kind-aware
+re-read override when it FLOORS. So a record whose command named a different tool than its kind ('halmos --fuzz-runs 4000'
+bound as --kind forge-fuzz) blessed k=4000 at the bind and burned at the audit with 'the mapping did not come from this
+run's bytes' — a sentence a RE-BIND of the identical record contradicts, since it reproduces the stored rung byte for
+byte. Both sides now read through the same reader; the stale comment claiming they already did is corrected.
+
+The second critic went after the report rung and found four more rails that existed only at the bind. The schema_version
+gate was the last of the five gates still in the cli, so a pin this build refuses to read ('2.0', or an absent schema)
+could still bless a forged campaign. 'One property's proof binds one invariant' lived only in the verb, so a chain-valid
+forged campaign could show TWO blessing lines over one proof (and the fold-equal spelling variant worked too) while
+re-binding the second row exits 2. Provenance was unchecked in two ways: the rung's printed exec label need not name the
+digest it pins (a forged row printed REPORT-000000000000 over a different pin), and a rung could cite an exec the ledger
+does not hold at all. Section 11 now re-derives all of it: the schema gate lives in the shared decision, the provenance
+rail checks the exec ledger and the label-versus-pin, and the one-proof law is enforced per property with event order
+deciding which row keeps its rung and which burns naming the collision.
+
+Two fixtures had to move with the semantics, and both are recorded rather than quietly re-baselined: the prune test's
+cited-row fixture synthesized a pairing NO bind can write (a scaffold kind with REPORT- provenance over a real pin), which
+the new provenance rail correctly burns — it now derives its label from the pin, and its expectation is computed from the
+fixture instead of hard-coded. Pinned across harness/cli/sections; gofmt/go vet clean, 70/70 packages, runbook-walkthrough
+and golden GREEN.
+
 ## 2026-09-14 — r32 (two b-ai critics): three tools, one parser; and five gates the audit never read
 
 Two critics attacked in parallel for the first time — one devoted to the invocation lexer with 286 differentially-tested

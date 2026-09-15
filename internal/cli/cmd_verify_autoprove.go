@@ -29,7 +29,12 @@ import (
 )
 
 // autoproveReport is what we trust from the file, kept small on purpose.
-const autoproveSchemaMajor = "1."
+//
+// r33 F3: the schema_version family this build speaks now lives on the ONE
+// decision (harness.ReportSchemaMajor, read by harness.DecideReportSchema)
+// instead of here — the verb's door and the audit's re-derivation must
+// refuse the same report in the same words, and a constant only one of them
+// can see is exactly how a "2.0" report got blessed by section 11.
 
 // verifyAutoprove is cmd_verify's --autoprove branch.
 // AutoproveSwapSeam, when armed by a test, runs between parse and the
@@ -62,13 +67,17 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 			"the run directory or a tampered copy is not\n", a.report)
 	}
 	digest := validation.Sha256Hex(raw)
-	sv := objStr(rep, "schema_version")
-	if !strings.HasPrefix(sv, autoproveSchemaMajor) {
-		return t14ExitErr(2, "verify --autoprove: report schema_version %s "+
-			"is not understood (this build speaks %s0.x) — refusing to "+
-			"best-effort a contract change\n",
-			validation.PyReprStr(orUnset(sv, "ABSENT (pre-1.0 report)")),
-			autoproveSchemaMajor)
+	// r33 F3: the schema gate is harness.DecideReportSchema — the FIRST
+	// gate of the one shared decision (harness.DecideReport), asked here so
+	// that this verb refuses a report it cannot read BEFORE it loads links,
+	// scans the property-holder ledger or touches the exec ledger (its
+	// historical position, and the position its refusal bytes are pinned
+	// in). The sentence and the state it names come from the gate, so the
+	// audit's re-derivation of a pinned copy refuses in the same words;
+	// before this the gate existed only here and section 11 blessed a
+	// report whose schema_version was "2.0" or absent.
+	if dec := harness.DecideReportSchema(rep); dec.Gate != harness.GateNone {
+		return t14ExitErr(2, "verify --autoprove: %s", dec.Refusal)
 	}
 	links, err := invariants.LoadLinks(c)
 	if err != nil {
@@ -109,7 +118,13 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		// No sandbox EXEC wrapped this report: the digest identifies
 		// what was mapped, and says so — an honest "report-only"
 		// provenance row, not a fabricated EXEC id.
-		exec = "REPORT-" + digest[:12]
+		//
+		// r33 F4(b): the label rule is harness.ReportExecLabel, the ONE
+		// home — section 11 re-derives the label from the pin with the
+		// same function, so a forged "REPORT-000000000000" over a
+		// different digest burns instead of printing itself as the
+		// witness.
+		exec = harness.ReportExecLabel(digest)
 	}
 	// The run-level gates FIRST: a rollup over a run the prover itself
 	// refuses to publish is not evidence of anything.
@@ -296,12 +311,10 @@ func joinHead(xs []string, n int) string {
 	return strings.Join(xs, ", ")
 }
 
-func orUnset(s, alt string) string {
-	if s == "" {
-		return alt
-	}
-	return s
-}
+// orUnset rendered the schema gate's ABSENT state. r33 F3 moved the gate —
+// sentence, state name and schema family — into harness (DecideReportSchema,
+// harness.ReportSchemaMajor), so the default it applied lives there now and
+// this verb holds no second copy of the wording.
 
 // autoproveEventData is the harness_run payload for report-bound
 // rungs: the shared four fields plus the report's own provenance
@@ -384,8 +397,13 @@ func autoprovePriorDigest(c *state.Campaign, invID string) string {
 // consumption fold case + edges (display keeps the first spelling;
 // identity is the folded form, so "P1" cannot launder a second bind
 // nor dodge a suspect flag).
+//
+// r33 F2: the fold itself is harness.SamePropertyName — ONE implementation
+// for the bind's holder scan, the SUSPECT gate and section 11's
+// duplicate-attribution rail, which must collide on exactly the pairs this
+// scan collides on. This is the cli's spelling of that function.
 func autoproveSameName(a, b string) bool {
-	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
+	return harness.SamePropertyName(a, b)
 }
 
 // artifactCitedByLiveBinds: does any harness_run event still name this

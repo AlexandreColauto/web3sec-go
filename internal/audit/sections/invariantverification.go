@@ -449,7 +449,16 @@ func harnessEvidenceRecheck(c *state.Campaign,
 		// first and recheckMapRunEvidence then skipped every kind outside
 		// {halmos, forge-fuzz}, so a legitimate report-bound blessing with an
 		// EXEC provenance was never re-derived at all.
-		return recheckRegistryEvidence(c, iid, last)
+		//
+		// r33 F2: the ONE-PROOF-ONE-ROW rail runs FIRST here. It is a
+		// question about the LEDGER (which row claimed this (pin, property)
+		// pair first), not about the bytes, and the bind refuses the later
+		// claim outright — so a pair the ledger already carries must burn
+		// whatever the pinned bytes would have said.
+		if msg := reportProofCollisionBurn(events, iid, last); msg != "" {
+			return msg
+		}
+		return recheckRegistryEvidence(c, iid, last, kind, exec)
 	case strings.HasPrefix(exec, "EXEC-"):
 		return recheckExecEvidence(c, events, iid, entry, h, last, exec, kind)
 	}
@@ -464,7 +473,12 @@ func harnessEvidenceRecheck(c *state.Campaign,
 // harness.Kind("miniprover") on both the slot and the event). Its mapper is
 // harness.MapReport, not MapRun, so no MapRun-shaped rail can re-derive it —
 // the report bytes recheckRegistryEvidence re-reads are the evidence.
-const harnessReportKind = harness.Kind("miniprover")
+//
+// r33 F4/F5: the value and the kind/evidence pairing now live in package
+// harness (harness.ReportKind, harness.ReportProvenanceReason), because the
+// rule is the BIND's own write path; this name is kept as the sections-side
+// spelling so the existing call sites stay readable.
+const harnessReportKind = harness.ReportKind
 
 // harnessKindBurn refuses a kind this audit cannot re-derive, naming the
 // kind as the reason (r29b F1(b)): a blessing rung whose kind no mapper
@@ -669,7 +683,8 @@ func recheckExecEvidence(c *state.Campaign, events []validation.Value,
 		// over-claim directions (claimed advice the bytes contradict;
 		// claimed-absent proof present in the run).
 		if kind == harness.MiniCertora {
-			return recheckInconclusive(c, events, iid, entry, h, last, exec)
+			return recheckInconclusive(c, events, iid, entry, h, last,
+				exec, kind)
 		}
 		return ""
 	}
@@ -729,7 +744,17 @@ func recheckExecEvidence(c *state.Campaign, events []validation.Value,
 	// record whose exit_status was absent or null re-derived an honest
 	// PROVEN line as proved-bounded and audited green — absence read as a
 	// clean exit. Absence is inconclusive, never a blessing.
-	invK := harness.InvocationBound(harness.RecordCommand(rec))
+	//
+	// r33 F1: and the invocation bound comes from the BIND's own reader
+	// TOO — harness.RecordInvocationBound(kind, rec). This site (like the
+	// two siblings below) passed the KIND-FREE reader, so a record whose
+	// command names a real tool other than the rung's kind (a `halmos
+	// --fuzz-runs 4000` record bound as --kind forge-fuzz: an honest 4000
+	// for forge, a foreign-flag floor for the kind-free parse) was read two
+	// ways by the two halves. DecideBound only lets a FLOORING kind-aware
+	// re-read override the caller, so the audit's floored k survived and it
+	// burned a bind that re-binds byte-for-byte.
+	invK := harness.RecordInvocationBound(kind, rec)
 	decRung, decSummary, decProof, decBK := harness.DecideBound(
 		harness.MiniCertora, inv, raw, rec, scaffold,
 		harness.RecordTimedOut(rec), invK, harness.RecordExitStatus(rec),
@@ -788,7 +813,7 @@ func recheckExecEvidence(c *state.Campaign, events []validation.Value,
 	return ""
 }
 func recheckRegistryEvidence(c *state.Campaign, iid string,
-	last validation.Value) string {
+	last validation.Value, kind harness.Kind, exec string) string {
 	dig := objStr(last, "report_sha256")
 	if dig == "" {
 		// r32b F2: r23's report_sha256 is the pin that makes a report rung
@@ -888,7 +913,156 @@ func recheckRegistryEvidence(c *state.Campaign, iid string,
 		return fmt.Sprintf("%s: the pinned report derives bounded_k "+
 			"%d; the event carries a different bound", iid, *bk)
 	}
+	// ------------------------------------------------------------------
+	// r33 F4/F5: the PROVENANCE the bind would have written for these bytes.
+	//
+	// Everything above re-derives the MAPPING from the pinned report bytes;
+	// none of it reads the rung's own (kind, exec) pair, and three shapes no
+	// bind writes rode that gap to a green audit with an unqualified
+	// blessing line:
+	//
+	//	(a) exec = an EXEC- id the campaign does not hold. The bind checks
+	//	    every --exec it is handed against the exec ledger
+	//	    (cli.verifyAutoprove -> harnessExecRecord) and refuses an unknown
+	//	    one with exit 2 ("no exec … in this campaign's exec ledger"); a
+	//	    forged slot+event pair carrying "EXEC-99999999-nope" printed that
+	//	    label as the witness of a rung whose run does not exist.
+	//	(b) exec = a REPORT-<digest12> label that does not name the pinned
+	//	    bytes. The bind computes the label FROM the digest it mapped
+	//	    (harness.ReportExecLabel), so a label free to disagree with the
+	//	    pin is printed provenance no run had — the display line reads
+	//	    "…, REPORT-000000000000)" over a rung re-derived from
+	//	    89889f8cf360….
+	//	(c) a REPORT- provenance wearing an exec-shaped kind (r33 F5): the
+	//	    report-bound bind writes harness.ReportKind, and the mapper this
+	//	    arm runs is MapReport over the pinned bytes, so a rung claiming
+	//	    halmos/forge-fuzz/minicertora while pinned to report bytes names
+	//	    a captured stdout that was never read.
+	//
+	// (b) and (c) are harness.ReportProvenanceReason — the bind's own label
+	// rule and its own kind, one home. (a) is the bind's own ledger lookup.
+	//
+	// The order is deliberate and is what keeps r29b F1(a) honest: the
+	// digest/registry/bytes/gate/mapping checks above stay FIRST, so a report
+	// row that is missing from the store still burns with the sentence that
+	// shape is pinned to ("no registry artifact holds the report bytes the
+	// event pins"), even when the rung also wears a scaffold kind.
+	// ------------------------------------------------------------------
+	if why := harness.ReportProvenanceReason(kind, exec, dig); why != "" {
+		return fmt.Sprintf("%s: %s", iid, why)
+	}
+	if !strings.HasPrefix(exec, "REPORT-") {
+		recs, lerr := state.AllExecs(c)
+		if lerr != nil {
+			return fmt.Sprintf("%s: the exec ledger cannot be read (%v) — "+
+				"the provenance %s it names cannot be checked", iid, lerr,
+				validation.PyReprStr(exec))
+		}
+		held := false
+		for _, e := range recs {
+			if objStr(e, "exec_id") == exec {
+				held = true
+				break
+			}
+		}
+		if !held {
+			return fmt.Sprintf("%s: provenance names %s, which the exec "+
+				"ledger does not hold — the bind verifies every --exec it "+
+				"writes against that ledger (its own refusal is \"no exec "+
+				"… in this campaign's exec ledger\"), so no bind wrote this "+
+				"label and the witness it prints does not exist; the rung "+
+				"is not backed", iid, validation.PyReprStr(exec))
+		}
+	}
 	return ""
+}
+
+// reportProofCollisionBurn is r33 F2: ONE PROOF, ONE ROW, for the report
+// rungs — the audit's re-derivation of the law the bind enforces in
+// cli.verifyAutoprove (autoprovePropertyHolder + the caller's
+// `holder != a.autoprove` refusal: "one property's proof binds one
+// invariant").
+//
+// The bind's law, READ OFF ITS OWN CODE AND OBSERVED (not inferred):
+// autoprovePropertyHolder scans the harness_run events in sequence for the
+// FIRST event whose `property` folds equal to the property being bound
+// (cli.autoproveSameName -> harness.SamePropertyName: case and edge
+// whitespace fold) and the verb refuses with exit 2 when that event belongs
+// to a DIFFERENT invariant:
+//
+//	verify --autoprove: property 'p1' was already bound to INV-1
+//	(REPORT-89889f8cf360) — one property's proof binds one invariant;
+//	give the second invariant its OWN property (digest churn is not a new
+//	proof)
+//
+// Note what that scan does NOT look at: the report PIN. It filters on the
+// property alone, so the same property title over a DIFFERENT report is
+// still "already bound" — measured, not assumed, in
+// internal/cli/zz_r33_test.go's TestR33DuplicateControlsStayGreen, where the
+// cross-pin bind is refused with the sentence above. An audit rail keyed on
+// (pin, property) would therefore bless a duplicate attribution the bind
+// refuses: the same forgery as F2's repro with one byte of the report
+// changed. So this rail keys on the PROPERTY, exactly as the bind does.
+//
+// Within that key, the FIRST event (in sequence) keeps its rung; every LATER
+// event claiming the same folded property for a DIFFERENT invariant burns,
+// naming the collision and the row that bound it first. Three deliberate
+// properties of the reading:
+//
+//   - the fold is harness.SamePropertyName, the bind's own comparison — the
+//     two copies of it were collapsed into that one function by this same
+//     finding, so a report keyed "p1" whose second row names "P1" collides
+//     here exactly as the bind's holder scan collides;
+//   - the SAME invariant re-claiming the property is a REFRESH, not a
+//     collision: the bind's holder scan returns the first holder and refuses
+//     only a DIFFERENT one, so an invariant re-binding its own proof (a
+//     newer report for the same property — the re-bind the verb explicitly
+//     discloses with a warning — or a byte-identical re-bind) stays green;
+//   - an event with no `property` field is not a claim (the exec-bound
+//     payload carries none), and a rung with a blank property claims
+//     nothing, so both are skipped. Anything ELSE is a claim, pin or no pin:
+//     the bind's scan reads the property and nothing else.
+//
+// "" when the event carries no property, or when the first claimant IS this
+// invariant.
+func reportProofCollisionBurn(events []validation.Value, iid string,
+	last validation.Value) string {
+	prop := objStr(last, "property")
+	if prop == "" {
+		return ""
+	}
+	firstInv, firstExec, firstPin := "", "", ""
+	for _, ev := range events {
+		if objStr(ev, "type") != "harness_run" {
+			continue
+		}
+		d := objAt(ev, "data")
+		if !harness.SamePropertyName(objStr(d, "property"), prop) {
+			continue
+		}
+		inv := objStr(d, "invariant")
+		if inv == "" {
+			continue
+		}
+		if firstInv == "" {
+			firstInv, firstExec = inv, objStr(d, "exec")
+			firstPin = objStr(d, "report_sha256")
+		}
+	}
+	if firstInv == "" || firstInv == iid {
+		return ""
+	}
+	pin := firstPin
+	if len(pin) > 12 {
+		pin = pin[:12]
+	}
+	if pin == "" {
+		pin = "-"
+	}
+	return fmt.Sprintf("%s: report property %s is already bound to %s "+
+		"(%s, report %s) — one property's proof binds one invariant, and "+
+		"the first claimant keeps its rung; this row's rung is not backed",
+		iid, validation.PyReprStr(prop), firstInv, firstExec, pin)
 }
 
 // autoproveProp was r26 F1's EXACT-first resolution with a single
@@ -958,7 +1132,9 @@ func recheckMapRunEvidence(c *state.Campaign, events []validation.Value,
 	}
 	scaffold = scaffoldBytesForUnboundArm(c, events, iid, kind, scaffold,
 		scaffoldWhy)
-	invK := harness.InvocationBound(harness.RecordCommand(rec))
+	// r33 F1: the KIND-AWARE bound reader, the same one the bind calls
+	// (harness.RecordInvocationBound — see recheckExecEvidence).
+	invK := harness.RecordInvocationBound(kind, rec)
 	rung, decSummary, _, decBK := harness.DecideBound(kind,
 		harness.InvValue(iid, entry), raw, rec, scaffold,
 		harness.RecordTimedOut(rec), invK, harness.RecordExitStatus(rec),
@@ -987,7 +1163,8 @@ func recheckMapRunEvidence(c *state.Campaign, events []validation.Value,
 }
 
 func recheckInconclusive(c *state.Campaign, events []validation.Value,
-	iid string, entry, h, last validation.Value, exec string) string {
+	iid string, entry, h, last validation.Value, exec string,
+	kind harness.Kind) string {
 	recs, err := state.AllExecs(c)
 	if err != nil {
 		return ""
@@ -1020,10 +1197,15 @@ func recheckInconclusive(c *state.Campaign, events []validation.Value,
 	// rung blesses nothing: the guard below skips it (modesty — the
 	// scope law above), so missing scaffold bytes can never burn an
 	// honest inconclusive bind here.
-	invK := harness.InvocationBound(harness.RecordCommand(rec))
+	// r33 F1: the KIND-AWARE bound reader — this function is reached only
+	// for kind == minicertora (recheckExecEvidence's dispatch), and the bind
+	// reads the same record with harness.RecordInvocationBound(kind, rec).
+	// The kind-free reader this used to call disagreed with the bind about
+	// any command naming another tool, which is the F1 divergence.
+	invK := harness.RecordInvocationBound(kind, rec)
 	scaffold, _ := harnessScaffoldArtifactBytes(c, events, iid,
 		harness.MiniCertora)
-	_, sum, _, _ := harness.DecideBound(harness.MiniCertora,
+	_, sum, _, _ := harness.DecideBound(kind,
 		harness.InvValue(iid, entry), raw, rec, scaffold,
 		harness.RecordTimedOut(rec), invK, es, harness.MspecRuleName(iid))
 	if !strings.HasPrefix(sum, "inconclusive") {

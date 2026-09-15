@@ -52,6 +52,11 @@ func t27CampaignRegister(t *testing.T, c *state.Campaign, name string) string {
 // artifact id and the pinned digest.
 func t27CitedFixture(t *testing.T, c *state.Campaign, iid, exec string) (string, string) {
 	t.Helper()
+	// r33 F4(b)/F5: a report rung's printed exec label must name the pin it
+	// cites, and its kind must be the report kind — a fixture pairing a
+	// scaffold kind with REPORT- provenance is a shape NO bind can write,
+	// which is exactly what section 11 now burns. The label is therefore
+	// derived from the pin, and the caller's argument is ignored.
 	prop := validation.VObj(
 		kv("outcome", validation.VStr("PROVEN")),
 		kv("per_rule", validation.VObj(kv("inv_p", validation.VStr("PROVEN")))),
@@ -82,6 +87,8 @@ func t27CitedFixture(t *testing.T, c *state.Campaign, iid, exec string) (string,
 		t.Fatal(err)
 	}
 	sha := objStr(row, "sha256")
+	exec = harness.ReportExecLabel(sha)
+	_ = exec
 	// Derive the rung through the functions the audit re-derives with, so
 	// the fixture is an honest bind rather than a shape that merely looks
 	// like one.
@@ -108,7 +115,7 @@ func t27CitedFixture(t *testing.T, c *state.Campaign, iid, exec string) (string,
 	reg := objAt(links, "invariants")
 	e := objAt(reg, iid)
 	h := validation.VObj(
-		kv("kind", validation.VStr("minicertora")),
+		kv("kind", validation.VStr(string(harness.ReportKind))),
 		kv("rung", validation.VStr(rung)),
 		kv("exec", validation.VStr(exec)),
 		kv("bounded_k", validation.VInt(int64(*bk))),
@@ -123,7 +130,7 @@ func t27CitedFixture(t *testing.T, c *state.Campaign, iid, exec string) (string,
 	}
 	data := validation.VObj(
 		kv("invariant", validation.VStr(iid)),
-		kv("kind", validation.VStr("minicertora")),
+		kv("kind", validation.VStr(string(harness.ReportKind))),
 		kv("rung", validation.VStr(rung)),
 		kv("exec", validation.VStr(exec)),
 		kv("summary", validation.VStr(summary)),
@@ -227,6 +234,8 @@ func TestArtifactPruneJSON(t *testing.T) {
 func TestArtifactPruneCitedRowWarnsAndBurnsTheRung(t *testing.T) {
 	c, root := t15Campaign(t, "prune")
 	aid, sha := t27CitedFixture(t, c, "INV-3", "REPORT-9")
+	wantRun := "INV-3: PROVEN-BOUNDED (" + string(harness.ReportKind) +
+		", k=100, " + harness.ReportExecLabel(sha) + ")"
 	// PRE: the binding is honest — the store holds the cited bytes, so the
 	// section is green and the rung prints unqualified.
 	code, sec := t27AuditSection(t, root, c.CampaignID)
@@ -235,8 +244,7 @@ func TestArtifactPruneCitedRowWarnsAndBurnsTheRung(t *testing.T) {
 			validation.CanonCompact(sec))
 	}
 	runs := objAt(sec, "harness_runs")
-	if len(runs.A) != 1 || runs.A[0].S != "INV-3: PROVEN-BOUNDED "+
-		"(minicertora, k=100, REPORT-9)" {
+	if len(runs.A) != 1 || runs.A[0].S != wantRun {
 		t.Fatalf("pre-prune harness_runs = %s",
 			validation.CanonCompact(runs))
 	}
@@ -463,7 +471,7 @@ func t28ExecRungEvent(t *testing.T, c *state.Campaign, iid, execID string) {
 	ref := iid
 	data := validation.VObj(
 		kv("invariant", validation.VStr(iid)),
-		kv("kind", validation.VStr("minicertora")),
+		kv("kind", validation.VStr(string(harness.ReportKind))),
 		kv("rung", validation.VStr("proved-bounded")),
 		kv("exec", validation.VStr(execID)),
 		kv("summary", validation.VStr("proved bounded (k=4)")),

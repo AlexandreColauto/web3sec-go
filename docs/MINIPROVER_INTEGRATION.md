@@ -271,7 +271,18 @@ time, from the artifacts the event names:
 * `REPORT-*` provenance (autoprove): the pinned `report_sha256` must
   exist as a registry digest **and** those bytes are re-decided through
   `harness.DecideReport` (which calls `harness.BoundFromFlags` and
-`harness.MapReport`, so the report rung's gates are re-derived too) — the very functions
+`harness.MapReport`, so the report rung's gates are re-derived too: the
+schema version, `published`, `publish_problems`, the review-error flag,
+the `review_findings` shape and SUSPECT attribution — r33: the schema
+gate was the one gate still living only in the cli, so a pin this build
+refuses to read could still bless). Section 11 also re-derives the
+PROVENANCE rail the bind enforces: the rung's exec must name a record the
+exec ledger actually holds, and a report rung's printed label must name
+the digest it pins (r33: a forged row could print `REPORT-000000000000`
+over a different pin, or cite an exec that never existed), and the
+one-proof-one-row law is re-derived per property — the first event naming
+a given proof keeps its rung, and a later row claiming the same proof
+burns naming the collision (r33) — the very functions
   `verify --autoprove` now calls at bind time (r25 F2: ownership was
   paperwork; a forged pair over honest registry bytes still has to
   reproduce rung, summary and bound). The bind stores a
@@ -314,6 +325,12 @@ a foreign sha still refuses. When a record carries a harness-file hash
 but the scaffold bytes are gone, the burn says exactly that — it no
 longer claims the record's stdout/stderr digests were 'bound to' the
 scaffold.
+
+Both sides read a record the same way (r33): the audit's re-derivation
+takes the same kind-aware invocation reader the bind uses, so a record
+whose command names a different tool than its kind cannot be blessed by
+one side and burned by the other with a sentence that a re-bind
+contradicts.
 
 The invocation parse is PER-TOOL since r32: a bound flag is read with the
 semantics of the CLI that would have received it, because the three tools
