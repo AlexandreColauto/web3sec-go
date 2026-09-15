@@ -184,11 +184,30 @@ func finishedProcResult(err error, out, errB *cappedWriter,
 	if err == nil || res.ReturnCode >= 0 || containerName == "" {
 		return res
 	}
-	switch state := stopContainer(containerName); state {
+	switch fate := stopContainer(containerName); fate.outcome {
 	case "killed":
 		res.TimeoutNote = "; the docker client died abnormally (signal) — " +
 			"the payload container '" + containerName + "' was killed by " +
 			"the cleanup"
+	case "removed":
+		// r39 P3: a container left in a non-running state (created by the
+		// daemon after the client died, or exited) is debris --rm will
+		// never clear; it was force-removed, and the record says so.
+		res.TimeoutNote = "; the docker client died abnormally (signal) — " +
+			"the payload container '" + containerName + "' was found in " +
+			"docker state '" + fate.state + "' and was REMOVED (docker rm -f)"
+	case "removed-late":
+		res.TimeoutNote = "; the docker client died abnormally (signal) — " +
+			"the payload container '" + containerName + "' appeared in " +
+			"docker state '" + fate.state + "' only after the client died " +
+			"(the daemon finished creating it for a dead client) and was " +
+			"REMOVED (docker rm -f)"
+	case "exists":
+		res.TimeoutNote = "; the docker client died abnormally (signal) — " +
+			"the payload container '" + containerName + "' still exists in " +
+			"docker state '" + fate.state + "' and could NOT be removed: " +
+			"docker debris is left behind (docker rm -f " + containerName + ")"
+		res.KillUnconfirmed = true
 	case "running":
 		res.TimeoutNote = "; the docker client died abnormally (signal) — " +
 			"the payload container '" + containerName + "' COULD NOT BE " +
@@ -204,41 +223,167 @@ func finishedProcResult(err error, out, errB *cappedWriter,
 	return res
 }
 
-// stopContainer kills the named container from the killing side (r36 F1)
-// and reports docker's own view of the outcome: "killed" (the kill was
-// observed to succeed), "exited"/"absent" (not running), "running"
-// (SURVIVED the kill) or "unknown" (state could not be determined).
-// Bounded: the inner docker calls carry their own timeouts. An empty name
-// returns "" (no container involved).
-func stopContainer(name string) string {
-	if name == "" {
-		return ""
-	}
-	res, err := runProc([]string{"docker", "kill", name}, "", nil,
-		15*timeSecond)
-	if err == nil && res.ReturnCode == 0 {
-		return "killed"
-	}
-	return containerState(name)
+// containerFate is what the cleanup found and did to the payload container
+// (r39 P3): the OUTCOME plus the docker state it was found in, so the record
+// can name both instead of collapsing every non-running container into
+// "exited".
+type containerFate struct {
+	// outcome is one of "killed", "removed", "removed-late", "absent",
+	// "running", "exists", "unknown" — "" when the exec had no container.
+	outcome string
+	// state is docker's own {{.State.Status}} when one was observed
+	// ("created", "exited", "running", ...), "" otherwise.
+	state string
 }
 
-// containerState asks docker whether the named container is running,
-// distinguishing "not running" (exited / never started) from "could not
-// determine" — the record may claim the former, only ever suspect the
-// latter (absence is inconclusive, never evidence).
-func containerState(name string) string {
-	ins, err := runProc([]string{"docker", "inspect", "-f",
-		"{{.State.Running}}", name}, "", nil, 10*timeSecond)
-	if err == nil && ins.ReturnCode == 0 {
-		switch strings.TrimSpace(ins.Stdout) {
-		case "true":
-			return "running"
-		case "false":
-			return "exited"
+// containerSweepWindow bounds the late-appearance sweep (r39 P3). When the
+// docker CLIENT dies, the daemon may still commit the create request it had
+// already accepted: measured on the r39 box, the container appeared from
+// ~0.5s to ~13s after the kill (the delay is the daemon's own work — image
+// layers, load). The window is therefore seconds, not milliseconds, but it
+// is FINITE and it is disclosed in the record: the sweep observes absence,
+// it never proves it. A package var so tests do not pay it.
+var containerSweepWindow = 15 * time.Second
+
+// stopContainer is the killing side's container reaper (r36 F1, r39 P3). It
+// reports docker's own view of the outcome AND leaves no container behind in
+// ANY state: `docker kill` cannot clean a container the daemon created AFTER
+// the client died (a `--rm` container that was never started is never
+// auto-removed — it sits in state 'created' forever), so a container found
+// in a non-running state is force-removed, and one that appears only after
+// the first look (the create request still in flight when the client died)
+// is swept. Bounded: the inner docker calls carry their own timeouts and the
+// sweep has a deadline. An empty name returns the zero fate (no container
+// involved).
+func stopContainer(name string) containerFate {
+	if name == "" {
+		return containerFate{}
+	}
+	if res, err := runProc([]string{"docker", "kill", name}, "", nil,
+		15*timeSecond); err == nil && res.ReturnCode == 0 {
+		// The kill landed. `--rm` makes the daemon remove a container when
+		// it stops, but that is the daemon's asynchronous work: force the
+		// removal too (advisory — "killed" is already true) so a killed
+		// payload cannot linger as debris either.
+		removeContainer(name)
+		return containerFate{outcome: "killed"}
+	}
+	st := containerState(name)
+	if st == "absent" {
+		// The docker CLIENT is already dead (the group kill precedes this
+		// call), so a create request still in flight server-side can
+		// materialize a container nothing will ever start or remove. Sweep
+		// for it before declaring the box clean.
+		if late := waitForContainer(name); late != "" {
+			if removeContainer(name) {
+				return containerFate{outcome: "removed-late", state: late}
+			}
+			return containerFate{outcome: "exists", state: late}
+		}
+		return containerFate{outcome: "absent"}
+	}
+	if st == "unknown" {
+		return containerFate{outcome: "unknown", state: st}
+	}
+	// created / exited / dead / paused / restarting / removing / running:
+	// `docker rm -f` is the one operation that cleans a container in EVERY
+	// state — it kills a running one and removes any other.
+	if removeContainer(name) {
+		if st == "running" {
+			// docker kill failed but the force-remove killed it.
+			return containerFate{outcome: "killed", state: st}
+		}
+		return containerFate{outcome: "removed", state: st}
+	}
+	// The removal did not report success: re-read docker's own state rather
+	// than assume, and let the record say what is really left.
+	switch st2 := containerState(name); st2 {
+	case "absent":
+		return containerFate{outcome: "removed", state: st}
+	case "running":
+		return containerFate{outcome: "running", state: st2}
+	case "unknown":
+		return containerFate{outcome: "unknown", state: st}
+	default:
+		return containerFate{outcome: "exists", state: st2}
+	}
+}
+
+// removeContainer is `docker rm -f` (bounded) and reports whether docker
+// confirmed the container is gone — an already absent container counts as
+// success, because absence is the goal.
+func removeContainer(name string) bool {
+	res, err := runProc([]string{"docker", "rm", "-f", name}, "", nil,
+		20*timeSecond)
+	if err == nil && res.ReturnCode == 0 {
+		return true
+	}
+	if err == nil && strings.Contains(strings.ToLower(res.Stderr),
+		"no such container") {
+		return true
+	}
+	return containerState(name) == "absent"
+}
+
+// waitForContainer sweeps, until containerSweepWindow elapses, for a
+// container the daemon creates after our first look (the killed client's
+// create request was already in flight). Such a container can never be
+// started and never be removed by --rm, so it must be seen and removed
+// here. The poll backs off (250ms doubling to 2s) so a long window costs a
+// handful of docker calls, not dozens. Returns the state it appeared in, or
+// "" if it never appeared inside the window.
+func waitForContainer(name string) string {
+	deadline := time.Now().Add(containerSweepWindow)
+	wait := 250 * time.Millisecond
+	for {
+		time.Sleep(wait)
+		if st := containerState(name); st != "absent" {
+			return st
+		}
+		if !time.Now().Before(deadline) {
+			return ""
+		}
+		if wait < 2*time.Second {
+			wait *= 2
 		}
 	}
-	if err == nil && strings.Contains(ins.Stderr, "No such object") {
-		return "absent"
+}
+
+// containerState asks docker for the container's state in ANY state
+// ("created", "exited", "running", ...), distinguishing a container that is
+// not running from one docker could not see at all ("absent") and from one
+// whose state could not be determined ("unknown") — the record may claim the
+// former two, only ever suspect the last (absence is inconclusive, never
+// evidence).
+func containerState(name string) string {
+	ins, err := runProc([]string{"docker", "inspect", "-f",
+		"{{.State.Status}}", name}, "", nil, 10*timeSecond)
+	if err != nil {
+		return "unknown"
+	}
+	if ins.ReturnCode != 0 {
+		// docker 29 answers 'error: no such object: <name>' (lowercase) and
+		// older clients capitalized it — absence must be recognised either
+		// way, because it is exactly the trigger for the late-appearance
+		// sweep (r39 P3): pre-r39 this fell through to "unknown" and the
+		// container the daemon was about to create was never swept.
+		low := strings.ToLower(ins.Stderr)
+		if strings.Contains(low, "no such object") ||
+			strings.Contains(low, "no such container") {
+			return "absent"
+		}
+		return "unknown"
+	}
+	switch st := strings.TrimSpace(ins.Stdout); st {
+	case "created", "running", "paused", "restarting", "removing",
+		"exited", "dead":
+		return st
+	// The legacy `{{.State.Running}}` shape (the in-package fake docker
+	// speaks it): a coarser answer must not collapse into "unknown".
+	case "true":
+		return "running"
+	case "false":
+		return "exited"
 	}
 	return "unknown"
 }
@@ -303,7 +448,7 @@ func timeoutProcResult(cmd *exec.Cmd, done <-chan error,
 			}
 		}
 	}()
-	containerCh := make(chan string, 1)
+	containerCh := make(chan containerFate, 1)
 	go func() { containerCh <- stopContainer(containerName) }()
 	grace := time.NewTimer(5 * time.Second)
 	defer grace.Stop()
@@ -318,11 +463,11 @@ func timeoutProcResult(cmd *exec.Cmd, done <-chan error,
 	// group (setsid) — unreachable by the pgid kill, still our same-uid
 	// descendants.
 	killedPids, remaining := reapEscaped(descendants, enumerated)
-	containerState := <-containerCh
+	fate := <-containerCh
 
 	var note strings.Builder
 	unconfirmed := !groupKilled
-	switch containerState {
+	switch fate.outcome {
 	case "":
 		// No container in this argv (host profile) — nothing to say...
 		// unless the argv WAS a docker run we could not read, which
@@ -331,9 +476,40 @@ func timeoutProcResult(cmd *exec.Cmd, done <-chan error,
 	case "killed":
 		note.WriteString("; the container '" + containerName +
 			"' was killed")
-	case "exited", "absent":
+	case "removed":
+		// r39 P3: the container existed in a NON-running state (`created`
+		// because the daemon finished the create request after the client
+		// was killed, or `exited`). --rm only auto-removes a container
+		// that was STARTED, so this one would have stayed in `docker ps
+		// -a` forever; it has been force-removed instead of merely
+		// described.
 		note.WriteString("; the container '" + containerName +
-			"' is not running (" + containerState + ")")
+			"' was found in docker state '" + fate.state + "' and was " +
+			"REMOVED (docker rm -f) — it is not left behind as debris")
+	case "removed-late":
+		note.WriteString("; the container '" + containerName +
+			"' appeared (docker state '" + fate.state + "') only AFTER the " +
+			"docker client died — the daemon finished creating it for a " +
+			"client that was already gone, so --rm could never clear it; " +
+			"it was REMOVED (docker rm -f) — no debris is left behind")
+	case "absent":
+		// r39 P3: "absent" is what docker said across the whole sweep
+		// window — an OBSERVATION, not a proof. The record must not read
+		// like a clean bill of health for a box the daemon could still
+		// decorate later, so the window and the re-check are named.
+		note.WriteString("; the container '" + containerName +
+			"' is not running (docker reported no such container across a " +
+			fmt.Sprintf("%gs", containerSweepWindow.Seconds()) + " sweep — " +
+			"absence observed, never proven; re-check with docker ps -a " +
+			"--filter name=" + containerName + " if this exec died early)")
+	case "exists":
+		// The removal did not land: say what is still there instead of
+		// calling the box clean.
+		note.WriteString("; the container '" + containerName +
+			"' still exists in docker state '" + fate.state + "' and could " +
+			"NOT be removed — docker debris is left behind (docker rm -f " +
+			containerName + ")")
+		unconfirmed = true
 	case "running":
 		note.WriteString("; the container '" + containerName +
 			"' COULD NOT BE KILLED and is STILL RUNNING (docker ps --filter name=" +
@@ -344,7 +520,7 @@ func timeoutProcResult(cmd *exec.Cmd, done <-chan error,
 			"' could not be identified/stopped — it may still be running")
 		unconfirmed = true
 	}
-	if containerName != "" && containerState == "" {
+	if containerName != "" && fate.outcome == "" {
 		note.WriteString("; the payload container could not be identified " +
 			"from the docker argv — it may still be running")
 		unconfirmed = true
@@ -532,17 +708,22 @@ func (s *Sandbox) Run(command string, opts RunOpts) (validation.Value, error) {
 	}
 
 	outDir := filepath.Join(s.Campaign.ExecsDir, execID)
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
+	// r39 F2: the exec dir and everything in it is written BEFORE the
+	// ledger event exists. A refused c.Log must therefore unwind — see the
+	// execDirTxn comment for why the payload cannot be deferred.
+	txn, err := beginExecDir(outDir)
+	if err != nil {
 		return validation.VNull(), err
 	}
 	stdoutPath := filepath.Join(outDir, "stdout.log")
 	stderrPath := filepath.Join(outDir, "stderr.log")
+	path := filepath.Join(outDir, "exec_record.json")
+	txn.note(stdoutPath, stderrPath, path)
 
 	record := s.record(execID, command, opts, verdict, container, started,
 		stdoutPath, stderrPath)
-	path := filepath.Join(outDir, "exec_record.json")
 	if err := validation.WriteJson(path, record, "sandbox_execution"); err != nil {
-		return validation.VNull(), err
+		return validation.VNull(), txn.fail(err)
 	}
 
 	if !truthy(verdict, "allowed") {
@@ -556,13 +737,22 @@ func (s *Sandbox) Run(command string, opts RunOpts) (validation.Value, error) {
 		))
 		record = setKey(record, "finished_at", validation.VStr(nowIso()))
 		if err := validation.WriteJson(path, record, "sandbox_execution"); err != nil {
-			return validation.VNull(), err
+			return validation.VNull(), txn.fail(err)
 		}
 		ref := execID
 		data := validation.VObj(validation.KV{K: "violations",
 			V: objAt(verdict, "violations")})
 		if _, err := s.Campaign.Log("sandbox.refused", &ref, &data); err != nil {
-			return validation.VNull(), err
+			// The refused act (a policy refusal) must not leave debris
+			// behind either, and it must not hide what already happened:
+			// the command did NOT run, and the refusal itself is not in
+			// the ledger now — the operator has to know both (r39 F2).
+			return validation.VNull(), txn.fail(fmt.Errorf(
+				"the command was REFUSED by sandbox policy (%s) and did NOT "+
+					"run, but the refusal event was refused as well — no "+
+					"record was kept and the exec dir %s was removed, so "+
+					"nothing about this refusal is in the ledger (ledger "+
+					"refusal: %v)", pyListRepr(violations), outDir, err))
 		}
 		return validation.VNull(), &RefusedError{Message: fmt.Sprintf(
 			"command refused by sandbox policy: %s",
@@ -585,10 +775,10 @@ func (s *Sandbox) Run(command string, opts RunOpts) (validation.Value, error) {
 			caps.StderrKept, caps.StderrTotal)...)
 	}
 	if err := os.WriteFile(stdoutPath, stdoutBytes, 0o644); err != nil {
-		return validation.VNull(), err
+		return validation.VNull(), txn.fail(err)
 	}
 	if err := os.WriteFile(stderrPath, stderrBytes, 0o644); err != nil {
-		return validation.VNull(), err
+		return validation.VNull(), txn.fail(err)
 	}
 	hashes := validation.VObj(
 		validation.KV{K: "stdout.log", V: validation.VStr(shaFile(stdoutPath))},
@@ -599,7 +789,7 @@ func (s *Sandbox) Run(command string, opts RunOpts) (validation.Value, error) {
 	record = setKey(record, "artifact_hashes", hashes)
 	record = setKey(record, "output_capture", outputCaptureValue(caps))
 	if err := validation.WriteJson(path, record, "sandbox_execution"); err != nil {
-		return validation.VNull(), err
+		return validation.VNull(), txn.fail(err)
 	}
 	ref := execID
 	data := validation.VObj(
@@ -608,9 +798,102 @@ func (s *Sandbox) Run(command string, opts RunOpts) (validation.Value, error) {
 		validation.KV{K: "finding", V: optStrValue(opts.FindingID)},
 	)
 	if _, err := s.Campaign.Log("sandbox.exec", &ref, &data); err != nil {
-		return validation.VNull(), err
+		// r39 F2: the payload has ALREADY RUN (execute() is above), so the
+		// honest answer is not "nothing happened". Restore the pre-write
+		// state — the exec dir goes away, so `webv2 execs` can never list
+		// a run the ledger does not hold, the projection audit has no
+		// residue to be green over, and a retry adds no second corpse —
+		// and say in the returned error exactly which half happened: the
+		// command EXECUTED, its record was NOT KEPT.
+		return validation.VNull(), txn.fail(fmt.Errorf(
+			"the command EXECUTED (exit status %d, %d stdout / %d stderr "+
+				"byte(s) captured) but its record was NOT KEPT: the ledger "+
+				"refused the sandbox.exec event and the exec dir %s was "+
+				"removed — nothing about this run is in the ledger, and "+
+				"re-running will execute the command AGAIN (ledger refusal: "+
+				"%v)", exitStatus, len(stdoutBytes), len(stderrBytes),
+			outDir, err))
 	}
 	return record, nil
+}
+
+// execDirTxn is the r39 F2 unwind-on-refusal dance for the per-exec ledger
+// directory. Run and RegisterExec both create <execs>/<EXEC-id>/, write
+// stdout.log, stderr.log and exec_record.json into it, and only THEN call
+// c.Log — the event that anchors the whole thing. A refused Log left that
+// directory behind as a THIRD kind of half-write: an exec record with no
+// event, listed by `webv2 execs` as a normal run, invisible to verify, and
+// (after doctor heals the ledger) the residue an audit goes green over —
+// while the CLI never even said the payload had run.
+//
+// The law in this tree (findings.SaveThenLog, state.AppendJsonlThenLog) is
+// snapshot-before-write and restore-on-refusal. The exec id is minted fresh,
+// so the pre-write state of the directory IS absence and the restore is a
+// removal; should a directory already exist at that (astronomically
+// unlikely) id, only the files this call writes are removed, never a byte
+// the call did not create.
+//
+// Why not refuse BEFORE running the payload: the ledger's health is only
+// knowable from the write itself (the mirror check reads events.jsonl AND
+// the projection under the campaign lock), and a second, pre-flight copy of
+// that predicate is the two-predicates bug this tree forbids — a stale
+// "OK" from it would let the very half-write this fixes through. So the
+// payload does run first; the refusal is discovered at the log, and the
+// contract is: restore the artifacts AND tell the operator plainly that the
+// command executed but its record was not kept.
+type execDirTxn struct {
+	dir     string
+	existed bool
+	created []string
+}
+
+// beginExecDir creates the exec directory, remembering whether this call
+// created it (the pre-write state), or returns the mkdir error untouched.
+func beginExecDir(dir string) (*execDirTxn, error) {
+	_, statErr := os.Stat(dir)
+	existed := statErr == nil
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, err
+	}
+	return &execDirTxn{dir: dir, existed: existed}, nil
+}
+
+// note records paths this transaction writes, so an unwind of a pre-existing
+// directory removes only them.
+func (t *execDirTxn) note(paths ...string) {
+	t.created = append(t.created, paths...)
+}
+
+// unwind restores the pre-write state exactly: a directory this call created
+// is removed whole; a pre-existing one keeps every byte it had and loses only
+// the files this call wrote.
+func (t *execDirTxn) unwind() error {
+	if t == nil {
+		return nil
+	}
+	if !t.existed {
+		return os.RemoveAll(t.dir)
+	}
+	var first error
+	for _, p := range t.created {
+		if err := os.Remove(p); err != nil && !os.IsNotExist(err) &&
+			first == nil {
+			first = err
+		}
+	}
+	return first
+}
+
+// fail unwinds and returns err, naming BOTH failures when the unwind itself
+// failed — a silent failed restore is the half-land this law exists to
+// prevent (the same shape as SaveThenLog's UNWIND ALSO FAILED).
+func (t *execDirTxn) fail(err error) error {
+	if rerr := t.unwind(); rerr != nil {
+		return fmt.Errorf("%w (UNWIND ALSO FAILED: %v — %s may hold "+
+			"post-write bytes with no ledger event; remove it by hand "+
+			"before continuing)", err, rerr, t.dir)
+	}
+	return err
 }
 
 // record builds the sandbox_execution record in Python's key order.
@@ -906,16 +1189,19 @@ func RegisterExec(c *state.Campaign, opts RegisterOpts) (validation.Value, error
 	}
 	execID := "EXEC-" + shortID(10)
 	outDir := filepath.Join(c.ExecsDir, execID)
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
+	txn, err := beginExecDir(outDir)
+	if err != nil {
 		return validation.VNull(), err
 	}
 	stdoutPath := filepath.Join(outDir, "stdout.log")
 	stderrPath := filepath.Join(outDir, "stderr.log")
+	recordPath := filepath.Join(outDir, "exec_record.json")
+	txn.note(stdoutPath, stderrPath, recordPath)
 	if err := os.WriteFile(stdoutPath, []byte(opts.StdoutText), 0o644); err != nil {
-		return validation.VNull(), err
+		return validation.VNull(), txn.fail(err)
 	}
 	if err := os.WriteFile(stderrPath, []byte(opts.StderrText), 0o644); err != nil {
-		return validation.VNull(), err
+		return validation.VNull(), txn.fail(err)
 	}
 	started, finished := nowIso(), nowIso()
 	if opts.StartedAt != nil {
@@ -958,7 +1244,7 @@ func RegisterExec(c *state.Campaign, opts RegisterOpts) (validation.Value, error
 	)
 	if err := validation.WriteJson(filepath.Join(outDir, "exec_record.json"),
 		record, "sandbox_execution"); err != nil {
-		return validation.VNull(), err
+		return validation.VNull(), txn.fail(err)
 	}
 	ref := execID
 	data := validation.VObj(
@@ -968,7 +1254,18 @@ func RegisterExec(c *state.Campaign, opts RegisterOpts) (validation.Value, error
 		validation.KV{K: "finding", V: optStrValue(opts.FindingID)},
 	)
 	if _, err := c.Log("sandbox.exec.registered", &ref, &data); err != nil {
-		return validation.VNull(), err
+		// r39 F2: same unwinding as Run. The execution happened OUTSIDE this
+		// process (origin=externally-reported), so nothing here can undo it —
+		// what must not survive is the registration the ledger refused: the
+		// dir goes, and the error says the registration was not kept rather
+		// than reporting a clean write.
+		return validation.VNull(), txn.fail(fmt.Errorf(
+			"the externally-reported execution by %s was NOT REGISTERED: the "+
+				"ledger refused the sandbox.exec.registered event and the "+
+				"exec dir %s was removed — no exec record exists, so the "+
+				"reported execution cannot back any evidence (ledger "+
+				"refusal: %v)", validation.PyReprStr(opts.ReportedBy), outDir,
+			err))
 	}
 	return record, nil
 }

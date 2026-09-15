@@ -268,6 +268,11 @@ func memoryReject(c *state.Campaign, reject, reason, class string, r *Runner) er
 }
 
 // countLearnings is the number of lines in learnings.jsonl (0 when absent).
+// r39b: the ONE framing predicate — state.BlankLine, like every other JSONL
+// reader in the tree. A strings.TrimSpace copy answered "blank" to a line of
+// Unicode whitespace (U+00A0 alone) that the log/ledger readers count as a
+// RECORD this decoder cannot parse; two predicates answering differently to
+// the same byte is the exact r38 shape.
 func countLearnings(c *state.Campaign) int {
 	raw, err := os.ReadFile(filepath.Join(c.Dir, "learnings.jsonl"))
 	if err != nil {
@@ -275,7 +280,7 @@ func countLearnings(c *state.Campaign) int {
 	}
 	n := 0
 	for _, line := range strings.Split(string(raw), "\n") {
-		if strings.TrimSpace(line) != "" {
+		if !state.BlankLine(line) {
 			n++
 		}
 	}

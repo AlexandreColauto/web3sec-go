@@ -1,5 +1,36 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-15 — r39 (deepseek-v4.1-flash critic): the executor that outlived its own refusal
+
+Two P2s and three P3s this round, and the strongest was about a writer that contradicted the law it was supposed to be
+fixed under — again. Round 38 found `cost`/`waive` outside the unwind-on-refusal dance; round 39 found the SANDBOX
+EXECUTOR was the same leak. `exec` writes stdout.log, stderr.log and exec_record.json BEFORE it appends the ledger
+event, and on a refused `c.Log` it restored nothing. So the exact refusal an operator can hit — a ledger shorter than its
+projection — let the payload RUN (host profile, unconfined), produced "exec failed … run webv2 doctor" without ever
+saying the command had executed, left a full exec dir with no `sandbox.exec` event, listed it as a normal run under
+`webv2 execs`, let a retry leave a second corpse, and after the sanctioned doctor heal the audit went GREEN over the
+residue. RegisterExec now unwinds its own side artifacts on a refused log and the failure path says plainly which part
+happened (the command ran; its record was not kept), and the timeout path removes a container in ANY state — including
+the `created`-but-never-started shape that `--rm` cannot reach once the client is killed, which was leaving a container
+behind on every timed-out run.
+
+F1 (P2) was the mirror image at the other end: doctor's rebuild erased a loss and then failed to name it on the human
+surface. On a cap-sized mirror the ordinary partial-restore cut (head -n 5 of a 1000+ line ledger) made `verify` promise
+"doctor then reports exactly what it erases"; doctor's JSON said `dropped_from_projection: 995`, but the human line was
+inside an `if changed > 0 … else if dropped > 0` chain, so the loss branch never ran whenever ANY positional change
+existed — which is the normal truncation shape. 995 remembered events vanished, never named, while the run printed "this
+positional delta is all the evidence here", a sentence that is false in the very run that prints it (a positional
+comparison cannot distinguish an edit from a hole from a shift). The human surface now prints the dropped/added counts
+in addition to the delta, and the sentence says what is actually known.
+
+The three P3s: `verify`/`audit` certified an EMPTY projection under a live ledger (the tail check was gated on a
+non-empty array, so a projection that lost its whole head skipped the very invariant the RUNBOOK calls "not health");
+`countLearnings` was the last reader still carrying its own TrimSpace copy (a U+00A0-only line counted as blank while
+every other reader calls the one predicate); and a RUNBOOK tension between "never hand-edit the record" and a recovery
+step that sanctions truncating events.jsonl was left to the doc owner. All pinned with mutations; gofmt/go vet clean;
+the union of this session's and the parallel session's working trees ran 70/70 packages, runbook-walkthrough and golden
+GREEN.
+
 ## 2026-09-15 — r38 (deepseek-v4.1-flash critic): a refusal that left its own evidence behind
 
 No forgery got through this round and no container escaped — the first clean sheet on those two — but four P2s came out of

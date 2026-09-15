@@ -146,58 +146,75 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 		return LogVerdict{}, err
 	}
 	stTail := objAt(st, "events")
-	if stTail.Kind == validation.Arr && len(stTail.A) > 0 {
-		// Python events[-len(st_tail):] with a longer tail is [] —
-		// a mismatch, never an out-of-range access.
-		var want []validation.Value
-		if len(stTail.A) <= len(events) {
-			want = events[len(events)-len(stTail.A):]
-		}
-		// r38 P2-4: the mirror rule (tailEvents) keeps exactly
-		// min(E, mirrorCap) events, so length is part of the invariant —
-		// comparing CONTENT against the tail window of the mirror's own
-		// length certified ANY suffix. A mirror holding only the last 3
-		// events of a 1006-event log matched its own window perfectly and
-		// passed, so verify/audit certified a projection that had lost the
-		// 997 events at its head. The content check stays first (its
-		// messages and the longer-than-the-log case are unchanged); the
-		// length gate only judges a mirror whose content ALREADY matches,
-		// which is exactly the head-hole shape.
+	if stTail.Kind == validation.Arr {
+		// The mirror rule (tailEvents) keeps exactly min(E, mirrorCap)
+		// events, so length is part of the invariant — comparing CONTENT
+		// against the tail window of the mirror's own length certified
+		// ANY suffix. A mirror holding only the last 3 events of a
+		// 1006-event log matched its own window perfectly and passed, so
+		// verify/audit certified a projection that had lost the 997
+		// events at its head.
 		wantLen := len(events)
 		if wantLen > mirrorCap {
 			wantLen = mirrorCap
 		}
-		if !arraysEq(stTail.A, want) {
-			// r17: the repair route must not be an unwitting laundering
-			// step. A LONGER projection tail than the log has is the
-			// truncation signature: doctor trusts the log, so running it
-			// ADOPTS the shorter history. Say so at the moment of power.
-			msg := "state event tail does not match the log " +
-				"suffix — the ledger is the truth; run `webv2 doctor` " +
-				"on this campaign to rebuild the mirror from it"
-			if len(stTail.A) > len(events) {
-				msg = fmt.Sprintf("state event tail is LONGER than the log "+
-					"(%d projected vs %d logged) — events are GONE from "+
-					"the tail; a truncated log still verifies its chain, "+
-					"and doctor rebuilds TO it, adopting the loss. If you "+
-					"did not cut it, treat the campaign dir as tampered "+
-					"before repairing (investigate, copy the dir); "+
-					"`webv2 doctor` then reports exactly what it erases",
-					len(stTail.A), len(events))
-			}
-			problems = append(problems, msg)
-		} else if len(stTail.A) != wantLen {
+		// r39b P3: the invariant is judged for the EMPTY projection too.
+		// The old gate (len(stTail.A) > 0) meant a state events array of
+		// [] under a live ledger certified ok:true — a projection that
+		// lost its WHOLE head. The RUNBOOK calls a projection with a
+		// hole in its head "not health"; an empty mirror is the extreme
+		// of exactly that shape, so verify says so. The zero-event
+		// campaign stays honest: with no events in the ledger at all an
+		// empty mirror IS the rule's output (min(0, mirrorCap) = 0).
+		if len(stTail.A) == 0 && len(events) > 0 {
 			problems = append(problems, fmt.Sprintf(
-				"state event tail holds %d event(s) where the projection "+
-					"rule keeps %d for a %d-event log — the content matches "+
-					"the log suffix, but the mirror is not the rule's window: "+
-					"its HEAD is missing (mirrored events were dropped from "+
-					"the front, and the %d survivor(s) are all that is left "+
-					"of the projection) or it holds rows beyond the cap. "+
-					"Nothing here may certify that projection; run `webv2 "+
-					"doctor` to rebuild the mirror from the log (it reports "+
-					"the delta it adopts)",
-				len(stTail.A), wantLen, len(events), len(stTail.A)))
+				"state events projection is EMPTY under a %d-event log — "+
+					"the projection rule keeps %d for this log, so a "+
+					"projection that lost its whole head is not health "+
+					"(its %d mirrored event(s) are all gone). Nothing here "+
+					"may certify that projection; run `webv2 doctor` to "+
+					"rebuild the mirror from the log (it reports the delta "+
+					"it adopts)",
+				len(events), wantLen, wantLen))
+		} else if len(stTail.A) > 0 {
+			// Python events[-len(st_tail):] with a longer tail is [] —
+			// a mismatch, never an out-of-range access.
+			var want []validation.Value
+			if len(stTail.A) <= len(events) {
+				want = events[len(events)-len(stTail.A):]
+			}
+			if !arraysEq(stTail.A, want) {
+				// r17: the repair route must not be an unwitting laundering
+				// step. A LONGER projection tail than the log has is the
+				// truncation signature: doctor trusts the log, so running it
+				// ADOPTS the shorter history. Say so at the moment of power.
+				msg := "state event tail does not match the log " +
+					"suffix — the ledger is the truth; run `webv2 doctor` " +
+					"on this campaign to rebuild the mirror from it"
+				if len(stTail.A) > len(events) {
+					msg = fmt.Sprintf("state event tail is LONGER than the log "+
+						"(%d projected vs %d logged) — events are GONE from "+
+						"the tail; a truncated log still verifies its chain, "+
+						"and doctor rebuilds TO it, adopting the loss. If you "+
+						"did not cut it, treat the campaign dir as tampered "+
+						"before repairing (investigate, copy the dir); "+
+						"`webv2 doctor` then reports exactly what it erases",
+						len(stTail.A), len(events))
+				}
+				problems = append(problems, msg)
+			} else if len(stTail.A) != wantLen {
+				problems = append(problems, fmt.Sprintf(
+					"state event tail holds %d event(s) where the projection "+
+						"rule keeps %d for a %d-event log — the content matches "+
+						"the log suffix, but the mirror is not the rule's window: "+
+						"its HEAD is missing (mirrored events were dropped from "+
+						"the front, and the %d survivor(s) are all that is left "+
+						"of the projection) or it holds rows beyond the cap. "+
+						"Nothing here may certify that projection; run `webv2 "+
+						"doctor` to rebuild the mirror from the log (it reports "+
+						"the delta it adopts)",
+					len(stTail.A), wantLen, len(events), len(stTail.A)))
+			}
 		}
 	}
 

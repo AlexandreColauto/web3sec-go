@@ -142,28 +142,33 @@ func printDoctor(r *Runner, rep validation.Value) {
 			msg := "  rebuilt the events mirror from events.jsonl (the " +
 				"ledger is the truth; the projection was stale)"
 			if d := objAt(st, "events_mirror_delta"); d.Kind == validation.Obj {
-				if ch := objInt(d, "changed"); ch > 0 {
-					// r37b (F3): the delta is POSITIONAL (mirrorDelta
-					// compares same-index rows), so a mid-ledger hole
-					// shifts every later row and counts as "changed"
-					// although nobody edited a byte — the r34/r37b crash
-					// window produces exactly that shape. The old wording
-					// asserted "ADOPTED IN EDITED FORM", which this
-					// evidence cannot know. Name what is known — the
-					// mirror and the log disagree at N same-index
-					// positions; an edited payload, a mid-ledger hole or
-					// a shifted alignment are indistinguishable from the
-					// count alone — and keep the safe instruction: the
+				ch := objInt(d, "changed")
+				dp := objInt(d, "dropped_from_projection")
+				ad := objInt(d, "added_from_log")
+				kept := objInt(d, "kept")
+				switch {
+				case ch > 0:
+					// r37b (F3) + r39b (F1): the delta is POSITIONAL
+					// (mirrorDelta compares same-index rows), so a
+					// mid-ledger hole shifts every later row and counts
+					// as "changed" although nobody edited a byte. The
+					// old wording went on to call this delta "all the
+					// evidence here" — false exactly when it matters: the
+					// comparison cannot distinguish an edited payload
+					// from a hole from a shifted alignment, and it says
+					// nothing about scale. Name what is known — N
+					// positional disagreements, three indistinguishable
+					// causes — and keep the safe instruction: the
 					// genuine tamper case must not read as benign.
 					msg += fmt.Sprintf(": %d mirrored events DISAGREE "+
-						"with the log at the same positions — this "+
-						"positional delta is all the evidence here, and "+
-						"an edited payload, a mid-ledger hole or a "+
-						"shifted alignment are indistinguishable from "+
-						"it; if you did not run the rewrite, treat the "+
+						"with the log at the same positions — the mirror "+
+						"and the log disagree positionally at %d places, "+
+						"and an edit, a hole and a shift are "+
+						"indistinguishable from this comparison alone; "+
+						"if you did not run the rewrite, treat the "+
 						"campaign dir as tampered until a diff against "+
-						"a known-good copy settles which", ch)
-				} else if dp := objInt(d, "dropped_from_projection"); dp > 0 {
+						"a known-good copy settles which", ch, ch)
+				case dp > 0:
 					// r17: tail truncation is the CHEAPEST forgery (seq
 					// and chain stay valid when you delete the end) —
 					// the rebuild must say what it erased, not just
@@ -172,10 +177,27 @@ func printDoctor(r *Runner, rep validation.Value) {
 						"are GONE from the log — a truncated tail keeps the "+
 						"chain valid, so if you did not cut it, treat the "+
 						"campaign dir as tampered (%d kept, %d adopted)",
-						dp, objInt(d, "kept"), objInt(d, "added_from_log"))
-				} else {
+						dp, kept, ad)
+				default:
 					msg += fmt.Sprintf(" (%d kept, %d adopted from log)",
-						objInt(d, "kept"), objInt(d, "added_from_log"))
+						kept, ad)
+				}
+				// r39b (F1): the loss and the adoption are named IN
+				// ADDITION to the positional delta, never instead of it.
+				// The old if/else-if made the dropped branch dead whenever
+				// any positional change existed — and on a capped mirror a
+				// head-cut log is the NORMAL truncation shape, so 995
+				// remembered events were erased with no line naming them.
+				// The human surface may not omit what the JSON discloses.
+				if ch > 0 && dp > 0 {
+					msg += fmt.Sprintf("; the projection lost %d events that "+
+						"the journal records — the rebuild erased them from "+
+						"the mirror (%d kept, %d adopted from the log)",
+						dp, kept, ad)
+				}
+				if ch > 0 && ad > 0 {
+					msg += fmt.Sprintf("; the rebuild adopted %d event(s) "+
+						"from the log that the projection did not hold", ad)
 				}
 			}
 			fmt.Fprintln(r.Out, msg)
