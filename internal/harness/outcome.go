@@ -21,7 +21,10 @@ package harness
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Rung values for verification.harness.rung.
@@ -49,28 +52,94 @@ var kMarker = regexp.MustCompile(`k\s*=\s*(\d+)`)
 // real exec path still blessed `proved-bounded (forge-fuzz, k=0)`).
 const BoundDegenerate = -1
 
+// BoundUnreadable is the sentinel InvocationBound returns for a command
+// string it cannot lex faithfully (r29 F4). It is NOT a guessed number
+// and NOT "unstated": when the parse cannot derive the argv the tool
+// received — an unmatched quote, a shell construct outside the modeled
+// subset, an expansion sitting where an option could be — then no bound
+// can be named, and the honest answer is that the invocation is
+// unreadable, which floors the run exactly like a degenerate bound
+// (BoundFloors). It is deliberately a value of its own: a caller that
+// wants to word the floor differently must be able to tell the two
+// apart, while every caller that only asks "does this floor?" uses
+// BoundFloors and gets one answer for both.
+//
+// NOTE for the other floor sites: a test that reads `k == BoundDegenerate`
+// catches a stated degenerate value but NOT this one. Ask BoundFloors(k)
+// instead — MapMinicertoraInvoc (minicertora.go) is the one such site
+// outside this file and must be widened to it.
+const BoundUnreadable = -2
+
+// BoundFloors reports whether a parsed invocation bound floors the run:
+// true for a STATED degenerate bound (BoundDegenerate) and for a command
+// the parse could not read (BoundUnreadable). UNSTATED (0) and every
+// stated N >= 1 do not floor — 0 is "the invocation named no bound", a
+// display fact, never a boundary at which something ran.
+func BoundFloors(k int) bool { return k < 0 }
+
+// boundFloorSummary is the one-line reason a floored invocation carries.
+// The "degenerate-bound" prefix is load-bearing: disposition.go
+// classifies it (EscalateBound), and a distinct second wording class here
+// would silently drop that advice. An unreadable invocation appends the
+// construct that stopped the parse, so the summary names the exact
+// observed state instead of only the class.
+func boundFloorSummary(k int, unreadable ...string) string {
+	const prefix = "inconclusive (degenerate-bound: "
+	why := ""
+	if len(unreadable) > 0 {
+		why = oneLine(unreadable[0], maxConstruct)
+	}
+	if k == BoundUnreadable || why != "" {
+		if why == "" {
+			why = "the command could not be lexed faithfully"
+		}
+		return prefix + "invocation-unreadable: " + why + ")"
+	}
+	return prefix + "the invocation states no bound >= 1)"
+}
+
+// maxConstruct caps the construct a floor summary names, and oneLine
+// forces it onto ONE line: a summary is a line, so a construct carrying a
+// newline must not be able to forge a second one.
+const maxConstruct = 60
+
+// oneLine collapses s onto one line (control characters and newlines
+// become spaces) and caps it at n runes.
+func oneLine(s string, n int) string {
+	return truncateRunes(strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return ' '
+		}
+		return r
+	}, s), n)
+}
+
 // MapRun maps raw runner output to (rung, summary). kind selects the
 // branch; timedOut forces inconclusive ("timeout after <k>s" — k is the
 // caller-passed bound, never read from the wall); k is the bound the
 // runner was invoked with (forge-fuzz proved-bounded carries it as
-// bounded_k; halmos prefers a parsed k=<n> marker — see BoundK). A
-// DEGENERATE stated bound (BoundDegenerate) floors the run whatever the
+// bounded_k; halmos prefers a parsed k=<n> marker — see BoundK). Any
+// FLOORING bound (BoundFloors: a stated bound below 1, or a command the
+// invocation parse could not read at all) floors the run whatever the
 // output says: no rung rides a bound no tool would have executed under.
-func MapRun(kind Kind, out []byte, timedOut bool, k int) (rung string,
-	summary string) {
+//
+// The optional unreadable argument is InvocationBoundReason's construct
+// detail, so a caller that holds the command can make the stored floor
+// name WHY the invocation could not be read ("invocation-unreadable:
+// unmatched single quote") instead of only the class. Leaving it out is
+// honest too: the summary then says the command could not be lexed
+// faithfully, without pretending to a detail it was not given. Either
+// way the summary keeps the "degenerate-bound" prefix disposition.go
+// classifies as EscalateBound — a second wording class in that position
+// would silently drop the advice (r29 F4).
+func MapRun(kind Kind, out []byte, timedOut bool, k int,
+	unreadable ...string) (rung string, summary string) {
 	text := string(out)
 	if timedOut {
 		return RungInconclusive, fmt.Sprintf("timeout after %ds", k)
 	}
-	if k == BoundDegenerate {
-		return RungInconclusive,
-			"inconclusive (degenerate-bound: the invocation states no " +
-				"bound >= 1)"
-	}
-	if k == BoundDegenerate {
-		return RungInconclusive,
-			"inconclusive (degenerate-bound: the invocation states no " +
-				"bound >= 1)"
+	if BoundFloors(k) {
+		return RungInconclusive, boundFloorSummary(k, unreadable...)
 	}
 	switch kind {
 	case Halmos:
@@ -352,8 +421,17 @@ func TimedOutBit(exitStatus int) bool {
 // InvocationBound parses the bound flag out of an exec command string:
 // halmos's --loop N, forge's --fuzz-runs N (both `--flag N` and
 // `--flag=N`), minicertora's --loop-bound N. 0 = unstated: the number
-// only feeds display text, never a rung. (cli.boundFlagRe delegates
-// here.)
+// only feeds display text, never a rung. Three further answers are
+// possible, and two of them floor (BoundFloors):
+//
+//	0                 the invocation named no bound (UNSTATED, not zero)
+//	N >= 1            the value click would have bound
+//	BoundDegenerate   the invocation states a bound no tool would have
+//	                  executed under (a value below 1, a value that is
+//	                  not a Python int, a flag with no value at all, or
+//	                  two different tools' bound flags in one command)
+//	BoundUnreadable   the command string cannot be lexed faithfully at
+//	                  all (see InvocationBoundReason for the construct)
 //
 // r28 F1: the parse is CLICK-SHAPED, because the twin's CLI is a click
 // option (`@click.option("--loop-bound", type=int, default=4)`) and click
@@ -367,57 +445,571 @@ func TimedOutBit(exitStatus int) bool {
 // invocation even after an honest one, while a degenerate flag followed by
 // an honest one does not floor.
 //
-// The token may carry a sign (click's type=int accepts `-1`, in both the
-// `--flag -1` and `--flag=-1` forms), and the twin then RAISES — so a
-// negative is a STATED degenerate bound, never "unstated". A negative whose
-// digits overflow int is degenerate by its sign alone (flooring is the
-// honest direction) while an overflowing POSITIVE keeps the old guard's
-// reading, UNSTATED.
+// r29 F4: it is SHELL-SHAPED first. The input is the recorded COMMAND
+// STRING, not an argv, so the parse lexes it the way a POSIX shell would
+// split it (lexCommand) and only then binds options the way click would
+// (boundFromArgv). The old regex scanned the raw text, which read a
+// `#`-comment's flag as the real one, read the flag out of a QUOTED
+// argument (where click sees one positional), read a value across a `--`
+// terminator (where click sees positionals), truncated `4_000` to `4` (a
+// ledger lie: a stated 4 the tool never ran under), and blessed `4.5` /
+// empty / missing values, which the twin refuses outright. Flags that the
+// lexer cannot place are no longer guessed: the parse reports
+// BoundUnreadable and the run floors.
 func InvocationBound(command string) int {
-	ms := boundFlagRe.FindAllStringSubmatch(command, -1)
-	if len(ms) == 0 {
-		return 0
+	k, _ := InvocationBoundReason(command)
+	return k
+}
+
+// InvocationBoundReason is InvocationBound plus the construct that made
+// the command unreadable ("" for every readable command, including the
+// ones that floor). Callers that hold the command pass the reason to
+// MapRun so the stored floor names the exact observed state
+// ("invocation-unreadable: unmatched single quote") instead of only the
+// class. The exported InvocationBound keeps its signature — cli and the
+// audit both call it — and delegates here.
+func InvocationBoundReason(command string) (int, string) {
+	toks, construct := lexCommand(command)
+	if construct != "" {
+		return BoundUnreadable, construct
 	}
-	tok := ms[len(ms)-1][1]
-	neg := strings.HasPrefix(tok, "-")
-	if neg {
-		tok = tok[1:]
+	return boundFromArgv(toks)
+}
+
+// shToken is one argv element the way a POSIX shell would hand it to the
+// tool. text is the element after quote removal and escape processing;
+// unknown marks an element whose exact text depends on an expansion or a
+// glob, so no parse can claim to know what the tool received.
+type shToken struct {
+	text    string
+	unknown bool
+}
+
+// boundFlagOcc is one stated bound option, in command order.
+type boundFlagOcc struct {
+	name  string // --loop | --loop-bound | --fuzz-runs
+	value string // the raw argv text of its value
+	has   bool   // a value was present (an inline `=` or a following word)
+}
+
+// boundFromArgv reads the bound out of a lexed argv the way click's parser
+// and the twin's VerifierFlags would, verified against the twin's own
+// click command (miniprover/.venv, click 8.5.0):
+//
+//	['--loop-bound','4','--loop-bound','0'] -> 0 (and VerifierFlags raises)
+//	['--loop-bound','+4'] -> 4        ['--loop-bound','4_000'] -> 4000
+//	['--loop-bound','4.5'] -> UsageError   ['--loop-bound'] -> UsageError
+//	['--loop-bound',''] -> UsageError ['--loop-bound='] -> UsageError
+//	['--loop-bound','<arabic-indic zero>'] -> 0 (and VerifierFlags raises)
+//	['--loop-bound','--loop-bound','4'] -> UsageError (the flag text is
+//	                                      eaten as the first value)
+//	['--loop-bound','4','--','--loop-bound','0'] -> 4 (`--` ends options)
+//	['--loop-bound','4','--fuzz-runs','7'] -> UsageError (no such option)
+//
+// An option is an argv element whose text is exactly the flag, or
+// `flag=value` (the shell has already removed the quotes, so a QUOTED
+// flag name is still an option while a quoted `'… --loop-bound 99'` is
+// one positional argument and names none). A repeated option binds
+// LAST-WINS. A value click would refuse (not a Python int, or below 1) is
+// a STATED impossible invocation: BoundDegenerate, never "unstated".
+//
+// A command naming two DIFFERENT bound flags is one no tool could have
+// run: halmos owns --loop, minicertora --loop-bound, forge-fuzz
+// --fuzz-runs, and click answers "No such option" for the foreign name.
+// That floors too — it is not last-wins, because there is no single tool
+// whose parameter both occurrences could be.
+//
+// Two things are deliberately NOT modeled, and are stated rather than
+// guessed at. (1) The arity of the OTHER options: an option that takes a
+// value eats the next element, so in `--timeout-ms --loop-bound 4` click
+// raises ("'--loop-bound' is not a valid integer" for --timeout-ms) while
+// this parse reads a bound flag and its value 4. Which options take a
+// value is the owning tool's table, and this ONE function is kind-blind
+// on purpose (halmos, forge and minicertora share it); the r28 regex read
+// the same command the same way. (2) Positional arity: the twin's CLI
+// takes exactly one positional, so `--loop-bound 4 extra` is a UsageError
+// there and a bound of 4 here — a positional count is not a bound
+// statement, and halmos/forge take many positionals.
+func boundFromArgv(toks []shToken) (int, string) {
+	var occs []boundFlagOcc
+	pending := -1  // occs index of a bound flag awaiting the NEXT element
+	value := false // the last element was an option that may take a value
+	endOpts := false
+	// argv[0] is the program name and click never parses it — but the
+	// callers also pass bare flag fragments ("--loop-bound 8"), and a
+	// program name never begins with '-', so only a first element that
+	// does not begin with '-' is treated as the program. (`--` included:
+	// a leading terminator must keep ending options.)
+	first := -1
+	if len(toks) > 0 && !strings.HasPrefix(toks[0].text, "-") {
+		first = 0
 	}
-	n := 0
-	for _, c := range []byte(tok) {
-		if n > (1<<62)/10 {
-			// The next digit would leave int range: report the
-			// statement the guard always did (UNSTATED for an
-			// absurd width), never a wrapped number.
-			if neg {
-				return BoundDegenerate
+	for i, t := range toks {
+		if i == first {
+			continue
+		}
+		if pending >= 0 {
+			if t.unknown {
+				return BoundUnreadable, "shell expansion in the " +
+					occs[pending].name + " value (" +
+					oneLine(t.text, 20) + ")"
 			}
-			return 0
+			occs[pending].value, occs[pending].has = t.text, true
+			pending, value = -1, false
+			continue
 		}
-		n = n*10 + int(c-'0')
+		if endOpts {
+			continue // positional: click is not looking for options
+		}
+		if t.unknown {
+			if value {
+				// The element before it is an option, so this is that
+				// option's value — and a VALUE is never an option.
+				value = false
+				continue
+			}
+			return BoundUnreadable, "shell expansion (" +
+				oneLine(t.text, 20) + ") where an option could be"
+		}
+		if t.text == "--" {
+			endOpts, value = true, false
+			continue
+		}
+		if !isOptionWord(t.text) {
+			value = false
+			continue
+		}
+		if name, val, hasVal, bound := boundOptionWord(t.text); bound {
+			occs = append(occs, boundFlagOcc{name: name, value: val,
+				has: hasVal})
+			if !hasVal {
+				pending = len(occs) - 1
+			}
+			// A bound flag never leaves the non-bound "awaiting a
+			// value" flag set: without an inline value it takes the
+			// NEXT element as its value (pending above), whatever that
+			// element looks like — click does the same.
+			value = false
+			continue
+		}
+		// Some other option: with an inline value it consumed its own
+		// (`--opt=v`), without one it takes the next element (`--opt v`).
+		value = !strings.Contains(t.text, "=")
 	}
-	if n > 1<<62 {
-		if neg {
-			return BoundDegenerate
+	if len(occs) == 0 {
+		return 0, ""
+	}
+	for _, o := range occs[1:] {
+		if o.name != occs[0].name {
+			// Two tools' bound flags in one command: whatever ran,
+			// click refused one of them, so no execution exists under
+			// this invocation to carry a bound.
+			return BoundDegenerate, ""
 		}
-		return 0
+	}
+	last := occs[len(occs)-1]
+	if !last.has {
+		// click: "Option '--loop-bound' requires an argument."
+		return BoundDegenerate, ""
+	}
+	n, status := parseClickInt(last.value)
+	switch status {
+	case intNotAnInt:
+		// click: "'4.5' is not a valid integer." The invocation is
+		// impossible, so it states no bound any tool ran under.
+		return BoundDegenerate, ""
+	case intOverflowNegative:
+		return BoundDegenerate, ""
+	case intOverflowPositive:
+		// Absurdly wide but positive: keep r28's reading (UNSTATED),
+		// never a wrapped number. Python has bignums, so click itself
+		// would accept this value — the limit is ours, and it is stated
+		// as "no bound", not as a bound.
+		return 0, ""
+	}
+	if n < 1 {
+		// STATED and degenerate ("--loop 0", "--fuzz-runs=0",
+		// "--loop-bound -1", "--loop-bound <Nd zero>"): not unstated,
+		// and not a bound any tool would have run under.
+		return BoundDegenerate, ""
+	}
+	return n, ""
+}
+
+// isOptionWord reports whether click's parser would read an argv element
+// as an option: it begins with '-' and is not the bare "-" (stdin) or the
+// "--" terminator (which boundFromArgv handles first).
+func isOptionWord(w string) bool {
+	return strings.HasPrefix(w, "-") && w != "-" && w != "--"
+}
+
+// boundOptionWord splits an argv element as a bound long option. ok is
+// false for every other element, including a lookalike
+// ("--loop-boundx 4") and a different case ("--LOOP-BOUND"), which click
+// also refuses (long options are exact and case-sensitive).
+func boundOptionWord(w string) (name, val string, hasVal, ok bool) {
+	name = w
+	if i := strings.IndexByte(w, '='); i >= 0 {
+		name, val, hasVal = w[:i], w[i+1:], true
+	}
+	switch name {
+	case "--loop", "--loop-bound", "--fuzz-runs":
+		return name, val, hasVal, true
+	}
+	return "", "", false, false
+}
+
+// intParse is the outcome of reading a bound value the way the twin's
+// click does.
+type intParse int
+
+const (
+	intOK intParse = iota
+	intNotAnInt
+	intOverflowPositive
+	intOverflowNegative
+)
+
+// parseClickInt reads a value the way click's type=int does, which is
+// Python's int(str): surrounding whitespace is ignored, an optional +/-
+// sign is allowed, ASCII underscores are allowed ONLY between digits, and
+// any Unicode decimal digit (category Nd — int("٤٢") == 42, while "²" is
+// a digit to str.isdigit() but NOT to int()) counts as its value. Every
+// Nd block is ten consecutive code points, so the block's start is its
+// zero. A value that is not an integer at all is intNotAnInt: click
+// raises a UsageError for it, so the run is impossible rather than
+// unbounded.
+func parseClickInt(raw string) (int, intParse) {
+	s := strings.TrimSpace(raw) // int() strips whitespace, "\n4" included
+	if s == "" {
+		return 0, intNotAnInt
+	}
+	neg := false
+	i := 0
+	if s[0] == '+' || s[0] == '-' {
+		neg = s[0] == '-'
+		i = 1
+	}
+	n, digits, underscore, overflow := 0, 0, false, false
+	for i < len(s) {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if r == '_' {
+			// Python: an underscore must sit between digits, so "_4",
+			// "4_" and "4__0" are not integers at all.
+			if digits == 0 || underscore {
+				return 0, intNotAnInt
+			}
+			underscore = true
+			i += size
+			continue
+		}
+		d, isDigit := decimalDigit(r)
+		if !isDigit {
+			return 0, intNotAnInt
+		}
+		underscore = false
+		digits++
+		if !overflow {
+			if n > (1<<62)/10 {
+				overflow = true
+			} else if n = n*10 + d; n > 1<<62 {
+				overflow = true
+			}
+		}
+		i += size
+	}
+	if underscore || digits == 0 {
+		return 0, intNotAnInt
+	}
+	if overflow {
+		if neg {
+			return 0, intOverflowNegative
+		}
+		return 0, intOverflowPositive
 	}
 	if neg {
 		n = -n
 	}
-	if n < 1 {
-		// STATED and degenerate ("--loop 0", "--fuzz-runs=0",
-		// "--loop-bound -1"): not unstated, and not a bound any tool
-		// would have run under.
-		return BoundDegenerate
-	}
-	return n
+	return n, intOK
 }
 
-// boundFlagRe finds every bound-flag occurrence with its signed token.
-// The flag text is anchored so a lookalike inside another word
-// ("--loop-boundx 4") matches nothing: after `--loop`/`--loop-bound` /
-// `--fuzz-runs` the regex demands the `=` or the space and then the
-// digits, so a trailing letter fails the whole alternative.
-var boundFlagRe = regexp.MustCompile(
-	`--(?:loop(?:-bound)?|fuzz-runs)[= ](-?\d+)`)
+// decimalDigit maps a Unicode decimal digit to 0-9. unicode.IsDigit is
+// category Nd — exactly what Python's int() accepts — and every Nd block
+// is ten consecutive code points, so walking down to the first
+// non-digit gives the block's zero.
+func decimalDigit(r rune) (int, bool) {
+	if !unicode.IsDigit(r) {
+		return 0, false
+	}
+	base := r
+	for k := 0; k < 9 && unicode.IsDigit(base-1); k++ {
+		base--
+	}
+	if v := int(r - base); v >= 0 && v <= 9 {
+		return v, true
+	}
+	return 0, false
+}
+
+// lexCommand splits a recorded command string into the argv a POSIX shell
+// would hand the tool, or names the construct that stopped it ("" = the
+// string is one simple command we could lex). Modeled:
+//
+//   - a whitespace run (space, TAB, CR, VT, FF) separates words;
+//   - single quotes are literal end to end (no escapes, no expansion);
+//   - in double quotes only $ ` " \ and a newline are escaped by a
+//     backslash — POSIX keeps the backslash before anything else — and
+//     expansions inside them are single words;
+//   - outside quotes a backslash escapes the next rune, and a backslash
+//     before a newline is a line continuation;
+//   - '#' opens a comment only at a WORD BOUNDARY ("4#x" is a value, and
+//     a quoted '#' is a word), and a comment runs to the end of the line;
+//   - a `--` element is returned as itself: click's end-of-options rule
+//     lives in boundFromArgv, where it belongs.
+//
+// NOT modeled — each returns a construct name instead of a guessed argv,
+// because the argv is not derivable from the text: an unmatched quote, a
+// trailing backslash, an unterminated expansion, a command LIST (a
+// newline, ';' or '&' with another command after it), a pipeline or
+// subshell (| ( )), a redirection (< >) and braces.
+//
+// An expansion ($VAR, $(...), backticks) or a glob (* ? [) is NOT an
+// error by itself: it marks one token unknown, because the shell would
+// have replaced the text with something this parse cannot know.
+// boundFromArgv then decides whether that unknown token could have been
+// an option. A tilde is ordinary text on purpose: a tilde expansion is an
+// absolute path, so it can be neither an option nor a word that starts
+// with one, and it cannot hide a flag.
+func lexCommand(command string) ([]shToken, string) {
+	rs := []rune(command)
+	var (
+		toks    []shToken
+		word    strings.Builder
+		unknown bool
+		started bool
+	)
+	flush := func() {
+		if started {
+			toks = append(toks, shToken{text: word.String(),
+				unknown: unknown})
+		}
+		word.Reset()
+		unknown, started = false, false
+	}
+	for i := 0; i < len(rs); i++ {
+		c := rs[i]
+		switch {
+		case c == ' ' || c == '\t' || c == '\r' || c == '\v' ||
+			c == '\f':
+			flush()
+		case c == '\n' || c == ';' || c == '&':
+			flush()
+			if restHasCommand(rs[i+1:]) {
+				return nil, "command list (separator " +
+					strconv.QuoteRune(c) + ")"
+			}
+			return toks, ""
+		case c == '|' || c == '(' || c == ')':
+			return nil, "pipeline or subshell (" +
+				strconv.QuoteRune(c) + ")"
+		case c == '<' || c == '>':
+			return nil, "redirection (" + strconv.QuoteRune(c) + ")"
+		case c == '{' || c == '}':
+			return nil, "brace expression (" +
+				strconv.QuoteRune(c) + ")"
+		case c == '#' && !started:
+			for i < len(rs) && rs[i] != '\n' {
+				i++
+			}
+			i--
+		case c == '\'':
+			started = true
+			j := i + 1
+			for j < len(rs) && rs[j] != '\'' {
+				j++
+			}
+			if j >= len(rs) {
+				return nil, "unmatched single quote"
+			}
+			word.WriteString(string(rs[i+1 : j]))
+			i = j
+		case c == '"':
+			started = true
+			j, construct := lexDoubleQuoted(rs, i, &word, &unknown)
+			if construct != "" {
+				return nil, construct
+			}
+			i = j
+		case c == '\\':
+			started = true
+			if i+1 >= len(rs) {
+				return nil, "unterminated escape (trailing " +
+					"backslash)"
+			}
+			if rs[i+1] == '\n' {
+				i++ // line continuation: the shell joins the lines
+				continue
+			}
+			word.WriteRune(rs[i+1])
+			i++
+		case c == '$' || c == '`':
+			started, unknown = true, true
+			span, last, construct := expansionSpan(rs, i)
+			if construct != "" {
+				return nil, construct
+			}
+			word.WriteString(span)
+			i = last
+		case c == '*' || c == '?' || c == '[':
+			started, unknown = true, true
+			word.WriteRune(c)
+		default:
+			started = true
+			word.WriteRune(c)
+		}
+	}
+	flush()
+	return toks, ""
+}
+
+// restHasCommand reports whether anything after a command separator is
+// another command. Whitespace, blank lines and comment lines are not: a
+// command string with a trailing newline and a trailing comment is still
+// one command, so it must not be refused as a list.
+func restHasCommand(rest []rune) bool {
+	for i := 0; i < len(rest); {
+		switch c := rest[i]; {
+		case c == ' ' || c == '\t' || c == '\r' || c == '\v' ||
+			c == '\f' || c == '\n':
+			i++
+		case c == '#':
+			for i < len(rest) && rest[i] != '\n' {
+				i++
+			}
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+// lexDoubleQuoted consumes the double-quoted region beginning at rs[i]
+// (== '"'), appends its text to word and returns the index of the closing
+// quote. POSIX keeps a backslash literal unless it precedes $ ` " \ or a
+// newline, so `--loop-bound "\4"` is the two-rune value `\4` (which click
+// refuses) and not the integer 4.
+func lexDoubleQuoted(rs []rune, i int, word *strings.Builder,
+	unknown *bool) (int, string) {
+	for j := i + 1; j < len(rs); j++ {
+		switch c := rs[j]; c {
+		case '"':
+			return j, ""
+		case '\\':
+			if j+1 >= len(rs) {
+				return 0, "unmatched double quote"
+			}
+			switch n := rs[j+1]; n {
+			case '$', '`', '"', '\\':
+				word.WriteRune(n)
+				j++
+			case '\n':
+				j++ // line continuation
+			default:
+				word.WriteRune('\\')
+			}
+		case '$', '`':
+			*unknown = true
+			span, last, construct := expansionSpan(rs, j)
+			if construct != "" {
+				return 0, construct
+			}
+			word.WriteString(span)
+			j = last
+		default:
+			word.WriteRune(c)
+		}
+	}
+	return 0, "unmatched double quote"
+}
+
+// expansionSpan consumes the shell expansion that begins at rs[i] ('$' or
+// '`') and returns its literal text plus the index of its last rune. The
+// text is carried so a refusal can quote what the parse saw; the token is
+// marked unknown either way, because the VALUE the shell substitutes is
+// not derivable from the command string.
+func expansionSpan(rs []rune, i int) (string, int, string) {
+	if rs[i] == '`' {
+		for j := i + 1; j < len(rs); j++ {
+			if rs[j] == '\\' {
+				j++
+				continue
+			}
+			if rs[j] == '`' {
+				return string(rs[i : j+1]), j, ""
+			}
+		}
+		return "", 0, "unterminated command substitution (backquote)"
+	}
+	if i+1 >= len(rs) {
+		return "$", i, "" // a trailing '$' is literal
+	}
+	switch n := rs[i+1]; {
+	case n == '(':
+		// $(...) may contain spaces and quotes, so its extent matters:
+		// scan to the matching paren, ignoring quoted regions.
+		depth := 1
+		inSingle, inDouble := false, false
+		for j := i + 2; j < len(rs); j++ {
+			switch c := rs[j]; {
+			case inSingle:
+				inSingle = c != '\''
+			case inDouble:
+				switch c {
+				case '\\':
+					j++
+				case '"':
+					inDouble = false
+				}
+			case c == '\'':
+				inSingle = true
+			case c == '"':
+				inDouble = true
+			case c == '\\':
+				j++
+			case c == '(':
+				depth++
+			case c == ')':
+				depth--
+				if depth == 0 {
+					return string(rs[i : j+1]), j, ""
+				}
+			}
+		}
+		return "", 0, "unterminated command substitution ($(...))"
+	case n == '{':
+		for j := i + 2; j < len(rs); j++ {
+			if rs[j] == '}' {
+				return string(rs[i : j+1]), j, ""
+			}
+		}
+		return "", 0, "unterminated parameter expansion (${...})"
+	case isNameStart(n):
+		j := i + 2
+		for j < len(rs) && isNameRune(rs[j]) {
+			j++
+		}
+		return string(rs[i:j]), j - 1, ""
+	default:
+		return string(rs[i : i+2]), i + 1, "" // $1, $?, $@, $$, $-, ...
+	}
+}
+
+// isNameStart reports a POSIX name's first rune ($VAR/$var_1 forms).
+func isNameStart(r rune) bool {
+	return unicode.IsLetter(r) || r == '_'
+}
+
+// isNameRune reports a rune a POSIX name may continue with.
+func isNameRune(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
+}

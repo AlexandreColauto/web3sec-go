@@ -87,8 +87,8 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -105,9 +105,6 @@ import (
 
 	"websec/internal/sandbox"
 )
-
-// harnessStdoutCap is the 1MB read cap on exec stdout files.
-const harnessStdoutCap = 1 << 20
 
 // verifyHarnessResult is cmd_verify's --harness-result branch.
 func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
@@ -504,7 +501,19 @@ func harnessSaveEntry(c *state.Campaign, links validation.Value, invID string,
 func harnessKindFor(c *state.Campaign, invID, flag string) (harness.Kind,
 	error) {
 	if flag != "" {
-		return harness.Kind(flag), nil
+		// r29b F1(c): the kind is CANONICALIZED at the source, so the ledger
+		// cannot hold a spelling no mapper knows. argparse already refuses
+		// any --kind outside {halmos, forge-fuzz, minicertora} (parseVerifyArgs,
+		// byte-identical message), so this resolution is the belt to that
+		// brace: should a caller reach here without that validation, an
+		// unknown or mis-cased kind is refused instead of stored verbatim
+		// (the audit would then have to burn the bind's own rung).
+		k, ok := harness.NormalizeScaffoldKind(flag)
+		if !ok {
+			return "", t14ExitErr(2, "verify: unknown harness kind %s\n",
+				validation.PyReprStr(flag))
+		}
+		return k, nil
 	}
 	events, err := c.Events()
 	if err != nil {
@@ -564,42 +573,36 @@ func harnessExecRecord(c *state.Campaign, execID string) (validation.Value,
 		validation.PyReprStr(execID))
 }
 
-// harnessExecStdout reads the run's captured stdout, capping the read at
-// 1MB. r13: a record written under `--root .` stores a CWD-relative
-// stdout_path; joining it back against execDir double-nests the path and
-// a plainly-present capture was reported as "no captured stdout to map".
-// The canonical location — <execDir>/stdout.log — is the audit's law
-// (execs.go derives it the same way) and wins; the stored string is only
-// a fallback. An unreadable file now says unreadable(path: errno), an
-// empty record field still says nothing was captured.
+// harnessExecStdout reads the run's captured stdout through the ONE reader
+// the audit uses too (harness.ReadExecStdout — the r13 candidate order, the
+// 1MB cap and the truncation semantics live there; r29b F2), and keeps this
+// command's own refusal text for the two failure shapes it distinguishes:
+// an empty record field means nothing was captured, an open failure says
+// unreadable with the errno (r13).
+//
+// r13: a record written under `--root .` stores a CWD-relative stdout_path;
+// joining it back against execDir double-nests the path and a
+// plainly-present capture was reported as "no captured stdout to map". The
+// canonical location — <execDir>/stdout.log — is the audit's law (execs.go
+// derives it the same way); the reader prefers an ABSOLUTE stored path and
+// falls back to the canonical one, exactly as this command always has.
 func harnessExecStdout(execDir string, rec validation.Value) ([]byte, error) {
-	p := objStr(rec, "stdout_path")
-	candidates := []string{filepath.Join(execDir, "stdout.log")}
-	if p != "" {
-		if filepath.IsAbs(p) {
-			candidates = []string{p, candidates[0]}
-		} else {
-			candidates = append(candidates, filepath.Join(execDir, p))
-		}
+	raw, err := harness.ReadExecStdout(execDir, rec)
+	if err == nil {
+		return raw, nil
 	}
-	var openErr error
-	for _, cand := range candidates {
-		fh, err := os.Open(cand)
-		if err != nil {
-			openErr = err
-			continue
-		}
-		defer fh.Close()
-		return io.ReadAll(io.LimitReader(fh, harnessStdoutCap))
-	}
-	if p == "" {
+	if errors.Is(err, harness.ErrNoCapturedStdout) {
 		return nil, t14ExitErr(2,
 			"verify: exec %s has no captured stdout to map\n",
 			validation.PyReprStr(objStr(rec, "exec_id")))
 	}
-	return nil, t14ExitErr(2,
-		"verify: exec %s stdout file unreadable (%v)\n",
-		validation.PyReprStr(objStr(rec, "exec_id")), openErr)
+	var ue *harness.StdoutUnreadableError
+	if errors.As(err, &ue) {
+		return nil, t14ExitErr(2,
+			"verify: exec %s stdout file unreadable (%v)\n",
+			validation.PyReprStr(objStr(rec, "exec_id")), ue.Err)
+	}
+	return nil, err
 }
 
 // harnessScaffoldBytes loads the T17 scaffold artifact bytes: the latest
@@ -634,11 +637,12 @@ func harnessScaffoldBytes(c *state.Campaign, invID string,
 			"verify: harness scaffold artifact %s is not registered\n",
 			validation.PyReprStr(ref))
 	}
-	p := objStr(art, "path")
-	if !filepath.IsAbs(p) {
-		p = filepath.Join(c.Root, p)
-	}
-	raw, err := os.ReadFile(p)
+	// r29b F3(c): the read itself is harness.ArtifactFileBytes — the row's
+	// recorded path joined against the campaign root and read raw (no sha
+	// re-check: the bind does not make one). Section 11's unbound arm reads
+	// the same file the same way, so the bytes the bind Validated and the
+	// bytes the audit Validates cannot be two different artifacts.
+	raw, err := harness.ArtifactFileBytes(c.Root, objStr(art, "path"))
 	if err != nil {
 		return nil, t14ExitErr(2,
 			"verify: harness scaffold artifact %s has no readable file\n",

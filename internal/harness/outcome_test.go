@@ -370,3 +370,52 @@ func TestInvocationBoundFloorsTheWholeInvocation(t *testing.T) {
 		t.Fatalf("an honest last flag must not floor: %d", got)
 	}
 }
+
+// TestR29UnreadableBoundFloorsTheWholeInvocation is the rung-level half of
+// r29 F4: an invocation the parse could not READ (not a stated value it
+// refuses — a construct whose argv is not derivable) floors through the
+// same mapper, exactly like a degenerate bound, and its summary keeps the
+// "degenerate-bound" vocabulary disposition.go classifies while naming the
+// construct that stopped the parse. The fuller shell/click table lives in
+// zz_r29a_parse_test.go.
+func TestR29UnreadableBoundFloorsTheWholeInvocation(t *testing.T) {
+	const cmd = "miniprover run --loop-bound '4" // unmatched single quote
+	k, why := InvocationBoundReason(cmd)
+	if k != BoundUnreadable || why == "" {
+		t.Fatalf("InvocationBoundReason(%q) = (%d, %q), want "+
+			"BoundUnreadable with a construct", cmd, k, why)
+	}
+	if got := InvocationBound(cmd); got != BoundUnreadable {
+		t.Fatalf("InvocationBound(%q) = %d, want BoundUnreadable", cmd, got)
+	}
+	// The output that WOULD prove under an honest bound must not promote:
+	// the invocation it claims to come from cannot be executed at all.
+	rung, summary := MapRun(ForgeFuzz, []byte(forgePass), false, k, why)
+	if rung == RungProvedBounded {
+		t.Fatalf("no rung may ride an unreadable invocation: %q %q",
+			rung, summary)
+	}
+	if !strings.Contains(summary, "degenerate-bound") ||
+		!strings.Contains(summary, "invocation-unreadable: "+why) {
+		t.Fatalf("the floor must keep the vocabulary and name the "+
+			"construct: %q", summary)
+	}
+	if got := BoundK(ForgeFuzz, []byte(forgePass), k); got != 0 {
+		t.Fatalf("an unreadable invocation states no bound: %d", got)
+	}
+	// The degenerate half keeps r28's wording verbatim.
+	_, deg := MapRun(ForgeFuzz, []byte(forgePass), false, BoundDegenerate)
+	if deg != "inconclusive (degenerate-bound: the invocation states "+
+		"no bound >= 1)" {
+		t.Fatalf("degenerate wording changed: %q", deg)
+	}
+	// BoundK never hands a flooring value out as a bound: with no marker
+	// in the output, the invocation's own (unreadable) value cannot
+	// become a k. (A marker in the output is the output's own statement
+	// and still wins — BoundK is only consulted for proved-bounded, which
+	// an unreadable invocation never reaches.)
+	if got := BoundK(Halmos, []byte(halmosPassUnbounded),
+		BoundUnreadable); got != 0 {
+		t.Fatalf("an unreadable invocation must not become a k: %d", got)
+	}
+}

@@ -1,5 +1,53 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — r29 (b-ai critic): the rail switched itself off with one string, and the two sides read different bytes
+
+r28 unified the decision into harness.DecideBound and the critic's verdict was exact: "the same function" had become
+"the same call", not "the same decision" — the entry point was shared, the ARGUMENTS were not, and one display arm
+had no evidence rail at all. F1 (P1) was the sharpest: section 11's re-derivation was gated on an exact
+`kind == "minicertora"` string, while the display renders a line for ANY non-empty kind and the slot/event backstop
+compares kind as an exact string. So editing ONE field in the slot and the event — to `mythril`, or to the case
+variant `MINICERTORA` — plus a fabricated `bounded_k`, with the chain hashes recomputed, produced `verify` exit 0
+and `audit` exit 0 with all fourteen sections ok, printing `PROVEN-BOUNDED (mythril, k=999999, ...)` over stdout
+whose own bytes said 4. The comment claiming unknown kinds render no line was simply false. Cure: only canonical
+spellings are accepted (the bind canonicalizes at the source, so the ledger cannot hold a spelling no mapper
+implements), and a blessing whose kind names no mapper BURNS with the kind as the reason rather than skipping the
+check — two independent gates now, verified by tamper probe (neutralizing the canonicality gate still burns via
+the mapper dispatch; the pin fails either way, and the file was restored byte-identically).
+
+F2 (P1) was the reader: the bind reads a run's stdout through its own path-candidate logic (the record's absolute
+`stdout_path` first) and a size cap, while all three audit sites used a bare `os.ReadFile(<execs>/<id>/stdout.log)`.
+On a 1 MB stdout whose attributed PROVEN line sits before the cap and a duplicate attributed line after it, the
+bind blessed `proved-bounded k=4` while the audit stably burned `duplicate verdict lines for rule` — one record, two
+answers, and the burn blamed a forgery that a re-bind kept reproducing. Cure: one reader, shared, with the same
+candidate order and the same cap, so the audit sees exactly the bytes the bind mapped; the pin proves the old
+disagreement by re-mapping the whole file and getting the duplicate-line refusal.
+
+F3 (P2) was an arm that misnamed its evidence: the scaffold-unavailable burn tested `len(hashes) > 0` over a
+structure that includes the stdout/stderr digests — true for every real record — so pruning a scaffold row made the
+audit claim the record "carries recorded harness file hash(es)" that "were bound to" bytes it never mentioned, and
+its carve-out was unreachable except in the one shape where it BLESSED a drifted claim. The arm now asks the real
+question (does this record carry a harness-FILE hash, by the bind's own predicate), names the state exactly, and
+reproduces the bind's Validate so an unbound drifted claim burns like its bound sibling. F5 (P2) narrowed the same
+predicate the other way: a workdir file named `notes-harness.txt` was treated as harness evidence and fabricated a
+`scaffold-bound violation` over a perfectly good PROVEN record; the predicate now covers the actual scaffold files
+(H.t.sol / F.t.sol / INV.mspec), so a foreign name maps normally while a genuine harness file with a foreign sha
+still refuses. F4 (P2) was honesty about the parse: the regex read a SHELL STRING as if it were argv, so
+`... --loop-bound 0 # note --loop-bound 4` blessed k=4 (the last match was inside a comment), `4_000` recorded 4
+where the twin ran 4000, unicode digits read as "unstated" (a blessing under a flag the twin refuses), and `+4`
+floored an honest run. The command is now lexed the way a shell splits it (quotes, `#` comments, `--`, tabs), the
+value is parsed with Python int() semantics, and a construct the lexer cannot model faithfully FLOORS the run as
+`invocation-unreadable` instead of guessing a number.
+
+Residuals recorded honestly by the round's agents: a wrong-family flag name (`--loop` handed to the minicertora
+tool) still parses without an arity table per tool; redirections and pipelines floor by design rather than being
+modelled; and the unreadable-construct detail reaches the stored summary only where the caller forwards it.
+Pinned by `TestZZR29BForgedKindBurnsInSectionEleven` (+ the cli-side kind pins and the source canonicalization
+pin), `TestZZR29BCappedStdoutBindAndAuditAgree`, `TestZZR29BPrunedScaffoldRowNamesTheRealState`,
+`TestZZR29BStdoutDigestsAreNotHarnessFileEvidence`, `TestZZR29BHashlessDriftedClaimBurns`,
+`TestZZR29BHarnessNamedWorkdirFileMapsNormally`, `TestR29InvocationBoundMatchesShellThenClick` and the
+unreadable-invocation pins; `gofmt`/`go vet` clean, 70/70 packages, runbook-walkthrough and golden GREEN.
+
 ## 2026-09-14 — r28 (b-ai critic): "the same function" is not "the same decision"
 
 Rounds 25-27 kept saying bind and audit "run the SAME function", and the critic took that sentence apart three

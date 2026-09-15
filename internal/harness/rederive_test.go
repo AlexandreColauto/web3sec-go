@@ -97,6 +97,22 @@ func TestDecideBoundReproducesTheBindsArms(t *testing.T) {
 	unbound := rdRecord(
 		validation.KV{K: "exec_id", V: validation.VStr("EXEC-3")},
 		validation.KV{K: "exit_status", V: validation.VInt(0)})
+	// The shape the sandbox itself writes (sandbox.RegisterExec): every real
+	// record carries its own captured-output digests, and NOTHING else.
+	captures := rdRecord(
+		validation.KV{K: "exec_id", V: validation.VStr("EXEC-4")},
+		validation.KV{K: "exit_status", V: validation.VInt(0)},
+		validation.KV{K: "artifact_hashes", V: validation.VObj(
+			validation.KV{K: "stdout.log", V: validation.VStr("aa")},
+			validation.KV{K: "stderr.log", V: validation.VStr("bb")})})
+	// A FOREIGN spec file — F5's notes-harness.txt shape, with the suffix the
+	// old predicate also treated as harness evidence.
+	foreignSpec := rdRecord(
+		validation.KV{K: "exec_id", V: validation.VStr("EXEC-5")},
+		validation.KV{K: "exit_status", V: validation.VInt(0)},
+		validation.KV{K: "input_hashes", V: validation.VObj(
+			validation.KV{K: "notes-harness.txt", V: validation.VStr("aa")},
+			validation.KV{K: "sibling.mspec", V: validation.VStr("bb")})})
 
 	cases := []struct {
 		name    string
@@ -157,6 +173,39 @@ func TestDecideBoundReproducesTheBindsArms(t *testing.T) {
 			inv:  inv, rec: unbound, scr: nil,
 			wantRun: RungProvedBounded,
 			wantSum: "proved bounded (k=4)" + unboundSuffix, wantBK: 4,
+		},
+		{
+			// r29b F3(a): the sandbox's own capture digests are NOT
+			// harness-file hash evidence, so this maps unbound instead of
+			// refusing over a hash comparison that never existed.
+			name: "no bytes with only capture digests maps unbound",
+			inv:  inv, rec: captures, scr: nil,
+			wantRun: RungProvedBounded,
+			wantSum: "proved bounded (k=4)" + unboundSuffix, wantBK: 4,
+		},
+		{
+			// r29b F5: a foreign file whose name merely CONTAINS harness (or
+			// merely ends in .mspec) is not harness-file evidence either.
+			name: "no bytes with foreign harness-named files maps unbound",
+			inv:  inv, rec: foreignSpec, scr: nil,
+			wantRun: RungProvedBounded,
+			wantSum: "proved bounded (k=4)" + unboundSuffix, wantBK: 4,
+		},
+		{
+			// F5's other half: a GENUINE scaffold filename is harness-file
+			// evidence whatever its sha, so no bytes still refuses.
+			name: "no bytes with a scaffold file key refuses",
+			inv:  inv, scr: nil,
+			rec: rdRecord(
+				validation.KV{K: "exec_id", V: validation.VStr("EXEC-6")},
+				validation.KV{K: "exit_status", V: validation.VInt(0)},
+				validation.KV{K: "input_hashes", V: validation.VObj(
+					validation.KV{K: "t/H.t.sol",
+						V: validation.VStr("aa")})}),
+			wantRun: RungInconclusive,
+			wantSum: "scaffold-degraded: scaffold bytes unavailable " +
+				"(the hash arm cannot be re-derived)",
+			wantBK: -1,
 		},
 	}
 	for _, tc := range cases {

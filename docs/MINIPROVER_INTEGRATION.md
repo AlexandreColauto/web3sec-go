@@ -293,8 +293,35 @@ time, from the artifacts the event names:
   out, absence stays silent: an inconclusive rung blesses nothing, and
   noise there only punishes honest age.
 
-The invocation parse is twin-shaped since r28: the bound flags are read
-click's way — the LAST occurrence wins and the value may be signed — so
+The rung's KIND is a rail of its own (r29): only the spellings the
+mappers implement are canonical, and a blessing whose stored kind names
+no mapper — 'mythril', a case variant, anything the bind could not have
+written — burns with the kind as the reason instead of skipping the
+evidence check. (The display used to render a line for ANY non-empty
+kind while the re-derivation ran only for minicertora, so editing one
+string in the slot and the event, with the chain recomputed, audited
+green over a fabricated bound.)
+
+Both sides also read the SAME bytes: the bind's stdout reader (the
+record's own stdout path first, the run's size cap applied) is the one
+the audit uses, so a run whose output exceeds the cap can no longer
+bless under one reader and burn under the other. The harness-FILE
+predicate is likewise single: the recorded hashes that count as scaffold
+evidence are the scaffold files themselves, so an unrelated workdir file
+with 'harness' in its name maps normally, and a genuine harness file with
+a foreign sha still refuses. When a record carries a harness-file hash
+but the scaffold bytes are gone, the burn says exactly that — it no
+longer claims the record's stdout/stderr digests were 'bound to' the
+scaffold.
+
+The invocation parse is shell-then-click faithful since r29: the
+recorded command is lexed the way a shell would split it (quotes, a '#'
+comment at a word boundary, the '--' end-of-options terminator, tab
+separators) and the value is read the way Python's int() reads it — so a
+flag inside a quoted argument is an argument, a comment is not a flag,
+and a construct the parser cannot model faithfully FLOORS the run
+(invocation-unreadable) instead of guessing a number. The LAST
+occurrence wins and the value may be signed, so
 `--loop-bound 4 --loop-bound 0` floors exactly as the twin would refuse
 it, and `--loop-bound -1` is a stated degenerate bound rather than an
 unparsable "unstated". An exec record whose `exit_status` is absent or

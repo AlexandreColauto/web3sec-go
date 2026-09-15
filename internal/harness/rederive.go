@@ -31,7 +31,10 @@ package harness
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -115,16 +118,131 @@ func InvValue(invID string, entry validation.Value) validation.Value {
 	return inv
 }
 
+// scaffoldFileNames is the exact filename set the harness scaffold writer
+// can emit for one invariant — cli.verifyScaffold's switch: "H.t.sol" for
+// halmos, "F.t.sol" for forge-fuzz, "INV.mspec" for minicertora. Those are
+// the harness files a run's recorded hashes may name (under any directory
+// prefix: the sandbox hashes a workdir-relative path).
+//
+// r29b F5: this used to be "any basename containing harness, or any .mspec"
+// — so a workdir file named notes-harness.txt read as a harness file and the
+// bind refused a perfectly good PROVEN run with "scaffold-bound violation:
+// harness file hash differs from stored scaffold", a comparison the run never
+// made. A foreign file that merely has "harness" in its name maps normally; a
+// GENUINE scaffold file whose sha differs still refuses.
+var scaffoldFileNames = []string{"h.t.sol", "f.t.sol", "inv.mspec"}
+
+// IsScaffoldFileKey reports whether a recorded-hash KEY names one of the
+// harness scaffold files the writer emits (case-folded basename, so
+// "artifacts/harness/INV-1/INV.mspec" and a bare "H.t.sol" both qualify).
+// The bind's hash arm and every audit question about "does this record carry
+// harness-file hash evidence?" ask this ONE predicate (r29b F5).
+func IsScaffoldFileKey(key string) bool {
+	base := strings.ToLower(filepath.Base(key))
+	for _, name := range scaffoldFileNames {
+		if base == name {
+			return true
+		}
+	}
+	return false
+}
+
+// ScaffoldFileHash is one recorded hash whose key names a scaffold file: the
+// key verbatim (so a refusal can quote what the record says) and its sha
+// ("" when the value was not a non-empty string, which is not hash
+// evidence).
+type ScaffoldFileHash struct {
+	Key string
+	SHA string
+}
+
+// ScaffoldFileHashes returns every recorded (key, sha) pair whose key names
+// a harness scaffold file, in input_hashes-then-artifact_hashes order.
+//
+// This is the REAL question r29b F3 was about: whether a record carries
+// harness-FILE hash evidence at all. RecordedHashes answers a wider one (it
+// also collects every recorded sha, and every sandbox record carries the
+// artifact_hashes stdout/stderr digests), so `len(hashes) > 0` was true for
+// EVERY real record and the audit's "scaffold bytes unobtainable" arm told
+// the operator about hash evidence the record never had.
+func ScaffoldFileHashes(rec validation.Value) []ScaffoldFileHash {
+	var out []ScaffoldFileHash
+	for _, key := range []string{"input_hashes", "artifact_hashes"} {
+		m := recordField(rec, key)
+		if m.Kind != validation.Obj {
+			continue
+		}
+		for _, kv := range m.O {
+			if !IsScaffoldFileKey(kv.K) {
+				continue
+			}
+			sha := ""
+			if kv.V.Kind == validation.Str {
+				sha = kv.V.S
+			}
+			out = append(out, ScaffoldFileHash{Key: kv.K, SHA: sha})
+		}
+	}
+	return out
+}
+
+// NormalizeKind resolves a stored kind string case-insensitively to the
+// canonical Kind some mapper implements, and reports whether one does at
+// all. The reachable blessing-rung kinds (worked out from the bind paths,
+// not guessed) are:
+//
+//   - halmos / forge-fuzz / minicertora — cli.harnessKindFor (the --kind
+//     flag, which argparse already restricts to those three, or the
+//     HARNESS-<INV>-<kind> suffix of a harness_scaffold event), whose
+//     evidence is the exec's captured stdout and whose mapper is MapRun /
+//     MapMinicertoraInvoc behind DecideBound;
+//   - miniprover — cli.verifyAutoprove's report-bound rung
+//     (cmd_verify_autoprove.go writes harness.Kind("miniprover"), with or
+//     without a wrapping sandbox EXEC), whose evidence is the registered
+//     report bytes and whose mapper is MapReport.
+//
+// Anything else — "mythril", "MINICERTORA" (a spelling the bind never
+// writes), "" — names no mapper, so r29b F1 requires the audit to refuse it
+// by name instead of skipping the rail.
+func NormalizeKind(s string) (Kind, bool) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case string(Halmos):
+		return Halmos, true
+	case string(ForgeFuzz):
+		return ForgeFuzz, true
+	case string(MiniCertora):
+		return MiniCertora, true
+	case "miniprover":
+		return Kind("miniprover"), true
+	}
+	return "", false
+}
+
+// NormalizeScaffoldKind is NormalizeKind restricted to the three kinds the
+// scaffold writer can render (cli.verifyScaffold's --scaffold/--kind
+// vocabulary: halmos, forge-fuzz, minicertora). The report-bound kind
+// ("miniprover") is a Kind a bind writes, but it has no scaffold and no
+// --kind spelling, so the scaffolder's own resolver must not accept it.
+func NormalizeScaffoldKind(s string) (Kind, bool) {
+	k, ok := NormalizeKind(s)
+	if !ok || string(k) == "miniprover" {
+		return "", false
+	}
+	return k, true
+}
+
 // RecordedHashes collects every recorded file hash from the exec record
-// (input_hashes plus artifact_hashes values) and whether any key names the
-// harness file (T17's H.t.sol / F.t.sol, the third kind's INV.mspec, or
-// anything harness-named — the runs that hashed the file they actually
-// executed). The .mspec suffix matters: without it a minicertora run that
-// hashed a foreign spec file would read as "no hash info" and map normally,
-// which is exactly the bind Decision 2b refuses.
+// (input_hashes plus artifact_hashes values) and whether any key names a
+// harness scaffold FILE — H.t.sol / F.t.sol / INV.mspec, the names
+// cli.verifyScaffold writes, under any directory prefix (r29b F5: the
+// predicate is IsScaffoldFileKey, shared with the audit; it used to accept
+// anything with "harness" in the basename or a ".mspec" suffix, so a workdir
+// file named notes-harness.txt fabricated a scaffold-bound violation).
 //
 // Both the bind and the audit's "can I re-derive this without the scaffold
-// bytes?" question read this one function.
+// bytes?" question read this one function. The harnessNamed BIT is what
+// decides "this record carries harness-file hash evidence"; ScaffoldFileHashes
+// is the same predicate with the keys and shas kept.
 func RecordedHashes(rec validation.Value) (hashes []string,
 	harnessNamed bool) {
 	for _, key := range []string{"input_hashes", "artifact_hashes"} {
@@ -136,10 +254,7 @@ func RecordedHashes(rec validation.Value) (hashes []string,
 			if kv.V.Kind == validation.Str && kv.V.S != "" {
 				hashes = append(hashes, kv.V.S)
 			}
-			base := strings.ToLower(filepath.Base(kv.K))
-			if base == "h.t.sol" || base == "f.t.sol" ||
-				strings.HasSuffix(base, ".mspec") ||
-				strings.Contains(base, "harness") {
+			if IsScaffoldFileKey(kv.K) {
 				harnessNamed = true
 			}
 		}
@@ -196,14 +311,17 @@ func ScaffoldDegradedReason(err error) string {
 // signal (a pruned artifact, a substituted path, a scaffold event that
 // never landed) — the bind never passes it: harnessScaffoldBytes fails with
 // exit 2 before this rail is reached. Such a caller still must not bless:
-// when the record carries hash evidence the hash arm cannot be re-derived
-// at all, so the decision refuses ("scaffold-degraded: scaffold bytes
-// unavailable …"). With NO hash info the unbound arm needs no scaffold for
-// the MAPPING (its hash comparison is vacuous by definition), and a rung on
-// record proves the bind's own Validate passed at bind time — so the
-// mapping decision proceeds without the Validate re-render. That is the
-// F3 constraint (3) carve-out: burn what cannot be re-derived, keep the
-// honest arm honest.
+// when the record carries HARNESS-FILE hash evidence — a recorded key naming
+// a scaffold file, the only shape whose hash arm cannot be re-derived at all
+// — the decision refuses ("scaffold-degraded: scaffold bytes unavailable …").
+// The sandbox's own artifact_hashes stdout/stderr digests are NOT that
+// evidence (r29b F3: `len(hashes) > 0` was true for every real record, so
+// this arm refused runs whose hash comparison was vacuous). With no
+// harness-file hash the unbound arm needs no scaffold for the MAPPING (its
+// hash comparison is vacuous by definition), and a rung on record proves the
+// bind's own Validate passed at bind time — so the mapping decision proceeds
+// without the Validate re-render. That is the F3 constraint (3) carve-out:
+// burn what cannot be re-derived, keep the honest arm honest.
 //
 // bounded_k is set only for proved-bounded (parsed k=<n> else the
 // invocation k); every other rung carries null.
@@ -212,8 +330,14 @@ func DecideBound(kind Kind, inv validation.Value, raw []byte,
 	ruleName string) (rung, summary string, proof validation.Value,
 	boundedK *int) {
 	if len(scaffold) == 0 {
-		hashes, harnessNamed := RecordedHashes(rec)
-		if len(hashes) > 0 || harnessNamed {
+		// r29b F3(a): the question is whether this record carries HARNESS
+		// FILE hash evidence — a recorded key naming a scaffold file — not
+		// whether it carries any sha at all. Every sandbox record carries
+		// the artifact_hashes stdout/stderr digests, so `len(hashes) > 0`
+		// was true for EVERY real record and this arm refused mappings it
+		// could reproduce, over hash evidence the record never had.
+		_, harnessNamed := RecordedHashes(rec)
+		if harnessNamed {
 			return RungInconclusive, "scaffold-degraded: scaffold bytes " +
 					"unavailable (the hash arm cannot be re-derived)",
 				validation.VNull(), nil
@@ -319,4 +443,89 @@ func decideMapped(kind Kind, raw []byte, timedOut bool, k int,
 		return rung, summary, &bk
 	}
 	return rung, summary, nil
+}
+
+// StdoutCap is the 1MB read cap on an exec stdout capture — the bind's own
+// constant, now the ONE cap both halves obey.
+const StdoutCap = 1 << 20
+
+// ErrNoCapturedStdout is the sentinel ReadExecStdout returns when the record
+// names no stdout_path AND the canonical <execDir>/stdout.log is not there
+// either: nothing was captured to map (the bind refuses it with exit 2).
+var ErrNoCapturedStdout = errors.New("no captured stdout")
+
+// StdoutUnreadableError carries the last candidate's open error, so the
+// bind's own "stdout file unreadable (<errno>)" refusal keeps naming the
+// errno it observed through the shared reader.
+type StdoutUnreadableError struct{ Err error }
+
+func (e *StdoutUnreadableError) Error() string { return e.Err.Error() }
+
+// Unwrap exposes the os error for errors.Is/As users.
+func (e *StdoutUnreadableError) Unwrap() error { return e.Err }
+
+// ReadExecStdout is THE reader of a run's captured stdout — the bytes the
+// bind maps and the bytes every audit re-derivation must map, so there is
+// exactly one answer to "what did this run print?" (r29b F2).
+//
+// Before this home: the bind read through its own candidate list
+// (harnessExecStdout: the record's stdout_path first when it is ABSOLUTE,
+// then <execDir>/stdout.log, with the relative stdout_path last) and capped
+// the read at 1MB, while all three audit sites called os.ReadFile on
+// <execs>/<id>/stdout.log — uncapped. A 1,048,638-byte capture whose
+// attributed PROVEN line came before byte 1,048,576 and whose DUPLICATE
+// attributed line came after it therefore bound "proved-bounded (k=4)" and
+// audited "inconclusive (duplicate verdict lines for rule)": two halves of
+// one law reading two different files (or the same file twice at two
+// different lengths). Same candidate order, same cap, same truncation
+// semantics — one function.
+//
+// The truncated tail may cut a line in half; that is the bind's law too, and
+// MapMinicertora's "output is not JSONL" floor is the honest reading of a
+// capture that was bigger than the cap.
+func ReadExecStdout(execDir string, rec validation.Value) ([]byte, error) {
+	p := recordStr(rec, "stdout_path")
+	candidates := []string{filepath.Join(execDir, "stdout.log")}
+	if p != "" {
+		if filepath.IsAbs(p) {
+			candidates = []string{p, candidates[0]}
+		} else {
+			candidates = append(candidates, filepath.Join(execDir, p))
+		}
+	}
+	var openErr error
+	for _, cand := range candidates {
+		fh, err := os.Open(cand)
+		if err != nil {
+			openErr = err
+			continue
+		}
+		defer fh.Close()
+		return io.ReadAll(io.LimitReader(fh, StdoutCap))
+	}
+	if p == "" {
+		return nil, ErrNoCapturedStdout
+	}
+	return nil, &StdoutUnreadableError{Err: openErr}
+}
+
+// ArtifactFileBytes reads a registered artifact's FILE the way the bind's
+// harnessScaffoldBytes reads a harness scaffold: the registry row's own
+// path, made absolute against the campaign root when it is relative, read
+// whole — and with NO sha re-check, because the bind makes none.
+//
+// r29b F3(c): the audit's evidence reader (section 11's
+// harnessScaffoldArtifactBytes) goes through state.ArtifactBytes, which
+// REFUSES a file whose bytes no longer hash to the row's pinned sha (the
+// r25 F2 discipline for re-derivation). That is the right reader for the
+// hash arm — but the bind's UNBOUND arm Validates the file it read from
+// disk regardless, so an audit that only had the pinned reader saw "bytes
+// unobtainable" over a file the bind would have judged, and blessed a
+// drifted claim. This is that same file, read the same way.
+func ArtifactFileBytes(root, path string) ([]byte, error) {
+	p := path
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(root, p)
+	}
+	return os.ReadFile(p)
 }
