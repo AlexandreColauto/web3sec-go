@@ -94,6 +94,7 @@ import (
 	"strings"
 	"time"
 
+	"websec/internal/findings"
 	"websec/internal/harness"
 	"websec/internal/invariants"
 	"websec/internal/state"
@@ -132,6 +133,23 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	raw, err := harnessExecStdout(execDir, rec)
 	if err != nil {
 		return err
+	}
+	// P2-2: a run whose stdout the record marks TRUNCATED never binds a
+	// rung — not from the kept bytes, and not from their content. The
+	// mapper's verdict lines could sit past the cap in either direction:
+	// what the kept prefix shows (a verdict line present, or absent) is
+	// unprovable both ways, so the bind refuses with the observed capture
+	// accounting instead of mapping a half-file. (A record that marks
+	// only STDERR truncated still binds: the binder maps the stdout
+	// stream, and those kept bytes are complete.)
+	if tc := findings.ExecTruncatedCapture(rec); tc != nil &&
+		tc.Stream == "stdout" {
+		return t14ExitErr(2, "verify: exec %s stdout is unfit to bind a "+
+			"rung: %s — the run's verdict lines could sit past the cap "+
+			"(their absence AND their presence are unprovable), so no "+
+			"rung is bound from a truncated capture; re-run the harness "+
+			"with output under the capture cap\n",
+			validation.PyReprStr(a.execID), tc.Accounting())
 	}
 	scaffold, err := harnessScaffoldBytes(c, a.harnessResult, kind)
 	if err != nil {
