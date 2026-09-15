@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -70,11 +71,40 @@ func TestCapNote(t *testing.T) {
 	}
 	long := strings.Repeat("b", 4100)
 	capped := capNote(validation.VStr(long))
-	want := strings.Repeat("b", 4096) +
-		" \u2026[truncated 4 chars \u2014 full content must live in an artifact, not a stage note]"
-	if capped != want {
-		t.Errorf("truncation:\n got tail %q\nwant tail %q",
-			capped[len(capped)-60:], want[len(want)-60:])
+	// r36: the result fits the cap WITH its marker (the old pin asserted a
+	// 4096-rune body plus a marker appended past the cap, which is what
+	// made doctor's repair non-convergent), and it still discloses the
+	// exact number of characters it dropped.
+	if n := len([]rune(capped)); n > 4096 {
+		t.Errorf("capNote returned %d runes, over the 4096 cap", n)
+	}
+	if !strings.HasPrefix(capped, strings.Repeat("b", 64)) {
+		t.Errorf("capNote must keep the body's head:\n got head %q",
+			capped[:64])
+	}
+	// The disclosure must be the TRUE count: whatever the marker says it
+	// dropped, plus the body it kept, is exactly the original length.
+	at := strings.Index(capped, " \u2026[truncated ")
+	if at < 0 {
+		t.Fatalf("capNote must disclose the elision:\n got %q", capped)
+	}
+	kept := len([]rune(capped[:at]))
+	m := regexp.MustCompile(`truncated (\d+) chars`).FindStringSubmatch(capped)
+	if m == nil {
+		t.Fatalf("capNote's marker must name the dropped count:\n got %q",
+			capped[at:])
+	}
+	dropped, err := strconv.Atoi(m[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kept+dropped != len([]rune(long)) {
+		t.Errorf("the marker lies: kept %d + dropped %d != %d original",
+			kept, dropped, len([]rune(long)))
+	}
+	if again := capNote(validation.VStr(capped)); again != capped {
+		t.Errorf("the cap must be a fixed point (doctor converges):\n"+
+			" got  %q\n want %q", again, capped)
 	}
 }
 

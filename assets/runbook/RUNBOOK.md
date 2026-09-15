@@ -57,7 +57,9 @@ cannot produce:
 
 ```bash
 webv2 env doctor            # read-only: docker cli/daemon, image presence + digest, fork-RPC reachability, per-profile readiness, solc cache
-webv2 env doctor <C-xxx>    # + checks the box against the evidence floor THIS campaign needs (exit 1 while it cannot)
+webv2 env doctor <C-xxx>    # + checks the box against the evidence floor THIS campaign needs
+                            #   (human surface: exit 1 while it cannot; --json: exit 0 with ok=false,
+                            #    the machine-readable contract the twin also keeps)
 ```
 
 The bounded SMT prover (§harness notes, `--scaffold minicertora`) is a HOST

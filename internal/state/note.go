@@ -11,6 +11,10 @@ import (
 // data payload. One run inlined a 2 GB structural index into a note
 // (campaign_state.json grew to 1.7 GB and every command paid for it). The
 // full content belongs in a registered artifact.
+//
+// It is a MAXIMUM LENGTH, truncation marker included: capNote never returns
+// more than NOTE_CAP codepoints, so any consumer may treat "len(note) <=
+// NOTE_CAP" as "this note is already capped".
 const NOTE_CAP = 4096
 
 // CapNote is cap_note, exported for doctor's note repair: webv2.doctor
@@ -22,6 +26,24 @@ func CapNote(note validation.Value) string { return capNote(note) }
 // value can never smuggle a payload into the state file. Truncation is
 // marked so the operator sees the note was cut. Lengths are codepoints
 // (Python str semantics), not bytes.
+//
+// r36b P2 deviation from the Python original: Python kept NOTE_CAP body
+// codepoints and THEN appended the ~80-rune marker, so its own output was
+// always LONGER than the cap it claims. That made every "len(note) >
+// NOTE_CAP" test a permanent falsehood (doctor's repair re-capped the note
+// run after run: 4,179 -> 4,176 -> "4,176 -> 4,176" forever, and the note
+// never got inside the cap). Here the marker is counted INSIDE the cap: the
+// body is shortened until body+marker fits, and the marker's dropped-count
+// is the true number of dropped codepoints, so the result is at most
+// NOTE_CAP codepoints and is a fixed point of itself (capping a capped note
+// is a no-op — that is what makes doctor converge).
+//
+// If the marker alone cannot fit inside the cap, the marker is returned
+// truncated to the cap. That branch needs the dropped-count's OWN digits to
+// exceed NOTE_CAP (a note of more than 10^(NOTE_CAP-~90) codepoints, which
+// cannot exist in memory), and the choice is deliberate: the cap is the
+// invariant every caller reasons about, so the disclosure is shortened
+// rather than the cap exceeded.
 //
 // Deviation: the Python fallback json.dumps(..., default=str) /
 // str(note) on TypeError/ValueError has no Go analogue - a Value is
@@ -40,12 +62,37 @@ func capNote(note validation.Value) string {
 	if n <= NOTE_CAP {
 		return s
 	}
-	var b []byte
-	for i := 0; i < NOTE_CAP; i++ {
-		_, size := utf8.DecodeRuneInString(s[len(b):])
-		b = append(b, s[len(b):len(b)+size]...)
+	// The marker's width depends on the dropped count, which depends on the
+	// body width, so the fit is solved by iteration. keep strictly decreases
+	// (the marker is never empty), so this ends in a few rounds.
+	keep := NOTE_CAP
+	for {
+		marker := truncationMarker(n - keep)
+		if keep+utf8.RuneCountInString(marker) <= NOTE_CAP {
+			return truncateRunes(s, keep) + marker
+		}
+		keep = NOTE_CAP - utf8.RuneCountInString(marker)
+		if keep <= 0 {
+			return truncateRunes(truncationMarker(n), NOTE_CAP)
+		}
 	}
-	return string(b) + truncationMarker(n-NOTE_CAP)
+}
+
+// truncateRunes cuts s to its first keep codepoints and never mid-rune. The
+// cap is in codepoints, so a byte slice would both over-count a non-ASCII
+// note and split a rune.
+func truncateRunes(s string, keep int) string {
+	if keep <= 0 {
+		return ""
+	}
+	n := 0
+	for i := range s {
+		if n == keep {
+			return s[:i]
+		}
+		n++
+	}
+	return s
 }
 
 // truncationMarker is the exact Python suffix (space + U+2026 ellipsis,

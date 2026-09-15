@@ -1,5 +1,42 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-14 — r36 (b-ai critic): the surfaces nobody had attacked, and two repairs that never happened
+
+Thirteen rounds had hardened the bind/audit re-derivation line, so this round went where no round had been: the sandbox's
+process handling, the state layer, doctor/repair/selftest, the JSON and exit-code surfaces, and a byte-diff of every
+verb against its Python twin. Its first correction was to the BRIEF rather than the code: `/home/xand/Projects/miniprover`
+is not webv2's twin — it is the MiniCertora auto-prover — and the real twin is `web3sec-final`; the parity run was done
+there instead, and 35 verbs diffed clean apart from two stale remediation strings on the twin's side and an additive
+`floors --json` difference.
+
+Two P2s, both of the same species: a repair the tool reports but does not make. `hint` and `memory --reflect` appended
+their jsonl row BEFORE `c.Log` took the campaign lock, so a refused log — a torn ledger, or a lock held by another
+process — left the row persisted with no event at all, and a retry duplicated it for the same single event; a twenty-
+writer sweep under the same lock showed every other writer unwinding cleanly, so the leak was theirs alone. Both now use
+one helper that snapshots the file, takes the lock, appends, logs, and on refusal restores the pre-write bytes (or
+removes a file that did not exist), and reports `UNWIND ALSO FAILED` if even the restore fails so no caller can launder a
+half-land. The same latent shape was found and fixed in a third writer in the same file.
+
+`doctor` claimed a note truncation it never made and could never converge: `capNote` cut the note to the cap and THEN
+appended its marker, so its own output was always over the cap, and doctor's "is this note oversized?" test was
+permanently true — eight consecutive runs each rewrote the state file and reported the same no-op repair, and the
+"within the cap" line could never print. The cap is now a real maximum with the marker inside it, the reported
+before/after numbers are the ones actually written, the repair converges (a second run says nothing to do and does not
+rewrite), and the human and `--json` surfaces agree. Two pre-existing pins had encoded the old semantics — one asserted a
+4096-rune body plus an over-cap marker — and both are now truthful: the capped note fits the cap, the marker's dropped
+count plus the body it kept equals the original length, and capping is a fixed point.
+
+The round also produced a documentation correction rather than a code one: the RUNBOOK said `env doctor <C>` exits 1
+"while it cannot run the campaign", but the `--json` surface exits 0 with `ok:false` — and the twin does exactly the
+same, so by the twin-wins law the RUNBOOK sentence is what was wrong. It now states both surfaces' contracts. Attacked
+and held, with evidence: the process-group kill reaches grandchildren and SIGTERM-trapping children and leaks no writer
+after a timeout; the campaign lock is real on twenty writers and names the holder; workdir preflight refuses before any
+record; a torn log refuses with its line number and `doctor` rebuilds the mirror from it; the zero-byte heal discloses
+`ledger_rewound`; a tampered `stdout.log` is caught by the exec section. Two residuals stay open and are recorded
+rather than smoothed: `exec` returns 0 when the sandboxed command fails or times out (the verb did its job; the record
+carries `exit_status:-1`), and `selftest` reports a PASS for the go-test check when the suite is not in the binary while
+leaving a scratch campaign behind on each run.
+
 ## 2026-09-14 — r35 (b-ai critic): the cure for a false law destroyed the evidence it was protecting
 
 The r34 cure was right about the disease and wrong about its blast radius. It made `artifact-register` honour the

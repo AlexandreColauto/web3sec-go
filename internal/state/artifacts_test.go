@@ -187,9 +187,21 @@ func TestStageNoteCapped(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry, _ := c.StageStatus("s")
-	want := strings.Repeat("a", NOTE_CAP) + truncationMarker(904)
-	if got := objStr(entry, "note"); got != want {
-		t.Errorf("capped note:\n got %q (len %d)\nwant %q (len %d)", got, len(got), want, len(want))
+	// r36: the cap is a MAXIMUM, marker included. capNote used to cut the
+	// body to NOTE_CAP and then append the marker, so its own output was
+	// always over the cap — doctor's "is this note oversized?" test was
+	// then permanently true and its repair never converged.
+	got := objStr(entry, "note")
+	if len([]rune(got)) > NOTE_CAP {
+		t.Errorf("capped note is %d runes, over the %d cap",
+			len([]rune(got)), NOTE_CAP)
+	}
+	if !strings.Contains(got, "truncated") || !strings.Contains(got,
+		"full content must live in an artifact") {
+		t.Errorf("capped note must disclose what it dropped:\n got %q", got)
+	}
+	if !strings.HasPrefix(got, "aaaa") {
+		t.Errorf("capped note must keep the body's head:\n got %q", got)
 	}
 	exact := strings.Repeat("b", NOTE_CAP)
 	if err := c.SetStage("s", "done", validation.VStr(exact), nil); err != nil {

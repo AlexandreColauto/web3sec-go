@@ -54,11 +54,28 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 	if fi, err := os.Stat(path); err == nil {
 		before = fi.Size()
 	}
-	st, err := validation.ReadJson(path)
+	// r36b P2: keep the bytes we parse. They answer "is this file already the
+	// canonical projection?" without a second read of a state file that can
+	// be gigabytes (the 1.7 GB state the note cap exists for), and that answer
+	// is what decides whether a quiet run writes at all.
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		return validation.VNull(), err
 	}
-	truncated := []validation.Value{}
+	st, err := validation.ParseOrdered(raw)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	// pendingNote is one note this run actually SHORTENS: the stage key, the
+	// length read from the file before the write, and the capped text. doctor
+	// reports what it staged here and nothing else — the r36b P2 finding was a
+	// report of a repair that capNote's own over-cap output kept undoing.
+	type pendingNote struct {
+		stage  string
+		before int
+		capped string
+	}
+	var pending []pendingNote
 	if stages := objAt(st, "stages"); stages.Kind == validation.Obj {
 		for i := range stages.O {
 			entry := stages.O[i].V
@@ -66,25 +83,31 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 				continue
 			}
 			note := objAt(entry, "note")
-			if note.Kind == validation.Null {
-				continue
-			}
-			length := runeLen(note)
-			if length <= state.NOTE_CAP {
+			if note.Kind != validation.Str {
 				continue
 			}
 			capped := state.CapNote(note)
-			truncated = append(truncated, validation.VObj(
-				validation.KV{K: "stage", V: validation.VStr(stages.O[i].K)},
-				validation.KV{K: "before", V: validation.VInt(int64(length))},
-				validation.KV{K: "after", V: validation.VInt(
-					int64(utf8.RuneCountInString(capped)))},
-			))
+			if capped == note.S {
+				// Already the cap's fixed point: nothing to repair, nothing
+				// to report. This is the test that makes the SECOND run
+				// silent (pre-r36b the test was "runeLen > NOTE_CAP", which
+				// capNote's own output kept true forever).
+				continue
+			}
+			pending = append(pending, pendingNote{
+				stage:  stages.O[i].K,
+				before: runeLen(note),
+				capped: capped,
+			})
 			setKey(&stages.O[i].V, "note", validation.VStr(capped))
 		}
 		setKey(&st, "stages", stages)
 	}
-	// artifact notes ride the same rule (they are summaries too)
+	// artifact notes ride the same rule (they are summaries too). They carry
+	// no stage key, so — as before — they stay out of the stage-keyed
+	// notes_truncated report; the fixed-point test is what keeps them from
+	// being re-capped on every run.
+	artifactsRepaired := 0
 	if arts := objAt(st, "artifacts"); arts.Kind == validation.Arr {
 		for i := range arts.A {
 			art := arts.A[i]
@@ -92,10 +115,15 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 				continue
 			}
 			note := objAt(art, "note")
-			if note.Kind == validation.Null || runeLen(note) <= state.NOTE_CAP {
+			if note.Kind != validation.Str {
 				continue
 			}
-			setKey(&arts.A[i], "note", validation.VStr(state.CapNote(note)))
+			capped := state.CapNote(note)
+			if capped == note.S {
+				continue
+			}
+			setKey(&arts.A[i], "note", validation.VStr(capped))
+			artifactsRepaired++
 		}
 		setKey(&st, "artifacts", arts)
 	}
@@ -155,12 +183,59 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 	// no schema validation on the repair write: doctor's job is to make the
 	// file loadable again, not to re-judge its shape — a state that drifted
 	// from the schema must still be repairable (the audit is what judges).
-	if err := validation.WriteJson(path, st, ""); err != nil {
-		return validation.VNull(), err
+	//
+	// r36b P2: write only when this run CHANGES the projection. Pre-r36b the
+	// write was unconditional, so campaign_state.json's mtime advanced on
+	// every run — a run that repaired nothing (and the second run of a note
+	// repair) churned the file anyway, which is both the fingerprint of the
+	// non-converging repair and the reason a quiet doctor could never be told
+	// apart from a working one. A hand-edited state is still re-serialized:
+	// the RUNBOOK's torn-tail recovery (python indent=2, then doctor) leaves
+	// bytes that differ from the canonical form the CLI writes.
+	writeNeeded := len(pending) > 0 || artifactsRepaired > 0 || mirrorRebuilt
+	if !writeNeeded {
+		writeNeeded = string(raw) != validation.DumpIndented(st)+"\n"
+	}
+	raw = nil // the file bytes were only needed for the canonicality test
+	if writeNeeded {
+		if err := validation.WriteJson(path, st, ""); err != nil {
+			return validation.VNull(), err
+		}
 	}
 	after := int64(0)
 	if fi, err := os.Stat(path); err == nil {
 		after = fi.Size()
+	}
+	// r36b P2: the reported before/after are the REAL lengths. `before` was
+	// measured on the note as it was read from the file; `after` is measured
+	// on the note read BACK from the file this repair wrote — never on what
+	// capNote returned. A number nobody can check against the file is how
+	// "truncated note on stage X: 4,176 -> 4,176 chars" survived eight runs.
+	afterLens := make([]int, len(pending))
+	for i, p := range pending {
+		afterLens[i] = utf8.RuneCountInString(p.capped)
+	}
+	if len(pending) > 0 {
+		if persisted, perr := validation.ReadJson(path); perr == nil {
+			stages := objAt(persisted, "stages")
+			for i, p := range pending {
+				entry := objAt(stages, p.stage)
+				if entry.Kind != validation.Obj {
+					continue
+				}
+				if note := objAt(entry, "note"); note.Kind == validation.Str {
+					afterLens[i] = runeLen(note)
+				}
+			}
+		}
+	}
+	truncated := make([]validation.Value, 0, len(pending))
+	for i, p := range pending {
+		truncated = append(truncated, validation.VObj(
+			validation.KV{K: "stage", V: validation.VStr(p.stage)},
+			validation.KV{K: "before", V: validation.VInt(int64(p.before))},
+			validation.KV{K: "after", V: validation.VInt(int64(afterLens[i]))},
+		))
 	}
 	// r17: the rebuild's own trace must OUTLIVE the run. The JSON delta
 	// printed once and vanished; verify then says green and `audit` says
