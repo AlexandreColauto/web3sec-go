@@ -201,9 +201,6 @@ func RecordMemoryCheck(campaign *state.Campaign, findingID string,
 	}
 	prov.O = validation.SetOrAppend(prov.O, "memory_checks", existing)
 	finding.O = validation.SetOrAppend(finding.O, "provenance", prov)
-	if err := SaveFinding(campaign, &finding); err != nil {
-		return validation.VNull(), err
-	}
 	// The signal is logged only once the entry that carries it is persisted:
 	// a gap event for a check that never landed would be a lie of its own.
 	data := validation.VObj(
@@ -211,10 +208,28 @@ func RecordMemoryCheck(campaign *state.Campaign, findingID string,
 		validation.KV{K: "irrelevant", V: validation.VInt(int64(irrelevant))},
 		validation.KV{K: "modes", V: strArr(checkModes(checks))},
 	)
-	if _, err := campaign.Log("finding.memory_checked", &findingID,
-		&data); err != nil {
+	// r41 P1: the persisted entry IS the gate's evidence — MemoryCheckFails
+	// (below) reads provenance.memory_checks off the FILE, not the ledger —
+	// so a refused append used to leave the finder "certified" by an act the
+	// ledger never recorded: `recall` printed the projection refusal and
+	// exited 1 while the CONFIRMED gate clause flipped to ✓ memory-check
+	// with 0 finding.memory_checked events behind it, and the retry then
+	// logged {"added": 0} forever. SaveThenLog is the package's unwind door
+	// (r17/r18/r40b siblings: ingest.go, mitigscan.go, ackscan.go,
+	// transitions.go) and it fits THIS write even though the write EDITS an
+	// existing finding rather than minting one: prevBytes snapshots the
+	// file's pre-save bytes before SaveFinding, so a refusal restores them
+	// exactly (or removes the file, had it never existed).
+	if err := SaveThenLog(campaign, &finding, func() error {
+		_, lerr := campaign.Log("finding.memory_checked", &findingID, &data)
+		return lerr
+	}); err != nil {
 		return validation.VNull(), err
 	}
+	// The gap events trail the authoritative file+event pair on purpose: the
+	// pair cannot be un-appended once logged, and a check that DID land may
+	// still owe its corpus.gap signal. A refusal here is reported, but the
+	// recorded check is already honest — the ledger holds its event.
 	for i := range gaps {
 		if _, err := campaign.Log("corpus.gap", &findingID,
 			&gaps[i]); err != nil {

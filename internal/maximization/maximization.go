@@ -480,6 +480,12 @@ func AddVariant(c *state.Campaign, findingID, name, description string,
 	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
 	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
+		// r41 P2: the SaveLadder-error arm was the one return after this
+		// verb's first write that skipped the unwind (SetMaximal,
+		// WaiveLadder, ReopenLadder and StartLadder all restore here).
+		// WriteJson is atomic, but a partial-visibility failure can still
+		// leave the doc ahead of the ledger; restore the pair.
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	data := validation.VObj(
@@ -552,6 +558,9 @@ func ExploreAxis(c *state.Campaign, findingID, axis, note string) (validation.Va
 	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
 	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
+		// r41 P2: same arm as AddVariant's — the first write's own refusal
+		// returned without the unwind.
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	data := validation.VObj(
@@ -600,12 +609,29 @@ func ReproduceRung(c *state.Campaign, findingID, rungID, execID string,
 	rung := *rungPtr
 	desc := fmt.Sprintf("variant rung %s: %s", objStr(rung, "name"),
 		objStr(rung, "description"))
+	// r41 P1: MintReproEvidence writes the FINDING first —
+	// findings.AddEvidence saves the evidence item and only THEN appends
+	// finding.evidence_added, with no unwind of its own — so a refused
+	// ledger returns from the mint with the item already ON the finding and
+	// no event behind it. These baselines used to be captured AFTER the
+	// mint (:638-639), which left that half-land outside this verb's unwind
+	// window: a refused ladder.rung_reproduced kept the minted evidence and
+	// its updated_at stamp, with zero events anywhere. Capture BOTH files
+	// BEFORE the mint; a refused mint restores them.
+	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
+	preMintFPrev, preMintFHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := reproduction.MintReproEvidence(c, findingID, execID, desc,
 		nil, evidenceType); err != nil {
+		restoreLadderPair(c, findingID, ladPrev, ladHad, preMintFPrev,
+			preMintFHad)
 		return validation.VNull(), err
 	}
 	f, err := findings.LoadFinding(c, findingID)
 	if err != nil {
+		// The mint wrote this file moments ago, so this refusal means the
+		// finding went missing under it: unwind the mint's half-land.
+		restoreLadderPair(c, findingID, ladPrev, ladHad, preMintFPrev,
+			preMintFHad)
 		return validation.VNull(), err
 	}
 	evID := ""
@@ -624,6 +650,10 @@ func ReproduceRung(c *state.Campaign, findingID, rungID, execID string,
 	}
 	rung.O = validation.SetOrAppend(rung.O, "reproduced_at", validation.VStr(nowIso()))
 	if err := replaceRung(&lad, rung); err != nil {
+		// Nothing to unwind: the ladder is still only in memory here, and
+		// the mint's own finding file + finding.evidence_added pair is
+		// already complete (see the window note below). Unreachable anyway
+		// — findRung just proved the rung id exists.
 		return validation.VNull(), err
 	}
 	hist := listOf(lad, "history")
@@ -633,11 +663,15 @@ func ReproduceRung(c *state.Campaign, findingID, rungID, execID string,
 		kvOf("event", validation.VStr("reproduced")),
 		kvOf("exec_id", validation.VStr(execID))))
 	lad.O = validation.SetOrAppend(lad.O, "history", hist)
-	// r18: capture BOTH files before the first write; a
-	// refused event restores them (restoreLadderPair).
-	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
+	// Re-capture the FINDING now that the mint's own finding.evidence_added
+	// event has landed (the mint returns success only once both halves are
+	// written): the item is then an authoritative file+event pair, and
+	// restoring the file alone would orphan that event. The LADDER snapshot
+	// above stands — nothing has written the ladder since it was captured.
 	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
+		// r41 P2: this arm returned without the unwind too.
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	data := validation.VObj(
@@ -733,6 +767,8 @@ func DisproveRung(c *state.Campaign, findingID, rungID, reason string) (validati
 	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
 	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
+		// r41 P2: the first write's own refusal skipped the unwind.
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	fid := findingID
@@ -745,6 +781,13 @@ func DisproveRung(c *state.Campaign, findingID, rungID, reason string) (validati
 		EvidenceSummary: strings.TrimSpace(reason),
 		Negative:        &negative,
 	}); err != nil {
+		// r41 P1: the ladder doc was ALREADY saved above reading
+		// "disproved" (plus a history row), and the memory row is its own
+		// file+event pair (learning.QueueMemory unwinds itself, r40), so
+		// THIS refusal must not leave the ladder ahead of the ledger:
+		// without the restore the ladder showed a disproof with zero
+		// ladder.rung_disproved events and the retry re-stamped it.
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	data := validation.VObj(kvOf("rung_id", validation.VStr(rungID)))
@@ -799,6 +842,9 @@ func SetMaximal(c *state.Campaign, findingID, rungID string) (validation.Value, 
 	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
 	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
+		// A refused or short write can still have put bytes on disk
+		// (temp+rename that failed after the rename, ENOSPC mid-write).
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	mx := asObj(objAt(f, "maximization"))
@@ -816,6 +862,15 @@ func SetMaximal(c *state.Campaign, findingID, rungID string) (validation.Value, 
 		f.O = validation.SetOrAppend(f.O, "economic_impact", impact)
 	}
 	if err := findings.SaveFinding(c, &f); err != nil {
+		// r41 P2: the ladder save above STANDS and the finding stamp did
+		// not, so this refusal left the ladder doc pinning max R and the
+		// finding's maximization block untouched, with no ladder.claim_pinned
+		// event anywhere — a pin the ledger never heard of (the retry can
+		// still record it, so the unlogged pin, not a burn, is the damage).
+		// Restore the pair before returning, exactly like CompleteLadder's
+		// r40 arm.
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
+
 		return validation.VNull(), err
 	}
 	data := validation.VObj(
@@ -880,6 +935,10 @@ func CompleteLadder(c *state.Campaign, findingID, actor string) (validation.Valu
 	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
 	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
+		// r41 P2: the r40 follow-up closed this verb's LoadFinding and
+		// SaveFinding arms but not this one — the first write's own refusal
+		// returned with the doc possibly ahead of the ledger.
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	f, err := findings.LoadFinding(c, findingID)
@@ -1012,16 +1071,31 @@ func ReopenLadder(c *state.Campaign, findingID, reason, actor string) (validatio
 	ladPrev, ladHad := prevFile(ladderPath(c, findingID))
 	fPrev, fHad := prevFile(findings.FindingPath(c, findingID))
 	if _, err := SaveLadder(c, &lad); err != nil {
+		// A refused or short write can still have put bytes on disk
+		// (temp+rename that failed after the rename, ENOSPC mid-write).
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	f, err := findings.LoadFinding(c, findingID)
 	if err != nil {
+		// r41 P2: the ladder was ALREADY saved above, so this refusal left
+		// it reading "open" with no ladder.reopen event and no finding
+		// stamp — the shape CompleteLadder closed at r40, one call site
+		// over, and the retry's already-open early-return makes the missing
+		// event unemittable forever. Restore the pair first.
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	mx := asObj(objAt(f, "maximization"))
 	mx.O = validation.SetOrAppend(mx.O, "disposition", validation.VStr("open"))
 	f.O = validation.SetOrAppend(f.O, "maximization", mx)
 	if err := findings.SaveFinding(c, &f); err != nil {
+		// r41 P2: the ladder save above STANDS, the finding stamp did not,
+		// and no event was ever appended. The ladder now reads "open", so
+		// the retry hits the already-open early-return: the reopen, its
+		// reason and its actor would be permanently unrecorded. Restore the
+		// pair (see restoreLadderPair) so the retry is a REAL reopen.
+		restoreLadderPair(c, findingID, ladPrev, ladHad, fPrev, fHad)
 		return validation.VNull(), err
 	}
 	data := validation.VObj(
