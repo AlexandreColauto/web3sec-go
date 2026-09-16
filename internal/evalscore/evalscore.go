@@ -80,6 +80,13 @@ type Report struct {
 	// true-or-gated is removed from the penalty. With no adjudications the
 	// denominator equals the raw one and the line equals PrecisionLine.
 	AdjustedPrecisionLine string
+	// ConfirmedLive/ConfirmedAnchored split the precision scope by status:
+	// the eval spec's FP budget counts "all other CONFIRMED findings", while
+	// the raw FP counts every live finding — an honest POSSIBLE hypothesis
+	// must not be priced like a fabrication. Both numbers print; the raw
+	// number stays the harsh one.
+	ConfirmedLive, ConfirmedAnchored int
+	ConfirmedPrecisionLine           string
 }
 
 // field returns an object's string field ("" when absent/non-string).
@@ -470,6 +477,7 @@ func ScoreSuiteWith(programs []string, liveByProgram map[string][]validation.Val
 	// live finding is anchor-checked once.
 	byProg := goldByProgram(matched)
 	anchored, liveTotal := 0, 0
+	confirmedLive, confirmedAnchored := 0, 0
 	for _, m := range matched {
 		fs := live[m.program]
 		if m.control {
@@ -492,8 +500,15 @@ func ScoreSuiteWith(programs []string, liveByProgram map[string][]validation.Val
 		fs := live[p]
 		liveTotal += len(fs)
 		for i := range fs {
+			confirmed := field(fs[i], "status") == "CONFIRMED"
+			if confirmed {
+				confirmedLive++
+			}
 			if anchorsAny(fs[i], byProg[p]) {
 				anchored++
+				if confirmed {
+					confirmedAnchored++
+				}
 				continue
 			}
 			a, ok := byID[field(fs[i], "finding_id")]
@@ -538,6 +553,11 @@ func ScoreSuiteWith(programs []string, liveByProgram map[string][]validation.Val
 	r.PrecisionLine = wilson.Format(anchored, liveTotal, "precision")
 	r.AdjustedPrecisionLine = wilson.Format(anchored,
 		anchored+r.FalsePositives+r.Unadjudicated, "precision")
+	r.ConfirmedLive = confirmedLive
+	r.ConfirmedAnchored = confirmedAnchored
+	if confirmedLive > 0 {
+		r.ConfirmedPrecisionLine = wilson.Format(confirmedAnchored, confirmedLive, "precision")
+	}
 	return r
 }
 

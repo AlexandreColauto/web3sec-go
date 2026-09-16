@@ -617,6 +617,11 @@ func (v *scorecardView) print(w io.Writer) {
 		scRow(w, "%s", r.RecallLine)
 		scRow(w, "%s", r.PrecisionLine)
 		scRow(w, "false positives (raw unanchored live findings): %d", r.FP)
+		if r.ConfirmedPrecisionLine != "" {
+			scRow(w, "false positives (CONFIRMED-only, the eval-spec budget): %d",
+				r.ConfirmedLive-r.ConfirmedAnchored)
+			scRow(w, "%s (CONFIRMED claims only)", r.ConfirmedPrecisionLine)
+		}
 		scRow(w, "additional true positives: %d", r.Additional)
 		scRow(w, "adjudicated false positives: %d", r.FalsePositives)
 		scRow(w, "assumption-gated: %d", r.Gated)
@@ -779,6 +784,11 @@ func (v *scorecardView) evalValue() validation.Value {
 		scKV("unadjudicated", validation.VInt(int64(r.Unadjudicated))),
 		scKV("stale_adjudications", validation.VInt(int64(r.StaleAdjudications))),
 		scKV("adjusted_precision", validation.VStr(r.AdjustedPrecisionLine)))
+	if r.ConfirmedPrecisionLine != "" {
+		out = append(out,
+			scKV("confirmed_live", validation.VInt(int64(r.ConfirmedLive))),
+			scKV("confirmed_precision", validation.VStr(r.ConfirmedPrecisionLine)))
+	}
 	return validation.VObj(out...)
 }
 
