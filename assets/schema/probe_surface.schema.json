@@ -200,8 +200,8 @@
             "description": "IMPROVEMENTS C2: the custody direction the divergent site serves, read off the function name (drop wins over withdrawal, which wins over recover, which wins over deposit)."
           },
           "asset": {
-            "enum": ["native", "erc20", "share"],
-            "description": "IMPROVEMENTS C2: the asset class the divergent site moves — native for a value send, share for the contract's own mint/burn, erc20 for a token call on another contract."
+            "enum": ["native", "erc20", "erc1155", "erc721", "share"],
+            "description": "IMPROVEMENTS C2: the asset class the divergent site moves — native for a value send, share for the contract's own mint/burn, erc20/erc1155/erc721 for a token call on another contract (the standard is read off the call receiver, so an ERC-1155/721 gateway never disagrees with an ERC-20 one over the same verb)."
           },
           "divergence": {
             "enum": ["member-disagreement", "funding-mismatch"],

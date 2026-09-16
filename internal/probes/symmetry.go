@@ -80,6 +80,28 @@ func symMemberIsTestDouble(cnode validation.Value) bool {
 	return IsTestDoublePath(vStr(cnode, "path"))
 }
 
+// symAssetOf refines the asset label from a call's receiver: the verb table
+// above collapses every token call to "erc20", which made an ERC-1155/721
+// gateway disagree with an ERC-20 gateway over the same verb. Receiver-name
+// matching is deliberately shallow — the indexed call string already carries
+// the interface name.
+// ponytail: receiver substring (1155/721); a per-interface kind table only if
+// a mislabeled receiver ever shows up in a campaign.
+func symAssetOf(call, def string) string {
+	recv := call
+	if i := lastIndexByte(recv, '.'); i >= 0 {
+		recv = recv[:i]
+	}
+	rl := lower(recv)
+	switch {
+	case strings.Contains(rl, "1155"):
+		return "erc1155"
+	case strings.Contains(rl, "721"):
+		return "erc721"
+	}
+	return def
+}
+
 // symmetryCells reads the custody primitives of one function node into
 // (direction, asset, primitive) cells. The verb table is shared with
 // probe_custody.go (mintCalls/burnCalls/payCalls/inCalls); the `direction`
@@ -107,15 +129,15 @@ func symmetryCells(contract, function string, line int, node validation.Value) [
 		}
 		switch {
 		case inSet(mintCalls, method):
-			hits = append(hits, hit{"mint", "erc20"})
+			hits = append(hits, hit{"mint", symAssetOf(low, "erc20")})
 		case inSet(burnCalls, method):
-			hits = append(hits, hit{"burn", "erc20"})
+			hits = append(hits, hit{"burn", symAssetOf(low, "erc20")})
 		case hasPrefix(low, "low-level."), method == "sendvalue", method == "transfereth":
 			hits = append(hits, hit{"send-native", "native"})
 		case inSet(payCalls, method):
-			hits = append(hits, hit{"transfer-out", "erc20"})
+			hits = append(hits, hit{"transfer-out", symAssetOf(low, "erc20")})
 		case inSet(inCalls, method):
-			hits = append(hits, hit{"transfer-in", "erc20"})
+			hits = append(hits, hit{"transfer-in", symAssetOf(low, "erc20")})
 		}
 	}
 	seen := map[string]struct{}{}
