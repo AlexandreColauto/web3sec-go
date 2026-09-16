@@ -1008,3 +1008,11 @@ git commit -m "fix(targets): G-02 accept list covers the canonical bridge-messag
 - **Placeholders:** none — every code step carries the actual code; Task 9 is exact data surgery.
 - **Type consistency:** `CanonicalClass` (taxonomy) consumed by evalscore and ClassAdvisory; `symMemberIsTestDouble`/`symAssetOf` consumed inside `PrimitiveMatrix`/`symmetryCells`; `Report.ConfirmedLive/ConfirmedAnchored/ConfirmedPrecisionLine` defined in Task 5 and rendered in the same task.
 
+## Execution errata (2026-09-16, after implementation)
+
+- **Task 4 needed a schema widening the plan missed:** `assets/schema/probe_surface.schema.json:203` pinned `rows[].asset` to `["native","erc20","share"]`, so emitted `erc1155`/`erc721` rows aborted `probes run` at emit. Enum widened + description updated in commit 17bf9c55 (the plan's "zero asset churn" constraint was a cost guard, and this is the same exact-allowed-values gap class the review flagged elsewhere).
+- **Task 9's snippet had the wrong JSON level:** the pack's top level is a list and the class fields live under `gold` (`gold.bug_class_accept`), not at the row top. Applied at the correct level.
+- **Task 2's plan Step 5 was skipped during the wave** (repro-c owned by another task) and run by the coordinator between waves: recall 0/2 → 1/2 after Task 2, 2/2 after Task 9.
+- **Task 8's glm reviewer returned null twice** (likely context death on the 105KB RUNBOOK); the coordinator verified it with direct commands instead (new tests pass, help table renders, plan pointer + runbook block present, manifest synced).
+- **Final measured outcome** (coordinator-run `scorecard --gold` at HEAD, campaign record untouched): recall 2/2, raw FP 4, CONFIRMED-only FP 3, CONFIRMED-only precision 2/5 — the §10b counterfactual, realized through code + pack data.
+
