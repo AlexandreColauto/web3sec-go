@@ -71,6 +71,15 @@ type symCell struct {
 	Line      int
 }
 
+// symMemberIsTestDouble reports whether a family member contract node is a
+// test double (its declaring file classifies as one). Test harnesses are not
+// custody members: their mint/burn cells are fixture noise that fills the
+// per-axis emit quota ahead of real pairings. Reuses srcclass via
+// IsTestDoublePath — the same rule collapse.go already applies when folding.
+func symMemberIsTestDouble(cnode validation.Value) bool {
+	return IsTestDoublePath(vStr(cnode, "path"))
+}
+
 // symmetryCells reads the custody primitives of one function node into
 // (direction, asset, primitive) cells. The verb table is shared with
 // probe_custody.go (mintCalls/burnCalls/payCalls/inCalls); the `direction`
@@ -377,6 +386,9 @@ func PrimitiveMatrix(index validation.Value) validation.Value {
 		for _, cnode := range contractNodes(index) {
 			cname := vStr(cnode, "name")
 			if _, ok := memberSet[cname]; !ok {
+				continue
+			}
+			if symMemberIsTestDouble(cnode) {
 				continue
 			}
 			for _, e := range vObjList(cnode, "contract_closure") {
