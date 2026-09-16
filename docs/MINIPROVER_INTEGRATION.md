@@ -129,8 +129,17 @@ compared it — a mismatched-compiler run bound its rung. Shipped (r18):
   (r19/r20 F8); with NO resolvable pin anywhere (no record row either)
   the bind takes the honest state-2 lane and the proof carries the
   `[note: ...]` naming the unresolved mention;
-- when minicertora v0.4 ships `--require-solc-version` (R13), that flag
-  becomes the belt; this webv2 check remains the braces.
+- minicertora v0.4 SHIPPED `--require-solc-version` (R13), so that flag is
+  the belt and this webv2 check remains the braces. MiniProver refuses the
+  run before any phase starts when the probed binary cannot enforce the
+  pin, so a pinned run that reaches us really did pin. The two sides are
+  INDEPENDENT, and webv2 reads the report's `flags` block for exactly one
+  thing: `flags.loop_bound`, to get k (`DecideReport` → `BoundFromFlags`,
+  the typed read that refuses a degenerate or foreign `loop_bound`). It
+  does NOT read `flags.require_solc_version` — the compiler pin is
+  resolved from the exec record's own command or `tool_versions.solc`
+  (above). So a run may carry a pin in `report.json` while the exec record
+  says nothing, and that is a proof `unchecked`, not a proof pinned.
 
 ## 5. The `verify --autoprove` mapper (SHIPPED)
 
@@ -152,8 +161,15 @@ agent-authored title verbatim):
 ```bash
 webv2 verify <C> --autoprove INV-1 --property total_monotonic_after_add        --report <run>/reports/report.json
 # INV-1: proved-bounded — autoproved bounded (k=4, 1 rules)
-#   verifier gaps at run time: 7 capabilities missing (degraded run; ...)
 ```
+
+That gap line is CONDITIONAL and is absent against the installed v0.4: the
+bind prints it only when the report's `capabilities_missing` is non-empty
+(`cmd_verify_autoprove.go`), and §7 records that the v0.4 probe is fully
+green — so a clean bind prints exactly the one line above. A pre-v0.4 run
+adds `  verifier gaps at run time: N capabilities missing (degraded run;
+see tools/minicertora_conformance.py)`: a shorter stdout, never a
+different verdict.
 
 Live-verified against the prover's committed counter evidence (all three
 arms): a genuine PROVEN rollup bound `proved-bounded` with the run's
@@ -171,6 +187,19 @@ context only: the deliverable is what SURVIVED in the final spec, and the
 runbook for a real campaign should read rule count and decision count as
 different numbers on purpose.
 
+**Report contract as of v0.4 (re-verified 2026-09-16).** The prover-side
+`schema_version` is still `"1.0"`, so this section's gate (major "1."
+speaks) is untouched by the v0.4 landing. v0.4 `report.json` adds ONE block
+we do not read: `verifier`, carrying the schema/tool/spec/solc versions the
+verifier stamped on its own output lines (the committed v0.4 run:
+`0.2.0 / 0.1.0 / v0.3 / 0.8.36`). Verified rather than assumed:
+`cmd_verify_autoprove.go` and `harness/reportmap.go` never key on it, so a
+report carrying the block binds exactly as before. It is the prover
+recording its own provenance, NOT a claim webv2 checks — the compiler
+comparison that does gate a bind is §4's, resolved from the exec record.
+Keys are omitted rather than defaulted when no line carried them, so a run
+that observed nothing carries `{}` instead of invented versions.
+
 ## 6. Troubleshooting matrix
 
 | symptom | cause | fix |
@@ -179,7 +208,7 @@ different numbers on purpose.
 | run exits 1 at construction | no `MINIPROVER_BASE_URL` | §2 — the fail-fast names the variables |
 | every property `INCONCLUSIVE(tool-error)` | verifier shim dangling or endpoint dead | check `minicertora --version` and curl the base URL |
 | `review_independent: false` in report.json | review model == authoring model | set `MINIPROVER_MODEL_REVIEW` to a DIFFERENT id |
-| `--parse-only`/`--check-only` rows say unavailable | minicertora is pre-v0.4 (R12/R14 unshipped) | expected degradation; run `tools/minicertora_conformance.py` to see the full gap |
+| a capability row says unavailable | the installed minicertora does not provide it — a fact the probe ANSWERS, so never assume it in either direction | run `tools/minicertora_conformance.py`; a MISSING row degrades runs honestly (§3 law 4), and an UNMEAS row says only that the probe could not ask, which is not a failure and not a pass |
 | `toolchain-mismatch` on a harness result | the run's solc ≠ the pin | re-exec with `--solc-path` pointing at the reported version, or fix PATH solc |
 | doctor row says `probe TIMED OUT after 5s` | a PATH binary hangs on `--version` | the row IS the diagnosis — fix the shim; EVERY host probe is now bounded (doctor 5s+WaitDelay, EXEC probes group-kill+grace, docker 20s+group-kill, compiler-pin 10s): a probe reports a hang, it never joins it |
 | autoprove says `report-contradiction` | rollup claims PROVEN while per_rule values disagree | per-rule lines are the authority (law 3); file a prover bug if the rollup really disagreed |
@@ -193,10 +222,51 @@ different numbers on purpose.
   and only their artifacts are consumed; the E3 host cap is unaffected.
 - DESIGN.md generation FROM the INV ledger (webv2 → prover input) is not
   wired; today the operator passes `--design` by hand.
-- The prover's `--cache-dir` is built-but-unwired upstream (their Known
-  Gaps): no webv2-side assumption may depend on caching.
-- minicertora v0.4 (R1–R15 contract) is unshipped; the conformance table
-  is the source of truth for what the installed verifier can do today.
+- **`--cache-dir`: the verifier side is wired, MiniProver's own cache is
+  not.** The operator's `--cache-dir` now reaches minicertora as
+  `<cache-dir>/minicertora` (R15), for both the run and the commit gate, and
+  is dropped with one warning when the binary has no such flag. What remains
+  unwired is MiniProver's OWN content-addressed store (`ArtifactStore.put`/
+  `get`): no phase result is reused, so no webv2-side assumption may depend
+  on caching either way.
+- **minicertora v0.4 (R1–R15) is INSTALLED and verified green** — this
+  bullet said "unshipped" until 2026-09-16, when the probe below was re-run
+  against the installed binary. The conformance table remains the source of
+  truth for what the installed verifier can do; re-run it rather than
+  trusting this snapshot.
+
+### Installed verifier, re-verified 2026-09-16
+
+`tools/minicertora_conformance.py` (in the MiniProver repo) prints two
+tables, both fully green against the installed binary:
+
+```
+capability (flag presence + rules field)     behavioural (§1 semantics)
+PASS    R2  --project-root                   PASS  R14 --parse-only
+PASS    R14 --parse-only                     PASS  R2  project-root compile of an import
+PASS    R12 --check-only                     PASS  R12 clean document is silent
+PASS    R13 --list-rules                     PASS  R14 parse-only == the full parser
+PASS    R15 --cache-dir                      PASS  R13 --list-rules shape
+PASS    R13 --require-solc-version           PASS  R11 rules names the rule
+PASS    R11 rules field                      PASS  R12 no verdict line under --check-only
+                                             PASS  R13 --require-solc-version pin
+
+every requirement present and every behavioural check passed
+```
+
+The two tables answer different questions and both are needed: a flag
+existing does not mean it MEANS what the contract says. The `rules` row
+establishes only that the KEY appears on every elicited line, not per-rule
+attribution — attribution is the behavioural table's "rules names the rule"
+row.
+
+Consequences webv2-side: `capabilities_missing` is EMPTY in the committed
+v0.4 run, so the write gates compile instead of answering `unavailable` and
+attribution goes through R11's `rules` field instead of text matching.
+Sentences elsewhere in this guide that describe a "degraded run" (the old
+"7 capabilities missing") describe the v0.3 runs the MiniProver repo still
+keeps under its `docs/evidence/`; §5's example output has been corrected to
+match.
 
 ## 8. Binding law between the paths (r20)
 

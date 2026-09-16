@@ -1,5 +1,39 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-16 — MiniProver v0.4 landed: the integration guide's §7 was stale, and one of my own sentences was wrong
+
+MiniProver finished the minicertora v0.4 contract and committed it (`f82316f` code, `95d7724` evidence, `9abd38b` docs in
+the MiniProver repo), and re-running `tools/minicertora_conformance.py` against the installed binary returns "every
+requirement present and every behavioural check passed": 7 capability rows and 8 behavioural rows, all PASS. That falsified
+§7's "minicertora v0.4 (R1–R15 contract) is unshipped" plus four other sentences in this repo's integration guide that
+assumed the same — the §4 "when v0.4 ships `--require-solc-version`" clause, §5's example output showing the conditional
+"7 capabilities missing" gap line, and the troubleshooting row that named "pre-v0.4 (R12/R14 unshipped)" as the cause of a
+capability row saying unavailable. All five were corrected, and the capability record is now quoted as a dated verification
+block so the next reader re-runs the probe instead of trusting the snapshot.
+
+The refresh also recorded what did NOT move, because "the tool changed" is not "our bind changed": the prover's
+`schema_version` is still `"1.0"`, so the report gate is untouched; the new `verifier` provenance block is additive and
+verified unread by both `cmd_verify_autoprove.go` and `harness/reportmap.go`; and the `--cache-dir` open edge is now split
+into two honest claims — the VERIFIER-side passthrough is wired since R15, while MiniProver's own content-addressed store
+is still unwired, so no webv2-side assumption may depend on caching either way.
+
+The round's sharpest item is self-inflicted, and it is why the doc claims were checked rather than reasoned: I wrote that
+the two sides read the compiler pin independently and that webv2 "never reads the run's own `flags` block", then verified
+it — `reportmap.go:389` calls `BoundFromFlags(objAtRP(rep, "flags"))`, so the bind DOES read that block, for
+`flags.loop_bound` (the typed read that refuses a degenerate or foreign bound). It does not read
+`flags.require_solc_version`: the pin is still resolved from the exec record's own command or `tool_versions.solc`, so a
+run may carry a pin in `report.json` while the exec record says nothing and the proof stays `unchecked`. The sentence was
+corrected to say exactly that, which is the stronger claim anyway: we consume part of that block and deliberately not the
+part that would let a run's own flag stand in for a compiler comparison.
+
+Also worth recording for the next MiniProver round: the root-cause defect found while landing v0.4 is a cwd law, not a
+verifier bug — every minicertora invocation runs with `cwd=<temp scratch>`, so ANY path handed to the binary must be
+absolute, and the first v0.4 run published nothing (all 8 properties `NOT_ATTEMPTED`, 0 decisions) because the documented
+`--project-root .` resolved against the scratch directory. v0.3 could not expose it, because R2 was absent and MiniProver
+took the legacy path that copied sources into the scratch dir and passed a bare basename.
+
+Gates: docs-only change; gofmt/go vet clean, 70/70 packages, runbook-walkthrough 150 passed / 0 failed (GREEN), golden GREEN.
+
 ## 2026-09-15 — r46 (glm-5.3-flash critic): confirmation round — the 9 holds, and two P3s in the closure itself
 
 A confirmation round at the closure commit asked whether the previous round's 9/10 ("no P1 or P2 with a repro") still held
