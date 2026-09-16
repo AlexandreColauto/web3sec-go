@@ -193,7 +193,7 @@ func LoadModel(campaign *state.Campaign, path string) (validation.Value, error) 
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if err := validation.Validate(model, "protocol_model", 1); err != nil {
+	if err := validation.Validate(model, "protocol_model", 25); err != nil {
 		return validation.VNull(), err
 	}
 	note := "protocol model for " + pyStr(objAt(model, "name"))
@@ -217,7 +217,7 @@ func LoadModel(campaign *state.Campaign, path string) (validation.Value, error) 
 // write_json is called without a schema name), then refresh the existing
 // registration. A nil/empty path means <artifacts_dir>/protocol_model.json.
 func SaveModel(campaign *state.Campaign, model validation.Value, path string) (string, error) {
-	if err := validation.Validate(model, "protocol_model", 1); err != nil {
+	if err := validation.Validate(model, "protocol_model", 25); err != nil {
 		return "", err
 	}
 	if path == "" {

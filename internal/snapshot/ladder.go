@@ -28,6 +28,8 @@ var BulkSourceExcludes = map[string]struct{}{
 	".tox":            {},
 	"build":           {},
 	"dist":            {},
+	"forge-artifacts": {}, // forge build output; in-tree builds must not enter the audit surface
+	"broadcast":       {}, // forge script broadcast artifacts
 }
 
 // Git is _git: run `git -C path args...` and return the stripped stdout.

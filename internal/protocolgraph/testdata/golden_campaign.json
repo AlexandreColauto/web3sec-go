@@ -62,7 +62,7 @@
   "fresh_second_save_reason": "protocol model saved (LLM refinement or operator edit)",
   "fresh_second_save_events": 3,
   "fresh_second_save_refresh_count": 1,
-  "invalid_model_error": "protocol_model validation failed at <root>: 'protocol_id' is a required property (+5 more errors)",
-  "invalid_model_array_error": "protocol_model validation failed at <root>: [] is not of type 'object' (+0 more errors)",
-  "invalid_model_badkind_error": "protocol_model validation failed at assets/0/kind: 'nonsense' is not one of ['token', 'lp', 'share', 'collateral', 'debt', 'reward', 'nft', 'message', 'reserve'] (+0 more errors)"
+  "invalid_model_error": "protocol_model validation failed at <root>: 'protocol_id' is a required property\n  also at <root>: 'name' is a required property\n  also at <root>: 'contracts' is a required property\n  also at <root>: 'actors' is a required property\n  also at <root>: 'assets' is a required property\n  also at <root>: 'relations' is a required property",
+  "invalid_model_array_error": "protocol_model validation failed at <root>: [] is not of type 'object'",
+  "invalid_model_badkind_error": "protocol_model validation failed at assets/0/kind: 'nonsense' is not one of ['token', 'lp', 'share', 'collateral', 'debt', 'reward', 'nft', 'message', 'reserve']"
 }

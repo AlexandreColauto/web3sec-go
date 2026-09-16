@@ -126,8 +126,14 @@ func TestModelInvalidSchema(t *testing.T) {
 	if out != "" {
 		t.Fatalf("stdout = %q", out)
 	}
+	// Task 7: the model-load cap moved 1 -> 25, so the whole ("also at")
+	// path list is reported instead of the "(+4 more errors)" truncation.
 	want := "model load failed: protocol_model validation failed at <root>: " +
-		"'name' is a required property (+4 more errors)\n"
+		"'name' is a required property\n" +
+		"  also at <root>: 'contracts' is a required property\n" +
+		"  also at <root>: 'actors' is a required property\n" +
+		"  also at <root>: 'assets' is a required property\n" +
+		"  also at <root>: 'relations' is a required property\n"
 	if errS != want {
 		t.Fatalf("stderr = %q, want %q", errS, want)
 	}
