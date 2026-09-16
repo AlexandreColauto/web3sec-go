@@ -529,6 +529,25 @@ stricter than the loosest known class also prints the class-floor advisory, so
 a taxonomy choice is never a silent evidence wall. **Never
 hand-write a finding file** — ingest is the only path in.
 
+Three finding fields are machine-read by the eval join (`scorecard --gold`)
+and by dedup — write them like identifiers, not prose:
+
+- `root_cause.class`: one of the 23 canonical classes in
+  `assets/taxonomy/class_weights.json` (kebab-case, exact). A class outside
+  the list cannot anchor any gold case; ingest warns, and a synonym
+  (`denial-of-service` → `dos-griefing`) is canonicalized on both sides of
+  the join. If ingest names a canonical class, use it.
+- `affected[0].path`: the **defining** contract's file (where the flawed
+  function is declared), not an inheritor — the join reads `affected[0]`
+  only, basename-suffix matched against the gold case's locations.
+- `root_cause.mechanism`: one sentence carrying the code identifiers and the
+  wrong/right primitive pair ("`_deposit` burns the user's token while the
+  inherited `onDropMessage` pays the refund out of the gateway's own
+  balance"), because packs may match mechanism phrases by containment.
+
+Before closing a graded campaign: `webv2 scorecard <C> --gold <pack.json>`
+is read-only — run it as a dry join while every finding is still editable.
+
 **Both polarities of every lifecycle transition.** A transition can accept
 what it must reject (attacker wins: fake root finalizes, double spend
 settles) or refuse what it must accept (nobody wins: the cursor never

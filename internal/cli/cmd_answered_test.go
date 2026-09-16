@@ -152,8 +152,9 @@ func TestAnsweredHelp(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
-	if out != t14AnsweredHelp {
-		t.Fatalf("help = %q, want %q", out, t14AnsweredHelp)
+	if out != t14AnsweredHelp+anchorHelp()+t14AnsweredRefConventions {
+		t.Fatalf("help = %q, want %q", out,
+			t14AnsweredHelp+anchorHelp()+t14AnsweredRefConventions)
 	}
 	if errS != "" {
 		t.Fatalf("stderr = %q", errS)

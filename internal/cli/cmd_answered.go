@@ -13,9 +13,11 @@ package cli
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"websec/internal/planner"
+	"websec/internal/probes"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -117,6 +119,46 @@ options:
                         --override-dismissal)
 `
 
+// anchorHelp renders the per-probe anchor contract into the answered help
+// text: dispositioning cost one failure per row type because the required
+// anchor shapes lived in the registry, not the help (C-12f17fd555 §8c). The
+// table is derived from the same registry the gate enforces
+// (probes.AnchorAllowed over probes.AnchorEnum), so help and enforcement
+// cannot drift; probes and anchors render in sorted order so the block is
+// deterministic and pinned by a table test.
+func anchorHelp() string {
+	enum := probes.AnchorEnum()
+	ids := probes.ProbeIDs()
+	sort.Strings(ids)
+	var b strings.Builder
+	b.WriteString("  per-probe anchors (the anchor must be one the probe produced):\n")
+	for _, p := range ids {
+		names := make([]string, 0, len(enum))
+		for _, a := range enum {
+			if probes.AnchorAllowed(p, a) {
+				names = append(names, a)
+			}
+		}
+		fmt.Fprintf(&b, "    %s: --anchor %s\n", p, strings.Join(names, "|"))
+	}
+	return b.String()
+}
+
+// t14AnsweredRefConventions is the row-type ref contract: the shapes the
+// refusal messages imply but the help never named (C-12f17fd555 §8c). The
+// row's own surface entry stays the source of truth — `webv2 probes <C> list
+// --all` prints it.
+const t14AnsweredRefConventions = `  row-type ref conventions (--ref carries the shape the row printed):
+    assertion-strength       --ref <consumer contract>#L<line>
+    trust-assumption         --ref <actor name>
+    custody-primitive        --ref <primitive verb>, or --anchor base with
+                             --ref <contract>#L<line>
+    short-circuitable-guard  --ref the guard expression as printed on the row
+  --passes takes a literal, not prose: an integer, 0x…, an address,
+  bytes32(0x…), a bool or a quoted string — or a symbol from the row's own
+  surface entry.
+`
+
 // answeredArgs is the parsed command line.
 type answeredArgs struct {
 	campaign          string
@@ -200,7 +242,7 @@ func answeredFlag(args []string, i int, a *answeredArgs,
 	r *Runner) (consumed int, done, handled bool, err error) {
 	arg := args[i]
 	if arg == "-h" || arg == "--help" {
-		fmt.Fprint(r.Out, t14AnsweredHelp)
+		fmt.Fprint(r.Out, t14AnsweredHelp+anchorHelp()+t14AnsweredRefConventions)
 		return 0, true, true, nil
 	}
 	// FIX-C: an empty or whitespace-only --reconcile value is refused at the

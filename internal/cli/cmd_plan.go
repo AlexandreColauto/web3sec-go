@@ -173,7 +173,9 @@ func planOutputQueue(res validation.Value, stdout io.Writer) {
 	}
 }
 
-// planOutputReachability is the E5/E6 unreachable-prerequisite block.
+// planOutputReachability is the E5/E6 unreachable-prerequisite block, closed
+// by the grading pointer: the eval join is read-only, so the operator can run
+// a dry join while every finding is still editable (C-12f17fd555 §8c).
 func planOutputReachability(res validation.Value, stdout io.Writer) {
 	reach := objAt(res, "reachability")
 	fmt.Fprintf(stdout, "  reachability: %s\n", objStr(reach, "note"))
@@ -183,6 +185,8 @@ func planOutputReachability(res validation.Value, stdout io.Writer) {
 				strings.ToUpper(lvl), scalarStr(miss))
 		}
 	}
+	fmt.Fprintln(stdout, "grading: webv2 scorecard <campaign> --gold "+
+		"<pack.json> — run a dry join before closing (read-only)")
 }
 
 // planOutputTrackedSurfaces is the G9 opaque-surface block in the plan
