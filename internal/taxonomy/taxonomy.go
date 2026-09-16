@@ -167,6 +167,28 @@ func DefaultFloor(bugClass *string) string {
 	return findings.STATUS_FLOOR["CONFIRMED"]
 }
 
+// classSynonyms maps labels auditors file in practice (the standards
+// vocabulary and informal kebab-case) to the canonical class. Applied by
+// CanonicalClass on BOTH sides of the eval join and by the ingest advisory.
+// Identity for any label not listed — an unlisted label keeps anchoring
+// nothing. ponytail: three entries where the campaign measured misses; add
+// entries as measured misses arrive, not speculatively.
+var classSynonyms = map[string]string{
+	"denial-of-service": "dos-griefing",
+}
+
+// CanonicalClass is the synonym layer over the taxonomy: a listed label
+// becomes its canonical class (keyed case-insensitively, the canonical form
+// is returned lowercase); everything else is returned unchanged and stays
+// non-canonical. It never returns "unmapped" — only explicit entries move a
+// label, so the eval join's fail-closed behavior is untouched.
+func CanonicalClass(class string) string {
+	if c, ok := classSynonyms[strings.ToLower(strings.TrimSpace(class))]; ok {
+		return c
+	}
+	return class
+}
+
 // ClassReport is class_report: the taxonomy verdict for one class — known?,
 // its floor, and (when unknown) the closest canonical names, if any are
 // plausibly the same bug under a different label. Rendered as an ordered
@@ -223,6 +245,14 @@ func ClassReport(bugClass *string) validation.Value {
 // I-2: a campaign makes the warning floor-AWARE via the same lookup the
 // gate reads; nil campaign = the built-in table).
 func ClassAdvisory(bugClass *string, campaign *state.Campaign) string {
+	if bugClass != nil {
+		if canon := CanonicalClass(*bugClass); canon != *bugClass {
+			return fmt.Sprintf("class %s is a synonym of canonical %s — use %s "+
+				"(it decides the CONFIRMED floor AND whether the finding can "+
+				"anchor a gold case).",
+				validation.PyReprStr(*bugClass), validation.PyReprStr(canon), canon)
+		}
+	}
 	rep := ClassReport(bugClass)
 	if objAt(rep, "known").B {
 		return classFloorWarning(*bugClass, campaign)

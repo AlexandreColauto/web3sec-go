@@ -35,6 +35,7 @@ import (
 	"regexp"
 	"websec/internal/findings"
 	"websec/internal/state"
+	"websec/internal/taxonomy"
 	"websec/internal/validation"
 	"websec/internal/wilson"
 )
@@ -120,7 +121,7 @@ func base(p string) string {
 // when the dataset filed it as a DoS), NOT a weakening of the anchor: the
 // path suffix rule below is unchanged and no other axis of the join moves.
 func anchor(f, gold validation.Value) bool {
-	if !goldAcceptsClass(gold, field(obj(f, "root_cause"), "class")) {
+	if !goldAcceptsClass(gold, taxonomy.CanonicalClass(field(obj(f, "root_cause"), "class"))) {
 		return false
 	}
 	if !goldAcceptsMechanism(gold, field(obj(f, "root_cause"), "mechanism"),
@@ -150,15 +151,21 @@ func anchor(f, gold validation.Value) bool {
 // equals the gold bug_class, or it is named in the gold row's optional
 // bug_class_accept list. An absent (or null) list means "the single class
 // only" — exactly the equality test the join used before the list existed.
+//
+// Both sides pass through taxonomy.CanonicalClass first: a synonym of a
+// canonical class is the same bug under a different label, and the join is
+// an exact string compare, so a synonym can only ever bridge it explicitly.
+// An unlisted label is returned unchanged and therefore still anchors
+// nothing — fail-closed behavior is untouched.
 func goldAcceptsClass(gold validation.Value, class string) bool {
 	if class == "" {
 		return false
 	}
-	if class == field(gold, "bug_class") {
+	if class == taxonomy.CanonicalClass(field(gold, "bug_class")) {
 		return true
 	}
 	for _, v := range obj(gold, "bug_class_accept").A {
-		if v.Kind == validation.Str && v.S == class {
+		if v.Kind == validation.Str && taxonomy.CanonicalClass(v.S) == class {
 			return true
 		}
 	}
