@@ -150,6 +150,8 @@ func strArr(items ...string) validation.Value {
 // the universal ones when share/debt assets (or accounting variables) exist
 // but were not explicitly recorded. The EQ-%03d counter continues after the
 // recorded rows, and a recorded equation suppresses its universal twin.
+// Synthesized rows carry `synthesized: true`: they are templates the operator
+// may adopt, not recorded model, so EquationGaps does not price them.
 func BuildEquations(model validation.Value) []validation.Value {
 	eqs := append([]validation.Value{}, listOf(model, "economic_relations")...)
 	have := map[string]bool{}
@@ -167,6 +169,7 @@ func BuildEquations(model validation.Value) []validation.Value {
 			kv("variables", strArr(variables...)),
 			kv("enforced_by", validation.VArr()),
 			kv("breakable_by", strArr(breakable...)),
+			kv("synthesized", validation.VBool(true)),
 		))
 	}
 	if has(model, "share") {
@@ -210,10 +213,16 @@ func GenerateTransforms(model validation.Value) []validation.Value {
 
 // EquationGaps is equation_gaps: equations with no recorded enforcement or no
 // known break paths — gaps mean the economic model is unfinished, not that it
-// is safe. `missing` lists the absent halves in fixed order.
+// is safe. `missing` lists the absent halves in fixed order. Synthesized
+// templates are skipped: their empty enforced_by is true by construction, so
+// reporting them accuses the operator of a gap no operator input can clear
+// (the template stays in BuildEquations, adoptable, just not a gap).
 func EquationGaps(model validation.Value) []validation.Value {
 	gaps := []validation.Value{}
 	for _, eq := range BuildEquations(model) {
+		if validation.PyTruthy(objAt(eq, "synthesized")) {
+			continue // a template ships with empty enforced_by by construction
+		}
 		enforced := validation.PyTruthy(objAt(eq, "enforced_by"))
 		breakable := validation.PyTruthy(objAt(eq, "breakable_by"))
 		if enforced && breakable {

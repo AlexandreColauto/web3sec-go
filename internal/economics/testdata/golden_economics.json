@@ -60,7 +60,8 @@
           "oracle-spot-skew",
           "oracle-staleness",
           "insolvency-by-withdraw-order"
-        ]
+        ],
+        "synthesized": true
       }
     ],
     "generate_transforms": [
@@ -85,29 +86,13 @@
         "question": "Can liabilities be withdrawn/liquidated ahead of the assets backing them?"
       }
     ],
-    "equation_gaps": [
-      {
-        "equation_id": "EQ-001",
-        "equation": "collateral_value * liq_threshold >= total_debt",
-        "missing": [
-          "enforced_by"
-        ]
-      }
-    ],
+    "equation_gaps": [],
     "economic_summary": {
       "accounting_vars": [],
       "risky_assets": [],
       "oracles": [],
       "equations": 1,
-      "equation_gaps": [
-        {
-          "equation_id": "EQ-001",
-          "equation": "collateral_value * liq_threshold >= total_debt",
-          "missing": [
-            "enforced_by"
-          ]
-        }
-      ],
+      "equation_gaps": [],
       "transforms": [
         "donation-attack",
         "flash-loan-amplification",
@@ -131,7 +116,8 @@
           "donation-attack",
           "first-depositor-rounding",
           "erc4626-inflation"
-        ]
+        ],
+        "synthesized": true
       },
       {
         "id": "EQ-002",
@@ -146,7 +132,8 @@
         "breakable_by": [
           "donation-attack",
           "precision-rounding"
-        ]
+        ],
+        "synthesized": true
       }
     ],
     "generate_transforms": [
@@ -171,22 +158,7 @@
         "question": "What is the realistic extractable ceiling given pool depth, not theoretical exposure?"
       }
     ],
-    "equation_gaps": [
-      {
-        "equation_id": "EQ-001",
-        "equation": "shares_minted <= economically_justified_shares(deposit)",
-        "missing": [
-          "enforced_by"
-        ]
-      },
-      {
-        "equation_id": "EQ-002",
-        "equation": "sum(user_claims) + protocol_liabilities <= total_assets",
-        "missing": [
-          "enforced_by"
-        ]
-      }
-    ],
+    "equation_gaps": [],
     "economic_summary": {
       "accounting_vars": [
         {
@@ -198,22 +170,7 @@
       "risky_assets": [],
       "oracles": [],
       "equations": 2,
-      "equation_gaps": [
-        {
-          "equation_id": "EQ-001",
-          "equation": "shares_minted <= economically_justified_shares(deposit)",
-          "missing": [
-            "enforced_by"
-          ]
-        },
-        {
-          "equation_id": "EQ-002",
-          "equation": "sum(user_claims) + protocol_liabilities <= total_assets",
-          "missing": [
-            "enforced_by"
-          ]
-        }
-      ],
+      "equation_gaps": [],
       "transforms": [
         "donation-attack",
         "first-depositor-rounding",
@@ -316,7 +273,8 @@
           "donation-attack",
           "first-depositor-rounding",
           "erc4626-inflation"
-        ]
+        ],
+        "synthesized": true
       },
       {
         "id": "EQ-003",
@@ -331,7 +289,8 @@
           "oracle-spot-skew",
           "oracle-staleness",
           "insolvency-by-withdraw-order"
-        ]
+        ],
+        "synthesized": true
       },
       {
         "id": "EQ-004",
@@ -346,7 +305,8 @@
         "breakable_by": [
           "donation-attack",
           "precision-rounding"
-        ]
+        ],
+        "synthesized": true
       }
     ],
     "generate_transforms": [
@@ -411,29 +371,7 @@
         "question": "Can liabilities be withdrawn/liquidated ahead of the assets backing them?"
       }
     ],
-    "equation_gaps": [
-      {
-        "equation_id": "EQ-002",
-        "equation": "shares_minted <= economically_justified_shares(deposit)",
-        "missing": [
-          "enforced_by"
-        ]
-      },
-      {
-        "equation_id": "EQ-003",
-        "equation": "collateral_value * liq_threshold >= total_debt",
-        "missing": [
-          "enforced_by"
-        ]
-      },
-      {
-        "equation_id": "EQ-004",
-        "equation": "sum(user_claims) + protocol_liabilities <= total_assets",
-        "missing": [
-          "enforced_by"
-        ]
-      }
-    ],
+    "equation_gaps": [],
     "economic_summary": {
       "accounting_vars": [
         {
@@ -487,29 +425,7 @@
         "ORC-2"
       ],
       "equations": 4,
-      "equation_gaps": [
-        {
-          "equation_id": "EQ-002",
-          "equation": "shares_minted <= economically_justified_shares(deposit)",
-          "missing": [
-            "enforced_by"
-          ]
-        },
-        {
-          "equation_id": "EQ-003",
-          "equation": "collateral_value * liq_threshold >= total_debt",
-          "missing": [
-            "enforced_by"
-          ]
-        },
-        {
-          "equation_id": "EQ-004",
-          "equation": "sum(user_claims) + protocol_liabilities <= total_assets",
-          "missing": [
-            "enforced_by"
-          ]
-        }
-      ],
+      "equation_gaps": [],
       "transforms": [
         "donation-attack",
         "first-depositor-rounding",
