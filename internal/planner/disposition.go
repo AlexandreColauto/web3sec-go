@@ -376,7 +376,7 @@ func checkDismissalGateInner(campaign *state.Campaign, priorityID,
 // strings and string lists are read; a missing field is simply absent.
 var rowSymbolKeys = []string{
 	"contract", "consumer", "base", "asserter", "custody",
-	"concept_keys", "forward", "siblings",
+	"concept_keys", "forward", "siblings", "members",
 }
 
 // genericSymbols are tokens a row carries that name no code: a custody verb or
