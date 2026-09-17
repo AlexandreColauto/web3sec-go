@@ -56,6 +56,7 @@ func parseValue(dec *json.Decoder, tok json.Token) (Value, error) {
 		switch t {
 		case '{':
 			v := Value{Kind: Obj}
+			seen := make(map[string]struct{})
 			for dec.More() {
 				keyTok, err := dec.Token()
 				if err != nil {
@@ -65,6 +66,10 @@ func parseValue(dec *json.Decoder, tok json.Token) (Value, error) {
 				if !ok {
 					return VNull(), fmt.Errorf("json: object key is %v, not string", keyTok)
 				}
+				if _, dup := seen[key]; dup {
+					return VNull(), fmt.Errorf("json: duplicate object key %q", key)
+				}
+				seen[key] = struct{}{}
 				valTok, err := dec.Token()
 				if err != nil {
 					return VNull(), err
