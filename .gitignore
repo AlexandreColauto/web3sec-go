@@ -14,3 +14,4 @@ Deconstructing Claims, Validating AI, and Weighting Risks_*.md
 
 # runtime baseline store when a binary is invoked from the repo root
 baselines/
+.worktrees/
