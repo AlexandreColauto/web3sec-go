@@ -37,7 +37,7 @@
       "properties": {
         "tool_versions": { "type": "object", "additionalProperties": { "type": "string" } },
         "env_keys": { "type": "array", "items": { "type": "string" }, "description": "names only, never values" },
-        "network_access": { "enum": ["none", "fork-rpc-only", "bridge-host-gateway", "full"] },
+        "network_access": { "enum": ["none", "fork-rpc-only", "bridge-host-gateway", "full", "host (unconfined — nothing enforces network-off)"] },
         "filesystem":     { "enum": ["readonly", "sandbox-tmp", "workspace", "host (unconfined — nothing enforces readonly; deny-rule tripwires only)"] }
       }
     },

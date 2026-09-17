@@ -81,8 +81,9 @@ func TestHostProfilesAreHostOnly(t *testing.T) {
 			t.Errorf("NewSandbox(%q): %v", p, err)
 		}
 	}
-	if network := profileNetwork["halmos"]; network != "none" {
-		t.Errorf("halmos network = %q, want none", network)
+	if network := networkLabel("halmos"); !strings.Contains(network, "unconfined") {
+		t.Errorf("halmos network = %q, want an unconfined-host disclosure "+
+			"(a host run has the host's network)", network)
 	}
 	if fs := profileFilesystem["forge-fuzz"]; fs != "readonly" {
 		t.Errorf("forge-fuzz filesystem = %q, want readonly", fs)
@@ -152,7 +153,8 @@ func TestToolVersionsProbesHalmos(t *testing.T) {
 }
 
 // TestMinicertoraProfilePolicy pins the G8 third kind's profile entries:
-// host-side, network none, readonly fs, E3-capped exactly like halmos.
+// host-side, network unconfined (honest label), readonly fs, E3-capped
+// exactly like halmos.
 func TestMinicertoraProfilePolicy(t *testing.T) {
 	v, err := PolicyCheck("minicertora target/src/V.sol "+
 		"artifacts/harness/INV-1/INV.mspec --solc-path /usr/local/bin/solc "+
@@ -164,8 +166,9 @@ func TestMinicertoraProfilePolicy(t *testing.T) {
 		t.Errorf("allowed = false (violations %s), want true",
 			validation.CanonCompact(objAt(v, "violations")))
 	}
-	if network := profileNetwork["minicertora"]; network != "none" {
-		t.Errorf("minicertora network = %q, want none", network)
+	if network := networkLabel("minicertora"); !strings.Contains(network, "unconfined") {
+		t.Errorf("minicertora network = %q, want an unconfined-host "+
+			"disclosure (a host run has the host's network)", network)
 	}
 	if fs := profileFilesystem["minicertora"]; fs != "readonly" {
 		t.Errorf("minicertora filesystem = %q, want readonly", fs)
@@ -277,5 +280,51 @@ func TestTimeoutMarkerExplainsTheRecord(t *testing.T) {
 	if !strings.HasSuffix(string(raw2), "killed\n") ||
 		!strings.Contains(string(raw2), "timed out") {
 		t.Fatalf("bare timeout record: %q", string(raw2))
+	}
+}
+
+// TestNetworkLabelIsHonestForHostProfiles pins the Task 2 law: a host
+// profile executes with the HOST's full network, so its label must disclose
+// that instead of claiming "none" (the r36 F5 filesystem-label fix, applied
+// to the network half of the environment sub-dict). Container profiles keep
+// their label verbatim — the container IS the enforcement mechanism.
+func TestNetworkLabelIsHonestForHostProfiles(t *testing.T) {
+	for _, p := range []string{"host-readonly", "halmos", "forge-fuzz", "minicertora"} {
+		got := networkLabel(p)
+		if !strings.Contains(got, "unconfined") {
+			t.Errorf("networkLabel(%q) = %q, want an unconfined-host disclosure", p, got)
+		}
+	}
+	if got := networkLabel("docker-networkless"); got != "none" {
+		t.Errorf("docker-networkless label = %q, want none", got)
+	}
+	if got := networkLabel("fork-runner"); got != "bridge-host-gateway" {
+		t.Errorf("fork-runner label = %q, want bridge-host-gateway", got)
+	}
+}
+
+// TestPreviewHostProfileNetworkIsHonest is the preview-level twin of the
+// label test: the dry-run surface is what the operator reads BEFORE running,
+// so it must not advertise network "none" for a host profile either.
+func TestPreviewHostProfileNetworkIsHonest(t *testing.T) {
+	pv, err := Preview("host-readonly", "true", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strAt(pv, "network"); !strings.Contains(got, "unconfined") {
+		t.Errorf("Preview network = %q, want an unconfined-host disclosure", got)
+	}
+}
+
+// TestHostProfileRecordNetworkIsHonest guards the OTHER call site: the
+// environment sub-dict a host-profile EXEC record carries.
+func TestHostProfileRecordNetworkIsHonest(t *testing.T) {
+	env := environmentValue(validation.VObj(), nil, "host-readonly")
+	if got := strAt(env, "network_access"); !strings.Contains(got, "unconfined") {
+		t.Errorf("environment.network_access = %q, want an unconfined-host "+
+			"disclosure", got)
+	}
+	if fs := strAt(env, "filesystem"); !strings.Contains(fs, "unconfined") {
+		t.Errorf("environment.filesystem = %q, want the honest host label", fs)
 	}
 }

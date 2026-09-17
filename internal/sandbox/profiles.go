@@ -34,7 +34,11 @@ import (
 var Profiles = []string{"host-readonly", "halmos", "forge-fuzz", "minicertora",
 	"docker-networkless", "docker-gvisor", "vm-snapshot", "fork-runner"}
 
-// profileNetwork is _PROFILE_NETWORK: the honest network label per profile.
+// profileNetwork is _PROFILE_NETWORK: the CONTAINER network label per
+// profile — the isolation the profile's argv actually asks docker for.
+// It is NOT the record label for a host profile: a host run has the host's
+// full network, so callers must go through networkLabel, which discloses
+// that instead of reading this map directly (Task 2, r36 F5's twin).
 // "bridge-host-gateway" is fork-runner's: the container sits on docker's
 // bridge and reaches the host only via the host-gateway alias — egress
 // restriction is the operator's RPC endpoint's job, not docker's.
@@ -59,6 +63,20 @@ var profileFilesystem = map[string]string{
 	"docker-gvisor":      "sandbox-tmp",
 	"vm-snapshot":        "sandbox-tmp",
 	"fork-runner":        "sandbox-tmp",
+}
+
+// networkLabel is the HONEST network label for a profile — the network twin
+// of profileFilesystemLabel (r36 F5): a host profile executes with the
+// HOST's full network (nothing here enforces network-off; the deny rules
+// are static tripwires, not a boundary), so the record must not assert
+// "none" while the process can reach everything the host can. Container
+// profiles keep their label verbatim: the container's --network IS the
+// enforcement mechanism.
+func networkLabel(profile string) string {
+	if HostProfile(profile) {
+		return "host (unconfined — nothing enforces network-off)"
+	}
+	return profileNetwork[profile]
 }
 
 // pyWord is Python's \w (str.isalnum plus "_"); pyNonWord is [^\w].

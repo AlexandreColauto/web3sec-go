@@ -1119,7 +1119,7 @@ func Preview(profile, command string, workdir *string,
 		{K: "command", V: validation.VStr(command)},
 		{K: "env_keys", V: validation.VArr(keys...)},
 		{K: "workdir", V: wd},
-		{K: "network", V: validation.VStr(profileNetwork[profile])},
+		{K: "network", V: validation.VStr(networkLabel(profile))},
 	}
 	if HostProfile(profile) {
 		base = append(base, validation.KV{K: "note", V: validation.VStr(
@@ -1280,7 +1280,7 @@ func environmentValue(tools validation.Value, envKeys []validation.Value,
 		validation.KV{K: "tool_versions", V: tools},
 		validation.KV{K: "env_keys", V: validation.VArr(envKeys...)},
 		validation.KV{K: "network_access",
-			V: validation.VStr(profileNetwork[profile])},
+			V: validation.VStr(networkLabel(profile))},
 		validation.KV{K: "filesystem",
 			V: validation.VStr(profileFilesystemLabel(profile))},
 	)
