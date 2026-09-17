@@ -1,4 +1,4 @@
-# Production Readiness Implementation Plan (v2 — full scope)
+# Production Readiness Implementation Plan (v3 — corrected acceptance contracts)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -10,13 +10,13 @@
 
 ## Global Constraints
 
-- Implementer subagents: `b-ai` provider, model `deepseek-v4.1-flash`, dispatched via workflow `agent()` overrides (plain subagent has no model param). Reviewer subagents: session default (`opencode-go-anthropic/union-alpha`), explicitly requested by the operator.
+- Implementers: provider `b-ai`, model `deepseek-v4.1-flash`. Reviewers and final critic: provider `b-ai-plain`, model `qwen3.8-flash` (operator-selected fallback). Use explicit workflow agent overrides, not inherited routing. Independent read-only reviews may run in parallel; concurrent writers must have disjoint file ownership.
 - Worktree consent is an OPERATOR decision made BEFORE the first dispatch — the orchestrator asks once and passes the answer to every subagent; implementer subagents never ask. Declined → feature branch in place. Never on main.
 - No new dependencies, no new status enum, no new scheduler. Reuse `RegisterOrRefresh`, `profileFilesystemLabel`'s pattern, existing rungs and floors.
 - No target-specific detection, no exploit reproduction, no autonomous hunting, no Morph-repo changes.
 - MiniProver/MiniCertora stay untouched in v2: no verified defect was found in the mapper (fail-closed) or sandbox profiles. Re-open only with a reproducible defect.
 - Evidence floors stay at E3/E4/E6 exactly as today; no "almost-confirmed" rung. Environment-blocked verification is an annotation, never a lower bar.
-- Legacy campaigns (scripts/legacy fixture) must keep reading and auditing clean after every task; run the fixture check when state shapes change.
+- Original historical fixtures under `scripts/legacy` are immutable compatibility evidence. Never sanitize, re-register, regenerate hashes, or rewrite their assertions to obtain green. Run their reader/audit checks after boundary changes. When old data cannot satisfy a new assurance rule, preserve readability and report legacy/unvalidated provenance explicitly. Any migration requires a separate copy, explicit operator action, and tests proving the original bytes remain unchanged.
 - Golden pins: any task that changes CLI output must run `scripts/golden.sh`, `scripts/runbook-walkthrough.sh`, and `python3 scripts/check-golden.py`; deliberately update pinned expectations in the same commit with the reason in the commit message. Silent pin drift is a review-blocking finding.
 - `go vet ./...` and `go test ./... -count=1` green after every task; `go test -race ./internal/state ./internal/sandbox ./internal/harness` for tasks touching concurrency.
 - Commit only task-owned files; your 7 pre-existing modified files (LEARNINGS.md, RUNBOOK, asset manifest, docs) are out of bounds for every task. Golden/runbook pin updates are staged by exact path (`git add <pin-file>`), never `git add -A`/`git add .`.
@@ -87,7 +87,7 @@ seen[key] = struct{}{}
 
 **Unicode note (verified 2026-09-17):** `encoding/json` fully decodes `\uXXXX` escapes BEFORE the token is handed to the caller — `dec.Token()` for `"\u0061"` returns Go string `"a"` (len 1, `== "a"`), so the `seen` map lookup already operates on the semantic key and no separate `decodeString` helper is needed. The `\u0061` test case guards this exact property; do NOT add a custom unescape step (it would be dead code).
 
-- [ ] **Step 4: Run green** — same command as Step 2, then `gofmt -l internal/jval/` prints nothing, then `go test ./internal/jval ./internal/validation ./internal/harness ./internal/state -count=1`. All pass. Do NOT canonicalize duplicates or weaken a fixture to get green. Then run the legacy fixture check (`go test ./internal/state -run Legacy -count=1` plus `scripts/verify-full.sh` step 9 at task end): if the new refusal breaks a legacy fixture, sanitize the FIXTURE in the same commit — never weaken the gate.
+- [ ] **Step 4: Run green** — same command as Step 2, then `gofmt -l internal/jval/` prints nothing, then `go test ./internal/jval ./internal/validation ./internal/harness ./internal/state -count=1`. All pass. Do NOT canonicalize duplicates or weaken a fixture to get green. Then run the legacy fixture check (`go test ./internal/state -run Legacy -count=1` plus `scripts/verify-full.sh` step 9 at task end): if a new refusal breaks a historical fixture, preserve its bytes and report the exact incompatibility. Do not sanitize history or weaken the gate; use the global legacy-compatibility contract.
 - [ ] **Step 5: Full gates** — `go test ./... -count=1` and `go vet ./...`; record exact outcomes.
 - [ ] **Step 6: Commit** — `git add internal/jval/parse.go internal/jval/parse_test.go && git commit -m 'fix(jval): reject duplicate JSON object keys'`
 - [ ] **Step 7: Independent review** (union-alpha) of BASE..HEAD: spec compliance, nested scope, escape-sequence aliasing, valid-input preservation.
@@ -174,10 +174,12 @@ func TestZeroLivenessStillSynthesizes(t *testing.T) {
 
 - [ ] **Step 2: Run red** — partial-coverage test fails (load succeeds today).
 - [ ] **Step 3: Implement** — inside `seedLiveness`, after building `machines` and before the `kinds["liveness"]` early return: compute the set of machines covered by any registered liveness entry's `applies_to`; if at least one machine is covered AND at least one is not, return the refusal naming the uncovered ones (exact wording from the test). Zero coverage keeps the existing synthesis path unchanged.
-- [ ] **Step 4: Run green** — `go test ./internal/invariants ./internal/orchestrator ./internal/cli -count=1` (orchestrator's port fixture relies on synthesis — it must stay green untouched; if it breaks, the implementation is wrong, not the test). Then the legacy fixture check: any fixture model tripping the new partial-coverage refusal is corrected in the same commit — never weaken the gate.
+- [ ] **Step 4: Run green** — `go test ./internal/invariants ./internal/orchestrator ./internal/cli -count=1` (orchestrator's port fixture relies on synthesis — it must stay green untouched; if it breaks, the implementation is wrong, not the test). Then the legacy fixture check: historical fixture models remain byte-identical. A refusal is an explicit compatibility finding, not permission to rewrite the fixture.
 - [ ] **Step 5: Full gates + commit + review** as before.
 
-### Task 4: Evidence relevance binding on invariant-verify
+### Task 4: Artifact attribution on invariant-verify — completed implementation, assurance correction pending
+
+**Operator-approved acceptance correction (supersedes the original rationale below):** the implemented word-boundary check proves only that text names an invariant or target. It cannot establish that the property was checked. Existing `CHECKED_AGAINST_CODE` records must be described as operator attestations, not automatic proof. Preserve historical records; absent method provenance means legacy/unspecified, never machine-verified. A follow-up must label new attestations explicitly, bind artifact digest and statement/source identity, and keep mechanically parsed harness outcomes separate with their existing bounds and assumptions. A token match alone must never create a mechanically verified outcome. Do not broaden solver or discovery capabilities. The original task below documents the already-landed change; it is NOT a sufficient semantic verification contract.
 
 `VerifyInvariantStatement` flips any registered invariant to `CHECKED_AGAINST_CODE` from any registered artifact. Morph's INV-003 was closed with a generic full-suite exec. New law: the cited artifact's bytes (or, for `--exec`, the registered stdout artifact's bytes) must reference the invariant id OR one of the entry's `applies_to` strings (case-insensitive substring), else the verify is refused with guidance. Documented invariants keep their existing exemption in `AssertInvariantsVerified` (unchanged); this gate sits in the verify path itself.
 
@@ -219,7 +221,7 @@ func TestVerifyAcceptsRelevantArtifact(t *testing.T) {
 - [ ] **Step 2: Run red** — refusal test fails (verify succeeds today); the generic full-suite log now MUST be refused.
 - [ ] **Step 3: Implement** — in `VerifyInvariantStatement`, after the artifact lookup: load entry from registry (already loaded below — hoist), build the token set {normalized inv id} ∪ {each `applies_to` string}, read the artifact file bytes (`os.ReadFile(ResolveArtifactPath(a))`), and match each token with a word-boundary regex (Go: `\b` over the escaped token, e.g. `\bINV-2\b`, compiled case-insensitively) — a plain substring match would let `INV-2` falsely satisfy against an artifact citing `INV-20` or `INV-22`. Normalize the token through the existing `NormalizeInvID` (invariants.go:831) before escaping so `inv_002`-style spellings match too. No token match → the refusal above. Keep the existing event/save/unwind flow untouched. Add one negative test row: artifact citing `INV-20` must NOT satisfy `INV-2`.
 - [ ] **Step 4: Fix the legitimate call sites** — existing tests register artifacts like `"checked against src/V.sol L40"` without the id; update those fixtures to include the inv id (they model honest artifacts). Enumerate: `grep -rn "VerifyInvariantStatement" internal/ | grep _test.go`. Production callers: `cmd_invariant_verify` already names the invariant in its note — verify, don't assume.
-- [ ] **Step 5: Green + full gates** — `go test ./internal/invariants ./internal/cli ./internal/roles ./internal/audit -count=1`, then `go test ./... -count=1`. Then the legacy fixture check: a legacy artifact that no longer satisfies the relevance gate is re-registered with an honest artifact in the same commit — never weaken the gate.
+- [ ] **Step 5: Green + full gates** — `go test ./internal/invariants ./internal/cli ./internal/roles ./internal/audit -count=1`, then `go test ./... -count=1`. Then the legacy fixture check: preserve historical artifacts, registrations, and logs byte-for-byte. They remain legacy evidence, not retroactively strengthened attestations.
 - [ ] **Step 6: Commit + review** as before. Reviewer explicitly checks: no bypass (empty applies_to must not pass), documented-invariant flow unchanged, `--exec` path still works (stdout artifact carries the command → contains the id only if the operator's command did — that is the law working).
 
 ---
@@ -281,7 +283,7 @@ func TestVerifyAcceptsRelevantArtifact(t *testing.T) {
 
 ### Task 13: Dependency freshness + advisory scan as an honest gate
 **Files:** `go.mod` (bump `golang.org/x/text` to latest; others confirmed current at execution time), `scripts/verify-full.sh` (new optional step 14: `govulncheck ./...` when the tool exists; prints SKIPPED-with-reason when absent — never silently), `README.md` verification table row.
-**Law:** the step exits 0 on skip (with the reason on stdout), fails on findings. Network-isolation handling is explicit: if `go get` or `govulncheck` fails on network, verify-full prints `[SKIPPED: network isolated — operator must run govulncheck locally]` and exits 0 — a sandbox network timeout must never fail the CI gate. Never fake versions.
+**Law (operator-approved correction):** release mode fails nonzero when govulncheck is missing, unavailable, or reports findings. Development mode may explicitly skip an unavailable scanner but must label the scan INCOMPLETE, never PASS; findings always fail. Successful scanner exit is required for a release PASS. Scanner operational failures and findings need not be distinguished: conservatively fail both, except development mode may skip a missing binary. Never classify arbitrary nonzero output as network isolation. Do not run go get, install tools, or update dependencies inside verification. Dependency version changes are separately reviewed, advisory-driven changes, not unconditional latest-version bumps. Add a small `scripts/security-check.sh` entry point with strict release default and explicit `--development`, a hermetic shell test using stub scanners, and call the strict entry point after all existing gates in `scripts/release.sh`. Keep verify-full's existing checks intact.
 **Test:** `go build ./... && go test ./internal/protocolgraph ./internal/bounty ./internal/findings ./internal/pricing -count=1` (the x/text consumers) after the bump; verify-full runs green with the new step.
 
 ### Task 14: SECURITY.md — the honest threat model
@@ -306,10 +308,10 @@ func TestVerifyAcceptsRelevantArtifact(t *testing.T) {
 
 - [ ] All 15 tasks: red→green regression exists, review clean or parked-with-ruling, ledger complete.
 - [ ] `go vet ./...` clean; `go test ./... -count=1` green; `-race` green on state/sandbox/harness; determinism x2 green.
-- [ ] `scripts/golden.sh`, `scripts/runbook-walkthrough.sh`, `scripts/verify-full.sh` (steps 1-13) green at final HEAD, with govulncheck step reported honestly (run or skipped-with-reason).
+- [ ] `scripts/golden.sh`, `scripts/runbook-walkthrough.sh`, and `scripts/verify-full.sh` green at final HEAD. Release dependency scanning must also succeed; missing tooling, unavailable advisory data, or scan errors leave production acceptance incomplete. A development skip never satisfies this checkbox.
 - [ ] `scripts/release.sh` green; static binary serves embedded assets standalone.
 - [ ] Legacy fixture cross-audit green (no reader breakage from the new refuse paths — Tasks 1/3/4 each verify this explicitly).
-- [ ] No open Critical/Important findings in the final union-alpha review.
+- [ ] No open Critical/Important findings in the final independently routed critic review. Fix substantive feedback and request reassessment toward >=9/10; never pressure the critic to change its score, conceal skipped checks, or equate the score with a security guarantee.
 - [ ] Honest-limitations note recorded: discovery performance (the 0/2 benchmark) is NOT claimed fixed by this plan; it requires held-out measurement.
 
 ## Explicitly out of scope (unchanged by v2)
@@ -331,5 +333,5 @@ func TestVerifyAcceptsRelevantArtifact(t *testing.T) {
 - [ ] Step 2: red run (ParseYaml currently accepts duplicates).
 - [ ] Step 3: implement the seen-guard in the MappingNode branch.
 - [ ] Step 4: green + go test ./internal/validation ./internal/playbooks ./internal/archetypes ./internal/taxonomy -count=1, then go test ./... -count=1, go vet ./...
-- [ ] Step 5: legacy check per Global Constraints (sanitize fixture in same commit if tripped — never weaken the gate).
+- [ ] Step 5: legacy check per Global Constraints; historical fixtures remain byte-identical. Report incompatibilities rather than altering history.
 - [ ] Step 6: commit only the task files, message: fix(validation): reject duplicate YAML mapping keys
