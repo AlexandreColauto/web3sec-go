@@ -318,3 +318,18 @@ func TestVerifyAcceptsRelevantArtifact(t *testing.T) {
 - New evidence rungs or lowered floors.
 - MiniProver/MiniCertora changes absent a verified defect.
 - Docker/VM escape hardening beyond honest labeling (the container is the boundary; its hardening is upstream's).
+
+---
+
+### Task 16 (added during execution, from Task 1 review): Reject duplicate YAML mapping keys
+
+**Files:** Modify internal/validation/yaml.go (yamlNodeValue MappingNode branch, lines 57-70); test internal/validation/yaml_test.go (create if absent, else append).
+
+**Law:** ParseYaml must refuse a mapping node carrying the same key twice (PyYAML safe_load silently last-wins; our canonical writer then emits JSON the Task 1 guard refuses — the two parsers must not disagree). Error text: "yaml: duplicate mapping key %q". Per-mapping scope, exactly like Task 1: seen := map[string]bool{} keyed on yamlKeyText(k) output, checked before append. Alias nodes resolve before the check (the alias IS the mapping; its own entries are what get checked).
+
+- [ ] Step 1: failing test — ParseOrdered-equivalent table: "a: 1\na: 2\n" refused; nested mapping duplicate refused; sequence of two mappings each with key "a" accepted; alias-to-distinct-mapping accepted.
+- [ ] Step 2: red run (ParseYaml currently accepts duplicates).
+- [ ] Step 3: implement the seen-guard in the MappingNode branch.
+- [ ] Step 4: green + go test ./internal/validation ./internal/playbooks ./internal/archetypes ./internal/taxonomy -count=1, then go test ./... -count=1, go vet ./...
+- [ ] Step 5: legacy check per Global Constraints (sanitize fixture in same commit if tripped — never weaken the gate).
+- [ ] Step 6: commit only the task files, message: fix(validation): reject duplicate YAML mapping keys
