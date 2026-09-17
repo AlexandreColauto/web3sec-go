@@ -461,10 +461,6 @@ func refreshSource(reg validation.Value, iid string, doc validation.Value) valid
 // seedLiveness is the liveness-template half of seed_from_model.
 func seedLiveness(c *state.Campaign, model validation.Value, reg *validation.Value,
 	doc validation.Value) error {
-	kinds := map[string]struct{}{}
-	for _, e := range reg.O {
-		kinds[pyStr(objAt(e.V, "kind"))] = struct{}{}
-	}
 	var machines []string
 	for _, sm := range objAt(model, "state_machines").A {
 		if name, ok := fieldAt(sm, "name"); ok && validation.PyTruthy(name) {
@@ -474,9 +470,37 @@ func seedLiveness(c *state.Campaign, model validation.Value, reg *validation.Val
 	if len(machines) == 0 {
 		return nil
 	}
-	if _, ok := kinds["liveness"]; ok {
+	// Stage 37 demands one liveness invariant PER state machine, so coverage
+	// is counted per machine, never by the mere presence of a liveness kind.
+	// (The old global "any liveness entry exists" check let two covered
+	// machines hide a third uncovered one — the G-01 gap.)
+	covered := map[string]struct{}{}
+	for _, e := range reg.O {
+		if pyStr(objAt(e.V, "kind")) != "liveness" {
+			continue
+		}
+		for _, a := range objAt(e.V, "applies_to").A {
+			covered[pyStr(a)] = struct{}{}
+		}
+	}
+	var uncovered []string
+	for _, m := range machines {
+		if _, ok := covered[m]; !ok {
+			uncovered = append(uncovered, m)
+		}
+	}
+	if len(uncovered) == 0 {
 		return nil
 	}
+	if len(uncovered) < len(machines) {
+		// Partial coverage: refuse BEFORE any write (no registry mutation, no
+		// template event), so the caller's unwind discipline is not needed
+		// here — SeedFromModel never reaches SaveLinks on this path.
+		return fmt.Errorf("protocol model: state machine(s) %s have no "+
+			"liveness invariant (one per machine — stage 37)",
+			strings.Join(uncovered, ", "))
+	}
+	// Zero coverage: the synthesis path below, unchanged.
 	nid := nextInvNum(*reg)
 	stmt := "LIVENESS: every modeled state machine must be able to advance " +
 		"to its terminal/finalized state; no reachable state may permanently " +

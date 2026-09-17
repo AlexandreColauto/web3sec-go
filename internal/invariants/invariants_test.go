@@ -801,3 +801,146 @@ func TestLoadLinksDefaultsToEmptyRegistry(t *testing.T) {
 		t.Errorf("save_links did not write %s: %v", p, err)
 	}
 }
+
+// ---- per-machine liveness coverage (Task 3, the G-01 gap) ----------------
+
+// livenessMachinesModel is the Task 3 fixture literal: three modeled state
+// machines (vault-lifecycle, relay, staking) and three model invariants, so a
+// zero-coverage seed synthesizes its template as INV-4. The plan sketch called
+// this `modelWithInvariants()`, but that shared fixture carries no
+// state_machines — and a dozen unrelated tests depend on its exact shape — so
+// the literal is spelled out here instead of widening the shared fixture.
+func livenessMachinesModel() validation.Value {
+	return validation.VObj(
+		kv("state_machines", validation.VArr(
+			validation.VObj(kv("name", validation.VStr("vault-lifecycle"))),
+			validation.VObj(kv("name", validation.VStr("relay"))),
+			validation.VObj(kv("name", validation.VStr("staking"))),
+		)),
+		kv("invariants", validation.VArr(
+			validation.VObj(
+				kv("id", validation.VStr("INV-1")),
+				kv("statement", validation.VStr(
+					"totalAssets never decreases except via withdraw")),
+				kv("kind", validation.VStr("accounting")),
+				kv("severity_if_broken", validation.VStr("critical")),
+			),
+			validation.VObj(
+				kv("id", validation.VStr("INV-2")),
+				kv("statement", validation.VStr(
+					"fee accumulator cannot be set backwards")),
+				kv("kind", validation.VStr("accounting")),
+				kv("severity_if_broken", validation.VStr("high")),
+			),
+			validation.VObj(
+				kv("id", validation.VStr("INV-3")),
+				kv("statement", validation.VStr(
+					"paused relay cannot permanently strand withdrawals")),
+				kv("kind", validation.VStr("security")),
+				kv("severity_if_broken", validation.VStr("high")),
+			),
+		)),
+	)
+}
+
+// livenessModelCovering is livenessMachinesModel with its first invariant
+// turned into a kind=liveness entry whose applies_to is the single named
+// machine — the partial-coverage shape the gate must refuse.
+func livenessModelCovering(machine string) validation.Value {
+	model := livenessMachinesModel()
+	invs := objAt(model, "invariants")
+	first := invs.A[0]
+	first.O = validation.SetOrAppend(first.O, "kind",
+		validation.VStr("liveness"))
+	first.O = validation.SetOrAppend(first.O, "applies_to",
+		validation.VArr(validation.VStr(machine)))
+	invs.A[0] = first
+	model.O = validation.SetOrAppend(model.O, "invariants", invs)
+	return model
+}
+
+// TestPartialLivenessCoverageRefused pins the G-01 law: liveness coverage is
+// per MACHINE, not per model. A registry whose liveness invariants cover some
+// state machines but not all is refused at load, naming the uncovered ones.
+// Before this gate the global "a liveness kind is registered somewhere" check
+// let two covered machines hide a third uncovered one.
+func TestPartialLivenessCoverageRefused(t *testing.T) {
+	c := invCamp(t)
+	_, err := SeedFromModel(c, livenessModelCovering("vault-lifecycle"))
+	wantErr(t, err, "protocol model: state machine(s) relay, staking have no "+
+		"liveness invariant (one per machine — stage 37)")
+	if err != nil && strings.Contains(err.Error(), "vault-lifecycle") {
+		t.Errorf("refusal names the COVERED machine: %v", err)
+	}
+	// The refusal is issued before any write, so it must leave no partial
+	// registry state and no template event behind.
+	links, lerr := LoadLinks(c)
+	if lerr != nil {
+		t.Fatal(lerr)
+	}
+	if got := len(objAt(links, "invariants").O); got != 0 {
+		t.Errorf("refused load left %d registry entries, want 0", got)
+	}
+	if _, serr := os.Stat(linksPath(c)); serr == nil {
+		t.Errorf("refused load wrote the registry file")
+	}
+	events, eerr := c.Events()
+	if eerr != nil {
+		t.Fatal(eerr)
+	}
+	for _, e := range events {
+		if objStr(e, "type") == "invariants.liveness_template" {
+			t.Errorf("refused load logged a liveness template event")
+		}
+	}
+}
+
+// TestZeroLivenessStillSynthesizes pins the other half of the law: a model
+// with state machines and NO liveness coverage keeps the existing synthesis
+// path, unchanged (one template naming every machine, here INV-4).
+func TestZeroLivenessStillSynthesizes(t *testing.T) {
+	c := invCamp(t)
+	links, err := SeedFromModel(c, livenessMachinesModel())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objStr(objAt(objAt(links, "invariants"), "INV-4"), "synthesized") != "liveness-template" {
+		t.Fatalf("template synthesis regressed")
+	}
+}
+
+// TestFullLivenessCoverageNeedsNoTemplate pins the third branch of the law:
+// when every machine already carries a liveness invariant, seeding neither
+// synthesizes nor refuses — and re-seeding stays idempotent (no INV-5).
+func TestFullLivenessCoverageNeedsNoTemplate(t *testing.T) {
+	c := invCamp(t)
+	model := livenessMachinesModel()
+	invs := objAt(model, "invariants")
+	invs.A = append(invs.A, validation.VObj(
+		kv("id", validation.VStr("INV-4")),
+		kv("statement", validation.VStr(
+			"every state machine can advance to its terminal state")),
+		kv("kind", validation.VStr("liveness")),
+		kv("applies_to", validation.VArr(
+			validation.VStr("vault-lifecycle"),
+			validation.VStr("relay"),
+			validation.VStr("staking"))),
+		kv("severity_if_broken", validation.VStr("critical")),
+	))
+	model.O = validation.SetOrAppend(model.O, "invariants", invs)
+	links, err := SeedFromModel(c, model)
+	if err != nil {
+		t.Fatalf("full coverage refused: %v", err)
+	}
+	if got := objStr(objAt(objAt(links, "invariants"), "INV-4"),
+		"synthesized"); got != "" {
+		t.Errorf("full coverage synthesized a template (synthesized=%q)", got)
+	}
+	links, err = SeedFromModel(c, model)
+	if err != nil {
+		t.Fatalf("re-seed with full coverage refused: %v", err)
+	}
+	if hasKey(objAt(links, "invariants"), "INV-5") {
+		t.Errorf("re-seed synthesized a duplicate template (INV-5)")
+	}
+}
