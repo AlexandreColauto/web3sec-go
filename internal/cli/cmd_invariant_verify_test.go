@@ -33,7 +33,9 @@ func t15SeedInvariant(t *testing.T, c *state.Campaign, invID, statement string) 
 }
 
 // t15ExecRecord writes one finished EXEC record (sandbox.register_exec is a
-// later phase; the ledger row is written directly, as port_test.go does).
+// later phase; the ledger row is written directly, as port_test.go does). Its
+// captured stdout names INV-1 — the honest output the relevance gate requires
+// of the exec the CLI registers as the check artifact.
 func t15ExecRecord(t *testing.T, c *state.Campaign, execID string) string {
 	t.Helper()
 	dir := filepath.Join(c.ExecsDir, execID)
@@ -41,7 +43,9 @@ func t15ExecRecord(t *testing.T, c *state.Campaign, execID string) string {
 		t.Fatal(err)
 	}
 	stdout := filepath.Join(dir, "stdout.log")
-	if err := os.WriteFile(stdout, []byte("PASS: invariant check\n"), 0o644); err != nil {
+	if err := os.WriteFile(stdout,
+		[]byte("INV-1: totalAssets monotone except withdraw\nPASS: invariant check\n"),
+		0o644); err != nil {
 		t.Fatal(err)
 	}
 	rec := validation.VObj(
@@ -69,16 +73,76 @@ func t15ExecRecord(t *testing.T, c *state.Campaign, execID string) string {
 	return stdout
 }
 
+// t15RegisterCheck registers an artifact whose BYTES name the invariant it
+// checks — the honest shape the Task 4 relevance gate requires (t15Register's
+// "x\n" fixture is deliberately content-free for the artifact-list tests).
+func t15RegisterCheck(t *testing.T, c *state.Campaign, name, invID string) string {
+	t.Helper()
+	path := filepath.Join(c.Root, name)
+	if err := os.WriteFile(path,
+		[]byte(invID+" checked against src/V.sol#L40\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	aid, err := c.RegisterArtifact("other", path, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return aid
+}
+
 func TestInvariantVerifyArtifact(t *testing.T) {
 	c, root := t15Campaign(t, "inv")
 	t15SeedInvariant(t, c, "INV-1", "totalAssets monotone except withdraw")
-	aid := t15Register(t, c, "inv-check.md", "other", "")
+	aid := t15RegisterCheck(t, c, "inv-check.md", "INV-1")
 	code, out, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
 		"INV-1", "--artifact", aid)
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
 	if out != "INV-1: CHECKED_AGAINST_CODE (artifact "+aid+")\n" {
+		t.Fatalf("output %q", out)
+	}
+}
+
+// TestInvariantVerifyArtifactRelevanceGate: the --artifact half is bound too —
+// a registered artifact that names nothing is refused (exit 2, one line), the
+// axis does not move, and an honest artifact for the same invariant lands.
+func TestInvariantVerifyArtifactRelevanceGate(t *testing.T) {
+	c, root := t15Campaign(t, "inv")
+	t15SeedInvariant(t, c, "INV-1", "totalAssets monotone except withdraw")
+	path := filepath.Join(c.Root, "generic.md")
+	if err := os.WriteFile(path, []byte("checked the withdraw path\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	aid, err := c.RegisterArtifact("other", path, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
+		"INV-1", "--artifact", aid)
+	if code != 2 {
+		t.Fatalf("exit %d, want 2 (%q)", code, errS)
+	}
+	if !strings.Contains(errS, "does not reference INV-1") ||
+		strings.Count(errS, "\n") != 1 {
+		t.Fatalf("stderr %q must be one line naming the id", errS)
+	}
+	links, lerr := invariants.LoadLinks(c)
+	if lerr != nil {
+		t.Fatal(lerr)
+	}
+	if got := objStr(objAt(objAt(links, "invariants"), "INV-1"),
+		"status"); got != "UNVERIFIED" {
+		t.Fatalf("status %q, want UNVERIFIED after the refusal", got)
+	}
+	// the honest artifact for the same invariant lands.
+	honest := t15RegisterCheck(t, c, "inv-1-check.md", "INV-1")
+	code, out, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
+		"INV-1", "--artifact", honest)
+	if code != 0 {
+		t.Fatalf("honest artifact: exit %d: %q", code, errS)
+	}
+	if !strings.Contains(out, "CHECKED_AGAINST_CODE") {
 		t.Fatalf("output %q", out)
 	}
 }

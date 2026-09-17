@@ -481,7 +481,7 @@ func TestInvariantVerificationViaAPI(t *testing.T) {
 	sc := vec.fixture(t, "inv_clean")
 	c := apiCampaign(t)
 	p := filepath.Join(c.ArtifactsDir, "evidence.md")
-	if err := os.WriteFile(p, []byte("checked against code\n"), 0o644); err != nil {
+	if err := os.WriteFile(p, []byte("INV-1 checked against code\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	artID, err := c.RegisterArtifact("other", p, "", nil)

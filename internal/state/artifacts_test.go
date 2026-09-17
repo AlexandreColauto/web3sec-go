@@ -393,6 +393,44 @@ func TestArtifactStoredPathOutsideRoot(t *testing.T) {
 	}
 }
 
+// TestResolveArtifactPath: the exported wrapper resolves a stored row the
+// same way the internal seam does — absolute paths stay as-is, relative ones
+// join the campaign root (no symlink resolution; callers add it where Python
+// adds .resolve()).
+func TestResolveArtifactPath(t *testing.T) {
+	root := t.TempDir()
+	c, err := Init(root, "Acme", InitOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	abs := filepath.Join(t.TempDir(), "abs.md")
+	if err := os.WriteFile(abs, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rel := filepath.Join(root, "rel.md")
+	if err := os.WriteFile(rel, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		stored string
+		want   string
+	}{
+		{abs, abs},
+		{filepath.Join("rel.md"), filepath.Join(c.Root, "rel.md")},
+	}
+	for _, tc := range cases {
+		a := validation.VObj(kv("path", validation.VStr(tc.stored)))
+		if got := c.ResolveArtifactPath(a); got != tc.want {
+			t.Errorf("ResolveArtifactPath(%q) = %q, want %q", tc.stored, got,
+				tc.want)
+		}
+		if got := c.resolveArtifactPath(a); got != tc.want {
+			t.Errorf("resolveArtifactPath(%q) = %q, want %q", tc.stored, got,
+				tc.want)
+		}
+	}
+}
+
 // TestPruneArtifact: pop + save + artifact.pruned event (data
 // {kind, path, reason}); the removed record is returned.
 func TestPruneArtifact(t *testing.T) {

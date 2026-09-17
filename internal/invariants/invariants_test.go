@@ -385,7 +385,7 @@ func TestVerifyRequiresRegisteredArtifact(t *testing.T) {
 	_, err := VerifyInvariantStatement(c, "INV-2", "ART-nope")
 	wantErr(t, err, "unknown artifact")
 	artID := registeredArtifact(t, c, "inv-check.md",
-		"checked against src/V.sol L40\n")
+		"INV-2 checked against src/V.sol L40\n")
 	e, err := VerifyInvariantStatement(c, "INV-2", artID)
 	if err != nil {
 		t.Fatal(err)
@@ -593,6 +593,19 @@ func scenarioCamp(t *testing.T) *state.Campaign {
 	))
 	if err := validation.WriteJson(c.StatePath, st, "campaign_state"); err != nil {
 		t.Fatal(err)
+	}
+	// The fixed rows are HONEST artifacts: their bytes name the invariant
+	// each verification cites (the Task 4 relevance gate reads the file).
+	fixedText := map[string]string{
+		"inv-check.md": "INV-2 checked against src/V.sol L40\n" +
+			"INV-3 checked against src/V.sol L12\n",
+		"fuzz.md": "INV-3 fuzz property held over 200 runs\n",
+	}
+	for name, text := range fixedText {
+		if err := os.WriteFile(filepath.Join(c.ArtifactsDir, name),
+			[]byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	snapDir := filepath.Join(c.Dir, "snapshots", "SNAPX")
 	if err := os.MkdirAll(snapDir, 0o755); err != nil {
@@ -943,4 +956,210 @@ func TestFullLivenessCoverageNeedsNoTemplate(t *testing.T) {
 	if hasKey(objAt(links, "invariants"), "INV-5") {
 		t.Errorf("re-seed synthesized a duplicate template (INV-5)")
 	}
+}
+
+// ---- Task 4: evidence relevance binding ----------------------------------
+//
+// The law: a registered artifact only backs CHECKED_AGAINST_CODE when its
+// BYTES name what it verifies — the invariant id (in either the registry's
+// spelling or NormalizeInvID's canonical spelling) or one of the entry's
+// applies_to strings, matched on word boundaries, case-insensitively. The
+// artifact's registry `note` is metadata, never evidence: otherwise the
+// `--exec` note (which always carries the id) would make the gate vacuous.
+
+// irrelevantRefusal is the byte-exact refusal every irrelevant artifact gets.
+func irrelevantRefusal(artID, invID string) string {
+	return "artifact " + artID + " does not reference " + invID +
+		" (nor its applies_to) — cite a check that names what it verifies " +
+		"(invariant-verify with --exec <id> re-registers stdout as the artifact)"
+}
+
+// TestVerifyRefusesIrrelevantArtifact: a generic full-suite log names
+// neither the invariant nor an applies_to target — refused, byte-exactly,
+// and the verification axis does not move.
+func TestVerifyRefusesIrrelevantArtifact(t *testing.T) {
+	c := invCamp(t)
+	if _, err := SeedFromModel(c, modelWithInvariants()); err != nil {
+		t.Fatal(err)
+	}
+	artID := registeredArtifact(t, c, "suite.log", "go test ./... -count=1 PASS\n")
+	_, err := VerifyInvariantStatement(c, "INV-2", artID)
+	wantErr(t, err, "does not reference")
+	if err == nil || err.Error() != irrelevantRefusal(artID, "INV-2") {
+		t.Errorf("refusal\n got: %q\nwant: %q", err, irrelevantRefusal(artID, "INV-2"))
+	}
+	links, lerr := LoadLinks(c)
+	if lerr != nil {
+		t.Fatal(lerr)
+	}
+	e := objAt(objAt(links, "invariants"), "INV-2")
+	if got := objStr(e, "verified_by"); got != "" {
+		t.Errorf("verified_by = %q, want empty on a refusal", got)
+	}
+	if got := objStr(e, "status"); got != "UNVERIFIED" {
+		t.Errorf("status = %q, want UNVERIFIED", got)
+	}
+	events, eerr := c.Events()
+	if eerr != nil {
+		t.Fatal(eerr)
+	}
+	for _, ev := range events {
+		if objStr(ev, "type") == "invariant.verified" {
+			t.Errorf("a refusal logged invariant.verified")
+		}
+	}
+}
+
+// TestVerifyAcceptsRelevantArtifact: the honest artifact names the id it
+// checks.
+func TestVerifyAcceptsRelevantArtifact(t *testing.T) {
+	c := invCamp(t)
+	if _, err := SeedFromModel(c, modelWithInvariants()); err != nil {
+		t.Fatal(err)
+	}
+	artID := registeredArtifact(t, c, "inv-check.md",
+		"INV-2 checked against src/V.sol L40\n")
+	if _, err := VerifyInvariantStatement(c, "INV-2", artID); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestVerifyRefusesNearMissInvariantID: the match is word-bounded, so an
+// artifact citing INV-20 (or any longer token containing the id) never
+// satisfies INV-2.
+func TestVerifyRefusesNearMissInvariantID(t *testing.T) {
+	for _, text := range []string{
+		"INV-20 checked against src/V.sol L40\n",
+		"INV-22: accumulator cannot be set backwards\n",
+		"recheckINV-2 done\n",
+		"INV-2x rechecked\n",
+	} {
+		c := invCamp(t)
+		if _, err := SeedFromModel(c, modelWithInvariants()); err != nil {
+			t.Fatal(err)
+		}
+		artID := registeredArtifact(t, c, "near-miss.md", text)
+		_, err := VerifyInvariantStatement(c, "INV-2", artID)
+		wantErr(t, err, "does not reference INV-2")
+		if got := objStr(objAt(objAt(mustLinks(t, c), "invariants"), "INV-2"),
+			"status"); got != "UNVERIFIED" {
+			t.Errorf("%q: status = %q, want UNVERIFIED", text, got)
+		}
+	}
+}
+
+// mustLinks is LoadLinks with a fatal on error (test-only).
+func mustLinks(t *testing.T, c *state.Campaign) validation.Value {
+	t.Helper()
+	links, err := LoadLinks(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return links
+}
+
+// TestVerifyAcceptsAppliesToArtifact: an artifact that names the entry's
+// applies_to target instead of the id satisfies the gate — case-insensitively.
+func TestVerifyAcceptsAppliesToArtifact(t *testing.T) {
+	for _, text := range []string{
+		"FeeAccumulator.setFee covered: the setter rejects a lower value\n",
+		"feeaccumulator.setfee covered by the test below\n",
+	} {
+		c := invCamp(t)
+		model := validation.VObj(kv("invariants", validation.VArr(
+			validation.VObj(
+				kv("id", validation.VStr("INV-2")),
+				kv("statement", validation.VStr(
+					"fee accumulator cannot be set backwards")),
+				kv("applies_to", validation.VArr(
+					validation.VStr("FeeAccumulator.setFee"))),
+			))))
+		if _, err := SeedFromModel(c, model); err != nil {
+			t.Fatal(err)
+		}
+		artID := registeredArtifact(t, c, "fee-check.md", text)
+		if _, err := VerifyInvariantStatement(c, "INV-2", artID); err != nil {
+			t.Fatalf("%q: applies_to match refused: %v", text, err)
+		}
+	}
+}
+
+// TestVerifyEmptyAppliesToDoesNotBypass: an empty applies_to list is not a
+// wildcard — the id token alone must carry the artifact, and prose about the
+// invariant's subject is still refused.
+func TestVerifyEmptyAppliesToDoesNotBypass(t *testing.T) {
+	c := invCamp(t)
+	model := validation.VObj(kv("invariants", validation.VArr(
+		validation.VObj(
+			kv("id", validation.VStr("INV-2")),
+			kv("statement", validation.VStr(
+				"fee accumulator cannot be set backwards")),
+			kv("applies_to", validation.VArr()),
+		))))
+	if _, err := SeedFromModel(c, model); err != nil {
+		t.Fatal(err)
+	}
+	prose := registeredArtifact(t, c, "notes.md",
+		"checked the fee accumulator by hand\n")
+	_, err := VerifyInvariantStatement(c, "INV-2", prose)
+	wantErr(t, err, "does not reference INV-2")
+	idOnly := registeredArtifact(t, c, "inv2.md",
+		"INV-2 checked against src/V.sol L40\n")
+	if _, err := VerifyInvariantStatement(c, "INV-2", idOnly); err != nil {
+		t.Fatalf("id-only artifact refused with an empty applies_to: %v", err)
+	}
+}
+
+// TestVerifyAcceptsRegistrySpellingOfZeroPaddedID: the artifact may cite the
+// id exactly as the registry spells it (INV-002) or canonically (INV-2) —
+// both are the same invariant, and neither opens a word-boundary hole.
+func TestVerifyAcceptsRegistrySpellingOfZeroPaddedID(t *testing.T) {
+	for _, text := range []string{
+		"INV-002 checked against src/V.sol L40\n",
+		"INV-2 checked against src/V.sol L40\n",
+	} {
+		c := invCamp(t)
+		model := validation.VObj(kv("invariants", validation.VArr(
+			validation.VObj(
+				kv("id", validation.VStr("INV-002")),
+				kv("statement", validation.VStr(
+					"totalAssets monotone except withdraw")),
+			))))
+		if _, err := SeedFromModel(c, model); err != nil {
+			t.Fatal(err)
+		}
+		artID := registeredArtifact(t, c, "inv-002-check.md", text)
+		if _, err := VerifyInvariantStatement(c, "INV-002", artID); err != nil {
+			t.Fatalf("%q: refused: %v", text, err)
+		}
+	}
+	// INV-20 must not satisfy the zero-padded INV-002 either.
+	c := invCamp(t)
+	model := validation.VObj(kv("invariants", validation.VArr(
+		validation.VObj(
+			kv("id", validation.VStr("INV-002")),
+			kv("statement", validation.VStr("totalAssets monotone"))))))
+	if _, err := SeedFromModel(c, model); err != nil {
+		t.Fatal(err)
+	}
+	artID := registeredArtifact(t, c, "inv-020-check.md",
+		"INV-020 checked against src/V.sol L40\n")
+	_, err := VerifyInvariantStatement(c, "INV-002", artID)
+	wantErr(t, err, "does not reference INV-002")
+}
+
+// TestVerifyRefusesUnreadableArtifact: bytes we cannot read cannot name the
+// invariant — the gate fails closed instead of waving the artifact through.
+func TestVerifyRefusesUnreadableArtifact(t *testing.T) {
+	c := invCamp(t)
+	if _, err := SeedFromModel(c, modelWithInvariants()); err != nil {
+		t.Fatal(err)
+	}
+	artID := registeredArtifact(t, c, "gone.md",
+		"INV-2 checked against src/V.sol L40\n")
+	if err := os.Remove(filepath.Join(c.ArtifactsDir, "gone.md")); err != nil {
+		t.Fatal(err)
+	}
+	_, err := VerifyInvariantStatement(c, "INV-2", artID)
+	wantErr(t, err, "does not reference INV-2")
 }

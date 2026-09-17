@@ -90,7 +90,8 @@ func TestR40DRefusedStatusFlipsRestoreRegistry(t *testing.T) {
 	// A registered artifact for verify/link_test (must exist pre-cut: the
 	// registration itself logs).
 	artPath := filepath.Join(c.Dir, "r40d-report.md")
-	if err := os.WriteFile(artPath, []byte("# r40d"), 0o644); err != nil {
+	if err := os.WriteFile(artPath,
+		[]byte("# r40d\nINV-1 checked against src/V.sol L1\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	artID, err := c.RegisterOrRefresh("report", artPath, "", nil,

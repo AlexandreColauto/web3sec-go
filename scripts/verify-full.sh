@@ -390,7 +390,7 @@ cat > "$P1F/fixtures/policy.json" <<'JSON'
  "severity_rules": [{"severity": "critical", "match": {"bug_classes": ["access-control"]}}],
  "poc_requirements": {"min_evidence_level": "E4", "require_fork_repro": false}}
 JSON
-printf 'verify-p1 cross-audit artifact\n' > "$P1F/fixtures/note.md"
+printf 'INV-1 verify-p1 cross-audit artifact\n' > "$P1F/fixtures/note.md"
 
 # 10. P1 CLI smoke ---------------------------------------------------------
 # The 21 P1 commands, each once in a valid shape against a scratch Go

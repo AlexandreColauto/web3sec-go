@@ -36,7 +36,9 @@ func invExecRecord(t *testing.T, c *state.Campaign, execID string) validation.Va
 	}
 	stdout := filepath.Join(dir, "stdout.log")
 	stderr := filepath.Join(dir, "stderr.log")
-	if err := os.WriteFile(stdout, []byte("PASS: test_liveness\n"), 0o644); err != nil {
+	if err := os.WriteFile(stdout,
+		[]byte("INV-008: the fee accumulator holds\nPASS: test_liveness\n"),
+		0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(stderr, []byte(""), 0o644); err != nil {
@@ -183,7 +185,8 @@ func TestInvariantVerifyExecFallsBackToTheStderrLog(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(objStr(rec, "stderr_path"),
-		[]byte("FAIL: test_liveness\n"), 0o644); err != nil {
+		[]byte("INV-008: the fee accumulator holds\nFAIL: test_liveness\n"),
+		0o644); err != nil {
 		t.Fatal(err)
 	}
 	code, _, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
@@ -306,5 +309,53 @@ func TestInvariantVerifyExecUnknownInvariantExits2(t *testing.T) {
 	}
 	if !strings.Contains(errS, "INV-NOPE") {
 		t.Fatalf("stderr %q", errS)
+	}
+}
+
+// TestInvariantVerifyExecRelevanceGate: the --exec path still lands
+// end-to-end when the exec's captured output names the invariant it
+// verifies, and refuses a generic run that names nothing. The artifact's
+// registry note (which always carries the id) is metadata, never evidence —
+// if it counted, every --exec would satisfy the gate.
+func TestInvariantVerifyExecRelevanceGate(t *testing.T) {
+	c, root, rec := execCamp(t, "EXEC-0000000001")
+	execID := objStr(rec, "exec_id")
+	// (a) a generic output log: registered as the artifact, then refused.
+	if err := os.WriteFile(objStr(rec, "stdout_path"),
+		[]byte("PASS: test_liveness\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
+		"INV-008", "--exec", execID)
+	if code != 2 {
+		t.Fatalf("generic output: exit %d, want 2 (%q)", code, errS)
+	}
+	if !strings.Contains(errS, "does not reference INV-008") {
+		t.Fatalf("generic output stderr %q", errS)
+	}
+	if got := objStr(invEntry(t, c, "INV-008"), "status"); got != "UNVERIFIED" {
+		t.Fatalf("generic output status %q, want UNVERIFIED", got)
+	}
+	// (b) the honest rerun: the captured output names the invariant.
+	if err := os.WriteFile(objStr(rec, "stdout_path"),
+		[]byte("INV-008: the fee accumulator holds — PASS: test_liveness\n"),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
+		"INV-008", "--exec", execID)
+	if code != 0 {
+		t.Fatalf("honest output: exit %d: %q", code, errS)
+	}
+	if !strings.Contains(out, "CHECKED_AGAINST_CODE") {
+		t.Fatalf("output %q", out)
+	}
+	entry := invEntry(t, c, "INV-008")
+	if got := objStr(entry, "status"); got != "CHECKED_AGAINST_CODE" {
+		t.Fatalf("status %q", got)
+	}
+	if got, want := artifactPathOf(t, c, objStr(entry, "verified_by")),
+		resolvedPath(t, objStr(rec, "stdout_path")); got != want {
+		t.Fatalf("artifact path %q, want %q (the exec's stdout)", got, want)
 	}
 }

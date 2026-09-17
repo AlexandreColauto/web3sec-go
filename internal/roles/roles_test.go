@@ -759,7 +759,7 @@ func TestCriticBundleSeesInvariantVerification(t *testing.T) {
 		t.Errorf("status = %s", got)
 	}
 	p := filepath.Join(c.ArtifactsDir, "inv-check.md")
-	if err := os.WriteFile(p, []byte("checked\n"), 0o644); err != nil {
+	if err := os.WriteFile(p, []byte("INV-1 checked\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := c.RegisterOrRefresh("other", p, "", nil, ""); err != nil {

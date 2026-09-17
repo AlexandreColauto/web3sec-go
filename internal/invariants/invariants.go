@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -772,9 +773,16 @@ func UncoveredCritical(c *state.Campaign, model validation.Value) ([]validation.
 // VerifyInvariantStatement is verify_invariant_statement: CHECKED_AGAINST_CODE
 // backed by a REGISTERED artifact. Only this API (and contradict) may move the
 // verification axis — never seeding, never hand-editing.
+//
+// Task 4 relevance law: the artifact's BYTES must name what it verifies — the
+// invariant id (in the registry's spelling or NormalizeInvID's canonical one)
+// or one of the entry's applies_to strings, matched on word boundaries,
+// case-insensitively. The registry `note` is metadata, never evidence: if it
+// counted, every `--exec` artifact would satisfy the gate by construction.
 func VerifyInvariantStatement(c *state.Campaign, invariantID,
 	artifactID string) (validation.Value, error) {
-	if _, err := c.Artifact(artifactID); err != nil {
+	a, err := c.Artifact(artifactID)
+	if err != nil {
 		return validation.VNull(), err
 	}
 	links, err := LoadLinks(c)
@@ -786,6 +794,9 @@ func VerifyInvariantStatement(c *state.Campaign, invariantID,
 		return validation.VNull(), unknownInvariant(invariantID)
 	}
 	entry := objAt(reg, invariantID)
+	if !artifactReferencesInvariant(c, a, invariantID, entry) {
+		return validation.VNull(), irrelevantArtifact(artifactID, invariantID)
+	}
 	entry.O = validation.SetOrAppend(entry.O, "status",
 		validation.VStr("CHECKED_AGAINST_CODE"))
 	entry.O = validation.SetOrAppend(entry.O, "verified_by", validation.VStr(artifactID))
@@ -808,6 +819,65 @@ func VerifyInvariantStatement(c *state.Campaign, invariantID,
 		return validation.VNull(), err
 	}
 	return entry, nil
+}
+
+// artifactReferencesInvariant is the relevance gate: the cited artifact's
+// bytes name the invariant, or one of the entry's applies_to targets, on a
+// word boundary and case-insensitively. An artifact whose bytes cannot be
+// read references nothing — the gate fails closed.
+func artifactReferencesInvariant(c *state.Campaign, a validation.Value,
+	invariantID string, entry validation.Value) bool {
+	raw, err := os.ReadFile(c.ResolveArtifactPath(a))
+	if err != nil {
+		return false
+	}
+	text := string(raw)
+	for _, tok := range referenceTokens(invariantID, entry) {
+		// Word boundaries, not substring: an artifact citing INV-20 (or
+		// recheckINV-2) must never satisfy INV-2.
+		re, cerr := regexp.Compile(`(?i)\b` + regexp.QuoteMeta(tok) + `\b`)
+		if cerr != nil {
+			continue
+		}
+		if re.MatchString(text) {
+			return true
+		}
+	}
+	return false
+}
+
+// referenceTokens is what an artifact may cite to back this invariant: the id
+// in the registry's spelling and in NormalizeInvID's canonical spelling
+// (INV-002 and INV-2 are one invariant), plus every applies_to target, each
+// also in canonical spelling. Deduplicated; empty tokens dropped.
+func referenceTokens(invariantID string, entry validation.Value) []string {
+	cands := []string{invariantID}
+	for _, t := range objAt(entry, "applies_to").A {
+		if t.Kind == validation.Str {
+			cands = append(cands, t.S)
+		}
+	}
+	seen := map[string]bool{}
+	out := []string{}
+	for _, cand := range cands {
+		for _, tok := range []string{cand, NormalizeInvID(cand)} {
+			if tok == "" || seen[tok] {
+				continue
+			}
+			seen[tok] = true
+			out = append(out, tok)
+		}
+	}
+	return out
+}
+
+// irrelevantArtifact is the Task 4 refusal: the cited bytes name neither the
+// invariant nor any of its applies_to targets.
+func irrelevantArtifact(artifactID, invariantID string) error {
+	return fmt.Errorf("artifact %s does not reference %s (nor its applies_to) "+
+		"— cite a check that names what it verifies (invariant-verify with "+
+		"--exec <id> re-registers stdout as the artifact)", artifactID,
+		invariantID)
 }
 
 // ContradictInvariantStatement is contradict_invariant_statement:

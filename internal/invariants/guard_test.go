@@ -227,7 +227,7 @@ func TestGuardrailPassesAfterVerification(t *testing.T) {
 	}
 	f := findingWithInvariant(t, c, "INV-2")
 	fid := objStr(f, "finding_id")
-	artID := registeredArtifact(t, c, "inv-check.md", "checked\n")
+	artID := registeredArtifact(t, c, "inv-check.md", "INV-2 checked\n")
 	if _, err := VerifyInvariantStatement(c, "INV-2", artID); err != nil {
 		t.Fatal(err)
 	}
@@ -718,6 +718,12 @@ func guardCamp(t *testing.T) *state.Campaign {
 	st.O = validation.SetOrAppend(st.O, "artifacts", validation.VArr(
 		fixedArtifact("OTH-fixed001", filepath.Join(c.ArtifactsDir, "inv-check.md"))))
 	if err := validation.WriteJson(c.StatePath, st, "campaign_state"); err != nil {
+		t.Fatal(err)
+	}
+	// The fixed row is an HONEST artifact: its bytes name INV-2, the
+	// invariant the golden's final verify cites (Task 4 relevance gate).
+	if err := os.WriteFile(filepath.Join(c.ArtifactsDir, "inv-check.md"),
+		[]byte("INV-2 checked against src/V.sol L40\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	snapDir := filepath.Join(c.Dir, "snapshots", "SNAPX")

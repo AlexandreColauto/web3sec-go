@@ -206,6 +206,12 @@ func (c *Campaign) resolveArtifactPath(a validation.Value) string {
 	return filepath.Join(c.Root, p)
 }
 
+// ResolveArtifactPath exports resolveArtifactPath for readers outside this
+// package (the invariants relevance gate reads the cited artifact's bytes).
+func (c *Campaign) ResolveArtifactPath(a validation.Value) string {
+	return c.resolveArtifactPath(a)
+}
+
 // PruneArtifact is prune_artifact: retire a row whose content can no
 // longer be verified. The row is removed from the working projection; the
 // original artifact.registered event stays on the log as the audit trail.
