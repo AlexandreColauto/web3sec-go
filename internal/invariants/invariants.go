@@ -770,9 +770,62 @@ func UncoveredCritical(c *state.Campaign, model validation.Value) ([]validation.
 
 // ---- verification axis ---------------------------------------------------
 
-// VerifyInvariantStatement is verify_invariant_statement: CHECKED_AGAINST_CODE
-// backed by a REGISTERED artifact. Only this API (and contradict) may move the
-// verification axis — never seeding, never hand-editing.
+// verificationMethodKey is the registry-entry / event-data key carrying the
+// provenance of a verification-axis verdict. It is a LABEL an operator's own
+// attestation carries — never an authorization decision, and never inferred
+// from the stored status, the artifact token or the log's words.
+const verificationMethodKey = "verification_method"
+
+// The three labels VerificationMethod can return.
+const (
+	// verificationMethodAttestation is what this framework's own
+	// invariant-verify records: the operator attested that a registered
+	// artifact attributes the statement.
+	verificationMethodAttestation = "operator-attestation"
+	// verificationMethodLegacy is every historical entry: no provenance key
+	// was ever recorded, and none is invented on read.
+	verificationMethodLegacy = "legacy-unspecified"
+	// verificationMethodUnrecognized is any other value or type — the entry
+	// claims a method this build does not know.
+	verificationMethodUnrecognized = "unrecognized"
+)
+
+// VerificationMethod reads the provenance label off a registry entry. It is a
+// pure lookup: "operator-attestation" only for that exact stored string,
+// "legacy-unspecified" when the key is absent, "unrecognized" for any other
+// value or type. It never infers a method from status, verified_by, the
+// artifact's bytes or the log — and it is NOT an authorization decision: the
+// gates keep reading the verification axis exactly as before.
+func VerificationMethod(entry validation.Value) string {
+	v, ok := fieldAt(entry, verificationMethodKey)
+	if !ok {
+		return verificationMethodLegacy
+	}
+	if v.Kind == validation.Str && v.S == verificationMethodAttestation {
+		return verificationMethodAttestation
+	}
+	return verificationMethodUnrecognized
+}
+
+// VerifyInvariantStatement is verify_invariant_statement: an OPERATOR
+// ATTESTATION recorded on the verification axis, backed by a REGISTERED
+// artifact. Only this API (and contradict) may move the axis — never seeding,
+// never hand-editing.
+//
+// What it establishes: an operator asserted that a registered artifact
+// attributes this statement, and that artifact's BYTES name what it verifies.
+// What it does NOT establish: that the check is correct, that it passed, or
+// that the statement holds. The relevance match below is a textual
+// invariant/target reference — ATTRIBUTION ONLY. A regex match is not
+// mechanical proof, and the stored status stays CHECKED_AGAINST_CODE for
+// compatibility with the existing gates, not because the code was
+// mechanically checked. The provenance is written explicitly as
+// verification_method "operator-attestation" on the entry and on the
+// invariant.verified event, beside the artifact reference.
+//
+// Nothing else is written: an existing verification.harness rung, bounded_k,
+// proof sidecar or test outcome is left exactly as it was, and none is
+// manufactured.
 //
 // Task 4 relevance law: the artifact's BYTES must name what it verifies — the
 // invariant id (in the registry's spelling or NormalizeInvID's canonical one)
@@ -800,12 +853,17 @@ func VerifyInvariantStatement(c *state.Campaign, invariantID,
 	entry.O = validation.SetOrAppend(entry.O, "status",
 		validation.VStr("CHECKED_AGAINST_CODE"))
 	entry.O = validation.SetOrAppend(entry.O, "verified_by", validation.VStr(artifactID))
+	entry.O = validation.SetOrAppend(entry.O, verificationMethodKey,
+		validation.VStr(verificationMethodAttestation))
 	entry.O = popKey(entry.O, "contradiction")
 	entry.O = validation.SetOrAppend(entry.O, "modified_by", validation.VStr(nowIso()))
 	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
 	reg.O = validation.SetOrAppend(reg.O, invariantID, entry)
 	links = setObjKey(links, "invariants", reg)
-	data := validation.VObj(pair("artifact", validation.VStr(artifactID)))
+	data := validation.VObj(
+		pair("artifact", validation.VStr(artifactID)),
+		pair(verificationMethodKey, validation.VStr(verificationMethodAttestation)),
+	)
 	// r40: the verification axis may only move with its event — a save
 	// that lands CHECKED_AGAINST_CODE while invariant.verified is refused
 	// asserts a verification nobody logged.
@@ -823,7 +881,9 @@ func VerifyInvariantStatement(c *state.Campaign, invariantID,
 
 // artifactReferencesInvariant is the relevance gate: the cited artifact's
 // bytes name the invariant, or one of the entry's applies_to targets, on a
-// word boundary and case-insensitively. An artifact whose bytes cannot be
+// word boundary and case-insensitively. This is ATTRIBUTION, not proof: it
+// establishes that the artifact points at the invariant, never that the check
+// is correct or that the statement holds. An artifact whose bytes cannot be
 // read references nothing — the gate fails closed.
 func artifactReferencesInvariant(c *state.Campaign, a validation.Value,
 	invariantID string, entry validation.Value) bool {

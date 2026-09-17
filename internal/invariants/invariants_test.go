@@ -1163,3 +1163,212 @@ func TestVerifyRefusesUnreadableArtifact(t *testing.T) {
 	_, err := VerifyInvariantStatement(c, "INV-2", artID)
 	wantErr(t, err, "does not reference INV-2")
 }
+
+// ---- Task 4A: operator-attestation provenance -----------------------------
+//
+// The correction this slice carries: `invariant-verify` records an OPERATOR
+// ATTESTATION — an operator says a registered artifact names the invariant —
+// and nothing here mechanically proves the statement. The registry entry and
+// its invariant.verified event now say so explicitly (verification_method),
+// while the stored status stays CHECKED_AGAINST_CODE for compatibility. No
+// solver, discovery, scheduling or evidence-floor behavior moves; the method
+// label is provenance, never an authorization decision, and it is never
+// inferred from the status, the artifact token or the log.
+
+// TestVerifyRecordsOperatorAttestationProvenance: a successful attestation
+// writes the exact method into the registry entry AND the matching
+// invariant.verified event, keeps the artifact reference, and leaves the
+// compatibility status where it was.
+func TestVerifyRecordsOperatorAttestationProvenance(t *testing.T) {
+	c := invCamp(t)
+	if _, err := SeedFromModel(c, modelWithInvariants()); err != nil {
+		t.Fatal(err)
+	}
+	artID := registeredArtifact(t, c, "inv-check.md",
+		"INV-2 checked against src/V.sol L40\n")
+	entry, err := VerifyInvariantStatement(c, "INV-2", artID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := VerificationMethod(entry); got != "operator-attestation" {
+		t.Errorf("returned entry method = %q, want operator-attestation", got)
+	}
+	stored := objAt(objAt(mustLinks(t, c), "invariants"), "INV-2")
+	if got := objStr(stored, "verification_method"); got != "operator-attestation" {
+		t.Errorf("stored method = %q, want operator-attestation", got)
+	}
+	if got := VerificationMethod(stored); got != "operator-attestation" {
+		t.Errorf("helper over the stored entry = %q", got)
+	}
+	if got := objStr(stored, "verified_by"); got != artID {
+		t.Errorf("verified_by = %q, want %q (artifact ref retained)", got, artID)
+	}
+	if got := objStr(stored, "status"); got != "CHECKED_AGAINST_CODE" {
+		t.Errorf("status = %q, want CHECKED_AGAINST_CODE (compatibility)", got)
+	}
+	events, err := c.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := 0
+	for _, ev := range events {
+		if objStr(ev, "type") != "invariant.verified" ||
+			objStr(ev, "ref") != "INV-2" {
+			continue
+		}
+		seen++
+		if got := objStr(objAt(ev, "data"), "artifact"); got != artID {
+			t.Errorf("event artifact = %q, want %q", got, artID)
+		}
+		if got := objStr(objAt(ev, "data"), "verification_method"); got != "operator-attestation" {
+			t.Errorf("event method = %q, want operator-attestation", got)
+		}
+	}
+	if seen != 1 {
+		t.Fatalf("invariant.verified events for INV-2 = %d, want 1", seen)
+	}
+}
+
+// TestVerificationMethodLabels: the helper is a pure label reader over the
+// stored key — the exact method, legacy-unspecified when the key is absent,
+// unrecognized for every other value or type. It never infers from the
+// status, the artifact token or anything in the log.
+func TestVerificationMethodLabels(t *testing.T) {
+	cases := []struct {
+		name  string
+		entry validation.Value
+		want  string
+	}{
+		{"key absent", validation.VObj(
+			kv("status", validation.VStr("UNVERIFIED"))), "legacy-unspecified"},
+		{"status and artifact only", validation.VObj(
+			kv("status", validation.VStr("CHECKED_AGAINST_CODE")),
+			kv("verified_by", validation.VStr("OTH-aaaaaaaa"))),
+			"legacy-unspecified"},
+		{"exact stored method", validation.VObj(
+			kv("verification_method", validation.VStr("operator-attestation"))),
+			"operator-attestation"},
+		{"case variant", validation.VObj(
+			kv("verification_method", validation.VStr("OPERATOR-ATTESTATION"))),
+			"unrecognized"},
+		{"another method string", validation.VObj(
+			kv("verification_method", validation.VStr("harness-proof"))),
+			"unrecognized"},
+		{"empty string", validation.VObj(
+			kv("verification_method", validation.VStr(""))), "unrecognized"},
+		{"null", validation.VObj(
+			kv("verification_method", validation.VNull())), "unrecognized"},
+		{"int", validation.VObj(
+			kv("verification_method", validation.VInt(1))), "unrecognized"},
+		{"bool", validation.VObj(
+			kv("verification_method", validation.VBool(true))), "unrecognized"},
+		{"object", validation.VObj(kv("verification_method",
+			validation.VObj(kv("method", validation.VStr("operator-attestation"))))),
+			"unrecognized"},
+		{"array", validation.VObj(kv("verification_method",
+			validation.VArr(validation.VStr("operator-attestation")))),
+			"unrecognized"},
+		// a non-object entry carries no key at all: absent, not inferred.
+		{"non-object entry", validation.VStr("operator-attestation"),
+			"legacy-unspecified"},
+	}
+	for _, tc := range cases {
+		if got := VerificationMethod(tc.entry); got != tc.want {
+			t.Errorf("%s: VerificationMethod = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+// TestVerificationMethodReadsOldEntryWithoutMutation: a historical entry is
+// read, never rewritten — the label lookup is side-effect free, and old
+// entries never acquire provenance by being looked at.
+func TestVerificationMethodReadsOldEntryWithoutMutation(t *testing.T) {
+	entry := validation.VObj(
+		kv("status", validation.VStr("CHECKED_AGAINST_CODE")),
+		kv("verified_by", validation.VStr("OTH-aaaaaaaa")),
+		kv("verification", validation.VObj(kv("harness", validation.VObj(
+			kv("kind", validation.VStr("halmos")),
+			kv("rung", validation.VStr("proved-bounded")))))),
+	)
+	before := validation.CanonCompact(entry)
+	if got := VerificationMethod(entry); got != "legacy-unspecified" {
+		t.Fatalf("old entry method = %q, want legacy-unspecified", got)
+	}
+	if after := validation.CanonCompact(entry); after != before {
+		t.Fatalf("lookup mutated its input:\n before %s\n after  %s", before, after)
+	}
+}
+
+// TestVerifyPreservesExistingVerificationHarness: the attestation writes its
+// own key and must leave a verification.harness rung already on the entry
+// byte-for-byte — and manufacture none (no bounded_k, no proof sidecar, no
+// test outcome) where the entry had none.
+func TestVerifyPreservesExistingVerificationHarness(t *testing.T) {
+	c := invCamp(t)
+	if _, err := SeedFromModel(c, modelWithInvariants()); err != nil {
+		t.Fatal(err)
+	}
+	harness := validation.VObj(
+		kv("kind", validation.VStr("halmos")),
+		kv("rung", validation.VStr("proved-bounded")),
+		kv("exec", validation.VStr("EXEC-7")),
+		kv("bounded_k", validation.VInt(4)),
+		kv("summary", validation.VStr("proved bounded (bound 4)")),
+	)
+	verification := validation.VObj(kv("harness", harness))
+	links := mustLinks(t, c)
+	reg := objAt(links, "invariants")
+	e := objAt(reg, "INV-2")
+	e.O = validation.SetOrAppend(e.O, "verification", verification)
+	reg.O = validation.SetOrAppend(reg.O, "INV-2", e)
+	links = setObjKey(links, "invariants", reg)
+	if _, err := SaveLinks(c, links); err != nil {
+		t.Fatal(err)
+	}
+	wantVerification := validation.CanonCompact(verification)
+	artID := registeredArtifact(t, c, "inv-check.md",
+		"INV-2 checked against src/V.sol L40\n")
+	if _, err := VerifyInvariantStatement(c, "INV-2", artID); err != nil {
+		t.Fatal(err)
+	}
+	got := objAt(objAt(mustLinks(t, c), "invariants"), "INV-2")
+	if after := validation.CanonCompact(objAt(got, "verification")); after != wantVerification {
+		t.Fatalf("verification subtree moved:\n before %s\n after  %s",
+			wantVerification, after)
+	}
+	for _, key := range []string{"bounded_k", "proof", "harness"} {
+		if hasKey(got, key) {
+			t.Errorf("attestation manufactured a top-level %q", key)
+		}
+	}
+	if n := len(objAt(got, "tests").A); n != 0 {
+		t.Errorf("attestation manufactured %d test outcome(s)", n)
+	}
+}
+
+// TestVerifyRefusalLeavesAttestationAbsent: an irrelevant artifact is refused
+// before any write — no method label on the entry and no new
+// invariant.verified event.
+func TestVerifyRefusalLeavesAttestationAbsent(t *testing.T) {
+	c := invCamp(t)
+	if _, err := SeedFromModel(c, modelWithInvariants()); err != nil {
+		t.Fatal(err)
+	}
+	before := r40dEventCount(t, c.EventsPath, "invariant.verified")
+	artID := registeredArtifact(t, c, "suite.log",
+		"go test ./... -count=1 PASS\n")
+	if _, err := VerifyInvariantStatement(c, "INV-2", artID); err == nil {
+		t.Fatal("irrelevant artifact was accepted")
+	}
+	stored := objAt(objAt(mustLinks(t, c), "invariants"), "INV-2")
+	if hasKey(stored, "verification_method") {
+		t.Errorf("refusal wrote a method: %q",
+			objStr(stored, "verification_method"))
+	}
+	if got := VerificationMethod(stored); got != "legacy-unspecified" {
+		t.Errorf("refusal method = %q, want legacy-unspecified", got)
+	}
+	if after := r40dEventCount(t, c.EventsPath, "invariant.verified"); after != before {
+		t.Errorf("refusal logged invariant.verified (%d -> %d)", before, after)
+	}
+}

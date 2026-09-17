@@ -215,3 +215,52 @@ func TestInvariantVerifyMissingArgsIsArgparse(t *testing.T) {
 		t.Fatalf("stderr\n%q\nwant\n%q", errS, want)
 	}
 }
+
+// verifyAttestationDisclosure is the exact stderr disclosure a successful
+// invariant-verify appends: the recorded verdict is an operator attestation,
+// not mechanically established proof.
+const verifyAttestationDisclosure = "invariant-verify: operator attestation " +
+	"recorded; artifact attribution is not mechanical proof\n"
+
+// TestInvariantVerifyDisclosesOperatorAttestation: the success path keeps its
+// stdout line byte-for-byte and appends exactly one stderr disclosure line,
+// and the registry carries the method; the refusal path discloses nothing.
+func TestInvariantVerifyDisclosesOperatorAttestation(t *testing.T) {
+	c, root := t15Campaign(t, "inv")
+	t15SeedInvariant(t, c, "INV-1", "totalAssets monotone except withdraw")
+	aid := t15RegisterCheck(t, c, "inv-check.md", "INV-1")
+	code, out, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
+		"INV-1", "--artifact", aid)
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if out != "INV-1: CHECKED_AGAINST_CODE (artifact "+aid+")\n" {
+		t.Fatalf("stdout changed: %q", out)
+	}
+	if errS != verifyAttestationDisclosure {
+		t.Fatalf("stderr %q, want %q", errS, verifyAttestationDisclosure)
+	}
+	if got := objStr(invEntry(t, c, "INV-1"), "verification_method"); got != "operator-attestation" {
+		t.Fatalf("registry method = %q, want operator-attestation", got)
+	}
+	// The refusal path is not an attestation and says nothing about one.
+	path := filepath.Join(c.Root, "generic.md")
+	if err := os.WriteFile(path, []byte("checked the withdraw path\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bad, err := c.RegisterArtifact("other", path, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, _, errS = run(t, "--root", root, "invariant-verify", c.CampaignID,
+		"INV-1", "--artifact", bad)
+	if code != 2 {
+		t.Fatalf("refusal exit %d, want 2 (%q)", code, errS)
+	}
+	if strings.Contains(errS, "operator attestation") {
+		t.Fatalf("refusal disclosed an attestation: %q", errS)
+	}
+	if strings.Count(errS, "\n") != 1 {
+		t.Fatalf("refusal stderr must stay one line: %q", errS)
+	}
+}

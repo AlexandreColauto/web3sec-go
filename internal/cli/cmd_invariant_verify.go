@@ -1,11 +1,21 @@
 package cli
 
 // cmd_invariant_verify: `webv2 invariant-verify <campaign> <inv_id>
-// (--artifact ART-... | --exec EXEC-...)` — mark a model-derived invariant
-// CHECKED_AGAINST_CODE (cli.py cmd_invariant_verify verbatim: two ways to
-// name the recording artifact; --exec registers the exec's captured output
-// through the same register_or_refresh seam, so "write one test that
-// asserts the invariant" is one command).
+// (--artifact ART-... | --exec EXEC-...)` — record an OPERATOR ATTESTATION
+// that a registered artifact attributes a model-derived invariant, moving the
+// verification axis to CHECKED_AGAINST_CODE (cli.py cmd_invariant_verify
+// verbatim: two ways to name the recording artifact; --exec registers the
+// exec's captured output through the same register_or_refresh seam, so "write
+// one test that asserts the invariant" is one command).
+//
+// What this command does and does not establish: it records that an operator
+// cited an artifact whose BYTES name the invariant or one of its applies_to
+// targets. That textual reference is ATTRIBUTION ONLY — it is not mechanical
+// proof of the statement, and CHECKED_AGAINST_CODE is kept as the stored
+// status for compatibility with the existing gates. The provenance is written
+// explicitly (verification_method "operator-attestation" on the registry
+// entry and on the invariant.verified event), and a successful run appends a
+// stderr disclosure saying so. The stdout summary is unchanged.
 //
 // Error rendering: Python's cmd prints its own messages and exits 2, and
 // the final verify's KeyError is rendered by str(exc) = repr(message) — the
@@ -94,6 +104,10 @@ func runInvariantVerify(root string, args []string, r *Runner) int {
 	}
 	fmt.Fprintf(r.Out, "%s: CHECKED_AGAINST_CODE (artifact %s)\n", invID,
 		objStr(entry, "verified_by"))
+	// The verdict above is an attestation, not a mechanical proof: say so on
+	// stderr so the summary line stays byte-compatible for existing callers.
+	fmt.Fprintln(r.Err, "invariant-verify: operator attestation recorded; "+
+		"artifact attribution is not mechanical proof")
 	return 0
 }
 
