@@ -56,16 +56,26 @@ func yamlNodeValue(n *yaml.Node) (Value, error) {
 		return VArr(out...), nil
 	case yaml.MappingNode:
 		out := make([]KV, 0, len(n.Content)/2)
+		// A repeated key inside ONE mapping is a Python/Go read disagreement
+		// (safe_load keeps the last, the ordered Value kept both), so refuse
+		// it. The guard is per mapping: the same key in a sibling, a sequence
+		// item or an aliased mapping is still fine.
+		seen := make(map[string]struct{}, len(n.Content)/2)
 		for i := 0; i+1 < len(n.Content); i += 2 {
 			k, err := yamlNodeValue(n.Content[i])
 			if err != nil {
 				return VNull(), err
 			}
+			key := yamlKeyText(k)
+			if _, dup := seen[key]; dup {
+				return VNull(), fmt.Errorf("yaml: duplicate mapping key %q", key)
+			}
+			seen[key] = struct{}{}
 			v, err := yamlNodeValue(n.Content[i+1])
 			if err != nil {
 				return VNull(), err
 			}
-			out = append(out, KV{K: yamlKeyText(k), V: v})
+			out = append(out, KV{K: key, V: v})
 		}
 		return VObj(out...), nil
 	case yaml.ScalarNode:
