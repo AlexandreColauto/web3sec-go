@@ -631,7 +631,27 @@ func fixedArtifact(id, path string) validation.Value {
 	)
 }
 
-func TestLinkScenarioMatchesPythonTwin(t *testing.T) {
+// TestLinkScenarioMatchesGoPin pins THIS implementation's link-registry and
+// event-log bytes for the scripted link scenario.
+//
+// HISTORY, so the name is not read as a live parity claim: this test was
+// TestLinkScenarioMatchesPythonTwin and its fixtures were emitted by the
+// Python twin. The twin was RETIRED at P4 — there is no longer a Python
+// implementation to agree with, so these fixtures pin GO behaviour only, and
+// the test is named for what it actually checks.
+//
+// The verification_method key the fixtures now carry is the Task 4A additive
+// attestation disclosure (commit 521eecfd): invariant-verify records an
+// operator attestation, and that provenance is written explicitly on the
+// registry entry and on the invariant.verified event beside the artifact
+// reference. It is additive — old readers ignore an unknown JSON key, and the
+// guard (internal/invariants/guard.go) and audit section 11
+// (internal/audit/sections/invariantverification.go) read only status,
+// verified_by, contradiction and verification.harness, so no verdict moved.
+// The fixtures were therefore deliberately re-pinned in that same commit's
+// follow-up, with the reason in the commit body; the only delta was that one
+// key (plus the mechanical event_hash/prev_hash re-chaining it implies).
+func TestLinkScenarioMatchesGoPin(t *testing.T) {
 	c := scenarioCamp(t)
 	model := goldenValue(t, "scenario_model.json")
 	steps := goldenValue(t, "scenario_steps.json")
@@ -655,8 +675,11 @@ func TestLinkScenarioMatchesPythonTwin(t *testing.T) {
 	wantGolden(t, "scenario_uncovered.json", validation.VArr(unc...))
 }
 
-// compareTwinFile asserts a file this package wrote is byte-identical to the
-// Python twin's copy.
+// compareTwinFile asserts a file this package wrote is byte-identical to its
+// pinned expectation in testdata/. The fixtures began as Python-twin output,
+// but the twin was retired at P4: they now pin GO behaviour (see
+// TestLinkScenarioMatchesGoPin), and a mismatch means this implementation
+// drifted from the pinned bytes — not that a Python parity claim broke.
 func compareTwinFile(t *testing.T, path, golden string) {
 	t.Helper()
 	got, err := os.ReadFile(path)
@@ -664,7 +687,7 @@ func compareTwinFile(t *testing.T, path, golden string) {
 		t.Fatal(err)
 	}
 	if string(got) != string(goldenBytes(t, golden)) {
-		t.Errorf("%s differs from the Python twin (%s)", path, golden)
+		t.Errorf("%s differs from the pinned Go expectation (%s)", path, golden)
 	}
 }
 

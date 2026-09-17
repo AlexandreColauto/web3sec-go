@@ -774,7 +774,25 @@ func guardCases() []guardCase {
 	}
 }
 
-func TestGuardMessagesMatchPythonTwin(t *testing.T) {
+// TestGuardMessagesMatchesGoPin pins THIS implementation's guard messages and
+// the link-registry / event-log bytes the guard leaves behind.
+//
+// HISTORY, so the name is not read as a live parity claim: this test was
+// TestGuardMessagesMatchPythonTwin and its fixtures were emitted by the
+// Python twin. The twin was RETIRED at P4 — there is no longer a Python
+// implementation to agree with, so these fixtures pin GO behaviour only, and
+// the test is named for what it actually checks.
+//
+// The verification_method key the fixtures now carry is the Task 4A additive
+// attestation disclosure (commit 521eecfd): the final VerifyInvariantStatement
+// records an operator attestation, written explicitly on the registry entry
+// and on the invariant.verified event beside the artifact reference. It is
+// additive — the guard reads only status, verified_by and contradiction (see
+// AssertInvariantsVerified/IsVerified in guard.go), so no verdict moved. The
+// fixtures were therefore deliberately re-pinned in that same commit's
+// follow-up, with the reason in the commit body; the only delta was that one
+// key (plus the mechanical event_hash/prev_hash re-chaining it implies).
+func TestGuardMessagesMatchGoPin(t *testing.T) {
 	c := guardCamp(t)
 	wireFindings(t)
 	model := goldenValue(t, "scenario_model.json")

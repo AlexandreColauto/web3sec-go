@@ -236,6 +236,7 @@ func containsStrCLI(items []string, want string) bool {
 
 func init() {
 	register(command{ord: 22, name: "invariant-verify",
-		line: "invariant-verify <campaign> <inv_id>  mark an invariant verified",
-		run:  runInvariantVerify})
+		line: "invariant-verify <campaign> <inv_id>  record an operator " +
+			"attestation (attribution, not mechanical proof)",
+		run: runInvariantVerify})
 }

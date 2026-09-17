@@ -33,7 +33,8 @@
       "tests": [],
       "detectors": [],
       "updated_at": "2026-02-01T00:00:00.000000+00:00",
-      "verified_by": "OTH-fixed001"
+      "verified_by": "OTH-fixed001",
+      "verification_method": "operator-attestation"
     },
     "INV-3": {
       "statement": "only the owner may pause",

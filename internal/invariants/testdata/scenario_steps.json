@@ -446,7 +446,8 @@
           "detectors": [],
           "updated_at": "2026-02-01T00:00:00.000000+00:00",
           "violated_by": "F-aaaaaaaaaaaa",
-          "verified_by": "OTH-fixed001"
+          "verified_by": "OTH-fixed001",
+          "verification_method": "operator-attestation"
         },
         "INV-3": {
           "statement": "only the owner may pause",
@@ -532,7 +533,8 @@
           "detectors": [],
           "updated_at": "2026-02-01T00:00:00.000000+00:00",
           "violated_by": "F-aaaaaaaaaaaa",
-          "verified_by": "OTH-fixed001"
+          "verified_by": "OTH-fixed001",
+          "verification_method": "operator-attestation"
         },
         "INV-3": {
           "statement": "only the owner may pause",
@@ -618,7 +620,8 @@
           "detectors": [],
           "updated_at": "2026-02-01T00:00:00.000000+00:00",
           "violated_by": "F-aaaaaaaaaaaa",
-          "verified_by": "OTH-fixed001"
+          "verified_by": "OTH-fixed001",
+          "verification_method": "operator-attestation"
         },
         "INV-3": {
           "statement": "only the owner may pause",
@@ -635,7 +638,8 @@
           "tests": [],
           "detectors": [],
           "updated_at": "2026-02-01T00:00:00.000000+00:00",
-          "verified_by": "OTH-fixed001"
+          "verified_by": "OTH-fixed001",
+          "verification_method": "operator-attestation"
         },
         "INV-4": {
           "statement": "LIVENESS: every modeled state machine must be able to advance to its terminal/finalized state; no reachable state may permanently block finalize/withdraw/challenge/claim. Machines: rollup, vault",
@@ -705,7 +709,8 @@
           "detectors": [],
           "updated_at": "2026-02-01T00:00:00.000000+00:00",
           "violated_by": "F-aaaaaaaaaaaa",
-          "verified_by": "OTH-fixed001"
+          "verified_by": "OTH-fixed001",
+          "verification_method": "operator-attestation"
         },
         "INV-3": {
           "statement": "only the owner may pause",
@@ -722,7 +727,8 @@
           "tests": [],
           "detectors": [],
           "updated_at": "2026-02-01T00:00:00.000000+00:00",
-          "verified_by": "OTH-fixed002"
+          "verified_by": "OTH-fixed002",
+          "verification_method": "operator-attestation"
         },
         "INV-4": {
           "statement": "LIVENESS: every modeled state machine must be able to advance to its terminal/finalized state; no reachable state may permanently block finalize/withdraw/challenge/claim. Machines: rollup, vault",
@@ -792,7 +798,8 @@
           "detectors": [],
           "updated_at": "2026-02-01T00:00:00.000000+00:00",
           "violated_by": "F-aaaaaaaaaaaa",
-          "verified_by": "OTH-fixed001"
+          "verified_by": "OTH-fixed001",
+          "verification_method": "operator-attestation"
         },
         "INV-3": {
           "statement": "only the owner may pause",
@@ -809,6 +816,7 @@
           "tests": [],
           "detectors": [],
           "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "verification_method": "operator-attestation",
           "contradiction": "src/V.sol#L1"
         },
         "INV-4": {
@@ -879,7 +887,8 @@
           "detectors": [],
           "updated_at": "2026-02-01T00:00:00.000000+00:00",
           "violated_by": "F-aaaaaaaaaaaa",
-          "verified_by": "OTH-fixed001"
+          "verified_by": "OTH-fixed001",
+          "verification_method": "operator-attestation"
         },
         "INV-3": {
           "statement": "only the owner may pause",
@@ -896,6 +905,7 @@
           "tests": [],
           "detectors": [],
           "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "verification_method": "operator-attestation",
           "contradiction": "src/V.sol#L1"
         },
         "INV-4": {
@@ -956,7 +966,8 @@
           "detectors": [],
           "updated_at": "2026-02-01T00:00:00.000000+00:00",
           "violated_by": "F-aaaaaaaaaaaa",
-          "verified_by": "OTH-fixed001"
+          "verified_by": "OTH-fixed001",
+          "verification_method": "operator-attestation"
         },
         "INV-3": {
           "statement": "only the owner may pause",
@@ -973,6 +984,7 @@
           "tests": [],
           "detectors": [],
           "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "verification_method": "operator-attestation",
           "contradiction": "src/V.sol#L1"
         },
         "INV-4": {
@@ -1035,7 +1047,8 @@
           "detectors": [],
           "updated_at": "2026-02-01T00:00:00.000000+00:00",
           "violated_by": "F-aaaaaaaaaaaa",
-          "verified_by": "OTH-fixed001"
+          "verified_by": "OTH-fixed001",
+          "verification_method": "operator-attestation"
         },
         "INV-3": {
           "statement": "only the owner may pause",
@@ -1052,6 +1065,7 @@
           "tests": [],
           "detectors": [],
           "updated_at": "2026-02-01T00:00:00.000000+00:00",
+          "verification_method": "operator-attestation",
           "contradiction": "src/V.sol#L1"
         },
         "INV-4": {
