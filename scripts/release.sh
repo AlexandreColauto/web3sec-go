@@ -153,4 +153,7 @@ echo "binary: $BIN"
 echo "sha256: $SHA"
 echo "size:   $SIZE bytes ($HUMAN)"
 echo
+# T13A: strict release gate — a missing or failing dependency scan must stop
+# the release before it is declared (scripts/security-check.sh, no arguments).
+bash "$SCRIPT_DIR/security-check.sh" || fail "security scan"
 echo "RELEASE OK: static single binary, embedded assets served, standalone walkthrough clean"
