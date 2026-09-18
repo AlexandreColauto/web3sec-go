@@ -7,6 +7,11 @@
 # into a scratch bin directory. Stub scanners are harmless local shell
 # scripts. No live scan, no network call, no dependency installation.
 #
+# One optional case (8) runs the REAL scanner inside an empty network
+# namespace: it makes no network call by construction, it is the only case
+# that touches a real scan, and it SKIPs with a printed reason when the scanner
+# or `unshare -rn` is unavailable.
+#
 # Scratch state lives in a single mktemp -d directory that is removed by an
 # EXIT trap; nothing outside it is touched.
 #
@@ -24,6 +29,8 @@ ENV_BIN="$(command -v env)"         || { echo "security-check-test: env not foun
 LN_BIN="$(command -v ln)"           || { echo "security-check-test: ln not found" >&2; exit 1; }
 MKDIR_BIN="$(command -v mkdir)"     || { echo "security-check-test: mkdir not found" >&2; exit 1; }
 CHMOD_BIN="$(command -v chmod)"     || { echo "security-check-test: chmod not found" >&2; exit 1; }
+# Optional, used only by the guarded real-scanner case 8.
+GO_BIN="$(command -v go || true)"
 
 SCRIPT_DIR="$(cd "$("$DIRNAME_BIN" "${BASH_SOURCE[0]}")" && pwd)" || exit 1
 CHECK="$SCRIPT_DIR/security-check.sh"
@@ -64,6 +71,9 @@ assert_not_invoked() { # desc
     ok "$1"
   fi
 }
+assert_nonzero() { # desc, status
+  if [ "$2" -ne 0 ] 2>/dev/null; then ok "$1 [$2]"; else no "$1: expected nonzero, got [$2]"; fi
+}
 read_log() { # $1 = log path; empty when the stub never wrote it
   if [ -e "$1" ]; then printf '%s' "$(<"$1")"; fi
 }
@@ -71,6 +81,9 @@ read_log() { # $1 = log path; empty when the stub never wrote it
 STATUS=0
 OUT=""
 STUB_MSG=""
+# Reported by `govulncheck -version` in the version-aware stub: a DB block, an
+# empty block, or whatever the case needs.
+STUB_VERSION_BLOCK=""
 ARGV_LOG="$TMP/argv.log"
 PWD_LOG="$TMP/pwd.log"
 ENV_LOG="$TMP/env.log"
@@ -82,6 +95,7 @@ run_check() { # $1 = child PATH, remaining args = gate arguments
   "$RM_BIN" -f "$ARGV_LOG" "$PWD_LOG" "$ENV_LOG"
   local status=0
   OUT="$("$ENV_BIN" -i PATH="$pathv" STUB_MSG="$STUB_MSG" \
+        STUB_VERSION_BLOCK="$STUB_VERSION_BLOCK" \
         STUB_ARGV_LOG="$ARGV_LOG" STUB_PWD_LOG="$PWD_LOG" STUB_ENV_LOG="$ENV_LOG" \
         "${ENV_ARGS[@]}" \
         "$BASH_BIN" "$CHECK" "$@" 2>&1)" || status=$?
@@ -98,6 +112,29 @@ make_stub() { # $1 = dir, $2 = exit status
     printf '%s\n' 'printf "GOCACHE=%s\n" "${GOCACHE:-<unset>}" > "$STUB_ENV_LOG"'
     printf '%s\n' 'printf "GOPATH=%s\n" "${GOPATH:-<unset>}" >> "$STUB_ENV_LOG"'
     printf '%s\n' 'printf "GOMODCACHE=%s\n" "${GOMODCACHE:-<unset>}" >> "$STUB_ENV_LOG"'
+    printf '%s\n' 'printf "%s\n" "$STUB_MSG"'
+    printf 'exit %s\n' "$st"
+  } > "$d/govulncheck"
+  "$CHMOD_BIN" +x "$d/govulncheck"
+}
+
+# A stub that answers `-version` with $STUB_VERSION_BLOCK (like the real
+# govulncheck, which prints the DB block and exits 0 before scanning) and the
+# scan invocation with $STUB_MSG plus the given status.
+make_version_stub() { # $1 = dir, $2 = scan exit status
+  local d="$1" st="$2"
+  "$MKDIR_BIN" -p "$d"
+  {
+    printf '#!%s\n' "$BASH_BIN"
+    printf '%s\n' 'printf "%s\n" "$*" > "$STUB_ARGV_LOG"'
+    printf '%s\n' 'pwd > "$STUB_PWD_LOG"'
+    printf '%s\n' 'printf "GOCACHE=%s\n" "${GOCACHE:-<unset>}" > "$STUB_ENV_LOG"'
+    printf '%s\n' 'printf "GOPATH=%s\n" "${GOPATH:-<unset>}" >> "$STUB_ENV_LOG"'
+    printf '%s\n' 'printf "GOMODCACHE=%s\n" "${GOMODCACHE:-<unset>}" >> "$STUB_ENV_LOG"'
+    printf '%s\n' 'if [ "${1:-}" = "-version" ]; then'
+    printf '%s\n' '  printf "%s\n" "${STUB_VERSION_BLOCK:-}"'
+    printf '%s\n' '  exit 0'
+    printf '%s\n' 'fi'
     printf '%s\n' 'printf "%s\n" "$STUB_MSG"'
     printf 'exit %s\n' "$st"
   } > "$d/govulncheck"
@@ -135,6 +172,46 @@ assert_has "3 stub exit 0: GOPATH forced to repo .scratch" \
   "$(read_log "$ENV_LOG")" "GOPATH=$ROOT/.scratch/gomod"
 assert_has "3 stub exit 0: GOMODCACHE forced to repo .scratch" \
   "$(read_log "$ENV_LOG")" "GOMODCACHE=$ROOT/.scratch/gomod/pkg/mod"
+# A scanner that reports no DB provenance must produce the explicit
+# "unavailable" line, never an invented date.
+assert_has "3 stub exit 0: provenance line is present" \
+  "$OUT" "security-check: advisory DB provenance unavailable (scanner did not report it)"
+assert_lacks "3 stub exit 0: no fabricated DB date" "$OUT" "as-of"
+
+# --- 3c. the scanner's own DB provenance is printed verbatim -----------------
+# govulncheck -version prints a DB block ("DB: <url>", "DB updated: <ts>")
+# before scanning. The gate must repeat it on the scan path, so an archived
+# PASS is dated to the advisory DB it used.
+make_version_stub "$TMP/stub-version" 0
+STUB_PATH="$TMP/stub-version:$SAFE_BIN"
+STUB_MSG="No vulnerabilities found."
+STUB_VERSION_BLOCK="Go: go1.26.6
+Scanner: govulncheck@v1.8.0
+DB: https://vuln.go.dev
+DB updated: 2026-09-16 18:00:43 +0000 UTC"
+run_check "$STUB_PATH"
+assert_eq "3c provenance stub: exit status" "$STATUS" "0"
+assert_has "3c provenance stub: PASS" "$OUT" "security-check: PASS"
+assert_has "3c provenance stub: DB source and timestamp reported" \
+  "$OUT" "security-check: advisory DB https://vuln.go.dev as-of 2026-09-16 18:00:43 +0000 UTC"
+assert_lacks "3c provenance stub: no unavailable line when reported" \
+  "$OUT" "provenance unavailable"
+assert_has "3c provenance stub: scan still runs with ./..." \
+  "$OUT" "No vulnerabilities found."
+
+# --- 3d. a scanner whose DB block carries no timestamp -----------------------
+# govulncheck omits "DB updated" when the metadata fetch fails (offline). The
+# gate must then say so instead of reusing a remembered date.
+STUB_VERSION_BLOCK="Go: go1.26.6
+Scanner: govulncheck@v1.8.0
+DB: https://vuln.go.dev"
+run_check "$STUB_PATH"
+assert_eq "3d provenance without timestamp: exit status" "$STATUS" "0"
+assert_has "3d provenance without timestamp: unavailable line" \
+  "$OUT" "security-check: advisory DB provenance unavailable (scanner did not report it)"
+assert_lacks "3d provenance without timestamp: no as-of claim" "$OUT" "as-of"
+assert_lacks "3d provenance without timestamp: no fabricated date" "$OUT" "2026-"
+STUB_VERSION_BLOCK=""
 
 # --- 3b. an inherited/preset Go cache env is OVERRIDDEN (mutation check) -----
 # The repo caches are plain exports, never `${VAR:-...}` defaults. A default
@@ -175,7 +252,30 @@ assert_has "4 stub exit 1 --development: INCOMPLETE or findings line" \
 assert_has "4 stub exit 1 --development: scanner message preserved" "$OUT" "GO-2024-0001"
 assert_lacks "4 stub exit 1 --development: never PASS" "$OUT" "PASS"
 
+# --- 4b. stub scanner exit 3 = govulncheck's "vulnerabilities found" ---------
+# Exit status 3 is the scanner's own findings contract (x/vuln
+# internal/scan/errors.go errVulnerabilitiesFound; reproduced against a
+# known-vulnerable module). The gate may name that failure, and must still
+# fail: naming a findings failure is not a pass.
+make_stub "$TMP/stub-vulns" 3
+STUB_PATH="$TMP/stub-vulns:$SAFE_BIN"
+STUB_MSG="Vulnerability #1: GO-2025-3553 (example finding)"
+run_check "$STUB_PATH"
+assert_eq "4b findings exit 3: exit status preserved" "$STATUS" "3"
+assert_has "4b findings exit 3: classified as findings" \
+  "$OUT" "security-check: scan failed on findings (scanner exit status 3: vulnerabilities found), not on infrastructure"
+assert_has "4b findings exit 3: INCOMPLETE or findings line" \
+  "$OUT" "security-check: INCOMPLETE or findings (scanner failed)"
+assert_lacks "4b findings exit 3: never PASS" "$OUT" "PASS"
+assert_lacks "4b findings exit 3: not misreported as a DB failure" \
+  "$OUT" "scan failed on the advisory DB"
+run_check "$STUB_PATH" --development
+assert_eq "4b findings exit 3 --development: exit status preserved" "$STATUS" "3"
+assert_lacks "4b findings exit 3 --development: never PASS" "$OUT" "PASS"
+
 # --- 5. stub scanner exit 7 with a network-unavailable message --------------
+# An unclassified nonzero status keeps the generic line only: the gate does not
+# guess whether a status it cannot attribute came from the network.
 make_stub "$TMP/stub-network" 7
 STUB_PATH="$TMP/stub-network:$SAFE_BIN"
 STUB_MSG="govulncheck: network unavailable: dial tcp: lookup vuln.go.dev: no such host"
@@ -185,12 +285,46 @@ assert_has "5 stub exit 7 strict: INCOMPLETE or findings line" \
   "$OUT" "security-check: INCOMPLETE or findings (scanner failed)"
 assert_has "5 stub exit 7 strict: scanner message preserved" "$OUT" "network unavailable"
 assert_lacks "5 stub exit 7 strict: never PASS" "$OUT" "PASS"
+assert_lacks "5 stub exit 7 strict: unattributable failure is not classified" \
+  "$OUT" "scan failed on the advisory DB"
 run_check "$STUB_PATH" --development
 assert_eq "5 stub exit 7 --development: exit status preserved" "$STATUS" "7"
 assert_has "5 stub exit 7 --development: INCOMPLETE or findings line" \
   "$OUT" "security-check: INCOMPLETE or findings (scanner failed)"
 assert_has "5 stub exit 7 --development: scanner message preserved" "$OUT" "network unavailable"
 assert_lacks "5 stub exit 7 --development: never PASS" "$OUT" "PASS"
+
+# --- 5b. hermetic offline: no DB reachable, no cached DB ---------------------
+# The real offline signature (probed with `unshare -rn`): govulncheck cannot
+# fetch index/modules.json.gz, prints its own "fetching vulnerabilities:"
+# wrapper and exits 1. No DB block, so no timestamp — the gate must report
+# provenance unavailable AND classify the failure as a DB/network failure,
+# while the forced repo-local caches keep the run from failing on $HOME.
+# HOME and XDG_CACHE_HOME point at a nonexistent path on purpose: there is no
+# local vulndb to fall back to, which is exactly the offline case.
+make_version_stub "$TMP/stub-offline" 1
+STUB_PATH="$TMP/stub-offline:$SAFE_BIN"
+STUB_VERSION_BLOCK=""
+STUB_MSG='govulncheck: fetching vulnerabilities: Get "https://vuln.go.dev/index/modules.json.gz": dial tcp 34.117.213.18:443: connect: network is unreachable'
+ENV_ARGS=(HOME=/nonexistent XDG_CACHE_HOME=/nonexistent)
+run_check "$STUB_PATH"
+assert_eq "5b offline, no cached DB: exit status preserved" "$STATUS" "1"
+assert_has "5b offline, no cached DB: provenance unavailable" \
+  "$OUT" "security-check: advisory DB provenance unavailable (scanner did not report it)"
+assert_has "5b offline, no cached DB: classified as a DB/network failure" \
+  "$OUT" "security-check: scan failed on the advisory DB (fetch/network failure), not on findings: no finding was evaluated"
+assert_has "5b offline, no cached DB: INCOMPLETE line" \
+  "$OUT" "security-check: INCOMPLETE or findings (scanner failed)"
+assert_lacks "5b offline, no cached DB: never PASS" "$OUT" "PASS"
+assert_lacks "5b offline, no cached DB: not misreported as findings" \
+  "$OUT" "scan failed on findings"
+assert_has "5b offline, no cached DB: GOCACHE still repo-local" \
+  "$(read_log "$ENV_LOG")" "GOCACHE=$ROOT/.scratch/gocache"
+assert_has "5b offline, no cached DB: GOPATH still repo-local" \
+  "$(read_log "$ENV_LOG")" "GOPATH=$ROOT/.scratch/gomod"
+assert_has "5b offline, no cached DB: GOMODCACHE still repo-local" \
+  "$(read_log "$ENV_LOG")" "GOMODCACHE=$ROOT/.scratch/gomod/pkg/mod"
+ENV_ARGS=()
 
 # --- 6. argument handling: unknown or extra arguments -----------------------
 # A working stub stays on PATH, so an invocation would be recorded: the
@@ -236,6 +370,60 @@ assert_eq "7 stub exit 0, HOME=/nonexistent: exit status" "$STATUS" "0"
 assert_has "7 stub exit 0, HOME=/nonexistent: repo-local GOCACHE" \
   "$(read_log "$ENV_LOG")" "GOCACHE=$ROOT/.scratch/gocache"
 ENV_ARGS=()
+
+# --- 8. real scanner in an empty network namespace (optional, guarded) -------
+# The only case that runs the real scanner: it proves the fail-closed law holds
+# when the advisory DB cannot be reached at all, WITH the forced repo-local
+# caches in place — a missing DB is a gate failure, not something a cache can
+# paper over. No network call is made by construction (the namespace has no
+# route), and the case SKIPs with a printed reason when the scanner or
+# `unshare -rn` is unavailable.
+REAL_SCANNER="$ROOT/.scratch/gomod/bin/govulncheck"
+UNSHARE_BIN="$(command -v unshare || true)"
+TIMEOUT_BIN="$(command -v timeout || true)"
+# govulncheck shells out to `go`, and a version-manager shim on PATH may itself
+# need the network: prefer the real toolchain binary behind GOROOT. Without it
+# the offline run fails before the DB fetch (still fail-closed, but it proves
+# nothing about the DB path), so the classification is then not asserted.
+GOROOT_DIR=""
+if [ -n "$GO_BIN" ]; then GOROOT_DIR="$("$GO_BIN" env GOROOT 2>/dev/null || true)"; fi
+REAL_GO_DIR=""
+if [ -n "$GOROOT_DIR" ] && [ -x "$GOROOT_DIR/bin/go" ]; then REAL_GO_DIR="$GOROOT_DIR/bin"; fi
+if [ ! -x "$REAL_SCANNER" ]; then
+  printf 'skip - 8 real scanner offline: no scanner at %s\n' "$REAL_SCANNER"
+elif [ -z "$UNSHARE_BIN" ] || ! "$UNSHARE_BIN" -rn true 2>/dev/null; then
+  printf 'skip - 8 real scanner offline: unshare -rn is unavailable here\n'
+else
+  NET_BIN="$TMP/net-bin"
+  "$MKDIR_BIN" -p "$NET_BIN"
+  "$LN_BIN" -s "$REAL_SCANNER" "$NET_BIN/govulncheck"
+  "$LN_BIN" -s "$DIRNAME_BIN" "$NET_BIN/dirname"
+  NET_PATH="$NET_BIN"
+  if [ -n "$REAL_GO_DIR" ]; then NET_PATH="$NET_BIN:$REAL_GO_DIR"; fi
+  NET_STATUS=0
+  if [ -n "$TIMEOUT_BIN" ]; then
+    OUT="$("$TIMEOUT_BIN" 300 "$UNSHARE_BIN" -rn "$ENV_BIN" -i PATH="$NET_PATH" \
+          "$BASH_BIN" "$CHECK" 2>&1)" || NET_STATUS=$?
+  else
+    OUT="$("$UNSHARE_BIN" -rn "$ENV_BIN" -i PATH="$NET_PATH" \
+          "$BASH_BIN" "$CHECK" 2>&1)" || NET_STATUS=$?
+  fi
+  STATUS="$NET_STATUS"
+  assert_nonzero "8 real scanner offline: gate fails closed" "$STATUS"
+  assert_lacks "8 real scanner offline: never PASS" "$OUT" "PASS"
+  assert_has "8 real scanner offline: INCOMPLETE line" \
+    "$OUT" "security-check: INCOMPLETE or findings (scanner failed)"
+  if [ -n "$REAL_GO_DIR" ]; then
+    assert_has "8 real scanner offline: provenance unavailable, no invented date" \
+      "$OUT" "security-check: advisory DB provenance unavailable (scanner did not report it)"
+    assert_has "8 real scanner offline: classified as a DB/network failure" \
+      "$OUT" "security-check: scan failed on the advisory DB"
+    assert_lacks "8 real scanner offline: not misreported as findings" \
+      "$OUT" "scan failed on findings"
+  else
+    printf 'note - 8 real scanner offline: no real toolchain behind GOROOT; DB classification not asserted\n'
+  fi
+fi
 
 # --- summary ----------------------------------------------------------------
 printf '\n%s\n' "----------------------------------------"

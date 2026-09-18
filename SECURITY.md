@@ -101,6 +101,22 @@ A token match never creates a mechanically verified outcome.
   scanner failures keep the scanner's nonzero status; nothing is ever reported
   as PASS without a successful scan. `--development` may skip *only* a missing
   scanner, and says so.
+- **Freshness: a PASS is as-of a printed timestamp.** Every run prints the
+  advisory-DB provenance the scanner itself reports —
+  `security-check: advisory DB <source> as-of <timestamp>` — taken from
+  `govulncheck -version` before the scan, so it is a conservative (never newer)
+  statement of the DB the scan used. If the scanner reports no timestamp
+  (offline, or a scanner without `-version`) the gate prints
+  `security-check: advisory DB provenance unavailable (scanner did not report
+  it)` and never invents a date. govulncheck keeps **no on-disk vulnerability
+  database** in the version verified here (v1.8.0: a fresh `$HOME`, a fresh
+  `XDG_CACHE_HOME` and a read-only `$HOME` all behave identically), so a PASS
+  cannot silently reuse a stale local DB — but it also cannot stay valid: an
+  archived PASS is only as good as its timestamp. **Re-run the scan at release
+  time on the release host**; `scripts/release.sh` does exactly that as its
+  final strict step. A scanner failure is classified from the scanner's own
+  report (`scan failed on the advisory DB (fetch/network failure)` vs
+  `scan failed on findings`), and classification never softens the verdict.
 - **What PASS means:** `govulncheck` exited 0, i.e. **no known vulnerability
   reachable by a CALLED symbol**. Import-level and require-level advisories that
   are not called are reported but do not fail the gate. PASS is **not** a claim
