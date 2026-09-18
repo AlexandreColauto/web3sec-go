@@ -35,7 +35,16 @@ import (
 // gives up loudly. Log/save windows are milliseconds; five seconds is
 // orders of magnitude beyond any honest hold, so a timeout means a real
 // stuck or hostile holder — retry beats hang.
-const lockBudget = 5 * time.Second
+//
+// It is a var rather than a const for exactly one reason: a lock is held
+// until the holder RELEASES it, and a worker that exits right after its
+// last write releases only at process teardown. Under -race that
+// teardown costs ~1s per process (measured, see
+// processlock_racebudget_test.go), so in a -race test build the budget —
+// not the lock hold — is what runs out first. The -race test harness
+// scales it up; nothing in production ever assigns it, so a shipped
+// binary always waits exactly five seconds.
+var lockBudget = 5 * time.Second
 
 type processLock struct {
 	mu    sync.Mutex
