@@ -11,6 +11,7 @@ campaign or the real benchmark.
 Run: python3 scripts/eval_gold_test.py
      python3 -m unittest scripts.eval_gold_test
 """
+
 import hashlib
 import json
 import shutil
@@ -25,39 +26,53 @@ SCORER = ROOT / "scripts" / "eval-gold.py"
 
 # --- synthetic benchmark (same schema as the real gold-findings.json) --------
 
-PASS_TEXT = ("G-01 found at CONFIRMED with E4+ evidence (or HYPOTHESIS/INVESTIGATING "
-             "with the correct root cause named and a working PoC draft)")
+PASS_TEXT = (
+    "G-01 found at CONFIRMED with E4+ evidence (or HYPOTHESIS/INVESTIGATING "
+    "with the correct root cause named and a working PoC draft)"
+)
 BONUS_TEXT = "G-02 also found"
-BUDGET_TEXT = ("count all other CONFIRMED findings; a submission-ready report that "
-               "includes G-01 but buries it under 10+ FPs is a partial result")
+BUDGET_TEXT = (
+    "count all other CONFIRMED findings; a submission-ready report that "
+    "includes G-01 but buries it under 10+ FPs is a partial result"
+)
 
-G01_CRITERIA = ("A finding counts as FOUND if it identifies that prevStateRoot is not verified when a "
-                "batch is committed - the real check lives in finalizeBatch - so a sequencer can commit a "
-                "batch with a fake previous state root that can never be finalized and the whole chain is "
-                "frozen (liveness loss).")
-G02_CRITERIA = ("A finding counts as FOUND if it identifies that onDropMessage calls safeTransfer instead "
-                "of mint on the reverse custom gateway, where the token was burned at deposit time so the "
-                "gateway holds no balance, and failed deposits are therefore unrecoverable.")
+G01_CRITERIA = (
+    "A finding counts as FOUND if it identifies that prevStateRoot is not verified when a "
+    "batch is committed - the real check lives in finalizeBatch - so a sequencer can commit a "
+    "batch with a fake previous state root that can never be finalized and the whole chain is "
+    "frozen (liveness loss)."
+)
+G02_CRITERIA = (
+    "A finding counts as FOUND if it identifies that onDropMessage calls safeTransfer instead "
+    "of mint on the reverse custom gateway, where the token was burned at deposit time so the "
+    "gateway holds no balance, and failed deposits are therefore unrecoverable."
+)
 
 G01_FINDING = {
     "title": "prevStateRoot is not validated at commit time (chain freeze)",
-    "description": ("commitBatch only checks that prevStateRoot is non-zero; the real check is in "
-                    "finalizeBatch, so a sequencer can commit a batch with a fake previous state root and "
-                    "win the challenge with a valid proof from that fake root, and the batch can never be "
-                    "finalized - the whole chain freezes (liveness loss)."),
+    "description": (
+        "commitBatch only checks that prevStateRoot is non-zero; the real check is in "
+        "finalizeBatch, so a sequencer can commit a batch with a fake previous state root and "
+        "win the challenge with a valid proof from that fake root, and the batch can never be "
+        "finalized - the whole chain freezes (liveness loss)."
+    ),
     "function": "commitBatch",
 }
 G02_FINDING = {
     "title": "onDropMessage uses safeTransfer instead of mint for failed deposits",
-    "description": ("onDropMessage calls safeTransfer for the reverse custom gateway's token, but that "
-                    "token was burned at deposit time so the gateway holds no balance; it must mint as "
-                    "finalizeWithdrawERC20 does, so failed deposits are unrecoverable."),
+    "description": (
+        "onDropMessage calls safeTransfer for the reverse custom gateway's token, but that "
+        "token was burned at deposit time so the gateway holds no balance; it must mint as "
+        "finalizeWithdrawERC20 does, so failed deposits are unrecoverable."
+    ),
     "function": "onDropMessage",
 }
 FP_FINDING = {
     "title": "Reentrancy in Vault.withdraw drains balances",
-    "description": ("withdraw credits the caller before the external call returns, so a reentrant caller "
-                    "can drain the vault."),
+    "description": (
+        "withdraw credits the caller before the external call returns, so a reentrant caller "
+        "can drain the vault."
+    ),
     "function": "withdraw",
 }
 
@@ -66,15 +81,26 @@ def benchmark(path, *, budget_text=BUDGET_TEXT, pass_text=PASS_TEXT):
     """Write a synthetic benchmark file in the real gold-findings.json schema."""
     doc = {
         "gold_findings": [
-            {"gold_id": "G-01", "bug_class_accept": ["dos-griefing", "logic-error"],
-             "match_criteria": G01_CRITERIA, "expected_severity": "critical",
-             "primary_functions": ["commitBatch", "finalizeBatch"]},
-            {"gold_id": "G-02", "bug_class_accept": ["logic-error", "token-integration"],
-             "match_criteria": G02_CRITERIA, "expected_severity": "high",
-             "primary_functions": ["onDropMessage", "finalizeWithdrawERC20"]},
+            {
+                "gold_id": "G-01",
+                "bug_class_accept": ["dos-griefing", "logic-error"],
+                "match_criteria": G01_CRITERIA,
+                "expected_severity": "critical",
+                "primary_functions": ["commitBatch", "finalizeBatch"],
+            },
+            {
+                "gold_id": "G-02",
+                "bug_class_accept": ["logic-error", "token-integration"],
+                "match_criteria": G02_CRITERIA,
+                "expected_severity": "high",
+                "primary_functions": ["onDropMessage", "finalizeWithdrawERC20"],
+            },
         ],
-        "scoring": {"pass": pass_text, "bonus": BONUS_TEXT,
-                    "false_positive_budget": budget_text},
+        "scoring": {
+            "pass": pass_text,
+            "bonus": BONUS_TEXT,
+            "false_positive_budget": budget_text,
+        },
     }
     Path(path).write_text(json.dumps(doc))
     return Path(path)
@@ -92,16 +118,39 @@ def finding(fid, status, text, *, level="E4", reproduced=False):
         "root_cause": {"class": "logic-error", "description": text["description"]},
         "affected": [{"path": "src/Vault.sol", "function": text["function"]}],
         "attacker": {"profile": "arbitrary EOA", "capabilities": []},
-        "evidence": ([{"evidence_id": "EV-1", "level": level, "type": "foundry-test",
-                       "artifact_id": "EXEC-1", "description": "sandboxed PoC"}] if level else []),
-        "risk": {}, "dedup": {}, "history": [],
-        "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z",
+        "evidence": (
+            [
+                {
+                    "evidence_id": "EV-1",
+                    "level": level,
+                    "type": "foundry-test",
+                    "artifact_id": "EXEC-1",
+                    "description": "sandboxed PoC",
+                }
+            ]
+            if level
+            else []
+        ),
+        "risk": {},
+        "dedup": {},
+        "history": [],
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
     }
     if reproduced:
-        f["verification"] = {"reproduction": {"tier_reached": "T2", "status": "reproduced",
-                                              "attempts": [{"attempt_id": "ATT-1",
-                                                            "outcome": "reproduced",
-                                                            "artifact_id": "EXEC-1"}]}}
+        f["verification"] = {
+            "reproduction": {
+                "tier_reached": "T2",
+                "status": "reproduced",
+                "attempts": [
+                    {
+                        "attempt_id": "ATT-1",
+                        "outcome": "reproduced",
+                        "artifact_id": "EXEC-1",
+                    }
+                ],
+            }
+        }
     return f
 
 
@@ -113,7 +162,8 @@ def campaign(findings=(), events=("campaign.init",)):
     for f in findings:
         (fdir / (f["finding_id"] + ".json")).write_text(json.dumps(f))
     (d / "events.jsonl").write_text(
-        "".join(json.dumps({"seq": i, "event": e}) + "\n" for i, e in enumerate(events)))
+        "".join(json.dumps({"seq": i, "event": e}) + "\n" for i, e in enumerate(events))
+    )
     return d
 
 
@@ -136,8 +186,14 @@ def run_scorer_raw(camp, bench, confirm=()):
 
 def run_scorer(camp, bench=None, confirm=()):
     """Parsed stdout of a scoring run; fails loudly on a non-zero exit."""
-    cmd = [sys.executable, str(SCORER), "--gold", str(bench or BENCH),
-           "--campaign", str(camp)]
+    cmd = [
+        sys.executable,
+        str(SCORER),
+        "--gold",
+        str(bench or BENCH),
+        "--campaign",
+        str(camp),
+    ]
     for c in confirm:
         cmd += ["--confirm", c]
     p = subprocess.run(cmd, capture_output=True, text=True)
@@ -196,7 +252,7 @@ class TestGoldScorer(unittest.TestCase):
     def test_g01_confirmed_scores_pass_pending_confirmation(self):
         out = run_scorer(FIXTURE_CAMPAIGN_G01)
         self.assertEqual(out["found"], ["G-01"])
-        self.assertTrue(out["pass"])                       # pass is independent of confirmation
+        self.assertTrue(out["pass"])  # pass is independent of confirmation
         self.assertEqual(out["verdict"], "PASS")
         self.assertFalse(out["operator_confirmed"]["G-01"])
         self.assertIn("operator semantic confirmation pending", out["verdict_note"])
@@ -231,9 +287,19 @@ class TestGoldScorer(unittest.TestCase):
 
     def test_stdout_is_exactly_the_pinned_schema(self):
         out = run_scorer(FIXTURE_CAMPAIGN_G01)
-        self.assertEqual(set(out), {"found", "missed", "false_positives", "pass",
-                                    "bonus", "verdict", "verdict_note",
-                                    "operator_confirmed"})
+        self.assertEqual(
+            set(out),
+            {
+                "found",
+                "missed",
+                "false_positives",
+                "pass",
+                "bonus",
+                "verdict",
+                "verdict_note",
+                "operator_confirmed",
+            },
+        )
         self.assertIsInstance(out["found"], list)
         self.assertIsInstance(out["missed"], list)
         self.assertIsInstance(out["false_positives"], int)
@@ -262,23 +328,29 @@ class TestGoldScorer(unittest.TestCase):
         self.assertEqual(out["false_positives"], 0)
 
     def test_bonus_short_circuits_the_fp_budget(self):
-        camp = campaign([g01(), finding("F-000000000002", "CONFIRMED", G02_FINDING)]
-                        + fps(10))
+        camp = campaign(
+            [g01(), finding("F-000000000002", "CONFIRMED", G02_FINDING)] + fps(10)
+        )
         out = run_scorer(camp, confirm=["G-01", "G-02"])
         self.assertEqual(out["found"], ["G-01", "G-02"])
-        self.assertEqual(out["false_positives"], 10)      # at the budget, still bonus
+        self.assertEqual(out["false_positives"], 10)  # at the budget, still bonus
         self.assertTrue(out["bonus"])
         self.assertEqual(out["verdict"], "PASS_WITH_BONUS")
-        self.assertEqual(out["verdict_note"], "")         # no partial-result note
+        self.assertEqual(out["verdict_note"], "")  # no partial-result note
 
     def test_matched_finding_is_not_a_false_positive(self):
         out = run_scorer(FIXTURE_CAMPAIGN_G01)
         self.assertEqual(out["false_positives"], 0)
 
     def test_false_positives_count_only_confirmed_findings(self):
-        camp = campaign([g01()] + fps(3)
-                        + [finding("F-000000000009", "HYPOTHESIS", FP_FINDING),
-                           finding("F-000000000010", "DISPROVED", FP_FINDING)])
+        camp = campaign(
+            [g01()]
+            + fps(3)
+            + [
+                finding("F-000000000009", "HYPOTHESIS", FP_FINDING),
+                finding("F-000000000010", "DISPROVED", FP_FINDING),
+            ]
+        )
         out = run_scorer(camp)
         self.assertEqual(out["false_positives"], 3)
 
@@ -287,7 +359,7 @@ class TestGoldScorer(unittest.TestCase):
         out = run_scorer(camp)
         self.assertEqual(out["found"], [])
         self.assertFalse(out["pass"])
-        self.assertEqual(out["false_positives"], 0)   # it matches a gold's criteria
+        self.assertEqual(out["false_positives"], 0)  # it matches a gold's criteria
 
     def test_hypothesis_with_working_poc_counts_as_found(self):
         camp = campaign([g01(status="HYPOTHESIS", reproduced=True)])
@@ -300,10 +372,14 @@ class TestGoldScorer(unittest.TestCase):
         self.assertEqual(out["found"], [])
 
     def test_fp_budget_boundary_comes_from_the_benchmark_string(self):
-        bench = benchmark(TMPROOT / "bench-budget-5.json",
-                          budget_text="buries it under 5+ FPs is a partial result")
-        self.assertEqual(run_scorer(campaign([g01()] + fps(4)), bench)["verdict"], "PASS")
-        at = run_scorer(campaign([g01()] + fps(5)), bench)   # exactly the budget
+        bench = benchmark(
+            TMPROOT / "bench-budget-5.json",
+            budget_text="buries it under 5+ FPs is a partial result",
+        )
+        self.assertEqual(
+            run_scorer(campaign([g01()] + fps(4)), bench)["verdict"], "PASS"
+        )
+        at = run_scorer(campaign([g01()] + fps(5)), bench)  # exactly the budget
         self.assertEqual(at["false_positives"], 5)
         self.assertEqual(at["verdict"], "PARTIAL_RESULT")
         over = run_scorer(campaign([g01()] + fps(6)), bench)
@@ -385,8 +461,9 @@ class TestGoldScorer(unittest.TestCase):
         self.assertNotIn("Traceback", err)
 
     def test_unreadable_budget_exits_cleanly(self):
-        bench = benchmark(TMPROOT / "bench-no-budget.json",
-                          budget_text="no number here")
+        bench = benchmark(
+            TMPROOT / "bench-no-budget.json", budget_text="no number here"
+        )
         rc, err = run_scorer_raw(FIXTURE_CAMPAIGN_G01, bench)
         self.assertEqual(rc, 2)
         self.assertIn("false_positive_budget", err)

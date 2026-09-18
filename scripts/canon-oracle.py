@@ -24,8 +24,10 @@ def main() -> int:
             continue
         v = json.loads(line)
         write(json.dumps(v, sort_keys=True, ensure_ascii=True) + "\n")
-        write(json.dumps(v, sort_keys=True, ensure_ascii=True,
-                         separators=(",", ":")) + "\n")
+        write(
+            json.dumps(v, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
+            + "\n"
+        )
     return 0
 
 

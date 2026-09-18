@@ -16,6 +16,7 @@ Usage (from the repo root):
 Patterns mirror the //go:embed directives in assets/*.go — if a directive
 changes, change the entry here and vice versa.
 """
+
 import fnmatch
 import hashlib
 import json

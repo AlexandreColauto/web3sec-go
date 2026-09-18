@@ -90,6 +90,7 @@ OUTSIDE any git repository on purpose: inside a repo the `git-clean`
 ladder pins a `git worktree` whose `.git` file embeds a per-process
 gitdir, which is not reproducible across runs.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -112,7 +113,7 @@ WORK = GO_ROOT / ".scratch" / "golden"
 GOBIN = WORK / "webv2"
 SEED = "golden-p2"
 NOW_BASE = datetime.datetime(2026, 9, 8, 12, 0, 0, tzinfo=datetime.timezone.utc)
-FIX = "scripts/golden"          # fixture dir, relative to GO_ROOT
+FIX = "scripts/golden"  # fixture dir, relative to GO_ROOT
 # Golden v5 (T38): the P4 fixture. A 30-record REAL DeFiHackLabs slice,
 # a 4-case eval store and the sft store + lint fixtures, all built from
 # the read-only reference by scripts/golden/p4/build.py. The three P4
@@ -165,7 +166,8 @@ def make_target() -> Path:
     for i in range(3):
         (tgt / "data" / f"f{i:04d}.dat").write_bytes(b"x" * 32)
     (tgt / "src" / "Vault.sol").write_text(
-        "// Golden Vault\ncontract Vault { uint256 public total; }\n")
+        "// Golden Vault\ncontract Vault { uint256 public total; }\n"
+    )
     (tgt / "src" / "Other.sol").write_text("contract Other { }\n")
     # Documented invariants: INV-1..INV-4 mirror the model, INV-9 is
     # documented-but-missing-from-the-model (reconciliation must report it),
@@ -179,7 +181,8 @@ def make_target() -> Path:
         "INV-3: the pause role can only be granted through the timelock.\n"
         "INV-4: the share price must not move in favor of existing shares; "
         "out-of-band donations are by design and accrue to stakers.\n"
-        "INV-9: the oracle price must be fresh within one block.\n")
+        "INV-9: the oracle price must be fresh within one block.\n"
+    )
     # P3 (v4): a real structural surface for index / sinks / prescreen /
     # probes. The fixtures are the reference probes package's own vectors
     # (single-sourced, so they cannot drift from the ported probe code):
@@ -209,9 +212,13 @@ def make_target() -> Path:
     # (every axis CAN emit rows, on the buggy corpus, through the same
     # production pipeline) while keeping the checker's table and the registry
     # from drifting apart.
-    probe_fixtures = ("accumulator/blind", "cursor/buggy",
-                      "assertion_strength/clean", "custody/buggy",
-                      "short_circuit/buggy")
+    probe_fixtures = (
+        "accumulator/blind",
+        "cursor/buggy",
+        "assertion_strength/clean",
+        "custody/buggy",
+        "short_circuit/buggy",
+    )
     fixture_root = GO_ROOT / "internal" / "probes" / "testdata" / "probes"
     for sub in probe_fixtures:
         dest = tgt / "probes" / sub.replace("/", "_")
@@ -238,7 +245,8 @@ def make_surface2_target() -> Path:
     (tgt / "docs").mkdir()
     (tgt / "foundry.toml").write_text('[profile.default]\nsol = "0.8.24"\n')
     (tgt / "src" / "Vault.sol").write_text(
-        "// Golden Vault\ncontract Vault { uint256 public total; }\n")
+        "// Golden Vault\ncontract Vault { uint256 public total; }\n"
+    )
     (tgt / "src" / "Other.sol").write_text("contract Other { }\n")
     (tgt / "docs" / "INVARIANTS.md").write_text(
         "# Golden Vault invariants\n"
@@ -248,7 +256,8 @@ def make_surface2_target() -> Path:
         "INV-3: the pause role can only be granted through the timelock.\n"
         "INV-4: the share price must not move in favor of existing shares; "
         "out-of-band donations are by design and accrue to stakers.\n"
-        "INV-9: the oracle price must be fresh within one block.\n")
+        "INV-9: the oracle price must be fresh within one block.\n"
+    )
     fixture_root = GO_ROOT / SURFACE2_FIX
     for sub in sorted(p for p in fixture_root.iterdir() if p.is_dir()):
         dest = tgt / sub.name
@@ -290,15 +299,15 @@ def seeded_exec_id(n: int) -> str:
     NOT drawn from the CLI's per-process new_id stream: the seeded record is
     harness input, and its id must never collide with an id a real `exec`
     command minted (or will mint) in the same campaign."""
-    b = bytearray(hashlib.sha256(
-        f"{SEED}:seed-exec:{n}".encode()).digest()[:16])
+    b = bytearray(hashlib.sha256(f"{SEED}:seed-exec:{n}".encode()).digest()[:16])
     b[6] = (b[6] & 0x0F) | 0x40
     b[8] = (b[8] & 0x3F) | 0x80
     return "EXEC-" + bytes(b).hex()[:10]
 
 
-def seed_exec(root: Path, cid: str, step: int, n: int, finding_id: str,
-              command: str, exec_id: str) -> None:
+def seed_exec(
+    root: Path, cid: str, step: int, n: int, finding_id: str, command: str, exec_id: str
+) -> None:
     out_dir = root / "campaigns" / cid / "execs" / exec_id
     out_dir.mkdir(parents=True, exist_ok=True)
     stdout_path = out_dir / "stdout.log"
@@ -315,13 +324,23 @@ def seed_exec(root: Path, cid: str, step: int, n: int, finding_id: str,
         "command": command,
         "workdir": None,
         "policy_verdict": {
-            "allowed": True, "violations": [],
-            "checked_rules": ["network-egress-tool", "privilege-escalation",
-                              "destructive-path", "secret-access",
-                              "external-publish", "system-write"]},
-        "environment": {"tool_versions": {}, "env_keys": [],
-                        "network_access": "none",
-                        "filesystem": "sandbox-tmp"},
+            "allowed": True,
+            "violations": [],
+            "checked_rules": [
+                "network-egress-tool",
+                "privilege-escalation",
+                "destructive-path",
+                "secret-access",
+                "external-publish",
+                "system-write",
+            ],
+        },
+        "environment": {
+            "tool_versions": {},
+            "env_keys": [],
+            "network_access": "none",
+            "filesystem": "sandbox-tmp",
+        },
         "container": None,
         "origin": "externally-reported",
         "reported_by": "golden-harness",
@@ -333,48 +352,67 @@ def seed_exec(root: Path, cid: str, step: int, n: int, finding_id: str,
         "stderr_path": str(stderr_path),
         "artifact_hashes": {
             "stdout.log": hashlib.sha256(stdout_path.read_bytes()).hexdigest(),
-            "stderr.log": hashlib.sha256(stderr_path.read_bytes()).hexdigest()},
+            "stderr.log": hashlib.sha256(stderr_path.read_bytes()).hexdigest(),
+        },
     }
     (out_dir / "exec_record.json").write_text(json.dumps(rec, indent=1) + "\n")
 
 
 def build_go() -> None:
-    env = dict(os.environ,
-               GOCACHE=str(GO_ROOT / ".scratch" / "gocache"),
-               GOPATH=str(GO_ROOT / ".scratch" / "gopath"),
-               GOMODCACHE=str(GO_ROOT / ".scratch" / "gomodcache"),
-               GOFLAGS="-mod=mod")
-    r = subprocess.run(["go", "build", "-o", str(GOBIN), "./cmd/webv2"],
-                       cwd=GO_ROOT, env=env, capture_output=True, text=True)
+    env = dict(
+        os.environ,
+        GOCACHE=str(GO_ROOT / ".scratch" / "gocache"),
+        GOPATH=str(GO_ROOT / ".scratch" / "gopath"),
+        GOMODCACHE=str(GO_ROOT / ".scratch" / "gomodcache"),
+        GOFLAGS="-mod=mod",
+    )
+    r = subprocess.run(
+        ["go", "build", "-o", str(GOBIN), "./cmd/webv2"],
+        cwd=GO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
     if r.returncode != 0:
         sys.exit(f"go build failed:\n{r.stderr}")
 
 
-def run_step(twin: str, root: Path, argv: list[str], step: int,
-             fid_base: int, sft_store: str) -> tuple[int, str, str]:
+def run_step(
+    twin: str, root: Path, argv: list[str], step: int, fid_base: int, sft_store: str
+) -> tuple[int, str, str]:
     now = now_for(step)
     # WEBV2_FINDING_IDS=pin + WEBV2_FINDING_ID_SEQ: the finding id is a raw
     # uuid4, so every id minter is pinned through one stream (cmd/webv2).
     # WEBV2_GLOBAL_MEMORY_DIR points at an empty
     # dir: the operator's ~/.webv2/shared-memory store must never leak into
     # a deterministic comparison against the committed oracle.
-    env = dict(os.environ, WEBV2_NOW=now, WEBV2_UUID=seed_for(step),
-               WEBV2_FINDING_IDS="pin", WEBV2_FINDING_ID_SEQ=str(fid_base),
-               WEBV2_COST_IDS="pin", WEBV2_COST_ID_SEQ=str(fid_base),
-               # Golden v5: the P4 seams point at the committed fixture
-               # (was: absent dirs, D26). WEBV2_SFT_STORE is the per-twin
-               # store copy inside the run root.
-               WEBV2_EVAL_DIR=str(GO_ROOT / P4_EVAL),
-               WEBV2_POC_ROOT=str(GO_ROOT / P4_DATASETS),
-               WEBV2_SFT_STORE=sft_store,
-               WEBV2_BASELINES_DIR=str(WORK / "baselines"),
-               WEBV2_PROMPTS_BASE=str(GO_ROOT / "assets"),
-               WEBV2_GLOBAL_MEMORY_DIR=str(WORK / "shared-memory"))
+    env = dict(
+        os.environ,
+        WEBV2_NOW=now,
+        WEBV2_UUID=seed_for(step),
+        WEBV2_FINDING_IDS="pin",
+        WEBV2_FINDING_ID_SEQ=str(fid_base),
+        WEBV2_COST_IDS="pin",
+        WEBV2_COST_ID_SEQ=str(fid_base),
+        # Golden v5: the P4 seams point at the committed fixture
+        # (was: absent dirs, D26). WEBV2_SFT_STORE is the per-twin
+        # store copy inside the run root.
+        WEBV2_EVAL_DIR=str(GO_ROOT / P4_EVAL),
+        WEBV2_POC_ROOT=str(GO_ROOT / P4_DATASETS),
+        WEBV2_SFT_STORE=sft_store,
+        WEBV2_BASELINES_DIR=str(WORK / "baselines"),
+        WEBV2_PROMPTS_BASE=str(GO_ROOT / "assets"),
+        WEBV2_GLOBAL_MEMORY_DIR=str(WORK / "shared-memory"),
+    )
     # cwd=GO_ROOT so a relative fixture path resolves to the committed file.
-    r = subprocess.run([str(GOBIN), "--root", str(root)] + argv,
-                       capture_output=True, text=True, env=env, cwd=GO_ROOT)
+    r = subprocess.run(
+        [str(GOBIN), "--root", str(root)] + argv,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=GO_ROOT,
+    )
     return r.returncode, r.stdout, r.stderr
-
 
 # ---------------------------------------------------------------------------
 # recipe
@@ -390,7 +428,7 @@ def recipe(state: dict) -> list[dict]:
     # and rebuilt before every step, so by the time a step that references
     # f[i]/art[i] executes the real id is there. The step LIST never changes
     # shape, which is what the capture index depends on.
-    f = (state["findings"] + ["<F?>"] * 7)[:7]   # [h1..h5, h6, h7]
+    f = (state["findings"] + ["<F?>"] * 7)[:7]  # [h1..h5, h6, h7]
     art = (state["artifacts"] + ["<ART?>"] * 2)[:2]
     ex = (state["execs"] + ["<EXEC?>"] * 2)[:2]
     rung = (state["rungs"] + ["<R?>"] * 2)[:2]
@@ -420,100 +458,254 @@ def recipe(state: dict) -> list[dict]:
     cid3 = state.get("cid3") or "<C3?>"
     snap2 = state.get("snap2") or "<SNAP2?>"
     return [
+        {"name": "init", "exit": 0, "argv": ["init", "--program", "Golden"]},
         # ---- P0 half: verbatim golden v1 (docs/gates/P0-gate.md) ----------
-        {"name": "init", "exit": 0,
-         "argv": ["init", "--program", "Golden"]},
         {"name": "status", "exit": 0, "argv": ["status", cid]},
-        {"name": "snap", "exit": 0, "snapshot": 1,
-         "argv": ["snap", cid, state["target"]]},
+        {
+            "name": "snap",
+            "exit": 0,
+            "snapshot": 1,
+            "argv": ["snap", cid, state["target"]],
+        },
         {"name": "log", "exit": 0, "argv": ["log", cid]},
         {"name": "verify", "exit": 0, "argv": ["verify", cid]},
         {"name": "audit", "exit": 0, "argv": ["audit", cid]},
         {"name": "status2", "exit": 0, "argv": ["status", cid]},
         {"name": "audit-json", "exit": 0, "argv": ["audit", cid, "--json"]},
-
         # ---- P1 half -----------------------------------------------------
-        {"name": "model-load", "exit": 0,
-         "argv": ["model", cid, f"{FIX}/model.json"]},
+        {"name": "model-load", "exit": 0, "argv": ["model", cid, f"{FIX}/model.json"]},
         {"name": "model-show", "exit": 0, "argv": ["model", cid]},
         {"name": "plan", "exit": 0, "argv": ["plan", cid]},
         # the bounty gate reads the policy, so scope must precede it
-        {"name": "scope", "exit": 0,
-         "argv": ["scope", cid, "--policy", f"{FIX}/policy.json"]},
-
-        {"name": "ingest-h1", "exit": 0, "findings": 1,
-         "argv": ["ingest", cid, "--json-file", f"{FIX}/h1-withdraw-double-count.json",
-                  "--stage", "golden", "--trajectory", "code"]},
-        {"name": "ingest-h2", "exit": 0, "findings": 1,
-         "argv": ["ingest", cid, "--json-file", f"{FIX}/h2-deposit-double-mint.json",
-                  "--stage", "golden", "--trajectory", "code"]},
-        {"name": "ingest-h3", "exit": 0, "findings": 1,
-         "argv": ["ingest", cid, "--json-file", f"{FIX}/h3-share-price-inflation.json",
-                  "--stage", "golden", "--trajectory", "economic"]},
-        {"name": "ingest-h4", "exit": 0, "findings": 1,
-         "argv": ["ingest", cid, "--json-file", f"{FIX}/h4-oracle-spot-price.json",
-                  "--stage", "golden", "--trajectory", "code"]},
-
+        {
+            "name": "scope",
+            "exit": 0,
+            "argv": ["scope", cid, "--policy", f"{FIX}/policy.json"],
+        },
+        {
+            "name": "ingest-h1",
+            "exit": 0,
+            "findings": 1,
+            "argv": [
+                "ingest",
+                cid,
+                "--json-file",
+                f"{FIX}/h1-withdraw-double-count.json",
+                "--stage",
+                "golden",
+                "--trajectory",
+                "code",
+            ],
+        },
+        {
+            "name": "ingest-h2",
+            "exit": 0,
+            "findings": 1,
+            "argv": [
+                "ingest",
+                cid,
+                "--json-file",
+                f"{FIX}/h2-deposit-double-mint.json",
+                "--stage",
+                "golden",
+                "--trajectory",
+                "code",
+            ],
+        },
+        {
+            "name": "ingest-h3",
+            "exit": 0,
+            "findings": 1,
+            "argv": [
+                "ingest",
+                cid,
+                "--json-file",
+                f"{FIX}/h3-share-price-inflation.json",
+                "--stage",
+                "golden",
+                "--trajectory",
+                "economic",
+            ],
+        },
+        {
+            "name": "ingest-h4",
+            "exit": 0,
+            "findings": 1,
+            "argv": [
+                "ingest",
+                cid,
+                "--json-file",
+                f"{FIX}/h4-oracle-spot-price.json",
+                "--stage",
+                "golden",
+                "--trajectory",
+                "code",
+            ],
+        },
         {"name": "dedup", "exit": 0, "argv": ["dedup", cid]},
-        {"name": "resolve-same", "exit": 0,
-         "argv": ["resolve-candidate", cid, f[1], f[0], "--verdict", "same",
-                  "--actor", "golden"]},
-        {"name": "resolve-distinct", "exit": 0,
-         "argv": ["resolve-candidate", cid, f[3], f[2], "--verdict", "distinct",
-                  "--actor", "golden"]},
-
+        {
+            "name": "resolve-same",
+            "exit": 0,
+            "argv": [
+                "resolve-candidate",
+                cid,
+                f[1],
+                f[0],
+                "--verdict",
+                "same",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "resolve-distinct",
+            "exit": 0,
+            "argv": [
+                "resolve-candidate",
+                cid,
+                f[3],
+                f[2],
+                "--verdict",
+                "distinct",
+                "--actor",
+                "golden",
+            ],
+        },
         {"name": "prioritize", "exit": 0, "argv": ["prioritize", cid]},
         {"name": "repro-queue", "exit": 0, "argv": ["repro-queue", cid]},
-
-        {"name": "floors-set", "exit": 0,
-         "argv": ["floors", cid, "set", "logic-error", "E4",
-                  "--actor", "golden", "--reason",
-                  "the target ships a fork runner, so E4 is reachable"]},
+        {
+            "name": "floors-set",
+            "exit": 0,
+            "argv": [
+                "floors",
+                cid,
+                "set",
+                "logic-error",
+                "E4",
+                "--actor",
+                "golden",
+                "--reason",
+                "the target ships a fork runner, so E4 is reachable",
+            ],
+        },
         {"name": "floors-list", "exit": 0, "argv": ["floors", cid]},
         {"name": "floors-json", "exit": 0, "argv": ["floors", cid, "--json"]},
-        {"name": "floors-unset", "exit": 0,
-         "argv": ["floors", cid, "unset", "logic-error",
-                  "--actor", "golden", "--reason",
-                  "back to the class default floor"]},
-
-        {"name": "answered-priority", "exit": 0,
-         "argv": ["answered", cid, "Q-001", "answered",
-                  "--reason", "the drain-capable role is a single multisig, not reachable",
-                  "--ref", f[0], "--actor", "golden"]},
+        {
+            "name": "floors-unset",
+            "exit": 0,
+            "argv": [
+                "floors",
+                cid,
+                "unset",
+                "logic-error",
+                "--actor",
+                "golden",
+                "--reason",
+                "back to the class default floor",
+            ],
+        },
+        {
+            "name": "answered-priority",
+            "exit": 0,
+            "argv": [
+                "answered",
+                cid,
+                "Q-001",
+                "answered",
+                "--reason",
+                "the drain-capable role is a single multisig, not reachable",
+                "--ref",
+                f[0],
+                "--actor",
+                "golden",
+            ],
+        },
         {"name": "plan-readonly", "exit": 0, "argv": ["plan", cid]},
         {"name": "plan-rebuild", "exit": 0, "argv": ["plan", cid, "--rebuild"]},
-
-        {"name": "verdict-h1", "exit": 0,
-         "argv": ["verdict", cid, f[0], "--verdict", "confirmed",
-                  "--reason", "the double-count is a real accounting defect, code path is reachable"]},
-        {"name": "recall-h1", "exit": 0,
-         "argv": ["recall", cid, "--finding", f[0], "--mode", "negative"]},
-        {"name": "recall-h3", "exit": 0,
-         "argv": ["recall", cid, "--finding", f[2], "--mode", "comparative",
-                  "--note", "analogous donation inflation seen in a prior share-vault campaign"]},
-
+        {
+            "name": "verdict-h1",
+            "exit": 0,
+            "argv": [
+                "verdict",
+                cid,
+                f[0],
+                "--verdict",
+                "confirmed",
+                "--reason",
+                "the double-count is a real accounting defect, code path is reachable",
+            ],
+        },
+        {
+            "name": "recall-h1",
+            "exit": 0,
+            "argv": ["recall", cid, "--finding", f[0], "--mode", "negative"],
+        },
+        {
+            "name": "recall-h3",
+            "exit": 0,
+            "argv": [
+                "recall",
+                cid,
+                "--finding",
+                f[2],
+                "--mode",
+                "comparative",
+                "--note",
+                "analogous donation inflation seen in a prior share-vault campaign",
+            ],
+        },
         {"name": "gate-all", "exit": 0, "argv": ["gate", cid]},
         {"name": "gate-h1", "exit": 1, "argv": ["gate", cid, f[0]]},
         {"name": "gate-h3", "exit": 1, "argv": ["gate", cid, f[2]]},
-        {"name": "gate-explain", "exit": 0,
-         "argv": ["gate", "--explain", "evidence-floor"]},
-
+        {
+            "name": "gate-explain",
+            "exit": 0,
+            "argv": ["gate", "--explain", "evidence-floor"],
+        },
         {"name": "prove-all", "exit": 0, "argv": ["prove", cid]},
-        {"name": "prove-learning", "exit": 1,
-         "argv": ["prove", cid, "--stage", "learning"]},
-        {"name": "waive-learning", "exit": 0,
-         "argv": ["waive", cid, "learning",
-                  "--reason", "the golden suite records the waiver path, not a real gap",
-                  "--actor", "golden"]},
-        {"name": "prove-learning2", "exit": 0,
-         "argv": ["prove", cid, "--stage", "learning"]},
-
-        {"name": "artifact-register", "exit": 0, "artifacts": 1,
-         "argv": ["artifact-register", cid, f"{FIX}/artifact.md",
-                  "--kind", "report", "--note", "withdraw path check notes"]},
+        {
+            "name": "prove-learning",
+            "exit": 1,
+            "argv": ["prove", cid, "--stage", "learning"],
+        },
+        {
+            "name": "waive-learning",
+            "exit": 0,
+            "argv": [
+                "waive",
+                cid,
+                "learning",
+                "--reason",
+                "the golden suite records the waiver path, not a real gap",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "prove-learning2",
+            "exit": 0,
+            "argv": ["prove", cid, "--stage", "learning"],
+        },
+        {
+            "name": "artifact-register",
+            "exit": 0,
+            "artifacts": 1,
+            "argv": [
+                "artifact-register",
+                cid,
+                f"{FIX}/artifact.md",
+                "--kind",
+                "report",
+                "--note",
+                "withdraw path check notes",
+            ],
+        },
         {"name": "artifact-list", "exit": 0, "argv": ["artifact-list", cid]},
-        {"name": "artifact-list-kind", "exit": 0,
-         "argv": ["artifact-list", cid, "--kind", "report"]},
+        {
+            "name": "artifact-list-kind",
+            "exit": 0,
+            "argv": ["artifact-list", cid, "--kind", "report"],
+        },
         # h5 is ingested in a state the CONFIRMED gate accepts: a
         # reproduced attempt plus an E7 evidence item bound to the artifact
         # registered above. Its `gate` dry-run therefore PASSES (exit 0) —
@@ -521,101 +713,283 @@ def recipe(state: dict) -> list[dict]:
         # below walk the legal HYPOTHESIS -> POSSIBLE -> CONFIRMED path, so
         # the closing status/audit/verify steps see a genuinely CONFIRMED
         # finding.
-        {"name": "ingest-h5", "exit": 0, "findings": 1,
-         "render": "h5-gate-pass.json",
-         "argv": ["ingest", cid, "--json-file",
-                  ".scratch/golden/payloads/h5-gate-pass.json",
-                  "--stage", "golden", "--trajectory", "code"]},
-        {"name": "verdict-h5", "exit": 0,
-         "argv": ["verdict", cid, f[4], "--verdict", "confirmed",
-                  "--reason", "the rounding delta is a real payout defect on a reachable path"]},
-        {"name": "recall-h5", "exit": 0,
-         "argv": ["recall", cid, "--finding", f[4], "--mode", "negative"]},
+        {
+            "name": "ingest-h5",
+            "exit": 0,
+            "findings": 1,
+            "render": "h5-gate-pass.json",
+            "argv": [
+                "ingest",
+                cid,
+                "--json-file",
+                ".scratch/golden/payloads/h5-gate-pass.json",
+                "--stage",
+                "golden",
+                "--trajectory",
+                "code",
+            ],
+        },
+        {
+            "name": "verdict-h5",
+            "exit": 0,
+            "argv": [
+                "verdict",
+                cid,
+                f[4],
+                "--verdict",
+                "confirmed",
+                "--reason",
+                "the rounding delta is a real payout defect on a reachable path",
+            ],
+        },
+        {
+            "name": "recall-h5",
+            "exit": 0,
+            "argv": ["recall", cid, "--finding", f[4], "--mode", "negative"],
+        },
         {"name": "gate-h5-pass", "exit": 0, "argv": ["gate", cid, f[4]]},
-        {"name": "move-h5-possible", "exit": 0,
-         "argv": ["move", cid, f[4], "POSSIBLE", "--reason",
-                  "the golden suite advances the gated finding to POSSIBLE",
-                  "--actor", "golden"]},
-        {"name": "move-h5-confirmed", "exit": 0,
-         "argv": ["move", cid, f[4], "CONFIRMED", "--reason",
-                  "the golden suite closes the gated finding to CONFIRMED",
-                  "--actor", "golden"]},
-
+        {
+            "name": "move-h5-possible",
+            "exit": 0,
+            "argv": [
+                "move",
+                cid,
+                f[4],
+                "POSSIBLE",
+                "--reason",
+                "the golden suite advances the gated finding to POSSIBLE",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "move-h5-confirmed",
+            "exit": 0,
+            "argv": [
+                "move",
+                cid,
+                f[4],
+                "CONFIRMED",
+                "--reason",
+                "the golden suite closes the gated finding to CONFIRMED",
+                "--actor",
+                "golden",
+            ],
+        },
         # h6 GRANTS the pause capability and h7 REQUIRES it; both carry the
         # same gate-passing shape as h5 (reproduced attempt + E7 evidence
         # bound to the registered artifact), so both can be moved to
         # CONFIRMED and the chain engine materializes a CHAIN- link from
         # h6 to h7. That is what exercises the CHAIN-<8> id family.
-        {"name": "ingest-h6", "exit": 0, "findings": 1,
-         "render": "h6-grants-pause.json",
-         "argv": ["ingest", cid, "--json-file",
-                  ".scratch/golden/payloads/h6-grants-pause.json",
-                  "--stage", "golden", "--trajectory", "code"]},
-        {"name": "verdict-h6", "exit": 0,
-         "argv": ["verdict", cid, f[5], "--verdict", "confirmed",
-                  "--reason", "the operator handover is a real capability grant"]},
-        {"name": "recall-h6", "exit": 0,
-         "argv": ["recall", cid, "--finding", f[5], "--mode", "negative"]},
+        {
+            "name": "ingest-h6",
+            "exit": 0,
+            "findings": 1,
+            "render": "h6-grants-pause.json",
+            "argv": [
+                "ingest",
+                cid,
+                "--json-file",
+                ".scratch/golden/payloads/h6-grants-pause.json",
+                "--stage",
+                "golden",
+                "--trajectory",
+                "code",
+            ],
+        },
+        {
+            "name": "verdict-h6",
+            "exit": 0,
+            "argv": [
+                "verdict",
+                cid,
+                f[5],
+                "--verdict",
+                "confirmed",
+                "--reason",
+                "the operator handover is a real capability grant",
+            ],
+        },
+        {
+            "name": "recall-h6",
+            "exit": 0,
+            "argv": ["recall", cid, "--finding", f[5], "--mode", "negative"],
+        },
         {"name": "gate-h6-pass", "exit": 0, "argv": ["gate", cid, f[5]]},
-        {"name": "move-h6-possible", "exit": 0,
-         "argv": ["move", cid, f[5], "POSSIBLE", "--reason",
-                  "the golden suite advances the granter to POSSIBLE",
-                  "--actor", "golden"]},
-        {"name": "move-h6-confirmed", "exit": 0,
-         "argv": ["move", cid, f[5], "CONFIRMED", "--reason",
-                  "the golden suite closes the granter to CONFIRMED",
-                  "--actor", "golden"]},
-        {"name": "ingest-h7", "exit": 0, "findings": 1,
-         "render": "h7-requires-pause.json",
-         "argv": ["ingest", cid, "--json-file",
-                  ".scratch/golden/payloads/h7-requires-pause.json",
-                  "--stage", "golden", "--trajectory", "code"]},
-        {"name": "verdict-h7", "exit": 0,
-         "argv": ["verdict", cid, f[6], "--verdict", "confirmed",
-                  "--reason", "the freeze is a real denial of withdrawal"]},
-        {"name": "recall-h7", "exit": 0,
-         "argv": ["recall", cid, "--finding", f[6], "--mode", "negative"]},
+        {
+            "name": "move-h6-possible",
+            "exit": 0,
+            "argv": [
+                "move",
+                cid,
+                f[5],
+                "POSSIBLE",
+                "--reason",
+                "the golden suite advances the granter to POSSIBLE",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "move-h6-confirmed",
+            "exit": 0,
+            "argv": [
+                "move",
+                cid,
+                f[5],
+                "CONFIRMED",
+                "--reason",
+                "the golden suite closes the granter to CONFIRMED",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "ingest-h7",
+            "exit": 0,
+            "findings": 1,
+            "render": "h7-requires-pause.json",
+            "argv": [
+                "ingest",
+                cid,
+                "--json-file",
+                ".scratch/golden/payloads/h7-requires-pause.json",
+                "--stage",
+                "golden",
+                "--trajectory",
+                "code",
+            ],
+        },
+        {
+            "name": "verdict-h7",
+            "exit": 0,
+            "argv": [
+                "verdict",
+                cid,
+                f[6],
+                "--verdict",
+                "confirmed",
+                "--reason",
+                "the freeze is a real denial of withdrawal",
+            ],
+        },
+        {
+            "name": "recall-h7",
+            "exit": 0,
+            "argv": ["recall", cid, "--finding", f[6], "--mode", "negative"],
+        },
         {"name": "gate-h7-pass", "exit": 0, "argv": ["gate", cid, f[6]]},
-        {"name": "move-h7-possible", "exit": 0,
-         "argv": ["move", cid, f[6], "POSSIBLE", "--reason",
-                  "the golden suite advances the needer to POSSIBLE",
-                  "--actor", "golden"]},
-        {"name": "move-h7-confirmed", "exit": 0,
-         "argv": ["move", cid, f[6], "CONFIRMED", "--reason",
-                  "the golden suite closes the needer to CONFIRMED",
-                  "--actor", "golden"]},
-
-        {"name": "invariant-verify", "exit": 0,
-         "argv": ["invariant-verify", cid, "INV-2", "--artifact", art[0]]},
-        {"name": "invariant-contradict", "exit": 0,
-         "argv": ["invariant-contradict", cid, "INV-3",
-                  "--evidence", "src/Other.sol#L1"]},
-
-        {"name": "budget-set", "exit": 0,
-         "argv": ["budget", cid, "--set", "2500", "--actor", "golden"]},
+        {
+            "name": "move-h7-possible",
+            "exit": 0,
+            "argv": [
+                "move",
+                cid,
+                f[6],
+                "POSSIBLE",
+                "--reason",
+                "the golden suite advances the needer to POSSIBLE",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "move-h7-confirmed",
+            "exit": 0,
+            "argv": [
+                "move",
+                cid,
+                f[6],
+                "CONFIRMED",
+                "--reason",
+                "the golden suite closes the needer to CONFIRMED",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "invariant-verify",
+            "exit": 0,
+            "argv": ["invariant-verify", cid, "INV-2", "--artifact", art[0]],
+        },
+        {
+            "name": "invariant-contradict",
+            "exit": 0,
+            "argv": [
+                "invariant-contradict",
+                cid,
+                "INV-3",
+                "--evidence",
+                "src/Other.sol#L1",
+            ],
+        },
+        {
+            "name": "budget-set",
+            "exit": 0,
+            "argv": ["budget", cid, "--set", "2500", "--actor", "golden"],
+        },
         {"name": "budget-json", "exit": 0, "argv": ["budget", cid, "--json"]},
-        {"name": "hint", "exit": 0,
-         "argv": ["hint", cid, "--kind", "priority",
-                  "--content", "prefer the accounting path over the oracle path",
-                  "--source-ref", f[0], "--actor", "golden"]},
-        {"name": "answered-lens", "exit": 0,
-         "argv": ["answered", cid, "L-01", "answered",
-                  "--reason", "no reachable permanently-stuck state in this state machine",
-                  "--families", "none-applicable", "--actor", "golden"]},
-
+        {
+            "name": "hint",
+            "exit": 0,
+            "argv": [
+                "hint",
+                cid,
+                "--kind",
+                "priority",
+                "--content",
+                "prefer the accounting path over the oracle path",
+                "--source-ref",
+                f[0],
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "answered-lens",
+            "exit": 0,
+            "argv": [
+                "answered",
+                cid,
+                "L-01",
+                "answered",
+                "--reason",
+                "no reachable permanently-stuck state in this state machine",
+                "--families",
+                "none-applicable",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "exec-dry",
+            "exit": 0,
+            "argv": [
+                "exec",
         # ---- P2 half: the ported evidence-execution surface (golden v3) ---
         # exec ledger: the dry-run preview (no record), a real host-readonly
         # run (EXEC-<10>), a deliberately failing run, the three read views
         # and the failure classifier.
-        {"name": "exec-dry", "exit": 0,
-         "argv": ["exec", cid, "--command",
-                  "forge test --match-test test_withdraw",
-                  "--profile", "docker-networkless", "--dry-run"]},
-        {"name": "exec-host", "exit": 0, "execs": 1,
-         "argv": ["exec", cid, "--command", "echo golden-exec",
-                  "--finding", f[0]]},
-        {"name": "exec-fail", "exit": 0, "execs": 1,
-         "argv": ["exec", cid, "--command", "exit 7", "--finding", f[0]]},
+                cid,
+                "--command",
+                "forge test --match-test test_withdraw",
+                "--profile",
+                "docker-networkless",
+                "--dry-run",
+            ],
+        },
+        {
+            "name": "exec-host",
+            "exit": 0,
+            "execs": 1,
+            "argv": ["exec", cid, "--command", "echo golden-exec", "--finding", f[0]],
+        },
+        {
+            "name": "exec-fail",
+            "exit": 0,
+            "execs": 1,
+            "argv": ["exec", cid, "--command", "exit 7", "--finding", f[0]],
+        },
         {"name": "execs", "exit": 0, "argv": ["execs", cid]},
         {"name": "execs-json", "exit": 0, "argv": ["execs", cid, "--json"]},
         {"name": "execs-id", "exit": 0, "argv": ["execs", cid, "--id", ex[0]]},
@@ -623,62 +997,171 @@ def recipe(state: dict) -> list[dict]:
         # An out-of-band E4 exec record (harness-seeded: the default suite
         # stays docker-free) and the mint path that records an ATT-<6>
         # attempt plus an EV-<8> evidence item on h1.
-        {"name": "seed-exec-mint", "seed_exec": {"n": 0, "finding": 0,
-         "command": "forge test --match-test test_withdraw"}},
-        {"name": "mint", "exit": 0,
-         "argv": ["mint", cid, f[0], "--exec", seeded_exec_id(0),
-                  "--description", "unit PoC drains the vault in one withdraw",
-                  "--tier", "T2", "--type", "foundry-test"]},
+        {
+            "name": "seed-exec-mint",
+            "seed_exec": {
+                "n": 0,
+                "finding": 0,
+                "command": "forge test --match-test test_withdraw",
+            },
+        },
+        {
+            "name": "mint",
+            "exit": 0,
+            "argv": [
+                "mint",
+                cid,
+                f[0],
+                "--exec",
+                seeded_exec_id(0),
+                "--description",
+                "unit PoC drains the vault in one withdraw",
+                "--tier",
+                "T2",
+                "--type",
+                "foundry-test",
+            ],
+        },
         # the full variant ladder lifecycle on the CONFIRMED h5: start ->
         # add_variant -> the five axes -> reproduce_rung (a seeded E4 record)
         # -> set_maximal -> complete -> report.
-        {"name": "ladder-start", "exit": 0,
-         "argv": ["ladder", cid, "start", f[4]]},
-        {"name": "ladder-show", "exit": 0,
-         "argv": ["ladder", cid, "show", f[4]]},
-        {"name": "ladder-add", "exit": 0, "rungs": 1,
-         "argv": ["ladder", cid, "add", f[4], "--name", "dust",
-                  "--description", "dust the pool with one wei",
-                  "--axes", "capital-minimization",
-                  "--capital", "1", "--ratio", "1",
-                  "--removes", "victim stakes"]},
-        {"name": "ladder-explore-cap-saturation", "exit": 0,
-         "argv": ["ladder", cid, "explore", f[4], "-", "cap-saturation",
-                  "--note", "considered, not applicable here"]},
-        {"name": "ladder-explore-precondition-removal", "exit": 0,
-         "argv": ["ladder", cid, "explore", f[4], "-",
-                  "precondition-removal", "--note",
-                  "considered, not applicable here"]},
-        {"name": "ladder-explore-role-conflation", "exit": 0,
-         "argv": ["ladder", cid, "explore", f[4], "-", "role-conflation",
-                  "--note", "considered, not applicable here"]},
-        {"name": "ladder-explore-ordering-permutation", "exit": 0,
-         "argv": ["ladder", cid, "explore", f[4], "-",
-                  "ordering-permutation", "--note",
-                  "considered, not applicable here"]},
-        {"name": "seed-exec-ladder", "seed_exec": {"n": 1, "finding": 4,
-         "command": "forge test --match-test test_preview_redeem"}},
-        {"name": "ladder-repro", "exit": 0,
-         "argv": ["ladder", cid, "repro", f[4], rung[0],
-                  "--exec", seeded_exec_id(1)]},
+        {"name": "ladder-start", "exit": 0, "argv": ["ladder", cid, "start", f[4]]},
+        {"name": "ladder-show", "exit": 0, "argv": ["ladder", cid, "show", f[4]]},
+        {
+            "name": "ladder-add",
+            "exit": 0,
+            "rungs": 1,
+            "argv": [
+                "ladder",
+                cid,
+                "add",
+                f[4],
+                "--name",
+                "dust",
+                "--description",
+                "dust the pool with one wei",
+                "--axes",
+                "capital-minimization",
+                "--capital",
+                "1",
+                "--ratio",
+                "1",
+                "--removes",
+                "victim stakes",
+            ],
+        },
+        {
+            "name": "ladder-explore-cap-saturation",
+            "exit": 0,
+            "argv": [
+                "ladder",
+                cid,
+                "explore",
+                f[4],
+                "-",
+                "cap-saturation",
+                "--note",
+                "considered, not applicable here",
+            ],
+        },
+        {
+            "name": "ladder-explore-precondition-removal",
+            "exit": 0,
+            "argv": [
+                "ladder",
+                cid,
+                "explore",
+                f[4],
+                "-",
+                "precondition-removal",
+                "--note",
+                "considered, not applicable here",
+            ],
+        },
+        {
+            "name": "ladder-explore-role-conflation",
+            "exit": 0,
+            "argv": [
+                "ladder",
+                cid,
+                "explore",
+                f[4],
+                "-",
+                "role-conflation",
+                "--note",
+                "considered, not applicable here",
+            ],
+        },
+        {
+            "name": "ladder-explore-ordering-permutation",
+            "exit": 0,
+            "argv": [
+                "ladder",
+                cid,
+                "explore",
+                f[4],
+                "-",
+                "ordering-permutation",
+                "--note",
+                "considered, not applicable here",
+            ],
+        },
+        {
+            "name": "seed-exec-ladder",
+            "seed_exec": {
+                "n": 1,
+                "finding": 4,
+                "command": "forge test --match-test test_preview_redeem",
+            },
+        },
+        {
+            "name": "ladder-repro",
+            "exit": 0,
+            "argv": [
+                "ladder",
+                cid,
+                "repro",
+                f[4],
+                rung[0],
+                "--exec",
+                seeded_exec_id(1),
+            ],
+        },
         # disprove: only the two GUARD branches are byte-comparable. The
         # happy path queues negative memory, which the reference writes as a
         # campaigns/<cid>/memory/MEM-*.json row PLUS a memory.queued event —
         # the learning seam is a no-op (KNOWN_DIVERGENCES D18), so
         # exercising it would fork the event chain. Both guards below abort
         # before any write, so they compare byte-for-byte.
-        {"name": "ladder-disprove-short-reason", "exit": 2,
-         "argv": ["ladder", cid, "disprove", f[4], rung[0],
-                  "--reason", "nope"]},
-        {"name": "ladder-set-maximal", "exit": 0,
-         "argv": ["ladder", cid, "set-maximal", f[4], rung[0]]},
-        {"name": "ladder-disprove-reproduced", "exit": 2,
-         "argv": ["ladder", cid, "disprove", f[4], rung[0],
-                  "--reason", "the corrected claim did not survive review"]},
-        {"name": "ladder-complete", "exit": 0,
-         "argv": ["ladder", cid, "complete", f[4]]},
-        {"name": "ladder-report", "exit": 0,
-         "argv": ["ladder", cid, "report", f[4]]},
+        {
+            "name": "ladder-disprove-short-reason",
+            "exit": 2,
+            "argv": ["ladder", cid, "disprove", f[4], rung[0], "--reason", "nope"],
+        },
+        {
+            "name": "ladder-set-maximal",
+            "exit": 0,
+            "argv": ["ladder", cid, "set-maximal", f[4], rung[0]],
+        },
+        {
+            "name": "ladder-disprove-reproduced",
+            "exit": 2,
+            "argv": [
+                "ladder",
+                cid,
+                "disprove",
+                f[4],
+                rung[0],
+                "--reason",
+                "the corrected claim did not survive review",
+            ],
+        },
+        {
+            "name": "ladder-complete",
+            "exit": 0,
+            "argv": ["ladder", cid, "complete", f[4]],
+        },
+        {"name": "ladder-report", "exit": 0, "argv": ["ladder", cid, "report", f[4]]},
         # capability graph: h6 grants the pause capability h7 requires, so
         # the chain engine links them and proposes the pair. NOTE: `chains`
         # computes and REPORTS; it materializes nothing, and the reference
@@ -693,68 +1176,157 @@ def recipe(state: dict) -> list[dict]:
         # pure state read and must agree byte-for-byte on the vacuous
         # verdict — the h5 ladder finding declares no multi-step
         # exploit_sequence, so coverage is "not sequence-required".
-        {"name": "sequence-verify", "exit": 0,
-         "argv": ["sequence", "verify", cid, f[4]]},
+        {
+            "name": "sequence-verify",
+            "exit": 0,
+            "argv": ["sequence", "verify", cid, f[4]],
+        },
         # impact: priced, priced + E7 artifact mint, the UNPRICEABLE named
         # decision, and the documented exit-2 refusal of an incomplete one.
-        {"name": "impact-priced", "exit": 0,
-         "argv": ["impact", cid, f[0], "--extractable", "1000",
-                  "--max-loss", "5000", "--required-capital", "100"]},
-        {"name": "impact-artifact", "exit": 0,
-         "argv": ["impact", cid, f[0], "--extractable", "1000",
-                  "--artifact", f"{FIX}/artifact.md",
-                  "--description", "the priced impact carried by the report"]},
-        {"name": "impact-unpriceable", "exit": 0,
-         "argv": ["impact", cid, f[2], "--unpriceable",
-                  "--ceiling", "no defensible USD figure",
-                  "--reason", "the affected asset has no observable market",
-                  "--actor", "golden"]},
-        {"name": "impact-unpriceable-incomplete", "exit": 2,
-         "argv": ["impact", cid, f[2], "--unpriceable",
-                  "--ceiling", "no defensible USD figure"]},
-
+        {
+            "name": "impact-priced",
+            "exit": 0,
+            "argv": [
+                "impact",
+                cid,
+                f[0],
+                "--extractable",
+                "1000",
+                "--max-loss",
+                "5000",
+                "--required-capital",
+                "100",
+            ],
+        },
+        {
+            "name": "impact-artifact",
+            "exit": 0,
+            "argv": [
+                "impact",
+                cid,
+                f[0],
+                "--extractable",
+                "1000",
+                "--artifact",
+                f"{FIX}/artifact.md",
+                "--description",
+                "the priced impact carried by the report",
+            ],
+        },
+        {
+            "name": "impact-unpriceable",
+            "exit": 0,
+            "argv": [
+                "impact",
+                cid,
+                f[2],
+                "--unpriceable",
+                "--ceiling",
+                "no defensible USD figure",
+                "--reason",
+                "the affected asset has no observable market",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "impact-unpriceable-incomplete",
+            "exit": 2,
+            "argv": [
+                "impact",
+                cid,
+                f[2],
+                "--unpriceable",
+                "--ceiling",
+                "no defensible USD figure",
+            ],
+        },
         # ---- P3 half (golden v4, docs/gates/golden-v4.md) ----------------
         # Structural surface: index / sinks / prescreen over the target's
         # real Solidity (src/ + the probes/ fixture trees make_target
         # materializes).
-        {"name": "index", "exit": 0,
-         "argv": ["index", cid, "--src", snap_src]},
-        {"name": "index-json", "exit": 0,
-         "argv": ["index", cid, "--src", snap_src, "--json"]},
-        {"name": "sinks", "exit": 0,
-         "argv": ["sinks", cid, "--src", snap_src]},
-        {"name": "sinks-json", "exit": 0,
-         "argv": ["sinks", cid, "--src", snap_src, "--json"]},
-        {"name": "prescreen", "exit": 0,
-         "argv": ["prescreen", cid, "--src", snap_src]},
-        {"name": "prescreen-json", "exit": 0,
-         "argv": ["prescreen", cid, "--src", snap_src, "--json"]},
+        {"name": "index", "exit": 0, "argv": ["index", cid, "--src", snap_src]},
+        {
+            "name": "index-json",
+            "exit": 0,
+            "argv": ["index", cid, "--src", snap_src, "--json"],
+        },
+        {"name": "sinks", "exit": 0, "argv": ["sinks", cid, "--src", snap_src]},
+        {
+            "name": "sinks-json",
+            "exit": 0,
+            "argv": ["sinks", cid, "--src", snap_src, "--json"],
+        },
+        {"name": "prescreen", "exit": 0, "argv": ["prescreen", cid, "--src", snap_src]},
+        {
+            "name": "prescreen-json",
+            "exit": 0,
+            "argv": ["prescreen", cid, "--src", snap_src, "--json"],
+        },
         # Mechanical candidate surface: run (rows + published BLIND keys),
         # the operator view (all / one axis / json), the named blank
         # attestation that closes a BLIND axis, and --emit (plan
         # obligations, idempotent on the second run).
         {"name": "probes-run", "exit": 0, "argv": ["probes", cid, "run"]},
-        {"name": "probes-list-all", "exit": 0,
-         "argv": ["probes", cid, "list", "--all"]},
-        {"name": "probes-list-all-json", "exit": 0, "blind": 1,
-         "argv": ["probes", cid, "list", "--all", "--json"]},
+        {
+            "name": "probes-list-all",
+            "exit": 0,
+            "argv": ["probes", cid, "list", "--all"],
+        },
+        {
+            "name": "probes-list-all-json",
+            "exit": 0,
+            "blind": 1,
+            "argv": ["probes", cid, "list", "--all", "--json"],
+        },
         {"name": "probes-list", "exit": 0, "argv": ["probes", cid, "list"]},
-        {"name": "probes-list-axis", "exit": 0,
-         "argv": ["probes", cid, "list", "--axis", blind[0]]},
-        {"name": "probes-list-axis-json", "exit": 0,
-         "argv": ["probes", cid, "list", "--axis", blind[0], "--json"]},
-        {"name": "probes-blank", "exit": 0,
-         "argv": ["probes", cid, "blank", "--axis", blind[0],
-                  "--anchor-blind", blind[1], "--reason",
-                  "the cited key is the only write on this axis",
-                  "--actor", "golden"]},
-        {"name": "probes-list-after-blank", "exit": 0,
-         "argv": ["probes", cid, "list", "--all"]},
-        {"name": "probes-run-emit", "exit": 0,
-         "argv": ["probes", cid, "run", "--emit"]},
-        {"name": "probes-run-emit-again", "exit": 0,
-         "argv": ["probes", cid, "run", "--emit"]},
+        {
+            "name": "probes-list-axis",
+            "exit": 0,
+            "argv": ["probes", cid, "list", "--axis", blind[0]],
+        },
+        {
+            "name": "probes-list-axis-json",
+            "exit": 0,
+            "argv": ["probes", cid, "list", "--axis", blind[0], "--json"],
+        },
+        {
+            "name": "probes-blank",
+            "exit": 0,
+            "argv": [
+                "probes",
+                cid,
+                "blank",
+                "--axis",
+                blind[0],
+                "--anchor-blind",
+                blind[1],
+                "--reason",
+                "the cited key is the only write on this axis",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "probes-list-after-blank",
+            "exit": 0,
+            "argv": ["probes", cid, "list", "--all"],
+        },
+        {
+            "name": "probes-run-emit",
+            "exit": 0,
+            "argv": ["probes", cid, "run", "--emit"],
+        },
+        {
+            "name": "probes-run-emit-again",
+            "exit": 0,
+            "argv": ["probes", cid, "run", "--emit"],
+        },
         {"name": "plan-after-emit", "exit": 0, "argv": ["plan", cid]},
+        {
+            "name": "probes-highrisk-json",
+            "exit": 0,
+            "dr": 1,
         # ---- B4/D1: the disposition gate, end to end --------------------
         # The G-01 miss: a tier-0 row at rank 1 discharged `answered` (safe)
         # on free prose, accepted because a row is "an obligation to look, not
@@ -763,50 +1335,121 @@ def recipe(state: dict) -> list[dict]:
         # reason, the terminal spelling works and ANNOUNCES itself, and the
         # report keeps the decision visible (asserted below as markers, and
         # the override event is pinned by the event chain).
-        {"name": "probes-highrisk-json", "exit": 0, "dr": 1,
-         "argv": ["probes", cid, "list", "--json"]},
+            "argv": ["probes", cid, "list", "--json"],
+        },
         # v3, the structural layer. v2 catches the WORDS a dismissal uses; a
         # reason written to dodge that table is still not a disposition. The
         # first step refuses prose that names nothing a reader can open (and
         # says which symbols it would have accepted); the second closes the
         # OTHER tier-0 row by naming its own code — the rule has to be
         # satisfiable, or it is just a wall.
-        {"name": "answered-structural-refused", "exit": 2,
-         "err": ["names nothing from the row's own surface entry",
-                 "quote the code the row is about",
-                 "override explicitly"],
-         "argv": ["answered", cid, dr, "answered", "--reason",
-                  "the flow looked fine when I traced it by hand",
-                  "--anchor", "custody", "--actor", "golden"]},
-        {"name": "answered-structural-accepted", "exit": 0,
-         "out": [dr2 + ": status -> answered"],
-         "argv": ["answered", cid, dr2, "answered", "--reason",
-                  drsym + " pays out along the same path it asserts",
-                  "--anchor", "custody", "--actor", "golden"]},
-        {"name": "answered-dismissal-refused", "exit": 2,
-         "err": ["the closure reason uses dismissal vocabulary",
-                 "on a high-risk row", "refutation that runs"],
-         "argv": ["answered", cid, dr, "answered", "--reason",
-                  "liveness-only: the owner can revert, no economic impact",
-                  "--anchor", "custody", "--actor", "golden"]},
-        {"name": "answered-dismissal-override-unreasoned", "exit": 2,
-         "err": ["--override-dismissal needs --override-reason"],
-         "argv": ["answered", cid, dr, "answered", "--reason",
-                  "liveness-only: the owner can revert, no economic impact",
-                  "--anchor", "custody", "--override-dismissal",
-                  "--actor", "golden"]},
-        {"name": "answered-dismissal-overridden", "exit": 0,
-         "out": ["dismissal overridden: " + dr +
-                 " logged as probe.dismissal_overridden (actor golden)"],
-         "argv": ["answered", cid, dr, "answered", "--reason",
-                  "liveness-only: the owner can revert, no economic impact",
-                  "--anchor", "custody", "--override-dismissal",
-                  "--override-reason",
-                  "the operator accepts the risk in writing for this run",
-                  "--actor", "golden"]},
+        {
+            "name": "answered-structural-refused",
+            "exit": 2,
+            "err": [
+                "names nothing from the row's own surface entry",
+                "quote the code the row is about",
+                "override explicitly",
+            ],
+            "argv": [
+                "answered",
+                cid,
+                dr,
+                "answered",
+                "--reason",
+                "the flow looked fine when I traced it by hand",
+                "--anchor",
+                "custody",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "answered-structural-accepted",
+            "exit": 0,
+            "out": [dr2 + ": status -> answered"],
+            "argv": [
+                "answered",
+                cid,
+                dr2,
+                "answered",
+                "--reason",
+                drsym + " pays out along the same path it asserts",
+                "--anchor",
+                "custody",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "answered-dismissal-refused",
+            "exit": 2,
+            "err": [
+                "the closure reason uses dismissal vocabulary",
+                "on a high-risk row",
+                "refutation that runs",
+            ],
+            "argv": [
+                "answered",
+                cid,
+                dr,
+                "answered",
+                "--reason",
+                "liveness-only: the owner can revert, no economic impact",
+                "--anchor",
+                "custody",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "answered-dismissal-override-unreasoned",
+            "exit": 2,
+            "err": ["--override-dismissal needs --override-reason"],
+            "argv": [
+                "answered",
+                cid,
+                dr,
+                "answered",
+                "--reason",
+                "liveness-only: the owner can revert, no economic impact",
+                "--anchor",
+                "custody",
+                "--override-dismissal",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "answered-dismissal-overridden",
+            "exit": 0,
+            "out": [
+                "dismissal overridden: "
+                + dr
+                + " logged as probe.dismissal_overridden (actor golden)"
+            ],
+            "argv": [
+                "answered",
+                cid,
+                dr,
+                "answered",
+                "--reason",
+                "liveness-only: the owner can revert, no economic impact",
+                "--anchor",
+                "custody",
+                "--override-dismissal",
+                "--override-reason",
+                "the operator accepts the risk in writing for this run",
+                "--actor",
+                "golden",
+            ],
+        },
         # Research memory graph (typed edges) + the derived capability delta.
-        {"name": "relations-rebuild", "exit": 0,
-         "argv": ["relations", cid, "--rebuild"]},
+        {
+            "name": "relations-rebuild",
+            "exit": 0,
+            "argv": ["relations", cid, "--rebuild"],
+        },
         {"name": "relations-view", "exit": 0, "argv": ["relations", cid]},
         {"name": "resemble", "exit": 0, "argv": ["resemble", cid, f[0]]},
         # Corpus sweep. Runs with an ABSENT eval + PoC store
@@ -815,34 +1458,63 @@ def recipe(state: dict) -> list[dict]:
         # is the module's documented legitimate input state. The step still
         # pins the class-probe layer, the exposure ordering and the report
         # artifact byte-for-byte.
-        {"name": "corpus-surface", "exit": 0,
-         "argv": ["corpus-surface", cid]},
+        {"name": "corpus-surface", "exit": 0, "argv": ["corpus-surface", cid]},
         # Negative knowledge -> memory queue -> human approval -> publish to
         # the shared store -> globalize -> both-tier view. A fresh rung on
         # the CONFIRMED h7 is disproved (its ladder is untouched by P2), so
         # learning.queue_memory writes the MEM- row the rest of the block
         # consumes.
-        {"name": "ladder-start-h7", "exit": 0,
-         "argv": ["ladder", cid, "start", f[6]]},
-        {"name": "ladder-add-h7", "exit": 0, "rungs": 1,
-         "argv": ["ladder", cid, "add", f[6], "--name", "p3-dead-end",
-                  "--description", "drain the vault in one transaction",
-                  "--axes", "precondition-removal",
-                  "--capital", "1", "--ratio", "1",
-                  "--removes", "the timelock"]},
-        {"name": "ladder-disprove-h7", "exit": 0,
-         "argv": ["ladder", cid, "disprove", f[6], rung[1], "--reason",
-                  "the removed timelock precondition is enforced by the "
-                  "guard the rung cannot bypass"]},
-        {"name": "memory-list", "exit": 0, "memory": 1,
-         "argv": ["memory", cid]},
-        {"name": "memory-approve", "exit": 0,
-         "argv": ["memory", cid, "--approve", mem[0], "--by", "golden"]},
+        {"name": "ladder-start-h7", "exit": 0, "argv": ["ladder", cid, "start", f[6]]},
+        {
+            "name": "ladder-add-h7",
+            "exit": 0,
+            "rungs": 1,
+            "argv": [
+                "ladder",
+                cid,
+                "add",
+                f[6],
+                "--name",
+                "p3-dead-end",
+                "--description",
+                "drain the vault in one transaction",
+                "--axes",
+                "precondition-removal",
+                "--capital",
+                "1",
+                "--ratio",
+                "1",
+                "--removes",
+                "the timelock",
+            ],
+        },
+        {
+            "name": "ladder-disprove-h7",
+            "exit": 0,
+            "argv": [
+                "ladder",
+                cid,
+                "disprove",
+                f[6],
+                rung[1],
+                "--reason",
+                "the removed timelock precondition is enforced by the "
+                "guard the rung cannot bypass",
+            ],
+        },
+        {"name": "memory-list", "exit": 0, "memory": 1, "argv": ["memory", cid]},
+        {
+            "name": "memory-approve",
+            "exit": 0,
+            "argv": ["memory", cid, "--approve", mem[0], "--by", "golden"],
+        },
         {"name": "memory-list-after", "exit": 0, "argv": ["memory", cid]},
-        {"name": "publish", "exit": 0,
-         "argv": ["publish", cid, "--actor", "golden"]},
-        {"name": "globalize-root", "exit": 0,
-         "argv": ["globalize", "--actor", "golden", "--tier", "root"]},
+        {"name": "publish", "exit": 0, "argv": ["publish", cid, "--actor", "golden"]},
+        {
+            "name": "globalize-root",
+            "exit": 0,
+            "argv": ["globalize", "--actor", "golden", "--tier", "root"],
+        },
         {"name": "shared", "exit": 0, "argv": ["shared"]},
         {"name": "shared-verify", "exit": 0, "argv": ["shared", "--verify"]},
         # Operator cockpit + report + recency.
@@ -850,81 +1522,170 @@ def recipe(state: dict) -> list[dict]:
         {"name": "brief-json", "exit": 0, "argv": ["brief", cid, "--json"]},
         {"name": "brief-deep", "exit": 0, "argv": ["brief", cid, "--deep"]},
         {"name": "report", "exit": 0, "argv": ["report", cid]},
-        {"name": "recency", "exit": 0,
-         "argv": ["recency", cid, "--target", state["target"],
-                  "--src", snap_src]},
-        {"name": "recency-json", "exit": 0,
-         "argv": ["recency", cid, "--target", state["target"],
-                  "--src", snap_src, "--json"]},
+        {
+            "name": "recency",
+            "exit": 0,
+            "argv": ["recency", cid, "--target", state["target"], "--src", snap_src],
+        },
+        {
+            "name": "recency-json",
+            "exit": 0,
+            "argv": [
+                "recency",
+                cid,
+                "--target",
+                state["target"],
+                "--src",
+                snap_src,
+                "--json",
+            ],
+        },
         # Baseline store: full lifecycle against ONE scratch store pinned by
         # WEBV2_BASELINES_DIR (D24: the reference hangs the store off its
         # own package root off cwd; the harness points it at
         # .scratch/golden/baselines and resets it per run). list (empty) ->
         # forkdiff (no baselines) -> add the target as a baseline -> list ->
         # forkdiff (score 1.00 against itself) -> remove -> list (empty).
-        {"name": "baseline-list-empty", "exit": 0,
-         "argv": ["baseline", "list"]},
-        {"name": "forkdiff-no-baselines", "exit": 0,
-         "argv": ["forkdiff", cid, "--src", snap_src]},
-        {"name": "forkdiff-no-baselines-json", "exit": 0,
-         "argv": ["forkdiff", cid, "--src", snap_src, "--json"]},
-        {"name": "baseline-add", "exit": 0,
-         "argv": ["baseline", "add", "golden-baseline",
-                  "--path", state["target"],
-                  "--source-url", "https://example.invalid/golden",
-                  "--license", "MIT"]},
+        {"name": "baseline-list-empty", "exit": 0, "argv": ["baseline", "list"]},
+        {
+            "name": "forkdiff-no-baselines",
+            "exit": 0,
+            "argv": ["forkdiff", cid, "--src", snap_src],
+        },
+        {
+            "name": "forkdiff-no-baselines-json",
+            "exit": 0,
+            "argv": ["forkdiff", cid, "--src", snap_src, "--json"],
+        },
+        {
+            "name": "baseline-add",
+            "exit": 0,
+            "argv": [
+                "baseline",
+                "add",
+                "golden-baseline",
+                "--path",
+                state["target"],
+                "--source-url",
+                "https://example.invalid/golden",
+                "--license",
+                "MIT",
+            ],
+        },
         {"name": "baseline-list", "exit": 0, "argv": ["baseline", "list"]},
-        {"name": "forkdiff", "exit": 0,
-         "argv": ["forkdiff", cid, "--src", snap_src]},
-        {"name": "forkdiff-json", "exit": 0,
-         "argv": ["forkdiff", cid, "--src", snap_src, "--json"]},
-        {"name": "baseline-remove", "exit": 0,
-         "argv": ["baseline", "remove", "golden-baseline"]},
-        {"name": "baseline-list-after", "exit": 0,
-         "argv": ["baseline", "list"]},
+        {"name": "forkdiff", "exit": 0, "argv": ["forkdiff", cid, "--src", snap_src]},
+        {
+            "name": "forkdiff-json",
+            "exit": 0,
+            "argv": ["forkdiff", cid, "--src", snap_src, "--json"],
+        },
+        {
+            "name": "baseline-remove",
+            "exit": 0,
+            "argv": ["baseline", "remove", "golden-baseline"],
+        },
+        {"name": "baseline-list-after", "exit": 0, "argv": ["baseline", "list"]},
         # Economics: operator-reported costs, yield, the price table and the
         # price-basis pin.
-        {"name": "cost-model", "exit": 0,
-         "argv": ["cost", cid, "--kind", "model", "--amount", "12.5",
-                  "--trajectory", "code", "--actor", "golden"]},
-        {"name": "cost-human", "exit": 0,
-         "argv": ["cost", cid, "--kind", "human-review", "--amount", "40",
-                  "--finding", f[0], "--actor", "golden"]},
+        {
+            "name": "cost-model",
+            "exit": 0,
+            "argv": [
+                "cost",
+                cid,
+                "--kind",
+                "model",
+                "--amount",
+                "12.5",
+                "--trajectory",
+                "code",
+                "--actor",
+                "golden",
+            ],
+        },
+        {
+            "name": "cost-human",
+            "exit": 0,
+            "argv": [
+                "cost",
+                cid,
+                "--kind",
+                "human-review",
+                "--amount",
+                "40",
+                "--finding",
+                f[0],
+                "--actor",
+                "golden",
+            ],
+        },
         {"name": "yields", "exit": 0, "argv": ["yields", cid]},
-        {"name": "price-set", "exit": 0, "price": 1,
-         "argv": ["price", cid, "set", "ETH", "3000",
-                  "--source", "coingecko",
-                  "--as-of", "2026-09-08T00:00:00+00:00",
-                  "--actor", "golden"]},
+        {
+            "name": "price-set",
+            "exit": 0,
+            "price": 1,
+            "argv": [
+                "price",
+                cid,
+                "set",
+                "ETH",
+                "3000",
+                "--source",
+                "coingecko",
+                "--as-of",
+                "2026-09-08T00:00:00+00:00",
+                "--actor",
+                "golden",
+            ],
+        },
         {"name": "price-table", "exit": 0, "argv": ["price", cid, "table"]},
-        {"name": "price-basis", "exit": 0,
-         "argv": ["price-basis", cid, f[0], prc[0]]},
+        {"name": "price-basis", "exit": 0, "argv": ["price-basis", cid, f[0], prc[0]]},
         # Environment + health, then the pipeline walk. `doctor --json`
         # reports campaign_state.json's byte size, which embeds the model
         # stage's prompt path (D25: the Go embed mirror adds an `assets/`
         # segment), so it must run BEFORE `run` records that note.
         {"name": "env-doctor", "exit": 1, "argv": ["env", "doctor"]},
-        {"name": "env-doctor-json", "exit": 0,
-         "argv": ["env", "doctor", "--json"]},
+        {"name": "env-doctor-json", "exit": 0, "argv": ["env", "doctor", "--json"]},
         {"name": "doctor", "exit": 0, "argv": ["doctor", cid]},
         {"name": "doctor-json", "exit": 0, "argv": ["doctor", cid, "--json"]},
         # `run` halts at the first model stage (exit 3, "needs-model"); the
         # printed prompt path differs by D25 and is normalized by
         # check-golden.py.
         {"name": "run", "exit": 3, "argv": ["run", cid]},
-        {"name": "complete-short-reason", "exit": 2,
-         "argv": ["complete", cid, "--actor", "golden", "--reason", "nope"]},
-        {"name": "complete", "exit": 0,
-         "argv": ["complete", cid, "--actor", "golden", "--reason",
-                  "all golden passes closed with evidence"]},
-
+        {
+            "name": "complete-short-reason",
+            "exit": 2,
+            "argv": ["complete", cid, "--actor", "golden", "--reason", "nope"],
+        },
+        {
+            "name": "complete",
+            "exit": 0,
+            "argv": [
+                "complete",
+                cid,
+                "--actor",
+                "golden",
+                "--reason",
+                "all golden passes closed with evidence",
+            ],
+        },
         # ---- closing half: same P0 verbs again, now over the P1 state ----
         {"name": "status-final", "exit": 0, "argv": ["status", cid]},
         {"name": "audit-final", "exit": 0, "argv": ["audit", cid]},
         {"name": "audit-json-final", "exit": 0, "argv": ["audit", cid, "--json"]},
         {"name": "log-tail", "exit": 0, "argv": ["log", cid, "--tail", "5"]},
         {"name": "verify-final", "exit": 0, "argv": ["verify", cid]},
-
+        {
+            "name": "init-c2",
+            "exit": 0,
+            "cid2": 1,
+            "argv": ["init", "--program", "Golden Two"],
+        },
+        {
+            "name": "snap-c2-deployment-chain",
+            "exit": 0,
+            "argv": [
+                "snap",
         # ---- D19 golden coverage: a SECOND campaign ---------------------
         # `snap --deployment/--chain` attaches both pins at snap time. Kept
         # last on purpose: a fork-pinned snapshot changes the plan's
@@ -933,16 +1694,17 @@ def recipe(state: dict) -> list[dict]:
         # summary lines, the manifest roots (deployment_merkle_root /
         # chain_fingerprint), the pin members and the two
         # snapshot.*_attached events are all byte-compared here.
-        {"name": "init-c2", "exit": 0, "cid2": 1,
-         "argv": ["init", "--program", "Golden Two"]},
-        {"name": "snap-c2-deployment-chain", "exit": 0,
-         "argv": ["snap", cid2, state["target"],
-                  "--deployment", f"{FIX}/deployment.json",
-                  "--chain", f"{FIX}/chain.json"]},
+                cid2,
+                state["target"],
+                "--deployment",
+                f"{FIX}/deployment.json",
+                "--chain",
+                f"{FIX}/chain.json",
+            ],
+        },
         {"name": "status-c2", "exit": 0, "argv": ["status", cid2]},
         {"name": "audit-c2", "exit": 0, "argv": ["audit", cid2]},
         {"name": "verify-c2", "exit": 0, "argv": ["verify", cid2]},
-
         # ---- P4 golden coverage (v5, T38) --------------------------------
         # The sft verb group over the committed fixture store (WEBV2_SFT_STORE
         # -> <root>/sft-store/examples.json, a per-twin copy). The store
@@ -954,28 +1716,56 @@ def recipe(state: dict) -> list[dict]:
         # campaign artifact, but a store write must not sit between two
         # steps that read the store.
         {"name": "sft-list", "exit": 0, "argv": ["sft", "list"]},
-        {"name": "sft-list-curated", "exit": 0,
-         "argv": ["sft", "list", "--status", "curated"]},
-        {"name": "sft-list-draft", "exit": 0,
-         "argv": ["sft", "list", "--status", "draft"]},
-        {"name": "sft-lint-pass", "exit": 0,
-         "argv": ["sft", "lint", f"{P4_SFT}/lint-pass.json"]},
-        {"name": "sft-lint-dedup", "exit": 1,
-         "argv": ["sft", "lint", f"{P4_SFT}/lint-dedup.json"]},
-        {"name": "sft-lint-reject", "exit": 1,
-         "argv": ["sft", "lint", f"{P4_SFT}/lint-reject.json"]},
-        {"name": "sft-split", "exit": 0,
-         "argv": ["sft", "split", "--seed", "42"]},
+        {
+            "name": "sft-list-curated",
+            "exit": 0,
+            "argv": ["sft", "list", "--status", "curated"],
+        },
+        {
+            "name": "sft-list-draft",
+            "exit": 0,
+            "argv": ["sft", "list", "--status", "draft"],
+        },
+        {
+            "name": "sft-lint-pass",
+            "exit": 0,
+            "argv": ["sft", "lint", f"{P4_SFT}/lint-pass.json"],
+        },
+        {
+            "name": "sft-lint-dedup",
+            "exit": 1,
+            "argv": ["sft", "lint", f"{P4_SFT}/lint-dedup.json"],
+        },
+        {
+            "name": "sft-lint-reject",
+            "exit": 1,
+            "argv": ["sft", "lint", f"{P4_SFT}/lint-reject.json"],
+        },
+        {"name": "sft-split", "exit": 0, "argv": ["sft", "split", "--seed", "42"]},
         {"name": "sft-list-split", "exit": 0, "argv": ["sft", "list"]},
-        {"name": "sft-list-training", "exit": 0,
-         "argv": ["sft", "list", "--partition", "training"]},
+        {
+            "name": "sft-list-training",
+            "exit": 0,
+            "argv": ["sft", "list", "--partition", "training"],
+        },
         {"name": "sft-report", "exit": 0, "argv": ["sft", "report"]},
         {"name": "sft-export", "exit": 0, "argv": ["sft", "export"]},
-        {"name": "sft-export-training", "exit": 0,
-         "argv": ["sft", "export", "--partition", "training"]},
-        {"name": "sft-backfill", "exit": 0,
-         "argv": ["sft", "backfill", cid, f[0]]},
-
+        {
+            "name": "sft-export-training",
+            "exit": 0,
+            "argv": ["sft", "export", "--partition", "training"],
+        },
+        {"name": "sft-backfill", "exit": 0, "argv": ["sft", "backfill", cid, f[0]]},
+        {
+            "name": "init-s2",
+            "exit": 0,
+            "cid3": 1,
+            "argv": ["init", "--program", "Surface Two"],
+        },
+        {
+            "name": "snap-s2",
+            "exit": 0,
+            "snapshot2": 1,
         # ---- P5 golden coverage (G16, T19): the second probe surface -----
         # A THIRD campaign over the fixtures-surface target (make_surface2_
         # target): the same surface-producing spine the first campaign uses
@@ -990,24 +1780,25 @@ def recipe(state: dict) -> list[dict]:
         # drops to zero rows. Kept last: a new campaign touches no existing
         # artifact, and its steps append after every P0-P4 index, so no
         # existing capture moves.
-        {"name": "init-s2", "exit": 0, "cid3": 1,
-         "argv": ["init", "--program", "Surface Two"]},
-        {"name": "snap-s2", "exit": 0, "snapshot2": 1,
-         "argv": ["snap", cid3, state["target2"]]},
-        {"name": "model-s2", "exit": 0,
-         "argv": ["model", cid3, f"{FIX}/model.json"]},
-        {"name": "index-s2", "exit": 0,
-         "argv": ["index", cid3, "--src", snap2]},
-        {"name": "probes-run-s2", "exit": 0,
-         "argv": ["probes", cid3, "run"]},
+            "argv": ["snap", cid3, state["target2"]],
+        },
+        {"name": "model-s2", "exit": 0, "argv": ["model", cid3, f"{FIX}/model.json"]},
+        {"name": "index-s2", "exit": 0, "argv": ["index", cid3, "--src", snap2]},
+        {"name": "probes-run-s2", "exit": 0, "argv": ["probes", cid3, "run"]},
         {"name": "plan-s2", "exit": 0, "argv": ["plan", cid3]},
-        {"name": "probes-run-emit-s2", "exit": 0,
-         "argv": ["probes", cid3, "run", "--emit"]},
-        {"name": "probes-list-all-json-s2", "exit": 0, "surface2": 1,
-         "argv": ["probes", cid3, "list", "--all", "--json"]},
+        {
+            "name": "probes-run-emit-s2",
+            "exit": 0,
+            "argv": ["probes", cid3, "run", "--emit"],
+        },
+        {
+            "name": "probes-list-all-json-s2",
+            "exit": 0,
+            "surface2": 1,
+            "argv": ["probes", cid3, "list", "--all", "--json"],
+        },
         {"name": "audit-s2", "exit": 0, "argv": ["audit", cid3]},
-        {"name": "audit-json-s2", "exit": 0,
-         "argv": ["audit", cid3, "--json"]},
+        {"name": "audit-json-s2", "exit": 0, "argv": ["audit", cid3, "--json"]},
         {"name": "verify-s2", "exit": 0, "argv": ["verify", cid3]},
     ]
 
@@ -1018,8 +1809,9 @@ EXEC_RE = re.compile(r"(EXEC-[0-9a-f]+)")
 RUNG_RE = re.compile(r"rung (R-[0-9a-z]+) recorded")
 
 
-def check_surface2(twin: str, step: int, name: str, out: str,
-                   root: Path, cid3: str) -> None:
+def check_surface2(
+    twin: str, step: int, name: str, out: str, root: Path, cid3: str
+) -> None:
     """The G16 rot gate: every registered axis carries >=1 row, and the
     surface artifact carries every required key of probe_surface.schema.json.
 
@@ -1035,42 +1827,53 @@ def check_surface2(twin: str, step: int, name: str, out: str,
         sys.exit(f"{twin} step {step:02d}-{name}: not JSON: {exc}")
     axes = doc.get("axes")
     if not isinstance(axes, list):
-        sys.exit(f"{twin} step {step:02d}-{name}: no axes list in the "
-                 f"surface:\n{out[:400]}")
-    by_name = {a["axis"]: a for a in axes
-               if isinstance(a, dict) and isinstance(a.get("axis"), str)}
+        sys.exit(
+            f"{twin} step {step:02d}-{name}: no axes list in the surface:\n{out[:400]}"
+        )
+    by_name = {
+        a["axis"]: a
+        for a in axes
+        if isinstance(a, dict) and isinstance(a.get("axis"), str)
+    }
     for axis in SURFACE2_AXES:
         a = by_name.get(axis)
         if a is None:
-            sys.exit(f"{twin} step {step:02d}-{name}: SURFACE2 ROT — axis "
-                     f"{axis!r} missing from the surface (registration or "
-                     f"wiring drift); every probe axis must carry >=1 row")
+            sys.exit(
+                f"{twin} step {step:02d}-{name}: SURFACE2 ROT — axis "
+                f"{axis!r} missing from the surface (registration or "
+                f"wiring drift); every probe axis must carry >=1 row"
+            )
         sites = a.get("sites")
         rows = a.get("rows")
         if not isinstance(sites, int) or sites < 1:
-            sys.exit(f"{twin} step {step:02d}-{name}: SURFACE2 ROT — axis "
-                     f"{axis!r} reports sites={sites!r}: the detector saw no "
-                     f"code at all")
+            sys.exit(
+                f"{twin} step {step:02d}-{name}: SURFACE2 ROT — axis "
+                f"{axis!r} reports sites={sites!r}: the detector saw no "
+                f"code at all"
+            )
         if not isinstance(rows, int) or rows < 1:
-            sys.exit(f"{twin} step {step:02d}-{name}: SURFACE2 ROT — axis "
-                     f"{axis!r} emitted rows={rows!r} (status="
-                     f"{a.get('status')!r}): an axis went dark and nothing "
-                     f"else in the suite would notice")
+            sys.exit(
+                f"{twin} step {step:02d}-{name}: SURFACE2 ROT — axis "
+                f"{axis!r} emitted rows={rows!r} (status="
+                f"{a.get('status')!r}): an axis went dark and nothing "
+                f"else in the suite would notice"
+            )
     # Schema half: the artifact probe_surface.json must carry every required
     # key of assets/schema/probe_surface.schema.json (top object, axes
     # items, rows items, missing items, stats).
     art = root / "campaigns" / cid3 / "artifacts" / "probe_surface.json"
     if not art.is_file():
-        sys.exit(f"{twin} step {step:02d}-{name}: SURFACE2 ROT — surface "
-                 f"artifact missing: {art}")
+        sys.exit(
+            f"{twin} step {step:02d}-{name}: SURFACE2 ROT — surface "
+            f"artifact missing: {art}"
+        )
     try:
         surface = json.loads(art.read_text())
     except ValueError as exc:
-        sys.exit(f"{twin} step {step:02d}-{name}: surface artifact not "
-                 f"JSON: {exc}")
+        sys.exit(f"{twin} step {step:02d}-{name}: surface artifact not JSON: {exc}")
     schema = json.loads(
-        (GO_ROOT / "assets" / "schema" / "probe_surface.schema.json")
-        .read_text())
+        (GO_ROOT / "assets" / "schema" / "probe_surface.schema.json").read_text()
+    )
     missing_keys: list[str] = []
 
     def require(obj: object, required: list, where: str) -> None:
@@ -1083,25 +1886,30 @@ def check_surface2(twin: str, step: int, name: str, out: str,
 
     require(surface, schema.get("required", []), "surface")
     props = schema.get("properties", {})
-    for section, key in (("axes", "axis"), ("rows", "row_id"),
-                         ("missing", "axis")):
+    for section, key in (("axes", "axis"), ("rows", "row_id"), ("missing", "axis")):
         item_schema = props.get(section, {}).get("items", {})
         items = surface.get(section)
         if not isinstance(items, list):
             missing_keys.append(f"surface.{section}: not a list")
             continue
         for n, item in enumerate(items):
-            require(item, item_schema.get("required", []),
-                    f"surface.{section}[{n}]")
-    require(surface.get("stats"), props.get("stats", {}).get("required", []),
-            "surface.stats")
+            require(item, item_schema.get("required", []), f"surface.{section}[{n}]")
+    require(
+        surface.get("stats"),
+        props.get("stats", {}).get("required", []),
+        "surface.stats",
+    )
     if missing_keys:
-        sys.exit(f"{twin} step {step:02d}-{name}: SURFACE2 ROT — surface "
-                 f"artifact fails the probe_surface schema required-keys "
-                 f"check:\n  " + "\n  ".join(missing_keys))
+        sys.exit(
+            f"{twin} step {step:02d}-{name}: SURFACE2 ROT — surface "
+            f"artifact fails the probe_surface schema required-keys "
+            f"check:\n  " + "\n  ".join(missing_keys)
+        )
     n_rows = len(surface.get("rows", []))
-    print(f"[surface2] {len(SURFACE2_AXES)} axes carry rows "
-          f"(total {n_rows} emitted), schema required-keys ok")
+    print(
+        f"[surface2] {len(SURFACE2_AXES)} axes carry rows "
+        f"(total {n_rows} emitted), schema required-keys ok"
+    )
 
 
 def main() -> None:
@@ -1142,17 +1950,28 @@ def main() -> None:
         sft_store.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(GO_ROOT / P4_SFT / "examples.json", sft_store)
         shutil.rmtree(WORK / "shared-memory", ignore_errors=True)
-        shutil.copytree(GO_ROOT / P4_FIX / "shared-memory",
-                        WORK / "shared-memory")
+        shutil.copytree(GO_ROOT / P4_FIX / "shared-memory", WORK / "shared-memory")
         roots[twin] = str(root)
         caps = WORK / "captures" / twin
         caps.mkdir(parents=True)
         captures[twin] = []
         declared[twin] = []
-        state = {"cid": "", "findings": [], "artifacts": [],
-                 "execs": [], "rungs": [], "target": str(target),
-                 "snapshot": "", "cid2": "", "blind": [], "mem": [],
-                 "prc": [], "dr": "", "dr2": "", "drsym": ""}
+        state = {
+            "cid": "",
+            "findings": [],
+            "artifacts": [],
+            "execs": [],
+            "rungs": [],
+            "target": str(target),
+            "snapshot": "",
+            "cid2": "",
+            "blind": [],
+            "mem": [],
+            "prc": [],
+            "dr": "",
+            "dr2": "",
+            "drsym": "",
+        }
         # P5 (G16): the second surface campaign's target + ids. Appended
         # keys only — every P0-P4 placeholder above resolves exactly as
         # before, so no existing capture moves.
@@ -1179,59 +1998,85 @@ def main() -> None:
                 # step list stays parallel.
                 info = st["seed_exec"]
                 eid = seeded_exec_id(info["n"])
-                seed_exec(root, state["cid"], i, info["n"],
-                          state["findings"][info["finding"]], info["command"],
-                          eid)
+                seed_exec(
+                    root,
+                    state["cid"],
+                    i,
+                    info["n"],
+                    state["findings"][info["finding"]],
+                    info["command"],
+                    eid,
+                )
                 code = 0
                 err = ""
-                out = (f"seeded externally-reported exec {eid} "
-                       f"(profile docker-networkless, exit 0)\n")
+                out = (
+                    f"seeded externally-reported exec {eid} "
+                    f"(profile docker-networkless, exit 0)\n"
+                )
             else:
-                code, out, err = run_step(twin, root, argv, i, fid_base,
-                                           str(sft_store))
+                code, out, err = run_step(twin, root, argv, i, fid_base, str(sft_store))
             (caps / f"{i:02d}-{name}.out").write_text(out)
             (caps / f"{i:02d}-{name}.err").write_text(err)
             (caps / f"{i:02d}-{name}.exit").write_text(str(code))
-            captures[twin].append({"name": name, "argv": argv, "exit": code,
-                                   "expect_exit": st.get("exit", 0)})
-            declared[twin].append({"err": st.get("err") or [],
-                                   "out": st.get("out") or []})
+            captures[twin].append(
+                {
+                    "name": name,
+                    "argv": argv,
+                    "exit": code,
+                    "expect_exit": st.get("exit", 0),
+                }
+            )
+            declared[twin].append(
+                {"err": st.get("err") or [], "out": st.get("out") or []}
+            )
             if st.get("findings"):
                 for _ in range(st["findings"]):
                     m = FID_RE.search(out)
                     if not m:
-                        sys.exit(f"{twin} step {i:02d}-{name}: no finding id in stdout:\n{out}")
+                        sys.exit(
+                            f"{twin} step {i:02d}-{name}: no finding id in stdout:\n{out}"
+                        )
                     state["findings"].append(m.group(1))
                 fid_base += st["findings"]
             if st.get("artifacts"):
                 for _ in range(st["artifacts"]):
                     m = ART_RE.search(out)
                     if not m:
-                        sys.exit(f"{twin} step {i:02d}-{name}: no artifact id in stdout:\n{out}")
+                        sys.exit(
+                            f"{twin} step {i:02d}-{name}: no artifact id in stdout:\n{out}"
+                        )
                     state["artifacts"].append(m.group(1))
             if st.get("execs"):
                 for _ in range(st["execs"]):
                     m = EXEC_RE.search(out)
                     if not m:
-                        sys.exit(f"{twin} step {i:02d}-{name}: no exec id in stdout:\n{out}")
+                        sys.exit(
+                            f"{twin} step {i:02d}-{name}: no exec id in stdout:\n{out}"
+                        )
                     state["execs"].append(m.group(1))
             if st.get("rungs"):
                 for _ in range(st["rungs"]):
                     m = RUNG_RE.search(out)
                     if not m:
-                        sys.exit(f"{twin} step {i:02d}-{name}: no rung id in stdout:\n{out}")
+                        sys.exit(
+                            f"{twin} step {i:02d}-{name}: no rung id in stdout:\n{out}"
+                        )
                     state["rungs"].append(m.group(1))
             if st.get("cid2"):
                 m = re.search(r"C-[0-9a-f]+", out)
                 if not m:
-                    sys.exit(f"{twin} step {i:02d}-{name}: no campaign id in stdout:\n{out}")
+                    sys.exit(
+                        f"{twin} step {i:02d}-{name}: no campaign id in stdout:\n{out}"
+                    )
                 state["cid2"] = m.group(0)
             if st.get("cid3"):
                 # P5 (G16): the third campaign's id, minted by init-s2 from
                 # the pinned per-step stream (deterministic across runs).
                 m = re.search(r"C-[0-9a-f]+", out)
                 if not m:
-                    sys.exit(f"{twin} step {i:02d}-{name}: no campaign id in stdout:\n{out}")
+                    sys.exit(
+                        f"{twin} step {i:02d}-{name}: no campaign id in stdout:\n{out}"
+                    )
                 state["cid3"] = m.group(0)
             if st.get("snapshot2"):
                 # P5 (G16): the surface2 snapshot root (content-addressed,
@@ -1240,7 +2085,9 @@ def main() -> None:
                 snap_dir = root / "campaigns" / state["cid3"] / "snapshots"
                 snaps = sorted(p for p in snap_dir.iterdir() if p.is_dir())
                 if not snaps:
-                    sys.exit(f"{twin} step {i:02d}-{name}: no snapshot dir under {snap_dir}")
+                    sys.exit(
+                        f"{twin} step {i:02d}-{name}: no snapshot dir under {snap_dir}"
+                    )
                 state["snap2"] = str(snaps[-1])
             if st.get("surface2"):
                 # P5 (G16): the rot gate — every axis carries >=1 row and
@@ -1254,7 +2101,9 @@ def main() -> None:
                 snap_dir = root / "campaigns" / state["cid"] / "snapshots"
                 snaps = sorted(p for p in snap_dir.iterdir() if p.is_dir())
                 if not snaps:
-                    sys.exit(f"{twin} step {i:02d}-{name}: no snapshot dir under {snap_dir}")
+                    sys.exit(
+                        f"{twin} step {i:02d}-{name}: no snapshot dir under {snap_dir}"
+                    )
                 state["snapshot"] = str(snaps[-1])
             if st.get("blind"):
                 # The BLIND axis the probes view published: the FIRST axis
@@ -1271,8 +2120,10 @@ def main() -> None:
                         state["blind"] = [ax.get("axis"), keys[0].get("key")]
                         break
                 if not state["blind"]:
-                    sys.exit(f"{twin} step {i:02d}-{name}: no blind axis "
-                             f"published:\n{out[:400]}")
+                    sys.exit(
+                        f"{twin} step {i:02d}-{name}: no blind axis "
+                        f"published:\n{out[:400]}"
+                    )
             if st.get("dr"):
                 # The first high-risk probe row's plan priority, in surface
                 # order: tier 0 (the probe's most serious claim) or
@@ -1299,29 +2150,39 @@ def main() -> None:
                         for anchor in row.get("anchors") or []:
                             base = anchor.split("/")[-1].split("#")[0]
                             if base.endswith(".sol"):
-                                state["drsym"] = base[:-len(".sol")]
+                                state["drsym"] = base[: -len(".sol")]
                                 break
                     elif not state.get("dr2"):
                         state["dr2"] = row["priority_id"]
                 if not state.get("dr"):
-                    sys.exit(f"{twin} step {i:02d}-{name}: no high-risk probe "
-                             f"row in the surface:\n{out[:400]}")
+                    sys.exit(
+                        f"{twin} step {i:02d}-{name}: no high-risk probe "
+                        f"row in the surface:\n{out[:400]}"
+                    )
                 if not state.get("dr2"):
-                    sys.exit(f"{twin} step {i:02d}-{name}: the surface carries "
-                             f"only one high-risk row, so the v3 accept step "
-                             f"has no second subject:\n{out[:400]}")
+                    sys.exit(
+                        f"{twin} step {i:02d}-{name}: the surface carries "
+                        f"only one high-risk row, so the v3 accept step "
+                        f"has no second subject:\n{out[:400]}"
+                    )
                 if not state.get("drsym"):
-                    sys.exit(f"{twin} step {i:02d}-{name}: the high-risk row "
-                             f"publishes no .sol anchor to cite:\n{out[:400]}")
+                    sys.exit(
+                        f"{twin} step {i:02d}-{name}: the high-risk row "
+                        f"publishes no .sol anchor to cite:\n{out[:400]}"
+                    )
             if st.get("memory"):
                 m = re.search(r"MEM-[0-9a-f]+", out)
                 if not m:
-                    sys.exit(f"{twin} step {i:02d}-{name}: no memory id in stdout:\n{out}")
+                    sys.exit(
+                        f"{twin} step {i:02d}-{name}: no memory id in stdout:\n{out}"
+                    )
                 state["mem"].append(m.group(0))
             if st.get("price"):
                 m = re.search(r"PRC-[0-9a-f]+", out)
                 if not m:
-                    sys.exit(f"{twin} step {i:02d}-{name}: no price id in stdout:\n{out}")
+                    sys.exit(
+                        f"{twin} step {i:02d}-{name}: no price id in stdout:\n{out}"
+                    )
                 state["prc"].append(m.group(0))
             if name == "init":
                 m = re.search(r"C-[0-9a-f]+", out)
@@ -1329,14 +2190,15 @@ def main() -> None:
                     sys.exit(f"{twin} init did not print a campaign id:\n{out}")
                 state["cid"] = m.group(0)
             if code != st.get("exit", 0):
-                print(f"[warn] {twin} step {i:02d}-{name}: exit {code}, "
-                      f"expected {st['exit']}: {err.strip()[:200]}")
+                print(
+                    f"[warn] {twin} step {i:02d}-{name}: exit {code}, "
+                    f"expected {st['exit']}: {err.strip()[:200]}"
+                )
             i += 1
         archived = WORK / f"tree-{twin}"
         shutil.rmtree(archived, ignore_errors=True)
         shutil.move(str(root), str(archived))
         trees[twin] = str(archived)
-
 
     # Declared output markers, parallel to `recipe` (None where a step
     # declares none). check-golden validates them: an exit code says a
@@ -1356,8 +2218,10 @@ def main() -> None:
         "captures": captures,
     }
     (WORK / "spec.json").write_text(json.dumps(spec, indent=1))
-    print(f"golden run complete: campaign {states['go']['cid']} "
-          f"({len(spec['recipe'])} steps, Go-only)")
+    print(
+        f"golden run complete: campaign {states['go']['cid']} "
+        f"({len(spec['recipe'])} steps, Go-only)"
+    )
     print(f"  run root: {roots['go']}")
     print(f"  archived tree: {trees['go']}")
 

@@ -33,6 +33,7 @@ brace at the end of the assignment line — because the Go cross-check
 that form. Do not repeat that shape anywhere else in this file: the regex
 takes the FIRST match.
 """
+
 from __future__ import annotations
 
 EXPECTED_PROBE_AXES: dict[str, str] = {

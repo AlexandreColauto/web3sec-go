@@ -62,6 +62,7 @@ correct here (prose); it deliberately differs from the Task 1 command matcher
 is an any-of list of classes a finding MAY carry, so the decision table does not
 gate on it and neither does the scorer.
 """
+
 import argparse
 import json
 import re
@@ -69,17 +70,28 @@ import sys
 from pathlib import Path
 
 # --- pinned contract ---------------------------------------------------------
-
-CAMPAIGN_FINDINGS_SUBDIR = "findings"    # state.Campaign.FindingsDir
-CAMPAIGN_EVENTS_FILE = "events.jsonl"    # state.Campaign.EventsPath
+CAMPAIGN_FINDINGS_SUBDIR = "findings"  # state.Campaign.FindingsDir
+CAMPAIGN_EVENTS_FILE = "events.jsonl"  # state.Campaign.EventsPath
 FINDING_PREFIX, FINDING_SUFFIX = "F-", ".json"
 
 # assets/schema/finding.schema.json `required` — the schema every stored
 # finding was validated against (findings.SaveFinding).
-FINDING_REQUIRED_KEYS = ("finding_id", "campaign_id", "snapshot_ids", "title",
-                         "status", "trajectory", "root_cause", "attacker",
-                         "evidence", "risk", "dedup", "history", "created_at",
-                         "updated_at")
+FINDING_REQUIRED_KEYS = (
+    "finding_id",
+    "campaign_id",
+    "snapshot_ids",
+    "title",
+    "status",
+    "trajectory",
+    "root_cause",
+    "attacker",
+    "evidence",
+    "risk",
+    "dedup",
+    "history",
+    "created_at",
+    "updated_at",
+)
 GOLD_REQUIRED_KEYS = ("gold_findings", "scoring")
 SCORING_REQUIRED_KEYS = ("pass", "bonus", "false_positive_budget")
 
@@ -102,7 +114,8 @@ POC_STATUSES = ("HYPOTHESIS", "INVESTIGATING")
 # other bug classes start matching a gold's criteria by keyword alone.
 MIN_KEYWORD_HITS = 3
 
-STOPWORDS = frozenset("""
+STOPWORDS = frozenset(
+    """
 the a an and or of to in on for with from by is are was were be been being it
 its this that these those as at if then than when where which who whom whose
 while only also not no nor so such into over under out up must can could should
@@ -110,7 +123,8 @@ would may might will shall does do did done have has had having there here
 their them they we you your our his her he she but because before after during
 about above below between each other others same both few more most some any
 all every own too very just don own s t re ve ll d m
-""".split())
+""".split()
+)
 
 WORD_RE = re.compile(r"[a-z][a-z0-9_]{3,}")
 BUDGET_RE = re.compile(r"(\d+)\s*\+?\s*FPs?\b", re.I)
@@ -129,7 +143,7 @@ def read_json(path):
         return json.loads(path.read_text())
     except OSError as e:
         fail("%s cannot be read: %s" % (path, e))
-    except ValueError as e:                       # includes UnicodeDecodeError
+    except ValueError as e:  # includes UnicodeDecodeError
         fail("%s is not valid JSON: %s" % (path, e))
 
 
@@ -145,9 +159,10 @@ def read_findings(campaign_dir):
             fail("%s is not a JSON object" % p)
         missing = [k for k in FINDING_REQUIRED_KEYS if k not in f]
         if missing:
-            fail("campaign findings schema mismatch (expected keys: %s): %s "
-                 "lacks %s" % (", ".join(FINDING_REQUIRED_KEYS), p,
-                               ", ".join(missing)))
+            fail(
+                "campaign findings schema mismatch (expected keys: %s): %s "
+                "lacks %s" % (", ".join(FINDING_REQUIRED_KEYS), p, ", ".join(missing))
+            )
         out.append(f)
     return out
 
@@ -160,7 +175,7 @@ def read_events(path):
         with path.open() as fh:
             for n, line in enumerate(fh, 1):
                 if not line.strip():
-                    continue          # a trailing newline is not a record
+                    continue  # a trailing newline is not a record
                 try:
                     obj = json.loads(line)
                 except ValueError as e:
@@ -190,15 +205,21 @@ def finding_text(f):
 
 def finding_functions(f):
     affected = f.get("affected")
-    return {a["function"].lower() for a in affected or []
-            if isinstance(a, dict) and isinstance(a.get("function"), str)}
+    return {
+        a["function"].lower()
+        for a in affected or []
+        if isinstance(a, dict) and isinstance(a.get("function"), str)
+    }
 
 
 def matches(gold, f):
     """Keyword quorum over the finding text + one primary_function."""
     text = finding_text(f)
-    hits = sum(1 for t in criteria_tokens(str(gold.get("match_criteria", "")))
-               if word_hit(text, t))
+    hits = sum(
+        1
+        for t in criteria_tokens(str(gold.get("match_criteria", "")))
+        if word_hit(text, t)
+    )
     if hits < MIN_KEYWORD_HITS:
         return False
     fns = finding_functions(f)
@@ -221,8 +242,9 @@ def poc_reproduced(f):
     v = f.get("verification")
     rep = v.get("reproduction") if isinstance(v, dict) else None
     attempts = rep.get("attempts") if isinstance(rep, dict) else None
-    return any(isinstance(a, dict) and a.get("outcome") == "reproduced"
-               for a in attempts or [])
+    return any(
+        isinstance(a, dict) and a.get("outcome") == "reproduced" for a in attempts or []
+    )
 
 
 def accepted(f):
@@ -239,8 +261,10 @@ def false_positive_budget(gold):
     text = gold["scoring"].get("false_positive_budget")
     m = BUDGET_RE.search(text) if isinstance(text, str) else None
     if not m:
-        fail("cannot read the false-positive budget from "
-             "scoring.false_positive_budget (%r)" % (text,))
+        fail(
+            "cannot read the false-positive budget from "
+            "scoring.false_positive_budget (%r)" % (text,)
+        )
     return int(m.group(1))
 
 
@@ -254,10 +278,12 @@ def score(gold, campaign_dir, confirms):
     read_events(campaign_dir / CAMPAIGN_EVENTS_FILE)
 
     live = [f for f in findings if accepted(f)]
-    found = [gid for gid, g in zip(ids, golds)
-             if any(matches(g, f) for f in live)]
-    false_positives = sum(1 for f in findings if f.get("status") == "CONFIRMED"
-                          and not any(matches(g, f) for g in golds))
+    found = [gid for gid, g in zip(ids, golds) if any(matches(g, f) for f in live)]
+    false_positives = sum(
+        1
+        for f in findings
+        if f.get("status") == "CONFIRMED" and not any(matches(g, f) for g in golds)
+    )
     budget = false_positive_budget(gold)
 
     passed = PASS_GOLD_ID in found
@@ -273,12 +299,15 @@ def score(gold, campaign_dir, confirms):
 
     notes = []
     if verdict == "PARTIAL_RESULT":
-        notes.append("partial result: %d false positives at or above the "
-                     "benchmark's budget of %d" % (false_positives, budget))
+        notes.append(
+            "partial result: %d false positives at or above the "
+            "benchmark's budget of %d" % (false_positives, budget)
+        )
     pending = [g for g in found if g not in confirms]
     if pending:
-        notes.append("operator semantic confirmation pending for: %s"
-                     % ", ".join(pending))
+        notes.append(
+            "operator semantic confirmation pending for: %s" % ", ".join(pending)
+        )
     return {
         "found": found,
         "missed": [g for g in ids if g not in found],
@@ -289,8 +318,9 @@ def score(gold, campaign_dir, confirms):
         "verdict_note": "; ".join(notes),
         # Advisory only: a confirmed-but-missed gold still shows the operator's
         # judgment rather than dropping it on the floor.
-        "operator_confirmed": {g: g in confirms
-                               for g in sorted(set(found) | set(confirms))},
+        "operator_confirmed": {
+            g: g in confirms for g in sorted(set(found) | set(confirms))
+        },
     }
 
 
@@ -300,20 +330,20 @@ def load_gold(path):
         fail("%s is not a JSON object" % path)
     missing = [k for k in GOLD_REQUIRED_KEYS if k not in gold]
     if missing:
-        fail("gold file schema mismatch (expected keys: %s): %s lacks %s"
-             % (", ".join(GOLD_REQUIRED_KEYS), path, ", ".join(missing)))
+        fail(
+            "gold file schema mismatch (expected keys: %s): %s lacks %s"
+            % (", ".join(GOLD_REQUIRED_KEYS), path, ", ".join(missing))
+        )
     if not isinstance(gold["gold_findings"], list):
         fail("gold file schema mismatch (gold_findings must be an array)")
     if not isinstance(gold["scoring"], dict):
         fail("gold file schema mismatch (scoring must be an object)")
     missing = [k for k in SCORING_REQUIRED_KEYS if k not in gold["scoring"]]
     if missing:
-        fail("gold file schema mismatch (scoring lacks: %s)"
-             % ", ".join(missing))
+        fail("gold file schema mismatch (scoring lacks: %s)" % ", ".join(missing))
     for g in gold["gold_findings"]:
         if not isinstance(g, dict) or not isinstance(g.get("gold_id"), str):
-            fail("gold file schema mismatch (every gold finding needs a "
-                 "gold_id)")
+            fail("gold file schema mismatch (every gold finding needs a gold_id)")
     return gold
 
 
@@ -321,16 +351,26 @@ def main(argv=None):
     ap = argparse.ArgumentParser(
         prog="eval-gold.py",
         description="Score a finished campaign record against the gold-findings "
-                    "benchmark (offline; never touches a target).")
-    ap.add_argument("--gold", required=True,
-                    help="the benchmark file (web3sec-final/targets/"
-                         "gold-findings.json), read-only")
-    ap.add_argument("--campaign", required=True,
-                    help="a finished campaign dir (findings/F-*.json + "
-                         "events.jsonl)")
-    ap.add_argument("--confirm", action="append", default=[], metavar="G-ID",
-                    help="operator semantic confirmation of a gold finding "
-                         "(advisory; never changes pass/bonus/verdict)")
+        "benchmark (offline; never touches a target).",
+    )
+    ap.add_argument(
+        "--gold",
+        required=True,
+        help="the benchmark file (web3sec-final/targets/gold-findings.json), read-only",
+    )
+    ap.add_argument(
+        "--campaign",
+        required=True,
+        help="a finished campaign dir (findings/F-*.json + events.jsonl)",
+    )
+    ap.add_argument(
+        "--confirm",
+        action="append",
+        default=[],
+        metavar="G-ID",
+        help="operator semantic confirmation of a gold finding "
+        "(advisory; never changes pass/bonus/verdict)",
+    )
     args = ap.parse_args(argv)
     try:
         gold = load_gold(Path(args.gold))

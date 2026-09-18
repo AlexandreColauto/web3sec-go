@@ -47,6 +47,7 @@ When the prompt changes, resync the embedded copies mechanically (replace the
 JSON-escaped old prompt text with the new file content, no reformatting) and
 leave every other byte of the fixture alone.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -59,21 +60,22 @@ import tempfile
 from pathlib import Path
 
 GO_ROOT = Path(__file__).resolve().parents[3]
-PY_ROOT = Path(os.environ.get("WEBV2_PY_ROOT",
-                              GO_ROOT.parent / "web3sec-final"))
+PY_ROOT = Path(os.environ.get("WEBV2_PY_ROOT", GO_ROOT.parent / "web3sec-final"))
 FIX = Path(__file__).resolve().parent
 CORPUS = PY_ROOT / "data" / "datasets" / "DeFiHackLabs"
 EXPLORER = PY_ROOT / "data" / "datasets" / "DeFiHackLabs-Incident-Explorer"
 
 if not (PY_ROOT / "src" / "webv2").is_dir():
-    sys.exit(f"reference repo not found at {PY_ROOT} "
-             "(set WEBV2_PY_ROOT to the web3sec-final checkout)")
+    sys.exit(
+        f"reference repo not found at {PY_ROOT} "
+        "(set WEBV2_PY_ROOT to the web3sec-final checkout)"
+    )
 sys.path.insert(0, str(PY_ROOT / "src"))
 
-from webv2 import eval_store as ES              # noqa: E402
-from webv2 import ingest as IN                  # noqa: E402
-from webv2 import shared_memory as SM           # noqa: E402
-from webv2 import taxonomy as TX                # noqa: E402
+from webv2 import eval_store as ES  # noqa: E402
+from webv2 import ingest as IN  # noqa: E402
+from webv2 import shared_memory as SM  # noqa: E402
+from webv2 import taxonomy as TX  # noqa: E402
 from webv2.datasets import defihacklabs as DfH  # noqa: E402
 
 # The eval-store cases: (record_id_suffix, why). The first three are mapped
@@ -127,14 +129,17 @@ def write_slice(picked: list[dict], dest: Path) -> None:
     picked_incidents = [inc_by_record[rid] for rid in keep_ids]
     names = {str(inc.get("name") or "") for inc in picked_incidents}
     norm_names = {DfH.normalize_name(n) for n in names}
-    kept_rca = {k: v for k, v in rca_data.items()
-                if DfH.normalize_name(k) in norm_names}
+    kept_rca = {
+        k: v for k, v in rca_data.items() if DfH.normalize_name(k) in norm_names
+    }
 
     (dest / "explorer").mkdir(parents=True, exist_ok=True)
     (dest / "explorer" / "incidents.json").write_text(
-        json.dumps(picked_incidents, indent=2) + "\n")
+        json.dumps(picked_incidents, indent=2) + "\n"
+    )
     (dest / "explorer" / "rootcause_data.json").write_text(
-        json.dumps(kept_rca, indent=2) + "\n")
+        json.dumps(kept_rca, indent=2) + "\n"
+    )
 
     copied = 0
     for rid in keep_ids:
@@ -147,28 +152,34 @@ def write_slice(picked: list[dict], dest: Path) -> None:
         out.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, out)
         copied += 1
-    print(f"slice: {len(picked_incidents)} incidents, {len(kept_rca)} RCA "
-          f"records, {copied} PoC files")
+    print(
+        f"slice: {len(picked_incidents)} incidents, {len(kept_rca)} RCA "
+        f"records, {copied} PoC files"
+    )
 
 
 def verify_slice(dest: Path, picked: list[dict]) -> list[dict]:
     """The slice must reproduce the reference's own records byte-for-byte on
     the fields the golden pins (id, poc path, partition, title)."""
-    slice_records = DfH.load_records(explorer_dir=dest / "explorer",
-                                     poc_root=dest / "DeFiHackLabs")
+    slice_records = DfH.load_records(
+        explorer_dir=dest / "explorer", poc_root=dest / "DeFiHackLabs"
+    )
     if len(slice_records) != len(picked):
-        sys.exit(f"slice has {len(slice_records)} records, expected "
-                 f"{len(picked)}")
+        sys.exit(f"slice has {len(slice_records)} records, expected {len(picked)}")
     # Pairwise by corpus order. A collision-group id may legitimately rename
     # under the subset (the suffix disambiguates within the corpus, not the
     # slice) — every OTHER pinned field must be byte-identical.
     for rec, src in zip(slice_records, picked):
         for field in ("title", "exploit", "code", "locations"):
             if rec.get(field) != src.get(field):
-                sys.exit(f"slice record {rec['id']} field {field} differs "
-                         f"from the full corpus")
-    print(f"slice verified: {len(slice_records)} records reproduce the "
-          "reference's own resolution")
+                sys.exit(
+                    f"slice record {rec['id']} field {field} differs "
+                    f"from the full corpus"
+                )
+    print(
+        f"slice verified: {len(slice_records)} records reproduce the "
+        "reference's own resolution"
+    )
     return slice_records
 
 
@@ -187,9 +198,11 @@ def build_eval(dest: Path, records: list[dict], maps: dict) -> None:
         for rec in chosen:
             result = IN.ingest_record(rec, maps)
             ES.add_case(result["eval_case"])
-            print(f"eval case {result['eval_case']['case_id']} "
-                  f"{result['eval_case']['gold']['bug_class']} "
-                  f"({result['eval_case']['partition']})")
+            print(
+                f"eval case {result['eval_case']['case_id']} "
+                f"{result['eval_case']['gold']['bug_class']} "
+                f"({result['eval_case']['partition']})"
+            )
     finally:
         ES.EVAL_DIR = old
     rep = None
@@ -209,22 +222,25 @@ def build_shared(dest: Path, records: list[dict], maps: dict) -> None:
     publish_ingested path (the same path a real ingestion run uses)."""
     shared = dest / "shared-memory"
     shared.mkdir(parents=True, exist_ok=True)
-    results = [IN.ingest_record(r, maps) for r in records
-               if r.get("partition") == "dev"
-               and TX.normalize_class(r["bug_class_label"], maps)[0]
-               != TX.UNMAPPED]
+    results = [
+        IN.ingest_record(r, maps)
+        for r in records
+        if r.get("partition") == "dev"
+        and TX.normalize_class(r["bug_class_label"], maps)[0] != TX.UNMAPPED
+    ]
     scratch = Path(tempfile.mkdtemp(prefix="p4-eval-scratch-"))
     old = ES.EVAL_DIR
     ES.EVAL_DIR = scratch
     try:
-        summary = IN.publish_ingested(results, dataset="defihacklabs",
-                                      tier=shared)
+        summary = IN.publish_ingested(results, dataset="defihacklabs", tier=shared)
     finally:
         ES.EVAL_DIR = old
         shutil.rmtree(scratch, ignore_errors=True)
     rows = SM._tier_memory(shared)
-    print(f"shared memory: {summary['rows_added']} rows in "
-          f"{len({w['program_key'] for w in rows})} program key(s)")
+    print(
+        f"shared memory: {summary['rows_added']} rows in "
+        f"{len({w['program_key'] for w in rows})} program key(s)"
+    )
     if not rows:
         sys.exit("shared-memory fixture is empty — attribution would be blind")
 
@@ -245,7 +261,8 @@ def build_sft(dest: Path) -> None:
     draft["curated_by"] = None
     draft["structured"]["claim"] = (
         "A reentrancy hook on the vault withdrawal path lets an attacker "
-        "re-enter before the share accounting settles and drain the pool.")
+        "re-enter before the share accounting settles and drain the pool."
+    )
     examples.append(draft)
 
     # The rejection candidate: a schema-valid skeleton with TODO
@@ -260,11 +277,21 @@ def build_sft(dest: Path) -> None:
     reject["structured"] = {
         "bug_class": "TODO-bug-class",
         "claim": "TODO: one falsifiable paragraph about the defect.",
-        "assumptions": [{"id": "A1", "text": "TODO: the first checkable "
-                         "proposition", "status": "OPEN",
-                         "reason": "TODO: state the resolving evidence"}],
-        "invariants": [{"statement": "TODO: the property violated",
-                        "status": "UNCHECKED", "depends_on": []}],
+        "assumptions": [
+            {
+                "id": "A1",
+                "text": "TODO: the first checkable proposition",
+                "status": "OPEN",
+                "reason": "TODO: state the resolving evidence",
+            }
+        ],
+        "invariants": [
+            {
+                "statement": "TODO: the property violated",
+                "status": "UNCHECKED",
+                "depends_on": [],
+            }
+        ],
         "expected_impact": "TODO: state the concrete asset/actor/magnitude",
         "next_test": "",
         "pivot_count": 0,
@@ -272,12 +299,14 @@ def build_sft(dest: Path) -> None:
     reject["messages"][2]["content"] = (
         "OBSERVATION:\nTODO: what looked unusual, with a code reference.\n\n"
         "A1 (TODO: first checkable proposition): -> OPEN. TODO\n\n"
-        "IMPACT:\nTODO: concrete asset/actor/magnitude.")
+        "IMPACT:\nTODO: concrete asset/actor/magnitude."
+    )
     examples.append(reject)
 
     store = {"version": curated.get("version", 1), "examples": examples}
     (sft_dir / "examples.json").write_text(
-        json.dumps(store, indent=2, ensure_ascii=False) + "\n")
+        json.dumps(store, indent=2, ensure_ascii=False) + "\n"
+    )
 
     # lint fixtures (files, not store rows).
     pass_ex = json.loads(json.dumps(examples[0]))
@@ -285,28 +314,35 @@ def build_sft(dest: Path) -> None:
     pass_ex["partition"] = None
     pass_ex["structured"]["claim"] = (
         "An unguarded share-price read lets a first depositor inflate the "
-        "exchange rate and mint the victim's deposit as zero shares.")
+        "exchange rate and mint the victim's deposit as zero shares."
+    )
     (sft_dir / "lint-pass.json").write_text(
-        json.dumps(pass_ex, indent=2, ensure_ascii=False) + "\n")
+        json.dumps(pass_ex, indent=2, ensure_ascii=False) + "\n"
+    )
 
     dedup_ex = json.loads(json.dumps(examples[0]))
     dedup_ex["partition"] = None
     (sft_dir / "lint-dedup.json").write_text(
-        json.dumps(dedup_ex, indent=2, ensure_ascii=False) + "\n")
+        json.dumps(dedup_ex, indent=2, ensure_ascii=False) + "\n"
+    )
 
     reject_ex = json.loads(json.dumps(reject))
     (sft_dir / "lint-reject.json").write_text(
-        json.dumps(reject_ex, indent=2, ensure_ascii=False) + "\n")
+        json.dumps(reject_ex, indent=2, ensure_ascii=False) + "\n"
+    )
 
     # Every fixture the reference reads must pass its own schema (the lint
     # itself would report a schema error instead of the rubric reason).
     from webv2.validation import validate
+
     for ex in examples + [pass_ex, dedup_ex, reject_ex]:
         validate(ex, "sft_example")
-    print(f"sft store: {len(examples)} examples "
-          f"({sum(1 for e in examples if e['status'] == 'curated')} curated, "
-          f"{sum(1 for e in examples if e['status'] == 'draft')} draft) + "
-          "3 lint fixtures")
+    print(
+        f"sft store: {len(examples)} examples "
+        f"({sum(1 for e in examples if e['status'] == 'curated')} curated, "
+        f"{sum(1 for e in examples if e['status'] == 'draft')} draft) + "
+        "3 lint fixtures"
+    )
 
 
 def build(dest: Path) -> None:
@@ -314,14 +350,18 @@ def build(dest: Path) -> None:
     maps = TX.load_maps(["defihacklabs"])
     records = DfH.load_records()
     picked = select(records, maps)
-    print(f"selected {len(picked)} records across "
-          f"{len({TX.normalize_class(r['bug_class_label'], maps)[0] for r in picked})} classes")
+    print(
+        f"selected {len(picked)} records across "
+        f"{len({TX.normalize_class(r['bug_class_label'], maps)[0] for r in picked})} classes"
+    )
     data_root = dest / "datasets"
     write_slice(picked, data_root)
     slice_records = verify_slice(data_root, picked)
     for rec in slice_records:
-        print(f"  {rec['partition']:9} {rec['id']} "
-              f"{TX.normalize_class(rec['bug_class_label'], maps)[0]}")
+        print(
+            f"  {rec['partition']:9} {rec['id']} "
+            f"{TX.normalize_class(rec['bug_class_label'], maps)[0]}"
+        )
     # Everything downstream is built from the SLICE's own records: the
     # leakage partition is a function of the record set, so the fixture's
     # eval/shared stores must carry the slice's partitions, not the full
@@ -341,7 +381,8 @@ def digest(root: Path) -> dict[str, str]:
     for p in sorted(root.rglob("*")):
         if p.is_file() and p.relative_to(root).as_posix() not in SKIP:
             out[p.relative_to(root).as_posix()] = hashlib.sha256(
-                p.read_bytes()).hexdigest()
+                p.read_bytes()
+            ).hexdigest()
     return out
 
 

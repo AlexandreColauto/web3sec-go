@@ -17,6 +17,7 @@ golden-run.py captured:
 Exit 0 = GOLDEN GREEN; exit 1 = a validation failure is reported per
 step/tree/section.
 """
+
 from __future__ import annotations
 
 import json
@@ -39,10 +40,21 @@ WORK = Path(__file__).resolve().parent.parent / ".scratch" / "golden"
 # either direction; this list is not a copy of the registry and must not be
 # "completed" to 16.
 EXPECTED_SECTIONS: list[str] = [
-    "event_log", "artifacts", "execs", "findings", "projection",
-    "snapshots", "relations", "floor_policy", "stage_completions",
-    "baselines", "invariant_verification", "sequence_coverage",
-    "probe_surface", "unpriceable", "price_table",
+    "event_log",
+    "artifacts",
+    "execs",
+    "findings",
+    "projection",
+    "snapshots",
+    "relations",
+    "floor_policy",
+    "stage_completions",
+    "baselines",
+    "invariant_verification",
+    "sequence_coverage",
+    "probe_surface",
+    "unpriceable",
+    "price_table",
 ]
 
 # Every registered probe axis, pinned to the Go registry
@@ -104,26 +116,32 @@ def check_tree(spec: dict) -> None:
             try:
                 e = json.loads(line)
             except ValueError as exc:
-                fails.append(f"tree: events.jsonl line {n + 1} does not "
-                             f"parse: {exc}")
+                fails.append(f"tree: events.jsonl line {n + 1} does not parse: {exc}")
                 break
             if e.get("prev_hash") != prev:
-                fails.append(f"tree: events.jsonl line {n + 1} (seq "
-                             f"{e.get('seq')}): prev_hash {e.get('prev_hash')!r} "
-                             f"!= prior event_hash {prev!r}")
+                fails.append(
+                    f"tree: events.jsonl line {n + 1} (seq "
+                    f"{e.get('seq')}): prev_hash {e.get('prev_hash')!r} "
+                    f"!= prior event_hash {prev!r}"
+                )
                 break
             eh = e.get("event_hash")
             if not eh:
-                fails.append(f"tree: events.jsonl line {n + 1} (seq "
-                             f"{e.get('seq')}): no event_hash")
+                fails.append(
+                    f"tree: events.jsonl line {n + 1} (seq "
+                    f"{e.get('seq')}): no event_hash"
+                )
                 break
             prev = eh
             n += 1
         else:
-            n_files = sum(1 for p in
-                          Path(spec["trees"]["go"]).rglob("*") if p.is_file())
-            print(f"tree: campaign {spec['campaign_id']} well-formed "
-                  f"({n} events, chain intact; {n_files} files archived)")
+            n_files = sum(
+                1 for p in Path(spec["trees"]["go"]).rglob("*") if p.is_file()
+            )
+            print(
+                f"tree: campaign {spec['campaign_id']} well-formed "
+                f"({n} events, chain intact; {n_files} files archived)"
+            )
 
 
 def check_steps(spec: dict) -> None:
@@ -147,8 +165,10 @@ def check_steps(spec: dict) -> None:
         if got != expected:
             errf = f.with_suffix(".err")
             err = errf.read_text().strip()[:200] if errf.is_file() else ""
-            fails.append(f"step {i:02d} {name}: exit {got}, recipe declares "
-                         f"{expected}" + (f" — {err}" if err else ""))
+            fails.append(
+                f"step {i:02d} {name}: exit {got}, recipe declares "
+                f"{expected}" + (f" — {err}" if err else "")
+            )
         elif expected != "0":
             nonzero_ok.append(f"{name}={expected}")
         for stream, key in ((".err", "expect_err"), (".out", "expect_out")):
@@ -160,11 +180,15 @@ def check_steps(spec: dict) -> None:
             text = cap.read_text() if cap.is_file() else ""
             for want in wants:
                 if want not in text:
-                    fails.append(f"step {i:02d} {name}: {key[7:]} missing "
-                                 f"{want!r} — got {text.strip()[:200]!r}")
-    print(f"steps: {len(spec['recipe'])} commands "
-          f"({'all exit 0' if not nonzero_ok else 'declared nonzero: ' + ', '.join(nonzero_ok)})"
-          + (f", {marked} with declared output markers" if marked else ""))
+                    fails.append(
+                        f"step {i:02d} {name}: {key[7:]} missing "
+                        f"{want!r} — got {text.strip()[:200]!r}"
+                    )
+    print(
+        f"steps: {len(spec['recipe'])} commands "
+        f"({'all exit 0' if not nonzero_ok else 'declared nonzero: ' + ', '.join(nonzero_ok)})"
+        + (f", {marked} with declared output markers" if marked else "")
+    )
 
 
 def check_audit(spec: dict, step: int, name: str) -> None:
@@ -180,12 +204,10 @@ def check_audit(spec: dict, step: int, name: str) -> None:
         return
     ok = doc.get("ok")
     if not isinstance(ok, bool):
-        fails.append(f"step {step:02d} {name}: audit ok is not a boolean "
-                     f"({ok!r})")
+        fails.append(f"step {step:02d} {name}: audit ok is not a boolean ({ok!r})")
     sections = doc.get("sections")
     if not isinstance(sections, dict):
-        fails.append(f"step {step:02d} {name}: audit sections missing/not an "
-                     f"object")
+        fails.append(f"step {step:02d} {name}: audit sections missing/not an object")
         return
     have = list(sections)  # report order
     # The rendered surface is EXPECTED_SECTIONS, optionally TRUNCATED after
@@ -195,24 +217,29 @@ def check_audit(spec: dict, step: int, name: str) -> None:
     # What stays hard-failed: any unexpected name, and the ORDER of what
     # does render.
     want = EXPECTED_SECTIONS
-    core = want[:len(want) - 1]          # everything but the optional tail
-    tail = want[len(want) - 1:]
+    core = want[: len(want) - 1]  # everything but the optional tail
+    tail = want[len(want) - 1 :]
     missing = sorted(set(core) - set(have))
     extra = sorted(set(have) - set(core) - set(tail))
     if missing:
-        fails.append(f"step {step:02d} {name}: missing audit section(s): "
-                     + ", ".join(missing))
+        fails.append(
+            f"step {step:02d} {name}: missing audit section(s): " + ", ".join(missing)
+        )
     if extra:
-        fails.append(f"step {step:02d} {name}: unexpected audit section(s): "
-                     + ", ".join(extra))
+        fails.append(
+            f"step {step:02d} {name}: unexpected audit section(s): " + ", ".join(extra)
+        )
     # order: the rendered names must equal the registry-order projection
     proj = [n for n in want if n in have]
     if have != proj:
-        fails.append(f"step {step:02d} {name}: audit sections out of "
-                     f"registration order: {have} vs {proj}")
+        fails.append(
+            f"step {step:02d} {name}: audit sections out of "
+            f"registration order: {have} vs {proj}"
+        )
     if not missing and not extra and have == proj:
-        print(f"step {step:02d} {name}: {len(have)} audit sections + ok "
-              f"(ok={ok}) present")
+        print(
+            f"step {step:02d} {name}: {len(have)} audit sections + ok (ok={ok}) present"
+        )
 
 
 def check_probe_axes(spec: dict, step: int, name: str) -> None:
@@ -241,12 +268,15 @@ def check_probe_axes(spec: dict, step: int, name: str) -> None:
     missing = sorted(set(EXPECTED_PROBE_AXES) - set(by_name))
     extra = sorted(set(by_name) - set(EXPECTED_PROBE_AXES))
     if missing:
-        fails.append(f"step {step:02d} {name}: axis(es) missing from the "
-                     "surface: " + ", ".join(missing))
+        fails.append(
+            f"step {step:02d} {name}: axis(es) missing from the "
+            "surface: " + ", ".join(missing)
+        )
         bad += 1
     if extra:
-        fails.append(f"step {step:02d} {name}: unexpected axis(es): "
-                     + ", ".join(extra))
+        fails.append(
+            f"step {step:02d} {name}: unexpected axis(es): " + ", ".join(extra)
+        )
         bad += 1
     for axis, want in sorted(EXPECTED_PROBE_AXES.items()):
         a = by_name.get(axis)
@@ -256,36 +286,48 @@ def check_probe_axes(spec: dict, step: int, name: str) -> None:
         rows = a.get("rows")
         status = a.get("status")
         if not isinstance(sites, int) or sites < 1:
-            fails.append(f"step {step:02d} {name}: axis {axis} reports "
-                         f"sites={sites!r} (status={status!r}) — the detector "
-                         "saw no code at all, so nothing downstream can catch "
-                         "a regression on it")
+            fails.append(
+                f"step {step:02d} {name}: axis {axis} reports "
+                f"sites={sites!r} (status={status!r}) — the detector "
+                "saw no code at all, so nothing downstream can catch "
+                "a regression on it"
+            )
             bad += 1
             continue
         if want == "rows" and (not isinstance(rows, int) or rows < 1):
-            fails.append(f"step {step:02d} {name}: axis {axis} emitted "
-                         f"rows={rows!r} (status={status!r}), the run is "
-                         "supposed to carry rows on it")
+            fails.append(
+                f"step {step:02d} {name}: axis {axis} emitted "
+                f"rows={rows!r} (status={status!r}), the run is "
+                "supposed to carry rows on it"
+            )
             bad += 1
         if want == "blind":
             blind = a.get("blind_total")
             if rows != 0:
-                fails.append(f"step {step:02d} {name}: axis {axis} emitted "
-                             f"rows={rows!r}, the fixture built to stay "
-                             "silent is firing")
+                fails.append(
+                    f"step {step:02d} {name}: axis {axis} emitted "
+                    f"rows={rows!r}, the fixture built to stay "
+                    "silent is firing"
+                )
                 bad += 1
             elif not isinstance(blind, int) or blind < 1:
-                fails.append(f"step {step:02d} {name}: axis {axis} is blind "
-                             f"but published blind_total={blind!r} — "
-                             "`probes blank` has no key to cite")
+                fails.append(
+                    f"step {step:02d} {name}: axis {axis} is blind "
+                    f"but published blind_total={blind!r} — "
+                    "`probes blank` has no key to cite"
+                )
                 bad += 1
     if bad == 0:
-        rows_total = sum(a.get("rows", 0) for a in by_name.values()
-                         if isinstance(a.get("rows"), int))
-        states = ", ".join(f"{ax}={EXPECTED_PROBE_AXES[ax]}"
-                           for ax in sorted(EXPECTED_PROBE_AXES))
-        print(f"step {step:02d} {name}: {len(EXPECTED_PROBE_AXES)} probe axes "
-              f"alive, states as declared ({states}; rows={rows_total})")
+        rows_total = sum(
+            a.get("rows", 0) for a in by_name.values() if isinstance(a.get("rows"), int)
+        )
+        states = ", ".join(
+            f"{ax}={EXPECTED_PROBE_AXES[ax]}" for ax in sorted(EXPECTED_PROBE_AXES)
+        )
+        print(
+            f"step {step:02d} {name}: {len(EXPECTED_PROBE_AXES)} probe axes "
+            f"alive, states as declared ({states}; rows={rows_total})"
+        )
 
 
 def check_disposition_review(spec: dict) -> None:
@@ -307,8 +349,14 @@ def check_disposition_review(spec: dict) -> None:
     if not report.is_file():
         fails.append(f"no report artifact at {report}")
         return
-    argv = next((c["argv"] for c in spec["captures"]["go"]
-                 if c["name"] == "answered-dismissal-overridden"), None)
+    argv = next(
+        (
+            c["argv"]
+            for c in spec["captures"]["go"]
+            if c["name"] == "answered-dismissal-overridden"
+        ),
+        None,
+    )
     if not argv:
         fails.append("the recipe has no answered-dismissal-overridden step")
         return
@@ -319,24 +367,31 @@ def check_disposition_review(spec: dict) -> None:
     lines = text.splitlines()
     bad = 0
     if "## Disposition review" not in lines:
-        fails.append("report has no Disposition review section — the override "
-                     "is not on the record a human reads")
+        fails.append(
+            "report has no Disposition review section — the override "
+            "is not on the record a human reads"
+        )
         bad += 1
-    flagged = [l for l in lines
-               if l.startswith("- `") and "dismissal vocabulary:" in l]
-    if not any(prio in l for l in flagged):
+    flagged = [
+        line
+        for line in lines
+        if line.startswith("- `") and "dismissal vocabulary:" in line
+    ]
+    if not any(prio in line for line in flagged):
         fails.append(f"report does not flag {prio} as a high-risk dismissal")
         bad += 1
-    overridden = [l for l in lines if l.startswith("- OVERRIDDEN ")]
-    if not any(prio in l and f"by {actor}:" in l for l in overridden):
+    overridden = [line for line in lines if line.startswith("- OVERRIDDEN ")]
+    if not any(prio in line and f"by {actor}:" in line for line in overridden):
         fails.append(f"report does not record the {prio} override by {actor}")
         bad += 1
-    if not any(reason in l for l in overridden):
+    if not any(reason in line for line in overridden):
         fails.append("report records the override without its written reason")
         bad += 1
     if bad == 0:
-        print(f"report artifact: {prio} is on the record as both a flagged "
-              "dismissal and a logged override")
+        print(
+            f"report artifact: {prio} is on the record as both a flagged "
+            "dismissal and a logged override"
+        )
 
 
 def main() -> None:
@@ -355,8 +410,9 @@ def main() -> None:
         for f in fails:
             print("  " + f)
         raise SystemExit(1)
-    print("GOLDEN GREEN: Go run validates (exit codes, tree + event chain, "
-          "audit surface)")
+    print(
+        "GOLDEN GREEN: Go run validates (exit codes, tree + event chain, audit surface)"
+    )
 
 
 if __name__ == "__main__":
