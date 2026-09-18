@@ -161,12 +161,53 @@ func writeThenLog(c *state.Campaign, paths []string, write func() error,
 // starts as 'pending' and NOTHING in this codebase can flip it to promoted —
 // only ApproveMemory with an explicit human approver does.
 func QueueMemory(c *state.Campaign, o QueueOpts) (validation.Value, error) {
+	rejectionClass, err := queueMemCheckOpts(o)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	if err := checkPropositions(o.DecidingPropositions); err != nil {
+		return validation.VNull(), err
+	}
+	snap, err := c.ActiveSnapshotIDOrNone()
+	if err != nil {
+		return validation.VNull(), err
+	}
+	mem := queueMemRow(c, o, snap, rejectionClass)
+	if err := validation.Validate(mem, "memory", 1); err != nil {
+		return validation.VNull(), err
+	}
+	mid := validation.ObjStr(mem, "memory_id")
+	path := filepath.Join(c.MemoryDir, mid+".json")
+	data := validation.VObj(
+		kv("kind", validation.VStr(o.Kind)),
+		kv("status", validation.VStr(o.Status)),
+		kv("rejection_class", strOrNull(rejectionClass)),
+		kv("deciding_propositions",
+			validation.VInt(int64(len(o.DecidingPropositions)))))
+	// r40: a queued row on disk without its memory.queued event is an
+	// inbox candidate the ledger never recorded — and the retry after the
+	// heal would queue a SECOND row for the one event. Unwind on refusal.
+	if err := writeThenLog(c, []string{path}, func() error {
+		return validation.WriteJson(path, mem, "")
+	}, func() error {
+		_, lerr := c.Log("memory.queued", &mid, &data)
+		return lerr
+	}); err != nil {
+		return validation.VNull(), err
+	}
+	return mem, nil
+}
+
+// queueMemCheckOpts validates a queued row's status, kind and
+// rejection_class, returning the resolved rejection class (derived from the
+// status when the option is absent).
+func queueMemCheckOpts(o QueueOpts) (*string, error) {
 	if !slices.Contains(MEMORY_STATUSES, o.Status) {
-		return validation.VNull(), fmt.Errorf("invalid memory status %s",
+		return nil, fmt.Errorf("invalid memory status %s",
 			pyReprStr(o.Status))
 	}
 	if !slices.Contains(MemoryKinds, o.Kind) {
-		return validation.VNull(), fmt.Errorf("invalid memory kind %s",
+		return nil, fmt.Errorf("invalid memory kind %s",
 			pyReprStr(o.Kind))
 	}
 	var rejectionClass *string
@@ -176,18 +217,17 @@ func QueueMemory(c *state.Campaign, o QueueOpts) (validation.Value, error) {
 		}
 	} else {
 		if !slices.Contains(REJECTION_CLASSES, *o.RejectionClass) {
-			return validation.VNull(), fmt.Errorf("invalid rejection_class %s",
+			return nil, fmt.Errorf("invalid rejection_class %s",
 				pyReprStr(*o.RejectionClass))
 		}
 		rejectionClass = o.RejectionClass
 	}
-	if err := checkPropositions(o.DecidingPropositions); err != nil {
-		return validation.VNull(), err
-	}
-	snap, err := c.ActiveSnapshotIDOrNone()
-	if err != nil {
-		return validation.VNull(), err
-	}
+	return rejectionClass, nil
+}
+
+// queueMemRow builds the memory row QueueMemory validates and persists.
+func queueMemRow(c *state.Campaign, o QueueOpts, snap *string,
+	rejectionClass *string) validation.Value {
 	mem := validation.VObj(
 		kv("memory_id", validation.VStr("MEM-"+idTail(8))),
 		kv("campaign_id", validation.VStr(c.CampaignID)),
@@ -227,29 +267,7 @@ func QueueMemory(c *state.Campaign, o QueueOpts) (validation.Value, error) {
 			mem.O = append(mem.O, kv(key, validation.StrArr(labels)))
 		}
 	}
-	if err := validation.Validate(mem, "memory", 1); err != nil {
-		return validation.VNull(), err
-	}
-	mid := validation.ObjStr(mem, "memory_id")
-	path := filepath.Join(c.MemoryDir, mid+".json")
-	data := validation.VObj(
-		kv("kind", validation.VStr(o.Kind)),
-		kv("status", validation.VStr(o.Status)),
-		kv("rejection_class", strOrNull(rejectionClass)),
-		kv("deciding_propositions",
-			validation.VInt(int64(len(o.DecidingPropositions)))))
-	// r40: a queued row on disk without its memory.queued event is an
-	// inbox candidate the ledger never recorded — and the retry after the
-	// heal would queue a SECOND row for the one event. Unwind on refusal.
-	if err := writeThenLog(c, []string{path}, func() error {
-		return validation.WriteJson(path, mem, "")
-	}, func() error {
-		_, lerr := c.Log("memory.queued", &mid, &data)
-		return lerr
-	}); err != nil {
-		return validation.VNull(), err
-	}
-	return mem, nil
+	return mem
 }
 
 // checkPropositions is queue_memory's deciding_propositions validation.
@@ -439,85 +457,111 @@ func StripCampaignMemoryField(root, field, actor, reason string) (validation.Val
 	out := []validation.Value{}
 	total := 0
 	for _, name := range names {
-		cdir := filepath.Join(campaignsDir, name)
-		if fi, err := os.Stat(cdir); err != nil || !fi.IsDir() {
-			continue
-		}
-		memdir := filepath.Join(cdir, "memory")
-		memfi, serr := os.Stat(memdir)
-		if serr != nil {
-			if os.IsNotExist(serr) {
-				continue // no memory/ directory: nothing to strip
-			}
-			// r43a: a memory/ directory that cannot be examined is not an
-			// empty one; skipping it would under-report the strip.
-			return validation.VNull(), fmt.Errorf(
-				"the memory directory %s cannot be examined: %v", memdir, serr)
-		}
-		if !memfi.IsDir() {
-			continue
-		}
-		paths, err := validation.ListPrefixedOptional(memdir, "", ".json")
-		if err != nil {
-			return validation.VNull(), fmt.Errorf(
-				"the memory store %s cannot be listed: %v", memdir, err)
-		}
-		sort.Strings(paths)
-		rows := make(map[string]validation.Value, len(paths))
-		targets := []string{}
-		for _, p := range paths {
-			row, err := validation.ReadJson(p)
-			if err != nil {
-				return validation.VNull(), err
-			}
-			rows[p] = row
-			if _, ok := fieldAt(row, field); ok {
-				targets = append(targets, p)
-			}
-		}
-		if len(targets) == 0 {
-			continue
-		}
-		c, err := state.Open(root, name)
+		stripped, err := stripCampaignOne(root, name, field, actor, reason)
 		if err != nil {
 			return validation.VNull(), err
 		}
-		data := validation.VObj(
-			kv("actor", validation.VStr(actor)),
-			kv("field", validation.VStr(field)),
-			kv("reason", validation.VStr(reason)),
-			kv("rows_stripped", validation.VInt(int64(len(targets)))))
-		ref := name
-		// The rows are written BEFORE the event: the event claims the strip
-		// happened, so it may only be logged once it did. (Logging first left
-		// a hash-chained record of work that a failed write never performed.)
-		// r40: and the whole strip now unwinds together when the event is
-		// refused — the removal is destructive and sanctioned ONLY by its
-		// event, so rows stripped with no event are exactly the hand-edit
-		// shape this verb exists to avoid.
-		if err := writeThenLog(c, targets, func() error {
-			for _, p := range targets {
-				row := rows[p]
-				row.O = removeKey(row.O, field)
-				if err := validation.WriteJson(p, row, ""); err != nil {
-					return err
-				}
-			}
-			return nil
-		}, func() error {
-			_, lerr := c.Log("memory.field-stripped", &ref, &data)
-			return lerr
-		}); err != nil {
-			return validation.VNull(), err
+		if stripped == nil {
+			continue
 		}
 		out = append(out, validation.VObj(
 			kv("campaign_id", validation.VStr(name)),
-			kv("rows_stripped", validation.VInt(int64(len(targets))))))
-		total += len(targets)
+			kv("rows_stripped", validation.VInt(int64(len(stripped))))))
+		total += len(stripped)
 	}
 	return validation.VObj(
 		kv("campaigns", validation.VArr(out...)),
 		kv("total_stripped", validation.VInt(int64(total)))), nil
+}
+
+// stripCampaignOne strips `field` from one campaign's local memory rows and
+// writes the rows back under the campaign's write-then-log discipline. It
+// returns the stripped paths, or nil when the campaign has nothing to strip
+// (no campaign or memory directory, or no row carrying the field).
+func stripCampaignOne(root, name, field, actor, reason string) ([]string, error) {
+	cdir := filepath.Join(root, "campaigns", name)
+	if fi, err := os.Stat(cdir); err != nil || !fi.IsDir() {
+		return nil, nil
+	}
+	memdir := filepath.Join(cdir, "memory")
+	rows, targets, err := stripCampaignTargets(memdir, field)
+	if err != nil || targets == nil {
+		return nil, err
+	}
+	c, err := state.Open(root, name)
+	if err != nil {
+		return nil, err
+	}
+	data := validation.VObj(
+		kv("actor", validation.VStr(actor)),
+		kv("field", validation.VStr(field)),
+		kv("reason", validation.VStr(reason)),
+		kv("rows_stripped", validation.VInt(int64(len(targets)))))
+	ref := name
+	// The rows are written BEFORE the event: the event claims the strip
+	// happened, so it may only be logged once it did. (Logging first left
+	// a hash-chained record of work that a failed write never performed.)
+	// r40: and the whole strip now unwinds together when the event is
+	// refused — the removal is destructive and sanctioned ONLY by its
+	// event, so rows stripped with no event are exactly the hand-edit
+	// shape this verb exists to avoid.
+	if err := writeThenLog(c, targets, func() error {
+		for _, p := range targets {
+			row := rows[p]
+			row.O = removeKey(row.O, field)
+			if err := validation.WriteJson(p, row, ""); err != nil {
+				return err
+			}
+		}
+		return nil
+	}, func() error {
+		_, lerr := c.Log("memory.field-stripped", &ref, &data)
+		return lerr
+	}); err != nil {
+		return nil, err
+	}
+	return targets, nil
+}
+
+// stripCampaignTargets reads one campaign's memory rows and returns the
+// parsed rows plus the paths of every row carrying the field; nil targets
+// when the memory directory is absent or no row carries the field.
+func stripCampaignTargets(memdir, field string) (map[string]validation.Value, []string, error) {
+	memfi, serr := os.Stat(memdir)
+	if serr != nil {
+		if os.IsNotExist(serr) {
+			return nil, nil, nil // no memory/ directory: nothing to strip
+		}
+		// r43a: a memory/ directory that cannot be examined is not an
+		// empty one; skipping it would under-report the strip.
+		return nil, nil, fmt.Errorf(
+			"the memory directory %s cannot be examined: %v", memdir, serr)
+	}
+	if !memfi.IsDir() {
+		return nil, nil, nil
+	}
+	paths, err := validation.ListPrefixedOptional(memdir, "", ".json")
+	if err != nil {
+		return nil, nil, fmt.Errorf(
+			"the memory store %s cannot be listed: %v", memdir, err)
+	}
+	sort.Strings(paths)
+	rows := make(map[string]validation.Value, len(paths))
+	targets := []string{}
+	for _, p := range paths {
+		row, err := validation.ReadJson(p)
+		if err != nil {
+			return nil, nil, err
+		}
+		rows[p] = row
+		if _, ok := fieldAt(row, field); ok {
+			targets = append(targets, p)
+		}
+	}
+	if len(targets) == 0 {
+		return nil, nil, nil
+	}
+	return rows, targets, nil
 }
 
 // PromotionCommands is promotion_commands: the approved write path for a

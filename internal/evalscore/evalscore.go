@@ -454,111 +454,154 @@ func ScoreSuite(programs []string, liveByProgram map[string][]validation.Value, 
 // an adjudication at all — it is counted in InvalidAdjudications, keeps out
 // of every verdict bucket, and its finding is scored as unadjudicated.
 func ScoreSuiteWith(programs []string, liveByProgram map[string][]validation.Value, cases []validation.Value, adjs []Adjudication) Report {
-	matched := matchCases(programs, cases)
-	live := lowerLive(liveByProgram)
-	var r Report
+	sc := &scoreSuiteCtx{programs: programs, liveByProgram: liveByProgram,
+		cases: cases, adjs: adjs}
+	sc.scoreSuitePrep()
+	sc.scoreSuiteHits()
+	sc.scoreSuitePrecision()
+	sc.scoreSuiteTally()
+	return sc.r
+}
+
+// scoreSuiteCtx carries ScoreSuiteWith's shared scoring state across its
+// extracted sections.
+type scoreSuiteCtx struct {
+	programs      []string
+	liveByProgram map[string][]validation.Value
+	cases         []validation.Value
+	adjs          []Adjudication
+
+	matched []matchedCase
+	live    map[string][]validation.Value
+	rows    []Adjudication
+	byID    map[string]Adjudication
+
+	r                 Report
+	anchored          int
+	liveTotal         int
+	confirmedLive     int
+	confirmedAnchored int
+	applied           map[string]bool
+}
+
+// scoreSuitePrep resolves the program scope, the live set and the scoreable
+// adjudication rows every later section reads.
+func (sc *scoreSuiteCtx) scoreSuitePrep() {
+	sc.matched = matchCases(sc.programs, sc.cases)
+	sc.live = lowerLive(sc.liveByProgram)
 	// One pass up front decides what counts as an adjudication: drop the
 	// rows Validate refuses, then collapse duplicates by finding id. Rows
 	// are deduped ONCE here, not per program, so every counter below counts
 	// the same unit (findings, never raw rows).
-	rows, invalid := scoreableRows(adjs)
-	r.InvalidAdjudications = invalid
-	byID := make(map[string]Adjudication, len(rows))
+	rows, invalid := scoreableRows(sc.adjs)
+	sc.r.InvalidAdjudications = invalid
+	sc.rows = rows
+	sc.byID = make(map[string]Adjudication, len(rows))
 	for _, a := range rows {
-		byID[a.Finding] = a
+		sc.byID[a.Finding] = a
 	}
-	for _, m := range matched {
+	for _, m := range sc.matched {
 		if m.heldOut {
-			r.HeldOut = true
+			sc.r.HeldOut = true
 		}
 	}
+}
 
-	// byProg groups the matched non-control golds per program so each
-	// live finding is anchor-checked once.
-	byProg := goldByProgram(matched)
-	anchored, liveTotal := 0, 0
-	confirmedLive, confirmedAnchored := 0, 0
-	for _, m := range matched {
-		fs := live[m.program]
+// scoreSuiteHits counts the gold hits: a control case hits when its program
+// has no live findings, a non-control case when some live finding anchors it.
+func (sc *scoreSuiteCtx) scoreSuiteHits() {
+	for _, m := range sc.matched {
+		fs := sc.live[m.program]
 		if m.control {
 			if len(fs) == 0 {
-				r.Hits++
+				sc.r.Hits++
 			}
 			continue
 		}
 		for i := range fs {
 			if anchor(fs[i], m.gold) {
-				r.Hits++
+				sc.r.Hits++
 				break
 			}
 		}
 	}
+}
+
+// scoreSuitePrecision walks the precision scope and buckets every unanchored
+// live finding by its adjudication verdict.
+func (sc *scoreSuiteCtx) scoreSuitePrecision() {
+	// byProg groups the matched non-control golds per program so each
+	// live finding is anchor-checked once.
+	byProg := goldByProgram(sc.matched)
 	// Precision scope: live findings in suite-matched programs — every
 	// program with ≥1 matched case, including control-only ones.
-	applied := map[string]bool{}
-	for _, p := range scopedPrograms(matched) {
-		fs := live[p]
-		liveTotal += len(fs)
+	sc.applied = map[string]bool{}
+	for _, p := range scopedPrograms(sc.matched) {
+		fs := sc.live[p]
+		sc.liveTotal += len(fs)
 		for i := range fs {
 			confirmed := field(fs[i], "status") == "CONFIRMED"
 			if confirmed {
-				confirmedLive++
+				sc.confirmedLive++
 			}
 			if anchorsAny(fs[i], byProg[p]) {
-				anchored++
+				sc.anchored++
 				if confirmed {
-					confirmedAnchored++
+					sc.confirmedAnchored++
 				}
 				continue
 			}
-			a, ok := byID[field(fs[i], "finding_id")]
+			a, ok := sc.byID[field(fs[i], "finding_id")]
 			if !ok {
-				r.Unadjudicated++
+				sc.r.Unadjudicated++
 				continue
 			}
-			applied[a.Finding] = true
+			sc.applied[a.Finding] = true
 			switch a.Verdict {
 			case verdictAdditional:
-				r.Additional++
+				sc.r.Additional++
 			case verdictGated:
-				r.Gated++
+				sc.r.Gated++
 			case verdictFalsePositive:
-				r.FalsePositives++
+				sc.r.FalsePositives++
 			default:
 				// Unreachable while scoreableRows gates on Validate, which
 				// admits exactly the three verdicts above. Kept fail-closed:
 				// should the vocabulary ever grow a name this switch does not
 				// know, that row earns no reprieve (it is scored as
 				// unadjudicated) instead of vanishing from the accounting.
-				r.Unadjudicated++
+				sc.r.Unadjudicated++
 			}
 		}
 	}
-	r.GoldTotal = len(matched)
-	r.Misses = r.GoldTotal - r.Hits
-	r.FP = liveTotal - anchored
-	r.Anchored = anchored
-	r.Unanchored = liveTotal - anchored
+}
+
+// scoreSuiteTally derives the roll-up counters and the wilson report lines.
+func (sc *scoreSuiteCtx) scoreSuiteTally() {
+	sc.r.GoldTotal = len(sc.matched)
+	sc.r.Misses = sc.r.GoldTotal - sc.r.Hits
+	sc.r.FP = sc.liveTotal - sc.anchored
+	sc.r.Anchored = sc.anchored
+	sc.r.Unanchored = sc.liveTotal - sc.anchored
 	// Every row that applied to no judged finding is stale — a row for an
 	// anchored finding, or one for an id outside the scored live set. rows
 	// holds one entry per finding id, so this counts FINDINGS: the same unit
 	// every other counter in this Report counts (and never raw rows, which
 	// duplicate rows would inflate).
-	for _, a := range rows {
-		if !applied[a.Finding] {
-			r.StaleAdjudications++
+	for _, a := range sc.rows {
+		if !sc.applied[a.Finding] {
+			sc.r.StaleAdjudications++
 		}
 	}
-	r.RecallLine = wilson.Format(r.Hits, r.GoldTotal, "recall")
-	r.PrecisionLine = wilson.Format(anchored, liveTotal, "precision")
-	r.AdjustedPrecisionLine = wilson.Format(anchored,
-		anchored+r.FalsePositives+r.Unadjudicated, "precision")
-	r.ConfirmedLive = confirmedLive
-	r.ConfirmedAnchored = confirmedAnchored
-	if confirmedLive > 0 {
-		r.ConfirmedPrecisionLine = wilson.Format(confirmedAnchored, confirmedLive, "precision")
+	sc.r.RecallLine = wilson.Format(sc.r.Hits, sc.r.GoldTotal, "recall")
+	sc.r.PrecisionLine = wilson.Format(sc.anchored, sc.liveTotal, "precision")
+	sc.r.AdjustedPrecisionLine = wilson.Format(sc.anchored,
+		sc.anchored+sc.r.FalsePositives+sc.r.Unadjudicated, "precision")
+	sc.r.ConfirmedLive = sc.confirmedLive
+	sc.r.ConfirmedAnchored = sc.confirmedAnchored
+	if sc.confirmedLive > 0 {
+		sc.r.ConfirmedPrecisionLine = wilson.Format(sc.confirmedAnchored, sc.confirmedLive, "precision")
 	}
-	return r
 }
 
 // Score scores the single program named by the campaign state doc's
@@ -640,58 +683,53 @@ func OpenGoldPack(path string) (GoldPack, error) {
 	if path == "" {
 		return GoldPack{}, nil
 	}
+	doc, digest, err := openGoldRead(path)
+	if err != nil {
+		return GoldPack{}, err
+	}
+	cases, err := openGoldCases(path, doc)
+	if err != nil {
+		return GoldPack{}, err
+	}
+	return openGoldVerifySidecar(path, digest, cases)
+}
+
+// openGoldRead reads the pack file, hashes the raw bytes and parses the
+// document, refusing an unreadable file, invalid JSON and a non-array doc.
+func openGoldRead(path string) (validation.Value, string, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return GoldPack{}, fmt.Errorf("gold pack %s is not readable: %v",
+		return validation.Value{}, "", fmt.Errorf("gold pack %s is not readable: %v",
 			path, err)
 	}
 	sum := sha256.Sum256(raw)
 	digest := hex.EncodeToString(sum[:])
 	doc, err := validation.ParseOrdered(raw)
 	if err != nil {
-		return GoldPack{}, fmt.Errorf("gold pack %s is not valid JSON: %v",
+		return validation.Value{}, "", fmt.Errorf("gold pack %s is not valid JSON: %v",
 			path, err)
 	}
 	if doc.Kind != validation.Arr {
-		return GoldPack{}, fmt.Errorf(
+		return validation.Value{}, "", fmt.Errorf(
 			"gold pack %s must be a JSON array of evaluation_case objects, "+
 				"found %s", path, jsonKindName(doc))
 	}
+	return doc, digest, nil
+}
+
+// openGoldCases validates the parsed pack's rows in order and returns the
+// case rows, refusing duplicate case_ids and duplicate anchors.
+func openGoldCases(path string, doc validation.Value) ([]validation.Value, error) {
 	cases := make([]validation.Value, 0, len(doc.A))
 	seen := map[string]bool{}
 	anchors := map[string]string{}
 	for i, row := range doc.A {
-		if row.Kind != validation.Obj {
-			return GoldPack{}, fmt.Errorf(
-				"gold pack %s row %d must be a JSON object, found %s",
-				path, i, jsonKindName(row))
-		}
-		if err := validation.Validate(row, "evaluation_case", 1); err != nil {
-			cid := field(row, "case_id")
-			if cid == "" {
-				cid = fmt.Sprintf("(row %d)", i)
-			}
-			return GoldPack{}, fmt.Errorf(
-				"gold pack %s: case %s fails evaluation_case validation: %v",
-				path, cid, err)
-		}
-		// R2-5 (critic): the mechanism leg runs only on NON-control anchors
-		// (a control case is a program's ABSENCE check — nothing to anchor
-		// a phrase against). A control row carrying match_mechanisms is
-		// dead authoring: refused at load so an author believes the gate
-		// bites when it cannot.
-		if field(obj(row, "gold"), "outcome") == notExploitable &&
-			obj(row, "gold").Kind == validation.Obj &&
-			obj(obj(row, "gold"), "match_mechanisms").Kind != validation.Null {
-			return GoldPack{}, fmt.Errorf(
-				"gold pack %s: case %s is a control (outcome %s) and "+
-					"carries match_mechanisms — the mechanism leg never runs "+
-					"for control cases; drop the phrases or the outcome",
-				path, field(row, "case_id"), notExploitable)
+		if err := openGoldCheckRow(path, row, i); err != nil {
+			return nil, err
 		}
 		cid := field(row, "case_id")
 		if seen[cid] {
-			return GoldPack{}, fmt.Errorf(
+			return nil, fmt.Errorf(
 				"gold pack %s: duplicate case_id %s — a case id names one "+
 					"gold row", path, cid)
 		}
@@ -704,7 +742,7 @@ func OpenGoldPack(path string) (GoldPack, error) {
 		// bug_class + sorted location basenames + outcome + mechanisms.
 		key := anchorKey(row)
 		if prev, dup := anchors[key]; dup {
-			return GoldPack{}, fmt.Errorf(
+			return nil, fmt.Errorf(
 				"gold pack %s: cases %s and %s have the same gold anchor "+
 					"(bug_class, locations, outcome, mechanisms) — one "+
 					"finding would satisfy both and inflate the answer key; "+
@@ -713,6 +751,47 @@ func OpenGoldPack(path string) (GoldPack, error) {
 		anchors[key] = cid
 		cases = append(cases, row)
 	}
+	return cases, nil
+}
+
+// openGoldCheckRow refuses one pack row that is not a well-formed
+// evaluation_case: a non-object, a row failing evaluation_case validation,
+// and a control row carrying match_mechanisms.
+func openGoldCheckRow(path string, row validation.Value, i int) error {
+	if row.Kind != validation.Obj {
+		return fmt.Errorf(
+			"gold pack %s row %d must be a JSON object, found %s",
+			path, i, jsonKindName(row))
+	}
+	if err := validation.Validate(row, "evaluation_case", 1); err != nil {
+		cid := field(row, "case_id")
+		if cid == "" {
+			cid = fmt.Sprintf("(row %d)", i)
+		}
+		return fmt.Errorf(
+			"gold pack %s: case %s fails evaluation_case validation: %v",
+			path, cid, err)
+	}
+	// R2-5 (critic): the mechanism leg runs only on NON-control anchors
+	// (a control case is a program's ABSENCE check — nothing to anchor
+	// a phrase against). A control row carrying match_mechanisms is
+	// dead authoring: refused at load so an author believes the gate
+	// bites when it cannot.
+	if field(obj(row, "gold"), "outcome") == notExploitable &&
+		obj(row, "gold").Kind == validation.Obj &&
+		obj(obj(row, "gold"), "match_mechanisms").Kind != validation.Null {
+		return fmt.Errorf(
+			"gold pack %s: case %s is a control (outcome %s) and "+
+				"carries match_mechanisms — the mechanism leg never runs "+
+				"for control cases; drop the phrases or the outcome",
+			path, field(row, "case_id"), notExploitable)
+	}
+	return nil
+}
+
+// openGoldVerifySidecar checks the pack's tamper-evidence sidecar, when one
+// exists, and reports the pack with its digest (Verified only on a match).
+func openGoldVerifySidecar(path, digest string, cases []validation.Value) (GoldPack, error) {
 	sidecar, ok := goldPackSidecar(path)
 	if !ok {
 		return GoldPack{Cases: cases, Digest: digest}, nil
