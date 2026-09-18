@@ -129,6 +129,7 @@ docs/LEANNESS_REVIEW.md  the port-scaffolding removal plan (wave F)
 | real containers | `scripts/p2-docker-e2e.sh` | docker exec (pass+fail) + anvil sequence end to end, plus the four `WEBV2_DOCKER_TESTS=1` package e2e tiers |
 | legacy compatibility | `scripts/verify-full.sh` step 9 | Go reads a reference-written campaign, all 14 rendered sections clean (16 registered; `eval` and `price_table` are presence-gated) |
 | prover scorecard | `python3 scripts/minicertora-scorecard.py --self-test` | the L6b instrument parses tool lines, joins them to evalsuite cases, and reproduces its pinned fixture rows byte-for-byte (plus a shape audit of every fixture line) |
+| dependency scan | `scripts/security-check.sh` | govulncheck: nothing this code calls is a known vulnerability; a missing scanner or findings is INCOMPLETE/failed, never PASS |
 | release | `scripts/release.sh` | static binary, embedded assets, standalone |
 
 ### Prover scorecard (L6b, operator-run)
