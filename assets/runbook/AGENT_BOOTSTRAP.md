@@ -153,8 +153,12 @@ only if the operator named a different workspace.
    --actor NAME`); L-04 additionally requires `--symmetry "fam=primitive;..."`
    (a blank primitive does not count). **Lens closure is mechanical: produce
    the table before the sentence** — build the surface with `probes <C-id> run
-   --emit`, read it with `probes <C-id> list [--axis L-0n] [--all]`, drain the
-   worklist with `probes <C-id> pending` (ranked; each row prints the exact
+   --emit`, read it with `probes <C-id> list [--axis L-0n] [--all]`, ask which
+   stores name one code anchor with `anchors <C-id> <pattern>` (a path, or
+   `path#function`, or `path#function:line`; it prints the surface rows, the
+   OPEN priorities and the findings citing that code, and on a co-named
+   function ends with the L-03 enforcement-timing question on stderr), drain
+   the worklist with `probes <C-id> pending` (ranked; each row prints the exact
    `answered` command that discharges it — `answered <C-id> --rows ROWID,ROWID
    <status> --reason-all R --anchor FIELD` is the batch form, legal only when
    every named row is tier>0 and assertion_gap<3), discharge

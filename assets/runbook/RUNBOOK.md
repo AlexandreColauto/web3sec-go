@@ -316,6 +316,7 @@ webv2 probes <C-xxx> run                              # build/refresh the surfac
 webv2 probes <C-xxx> run --emit                       # + turn every emitted row into a plan priority (needs a plan on disk)
 webv2 probes <C-xxx> run --emit --per-axis N --total N   # the quota knobs (a 0 quota is refused, exit 2)
 webv2 probes <C-xxx> list [--axis L-0n|AXIS] [--all] [--json]
+webv2 anchors <C-xxx> <pattern>                       # which stores name one code anchor: rows, OPEN priorities, findings (exit 0; 2 on a missing campaign/artifact)
 webv2 probes <C-xxx> blank --axis L-0n|AXIS --anchor-blind K --reason "..." --actor NAME
 webv2 probes <C-xxx> pending [--max N] [--json]       # the undispositioned rows, ranked (tier asc, gap desc, then convergence count), each with the exact answered command that discharges it
 ```
@@ -330,6 +331,15 @@ surface) → §5 `plan C-xxx` (creates the plan) → `probes C-xxx run --emit`
 second run is free; `--emit` is idempotent by `row_id` (re-running updates
 `surface_sha` and reopens rows whose anchors moved; rows absent from the new
 surface are reported as orphaned, never silently pruned).
+
+`anchors <C-xxx> <pattern>` is the read-side join of the three stores: the
+pattern is a model path (`l1/rollup/Rollup.sol`), a suffix (`rollup/Rollup.sol`
+or the bare `Rollup.sol`), optionally qualified by `#function` and `:line`
+(`Rollup.sol#commitBatch:204`). Priorities carry no function coordinates, so a
+function-qualified query still lists the OPEN priorities that name its path.
+When a surface row and a priority (or a finding) co-name the code, the run ends
+with the L-03 enforcement-timing question on **stderr** — read it before you
+attest L-03.
 
 **The six probes and their anchor enums** (a row discharge must name an anchor
 from the row's *own* probe):
@@ -1627,6 +1637,7 @@ webv2 model <C> [file] [--json] [--example] [--facts P] [--facts-observed-at D] 
 webv2 plan <C> [file] [--rebuild] [--json]                         read-only plan view; --rebuild archives + regenerates (both polarities of every lifecycle transition belong in it — §4c/§5)
 webv2 answered <C> <priority|L-0X> [<priority>...] <status> [--reason R] [--reason-all R] [--ref R] [--anchor FIELD] [--families a,b,c] [--symmetry fam=prim;...] [--actor A]   # one status over ONE OR MORE rows: gates run per row all-or-nothing (first refusal names its row, zero mutations)
 webv2 probes <C> run [--emit --per-axis N --total N] | list [--axis L-0n|AXIS] [--all] [--json] | blank --axis L-0n|AXIS --anchor-blind K --reason R --actor A | pending [--max N] [--json]
+webv2 anchors <C> <pattern>                                        ask which stores name one code anchor — surface rows, OPEN priorities, findings (pattern: path, suffix, #function, :line; exit 0, 2 on a missing campaign/artifact)
 webv2 answered <C> --rows ROWID,ROWID <status> --reason-all R --anchor FIELD [--actor A]   # the same discharge over probe rows named by id; refused unless EVERY row is tier>0 and assertion_gap<3
 webv2 ingest <C> --json-file F (or -) [--trajectory T] [--stage S] [--answers-priority Q-xxx] [--no-hints]   |  webv2 ingest --example
 webv2 prompts {list,show} [name]                                   print the embedded stage prompts (no framework checkout needed; show accepts full name, stem, or stage number)
