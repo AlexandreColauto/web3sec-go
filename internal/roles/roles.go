@@ -15,7 +15,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"websec/internal/findings"
 	"websec/internal/state"
@@ -96,7 +95,7 @@ func AssertClean(bundle validation.Value, role string) error {
 		sort.Strings(names)
 		return fmt.Errorf("role %s context bundle contains forbidden key(s) "+
 			"%s — the allow-list has regressed; refusing to build",
-			role, pyListRepr(names))
+			role, validation.PyListRepr(names))
 	}
 	return nil
 }
@@ -277,12 +276,4 @@ func nullableStrEqual(v validation.Value, s *string) bool {
 		return v.Kind == validation.Null && s == nil
 	}
 	return v.Kind == validation.Str && v.S == *s
-}
-
-func pyListRepr(xs []string) string {
-	parts := make([]string, len(xs))
-	for i, x := range xs {
-		parts[i] = validation.PyReprStr(x)
-	}
-	return "[" + strings.Join(parts, ", ") + "]"
 }

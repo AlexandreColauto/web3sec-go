@@ -182,7 +182,7 @@ func registry(t *testing.T) probeRegistry {
 			p := validation.ObjAt(validation.ObjAt(v, "probes"), pid)
 			anchors := []string{}
 			for _, a := range listOf(p, "anchors") {
-				anchors = append(anchors, pyStr(a))
+				anchors = append(anchors, validation.PyStr(a))
 			}
 			spec := ProbeSpec{Axis: validation.ObjStr(p, "axis"), Lens: validation.ObjStr(p, "lens")}
 			if hasKey(p, "anchors") {
@@ -270,7 +270,7 @@ func rowShapeSha(row validation.Value) string {
 	slots = append(slots, validation.VArr(pairs...))
 	stranded := []string{}
 	for _, e := range listOf(row, "stranded_entry") {
-		stranded = append(stranded, pyStr(e))
+		stranded = append(stranded, validation.PyStr(e))
 	}
 	sort.Strings(stranded)
 	slots = append(slots, validation.StrArr(stranded))
@@ -284,8 +284,8 @@ func sortPairValues(pairs []validation.Value) {
 	for i := 1; i < len(pairs); i++ {
 		for j := i; j > 0; j-- {
 			a, b := pairs[j-1], pairs[j]
-			ka, kb := pyStr(a.A[0])+"\x00"+pyStr(a.A[1]),
-				pyStr(b.A[0])+"\x00"+pyStr(b.A[1])
+			ka, kb := validation.PyStr(a.A[0])+"\x00"+validation.PyStr(a.A[1]),
+				validation.PyStr(b.A[0])+"\x00"+validation.PyStr(b.A[1])
 			if ka <= kb {
 				break
 			}
@@ -304,8 +304,8 @@ func axisSurfaceBlocker(axis validation.Value, blank *validation.Value) string {
 		return blindBlocker(axis, blank)
 	case "under-filled":
 		return "quota under-filled: " + validation.ObjStr(axis, "probe") + " produced " +
-			pyStr(validation.ObjAt(axis, "rows")) + " rows, emitted " +
-			pyStr(validation.ObjAt(axis, "emitted")) + " — raise --per-axis or " +
+			validation.PyStr(validation.ObjAt(axis, "rows")) + " rows, emitted " +
+			validation.PyStr(validation.ObjAt(axis, "emitted")) + " — raise --per-axis or " +
 			"disposition the tail"
 	}
 	return ""
@@ -314,7 +314,7 @@ func axisSurfaceBlocker(axis validation.Value, blank *validation.Value) string {
 // blindBlocker is the blind-status arm of axis_surface_blocker.
 func blindBlocker(axis validation.Value, blank *validation.Value) string {
 	if blank == nil || !pyTruthyBigNonEmpty(*blank) {
-		return validation.ObjStr(axis, "probe") + " saw " + pyStr(validation.ObjAt(axis, "sites")) +
+		return validation.ObjStr(axis, "probe") + " saw " + validation.PyStr(validation.ObjAt(axis, "sites")) +
 			" sites and rejected every one of them (" +
 			itoa(len(listOf(axis, "blind"))) + " blind keys published) — " +
 			"close it with `webv2 probes blank --axis " + validation.ObjStr(axis, "lens") +
@@ -322,9 +322,9 @@ func blindBlocker(axis validation.Value, blank *validation.Value) string {
 	}
 	keys := map[string]struct{}{}
 	for _, b := range listOf(axis, "blind") {
-		keys[pyStr(validation.ObjAt(b, "key"))] = struct{}{}
+		keys[validation.PyStr(validation.ObjAt(b, "key"))] = struct{}{}
 	}
-	if _, ok := keys[pyStr(validation.ObjAt(*blank, "anchor_blind"))]; !ok {
+	if _, ok := keys[validation.PyStr(validation.ObjAt(*blank, "anchor_blind"))]; !ok {
 		return "blank attestation cites " +
 			validation.PyRepr(validation.ObjAt(*blank, "anchor_blind")) +
 			", which is not in the probe's blind[] keys: " +
@@ -454,8 +454,8 @@ func contractPaths(index *validation.Value) map[string]string {
 	sorted := make([]validation.Value, len(nodes))
 	copy(sorted, nodes)
 	for i := 1; i < len(sorted); i++ {
-		for j := i; j > 0 && pyStr(validation.ObjAt(sorted[j-1], "id")) >
-			pyStr(validation.ObjAt(sorted[j], "id")); j-- {
+		for j := i; j > 0 && validation.PyStr(validation.ObjAt(sorted[j-1], "id")) >
+			validation.PyStr(validation.ObjAt(sorted[j], "id")); j-- {
 			sorted[j-1], sorted[j] = sorted[j], sorted[j-1]
 		}
 	}
@@ -484,11 +484,11 @@ func renderAnchorValue(value validation.Value) string {
 	case validation.Arr:
 		parts := make([]string, 0, len(value.A))
 		for _, v := range value.A {
-			parts = append(parts, pyStr(v))
+			parts = append(parts, validation.PyStr(v))
 		}
 		return strings.Join(parts, ", ")
 	case validation.Obj:
 		return validation.CanonCompact(value)
 	}
-	return pyStr(value)
+	return validation.PyStr(value)
 }

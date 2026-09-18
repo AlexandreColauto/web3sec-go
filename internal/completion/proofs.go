@@ -367,7 +367,7 @@ func proofDedup(c *state.Campaign) (validation.Value, error) {
 			if v.Kind == validation.Str && (v.S == "same" || v.S == "distinct") {
 				continue
 			}
-			unresolved = append(unresolved, proofItem{fid + "~" + pyStrAny(other),
+			unresolved = append(unresolved, proofItem{fid + "~" + validation.PyStr(other),
 				"no normalization verdict"})
 		}
 	}

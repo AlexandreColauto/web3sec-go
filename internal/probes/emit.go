@@ -21,7 +21,7 @@ var priorityIDRe = regexp.MustCompile(`^Q-\d{3,}$`)
 func nextPrioritySeq(plan validation.Value) int {
 	top := 0
 	for _, p := range vList(plan, "priorities") {
-		id := pyStr(vGet(p, "id"))
+		id := validation.PyStr(vGet(p, "id"))
 		if !priorityIDRe.MatchString(id) {
 			continue
 		}
@@ -100,7 +100,7 @@ func EmitRows(c *state.Campaign, plan validation.Value, surface validation.Value
 				vSet(&provObj, "surface_sha", validation.VStr(surfaceSha))
 				vSet(&existing, "probe", provObj)
 				prios[idx] = existing
-				kept = append(kept, pyStr(vGet(existing, "id")))
+				kept = append(kept, validation.PyStr(vGet(existing, "id")))
 				continue
 			}
 			vSet(&existing, "status", validation.VStr("open"))
@@ -109,18 +109,18 @@ func EmitRows(c *state.Campaign, plan validation.Value, surface validation.Value
 				vDel(&existing, k)
 			}
 			vDel(&provObj, "anchor")
-			reopened = append(reopened, pyStr(vGet(existing, "id")))
+			reopened = append(reopened, validation.PyStr(vGet(existing, "id")))
 			data := validation.VObj(
 				kv("row_id", validation.VStr(rid)),
 				kv("old_shape_sha", vGet(provObj, "shape_sha")),
 				kv("new_shape_sha", validation.VStr(shape)),
 				kv("actor", validation.VStr("probes.emit")))
-			ref := pyStr(vGet(existing, "id"))
+			ref := validation.PyStr(vGet(existing, "id"))
 			if _, err := c.Log("probes.reopen", &ref, &data); err != nil {
 				return validation.VNull(), err
 			}
 		} else {
-			updated = append(updated, pyStr(vGet(existing, "id")))
+			updated = append(updated, validation.PyStr(vGet(existing, "id")))
 		}
 		band, risk := ProbeRisk(row)
 		question, _ := RowQuestion(row, index)
@@ -142,7 +142,7 @@ func EmitRows(c *state.Campaign, plan validation.Value, surface validation.Value
 			continue
 		}
 		if _, ok := emitted[vStr(prov, "row_id")]; !ok {
-			orphaned = append(orphaned, pyStr(vGet(p, "id")))
+			orphaned = append(orphaned, validation.PyStr(vGet(p, "id")))
 		}
 	}
 	sort.Strings(orphaned)

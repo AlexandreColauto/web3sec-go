@@ -142,7 +142,7 @@ func namesSurface(row validation.Value, name string) bool {
 		return true
 	}
 	for _, c := range listAt(row, "components") {
-		if pyStr(c) == name {
+		if validation.PyStr(c) == name {
 			return true
 		}
 	}
@@ -196,7 +196,7 @@ func findQueueRowByName(t *testing.T, queue []validation.Value,
 		}
 		comps := []string{}
 		for _, c := range listAt(r, "components") {
-			comps = append(comps, pyStr(c))
+			comps = append(comps, validation.PyStr(c))
 		}
 		return &queueRow{
 			ID:         strAt(r, "priority_id"),

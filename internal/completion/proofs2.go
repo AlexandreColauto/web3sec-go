@@ -263,9 +263,9 @@ func stampOf(text string) (string, bool) {
 			continue
 		}
 		rest := strings.SplitN(line, ":", 2)[1]
-		rest = pyStrip(rest)
+		rest = validation.PyStrip(rest)
 		rest = strings.TrimRight(rest, "->")
-		return pyStrip(rest), true
+		return validation.PyStrip(rest), true
 	}
 	return "", false
 }
@@ -330,7 +330,7 @@ func proofLearning(c *state.Campaign) (validation.Value, error) {
 	raw, rerr := os.ReadFile(lp)
 	switch {
 	case rerr == nil:
-		reflected = pyStrip(string(raw)) != ""
+		reflected = validation.PyStrip(string(raw)) != ""
 	case os.IsNotExist(rerr):
 	default:
 		return validation.VNull(), fmt.Errorf(

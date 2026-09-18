@@ -126,7 +126,7 @@ func Materializable(campaign *state.Campaign) ([]validation.Value, error) {
 			kv("members", validation.StrArr(members)),
 			kv("capabilities", validation.ObjAt(prop, "capabilities")),
 			kv("action", validation.VStr("materialize_chain("+
-				pyListRepr(members)+")"))))
+				validation.PyListRepr(members)+")"))))
 	}
 	return out, nil
 }

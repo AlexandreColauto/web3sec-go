@@ -104,7 +104,7 @@ func RecordModelEvent(campaign *state.Campaign, eventType string,
 	if !ok {
 		return validation.VNull(), fmt.Errorf(
 			"unknown model event type %s; known: %s",
-			validation.PyReprStr(eventType), pyListRepr(ModelEventTypeNames()))
+			validation.PyReprStr(eventType), validation.PyListRepr(ModelEventTypeNames()))
 	}
 	if data.Kind != validation.Obj {
 		return validation.VNull(), fmt.Errorf(
@@ -216,19 +216,19 @@ func RecordOutcome(campaign *state.Campaign, findingID, outcome string,
 	o OutcomeOpts) (validation.Value, error) {
 	if !slices.Contains(OutcomeValues, outcome) {
 		return validation.VNull(), fmt.Errorf("unknown outcome %s; known: %s",
-			validation.PyReprStr(outcome), pyListRepr(OutcomeValues))
+			validation.PyReprStr(outcome), validation.PyListRepr(OutcomeValues))
 	}
 	if !slices.Contains(findings.EVIDENCE_ORDER, o.FinalEvidenceTier) {
 		return validation.VNull(), fmt.Errorf(
 			"unknown evidence tier %s; the ladder is %s",
 			validation.PyReprStr(o.FinalEvidenceTier),
-			pyListRepr(findings.EVIDENCE_ORDER))
+			validation.PyListRepr(findings.EVIDENCE_ORDER))
 	}
 	statuses := FindingStatuses()
 	if !slices.Contains(statuses, o.FinalStatus) {
 		return validation.VNull(), fmt.Errorf(
 			"unknown final_status %s; the finding status vocabulary is %s",
-			validation.PyReprStr(o.FinalStatus), pyListRepr(statuses))
+			validation.PyReprStr(o.FinalStatus), validation.PyListRepr(statuses))
 	}
 	if o.Excluded && (o.ExcludeReason == nil ||
 		strings.TrimSpace(*o.ExcludeReason) == "") {
@@ -418,14 +418,6 @@ func strsToVals(xs []string) []validation.Value {
 		out[i] = validation.VStr(x)
 	}
 	return out
-}
-
-func pyListRepr(xs []string) string {
-	parts := make([]string, len(xs))
-	for i, x := range xs {
-		parts[i] = validation.PyReprStr(x)
-	}
-	return "[" + strings.Join(parts, ", ") + "]"
 }
 
 func pyTypeName(v validation.Value) string {

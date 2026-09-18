@@ -75,17 +75,10 @@ func pyTruthyInt64Only(v validation.Value) bool {
 	return false
 }
 
-func pyStr(v validation.Value) string {
-	if v.Kind == validation.Str {
-		return v.S
-	}
-	return validation.PyRepr(v)
-}
-
 func strList(v validation.Value) []string {
 	out := []string{}
 	for _, e := range v.A {
-		out = append(out, pyStr(e))
+		out = append(out, validation.PyStr(e))
 	}
 	return out
 }
@@ -224,7 +217,7 @@ func ProbeSurfaceSection(campaign *state.Campaign) ([]string, error) {
 			" run` and re-disposition what moved"
 	}
 	L = append(L, fmt.Sprintf("- surface `index_sha`: `%s`%s",
-		pyStr(validation.ObjAt(surface, "index_sha")), staleNote))
+		validation.PyStr(validation.ObjAt(surface, "index_sha")), staleNote))
 	L = append(L, "")
 	for _, row := range listAt(surface, "rows") {
 		rid := validation.ObjStr(row, "row_id")
@@ -243,7 +236,7 @@ func ProbeSurfaceSection(campaign *state.Campaign) ([]string, error) {
 			a := validation.AsObj(validation.ObjAt(d, "anchor"))
 			if len(a.O) > 0 {
 				state += fmt.Sprintf(" (anchor `%s` = %s)",
-					validation.ObjStr(a, "field"), pyStr(validation.ObjAt(a, "ref")))
+					validation.ObjStr(a, "field"), validation.PyStr(validation.ObjAt(a, "ref")))
 			}
 		case validation.ObjStr(d, "status") != "" && validation.ObjStr(d, "status") != "open":
 			state = "open (" + validation.ObjStr(d, "status") + ")"
@@ -254,8 +247,8 @@ func ProbeSurfaceSection(campaign *state.Campaign) ([]string, error) {
 		}
 		L = append(L, fmt.Sprintf("- `%s` %s (%s %s) tier %s, gap %s, "+
 			"anchors %s — %s", rid, validation.ObjStr(row, "probe"), validation.ObjStr(row, "axis"),
-			validation.ObjStr(row, "lens"), pyStr(validation.ObjAt(row, "tier")),
-			pyStr(validation.ObjAt(row, "assertion_gap")), anchors, state))
+			validation.ObjStr(row, "lens"), validation.PyStr(validation.ObjAt(row, "tier")),
+			validation.PyStr(validation.ObjAt(row, "assertion_gap")), anchors, state))
 	}
 	L = append(L, "")
 	for _, entry := range blanks {
@@ -887,14 +880,14 @@ func Generate(campaign *state.Campaign) (string, error) {
 	}
 
 	L := []string{}
-	L = append(L, "<!-- state-head: "+pyStr(headHash)+" -->")
+	L = append(L, "<!-- state-head: "+validation.PyStr(headHash)+" -->")
 	L = append(L, "# Security Research Report — "+validation.ObjStr(st, "program"))
 	L = append(L, "")
 	L = append(L, fmt.Sprintf("- campaign: `%s`", validation.ObjStr(st, "campaign_id")))
 	L = append(L, fmt.Sprintf("- phase: **%s** (pass %s)", validation.ObjStr(st, "phase"),
-		pyStr(validation.ObjAt(validation.AsObj(validation.ObjAt(st, "budget")), "pass"))))
+		validation.PyStr(validation.ObjAt(validation.AsObj(validation.ObjAt(st, "budget")), "pass"))))
 	L = append(L, fmt.Sprintf("- active snapshot: `%s`",
-		pyStr(validation.ObjAt(st, "active_snapshot_id"))))
+		validation.PyStr(validation.ObjAt(st, "active_snapshot_id"))))
 	L = append(L, fmt.Sprintf("- generated: %s", state.NowIso()))
 	L = append(L, "")
 
@@ -967,12 +960,12 @@ func Generate(campaign *state.Campaign) (string, error) {
 					continue
 				}
 				L = append(L, fmt.Sprintf("| %s | %s |",
-					strings.ReplaceAll(k.K, "_", " "), pyStr(k.V)))
+					strings.ReplaceAll(k.K, "_", " "), validation.PyStr(k.V)))
 			}
 			L = append(L, "")
 			note := "unknown ≠ secure"
 			if v := validation.ObjAt(s, "unknown_note"); v.Kind != validation.Null {
-				note = pyStr(v)
+				note = validation.PyStr(v)
 			}
 			L = append(L, "> "+note)
 			L = append(L, "")
@@ -1351,7 +1344,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 		L = append(L, "")
 		L = append(L, fmt.Sprintf("- id: `%s` — status %s, evidence floor %s",
 			validation.ObjStr(ch, "chain_id"), validation.ObjStr(ch, "status"),
-			pyStr(validation.ObjAt(ch, "evidence_floor"))))
+			validation.PyStr(validation.ObjAt(ch, "evidence_floor"))))
 		quoted := []string{}
 		for _, m := range strList(validation.ObjAt(ch, "members")) {
 			quoted = append(quoted, "`"+m+"`")
@@ -1387,8 +1380,8 @@ func Generate(campaign *state.Campaign) (string, error) {
 			L = append(L, fmt.Sprintf("### UNPROVEN CHAIN: %s", validation.ObjStr(ch, "title")))
 			L = append(L, "")
 			L = append(L, fmt.Sprintf("- id: `%s` — provenance %s, evidence floor %s",
-				validation.ObjStr(ch, "chain_id"), pyStr(validation.ObjAt(ch, "provenance")),
-				pyStr(validation.ObjAt(ch, "evidence_floor"))))
+				validation.ObjStr(ch, "chain_id"), validation.PyStr(validation.ObjAt(ch, "provenance")),
+				validation.PyStr(validation.ObjAt(ch, "evidence_floor"))))
 			quoted := []string{}
 			for _, m := range strList(validation.ObjAt(ch, "members")) {
 				quoted = append(quoted, "`"+m+"`")
@@ -1457,7 +1450,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 				validation.ObjStr(f, "finding_id"), validation.ObjStr(f, "status"), validation.ObjStr(f, "title")))
 			reason := "n/a"
 			if v := validation.ObjAt(last, "reason"); v.Kind != validation.Null {
-				reason = pyStr(v)
+				reason = validation.PyStr(v)
 			}
 			L = append(L, "  - reason: "+reason)
 		}
@@ -1789,7 +1782,7 @@ func getOr(v validation.Value, key, def string) string {
 	if !validation.HasKey(v, key) {
 		return def
 	}
-	return pyStr(validation.ObjAt(v, key))
+	return validation.PyStr(validation.ObjAt(v, key))
 }
 
 // pyCommaAuto is Python's f"{v:,}": thousands separators, no forced decimals.
@@ -1801,7 +1794,7 @@ func pyCommaAuto(v validation.Value) string {
 		s := validation.PythonFloat(v.F)
 		return commaFloatText(s)
 	}
-	return pyStr(v)
+	return validation.PyStr(v)
 }
 
 func commaInt(digits string) string {
@@ -1870,12 +1863,12 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	out = append(out, "")
 	out = append(out, fmt.Sprintf("- id: `%s` — status **%s** (trajectory: %s)",
 		validation.ObjStr(f, "finding_id"), validation.ObjStr(f, "status"),
-		pyStr(validation.ObjAt(f, "trajectory"))))
+		validation.PyStr(validation.ObjAt(f, "trajectory"))))
 	cwe := ""
 	if validation.ObjStr(rc, "cwe") != "" {
 		cwe = "CWE " + validation.ObjStr(rc, "cwe")
 	}
-	out = append(out, fmt.Sprintf("- bug class: `%s`%s %s", pyStr(validation.ObjAt(rc, "class")),
+	out = append(out, fmt.Sprintf("- bug class: `%s`%s %s", validation.PyStr(validation.ObjAt(rc, "class")),
 		classAliasSuffixSpaced(validation.ObjStr(rc, "class")), cwe))
 	inv := validation.AsObj(validation.ObjAt(f, "invariant"))
 	if validation.ObjStr(inv, "statement") != "" {
@@ -1893,7 +1886,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	v := validation.AsObj(validation.ObjAt(risk, "validated"))
 	if len(v.O) > 0 {
 		out = append(out, fmt.Sprintf("- validated risk: **%s/10 (%s)**",
-			pyStr(validation.ObjAt(v, "score")), pyStr(validation.ObjAt(v, "band"))))
+			validation.PyStr(validation.ObjAt(v, "score")), validation.PyStr(validation.ObjAt(v, "band"))))
 	}
 	if rv := validation.ObjStr(risk, "reversibility"); rv != "" {
 		out = append(out, "- reversibility: **"+rv+"** (validated_risk component)")
@@ -1901,25 +1894,25 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	iv := validation.AsObj(validation.ObjAt(risk, "impact_vector"))
 	if len(iv.O) > 0 {
 		out = append(out, fmt.Sprintf("- impact vector: %s/%s/%s/%s (score %s)",
-			pyStr(validation.ObjAt(iv, "asset_exposure")),
-			pyStr(validation.ObjAt(iv, "privilege_class")),
-			pyStr(validation.ObjAt(iv, "recoverability")),
-			pyStr(validation.ObjAt(iv, "insolvency_risk")), pyStr(validation.ObjAt(iv, "score"))))
+			validation.PyStr(validation.ObjAt(iv, "asset_exposure")),
+			validation.PyStr(validation.ObjAt(iv, "privilege_class")),
+			validation.PyStr(validation.ObjAt(iv, "recoverability")),
+			validation.PyStr(validation.ObjAt(iv, "insolvency_risk")), validation.PyStr(validation.ObjAt(iv, "score"))))
 	}
 	if reported := validation.ObjAt(f, "reported_severity"); pyTruthyInt64Only(reported) {
 		band := "n/a"
 		if b := validation.ObjAt(validation.AsObj(validation.ObjAt(f, "risk")), "validated"); b.Kind == validation.Obj {
 			if bv := validation.ObjAt(b, "band"); bv.Kind != validation.Null {
-				band = pyStr(bv)
+				band = validation.PyStr(bv)
 			}
 		}
 		out = append(out, fmt.Sprintf("- reported severity: **%s** — computed "+
-			"band: **%s**", pyStr(reported), band))
+			"band: **%s**", validation.PyStr(reported), band))
 	}
 	econ := validation.AsObj(validation.ObjAt(risk, "economic"))
 	if decision := findings.UnpriceableDecision(f); decision != nil {
 		out = append(out, fmt.Sprintf("- economically extractable: "+
-			"UNPRICEABLE (ceiling: %s)", pyStr(validation.ObjAt(*decision, "ceiling"))))
+			"UNPRICEABLE (ceiling: %s)", validation.PyStr(validation.ObjAt(*decision, "ceiling"))))
 	} else if ex := validation.ObjAt(econ, "extractable_usd"); ex.Kind != validation.Null {
 		out = append(out, fmt.Sprintf("- economically extractable: $%s",
 			pyCommaAuto(ex)))
@@ -1929,7 +1922,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 			if paid.B {
 				out = append(out, fmt.Sprintf(
 					"- paid exploitability: **yes** — who pays, and why: "+
-						"%s", pyStr(validation.ObjAt(exp, "argument"))))
+						"%s", validation.PyStr(validation.ObjAt(exp, "argument"))))
 			} else {
 				line := "- paid exploitability: **no**"
 				if a := validation.ObjStr(exp, "argument"); a != "" {
@@ -1944,16 +1937,16 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	// findings without the clause render nothing here.
 	if ag := validation.AsObj(validation.ObjAt(f, "adversarial_game")); len(ag.O) > 0 {
 		out = append(out, fmt.Sprintf("- adversarial game: who profits — %s",
-			pyStr(validation.ObjAt(ag, "who_profits"))))
+			validation.PyStr(validation.ObjAt(ag, "who_profits"))))
 		out = append(out, fmt.Sprintf("-   mechanism: %s",
-			pyStr(validation.ObjAt(ag, "profit_mechanism"))))
+			validation.PyStr(validation.ObjAt(ag, "profit_mechanism"))))
 		out = append(out, fmt.Sprintf("-   challenge interplay: %s",
-			pyStr(validation.ObjAt(ag, "challenge_interplay"))))
+			validation.PyStr(validation.ObjAt(ag, "challenge_interplay"))))
 	}
 	if ack := validation.AsObj(validation.ObjAt(validation.ObjAt(f, "dedup_meta"), "in_code_ack")); len(ack.O) > 0 {
 		line := fmt.Sprintf("- in-code ack: %s:%s — phrase %q (window %s)",
-			pyStr(validation.ObjAt(ack, "file")), pyStr(validation.ObjAt(ack, "line")),
-			pyStr(validation.ObjAt(ack, "phrase")), pyStr(validation.ObjAt(ack, "window")))
+			validation.PyStr(validation.ObjAt(ack, "file")), validation.PyStr(validation.ObjAt(ack, "line")),
+			validation.PyStr(validation.ObjAt(ack, "phrase")), validation.PyStr(validation.ObjAt(ack, "window")))
 		if q, ok := reportAckQuote(campaign, f, ack); ok {
 			line += " — " + q
 		} else {
@@ -1978,7 +1971,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	b := validation.AsObj(validation.ObjAt(f, "bounty"))
 	if len(b.O) > 0 {
 		line := fmt.Sprintf("- bounty gate: eligible=%s, submission_ready=%s",
-			pyStr(validation.ObjAt(b, "eligible")), pyStr(validation.ObjAt(b, "submission_ready")))
+			validation.PyStr(validation.ObjAt(b, "eligible")), validation.PyStr(validation.ObjAt(b, "submission_ready")))
 		if blockers := listAt(b, "blocking_reasons"); len(blockers) > 0 {
 			line += ", blockers: " + strings.Join(strList(validation.ObjAt(b,
 				"blocking_reasons")), "; ")
@@ -1995,7 +1988,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	}
 	if ar := validation.AsObj(validation.ObjAt(b, "accepted_risk")); len(ar.O) > 0 {
 		kind := validation.ObjStr(ar, "kind")
-		line := fmt.Sprintf("- accepted risk: **%s**", pyStr(validation.ObjAt(ar,
+		line := fmt.Sprintf("- accepted risk: **%s**", validation.PyStr(validation.ObjAt(ar,
 			"pattern")))
 		if kind != "" {
 			line += " (" + kind + ")"
@@ -2034,8 +2027,8 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 			return intAt(sortedSeq[i], "step") < intAt(sortedSeq[j], "step")
 		})
 		for _, s := range sortedSeq {
-			line := fmt.Sprintf("%s. %s", pyStr(validation.ObjAt(s, "step")),
-				pyStr(validation.ObjAt(s, "action")))
+			line := fmt.Sprintf("%s. %s", validation.PyStr(validation.ObjAt(s, "step")),
+				validation.PyStr(validation.ObjAt(s, "action")))
 			if validation.ObjStr(s, "state_effect") != "" {
 				line += " → " + validation.ObjStr(s, "state_effect")
 			}
@@ -2060,7 +2053,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		})
 		for _, e := range sortedEv {
 			line := fmt.Sprintf("- %s [%s] %s", validation.ObjStr(e, "level"),
-				validation.ObjStr(e, "type"), pyStr(validation.ObjAt(e, "description")))
+				validation.ObjStr(e, "type"), validation.PyStr(validation.ObjAt(e, "description")))
 			if validation.ObjStr(e, "sandbox_profile") != "" {
 				line += " (sandbox: " + validation.ObjStr(e, "sandbox_profile") + ")"
 			}
@@ -2179,7 +2172,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		if item.Kind == validation.Obj {
 			out = append(out, fmt.Sprintf("- mainnet fork PoC: **proven** — "+
 				"%s `%s` from `%s` (fork-runner, exit 0)", validation.ObjStr(item, "level"),
-				validation.ObjStr(item, "type"), pyStr(validation.ObjAt(item, "artifact_id"))))
+				validation.ObjStr(item, "type"), validation.PyStr(validation.ObjAt(item, "artifact_id"))))
 		} else {
 			waivers, err := completion.Waivers(campaign, "mainnet-fork-poc")
 			if err != nil {
@@ -2284,7 +2277,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 				out = append(out, fmt.Sprintf("- price basis: `%s` — %s @ $%s "+
 					"(%s, as of %s)", basis, validation.ObjStr(*rowPtr, "asset"),
 					pyCommaAuto(validation.ObjAt(*rowPtr, "usd")), string(src),
-					pyStr(validation.ObjAt(*rowPtr, "as_of"))))
+					validation.PyStr(validation.ObjAt(*rowPtr, "as_of"))))
 			} else {
 				out = append(out, fmt.Sprintf("- price basis: `%s` — "+
 					"**UNRESOLVED** (no row in the price table)", basis))

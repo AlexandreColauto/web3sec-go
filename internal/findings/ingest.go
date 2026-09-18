@@ -59,17 +59,6 @@ func SetInvariantGuard(f func(*state.Campaign, validation.Value) error) {
 
 // pyStr is Python str() on a Value (scalars unquoted; containers repr —
 // the f-string default formatting).
-func pyStr(v validation.Value) string {
-	switch v.Kind {
-	case validation.Null:
-		return "None"
-	case validation.Str:
-		return v.S
-	case validation.Arr, validation.Obj:
-		return validation.PyRepr(v)
-	}
-	return validation.PyRepr(v)
-}
 
 // fieldAt is (value, present) for an object key — the distinction between
 // "absent" and "present as null" matters for Python .get(default).
@@ -120,13 +109,13 @@ func checkExecGate(campaign *state.Campaign, findingID string,
 			"is EXECUTION evidence — execution evidence must be attached "+
 			"via add_evidence after an EXEC record exists in this campaign "+
 			"(run the artifact through sandbox.Sandbox with finding_id set "+
-			"and cite the exec)", pyStr(validation.ObjAt(item, "evidence_id")), level)
+			"and cite the exec)", validation.PyStr(validation.ObjAt(item, "evidence_id")), level)
 	}
 	profile := validation.ObjStr(item, "sandbox_profile")
 	if !validation.PyTruthy(validation.VStr(profile)) {
 		return fmt.Errorf("evidence %s at %s must name the sandbox_profile "+
 			"it was produced under (see sandbox.py)",
-			pyStr(validation.ObjAt(item, "evidence_id")), level)
+			validation.PyStr(validation.ObjAt(item, "evidence_id")), level)
 	}
 	if _, ok := sandbox.E4_PROFILES[profile]; !ok {
 		names := make([]string, 0, len(sandbox.E4_PROFILES))
@@ -206,7 +195,7 @@ func verifyExecReference(campaign *state.Campaign, item validation.Value,
 			matching = append(matching, rec)
 		}
 	}
-	eid := pyStr(validation.ObjAt(item, "evidence_id"))
+	eid := validation.PyStr(validation.ObjAt(item, "evidence_id"))
 	if len(matching) > 0 {
 		return fmt.Errorf("E4+ evidence must cite its EXEC record "+
 			"(artifact_id): evidence %s names no run, so its profile, exit "+
@@ -479,7 +468,7 @@ func sigPath(first validation.Value) string {
 	if !ok {
 		return "unknown"
 	}
-	return pyStr(v)
+	return validation.PyStr(v)
 }
 
 // sigOpt is (block.get(key) or "") — absent, null, and "" all fold to "".

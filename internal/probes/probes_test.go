@@ -2211,7 +2211,7 @@ func TestEveryNewProbeAnchorFieldMovesTheRowShape(t *testing.T) {
 				if value.Kind == validation.Int {
 					vSet(&mutated, name, validation.VInt(value.I+1))
 				} else {
-					vSet(&mutated, name, validation.VStr(pyStr(value)+"~"))
+					vSet(&mutated, name, validation.VStr(validation.PyStr(value)+"~"))
 				}
 				if RowShapeSha(mutated) == before {
 					t.Errorf("%s/%s: moving %s did not move row_shape_sha",

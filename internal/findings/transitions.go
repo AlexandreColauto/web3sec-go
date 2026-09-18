@@ -554,7 +554,7 @@ func anchorPriority(finding, plan validation.Value) (validation.Value, error) {
 	question := fmt.Sprintf("ANCHOR: %s (%s, %s) is CONFIRMED at %s — re-scan "+
 		"the SAME lifecycle for a non-obvious coordination bug before "+
 		"converging (the loud bug usually hides the subtle one)", fid,
-		pyStr(validation.ObjAt(finding, "reported_severity")), clsText,
+		validation.PyStr(validation.ObjAt(finding, "reported_severity")), clsText,
 		strings.Join(surfaces, ", "))
 	priority := validation.VObj(
 		validation.KV{K: "id", V: validation.VStr(fmt.Sprintf("Q-%03d", n))},

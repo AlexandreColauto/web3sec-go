@@ -26,7 +26,7 @@ var transitions = map[string][]string{
 func AddExample(example validation.Value, status string) (validation.Value, error) {
 	if !slices.Contains(Statuses, status) {
 		return validation.VNull(), fmt.Errorf("unknown status %s; known: %s",
-			validation.PyReprStr(status), pyListRepr(Statuses))
+			validation.PyReprStr(status), validation.PyListRepr(Statuses))
 	}
 	store, err := LoadStore()
 	if err != nil {
@@ -274,10 +274,3 @@ func truthy(v validation.Value) bool {
 }
 
 // pyListRepr is Python's list repr for the closed-vocabulary error text.
-func pyListRepr(items []string) string {
-	quoted := make([]string, 0, len(items))
-	for _, s := range items {
-		quoted = append(quoted, validation.PyReprStr(s))
-	}
-	return "[" + strings.Join(quoted, ", ") + "]"
-}

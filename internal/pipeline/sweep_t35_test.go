@@ -21,7 +21,7 @@ func TestPipelineRunsNormallyWithinCeiling(t *testing.T) {
 	}
 	p := New(e.c, e.o, map[string]Handler{"snapshot": e.snapHandler()})
 	summary := run(t, p, RunOpts{MaxStages: iptr(3)})
-	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(summary, "ran"))),
+	assertStr(t, "ran", validation.PyListRepr(stringsOf(validation.ObjAt(summary, "ran"))),
 		"['scope', 'snapshot', 'structural-index']")
 	for _, et := range eventTypes(t, e.c) {
 		if et == "pipeline.budget_halt" {
@@ -78,7 +78,7 @@ func TestBlockedModelStageDoesNotStarveIndependentBranch(t *testing.T) {
 	if !ranContains(summary, "dedup") {
 		t.Fatalf("dedup must run: %v", validation.ObjAt(summary, "ran"))
 	}
-	got := pyListRepr(stringsOf(validation.ObjAt(summary, "blocked_stages")))
+	got := validation.PyListRepr(stringsOf(validation.ObjAt(summary, "blocked_stages")))
 	if got != "['hostile-review']" {
 		t.Fatalf("blocked_stages = %s", got)
 	}
@@ -134,7 +134,7 @@ func TestJoinAnyIsHonoredByTheScheduler(t *testing.T) {
 		"learning":                 constHandler("lessons logged"),
 	})
 	summary := run(t, p, RunOpts{})
-	got := pyListRepr(stringsOf(validation.ObjAt(summary, "blocked_stages")))
+	got := validation.PyListRepr(stringsOf(validation.ObjAt(summary, "blocked_stages")))
 	if got != "['hostile-review']" {
 		t.Fatalf("blocked_stages = %s", got)
 	}

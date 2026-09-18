@@ -987,7 +987,7 @@ func TestCompletionDiscoveryDependsOnDispositionedRows(t *testing.T) {
 // emitAnyMissingContains is any(pattern in m for m in proof["missing"]).
 func emitAnyMissingContains(proof validation.Value, pattern string) bool {
 	for _, m := range vList(proof, "missing") {
-		if strings.Contains(pyStr(m), pattern) {
+		if strings.Contains(validation.PyStr(m), pattern) {
 			return true
 		}
 	}

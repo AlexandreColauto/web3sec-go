@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"strings"
 
-	"unicode"
 	"unicode/utf8"
 
 	"websec/internal/findings"
@@ -235,7 +234,7 @@ func riskBand(score float64) string {
 // applies only when the key is absent (a present null renders as "None").
 func blastRadius(impact validation.Value) string {
 	if v, ok := fieldAt(impact, "blast_radius"); ok {
-		return pyStr(v)
+		return validation.PyStr(v)
 	}
 	return "subset-of-users"
 }
@@ -429,7 +428,7 @@ func maxExposure(imp validation.Value) (float64, bool) {
 // pattern and fall through to semi-privileged.
 func privilegeClass(finding validation.Value) string {
 	text := privText(privilegesOf(finding))
-	if pyStrip(text) == "" {
+	if validation.PyStrip(text) == "" {
 		return "unprivileged"
 	}
 	if privRoleRe.MatchString(text) {
@@ -449,7 +448,7 @@ func privText(privs validation.Value) string {
 		parts := make([]string, 0, len(privs.A))
 		for _, p := range privs.A {
 			if p.Kind != validation.Null {
-				parts = append(parts, pyStr(p))
+				parts = append(parts, validation.PyStr(p))
 			}
 		}
 		return strings.Join(parts, " ")
@@ -671,9 +670,9 @@ func RecordEconomicImpact(campaign *state.Campaign, findingID string,
 // policy.
 func RecordUnpriceable(campaign *state.Campaign, findingID, ceiling, reason,
 	actor string) (validation.Value, error) {
-	ceiling = pyStrip(ceiling)
-	reason = pyStrip(reason)
-	actor = pyStrip(actor)
+	ceiling = validation.PyStrip(ceiling)
+	reason = validation.PyStrip(reason)
+	actor = validation.PyStrip(actor)
 	if ceiling == "" {
 		return validation.VNull(), fmt.Errorf("an unpriceable decision " +
 			"must state the capacity basis it was made against (--ceiling)")
@@ -980,24 +979,6 @@ func pyLen(v validation.Value) int {
 }
 
 // pyStr is Python str(v) for the JSON scalar kinds.
-func pyStr(v validation.Value) string {
-	switch v.Kind {
-	case validation.Null:
-		return "None"
-	case validation.Bool:
-		if v.B {
-			return "True"
-		}
-		return "False"
-	case validation.Int:
-		return validation.IntText(v)
-	case validation.Flt:
-		return validation.PythonFloat(v.F)
-	case validation.Str:
-		return v.S
-	}
-	return validation.PyRepr(v)
-}
 
 // pyTypeName is type(v).__name__ for the JSON kinds.
 func pyTypeName(v validation.Value) string {
@@ -1041,7 +1022,7 @@ func asFloat(v validation.Value) (float64, error) {
 		}
 		return 0, nil
 	case validation.Str:
-		f, err := strconv.ParseFloat(pyStrip(v.S), 64)
+		f, err := strconv.ParseFloat(validation.PyStrip(v.S), 64)
 		if err != nil {
 			return 0, fmt.Errorf("could not convert string to float: %s",
 				validation.PyReprStr(v.S))
@@ -1101,16 +1082,7 @@ func groupThousands(digits string) string {
 
 // pyStrip is Python's str.strip() with no argument: trim str.isspace()
 // characters from both ends.
-func pyStrip(s string) string {
-	return strings.TrimFunc(s, pySpace)
-}
 
 // pySpace is Py_UNICODE_ISSPACE: the Unicode White_Space property plus the
 // ASCII file separators U+001C-U+001F (Python's str.isspace() says true
 // there, unicode.IsSpace does not).
-func pySpace(r rune) bool {
-	if r >= 0x1c && r <= 0x1f {
-		return true
-	}
-	return unicode.IsSpace(r)
-}

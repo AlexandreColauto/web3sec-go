@@ -130,7 +130,7 @@ func sortBlindFields(blind []validation.Value, fields ...string) {
 // blindStr is str(b.get(field) or "").
 func blindStr(b validation.Value, field string) string {
 	if v := vGet(b, field); vTruthy(v) {
-		return pyStr(v)
+		return validation.PyStr(v)
 	}
 	return ""
 }
@@ -138,7 +138,7 @@ func blindStr(b validation.Value, field string) string {
 // blindNear is str(b.get("near") or "").
 func blindNear(b validation.Value) string {
 	if n := vGet(b, "near"); vTruthy(n) {
-		return pyStr(n)
+		return validation.PyStr(n)
 	}
 	return ""
 }
@@ -147,7 +147,7 @@ func blindNear(b validation.Value) string {
 func blindField(field string) func(validation.Value) string {
 	return func(b validation.Value) string {
 		if v := vGet(b, field); vTruthy(v) {
-			return pyStr(v)
+			return validation.PyStr(v)
 		}
 		return ""
 	}

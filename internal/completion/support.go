@@ -6,7 +6,6 @@ package completion
 import (
 	"os"
 	"strconv"
-	"strings"
 
 	"unicode/utf8"
 
@@ -102,28 +101,9 @@ func headRunes(s string, n int) string {
 
 // pyStrip is str.strip(): CPython whitespace, which (unlike
 // unicode.IsSpace) also includes the C0 separators \x1c-\x1f.
-func pyStrip(s string) string {
-	return strings.TrimFunc(s, isPySpace)
-}
-
-func isPySpace(r rune) bool {
-	switch r {
-	case '\t', '\n', '\v', '\f', '\r', ' ', 0x1c, 0x1d, 0x1e, 0x1f, 0x85, 0xa0:
-		return true
-	}
-	// Zs / Zl / Zp are whitespace in Python too.
-	return r == 0x1680 || r == 0x2028 || r == 0x2029 || r == 0x202f ||
-		r == 0x205f || r == 0x3000 || (r >= 0x2000 && r <= 0x200a)
-}
 
 // pyStrAny is f-string interpolation of a value: str(v). A string is
 // itself; every other value is its Python repr.
-func pyStrAny(v validation.Value) string {
-	if v.Kind == validation.Str {
-		return v.S
-	}
-	return validation.PyRepr(v)
-}
 
 // kindName is the Python type name of a value ("list"/"dict"/"NoneType"),
 // used for the unhashable-key TypeError text.

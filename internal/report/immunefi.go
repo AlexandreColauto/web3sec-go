@@ -225,7 +225,7 @@ func immunefiSummary(f validation.Value, program string) immunefiSection {
 	}
 	if b := validation.AsObj(validation.ObjAt(f, "bounty")); len(b.O) > 0 {
 		line := fmt.Sprintf("- bounty gate: eligible=%s, submission_ready=%s",
-			pyStr(validation.ObjAt(b, "eligible")), pyStr(validation.ObjAt(b, "submission_ready")))
+			validation.PyStr(validation.ObjAt(b, "eligible")), validation.PyStr(validation.ObjAt(b, "submission_ready")))
 		if blockers := listAt(b, "blocking_reasons"); len(blockers) > 0 {
 			line += ", blockers: " + strings.Join(strList(validation.ObjAt(b,
 				"blocking_reasons")), "; ")
@@ -268,7 +268,7 @@ func immunefiImpact(f validation.Value) immunefiSection {
 		}
 		if conf := validation.ObjAt(ei, "confidence"); conf.Kind != validation.Null {
 			body = append(body, fmt.Sprintf("- confidence: %s",
-				pyStr(conf)))
+				validation.PyStr(conf)))
 		}
 		if ceiling := validation.ObjStr(ei, "ceiling"); ceiling != "" {
 			body = append(body, "- ceiling: "+ceiling)
@@ -309,11 +309,11 @@ func immunefiSeverity(f, policy validation.Value) immunefiSection {
 		band := "n/a"
 		if b := validation.AsObj(validation.ObjAt(validation.AsObj(validation.ObjAt(f, "risk")), "validated")); b.Kind == validation.Obj {
 			if bv := validation.ObjAt(b, "band"); bv.Kind != validation.Null {
-				band = pyStr(bv)
+				band = validation.PyStr(bv)
 			}
 		}
 		body = append(body, fmt.Sprintf("- reported severity: **%s** — "+
-			"computed band: **%s**", pyStr(reported), band))
+			"computed band: **%s**", validation.PyStr(reported), band))
 	}
 	return immunefiSection{name: "Severity", body: body, empty: false}
 }
@@ -334,7 +334,7 @@ func immunefiPoC(f validation.Value) immunefiSection {
 	body := []string{}
 	for _, e := range sorted {
 		line := fmt.Sprintf("- %s [%s] %s", validation.ObjStr(e, "level"),
-			validation.ObjStr(e, "type"), pyStr(validation.ObjAt(e, "description")))
+			validation.ObjStr(e, "type"), validation.PyStr(validation.ObjAt(e, "description")))
 		if validation.ObjStr(e, "sandbox_profile") != "" {
 			line += " (sandbox: " + validation.ObjStr(e, "sandbox_profile") + ")"
 		}
@@ -345,8 +345,8 @@ func immunefiPoC(f validation.Value) immunefiSection {
 			line += " [fork stale]"
 		}
 		if aid := validation.ObjAt(e, "artifact_id"); aid.Kind != validation.Null &&
-			pyStr(aid) != "" {
-			line += " — artifact `" + pyStr(aid) + "`"
+			validation.PyStr(aid) != "" {
+			line += " — artifact `" + validation.PyStr(aid) + "`"
 		}
 		body = append(body, line)
 	}
@@ -385,7 +385,7 @@ func immunefiRelated(f validation.Value) immunefiSection {
 		}
 	}
 	if ar := validation.AsObj(validation.ObjAt(validation.AsObj(validation.ObjAt(f, "bounty")), "accepted_risk")); len(ar.O) > 0 {
-		line := fmt.Sprintf("- accepted risk: **%s**", pyStr(validation.ObjAt(ar,
+		line := fmt.Sprintf("- accepted risk: **%s**", validation.PyStr(validation.ObjAt(ar,
 			"pattern")))
 		if kind := validation.ObjStr(ar, "kind"); kind != "" {
 			line += " (" + kind + ")"
@@ -400,8 +400,8 @@ func immunefiRelated(f validation.Value) immunefiSection {
 	}
 	if ack := validation.AsObj(validation.ObjAt(validation.ObjAt(f, "dedup_meta"), "in_code_ack")); len(ack.O) > 0 {
 		body = append(body, fmt.Sprintf("- in-code ack: %s:%s — phrase %q",
-			pyStr(validation.ObjAt(ack, "file")), pyStr(validation.ObjAt(ack, "line")),
-			pyStr(validation.ObjAt(ack, "phrase"))))
+			validation.PyStr(validation.ObjAt(ack, "file")), validation.PyStr(validation.ObjAt(ack, "line")),
+			validation.PyStr(validation.ObjAt(ack, "phrase"))))
 	}
 	return immunefiSection{name: "Related areas", body: body,
 		empty: len(body) == 0}

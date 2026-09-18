@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"strings"
 
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -115,13 +114,6 @@ func pyFloat(v validation.Value) (float64, bool) {
 }
 
 // pyListRepr is Python's repr() of a list of strings: ['a', 'b'].
-func pyListRepr(items []string) string {
-	parts := make([]string, 0, len(items))
-	for _, s := range items {
-		parts = append(parts, validation.PyReprStr(s))
-	}
-	return "[" + strings.Join(parts, ", ") + "]"
-}
 
 func sortedStrings(items []string) []string {
 	out := append([]string{}, items...)

@@ -112,7 +112,7 @@ func modelKey(v validation.Value) string {
 	if v.Kind == validation.Str {
 		return v.S
 	}
-	return "\x00" + pyStr(v)
+	return "\x00" + validation.PyStr(v)
 }
 
 // FamiliesForFinding is families_for_finding: family tokens a finding
@@ -157,7 +157,7 @@ func FamiliesForFinding(model, finding validation.Value) map[string]struct{} {
 			continue
 		}
 		for _, a := range affected {
-			if strings.Contains(strings.ToLower(pyStr(a)),
+			if strings.Contains(strings.ToLower(validation.PyStr(a)),
 				strings.ToLower(nm.S)) {
 				toks[nm.S] = struct{}{}
 				break
@@ -239,9 +239,9 @@ func machinesLabel(model validation.Value) string {
 		nm := validation.ObjAt(m, "name")
 		switch {
 		case pyTruthyBigNonEmpty(id):
-			names = append(names, pyStr(id))
+			names = append(names, validation.PyStr(id))
 		case pyTruthyBigNonEmpty(nm):
-			names = append(names, pyStr(nm))
+			names = append(names, validation.PyStr(nm))
 		default:
 			names = append(names, "?")
 		}
@@ -401,7 +401,7 @@ func symmetryFamilies(symmetry []validation.Value) []string {
 	out := []string{}
 	for _, s := range symmetry {
 		if f := validation.ObjAt(s, "family"); pyTruthyBigNonEmpty(f) {
-			out = append(out, pyStr(f))
+			out = append(out, validation.PyStr(f))
 		}
 	}
 	return out
@@ -427,7 +427,7 @@ func RolePrivilegeSurface(model validation.Value) map[string][]validation.Value 
 		if !pyTruthyBigNonEmpty(role) {
 			continue
 		}
-		label := capabilities.NormalizeLabel(pyStr(role))
+		label := capabilities.NormalizeLabel(validation.PyStr(role))
 		groups[label] = append(groups[label], p)
 	}
 	out := map[string][]validation.Value{}

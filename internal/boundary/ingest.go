@@ -166,7 +166,7 @@ func ApplyCriticVerdict(campaign *state.Campaign, findingID string,
 		}
 		return validation.VNull(), &BoundaryError{Msg: fmt.Sprintf(
 			"critic verdict rejected at apply time (assumptions moved: %s): %v",
-			pyListRepr(applied), err)}
+			validation.PyListRepr(applied), err)}
 	}
 	reasoning := composeReasoning(raw)
 	if _, err := findings.SetCriticVerdict(campaign, findingID,

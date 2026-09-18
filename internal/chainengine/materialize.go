@@ -291,7 +291,7 @@ func loadChainMembersMode(c *state.Campaign, memberIDs []string,
 		if len(unconfirmed) > 0 {
 			return nil, &findings.IllegalTransition{Msg: fmt.Sprintf(
 				"chain members must each be CONFIRMED first: %s",
-				pyListRepr(unconfirmed))}
+				validation.PyListRepr(unconfirmed))}
 		}
 	}
 	pins := []validation.Value{}
@@ -396,7 +396,7 @@ func checkPinsMode(pins []validation.Value, unproven bool) error {
 			}
 			return fmt.Errorf("chain members are pinned to different/missing "+
 				"source snapshots (%s); re-verify onto one pin first",
-				pyListRepr(shown))
+				validation.PyListRepr(shown))
 		}
 		return nil
 	}
@@ -407,7 +407,7 @@ func checkPinsMode(pins []validation.Value, unproven bool) error {
 		return fmt.Errorf("chain members must each carry a source pin: "+
 			"unpinned member(s) among %s — pin the finding, or start from "+
 			"a snapshot, before proposing a hypothesis-level chain",
-			pyListRepr(shown))
+			validation.PyListRepr(shown))
 	}
 	// unproven: any non-null pin set is accepted (see the doc comment).
 	return nil
@@ -437,7 +437,7 @@ func chainLinksMode(members []validation.Value,
 		if len(overlap) == 0 {
 			return nil, fmt.Errorf("capability gap: %s -> %s (grants %s, needs %s)",
 				validation.ObjStr(a, "finding_id"), validation.ObjStr(b, "finding_id"),
-				pyListRepr(setKeys(aCaps)), pyListRepr(setKeys(bNeeds)))
+				validation.PyListRepr(setKeys(aCaps)), validation.PyListRepr(setKeys(bNeeds)))
 		}
 		sort.Strings(overlap)
 		link := validation.VObj(
@@ -519,7 +519,7 @@ func terminalAnnotation(c *state.Campaign, memberIDs []string,
 		return nil, fmt.Errorf(
 			"terminal capability %s is not granted by %s (grants %s))",
 			validation.PyReprStr(validation.ObjStr(t, "capability")), via,
-			pyListRepr(sortedStrings(granted)))
+			validation.PyListRepr(sortedStrings(granted)))
 	}
 	if !slices.Contains(memberIDs, via) {
 		return nil, fmt.Errorf("terminal via_finding %s is not a chain member", via)
@@ -552,7 +552,7 @@ func validateBreakdown(bd validation.Value) error {
 	}
 	if len(unknown) > 0 {
 		sort.Strings(unknown)
-		return fmt.Errorf("unknown capital_breakdown fields: %s", pyListRepr(unknown))
+		return fmt.Errorf("unknown capital_breakdown fields: %s", validation.PyListRepr(unknown))
 	}
 	for _, kv := range bd.O {
 		v := kv.V
@@ -614,7 +614,7 @@ func chainFindingDoc(c *state.Campaign, memberIDs []string, members []validation
 			kvOf("terminal", validation.VStr(validation.CanonSpaced(*terminalDoc))))
 	}
 	reason := fmt.Sprintf("chain %s materialized from %s", chainID,
-		pyListRepr(memberIDs))
+		validation.PyListRepr(memberIDs))
 	at := state.NowIso()
 	return validation.VObj(
 		kvOf("finding_id", validation.VStr("F-"+tailOf(state.NewID("x", 12)))),

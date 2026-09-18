@@ -396,7 +396,7 @@ func Reconcile(c *state.Campaign, model validation.Value) (validation.Value, err
 		if !ok {
 			return validation.VNull(), fmt.Errorf("'id'")
 		}
-		modelIDs[NormalizeInvID(pyStr(idV))] = struct{}{}
+		modelIDs[NormalizeInvID(validation.PyStr(idV))] = struct{}{}
 	}
 	docIDs := keySet(doc)
 	missing := sortedDiff(docIDs, modelIDs)
@@ -478,13 +478,9 @@ func pySplitLines(s string) []string {
 
 // pySpace is str.isspace(): Unicode whitespace plus the C0 separators
 // \x1c..\x1f that unicode.IsSpace does not cover.
-func pySpace(r rune) bool {
-	return r == '\x1c' || r == '\x1d' || r == '\x1e' || r == '\x1f' ||
-		unicode.IsSpace(r)
-}
 
 // pyStrip is str.strip().
-func pyStrip(s string) string { return strings.TrimFunc(s, pySpace) }
+func pyStrip(s string) string { return strings.TrimFunc(s, validation.PyIsSpace) }
 
 // pyHead is s[:n] (a code-point slice, never splitting a rune).
 func pyHead(s string, n int) string {

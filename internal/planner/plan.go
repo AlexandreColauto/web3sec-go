@@ -435,7 +435,7 @@ func bootstrapUncovered(b *planBuilder, uncovered []validation.Value) {
 	for _, u := range uncovered {
 		components := []string{}
 		for _, a := range listOf(u, "applies_to") {
-			components = append(components, pyStr(a))
+			components = append(components, validation.PyStr(a))
 		}
 		b.add(u, "Test the uncovered critical invariant: "+
 			validation.ObjStr(u, "statement"), 0.7, components,
@@ -542,7 +542,7 @@ func openQuestionRefs(q validation.Value) []string {
 	seen := map[string]bool{}
 	for _, key := range []string{"blocks", "applies_to"} {
 		for _, ref := range listOf(q, key) {
-			s := pyStr(ref)
+			s := validation.PyStr(ref)
 			if s == "" || seen[s] {
 				continue
 			}
@@ -728,7 +728,7 @@ func lifecycleSurfaceCovered(name string, queue []validation.Value,
 	signals *queueSignals, live []validation.Value) bool {
 	for _, row := range queue {
 		for _, c := range listOf(row, "components") {
-			if pyStr(c) == name {
+			if validation.PyStr(c) == name {
 				return true
 			}
 		}
@@ -774,7 +774,7 @@ func maxThresholdText(entries []validation.Value) string {
 			best, bestVal, first = v, f, false
 		}
 	}
-	return pyStr(best)
+	return validation.PyStr(best)
 }
 
 // coverageTargets is the plan's coverage_targets block.

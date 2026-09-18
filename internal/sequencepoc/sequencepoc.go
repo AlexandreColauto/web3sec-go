@@ -237,7 +237,7 @@ func checkSteps(data, actors validation.Value,
 		if _, ok := actorKey(actors, actor); !ok {
 			return fail(fmt.Sprintf("steps[%d].actor", i), fmt.Sprintf(
 				"%s is not a key of 'actors' (known: %s)",
-				pyStr(actor), known))
+				validation.PyStr(actor), known))
 		}
 		n := intOf(validation.ObjAt(*s, "step"))
 		if _, dup := seen[n]; dup {
@@ -265,12 +265,12 @@ func checkAssertions(data, actors validation.Value) error {
 	seenIDs := map[string]struct{}{}
 	for i, a := range assertions {
 		id := validation.ObjAt(a, "id")
-		idKey := pyStr(id)
+		idKey := validation.PyStr(id)
 		if _, dup := seenIDs[idKey]; dup {
 			return fail(fmt.Sprintf("final_assertions[%d].id", i),
 				fmt.Sprintf("duplicate assertion id %s — ids must be "+
 					"unique (coverage matches results by id)",
-					pyStr(id)))
+					validation.PyStr(id)))
 		}
 		seenIDs[idKey] = struct{}{}
 		if err := checkAssertionFields(i, a, actors, known); err != nil {
@@ -313,7 +313,7 @@ func checkAssertionFields(i int, a, actors validation.Value,
 	}
 	return fail(fmt.Sprintf("final_assertions[%d].account", i), fmt.Sprintf(
 		"%s is neither a 0x address nor a key of 'actors' (known: %s)",
-		pyStr(acct), known))
+		validation.PyStr(acct), known))
 }
 
 // --- small value helpers ---------------------------------------------------
@@ -369,12 +369,6 @@ func valueKey(v validation.Value) string {
 }
 
 // pyStr is Python str(v) for a JSON scalar (str and repr agree outside str).
-func pyStr(v validation.Value) string {
-	if v.Kind == validation.Str {
-		return v.S
-	}
-	return validation.PyRepr(v)
-}
 
 // pyListReprStrings renders Python repr(list-of-str): ['a', 'b'].
 func pyListReprStrings(items []string) string {

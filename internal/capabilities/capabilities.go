@@ -11,7 +11,6 @@ package capabilities
 import (
 	"sort"
 	"strings"
-	"unicode"
 
 	"websec/internal/validation"
 )
@@ -67,7 +66,7 @@ func NormalizeLabels(values []string) []string {
 	seen := make(map[string]struct{}, len(values))
 	out := make([]string, 0, len(values))
 	for _, v := range values {
-		if pyStrip(v) == "" {
+		if validation.PyStrip(v) == "" {
 			continue
 		}
 		n := NormalizeLabel(v)
@@ -262,14 +261,7 @@ func kv(k string, v validation.Value) validation.KV {
 // drop leading/trailing whitespace. Go's unicode.IsSpace misses the four
 // C0 separator controls (U+001C..U+001F) that Python's str.isspace counts.
 func pySplit(s string) []string {
-	return strings.FieldsFunc(s, pyIsSpace)
+	return strings.FieldsFunc(s, validation.PyIsSpace)
 }
 
 // pyStrip is Python's str.strip() with the same whitespace set.
-func pyStrip(s string) string {
-	return strings.TrimFunc(s, pyIsSpace)
-}
-
-func pyIsSpace(r rune) bool {
-	return unicode.IsSpace(r) || (r >= 0x1c && r <= 0x1f)
-}

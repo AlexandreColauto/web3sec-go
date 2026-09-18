@@ -46,7 +46,7 @@ func RowShapeSha(row validation.Value) string {
 	slots = append(slots, sortedSitePairs(vList(row, "siblings")))
 	stranded := []string{}
 	for _, e := range vList(row, "stranded_entry") {
-		stranded = append(stranded, pyStr(e))
+		stranded = append(stranded, validation.PyStr(e))
 	}
 	sort.Strings(stranded)
 	slots = append(slots, validation.StrArr(stranded))
@@ -63,10 +63,10 @@ func sortedSitePairs(sites []validation.Value) validation.Value {
 			vGet(s, "contract"), vGet(s, "line")})
 	}
 	sort.SliceStable(pairs, func(i, j int) bool {
-		if a, b := pyStr(pairs[i][0]), pyStr(pairs[j][0]); a != b {
+		if a, b := validation.PyStr(pairs[i][0]), validation.PyStr(pairs[j][0]); a != b {
 			return a < b
 		}
-		return pyStr(pairs[i][1]) < pyStr(pairs[j][1])
+		return validation.PyStr(pairs[i][1]) < validation.PyStr(pairs[j][1])
 	})
 	out := make([]validation.Value, 0, len(pairs))
 	for _, p := range pairs {
@@ -252,11 +252,11 @@ func renderAnchorValue(value validation.Value) string {
 	case validation.Arr:
 		parts := make([]string, 0, len(value.A))
 		for _, v := range value.A {
-			parts = append(parts, pyStr(v))
+			parts = append(parts, validation.PyStr(v))
 		}
 		return strings.Join(parts, ", ")
 	case validation.Obj:
 		return validation.CanonSpaced(value)
 	}
-	return pyStr(value)
+	return validation.PyStr(value)
 }

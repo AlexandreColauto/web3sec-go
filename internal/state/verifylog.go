@@ -275,7 +275,7 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 		seq := validation.ObjAt(e, "seq")
 		if seq.Kind != validation.Int || seq.I != int64(i) {
 			problems = append(problems,
-				fmt.Sprintf("event %d has seq=%s", i, pyStr(seq)))
+				fmt.Sprintf("event %d has seq=%s", i, validation.PyStr(seq)))
 			break
 		}
 	}
@@ -483,25 +483,6 @@ func readWaiverRowsR12(path string) ([]validation.Value, error, int) {
 // pyStr is Python's str() over a JSON value, for problem messages:
 // None/True/False for null/bools, bare decimals, the string itself (no
 // quotes), and repr-style rendering for containers.
-func pyStr(v validation.Value) string {
-	switch v.Kind {
-	case validation.Null:
-		return "None"
-	case validation.Bool:
-		if v.B {
-			return "True"
-		}
-		return "False"
-	case validation.Int:
-		return validation.IntText(v)
-	case validation.Flt:
-		return validation.PythonFloat(v.F)
-	case validation.Str:
-		return v.S
-	default:
-		return validation.PyRepr(v)
-	}
-}
 
 // arraysEq is Python list equality (deep, element-wise).
 func arraysEq(a, b []validation.Value) bool {

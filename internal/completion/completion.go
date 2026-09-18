@@ -98,7 +98,7 @@ func Waivers(c *state.Campaign, stage string) ([]validation.Value, error) {
 // Waive is waive(): waive one proof subject ('*' waives the whole stage).
 // Requires a named actor and a written reason; logged, append-only.
 func Waive(c *state.Campaign, stage, subject, reason, actor string) (validation.Value, error) {
-	if reason == "" || pyLen(pyStrip(reason)) < 10 {
+	if reason == "" || pyLen(validation.PyStrip(reason)) < 10 {
 		return validation.VNull(), fmt.Errorf("%s", "a waiver needs a written "+
 			"reason (>=10 chars): the point is the audit trail, not the bypass")
 	}
@@ -109,7 +109,7 @@ func Waive(c *state.Campaign, stage, subject, reason, actor string) (validation.
 	if subj == "" {
 		subj = "*"
 	}
-	trimmed := pyStrip(reason)
+	trimmed := validation.PyStrip(reason)
 	row := validation.VObj(
 		kv("stage", validation.VStr(stage)),
 		kv("subject", validation.VStr(subj)),

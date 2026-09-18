@@ -59,24 +59,6 @@ func lookup(v validation.Value, key string) (validation.Value, bool) {
 
 // pyStr is CPython str(v): raw for strings, "None"/"True"/"False" for the
 // scalars, and repr() for the containers (which is what str() does for them).
-func pyStr(v validation.Value) string {
-	switch v.Kind {
-	case validation.Null:
-		return "None"
-	case validation.Bool:
-		if v.B {
-			return "True"
-		}
-		return "False"
-	case validation.Int:
-		return validation.IntText(v)
-	case validation.Flt:
-		return validation.PythonFloat(v.F)
-	case validation.Str:
-		return v.S
-	}
-	return validation.PyRepr(v)
-}
 
 // pyEqual is Python's == over JSON-shaped values: dicts compare by content
 // (key order irrelevant), lists elementwise, and the numeric kinds compare
@@ -182,7 +164,7 @@ func LoadModel(campaign *state.Campaign, path string) (validation.Value, error) 
 	if err := validation.Validate(model, "protocol_model", 25); err != nil {
 		return validation.VNull(), err
 	}
-	note := "protocol model for " + pyStr(validation.ObjAt(model, "name"))
+	note := "protocol model for " + validation.PyStr(validation.ObjAt(model, "name"))
 	_, err = campaign.RegisterOrRefresh("protocol-model", path, note, nil,
 		"protocol model (re)loaded")
 	if err != nil {
@@ -214,7 +196,7 @@ func SaveModel(campaign *state.Campaign, model validation.Value, path string) (s
 	}
 	// the model is a living document: re-saving must refresh the existing
 	// registration, not mint a ghost row
-	note := "protocol model for " + pyStr(validation.ObjAt(model, "name"))
+	note := "protocol model for " + validation.PyStr(validation.ObjAt(model, "name"))
 	_, err := campaign.RegisterOrRefresh("protocol-model", path, note, nil,
 		"protocol model saved (LLM refinement or operator edit)")
 	if err != nil {
@@ -330,7 +312,7 @@ func ExternalAssets(model validation.Value) []validation.Value {
 		}
 		decimals := validation.ObjAt(a, "decimals")
 		if decimals.Kind != validation.Null && !standardDecimals(decimals) {
-			flags = append(flags, validation.VStr("odd-decimals-"+pyStr(decimals)))
+			flags = append(flags, validation.VStr("odd-decimals-"+validation.PyStr(decimals)))
 		}
 		if nb := validation.ObjAt(a, "nonstandard_behaviors"); validation.PyTruthy(nb) {
 			flags = append(flags, extendFlags(nb)...)

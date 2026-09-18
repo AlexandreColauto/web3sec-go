@@ -91,24 +91,6 @@ func getOr(v validation.Value, key string, def validation.Value) validation.Valu
 }
 
 // pyStr is Python str() over a Value (f-string default formatting).
-func pyStr(v validation.Value) string {
-	switch v.Kind {
-	case validation.Str:
-		return v.S
-	case validation.Null:
-		return "None"
-	case validation.Bool:
-		if v.B {
-			return "True"
-		}
-		return "False"
-	case validation.Int:
-		return validation.IntText(v)
-	case validation.Flt:
-		return validation.PythonFloat(v.F)
-	}
-	return validation.PyRepr(v)
-}
 func strPtr(s string) *string { return &s }
 
 // ---- registry I/O --------------------------------------------------------
@@ -344,7 +326,7 @@ func SeedFromModel(c *state.Campaign, model validation.Value) (validation.Value,
 		if !ok {
 			return validation.VNull(), fmt.Errorf("'id'")
 		}
-		iid := pyStr(iidV)
+		iid := validation.PyStr(iidV)
 		if !validation.HasKey(reg, iid) {
 			stmt, ok := fieldAt(inv, "statement")
 			if !ok {
@@ -423,7 +405,7 @@ func seedLiveness(c *state.Campaign, model validation.Value, reg *validation.Val
 	var machines []string
 	for _, sm := range validation.ObjAt(model, "state_machines").A {
 		if name, ok := fieldAt(sm, "name"); ok && validation.PyTruthy(name) {
-			machines = append(machines, pyStr(name))
+			machines = append(machines, validation.PyStr(name))
 		}
 	}
 	if len(machines) == 0 {
@@ -435,11 +417,11 @@ func seedLiveness(c *state.Campaign, model validation.Value, reg *validation.Val
 	// machines hide a third uncovered one — the G-01 gap.)
 	covered := map[string]struct{}{}
 	for _, e := range reg.O {
-		if pyStr(validation.ObjAt(e.V, "kind")) != "liveness" {
+		if validation.PyStr(validation.ObjAt(e.V, "kind")) != "liveness" {
 			continue
 		}
 		for _, a := range validation.ObjAt(e.V, "applies_to").A {
-			covered[pyStr(a)] = struct{}{}
+			covered[validation.PyStr(a)] = struct{}{}
 		}
 	}
 	var uncovered []string
@@ -705,7 +687,7 @@ func UncoveredCritical(c *state.Campaign, model validation.Value) ([]validation.
 		if !ok {
 			return nil, fmt.Errorf("'id'")
 		}
-		e, ok := norm[NormalizeInvID(pyStr(idV))]
+		e, ok := norm[NormalizeInvID(validation.PyStr(idV))]
 		if !ok || len(e.O) == 0 {
 			continue
 		}

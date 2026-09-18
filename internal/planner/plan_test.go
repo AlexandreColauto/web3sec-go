@@ -241,17 +241,17 @@ func TestDecisionRuleOracle(t *testing.T) {
 	for _, r := range rows.A {
 		prior := numAt(jsonValue(t, `{"x":`+validation.CanonCompact(r.A[0])+
 			`}`), "x")
-		cost := pyStr(r.A[1])
-		want := pyStr(r.A[3])
+		cost := validation.PyStr(r.A[1])
+		want := validation.PyStr(r.A[3])
 		var got string
 		if r.A[2].Kind == validation.Null {
 			got = DecisionRule(prior, cost)
 		} else {
-			got = DecisionRule(prior, cost, pyStr(r.A[2]))
+			got = DecisionRule(prior, cost, validation.PyStr(r.A[2]))
 		}
 		if got != want {
 			t.Fatalf("decision_rule(%v, %s, %s) = %s, want %s", prior, cost,
-				pyStr(r.A[2]), got, want)
+				validation.PyStr(r.A[2]), got, want)
 		}
 	}
 }

@@ -214,18 +214,12 @@ func copyObj(v validation.Value) validation.Value {
 func strList(vs []validation.Value) []string {
 	out := make([]string, 0, len(vs))
 	for _, v := range vs {
-		out = append(out, pyStr(v))
+		out = append(out, validation.PyStr(v))
 	}
 	return out
 }
 
 // pyStr is Python's str(v) for the values that reach an f-string here.
-func pyStr(v validation.Value) string {
-	if v.Kind == validation.Str {
-		return v.S
-	}
-	return validation.PyRepr(v)
-}
 
 // valueArr boxes a slice of already-built values.
 func valueArr(vs []validation.Value) validation.Value {

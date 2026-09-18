@@ -16,8 +16,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"unicode"
-
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
@@ -122,7 +120,7 @@ func saveTableThenLog(campaign *state.Campaign, table *validation.Value,
 // quantifications.
 func SetPrice(campaign *state.Campaign, asset string, usd float64, source,
 	asOf, actor string) (validation.Value, error) {
-	if asset == "" || pyStrip(asset) == "" {
+	if asset == "" || validation.PyStrip(asset) == "" {
 		return validation.VNull(), errors.New("asset symbol required")
 	}
 	if usd <= 0 {
@@ -141,12 +139,12 @@ func SetPrice(campaign *state.Campaign, asset string, usd float64, source,
 		validation.KV{K: "price_id",
 			V: validation.VStr("PRC-" + idTail(state.NewID("x", 8)))},
 		validation.KV{K: "asset",
-			V: validation.VStr(pyUpper.String(pyStrip(asset)))},
+			V: validation.VStr(pyUpper.String(validation.PyStrip(asset)))},
 		validation.KV{K: "usd", V: validation.VFloat(usd)},
-		validation.KV{K: "source", V: validation.VStr(pyStrip(source))},
+		validation.KV{K: "source", V: validation.VStr(validation.PyStrip(source))},
 		validation.KV{K: "as_of",
-			V: validation.VStr(pyStrip(asOfOrNow(asOf)))},
-		validation.KV{K: "set_by", V: validation.VStr(pyStrip(actor))},
+			V: validation.VStr(validation.PyStrip(asOfOrNow(asOf)))},
+		validation.KV{K: "set_by", V: validation.VStr(validation.PyStrip(actor))},
 		validation.KV{K: "set_at", V: validation.VStr(state.NowIso())},
 	)
 	prices := validation.ObjAt(table, "prices")
@@ -205,16 +203,7 @@ func idTail(id string) string {
 }
 
 // pyStrip is Python's str.strip() with no argument.
-func pyStrip(s string) string {
-	return strings.TrimFunc(s, pySpace)
-}
 
 // pySpace is Py_UNICODE_ISSPACE: the Unicode White_Space property plus the
 // ASCII file separators U+001C-U+001F (Python's str.isspace() says true
 // there, unicode.IsSpace does not).
-func pySpace(r rune) bool {
-	if r >= 0x1c && r <= 0x1f {
-		return true
-	}
-	return unicode.IsSpace(r)
-}

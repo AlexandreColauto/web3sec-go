@@ -247,7 +247,7 @@ func rederiveProblems(c *state.Campaign, surface, fresh validation.Value,
 			problems = append(problems, sprintf("plan priority %s "+
 				"dispositioned probe row %s against shape %s…, which the "+
 				"current index + model do not produce (re-derived %s…) — %s",
-				pyStr(vGet(p, "id")), validation.PyReprStr(rid),
+				validation.PyStr(vGet(p, "id")), validation.PyReprStr(rid),
 				truncRunes(stamp, 12), truncRunes(now, 12), rerun))
 		}
 	}

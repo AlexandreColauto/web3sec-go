@@ -604,7 +604,7 @@ type RunOpts struct {
 func (p *Pipeline) Run(opts RunOpts) (validation.Value, error) {
 	if opts.Until != nil && !isStageID(*opts.Until) {
 		return validation.VNull(), fmt.Errorf("unknown stage %s; stages: %s",
-			validation.PyReprStr(*opts.Until), pyListRepr(StageIDs))
+			validation.PyReprStr(*opts.Until), validation.PyListRepr(StageIDs))
 	}
 	skipped, err := p.Completed()
 	if err != nil {
@@ -643,7 +643,7 @@ func (p *Pipeline) Run(opts RunOpts) (validation.Value, error) {
 	if len(blocked) > 0 && validation.ObjStr(summary, "status") == "complete" {
 		vset(&summary, "status", validation.VStr("needs-model"))
 		vset(&summary, "halt", validation.VStr("blocked on model stages: "+
-			pyListRepr(validation.SortedKeys(blocked))))
+			validation.PyListRepr(validation.SortedKeys(blocked))))
 	}
 	return summary, nil
 }
@@ -1179,9 +1179,6 @@ func pyTupleRepr(items []string) string {
 }
 
 // pyListRepr is Python's repr of a list of strings.
-func pyListRepr(items []string) string {
-	return validation.PyRepr(validation.StrArr(items))
-}
 
 func pyOptIntRepr(v *int) string {
 	if v == nil {

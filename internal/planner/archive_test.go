@@ -238,7 +238,7 @@ func projectArtifact(a validation.Value) validation.Value {
 func strsOf(v validation.Value) []string {
 	out := []string{}
 	for _, item := range v.A {
-		out = append(out, pyStr(item))
+		out = append(out, validation.PyStr(item))
 	}
 	return out
 }

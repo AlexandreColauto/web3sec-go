@@ -114,7 +114,7 @@ type gateEntry struct {
 // lensGateEntry is the divergence_status loop body for one lens.
 func lensGateEntry(plan, l validation.Value, opts DivergenceOpts) gateEntry {
 	lid := validation.ObjStr(l, "id")
-	lens := pyStr(validation.ObjAt(l, "lens"))
+	lens := validation.PyStr(validation.ObjAt(l, "lens"))
 	seeded := familyList(l)
 	checked := stringSet(listOf(l, "families_checked"))
 	symmetry, hasSymmetry := fieldAt(l, "symmetry")
@@ -146,7 +146,7 @@ func lensGateEntry(plan, l validation.Value, opts DivergenceOpts) gateEntry {
 func familyList(l validation.Value) []string {
 	out := []string{}
 	for _, f := range listOf(l, "families") {
-		out = append(out, pyStr(f))
+		out = append(out, validation.PyStr(f))
 	}
 	return out
 }
@@ -155,7 +155,7 @@ func familyList(l validation.Value) []string {
 func stringSet(items []validation.Value) map[string]struct{} {
 	out := map[string]struct{}{}
 	for _, it := range items {
-		out[pyStr(it)] = struct{}{}
+		out[validation.PyStr(it)] = struct{}{}
 	}
 	return out
 }
@@ -199,11 +199,11 @@ func symmetryPrimitives(symmetry validation.Value) map[string][]string {
 	for _, s := range symmetry.A {
 		prims := []string{}
 		for _, p := range listOf(s, "primitives") {
-			if pyStrip(pyStr(p)) != "" {
-				prims = append(prims, pyStr(p))
+			if validation.PyStrip(validation.PyStr(p)) != "" {
+				prims = append(prims, validation.PyStr(p))
 			}
 		}
-		out[pyStr(validation.ObjAt(s, "family"))] = prims
+		out[validation.PyStr(validation.ObjAt(s, "family"))] = prims
 	}
 	return out
 }
@@ -216,7 +216,7 @@ func lensClosed(l validation.Value, familiesOK bool) bool {
 		return false
 	}
 	reason := validation.ObjAt(l, "closed_reason")
-	if reason.Kind != validation.Str || len(pyStrip(reason.S)) < 10 {
+	if reason.Kind != validation.Str || len(validation.PyStrip(reason.S)) < 10 {
 		return false
 	}
 	if !pyTruthyBigNonEmpty(validation.ObjAt(l, "closed_by")) {
@@ -244,7 +244,7 @@ func lensMissing(l validation.Value, lid, lens string, seeded,
 			"answered C " + lid + " " + status + " --families " +
 			strings.Join(uncovered, ",") + " --reason R --actor A"
 	default:
-		what = "lens " + lens + " (" + pyStr(validation.ObjAt(l, "surface")) +
+		what = "lens " + lens + " (" + validation.PyStr(validation.ObjAt(l, "surface")) +
 			") not resolved — webv2 answered C " + lid +
 			" answered|not-applicable --families ... --reason R --actor A"
 	}
@@ -271,7 +271,7 @@ func namedClasses(plan validation.Value, campaign []string) []string {
 	seen := map[string]struct{}{}
 	for _, p := range listOf(plan, "priorities") {
 		if bc := validation.ObjAt(p, "bug_class"); pyTruthyBigNonEmpty(bc) {
-			seen[pyStr(bc)] = struct{}{}
+			seen[validation.PyStr(bc)] = struct{}{}
 		}
 	}
 	for _, c := range campaign {

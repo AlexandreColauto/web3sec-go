@@ -236,20 +236,20 @@ func ImmunizationDetail(f validation.Value) (string, string) {
 	}
 	if pyTruthyLenientContainers(validation.ObjAt(pv, "boundary_bypass_found")) {
 		return "bypass", "boundary bypass found: " +
-			truncate(pyStr(validation.ObjAt(pv, "bypass")), 60) +
+			truncate(validation.PyStr(validation.ObjAt(pv, "bypass")), 60) +
 			" — the patch does not hold"
 	}
 	if !isTrue(validation.ObjAt(pv, "patch_blocks_poc")) {
 		return "partial", "patch_blocks_poc is not confirmed"
 	}
 	if !intEq(validation.ObjAt(pv, "boundary_mutations_tested"), MinMutations) {
-		return "partial", "only " + pyStr(validation.ObjAt(pv,
+		return "partial", "only " + validation.PyStr(validation.ObjAt(pv,
 			"boundary_mutations_tested")) + "/" +
 			fmt.Sprintf("%d", MinMutations) + " boundary mutations tested"
 	}
 	return "immunized", "patch blocks the fork PoC and all " +
 		fmt.Sprintf("%d", MinMutations) + " boundary mutations (basis: " +
-		pyStr(validation.ObjAt(pv, "artifact_id")) + ")"
+		validation.PyStr(validation.ObjAt(pv, "artifact_id")) + ")"
 }
 
 // patchVerified is (f.get("verification") or {}).get("patch_verified") or {}.
@@ -283,12 +283,6 @@ func listAt(v validation.Value, key string) []validation.Value {
 }
 
 // pyStr is Python's str() of a JSON scalar (f-string interpolation).
-func pyStr(v validation.Value) string {
-	if v.Kind == validation.Str {
-		return v.S
-	}
-	return validation.PyRepr(v)
-}
 
 // pyTruthyLenientContainers is a DIVERGENT pyTruthy variant (Wave J Task 7),
 // NOT the canonical form; it is named so the divergence is visible.

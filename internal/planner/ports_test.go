@@ -258,7 +258,7 @@ func TestPortLensFamiliesDeterministic(t *testing.T) {
 		`["rollup","staking"]`))
 	sym := []string{}
 	for _, f := range listOf(fams, "primitive-symmetry") {
-		sym = append(sym, pyStr(f))
+		sym = append(sym, validation.PyStr(f))
 	}
 	if slices.Contains(sym, "deposit") {
 		t.Fatalf("deposit appears on only one contract: %v", sym)
@@ -531,7 +531,7 @@ func TestPortComponentsAreNormalizedRole(t *testing.T) {
 			t.Fatalf("components must carry exactly the role: %s",
 				validation.CanonCompact(p))
 		}
-		got = append(got, pyStr(comps[0]))
+		got = append(got, validation.PyStr(comps[0]))
 	}
 	requireJSON(t, "roles", validation.StrArr(got), jsonValue(t, `["governor","guardian"]`))
 }
@@ -660,7 +660,7 @@ func TestPortFloatThresholdRenders(t *testing.T) {
 		{"role":"nai","capability":"move funds","multisig_threshold":true}]`)
 	byRole := map[string]string{}
 	for _, p := range constraintQuestions(plan) {
-		byRole[pyStr(listOf(p, "components")[0])] = validation.ObjStr(p, "question")
+		byRole[validation.PyStr(listOf(p, "components")[0])] = validation.ObjStr(p, "question")
 	}
 	if !strings.HasPrefix(byRole["msa"],
 		"Within its stated constraints (timelocked=no, threshold=2.5), ") {
@@ -680,7 +680,7 @@ func TestPortRoleSpellingVariantsMerge(t *testing.T) {
 	qs := constraintQuestions(plan)
 	roles := []string{}
 	for _, p := range qs {
-		roles = append(roles, pyStr(listOf(p, "components")[0]))
+		roles = append(roles, validation.PyStr(listOf(p, "components")[0]))
 	}
 	requireJSON(t, "roles", validation.StrArr(roles), jsonValue(t,
 		`["owner","owner_v2"]`))
@@ -720,7 +720,7 @@ func TestPortWorkQueueAcceptsNewRows(t *testing.T) {
 		requireJSON(t, "cost", validation.ObjAt(w, "cost"), validation.VStr("cheap"))
 		requireJSON(t, "risk", validation.ObjAt(w, "risk"), validation.VFloat(0.8))
 		requireJSON(t, "slot", validation.ObjAt(w, "slot"), validation.VStr("now"))
-		if r := pyStr(listOf(w, "components")[0]); r != "governor" &&
+		if r := validation.PyStr(listOf(w, "components")[0]); r != "governor" &&
 			r != "guardian" {
 			t.Fatalf("components[0] = %q", r)
 		}

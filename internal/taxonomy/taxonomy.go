@@ -33,7 +33,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"unicode"
 
 	"gopkg.in/yaml.v3"
 
@@ -494,7 +493,7 @@ func (e *MissingMapError) Is(target error) bool { return target == fs.ErrNotExis
 // normalization so 'Access Control', 'access-control' and 'ACCESS  control'
 // are one lookup key.
 func normLabel(label string) string {
-	return pyStrip(normSpaceRe.ReplaceAllString(strings.ToLower(label), " "))
+	return validation.PyStrip(normSpaceRe.ReplaceAllString(strings.ToLower(label), " "))
 }
 
 // normSpaceRe is Python's re.sub(r"[^a-z0-9]+", " ", ...): every run of
@@ -704,7 +703,7 @@ func NormalizeClass(label *string, maps *validation.Value) (string, bool, error)
 	if def == "" {
 		def = UNMAPPED
 	}
-	if label == nil || pyStrip(*label) == "" {
+	if label == nil || validation.PyStrip(*label) == "" {
 		return def, false, nil
 	}
 	norm := normLabel(*label)
@@ -969,10 +968,3 @@ func pyReprPtr(s *string) string {
 }
 
 // pyStrip is Python's str.strip() (Go's unicode.IsSpace misses U+001C-U+001F).
-func pyStrip(s string) string {
-	return strings.TrimFunc(s, pyIsSpace)
-}
-
-func pyIsSpace(r rune) bool {
-	return unicode.IsSpace(r) || (r >= 0x1c && r <= 0x1f)
-}

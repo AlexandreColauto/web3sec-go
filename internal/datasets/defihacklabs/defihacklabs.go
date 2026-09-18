@@ -147,12 +147,6 @@ var noChain = map[string]bool{
 }
 
 // pyStr is Python's str(v): raw text for strings, repr otherwise.
-func pyStr(v validation.Value) string {
-	if v.Kind == validation.Str {
-		return v.S
-	}
-	return validation.PyRepr(v)
-}
 
 // pyStrOrEmpty is Python's str(v or "") for the JSON value types.
 func pyStrOrEmpty(v validation.Value) string {
@@ -524,7 +518,7 @@ func lossText(incident validation.Value) string {
 	if lost.Kind == validation.Bool || lost.Kind == validation.Null {
 		return "unknown loss (" + lossType + ")"
 	}
-	return pyStr(lost) + " " + lossType
+	return validation.PyStr(lost) + " " + lossType
 }
 
 // rcaProse is `str(rca.get("rootCause") or "").strip()`.
@@ -835,7 +829,7 @@ func pocPointers(pocPath *string) (validation.Value, validation.Value,
 func AssignIDs(incidents []validation.Value) []string {
 	bases := make([]string, len(incidents))
 	for i, inc := range incidents {
-		bases[i] = "defihacklabs-" + pyStr(at(inc, "date")) + "-" +
+		bases[i] = "defihacklabs-" + validation.PyStr(at(inc, "date")) + "-" +
 			NormalizeName(at(inc, "name"))
 	}
 	groups := map[string][]int{}
@@ -916,7 +910,7 @@ func AssignPartitions(records []validation.Value, dates []string) []validation.V
 		if dates[i] != dates[j] {
 			return dates[i] < dates[j]
 		}
-		return pyStr(at(records[i], "id")) < pyStr(at(records[j], "id"))
+		return validation.PyStr(at(records[i], "id")) < validation.PyStr(at(records[j], "id"))
 	})
 	heldOutIdx := map[int]bool{}
 	if heldOut > 0 {

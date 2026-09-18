@@ -471,7 +471,7 @@ func SiblingRescan(campaign *state.Campaign, finding validation.Value,
 		}
 		return "", nil
 	}
-	if pyStrip(opts.Adjacent) == "" {
+	if validation.PyStrip(opts.Adjacent) == "" {
 		return "", errValue(AdjacentRequiredMsg)
 	}
 	plan, err := LoadPlanReadonly(campaign)
@@ -487,7 +487,7 @@ func SiblingRescan(campaign *state.Campaign, finding validation.Value,
 	prios = append(prios, validation.VObj(
 		kv("id", validation.VStr(pid)),
 		kv("question", validation.VStr("Check the adjacent unchecked "+
-			"property: "+pyStrip(opts.Adjacent))),
+			"property: "+validation.PyStrip(opts.Adjacent))),
 		kv("risk", validation.VFloat(0.6)),
 		kv("trajectories", validation.StrArr([]string{"lifecycle"})),
 		kv("status", validation.VStr("open")),
@@ -497,7 +497,7 @@ func SiblingRescan(campaign *state.Campaign, finding validation.Value,
 	plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(prios...))
 	data := validation.VObj(
 		kv("priority_id", validation.VStr(pid)),
-		kv("adjacent", validation.VStr(pyStrip(opts.Adjacent))),
+		kv("adjacent", validation.VStr(validation.PyStrip(opts.Adjacent))),
 		kv("families", validation.StrArr(validation.SortedKeys(toks))),
 		kv("actor", validation.VStr(actor)),
 	)

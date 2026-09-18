@@ -14,8 +14,6 @@ import (
 	"strconv"
 	"strings"
 
-	"unicode"
-
 	"websec/internal/validation"
 )
 
@@ -141,38 +139,11 @@ func pyTruthyBigNonEmpty(v validation.Value) bool {
 }
 
 // pyStr is str(v) for the JSON-shaped subset.
-func pyStr(v validation.Value) string {
-	switch v.Kind {
-	case validation.Null:
-		return "None"
-	case validation.Bool:
-		if v.B {
-			return "True"
-		}
-		return "False"
-	case validation.Int:
-		return validation.IntText(v)
-	case validation.Flt:
-		return validation.PythonFloat(v.F)
-	case validation.Str:
-		return v.S
-	}
-	return validation.PyRepr(v)
-}
 
 // pyIsSpace is Python str.isspace(): the Unicode whitespace property plus the
 // four ASCII information separators Python also treats as whitespace.
-func pyIsSpace(r rune) bool {
-	if r >= 0x1c && r <= 0x1f {
-		return true
-	}
-	return unicode.IsSpace(r)
-}
 
 // pyStrip is Python str.strip().
-func pyStrip(s string) string {
-	return strings.TrimFunc(s, pyIsSpace)
-}
 
 // listOf is v.get(key) as a list (empty when absent/not a list).
 func listOf(v validation.Value, key string) []validation.Value {

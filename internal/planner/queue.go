@@ -92,7 +92,7 @@ func WorkQueue(campaign *state.Campaign, plan, model validation.Value,
 		risk := numAt(p, "risk")
 		trajs := []string{}
 		for _, t := range listOf(p, "trajectories") {
-			trajs = append(trajs, enumTrajectory(pyStr(t)))
+			trajs = append(trajs, enumTrajectory(validation.PyStr(t)))
 		}
 		out = append(out, validation.VObj(
 			kv("priority_id", validation.ObjAt(p, "id")),
@@ -290,7 +290,7 @@ func buildQueueSignals(campaign *state.Campaign,
 			s.invSev[id] = band
 		}
 		for _, ref := range listOf(inv, "applies_to") {
-			key := pyStr(ref)
+			key := validation.PyStr(ref)
 			if key == "" {
 				continue
 			}
@@ -358,7 +358,7 @@ func (s *queueSignals) scoreRow(row validation.Value) queueScore {
 	out := queueScore{}
 	named := map[int]bool{} // question ordinals already counted for this row
 	for _, c := range listOf(row, "components") {
-		ref := pyStr(c)
+		ref := validation.PyStr(c)
 		path, ok := s.inScope[ref]
 		if !ok {
 			continue
@@ -376,7 +376,7 @@ func (s *queueSignals) scoreRow(row validation.Value) queueScore {
 	// len() of a set: never ranged, so no map order can reach the score.
 	out.openQ = len(named)
 	for _, id := range listOf(row, "invariant_ids") {
-		if v := s.invSev[pyStr(id)]; v > out.severity {
+		if v := s.invSev[validation.PyStr(id)]; v > out.severity {
 			out.severity = v
 		}
 	}

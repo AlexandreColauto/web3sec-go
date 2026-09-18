@@ -165,24 +165,6 @@ func vTruthy(v validation.Value) bool {
 }
 
 // pyStr is str(v) for the JSON-shaped subset.
-func pyStr(v validation.Value) string {
-	switch v.Kind {
-	case validation.Null:
-		return "None"
-	case validation.Bool:
-		if v.B {
-			return "True"
-		}
-		return "False"
-	case validation.Int:
-		return validation.IntText(v)
-	case validation.Flt:
-		return validation.PythonFloat(v.F)
-	case validation.Str:
-		return v.S
-	}
-	return validation.PyRepr(v)
-}
 
 // intArr is a JSON array of ints.
 func intArr(items []int) validation.Value {

@@ -55,7 +55,7 @@ func capList(v validation.Value) []string {
 	case validation.Arr:
 		out := make([]string, 0, len(v.A))
 		for _, item := range v.A {
-			out = append(out, pyStr(item))
+			out = append(out, validation.PyStr(item))
 		}
 		return out
 	case validation.Str:

@@ -87,12 +87,6 @@ func pyTruthyBigNonEmpty(v validation.Value) bool {
 // pyStrAny is f-string interpolation of a value: str(v). A string is itself;
 // everything else is the Python repr (which equals str for null, bool,
 // numbers, lists and dicts).
-func pyStrAny(v validation.Value) string {
-	if v.Kind == validation.Str {
-		return v.S
-	}
-	return validation.PyRepr(v)
-}
 
 // pyFloat is isinstance(v, (int, float)) as a float64 (bool included, as in
 // Python; a big int is parsed best-effort).
@@ -120,13 +114,6 @@ func pyFloat(v validation.Value) (float64, bool) {
 
 // pyListRepr renders a list of strings in Python's list-literal form
 // (["a", "b"] with repr quoting), which is what an f-string prints.
-func pyListRepr(items []string) string {
-	parts := make([]string, len(items))
-	for i, s := range items {
-		parts[i] = validation.PyReprStr(s)
-	}
-	return "[" + strings.Join(parts, ", ") + "]"
-}
 
 // headRunes is s[:n] — a Python slice counts characters (runes).
 func headRunes(s string, n int) string {
@@ -370,7 +357,7 @@ func GateExplain(checkID string) (validation.Value, error) {
 		}
 	}
 	msg := fmt.Sprintf("unknown check id %s (known: %s)",
-		validation.PyReprStr(checkID), pyListRepr(uniq))
+		validation.PyReprStr(checkID), validation.PyListRepr(uniq))
 	return validation.VNull(), fmt.Errorf("%s", validation.PyReprStr(msg))
 }
 
@@ -513,7 +500,7 @@ func ladderDisposition(campaign *state.Campaign,
 	stateV := validation.ObjAt(validation.ObjAt(lad, "disposition"), "state")
 	st := "open"
 	if pyTruthyBigNonEmpty(stateV) {
-		st = pyStrAny(stateV)
+		st = validation.PyStr(stateV)
 	}
 	return st, lad, nil
 }
@@ -559,8 +546,8 @@ func (g *gate) add(name, result, detail, remediation string) {
 // waiver row). It appends *after* the fail row it answers, so the pair has to
 // be read through effectiveChecks — see the note there.
 func (g *gate) addWaived(check string, w *validation.Value) {
-	g.add(check, "pass", "waived by "+pyStrAny(validation.ObjAt(*w, "actor"))+
-		": "+headRunes(pyStrAny(validation.ObjAt(*w, "reason")), 80), "")
+	g.add(check, "pass", "waived by "+validation.PyStr(validation.ObjAt(*w, "actor"))+
+		": "+headRunes(validation.PyStr(validation.ObjAt(*w, "reason")), 80), "")
 }
 
 // effectiveChecks collapses the policy_checks rows to one row per check name:
@@ -640,7 +627,7 @@ func (g *gate) check1() {
 		return
 	}
 	g.add("security-confirmed", "fail",
-		"status is "+pyStrAny(validation.ObjAt(g.f, "status")), "")
+		"status is "+validation.PyStr(validation.ObjAt(g.f, "status")), "")
 	g.blockers = append(g.blockers, "finding is not CONFIRMED")
 }
 
@@ -722,9 +709,9 @@ func (g *gate) check4() error {
 		}
 		kind := validation.ObjAt(ex, "kind")
 		g.add("known-issue-check", "fail", "matches exclusion "+
-			validation.PyReprStr(pattern)+" ("+pyStrAny(kind)+")", "")
+			validation.PyReprStr(pattern)+" ("+validation.PyStr(kind)+")", "")
 		g.blockers = append(g.blockers,
-			"excluded: "+pyStrAny(kind)+" — "+pattern)
+			"excluded: "+validation.PyStr(kind)+" — "+pattern)
 		return nil
 	}
 	g.add("known-issue-check", "pass", "no exclusion pattern matched", "")
@@ -804,7 +791,7 @@ func (g *gate) check6Fork(req validation.Value) error {
 		g.add("fork-repro", "pass", "tier "+tier.S, "")
 		return nil
 	}
-	g.add("fork-repro", "fail", "repro tier "+pyStrAny(tier)+
+	g.add("fork-repro", "fail", "repro tier "+validation.PyStr(tier)+
 		", program requires T3+", "")
 	g.blockers = append(g.blockers, "program requires fork-based reproduction")
 	return nil
@@ -852,14 +839,14 @@ func (g *gate) check7() error {
 	switch disposition {
 	case "complete":
 		g.add("maximal-exploitation", "pass",
-			"ladder closed (maximal: "+pyStrAny(validation.ObjAt(lad, "maximal_rung_id"))+")", "")
+			"ladder closed (maximal: "+validation.PyStr(validation.ObjAt(lad, "maximal_rung_id"))+")", "")
 	case "waived":
 		reason := validation.ObjAt(validation.ObjAt(lad, "disposition"), "reason")
 		if !pyTruthyBigNonEmpty(reason) {
 			reason = validation.VStr("")
 		}
 		g.add("maximal-exploitation", "pass", "ladder waived: "+
-			headRunes(pyStrAny(reason), 80), "")
+			headRunes(validation.PyStr(reason), 80), "")
 	case "missing":
 		g.add("maximal-exploitation", "fail", "no variant ladder — the claim "+
 			"may still be a base-rung artifact (run-1: 50% at $2.5k claimed; "+
@@ -876,7 +863,7 @@ func (g *gate) check7() error {
 		}
 		detail := "ladder " + disposition
 		if len(openAxes) > 0 {
-			detail += "; unexplored axes: " + pyListRepr(openAxes)
+			detail += "; unexplored axes: " + validation.PyListRepr(openAxes)
 		}
 		g.add("maximal-exploitation", "fail", detail, "")
 		g.blockers = append(g.blockers,
@@ -909,15 +896,15 @@ func (g *gate) check8() error {
 		}
 	}
 	if row.Kind != validation.Obj {
-		g.add("e7-price-basis", "fail", "USD figures "+pyListRepr(usdKeys)+
+		g.add("e7-price-basis", "fail", "USD figures "+validation.PyListRepr(usdKeys)+
 			" carry no resolvable price_basis "+validation.PyRepr(basis), "")
 		g.blockers = append(g.blockers,
 			"USD figures without a resolvable price basis")
 		return nil
 	}
-	detail := pyStrAny(basis) + " -> " + pyStrAny(validation.ObjAt(row, "asset")) + " @ $" +
-		pyStrAny(validation.ObjAt(row, "usd")) + " (" +
-		headRunes(pyStrAny(validation.ObjAt(row, "source")), 40) + ")"
+	detail := validation.PyStr(basis) + " -> " + validation.PyStr(validation.ObjAt(row, "asset")) + " @ $" +
+		validation.PyStr(validation.ObjAt(row, "usd")) + " (" +
+		headRunes(validation.PyStr(validation.ObjAt(row, "source")), 40) + ")"
 	g.add("e7-price-basis", "pass", detail, "")
 	return nil
 }
@@ -1046,8 +1033,8 @@ func (g *gate) check11() error {
 		if subject != "*" && subject != findingID {
 			continue
 		}
-		g.add("mainnet-fork-poc", "pass", "waived by "+pyStrAny(validation.ObjAt(w, "actor"))+
-			": "+headRunes(pyStrAny(validation.ObjAt(w, "reason")), 80), "")
+		g.add("mainnet-fork-poc", "pass", "waived by "+validation.PyStr(validation.ObjAt(w, "actor"))+
+			": "+headRunes(validation.PyStr(validation.ObjAt(w, "reason")), 80), "")
 		return nil
 	}
 	g.add("mainnet-fork-poc", "fail", why, "")
@@ -1152,8 +1139,8 @@ func (g *gate) waived(stage string) (bool, error) {
 		if subject != "*" && subject != findingID {
 			continue
 		}
-		g.add("immunization", "pass", "waived by "+pyStrAny(validation.ObjAt(w, "actor"))+
-			": "+headRunes(pyStrAny(validation.ObjAt(w, "reason")), 80), "")
+		g.add("immunization", "pass", "waived by "+validation.PyStr(validation.ObjAt(w, "actor"))+
+			": "+headRunes(validation.PyStr(validation.ObjAt(w, "reason")), 80), "")
 		return true, nil
 	}
 	return false, nil
@@ -1189,7 +1176,7 @@ func (g *gate) check13() error {
 		return nil
 	}
 	pattern := validation.ObjStr(ar, "pattern")
-	kind := pyStrAny(validation.ObjAt(ar, "kind"))
+	kind := validation.PyStr(validation.ObjAt(ar, "kind"))
 	if minSev := validation.ObjStr(ar, "min_severity"); minSev != "" {
 		sev, _, err := SeverityFor(g.policy, g.f)
 		if err != nil {
@@ -1237,8 +1224,8 @@ func (g *gate) check13() error {
 		if subject != "*" && subject != findingID {
 			continue
 		}
-		g.add("accepted-risk", "pass", "waived by "+pyStrAny(validation.ObjAt(w, "actor"))+
-			": "+headRunes(pyStrAny(validation.ObjAt(w, "reason")), 80), "")
+		g.add("accepted-risk", "pass", "waived by "+validation.PyStr(validation.ObjAt(w, "actor"))+
+			": "+headRunes(validation.PyStr(validation.ObjAt(w, "reason")), 80), "")
 		return nil
 	}
 	g.add("accepted-risk", "fail",
@@ -1466,7 +1453,7 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 		combined := []string{}
 		if cur := validation.ObjAt(bounty, "advisories"); cur.Kind == validation.Arr {
 			for _, v := range cur.A {
-				combined = append(combined, pyStrAny(v))
+				combined = append(combined, validation.PyStr(v))
 			}
 		}
 		combined = append(combined, g.advisories...)

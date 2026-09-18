@@ -317,7 +317,7 @@ func validateReconcileRecord(campaign *state.Campaign, row,
 	symbols := RowSymbols(row)
 	memberNamed := map[string]bool{}
 	for _, c := range cites {
-		cite := pyStr(c)
+		cite := validation.PyStr(c)
 		m := reconcileCiteRe.FindStringSubmatch(cite)
 		if m == nil {
 			return "cite " + validation.PyReprStr(cite) + " is not " +
@@ -337,7 +337,7 @@ func validateReconcileRecord(campaign *state.Campaign, row,
 		}
 		low := strings.ToLower(symbol)
 		for _, member := range listOf(row, "members") {
-			label := pyStr(member)
+			label := validation.PyStr(member)
 			if label != "" && strings.Contains(low, strings.ToLower(label)) {
 				memberNamed[label] = true
 			}
@@ -345,7 +345,7 @@ func validateReconcileRecord(campaign *state.Campaign, row,
 	}
 	var missing []string
 	for _, member := range listOf(row, "members") {
-		if label := pyStr(member); label != "" && !memberNamed[label] {
+		if label := validation.PyStr(member); label != "" && !memberNamed[label] {
 			missing = append(missing, label)
 		}
 	}

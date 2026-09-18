@@ -6,7 +6,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"strings"
-	"unicode"
+
+	"websec/internal/validation"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -37,36 +38,27 @@ func TechnicalSignature(bugClass, path, function, invariantID string) string {
 // TextSignature is text_signature: the 16-hex sha256 of the whitespace-
 // normalized text (" ".join(text.strip().lower().split())).
 func TextSignature(text string) string {
-	normalized := strings.Join(pyFields(pyLower.String(pyStrip(text))), " ")
+	normalized := strings.Join(pyFields(pyLower.String(validation.PyStrip(text))), " ")
 	return signatureHex16(normalized)
 }
 
 // pyStripLower is (s or "").strip().lower().
 func pyStripLower(s string) string {
-	return pyLower.String(pyStrip(s))
+	return pyLower.String(validation.PyStrip(s))
 }
 
 // pyStrip is Python's str.strip() with no argument: trim str.isspace()
 // characters from both ends.
-func pyStrip(s string) string {
-	return strings.TrimFunc(s, pySpace)
-}
 
 // pyFields is Python's str.split() with no argument: split on runs of
 // str.isspace() characters, dropping empty fields.
 func pyFields(s string) []string {
-	return strings.FieldsFunc(s, pySpace)
+	return strings.FieldsFunc(s, validation.PyIsSpace)
 }
 
 // pySpace is Py_UNICODE_ISSPACE: the Unicode White_Space property plus the
 // ASCII file separators U+001C-U+001F (Python's str.isspace() says true
 // there, unicode.IsSpace does not).
-func pySpace(r rune) bool {
-	if r >= 0x1c && r <= 0x1f {
-		return true
-	}
-	return unicode.IsSpace(r)
-}
 
 // signatureHex16 is sha256(data).hexdigest()[:16].
 func signatureHex16(raw string) string {

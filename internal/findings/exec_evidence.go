@@ -247,7 +247,7 @@ func execFindingMatch(rec validation.Value, findingID string) bool {
 func IngestExecRefEvidence(c *state.Campaign, findingID string, finding,
 	item validation.Value) (validation.Value, error) {
 	ref := validation.ObjStr(item, "exec_ref")
-	eid := pyStr(validation.ObjAt(item, "evidence_id"))
+	eid := validation.PyStr(validation.ObjAt(item, "evidence_id"))
 	rec, err := sandbox.LoadExec(c, ref)
 	if err != nil {
 		return validation.VNull(), fmt.Errorf("ingest refused: evidence %s "+

@@ -183,7 +183,7 @@ func recordTier4(c *state.Campaign, spec, rec validation.Value,
 		reproduction.RecordOpts{FailureClass: &failure, Tier: &t4,
 			ExecID: &execID, Notes: fmt.Sprintf(
 				"sequence PoC %s exited %s", specID,
-				pyStr(validation.ObjAt(rec, "exit_status")))})
+				validation.PyStr(validation.ObjAt(rec, "exit_status")))})
 	return err
 }
 
@@ -319,7 +319,7 @@ func coverageReasons(campaign *state.Campaign, finding, result,
 		got.S != actualHash {
 		reasons = append(reasons, fmt.Sprintf(
 			"result does not bind to the executed spec (hash %s != %s)",
-			pyStr(validation.ObjAt(result, "spec_hash")), actualHash))
+			validation.PyStr(validation.ObjAt(result, "spec_hash")), actualHash))
 	}
 	declared := listOf(validation.ObjAt(finding, "exploit_sequence"))
 	rawSteps := validation.ObjAt(result, "steps")
@@ -401,7 +401,7 @@ func assertionReasons(result validation.Value) []string {
 		}
 		reasons = append(reasons, fmt.Sprintf(
 			"final assertion %s did not pass (observed %s, expected %s)",
-			pyStr(validation.ObjAt(a, "id")), validation.PyRepr(validation.ObjAt(a, "observed")),
+			validation.PyStr(validation.ObjAt(a, "id")), validation.PyRepr(validation.ObjAt(a, "observed")),
 			validation.PyRepr(validation.ObjAt(a, "expected"))))
 	}
 	return reasons
@@ -479,7 +479,7 @@ func BenignActorAudit(exploitSequence validation.Value,
 			values = []validation.Value{raw}
 		}
 		for ai, v := range values {
-			key := pyStr(v)
+			key := validation.PyStr(v)
 			if cls == "adversarial" {
 				if _, seen := producer[key]; !seen {
 					producer[key] = idx + 1

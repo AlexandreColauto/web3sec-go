@@ -70,7 +70,7 @@ func AssumptionTable(model validation.Value) ([]validation.Value, []validation.V
 		if validation.ObjAt(r, "rel").S != "BRIDGES" {
 			continue
 		}
-		from, to, via := pyStr(validation.ObjAt(r, "from")), pyStr(validation.ObjAt(r, "to")), pyStr(validation.ObjAt(r, "via"))
+		from, to, via := validation.PyStr(validation.ObjAt(r, "from")), validation.PyStr(validation.ObjAt(r, "to")), validation.PyStr(validation.ObjAt(r, "via"))
 		hop := from + "->" + to
 		for _, name := range chains {
 			if name == "" {

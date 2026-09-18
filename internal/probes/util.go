@@ -19,7 +19,7 @@ func contractPaths(index validation.Value) map[string]string {
 	out := map[string]string{}
 	nodes := append([]validation.Value(nil), vList(index, "nodes")...)
 	sort.SliceStable(nodes, func(i, j int) bool {
-		return pyStr(vGet(nodes[i], "id")) < pyStr(vGet(nodes[j], "id"))
+		return validation.PyStr(vGet(nodes[i], "id")) < validation.PyStr(vGet(nodes[j], "id"))
 	})
 	for _, n := range nodes {
 		if n.Kind != validation.Obj {
@@ -42,7 +42,7 @@ func contractPaths(index validation.Value) map[string]string {
 		// path can't anchor to a file, so omit it (mapping name->name here
 		// would make the resolver emit a bogus "Name#L" citation).
 		if vTruthy(path) {
-			out[name] = pyStr(path)
+			out[name] = validation.PyStr(path)
 		}
 	}
 	return out

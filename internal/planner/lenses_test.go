@@ -93,7 +93,7 @@ func TestFamiliesForFindingOracle(t *testing.T) {
 	for i, c := range cases.A {
 		want := []string{}
 		for _, s := range listOf(c, "toks") {
-			want = append(want, pyStr(s))
+			want = append(want, validation.PyStr(s))
 		}
 		sort.Strings(want)
 		got := validation.SortedKeys(FamiliesForFinding(validation.ObjAt(c, "model"),

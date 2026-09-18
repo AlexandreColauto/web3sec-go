@@ -97,13 +97,6 @@ func listOf(v validation.Value, key string) validation.Value {
 }
 
 // pyListRepr is Python's repr() of a list of strings.
-func pyListRepr(items []string) string {
-	parts := make([]string, 0, len(items))
-	for _, s := range items {
-		parts = append(parts, validation.PyReprStr(s))
-	}
-	return "[" + strings.Join(parts, ", ") + "]"
-}
 
 // pyTupleRepr is Python's repr() of a tuple of strings.
 func pyTupleRepr(items []string) string {
@@ -640,7 +633,7 @@ func findRung(lad validation.Value, rungID string) (*validation.Value, error) {
 		ids = append(ids, validation.ObjStr(r, "rung_id"))
 	}
 	msg := fmt.Sprintf("unknown rung %s; rungs: %s", idRepr(rungID),
-		pyListRepr(ids))
+		validation.PyListRepr(ids))
 	return nil, &keyError{msg: validation.PyReprStr(msg)}
 }
 
@@ -847,7 +840,7 @@ func CompleteLadder(c *state.Campaign, findingID, actor string) (validation.Valu
 	if len(unexplored) > 0 {
 		return validation.VNull(), fmt.Errorf("ladder not complete: "+
 			"unexplored axes %s — add a rung or mark each with a written "+
-			"not-applicable note (webv2 ladder explore)", pyListRepr(unexplored))
+			"not-applicable note (webv2 ladder explore)", validation.PyListRepr(unexplored))
 	}
 	maxID := validation.ObjStr(lad, "maximal_rung_id")
 	if maxID == "" {

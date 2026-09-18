@@ -130,7 +130,7 @@ func evalUnguardedFunction(check, index validation.Value) (string, string, error
 	if len(hits) > 0 {
 		return "present", "unguarded: " + strings.Join(hits, ", "), nil
 	}
-	return "absent", "no unguarded function among " + pyListRepr(validation.SortedKeys(names)), nil
+	return "absent", "no unguarded function among " + validation.PyListRepr(validation.SortedKeys(names)), nil
 }
 
 // evalDelegatecallPresent is delegatecall_present.
@@ -291,7 +291,7 @@ func evalSigVerifyNoSeparator(check, index validation.Value) (string, string, er
 	if len(hits) > 0 {
 		return "present", "no-separator: " + strings.Join(hits, ", "), nil
 	}
-	return "absent", "no separator-less verify function among " + pyListRepr(validation.SortedKeys(names)), nil
+	return "absent", "no separator-less verify function among " + validation.PyListRepr(validation.SortedKeys(names)), nil
 }
 
 // depthMarkers is the hardcoded finality-depth marker list for
@@ -337,7 +337,7 @@ func evalMerkleVerifyWithoutDepthGate(check, index validation.Value) (string, st
 	if len(hits) > 0 {
 		return "present", "no-depth-gate: " + strings.Join(hits, ", "), nil
 	}
-	return "absent", "no depth-gateless proof function among " + pyListRepr(names), nil
+	return "absent", "no depth-gateless proof function among " + validation.PyListRepr(names), nil
 }
 
 // ---------------------------------------------------------------------------
@@ -446,7 +446,7 @@ func evalThresholdWithoutEnforcement(check, index validation.Value) (string, str
 	if len(hits) > 0 {
 		return "present", "unenforced: " + strings.Join(hits, ", "), nil
 	}
-	return "absent", "no unenforced threshold state var among " + pyListRepr(markers), nil
+	return "absent", "no unenforced threshold state var among " + validation.PyListRepr(markers), nil
 }
 
 // coSignerMarkers is the SECOND-key vocabulary for relayer_single_key: a relay
@@ -533,7 +533,7 @@ func evalRelayerSingleKey(check, index validation.Value) (string, string, error)
 	if len(hits) > 0 {
 		return "present", "single-key: " + strings.Join(hits, ", "), nil
 	}
-	return "absent", "no single-relayer gate among " + pyListRepr(markers), nil
+	return "absent", "no single-relayer gate among " + validation.PyListRepr(markers), nil
 }
 
 // guardNamesCoSigner reports whether any guard text of the entry point names a
@@ -640,7 +640,7 @@ func evalMerkleProofNoLengthCheck(check, index validation.Value) (string, string
 	if len(hits) > 0 {
 		return "present", "no-length-check: " + strings.Join(hits, ", "), nil
 	}
-	return "absent", "no length-unchecked proof path among " + pyListRepr(markers), nil
+	return "absent", "no length-unchecked proof path among " + validation.PyListRepr(markers), nil
 }
 
 // guardsMentionLength reports whether any require/assert/reverting-if condition
@@ -704,7 +704,7 @@ func evalVerifierDefaultOn(check, index validation.Value) (string, string, error
 	if len(hits) > 0 {
 		return "present", "default-on: " + strings.Join(hits, ", "), nil
 	}
-	return "absent", "no default-on trust flag among " + pyListRepr(markers), nil
+	return "absent", "no default-on trust flag among " + validation.PyListRepr(markers), nil
 }
 
 // containsLower reports whether strings.ToLower(s) contains any marker
@@ -905,13 +905,6 @@ func dedupeStrings(xs []string) []string {
 }
 
 // pyListRepr renders a []string the way Python's repr() does.
-func pyListRepr(xs []string) string {
-	parts := make([]string, len(xs))
-	for i, x := range xs {
-		parts[i] = validation.PyReprStr(x)
-	}
-	return "[" + strings.Join(parts, ", ") + "]"
-}
 
 func listAt(v validation.Value, key string) []validation.Value {
 	x := validation.ObjAt(v, key)

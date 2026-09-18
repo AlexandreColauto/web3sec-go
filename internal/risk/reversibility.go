@@ -24,7 +24,7 @@ var ReversibilityModes = []string{"irreversible", "trusted-party", "reversible"}
 // findings.UnpriceableDecision and floors.set_floor_policy: a hand-edited
 // field is visible next to the event trail that set it.
 func RecordReversibility(campaign *state.Campaign, findingID, mode string) (validation.Value, error) {
-	mode = pyStrip(mode)
+	mode = validation.PyStrip(mode)
 	if mode != "" && mode != "none" {
 		if _, ok := wReversibility[mode]; !ok {
 			return validation.VNull(), fmt.Errorf(

@@ -435,7 +435,7 @@ func TestHaltsAtFirstModelStageWithAContextBundle(t *testing.T) {
 	p := New(e.c, e.o, map[string]Handler{"snapshot": e.snapHandler()})
 	summary := run(t, p, RunOpts{})
 	assertStr(t, "status", validation.ObjStr(summary, "status"), "needs-model")
-	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(summary, "ran"))),
+	assertStr(t, "ran", validation.PyListRepr(stringsOf(validation.ObjAt(summary, "ran"))),
 		"['scope', 'snapshot', 'structural-index']")
 	nm := validation.ObjAt(summary, "needs_model")
 	assertStr(t, "needs_model.stage", validation.ObjStr(nm, "stage"), "protocol-model")
@@ -475,12 +475,12 @@ func TestResumeSkipsCompletedStagesAndAdvances(t *testing.T) {
 	second := run(t, p, RunOpts{})
 	assertSummary(t, second, sc.str(t, "summary"), "resume")
 	assertStr(t, "status", validation.ObjStr(second, "status"), "needs-model")
-	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(second, "ran"))),
+	assertStr(t, "ran", validation.PyListRepr(stringsOf(validation.ObjAt(second, "ran"))),
 		"['protocol-model', 'campaign-planning']")
 	assertStr(t, "needs_model.stage", validation.ObjStr(validation.ObjAt(second, "needs_model"), "stage"), "discovery")
 	assertStr(t, "protocol-model calls", strconv.Itoa(calls["protocol-model"]), "1")
 	assertStr(t, "campaign-planning calls", strconv.Itoa(calls["campaign-planning"]), "1")
-	assertStr(t, "skipped_completed", pyListRepr(stringsOf(validation.ObjAt(second, "skipped_completed"))),
+	assertStr(t, "skipped_completed", validation.PyListRepr(stringsOf(validation.ObjAt(second, "skipped_completed"))),
 		"['scope', 'snapshot', 'structural-index']")
 	assertState(t, e, sc.str(t, "state"), "resume")
 	assertEvents(t, e, sc.strs(t, "events"), "resume")
@@ -618,7 +618,7 @@ func TestBuiltinWithoutOrchestratorOrTargetFailsLoudly(t *testing.T) {
 	if !strings.Contains(validation.ObjStr(summary, "halt"), "snapshot needs a target path") {
 		t.Errorf("halt %q lacks the builtin error", validation.ObjStr(summary, "halt"))
 	}
-	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(summary, "ran"))), "['scope']")
+	assertStr(t, "ran", validation.PyListRepr(stringsOf(validation.ObjAt(summary, "ran"))), "['scope']")
 }
 
 // tests/test_pipeline.py::test_until_stops_after_the_named_stage
@@ -630,7 +630,7 @@ func TestUntilStopsAfterTheNamedStage(t *testing.T) {
 	until := "structural-index"
 	summary := run(t, p, RunOpts{Until: &until})
 	assertSummary(t, summary, sc.str(t, "summary"), "until")
-	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(summary, "ran"))),
+	assertStr(t, "ran", validation.PyListRepr(stringsOf(validation.ObjAt(summary, "ran"))),
 		"['scope', 'snapshot', 'structural-index']")
 	assertStr(t, "status", validation.ObjStr(summary, "status"), "until-reached")
 	bad := "not-a-stage"
@@ -654,9 +654,9 @@ func TestBlockedNoteMatchesPython(t *testing.T) {
 	assertSummary(t, second, sc.str(t, "summary"), "blocked_note")
 	assertStr(t, "note", e.stageNote(t, "protocol-model"), sc.str(t, "note"))
 	assertStr(t, "status", validation.ObjStr(second, "status"), "needs-model")
-	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(second, "ran"))), "[]")
+	assertStr(t, "ran", validation.PyListRepr(stringsOf(validation.ObjAt(second, "ran"))), "[]")
 	assertStr(t, "skipped_completed",
-		pyListRepr(stringsOf(validation.ObjAt(second, "skipped_completed"))),
+		validation.PyListRepr(stringsOf(validation.ObjAt(second, "skipped_completed"))),
 		"['scope', 'snapshot', 'structural-index']")
 	assertState(t, e, sc.str(t, "state"), "blocked_note")
 }
@@ -669,7 +669,7 @@ func TestPipelineHaltIsWrittenToTheEventLog(t *testing.T) {
 	p := New(e.c, e.o, map[string]Handler{"snapshot": e.snapHandler()})
 	run(t, p, RunOpts{})
 	types := eventTypes(t, e.c)
-	assertStr(t, "event types", pyListRepr(types), pyListRepr(sc.strs(t, "types")))
+	assertStr(t, "event types", validation.PyListRepr(types), validation.PyListRepr(sc.strs(t, "types")))
 	if !slices.Contains(types, "pipeline.stage_done") {
 		t.Errorf("pipeline.stage_done missing from %v", types)
 	}
@@ -701,7 +701,7 @@ func TestStagesTableMatchesPythonGolden(t *testing.T) {
 		Deps  map[string][]string `json:"deps"`
 		IDs   []string            `json:"ids"`
 	}](t, "topo.json")
-	assertStr(t, "stage ids", pyListRepr(StageIDs), pyListRepr(topo.IDs))
+	assertStr(t, "stage ids", validation.PyListRepr(StageIDs), validation.PyListRepr(topo.IDs))
 }
 
 func TestJoinsTableMatchesPythonGolden(t *testing.T) {
@@ -719,7 +719,7 @@ func TestJoinsTableMatchesPythonGolden(t *testing.T) {
 			t.Fatalf("no Go join for stage %s", sid)
 		}
 		assertStr(t, sid+".kind", spec.Kind, w.Kind)
-		assertStr(t, sid+".deps", pyListRepr(spec.Deps), pyListRepr(w.Deps))
+		assertStr(t, sid+".deps", validation.PyListRepr(spec.Deps), validation.PyListRepr(w.Deps))
 		if (spec.Quorum == nil) != (w.Quorum == nil) {
 			t.Errorf("%s.quorum: go=%v python=%v", sid, spec.Quorum, w.Quorum)
 		}
@@ -727,7 +727,7 @@ func TestJoinsTableMatchesPythonGolden(t *testing.T) {
 		// hostile-review and reproduction
 		assertStr(t, sid+".kind is all", spec.Kind, JoinAll)
 	}
-	assertStr(t, "join order", pyListRepr(stageJoinOrder), pyListRepr(StageIDs))
+	assertStr(t, "join order", validation.PyListRepr(stageJoinOrder), validation.PyListRepr(StageIDs))
 }
 
 func TestTopologicalOrderMatchesPythonGolden(t *testing.T) {
@@ -740,13 +740,13 @@ func TestTopologicalOrderMatchesPythonGolden(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertStr(t, "topological order", pyListRepr(order), pyListRepr(topo.Order))
+	assertStr(t, "topological order", validation.PyListRepr(order), validation.PyListRepr(topo.Order))
 	pos := map[string]int{}
 	for i, sid := range order {
 		pos[sid] = i
 	}
 	for sid, deps := range topo.Deps {
-		assertStr(t, sid+".deps", pyListRepr(StageDeps[sid]), pyListRepr(deps))
+		assertStr(t, sid+".deps", validation.PyListRepr(StageDeps[sid]), validation.PyListRepr(deps))
 		for _, d := range deps {
 			if pos[d] >= pos[sid] {
 				t.Errorf("dependency %s sorts after %s", d, sid)
@@ -814,7 +814,7 @@ func TestJoinValidationMessagesMatchPython(t *testing.T) {
 		t.Errorf("quorum over empty deps clamps to 1: %v", err)
 	}
 	assertStr(t, "join kinds repr", pyTupleRepr(JoinKinds), *msg["join_kinds_repr"])
-	assertStr(t, "stage ids repr", pyListRepr(StageIDs), *msg["stage_ids_repr"])
+	assertStr(t, "stage ids repr", validation.PyListRepr(StageIDs), *msg["stage_ids_repr"])
 }
 
 func TestJoinSatisfiedSemanticsMatchPython(t *testing.T) {
@@ -988,7 +988,7 @@ func TestCostCeilingHaltMatchesPython(t *testing.T) {
 	summary := run(t, p, RunOpts{})
 	assertSummary(t, summary, sc.str(t, "summary"), "cost_halt")
 	assertStr(t, "status", validation.ObjStr(summary, "status"), "halted")
-	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(summary, "ran"))), "[]")
+	assertStr(t, "ran", validation.PyListRepr(stringsOf(validation.ObjAt(summary, "ran"))), "[]")
 	events, err := e.c.Events()
 	if err != nil {
 		t.Fatal(err)
@@ -1008,7 +1008,7 @@ func TestMaxStagesHalts(t *testing.T) {
 	summary := run(t, p, RunOpts{MaxStages: iptr(2)})
 	assertSummary(t, summary, sc.str(t, "summary"), "max_stages")
 	assertStr(t, "halt", validation.ObjStr(summary, "halt"), "max_stages=2")
-	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(summary, "ran"))), "['scope', 'snapshot']")
+	assertStr(t, "ran", validation.PyListRepr(stringsOf(validation.ObjAt(summary, "ran"))), "['scope', 'snapshot']")
 	assertState(t, e, sc.str(t, "state"), "max_stages")
 }
 
@@ -1042,7 +1042,7 @@ func TestStatusMatchesPython(t *testing.T) {
 	}
 	assertStr(t, "status mid", validation.DumpIndented(mid), sc.str(t, "mid"))
 	assertStr(t, "next", validation.ObjStr(mid, "next"), "protocol-model")
-	assertStr(t, "completed", pyListRepr(stringsOf(validation.ObjAt(mid, "completed"))),
+	assertStr(t, "completed", validation.PyListRepr(stringsOf(validation.ObjAt(mid, "completed"))),
 		"['scope', 'snapshot', 'structural-index']")
 }
 

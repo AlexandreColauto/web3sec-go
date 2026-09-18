@@ -127,14 +127,6 @@ func dirExists(p string) bool {
 	return err == nil && st.IsDir()
 }
 
-func pyListRepr(xs []string) string {
-	parts := make([]string, len(xs))
-	for i, x := range xs {
-		parts[i] = validation.PyReprStr(x)
-	}
-	return "[" + strings.Join(parts, ", ") + "]"
-}
-
 func nullableStrEqual(v validation.Value, s *string) bool {
 	if v.Kind == validation.Null || s == nil {
 		return v.Kind == validation.Null && s == nil

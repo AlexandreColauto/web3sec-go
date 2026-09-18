@@ -63,7 +63,7 @@ func ModelStatusDrift(c *state.Campaign,
 		if claimed == "" {
 			continue
 		}
-		id := NormalizeInvID(pyStr(idV))
+		id := NormalizeInvID(validation.PyStr(idV))
 		held, ok := ledger[id]
 		if !ok || held == claimed {
 			continue

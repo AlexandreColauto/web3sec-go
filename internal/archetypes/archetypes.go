@@ -164,7 +164,7 @@ func archLabel(data validation.Value, path string) string {
 
 func unknownTypeErr(arch string, i int, t string) error {
 	return fmt.Errorf("archetype %s check %d: unknown type %s; known: %s",
-		arch, i, validation.PyReprStr(t), pyListRepr(checkTypes))
+		arch, i, validation.PyReprStr(t), validation.PyListRepr(checkTypes))
 }
 
 // validateCheckKeys is _validate_check_keys: each check type must carry
@@ -216,7 +216,7 @@ func allowedText(allowed map[string]bool) string {
 	if len(allowed) == 0 {
 		return "no keys"
 	}
-	return pyListRepr(validation.SortedKeys(allowed))
+	return validation.PyListRepr(validation.SortedKeys(allowed))
 }
 
 func missingDiscriminator(archID string, i int, t, need string) error {

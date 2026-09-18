@@ -238,7 +238,7 @@ func immConfirm(t *testing.T, c *state.Campaign, title string) (string, string) 
 	if _, err := findings.SetExploitability(c, fid, true, immExploitArg); err != nil {
 		t.Fatal(err)
 	}
-	return fid, pyStr(validation.ObjAt(fork, "exec_id"))
+	return fid, validation.PyStr(validation.ObjAt(fork, "exec_id"))
 }
 
 // immMarkReady hand-stamps the stored gate output (no policy: the export

@@ -345,7 +345,7 @@ func formatMap(template string, row validation.Value) string {
 		if !ok {
 			b.WriteString("?")
 		} else {
-			b.WriteString(pyStr(val))
+			b.WriteString(validation.PyStr(val))
 		}
 		i += end
 	}
@@ -370,8 +370,8 @@ func vGetPresent(v validation.Value, key string) (validation.Value, bool) {
 // row raises. The check the consumer runs cannot express the property the
 // asserter asserts, so the disposition has to name the value that passes it.
 func sentinelWhy(row validation.Value) string {
-	return vStr(row, "consumer") + "#" + pyStr(vGet(row, "consumer_line")) +
-		" guards " + pyStr(vGet(row, "concept_keys")) + " with a SENTINEL check (" +
+	return vStr(row, "consumer") + "#" + validation.PyStr(vGet(row, "consumer_line")) +
+		" guards " + validation.PyStr(vGet(row, "concept_keys")) + " with a SENTINEL check (" +
 		vStr(row, "own_guard_text") + ") — any non-zero value passes it. " +
 		"Name the value that passes and who asserts its truth before " +
 		"calling this pair covered."
@@ -500,12 +500,12 @@ func (a RankKey) Less(b RankKey) bool {
 func RankKeyOf(row validation.Value) RankKey {
 	name := ""
 	if vTruthy(vGet(row, "name")) {
-		name = pyStr(vGet(row, "name"))
+		name = validation.PyStr(vGet(row, "name"))
 	} else {
 		name = rowName(row)
 	}
 	return RankKey{Tier: vInt(row, "tier"), NegGap: -vInt(row, "assertion_gap"),
-		Siblings: NSiblings(row), Name: name, RowID: pyStr(vGet(row, "row_id"))}
+		Siblings: NSiblings(row), Name: name, RowID: validation.PyStr(vGet(row, "row_id"))}
 }
 
 // rowName is _row_name: the probe's own sort name, falling back to the row's
@@ -519,7 +519,7 @@ func rowName(row validation.Value) string {
 	}
 	for _, field := range []string{"consumer", "actor", "contract", "guard", "base"} {
 		if vTruthy(vGet(row, field)) {
-			return pyStr(vGet(row, field))
+			return validation.PyStr(vGet(row, field))
 		}
 	}
 	return ""

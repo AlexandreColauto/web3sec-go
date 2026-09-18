@@ -297,7 +297,7 @@ func joinArgs(v validation.Value) string {
 	}
 	parts := make([]string, len(args))
 	for i, a := range args {
-		parts[i] = shlexQuote(pyStr(a))
+		parts[i] = shlexQuote(validation.PyStr(a))
 	}
 	return " " + strings.Join(parts, " ")
 }

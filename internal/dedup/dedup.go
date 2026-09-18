@@ -29,7 +29,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"unicode"
 
 	"websec/internal/findings"
 	"websec/internal/snapshot"
@@ -579,7 +578,7 @@ func ResolveCandidate(campaign *state.Campaign, findingID, ofFindingID, verdict,
 			findingID, validation.PyReprStr(ofFindingID))
 		return validation.VNull(), fmt.Errorf("%s", validation.PyReprStr(inner))
 	}
-	stripped := pyStrip(note)
+	stripped := validation.PyStrip(note)
 	if note != "" && len([]rune(stripped)) < 5 {
 		return validation.VNull(), fmt.Errorf("a candidate verdict note, when given, must be substantive")
 	}
@@ -881,16 +880,7 @@ func ratOf(v validation.Value) *big.Rat {
 
 // pyStrip is Python's str.strip() with no argument: trim str.isspace()
 // characters from both ends.
-func pyStrip(s string) string {
-	return strings.TrimFunc(s, pySpace)
-}
 
 // pySpace is Py_UNICODE_ISSPACE: the Unicode White_Space property plus the
 // ASCII file separators U+001C-U+001F (Python's str.isspace() says true
 // there, unicode.IsSpace does not).
-func pySpace(r rune) bool {
-	if r >= 0x1c && r <= 0x1f {
-		return true
-	}
-	return unicode.IsSpace(r)
-}

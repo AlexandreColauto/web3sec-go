@@ -179,7 +179,7 @@ func TestIngestExecRefLandsMintedEvidence(t *testing.T) {
 		{"sandbox_profile", "docker-networkless"},
 		{"command", validation.ObjStr(rec, "command")},
 		{"description", "the sandboxed PoC reproduced it"},
-		{"snapshot_id", pyStr(validation.ObjAt(validation.ObjAt(f, "snapshot_ids"), "source"))},
+		{"snapshot_id", validation.PyStr(validation.ObjAt(validation.ObjAt(f, "snapshot_ids"), "source"))},
 	} {
 		if got := validation.ObjStr(item, want.key); got != want.val {
 			t.Errorf("item %s = %q, want %q", want.key, got, want.val)

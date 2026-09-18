@@ -51,7 +51,7 @@ func AssertInvariantsVerified(c *state.Campaign, finding validation.Value) error
 		}
 		if !IsVerified(e, c, iid, events) {
 			bad = append(bad, fmt.Sprintf("%s (%s)", iid,
-				pyStr(validation.ObjAt(e, "status"))))
+				validation.PyStr(validation.ObjAt(e, "status"))))
 		}
 	}
 	if len(bad) > 0 {
@@ -98,7 +98,7 @@ func IsVerified(entry validation.Value, c *state.Campaign, invariantID string,
 			if validation.ObjStr(ev, "type") != "invariant.contradicted" {
 				continue
 			}
-			if NormalizeInvID(pyStr(validation.ObjAt(ev, "ref"))) != want {
+			if NormalizeInvID(validation.PyStr(validation.ObjAt(ev, "ref"))) != want {
 				continue
 			}
 			if validation.ObjStr(validation.ObjAt(ev, "data"), "evidence") == evid {
@@ -119,7 +119,7 @@ func IsVerified(entry validation.Value, c *state.Campaign, invariantID string,
 			if validation.ObjStr(ev, "type") != "invariant.verified" {
 				continue
 			}
-			if NormalizeInvID(pyStr(validation.ObjAt(ev, "ref"))) != want {
+			if NormalizeInvID(validation.PyStr(validation.ObjAt(ev, "ref"))) != want {
 				continue
 			}
 			if validation.ObjStr(validation.ObjAt(ev, "data"), "artifact") == artID {
@@ -193,5 +193,5 @@ func normalizeValue(v validation.Value) string {
 	if v.Kind == validation.Str {
 		return NormalizeInvID(v.S)
 	}
-	return pyStr(v)
+	return validation.PyStr(v)
 }

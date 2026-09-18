@@ -35,14 +35,14 @@ func probeTrustAssumption(index, model validation.Value) (probeOut, error) {
 	blind := []validation.Value{}
 	for _, te := range entries {
 		blob := validation.CanonSpaced(te.entry)
-		eid := pyStr(vGet(te.entry, "id"))
+		eid := validation.PyStr(vGet(te.entry, "id"))
 		for _, actor := range actorTable(model) {
 			if !wordBoundarySearch(actor.id, blob) {
 				continue
 			}
 			sites++
 			tier := tierForTrust(actor.trust)
-			trustStr := pyStr(actor.trust)
+			trustStr := validation.PyStr(actor.trust)
 			if _, assumption := assumptionTrust[trustStr]; assumption {
 				raw = append(raw, rawRow(actor.id, eid, 0, actor.id, tier,
 					actor.id, 0, actor.id,
@@ -82,7 +82,7 @@ func trustEntries(model validation.Value) []trustEntry {
 		if out[i].kind != out[j].kind {
 			return out[i].kind < out[j].kind
 		}
-		return pyStr(vGet(out[i].entry, "id")) < pyStr(vGet(out[j].entry, "id"))
+		return validation.PyStr(vGet(out[i].entry, "id")) < validation.PyStr(vGet(out[j].entry, "id"))
 	})
 	return out
 }
@@ -96,7 +96,7 @@ func statementOf(entry validation.Value) string {
 	if !vTruthy(s) {
 		return ""
 	}
-	return truncRunes(pyStr(s), 160)
+	return truncRunes(validation.PyStr(s), 160)
 }
 
 // truncRunes is s[:n] over code points.

@@ -89,7 +89,7 @@ func normTag(v validation.Value) string {
 	if !validation.PyTruthy(v) {
 		return ""
 	}
-	return pyStripLower(pyStr(v))
+	return pyStripLower(validation.PyStr(v))
 }
 
 // normCapValues is _norm_cap_values: normalized capability labels from an
@@ -103,7 +103,7 @@ func normCapValues(v validation.Value) map[string]struct{} {
 		items = []string{v.S}
 	case validation.Arr:
 		for _, e := range v.A {
-			items = append(items, pyStr(e))
+			items = append(items, validation.PyStr(e))
 		}
 	default:
 		return map[string]struct{}{}
@@ -270,7 +270,7 @@ func IrrelevantReason(relevance validation.Value,
 	if discounted.Kind == validation.Arr && len(discounted.A) > 0 {
 		names := make([]string, 0, len(discounted.A))
 		for _, d := range discounted.A {
-			names = append(names, pyStr(d))
+			names = append(names, validation.PyStr(d))
 		}
 		second := ""
 		for _, b := range RelevanceBases {
@@ -336,7 +336,7 @@ func CorpusRecallGaps(campaign *state.Campaign) (validation.Value, error) {
 			if disc.Kind == validation.Arr && len(disc.A) > 0 {
 				labelOnly++
 				for _, d := range disc.A {
-					labels[pyStr(d)] = struct{}{}
+					labels[validation.PyStr(d)] = struct{}{}
 				}
 			} else if !validation.PyTruthy(validation.ObjAt(c, "memory_ids")) {
 				noRows++

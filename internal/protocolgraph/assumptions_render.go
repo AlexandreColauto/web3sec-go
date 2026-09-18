@@ -22,7 +22,7 @@ func detailOrNone(v validation.Value) string {
 	if v.Kind == validation.Null {
 		return declaredNone
 	}
-	return pyStr(v)
+	return validation.PyStr(v)
 }
 
 // RenderAssumptionLines is the per-hop assumption table display: one line
@@ -39,15 +39,15 @@ func detailOrNone(v validation.Value) string {
 func RenderAssumptionLines(rows, gaps []validation.Value) []string {
 	out := []string{}
 	for _, r := range rows {
-		out = append(out, "- "+pyStr(validation.ObjAt(r, "chain"))+
+		out = append(out, "- "+validation.PyStr(validation.ObjAt(r, "chain"))+
 			": finality="+detailOrNone(validation.ObjAt(r, "finality"))+
 			" confirmations="+detailOrNone(validation.ObjAt(r, "confirmation_depth"))+
 			" messenger="+detailOrNone(validation.ObjAt(r, "messenger"))+
 			" separator="+detailOrNone(validation.ObjAt(r, "separator")))
 	}
 	for _, g := range gaps {
-		out = append(out, "- ASSUMPTION GAP "+pyStr(validation.ObjAt(g, "hop"))+
-			" "+pyStr(validation.ObjAt(g, "chain"))+": "+pyStr(validation.ObjAt(g, "reason")))
+		out = append(out, "- ASSUMPTION GAP "+validation.PyStr(validation.ObjAt(g, "hop"))+
+			" "+validation.PyStr(validation.ObjAt(g, "chain"))+": "+validation.PyStr(validation.ObjAt(g, "reason")))
 	}
 	return out
 }

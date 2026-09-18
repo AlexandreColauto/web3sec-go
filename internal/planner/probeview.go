@@ -69,7 +69,7 @@ func surfaceIndex(surface validation.Value) (map[string]validation.Value,
 	axes := map[string]validation.Value{}
 	for _, a := range listOf(surface, "axes") {
 		if a.Kind == validation.Obj {
-			axes[pyStr(validation.ObjAt(a, "axis"))] = a
+			axes[validation.PyStr(validation.ObjAt(a, "axis"))] = a
 		}
 	}
 	rowsByAxis := map[string][]validation.Value{}
@@ -78,7 +78,7 @@ func surfaceIndex(surface validation.Value) (map[string]validation.Value,
 			continue
 		}
 		if ax := validation.ObjAt(r, "axis"); pyTruthyBigNonEmpty(ax) {
-			rowsByAxis[pyStr(ax)] = append(rowsByAxis[pyStr(ax)], r)
+			rowsByAxis[validation.PyStr(ax)] = append(rowsByAxis[validation.PyStr(ax)], r)
 		}
 	}
 	return axes, rowsByAxis
@@ -92,7 +92,7 @@ func provenanceByRow(plan validation.Value) map[string]validation.Value {
 		if !ok || !pyTruthyBigNonEmpty(validation.ObjAt(prov, "row_id")) {
 			continue
 		}
-		key := pyStr(validation.ObjAt(prov, "row_id"))
+		key := validation.PyStr(validation.ObjAt(prov, "row_id"))
 		if _, dup := byRow[key]; !dup {
 			byRow[key] = p
 		}
@@ -130,7 +130,7 @@ func axisRowIssues(rows []validation.Value, byRow map[string]validation.Value,
 	dispositioned := 0
 	unemitted, openRows, staleRows := []string{}, []string{}, []string{}
 	for _, row := range sortRowsByID(rows) {
-		rid := pyStr(validation.ObjAt(row, "row_id"))
+		rid := validation.PyStr(validation.ObjAt(row, "row_id"))
 		p, emitted := byRow[rid]
 		switch {
 		case !emitted:
@@ -162,9 +162,9 @@ func probeIndexIssues(surface validation.Value, opts DivergenceOpts, cid,
 		return []string{"no current structural index to check the probe " +
 			"surface against — run `webv2 index " + cid + " --src <target>`"}
 	}
-	if pyStr(surfaceSha) != *opts.CurrentIndexSha {
+	if validation.PyStr(surfaceSha) != *opts.CurrentIndexSha {
 		return []string{"probe surface is stale (surface index_sha " +
-			trunc12(pyStr(surfaceSha)) + "… != current " +
+			trunc12(validation.PyStr(surfaceSha)) + "… != current " +
 			trunc12(*opts.CurrentIndexSha) + "…) — " + refresh}
 	}
 	return nil
@@ -211,7 +211,7 @@ func probeCounts(surface validation.Value, opts DivergenceOpts, lid string,
 			continue
 		}
 		for _, b := range listOf(axis, "blind") {
-			if pyStr(validation.ObjAt(b, "key")) == pyStr(validation.ObjAt(blank, "anchor_blind")) {
+			if validation.PyStr(validation.ObjAt(b, "key")) == validation.PyStr(validation.ObjAt(blank, "anchor_blind")) {
 				attested++
 				break
 			}
@@ -243,7 +243,7 @@ func probeCounts(surface validation.Value, opts DivergenceOpts, lid string,
 // surfaceAxis is `{a.get("axis"): a for a in surface.get("axes") or []}[ax]`.
 func surfaceAxis(surface validation.Value, ax string) validation.Value {
 	for _, a := range listOf(surface, "axes") {
-		if a.Kind == validation.Obj && pyStr(validation.ObjAt(a, "axis")) == ax {
+		if a.Kind == validation.Obj && validation.PyStr(validation.ObjAt(a, "axis")) == ax {
 			return a
 		}
 	}
@@ -256,7 +256,7 @@ func sortRowsByID(rows []validation.Value) []validation.Value {
 	out := make([]validation.Value, len(rows))
 	copy(out, rows)
 	sort.SliceStable(out, func(i, j int) bool {
-		return pyStr(validation.ObjAt(out[i], "row_id")) < pyStr(validation.ObjAt(out[j], "row_id"))
+		return validation.PyStr(validation.ObjAt(out[i], "row_id")) < validation.PyStr(validation.ObjAt(out[j], "row_id"))
 	})
 	return out
 }

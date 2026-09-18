@@ -146,7 +146,7 @@ func ValidateResponse(role, kind string, payload validation.Value,
 		return &BoundaryError{Msg: fmt.Sprintf(
 			"role %s may not emit a %s response (allowed: %s)",
 			validation.PyReprStr(role), validation.PyReprStr(kind),
-			pyListRepr(allowed))}
+			validation.PyListRepr(allowed))}
 	}
 	if payload.Kind != validation.Obj {
 		return &BoundaryError{Msg: fmt.Sprintf(
@@ -201,7 +201,7 @@ func validatePlanKinds(kind string, payload validation.Value,
 	if len(unknown) > 0 {
 		return &BoundaryError{Msg: fmt.Sprintf(
 			"%s plan cites tool ids not in the registry: %s (registry: %s)",
-			kind, pyListRepr(unknown), pyListRepr(ToolRegistry()))}
+			kind, validation.PyListRepr(unknown), validation.PyListRepr(ToolRegistry()))}
 	}
 	if campaign == nil {
 		return nil
@@ -247,7 +247,7 @@ func validateCriticVerdict(payload validation.Value,
 	if len(unknown) > 0 {
 		return &BoundaryError{Msg: fmt.Sprintf(
 			"critic verdict recommends unknown tool ids: %s",
-			pyListRepr(unknown))}
+			validation.PyListRepr(unknown))}
 	}
 	if campaign == nil {
 		return nil
@@ -350,7 +350,7 @@ func validateCriticMove(entry validation.Value, campaign *state.Campaign,
 		return &BoundaryError{Msg: fmt.Sprintf(
 			"critic entry names assumption %s which is not an "+
 				"assumption of %s (ids: %s)", validation.PyReprStr(aid),
-			fid, pyListRepr(ids))}
+			fid, validation.PyListRepr(ids))}
 	}
 	status := validation.ObjStr(entry, "status")
 	if status == fromStatus {
@@ -607,14 +607,6 @@ func truthy(v validation.Value) bool {
 		return len(v.O) > 0
 	}
 	return true
-}
-
-func pyListRepr(xs []string) string {
-	parts := make([]string, len(xs))
-	for i, x := range xs {
-		parts[i] = validation.PyReprStr(x)
-	}
-	return "[" + strings.Join(parts, ", ") + "]"
 }
 
 func pyTypeName(v validation.Value) string {
