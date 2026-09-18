@@ -162,19 +162,22 @@ BENCH = None
 FIXTURE_CAMPAIGN_EMPTY = None
 FIXTURE_CAMPAIGN_G01 = None
 FIXTURE_CAMPAIGN_G01_AND_9_FPS = None
+FIXTURE_CAMPAIGN_G01_AND_10_FPS = None
 FIXTURE_CAMPAIGN_G01_PLUS_11_FPS = None
 MISSING_DIR = None
 
 
 def setUpModule():
     global TMPROOT, BENCH, FIXTURE_CAMPAIGN_EMPTY, FIXTURE_CAMPAIGN_G01
-    global FIXTURE_CAMPAIGN_G01_AND_9_FPS, FIXTURE_CAMPAIGN_G01_PLUS_11_FPS
+    global FIXTURE_CAMPAIGN_G01_AND_9_FPS, FIXTURE_CAMPAIGN_G01_AND_10_FPS
+    global FIXTURE_CAMPAIGN_G01_PLUS_11_FPS
     global MISSING_DIR
     TMPROOT = Path(tempfile.mkdtemp(prefix="eval-gold-fixtures-"))
     BENCH = benchmark(TMPROOT / "gold-findings.json")
     FIXTURE_CAMPAIGN_EMPTY = campaign()
     FIXTURE_CAMPAIGN_G01 = campaign([g01()])
     FIXTURE_CAMPAIGN_G01_AND_9_FPS = campaign([g01()] + fps(9))
+    FIXTURE_CAMPAIGN_G01_AND_10_FPS = campaign([g01()] + fps(10))
     FIXTURE_CAMPAIGN_G01_PLUS_11_FPS = campaign([g01()] + fps(11))
     MISSING_DIR = TMPROOT / "no-such-campaign"
 
@@ -204,6 +207,10 @@ class TestGoldScorer(unittest.TestCase):
     def test_fp_budget_is_verdict_affecting_at_boundary(self):
         under = run_scorer(FIXTURE_CAMPAIGN_G01_AND_9_FPS)
         self.assertEqual(under["verdict"], "PASS")
+        # exactly at the budget (10): pins `>=`, not `>` — an off-by-one fails here
+        at = run_scorer(FIXTURE_CAMPAIGN_G01_AND_10_FPS)
+        self.assertEqual(at["false_positives"], 10)
+        self.assertEqual(at["verdict"], "PARTIAL_RESULT")
         over = run_scorer(FIXTURE_CAMPAIGN_G01_PLUS_11_FPS)
         self.assertEqual(over["false_positives"], 11)
         self.assertEqual(over["verdict"], "PARTIAL_RESULT")
@@ -254,6 +261,16 @@ class TestGoldScorer(unittest.TestCase):
         self.assertEqual(out["verdict_note"], "")
         self.assertEqual(out["false_positives"], 0)
 
+    def test_bonus_short_circuits_the_fp_budget(self):
+        camp = campaign([g01(), finding("F-000000000002", "CONFIRMED", G02_FINDING)]
+                        + fps(10))
+        out = run_scorer(camp, confirm=["G-01", "G-02"])
+        self.assertEqual(out["found"], ["G-01", "G-02"])
+        self.assertEqual(out["false_positives"], 10)      # at the budget, still bonus
+        self.assertTrue(out["bonus"])
+        self.assertEqual(out["verdict"], "PASS_WITH_BONUS")
+        self.assertEqual(out["verdict_note"], "")         # no partial-result note
+
     def test_matched_finding_is_not_a_false_positive(self):
         out = run_scorer(FIXTURE_CAMPAIGN_G01)
         self.assertEqual(out["false_positives"], 0)
@@ -286,6 +303,9 @@ class TestGoldScorer(unittest.TestCase):
         bench = benchmark(TMPROOT / "bench-budget-5.json",
                           budget_text="buries it under 5+ FPs is a partial result")
         self.assertEqual(run_scorer(campaign([g01()] + fps(4)), bench)["verdict"], "PASS")
+        at = run_scorer(campaign([g01()] + fps(5)), bench)   # exactly the budget
+        self.assertEqual(at["false_positives"], 5)
+        self.assertEqual(at["verdict"], "PARTIAL_RESULT")
         over = run_scorer(campaign([g01()] + fps(6)), bench)
         self.assertEqual(over["false_positives"], 6)
         self.assertEqual(over["verdict"], "PARTIAL_RESULT")

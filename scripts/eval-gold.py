@@ -53,7 +53,8 @@ scoring.false_positive_budget at runtime.
 
 MATCHING: a gold is FOUND when some campaign finding AT AN ACCEPTED EVIDENCE
 STATE matches it. Accepted = CONFIRMED with E4+ evidence (the benchmark's own
-words) or HYPOTHESIS/INVESTIGATING with a reproduced PoC attempt. A match is
+words) or HYPOTHESIS/INVESTIGATING (the latter is dead, see POC_STATUSES) with
+a reproduced PoC attempt. A match is
 >= MIN_KEYWORD_HITS distinct match_criteria tokens plus one primary_function,
 each tested as (?i)\\b<tok>\\b over the finding's natural-language text. \\b is
 correct here (prose); it deliberately differs from the Task 1 command matcher
@@ -89,6 +90,11 @@ BONUS_GOLD_ID = "G-02"
 
 # "E4+ evidence" = ladder index of E4 in internal/findings.EVIDENCE_ORDER.
 MIN_EVIDENCE_INDEX = 4
+# Verbatim from the benchmark's scoring.pass prose. INVESTIGATING is a DEAD
+# branch: it is NOT in assets/schema/finding.schema.json's `status` enum
+# (HYPOTHESIS, NEEDS_RESEARCH, PROVISIONALLY_VALID, POSSIBLE, CONFIRMED, ...),
+# so the store can never emit it and no schema-validated finding reaches this
+# path. Kept only because the benchmark string names it; not a live accept path.
 POC_STATUSES = ("HYPOTHESIS", "INVESTIGATING")
 
 # ponytail: a fixed quorum, not a semantic matcher — the benchmark's FP budget
