@@ -79,6 +79,19 @@ func TestInvariantVerifyRefusesUntargetedExec(t *testing.T) {
 			t.Fatal("a refusal must emit no invariant.verified event")
 		}
 	}
+	// F-B: a refused citation mints no artifact row either. The row's note
+	// ("invariant INV-3 checked against code") is a durable record asserting
+	// the verification this gate just refused — the defect-6 record class.
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range objListAt(st, "artifacts") {
+		if strings.Contains(objStr(a, "note"), "INV-3") {
+			t.Fatalf("refused citation minted artifact row %s: note %q",
+				objStr(a, "artifact_id"), objStr(a, "note"))
+		}
+	}
 }
 
 // TestInvariantVerifyAcceptsTargetedExec: the exec's recorded command targeted

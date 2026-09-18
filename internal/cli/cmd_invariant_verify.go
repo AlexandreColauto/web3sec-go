@@ -95,16 +95,6 @@ func runInvariantVerify(root string, args []string, r *Runner) int {
 		if code != 0 {
 			return code
 		}
-		// The exec-relevance gate: the cited exec must have RUN something
-		// bound to this invariant's applies_to contracts. A full-suite log
-		// names every contract it printed, so the recorded command decides —
-		// and the refusal lands before the verification axis can move.
-		if ok, reason := invariants.ExecTouchesInvariant(c, invID, execID); !ok {
-			fmt.Fprintf(r.Err, "invariant verify failed: cited exec %s does not "+
-				"target any applies_to contract of %s (%s)\n", execID, invID,
-				reason)
-			return 2
-		}
 	}
 	entry, err := invariants.VerifyInvariantStatement(c, invID, artifact)
 	if err != nil {
@@ -173,6 +163,18 @@ func resolveExecArtifact(c *state.Campaign, invID, execID string,
 	if !isFile(outPath) {
 		fmt.Fprintf(r.Err, "invariant-verify: exec %s has no captured output "+
 			"to register\n", validation.PyReprStr(execID))
+		return "", 2
+	}
+	// The exec-relevance gate: the cited exec must have RUN something bound to
+	// this invariant's applies_to contracts. A full-suite log names every
+	// contract it printed, so the recorded command decides — and the refusal
+	// lands HERE, before RegisterOrRefresh, so a refused citation mints no
+	// durable "checked against code" row asserting a verification that was
+	// just refused (the defect-6 record class).
+	if ok, reason := invariants.ExecTouchesInvariant(c, invID, execID); !ok {
+		fmt.Fprintf(r.Err, "invariant verify failed: cited exec %s does not "+
+			"target any applies_to contract of %s (%s)\n", execID, invID,
+			reason)
 		return "", 2
 	}
 	note := fmt.Sprintf("invariant %s checked against code (exec %s)", invID,
