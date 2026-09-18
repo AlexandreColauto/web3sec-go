@@ -121,6 +121,309 @@ func TornTailProblem(file string, tailBytes int) string {
 		"may certify a ledger its own writer calls unusable", file, tailBytes)
 }
 
+// verifyBuilder carries the shared verify state across VerifyLog's
+// section helpers: the parsed events, the accumulated problems, the
+// framing verdict and the gates the early returns read.
+type verifyBuilder struct {
+	c         *Campaign
+	events    []validation.Value
+	problems  []string
+	malformed int
+	tail      LedgerTail
+	// finalSegmentMalformed records that the unterminated final segment was
+	// ALREADY reported as a malformed line: the same damage must not be
+	// counted twice, and the RUNBOOK's torn-log walkthrough shows that tear
+	// as the line problem alone.
+	finalSegmentMalformed bool
+	// ledgerReadable gates the mirror rule below: comparing a projection
+	// against a ledger that was never read is not a check, it is a guess.
+	ledgerReadable bool
+	chained        int
+}
+
+// verifyReadLedger reads events.jsonl and judges the tail framing plus
+// the record parse from the same bytes.
+func (vb *verifyBuilder) verifyReadLedger() {
+	raw, readErr := os.ReadFile(vb.c.EventsPath)
+	switch {
+	case readErr == nil:
+		// r42c P3: the tail framing is judged from the same bytes the
+		// records are parsed from.
+		vb.tail = ledgerTail(raw)
+		vb.verifyParseRecords(raw)
+	case os.IsNotExist(readErr):
+		// No ledger at all is genesis, not damage: the framing guard
+		// permits the first append to a file that does not exist and the
+		// zero-event campaign is honestly green (r39b's genesis case).
+	default:
+		// r42c P3: an unreadable ledger used to fall through as
+		// "zero events" and be certified green whenever the mirror was
+		// empty. A reader that could not read the file has no evidence
+		// about it, so it says so and judges nothing else.
+		vb.ledgerReadable = false
+		vb.problems = append(vb.problems, fmt.Sprintf(
+			"events.jsonl: unreadable (%v) — the ledger was never read, so "+
+				"its records, chain, tail and mirror cannot be judged",
+			readErr))
+	}
+}
+
+// verifyParseRecords is VerifyLog's record walk over the ledger bytes.
+func (vb *verifyBuilder) verifyParseRecords(raw []byte) {
+	lineNo := 0
+	rest := string(raw)
+	for len(rest) > 0 {
+		idx := len(rest)
+		for i := 0; i < len(rest); i++ {
+			if rest[i] == '\n' {
+				idx = i
+				break
+			}
+		}
+		line := rest[:idx]
+		// unterminated: this segment runs to the end of the file with
+		// no newline after it — the shape checkJsonlTail refuses to
+		// append behind.
+		unterminated := idx >= len(rest)
+		if idx < len(rest) {
+			rest = rest[idx+1:]
+		} else {
+			rest = ""
+		}
+		lineNo++
+		// r38 P2-1: the ONE framing predicate, shared with logLines /
+		// doctor (blankLine in eventlog.go). Unicode whitespace alone
+		// is NOT blank — it is a record this decoder cannot parse,
+		// reported below, never skipped.
+		if blankLine(line) {
+			// A blank unterminated tail is still an unterminated tail
+			// (the writer refuses "   " exactly as it refuses a torn
+			// record): it is NOT marked malformed here, so the tail
+			// problem below reports it.
+			continue
+		}
+		ev, err := validation.ParseOrdered([]byte(line))
+		if err != nil {
+			vb.malformed++
+			if unterminated {
+				vb.finalSegmentMalformed = true
+			}
+			vb.problems = append(vb.problems,
+				fmt.Sprintf("line %d: not valid JSON (%s) — integrity past this point is unverifiable",
+					lineNo, err.Error()))
+			continue
+		}
+		if ev.Kind != validation.Obj {
+			vb.malformed++
+			if unterminated {
+				vb.finalSegmentMalformed = true
+			}
+			vb.problems = append(vb.problems,
+				fmt.Sprintf("line %d: event is not a JSON object — integrity past this point is unverifiable",
+					lineNo))
+			continue
+		}
+		vb.events = append(vb.events, ev)
+	}
+}
+
+// verifyPrependTornTail applies the framing law.
+//
+// r42c P3: the framing law, judged BEFORE the malformed early return so
+// a torn tail is never hidden behind an unrelated malformed line, and
+// PREPENDED so the 10-problem cap cannot drop the one corruption class
+// the write path itself refuses.
+func (vb *verifyBuilder) verifyPrependTornTail() {
+	if vb.tail.Torn && !vb.finalSegmentMalformed {
+		vb.problems = append([]string{TornTailProblem("events.jsonl",
+			vb.tail.TailBytes)}, vb.problems...)
+	}
+}
+
+// verifySeqContiguity is VerifyLog's seq check.
+func (vb *verifyBuilder) verifySeqContiguity() {
+	// Seq contiguity (broken contiguity does NOT stop chain checks).
+	for i, e := range vb.events {
+		seq := validation.ObjAt(e, "seq")
+		if seq.Kind != validation.Int || seq.I != int64(i) {
+			vb.problems = append(vb.problems,
+				fmt.Sprintf("event %d has seq=%s", i, validation.PyStr(seq)))
+			break
+		}
+	}
+}
+
+// verifyHashChain is VerifyLog's hash-chain walk; it records the number
+// of chained events for the verdict.
+func (vb *verifyBuilder) verifyHashChain() {
+	// The chain.
+	expectedPrev := GenesisHash
+	chained := 0
+	for i, e := range vb.events {
+		eh := validation.ObjAt(e, "event_hash")
+		if eh.Kind != validation.Str {
+			expectedPrev = legacyAnchor(e)
+			continue
+		}
+		if got := validation.ObjAt(e, "prev_hash").S; got != expectedPrev {
+			vb.problems = append(vb.problems,
+				fmt.Sprintf("event %d: prev_hash breaks the chain", i))
+		}
+		if eventHash(e) != eh.S {
+			vb.problems = append(vb.problems,
+				fmt.Sprintf("event %d: event_hash does not recompute (content edited?)", i))
+		}
+		expectedPrev = eh.S
+		chained++
+	}
+	vb.chained = chained
+}
+
+// verifyStateMirror is VerifyLog's state-tail-vs-log-suffix check.
+func (vb *verifyBuilder) verifyStateMirror() error {
+	// State tail vs log suffix.
+	st, err := vb.c.State()
+	if err != nil {
+		return err
+	}
+	stTail := validation.ObjAt(st, "events")
+	if stTail.Kind == validation.Arr {
+		// The mirror rule (tailEvents) keeps exactly min(E, mirrorCap)
+		// events, so length is part of the invariant — comparing CONTENT
+		// against the tail window of the mirror's own length certified
+		// ANY suffix. A mirror holding only the last 3 events of a
+		// 1006-event log matched its own window perfectly and passed, so
+		// verify/audit certified a projection that had lost the 997
+		// events at its head.
+		wantLen := len(vb.events)
+		if wantLen > mirrorCap {
+			wantLen = mirrorCap
+		}
+		vb.verifyMirrorWindow(stTail.A, wantLen)
+	}
+	return nil
+}
+
+// verifyMirrorWindow judges the projection's tail window against the log
+// suffix and the projection rule's window length.
+func (vb *verifyBuilder) verifyMirrorWindow(have []validation.Value, wantLen int) {
+	// r39b P3: the invariant is judged for the EMPTY projection too.
+	// The old gate (len(stTail.A) > 0) meant a state events array of
+	// [] under a live ledger certified ok:true — a projection that
+	// lost its WHOLE head. The RUNBOOK calls a projection with a
+	// hole in its head "not health"; an empty mirror is the extreme
+	// of exactly that shape, so verify says so. The zero-event
+	// campaign stays honest: with no events in the ledger at all an
+	// empty mirror IS the rule's output (min(0, mirrorCap) = 0).
+	if len(have) == 0 && len(vb.events) > 0 {
+		vb.problems = append(vb.problems, fmt.Sprintf(
+			"state events projection is EMPTY under a %d-event log — "+
+				"the projection rule keeps %d for this log, so a "+
+				"projection that lost its whole head is not health "+
+				"(its %d mirrored event(s) are all gone). Nothing here "+
+				"may certify that projection; run `webv2 doctor` to "+
+				"rebuild the mirror from the log (it reports the delta "+
+				"it adopts)",
+			len(vb.events), wantLen, wantLen))
+	} else if len(have) > 0 {
+		// Python events[-len(st_tail):] with a longer tail is [] —
+		// a mismatch, never an out-of-range access.
+		var want []validation.Value
+		if len(have) <= len(vb.events) {
+			want = vb.events[len(vb.events)-len(have):]
+		}
+		if !arraysEq(have, want) {
+			// r17: the repair route must not be an unwitting laundering
+			// step. A LONGER projection tail than the log has is the
+			// truncation signature: doctor trusts the log, so running it
+			// ADOPTS the shorter history. Say so at the moment of power.
+			msg := "state event tail does not match the log " +
+				"suffix — the ledger is the truth; run `webv2 doctor` " +
+				"on this campaign to rebuild the mirror from it"
+			if len(have) > len(vb.events) {
+				msg = fmt.Sprintf("state event tail is LONGER than the log "+
+					"(%d projected vs %d logged) — events are GONE from "+
+					"the tail; a truncated log still verifies its chain, "+
+					"and doctor rebuilds TO it, adopting the loss. If you "+
+					"did not cut it, treat the campaign dir as tampered "+
+					"before repairing (investigate, copy the dir); "+
+					"`webv2 doctor` then reports exactly what it erases",
+					len(have), len(vb.events))
+			}
+			vb.problems = append(vb.problems, msg)
+		} else if len(have) != wantLen {
+			vb.problems = append(vb.problems, fmt.Sprintf(
+				"state event tail holds %d event(s) where the projection "+
+					"rule keeps %d for a %d-event log — the content matches "+
+					"the log suffix, but the mirror is not the rule's window: "+
+					"its HEAD is missing (mirrored events were dropped from "+
+					"the front, and the %d survivor(s) are all that is left "+
+					"of the projection) or it holds rows beyond the cap. "+
+					"Nothing here may certify that projection; run `webv2 "+
+					"doctor` to rebuild the mirror from the log (it reports "+
+					"the delta it adopts)",
+				len(have), wantLen, len(vb.events), len(have)))
+		}
+	}
+}
+
+// verifyWaivers is VerifyLog's waiver cross-check: the waiver file and
+// the ledger's waived events must agree, row for row.
+func (vb *verifyBuilder) verifyWaivers() {
+	// r12: waivers.jsonl is a PROJECTION like state.events — Waive()
+	// writes the row AND logs completion.waived. Deleting the file left
+	// `waive` records outside every integrity check ("recorded
+	// dispositions, never silent skips" was itself silently skippable).
+	// One law now: the waiver file and the ledger's waived events must
+	// agree, row for row, per (stage, subject).
+	wp := filepath.Join(vb.c.Dir, "waivers.jsonl")
+	wrows, werr, wline := readWaiverRowsR12(wp)
+	if werr != nil {
+		// r13: same line-attribution law the events log got — a bare
+		// "unexpected EOF" makes the operator diff the file by eye.
+		where := ""
+		if wline > 0 {
+			where = fmt.Sprintf(" line %d", wline)
+		}
+		vb.problems = append(vb.problems,
+			fmt.Sprintf("waivers.jsonl%s: unreadable (%v) — recorded "+
+				"dispositions cannot be trusted", where, werr))
+		return
+	}
+	evWaived := map[[2]string]int{}
+	for _, e := range vb.events {
+		if validation.ObjAt(e, "type").Kind != validation.Str ||
+			validation.ObjAt(e, "type").S != "completion.waived" {
+			continue
+		}
+		key := [2]string{validation.ObjStr(e, "ref"),
+			validation.ObjStr(validation.ObjAt(e, "data"), "subject")}
+		evWaived[key]++
+	}
+	rowWaived := map[[2]string]int{}
+	for _, w := range wrows {
+		key := [2]string{validation.ObjStr(w, "stage"), validation.ObjStr(w, "subject")}
+		rowWaived[key]++
+	}
+	for key, n := range rowWaived {
+		if evWaived[key] < n {
+			vb.problems = append(vb.problems, fmt.Sprintf(
+				"waivers.jsonl: %s/%s recorded %d time(s), the ledger "+
+					"%d — a waiver without its event", key[0], key[1],
+				n, evWaived[key]))
+		}
+	}
+	for key, n := range evWaived {
+		if rowWaived[key] < n {
+			vb.problems = append(vb.problems, fmt.Sprintf(
+				"waivers.jsonl: the ledger holds %d completion.waived "+
+					"event(s) for %s/%s, the file %d — waived rows were "+
+					"deleted or never written", n, key[0], key[1],
+				rowWaived[key]))
+		}
+	}
+}
+
 // VerifyLog is verify_log: seq contiguity, the hash chain (every
 // prev_hash must equal its predecessor's event_hash and every
 // event_hash must recompute), and the state tail vs the log's mirror
@@ -150,293 +453,48 @@ func TornTailProblem(file string, tailBytes int) string {
 // problem is the Go json error text, not CPython's json.JSONDecodeError
 // msg. The "not valid JSON" / "not a JSON object" framing is exact.
 func (c *Campaign) VerifyLog() (LogVerdict, error) {
-	events := []validation.Value{}
-	problems := []string{}
-	malformed := 0
-	tail := LedgerTail{}
-	// finalSegmentMalformed records that the unterminated final segment was
-	// ALREADY reported as a malformed line: the same damage must not be
-	// counted twice, and the RUNBOOK's torn-log walkthrough shows that tear
-	// as the line problem alone.
-	finalSegmentMalformed := false
-	// ledgerReadable gates the mirror rule below: comparing a projection
-	// against a ledger that was never read is not a check, it is a guess.
-	ledgerReadable := true
-
-	raw, readErr := os.ReadFile(c.EventsPath)
-	switch {
-	case readErr == nil:
-		// r42c P3: the tail framing is judged from the same bytes the
-		// records are parsed from.
-		tail = ledgerTail(raw)
-		lineNo := 0
-		rest := string(raw)
-		for len(rest) > 0 {
-			idx := len(rest)
-			for i := 0; i < len(rest); i++ {
-				if rest[i] == '\n' {
-					idx = i
-					break
-				}
-			}
-			line := rest[:idx]
-			// unterminated: this segment runs to the end of the file with
-			// no newline after it — the shape checkJsonlTail refuses to
-			// append behind.
-			unterminated := idx >= len(rest)
-			if idx < len(rest) {
-				rest = rest[idx+1:]
-			} else {
-				rest = ""
-			}
-			lineNo++
-			// r38 P2-1: the ONE framing predicate, shared with logLines /
-			// doctor (blankLine in eventlog.go). Unicode whitespace alone
-			// is NOT blank — it is a record this decoder cannot parse,
-			// reported below, never skipped.
-			if blankLine(line) {
-				// A blank unterminated tail is still an unterminated tail
-				// (the writer refuses "   " exactly as it refuses a torn
-				// record): it is NOT marked malformed here, so the tail
-				// problem below reports it.
-				continue
-			}
-			ev, err := validation.ParseOrdered([]byte(line))
-			if err != nil {
-				malformed++
-				if unterminated {
-					finalSegmentMalformed = true
-				}
-				problems = append(problems,
-					fmt.Sprintf("line %d: not valid JSON (%s) — integrity past this point is unverifiable",
-						lineNo, err.Error()))
-				continue
-			}
-			if ev.Kind != validation.Obj {
-				malformed++
-				if unterminated {
-					finalSegmentMalformed = true
-				}
-				problems = append(problems,
-					fmt.Sprintf("line %d: event is not a JSON object — integrity past this point is unverifiable",
-						lineNo))
-				continue
-			}
-			events = append(events, ev)
-		}
-	case os.IsNotExist(readErr):
-		// No ledger at all is genesis, not damage: the framing guard
-		// permits the first append to a file that does not exist and the
-		// zero-event campaign is honestly green (r39b's genesis case).
-	default:
-		// r42c P3: an unreadable ledger used to fall through as
-		// "zero events" and be certified green whenever the mirror was
-		// empty. A reader that could not read the file has no evidence
-		// about it, so it says so and judges nothing else.
-		ledgerReadable = false
-		problems = append(problems, fmt.Sprintf(
-			"events.jsonl: unreadable (%v) — the ledger was never read, so "+
-				"its records, chain, tail and mirror cannot be judged",
-			readErr))
+	vb := &verifyBuilder{
+		c:              c,
+		events:         []validation.Value{},
+		problems:       []string{},
+		ledgerReadable: true,
 	}
+	vb.verifyReadLedger()
+	vb.verifyPrependTornTail()
 
-	// r42c P3: the framing law, judged BEFORE the malformed early return so
-	// a torn tail is never hidden behind an unrelated malformed line, and
-	// PREPENDED so the 10-problem cap cannot drop the one corruption class
-	// the write path itself refuses.
-	if tail.Torn && !finalSegmentMalformed {
-		problems = append([]string{TornTailProblem("events.jsonl",
-			tail.TailBytes)}, problems...)
-	}
-
-	if malformed > 0 {
+	if vb.malformed > 0 {
 		return LogVerdict{
-			Events:          len(events) + malformed,
+			Events:          len(vb.events) + vb.malformed,
 			OK:              false,
-			Problems:        problems[:min(len(problems), 10)],
+			Problems:        vb.problems[:min(len(vb.problems), 10)],
 			Chained:         0,
 			LegacyUnchained: 0,
-			MalformedLines:  malformed,
+			MalformedLines:  vb.malformed,
 		}, nil
 	}
 
-	if !ledgerReadable {
+	if !vb.ledgerReadable {
 		// Nothing past this point is knowable: there is no record list to
 		// check the chain against and no log to compare the mirror to.
 		return LogVerdict{
 			Events:   0,
 			OK:       false,
-			Problems: problems[:min(len(problems), 10)],
+			Problems: vb.problems[:min(len(vb.problems), 10)],
 		}, nil
 	}
 
-	// Seq contiguity (broken contiguity does NOT stop chain checks).
-	for i, e := range events {
-		seq := validation.ObjAt(e, "seq")
-		if seq.Kind != validation.Int || seq.I != int64(i) {
-			problems = append(problems,
-				fmt.Sprintf("event %d has seq=%s", i, validation.PyStr(seq)))
-			break
-		}
-	}
-
-	// The chain.
-	expectedPrev := GenesisHash
-	chained := 0
-	for i, e := range events {
-		eh := validation.ObjAt(e, "event_hash")
-		if eh.Kind != validation.Str {
-			expectedPrev = legacyAnchor(e)
-			continue
-		}
-		if got := validation.ObjAt(e, "prev_hash").S; got != expectedPrev {
-			problems = append(problems,
-				fmt.Sprintf("event %d: prev_hash breaks the chain", i))
-		}
-		if eventHash(e) != eh.S {
-			problems = append(problems,
-				fmt.Sprintf("event %d: event_hash does not recompute (content edited?)", i))
-		}
-		expectedPrev = eh.S
-		chained++
-	}
-
-	// State tail vs log suffix.
-	st, err := c.State()
-	if err != nil {
+	vb.verifySeqContiguity()
+	vb.verifyHashChain()
+	if err := vb.verifyStateMirror(); err != nil {
 		return LogVerdict{}, err
 	}
-	stTail := validation.ObjAt(st, "events")
-	if stTail.Kind == validation.Arr {
-		// The mirror rule (tailEvents) keeps exactly min(E, mirrorCap)
-		// events, so length is part of the invariant — comparing CONTENT
-		// against the tail window of the mirror's own length certified
-		// ANY suffix. A mirror holding only the last 3 events of a
-		// 1006-event log matched its own window perfectly and passed, so
-		// verify/audit certified a projection that had lost the 997
-		// events at its head.
-		wantLen := len(events)
-		if wantLen > mirrorCap {
-			wantLen = mirrorCap
-		}
-		// r39b P3: the invariant is judged for the EMPTY projection too.
-		// The old gate (len(stTail.A) > 0) meant a state events array of
-		// [] under a live ledger certified ok:true — a projection that
-		// lost its WHOLE head. The RUNBOOK calls a projection with a
-		// hole in its head "not health"; an empty mirror is the extreme
-		// of exactly that shape, so verify says so. The zero-event
-		// campaign stays honest: with no events in the ledger at all an
-		// empty mirror IS the rule's output (min(0, mirrorCap) = 0).
-		if len(stTail.A) == 0 && len(events) > 0 {
-			problems = append(problems, fmt.Sprintf(
-				"state events projection is EMPTY under a %d-event log — "+
-					"the projection rule keeps %d for this log, so a "+
-					"projection that lost its whole head is not health "+
-					"(its %d mirrored event(s) are all gone). Nothing here "+
-					"may certify that projection; run `webv2 doctor` to "+
-					"rebuild the mirror from the log (it reports the delta "+
-					"it adopts)",
-				len(events), wantLen, wantLen))
-		} else if len(stTail.A) > 0 {
-			// Python events[-len(st_tail):] with a longer tail is [] —
-			// a mismatch, never an out-of-range access.
-			var want []validation.Value
-			if len(stTail.A) <= len(events) {
-				want = events[len(events)-len(stTail.A):]
-			}
-			if !arraysEq(stTail.A, want) {
-				// r17: the repair route must not be an unwitting laundering
-				// step. A LONGER projection tail than the log has is the
-				// truncation signature: doctor trusts the log, so running it
-				// ADOPTS the shorter history. Say so at the moment of power.
-				msg := "state event tail does not match the log " +
-					"suffix — the ledger is the truth; run `webv2 doctor` " +
-					"on this campaign to rebuild the mirror from it"
-				if len(stTail.A) > len(events) {
-					msg = fmt.Sprintf("state event tail is LONGER than the log "+
-						"(%d projected vs %d logged) — events are GONE from "+
-						"the tail; a truncated log still verifies its chain, "+
-						"and doctor rebuilds TO it, adopting the loss. If you "+
-						"did not cut it, treat the campaign dir as tampered "+
-						"before repairing (investigate, copy the dir); "+
-						"`webv2 doctor` then reports exactly what it erases",
-						len(stTail.A), len(events))
-				}
-				problems = append(problems, msg)
-			} else if len(stTail.A) != wantLen {
-				problems = append(problems, fmt.Sprintf(
-					"state event tail holds %d event(s) where the projection "+
-						"rule keeps %d for a %d-event log — the content matches "+
-						"the log suffix, but the mirror is not the rule's window: "+
-						"its HEAD is missing (mirrored events were dropped from "+
-						"the front, and the %d survivor(s) are all that is left "+
-						"of the projection) or it holds rows beyond the cap. "+
-						"Nothing here may certify that projection; run `webv2 "+
-						"doctor` to rebuild the mirror from the log (it reports "+
-						"the delta it adopts)",
-					len(stTail.A), wantLen, len(events), len(stTail.A)))
-			}
-		}
-	}
-
-	// r12: waivers.jsonl is a PROJECTION like state.events — Waive()
-	// writes the row AND logs completion.waived. Deleting the file left
-	// `waive` records outside every integrity check ("recorded
-	// dispositions, never silent skips" was itself silently skippable).
-	// One law now: the waiver file and the ledger's waived events must
-	// agree, row for row, per (stage, subject).
-	wp := filepath.Join(c.Dir, "waivers.jsonl")
-	wrows, werr, wline := readWaiverRowsR12(wp)
-	if werr != nil {
-		// r13: same line-attribution law the events log got — a bare
-		// "unexpected EOF" makes the operator diff the file by eye.
-		where := ""
-		if wline > 0 {
-			where = fmt.Sprintf(" line %d", wline)
-		}
-		problems = append(problems,
-			fmt.Sprintf("waivers.jsonl%s: unreadable (%v) — recorded "+
-				"dispositions cannot be trusted", where, werr))
-	} else {
-		evWaived := map[[2]string]int{}
-		for _, e := range events {
-			if validation.ObjAt(e, "type").Kind != validation.Str ||
-				validation.ObjAt(e, "type").S != "completion.waived" {
-				continue
-			}
-			key := [2]string{validation.ObjStr(e, "ref"),
-				validation.ObjStr(validation.ObjAt(e, "data"), "subject")}
-			evWaived[key]++
-		}
-		rowWaived := map[[2]string]int{}
-		for _, w := range wrows {
-			key := [2]string{validation.ObjStr(w, "stage"), validation.ObjStr(w, "subject")}
-			rowWaived[key]++
-		}
-		for key, n := range rowWaived {
-			if evWaived[key] < n {
-				problems = append(problems, fmt.Sprintf(
-					"waivers.jsonl: %s/%s recorded %d time(s), the ledger "+
-						"%d — a waiver without its event", key[0], key[1],
-					n, evWaived[key]))
-			}
-		}
-		for key, n := range evWaived {
-			if rowWaived[key] < n {
-				problems = append(problems, fmt.Sprintf(
-					"waivers.jsonl: the ledger holds %d completion.waived "+
-						"event(s) for %s/%s, the file %d — waived rows were "+
-						"deleted or never written", n, key[0], key[1],
-					rowWaived[key]))
-			}
-		}
-	}
+	vb.verifyWaivers()
 	return LogVerdict{
-		Events:          len(events),
-		OK:              len(problems) == 0,
-		Problems:        problems[:min(len(problems), 10)],
-		Chained:         chained,
-		LegacyUnchained: len(events) - chained,
+		Events:          len(vb.events),
+		OK:              len(vb.problems) == 0,
+		Problems:        vb.problems[:min(len(vb.problems), 10)],
+		Chained:         vb.chained,
+		LegacyUnchained: len(vb.events) - vb.chained,
 		MalformedLines:  0,
 	}, nil
 }
