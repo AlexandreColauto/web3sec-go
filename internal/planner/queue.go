@@ -1,6 +1,8 @@
 package planner
 
 import (
+	"os"
+	"path/filepath"
 	"sort"
 
 	"websec/internal/state"
@@ -126,14 +128,11 @@ func WorkQueue(campaign *state.Campaign, plan, model validation.Value,
 		}
 	}
 	order := map[string]int{"now": 0, "next": 1, "batch": 2, "park": 3}
-	sort.SliceStable(out, func(i, j int) bool {
-		si := order[objStr(out[i], "slot")]
-		sj := order[objStr(out[j], "slot")]
-		if si != sj {
-			return si < sj
-		}
-		return numAt(out[i], "risk") > numAt(out[j], "risk")
-	})
+	ranked, err := rankQueue(campaign, model, out, order)
+	if err != nil {
+		return nil, err
+	}
+	out = ranked
 	// G17 tactic batting average (policy-gated, default off): a tripped
 	// lens's unstarted slots demote to park with the reason line. Flag
 	// off (or nothing tripped, or nothing movable) returns the standing
@@ -146,6 +145,216 @@ func WorkQueue(campaign *state.Campaign, plan, model validation.Value,
 		applyAutoTune(out, plan, campaign, tripped)
 	}
 	return out, nil
+}
+
+// ---- Task 12: risk-weighted cockpit ordering ------------------------------
+//
+// The queue used to order by (slot, risk, plan order): inside a slot the only
+// signal was the priority's own prior, so two rows with equal risk kept the
+// plan's alphabetical order no matter what they worked. The cockpit therefore
+// surfaced the alphabetically first file, not the risky one.
+//
+// The ordering weight is now ADDITIVE:
+//
+//	Score = (untouchedCount * W1) + (severityScore * W2) + (openQuestionCount * W3)
+//
+// ponytail: additive, NEVER multiplicative — a product zeroes out a critical
+// consensus contract the moment one factor is 0 (already swept, or no open
+// question names it) and drops it below alphabetical zero-signal entries,
+// which is exactly the failure the review flagged. Tune the weights here and
+// nowhere else; there is no config key.
+const (
+	queueWeightUntouched = 1.0 // W1: per untouched contract the row works
+	queueWeightSeverity  = 2.0 // W2: per severity band of those contracts
+	queueWeightOpenQ     = 1.5 // W3: per open question naming them
+)
+
+// queueSeverityBands is the model's own severity vocabulary as weights:
+// critical=3 / high=2 / medium=1 / low=0.
+var queueSeverityBands = map[string]float64{
+	"critical": 3, "high": 2, "medium": 1, "low": 0,
+}
+
+// queueScore is one row's ordering weight, in its three named parts.
+type queueScore struct {
+	untouched int
+	severity  float64
+	openQ     int
+}
+
+// weight is the additive score. Never a product (see the constants above).
+func (s queueScore) weight() float64 {
+	return float64(s.untouched)*queueWeightUntouched +
+		s.severity*queueWeightSeverity +
+		float64(s.openQ)*queueWeightOpenQ
+}
+
+// queueSignals is the per-campaign lookup the score reads. Every map is read
+// by key and never ranged, so Go's map order cannot leak into the queue.
+type queueSignals struct {
+	inScope  map[string]string  // in-scope contract name/path -> coverage path
+	touched  map[string]bool    // coverage path -> swept (worked at least once)
+	severity map[string]float64 // contract reference -> max severity band
+	invSev   map[string]float64 // invariant id -> severity band
+	openQ    map[string]int     // contract reference -> open questions naming it
+}
+
+// rankQueue orders the assembled rows: slot class first (the DecisionRule
+// contract), then the additive score, then alphabetical by priority id and
+// question. Deterministic by construction — no map is ranged.
+func rankQueue(campaign *state.Campaign, model validation.Value,
+	rows []validation.Value, slotOrder map[string]int) ([]validation.Value, error) {
+	signals, err := buildQueueSignals(campaign, model)
+	if err != nil {
+		return nil, err
+	}
+	type ranked struct {
+		row    validation.Value
+		slot   int
+		weight float64
+		id     string
+		q      string
+	}
+	out := make([]ranked, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, ranked{
+			row:    row,
+			slot:   slotOrder[objStr(row, "slot")],
+			weight: signals.scoreRow(row).weight(),
+			id:     objStr(row, "priority_id"),
+			q:      objStr(row, "question"),
+		})
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		a, b := out[i], out[j]
+		if a.slot != b.slot {
+			return a.slot < b.slot
+		}
+		if a.weight != b.weight {
+			return a.weight > b.weight
+		}
+		if a.id != b.id {
+			return a.id < b.id
+		}
+		return a.q < b.q
+	})
+	ordered := make([]validation.Value, 0, len(out))
+	for _, r := range out {
+		ordered = append(ordered, r.row)
+	}
+	return ordered, nil
+}
+
+// buildQueueSignals reads the model and the campaign's coverage ledger. A
+// campaign with no ledger has swept nothing, so every in-scope contract is
+// untouched; a ledger that EXISTS but cannot be read is an error (a torn
+// ledger must not silently re-rank the queue as if nothing were swept).
+func buildQueueSignals(campaign *state.Campaign,
+	model validation.Value) (*queueSignals, error) {
+	s := &queueSignals{
+		inScope:  map[string]string{},
+		touched:  map[string]bool{},
+		severity: map[string]float64{},
+		invSev:   map[string]float64{},
+		openQ:    map[string]int{},
+	}
+	for _, c := range listOf(model, "contracts") {
+		if !pyTruthyBigNonEmpty(objAt(c, "in_scope")) {
+			continue
+		}
+		name, path := objStr(c, "name"), objStr(c, "path")
+		if name != "" {
+			s.inScope[name] = path
+		}
+		if path != "" {
+			s.inScope[path] = path
+		}
+	}
+	for _, inv := range listOf(model, "invariants") {
+		band := queueSeverityBands[objStr(inv, "severity_if_broken")]
+		if id := objStr(inv, "id"); id != "" {
+			s.invSev[id] = band
+		}
+		for _, ref := range listOf(inv, "applies_to") {
+			key := pyStr(ref)
+			if key == "" {
+				continue
+			}
+			if band > s.severity[key] {
+				s.severity[key] = band
+			}
+		}
+	}
+	for _, q := range listOf(model, "open_questions") {
+		if pyTruthyBigNonEmpty(objAt(q, "resolved")) {
+			continue
+		}
+		for _, ref := range openQuestionRefs(q) {
+			s.openQ[ref]++
+		}
+	}
+	covPath := filepath.Join(campaign.ArtifactsDir, "coverage.json")
+	if _, err := os.Stat(covPath); err != nil {
+		if os.IsNotExist(err) {
+			return s, nil
+		}
+		return nil, err
+	}
+	// The ledger is read as the artifact it is (the `coverage` schema is
+	// validated where it is written). Importing internal/coverage here would
+	// close a cycle: coverage's own test binary pulls planner through
+	// audit/sections -> completion, so the read stays on the document.
+	cov, err := validation.ReadJson(covPath)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range listOf(cov, "contracts") {
+		path := objStr(row, "path")
+		if path == "" {
+			continue
+		}
+		s.touched[path] = coverageSwept(row)
+	}
+	return s, nil
+}
+
+// coverageSwept is the coverage ledger's own "has this been worked" test
+// (refresh_gaps): a row that is not `unknown` and carries at least one
+// trajectory count has been swept. Anything else — no row, `unknown`, zero
+// trajectories — is untouched.
+func coverageSwept(row validation.Value) bool {
+	if objStr(row, "status") == "unknown" || objStr(row, "status") == "" {
+		return false
+	}
+	counts := objAt(row, "trajectory_counts")
+	return counts.Kind == validation.Obj && len(counts.O) >= 1
+}
+
+// scoreRow is one queue row's score: untouched contracts, the worst severity
+// band of the invariants that apply to them (or that the row names directly),
+// and how many unresolved open questions name them.
+func (s *queueSignals) scoreRow(row validation.Value) queueScore {
+	out := queueScore{}
+	for _, c := range listOf(row, "components") {
+		ref := pyStr(c)
+		path, ok := s.inScope[ref]
+		if !ok {
+			continue
+		}
+		if !s.touched[path] {
+			out.untouched++
+		}
+		if v := s.severity[ref]; v > out.severity {
+			out.severity = v
+		}
+		out.openQ += s.openQ[ref]
+	}
+	for _, id := range listOf(row, "invariant_ids") {
+		if v := s.invSev[pyStr(id)]; v > out.severity {
+			out.severity = v
+		}
+	}
+	return out
 }
 
 // enumTrajectory is TRAJECTORY_TO_ENUM.get(t, "code").

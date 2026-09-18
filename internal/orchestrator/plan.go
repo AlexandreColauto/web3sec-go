@@ -60,7 +60,11 @@ func (o *Orchestrator) planReadOnly(plan, model validation.Value,
 	}
 	// include_hints: the campaign's own reflection feeds the queue — the
 	// loop run 1 left open (reflection written, never consumed).
-	queue, err := planner.WorkQueue(o.C, current, orEmptyObj(model), true)
+	queueModel, err := o.planQueueModel(model)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	queue, err := planner.WorkQueue(o.C, current, queueModel, true)
 	if err != nil {
 		return validation.VNull(), err
 	}
@@ -74,6 +78,30 @@ func (o *Orchestrator) planReadOnly(plan, model validation.Value,
 		kvOf("reachability", reach),
 		kvOf("read_only", validation.VBool(true)),
 	), nil
+}
+
+// planQueueModel is the model the work queue is scored against: the caller's
+// own model when one was supplied, else the campaign's protocol_model.json.
+// The queue's risk weighting (Task 12) reads contracts, invariants and open
+// questions, so a plan read back without a model argument must not silently
+// score every row at zero — the campaign's model is on disk, and it is the
+// same one the plan was built from. Absent model = an empty object (no
+// signals); a model that EXISTS but cannot be read is an error, never a
+// silent zero.
+func (o *Orchestrator) planQueueModel(model validation.Value) (validation.Value,
+	error) {
+	if model.Kind != validation.Null {
+		return model, nil
+	}
+	pm := filepath.Join(o.C.ArtifactsDir, "protocol_model.json")
+	if !fileExists(pm) {
+		return orEmptyObj(model), nil
+	}
+	loaded, err := validation.ReadJson(pm)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	return loaded, nil
 }
 
 // resolvePlan is the incoming-plan half: an explicit plan, or the one derived
@@ -122,7 +150,11 @@ func (o *Orchestrator) writePlan(plan validation.Value, planPath string,
 	if _, err := planner.SavePlan(o.C, plan); err != nil {
 		return validation.VNull(), err
 	}
-	queue, err := planner.WorkQueue(o.C, plan, orEmptyObj(model), true)
+	queueModel, err := o.planQueueModel(model)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	queue, err := planner.WorkQueue(o.C, plan, queueModel, true)
 	if err != nil {
 		return validation.VNull(), err
 	}
