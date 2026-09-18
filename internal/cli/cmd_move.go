@@ -60,93 +60,125 @@ func moveCmd(root string, args []string, r *Runner) error {
 	}
 
 	ensureSeams()
-	reason, actor, adjacent, duplicateOf := "", "", "", ""
-	adjacentSet := false
-	haveReason := false
-	haveOf := false
-	adjacentClear := false
-	// unrecognized tokens are reported by the ROOT parser in ARGV order.
-	type moveUnk struct {
-		idx int
-		tok string
+	mv, err := moveParseFlags(args)
+	if err != nil {
+		return err
 	}
-	var pos []string
-	var posIdx []int
-	var unknown []moveUnk
+	if err := moveRequireArgs(mv); err != nil {
+		return err
+	}
+	if err := moveValidateFlags(mv); err != nil {
+		return err
+	}
+	return moveApplyTransition(root, mv, r)
+}
+
+// moveFlags carries the parsed `move` command line: the flag values, their
+// presence bits, and the positional/unknown tokens still to be checked.
+type moveFlags struct {
+	reason        string
+	actor         string
+	adjacent      string
+	adjacentSet   bool
+	haveReason    bool
+	haveOf        bool
+	adjacentClear bool
+	duplicateOf   string
+	pos           []string
+	posIdx        []int
+	unknown       []moveUnk
+}
+
+// moveUnk is one unrecognized argv token with its position.
+type moveUnk struct {
+	idx int
+	tok string
+}
+
+// moveParseFlags scans the raw arguments with cli.py's hand-rolled loop.
+func moveParseFlags(args []string) (*moveFlags, error) {
+	mv := &moveFlags{}
+	// unrecognized tokens are reported by the ROOT parser in ARGV order.
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
 		case a == "--reason":
 			v, ok := flagValue(args, i)
 			if !ok {
-				return t14ArgparseErr(moveUsage, "move",
+				return nil, t14ArgparseErr(moveUsage, "move",
 					"argument --reason: expected one argument")
 			}
-			reason, haveReason = v, true
+			mv.reason, mv.haveReason = v, true
 			i++
 		case strings.HasPrefix(a, "--reason="):
-			reason, haveReason = strings.TrimPrefix(a, "--reason="), true
+			mv.reason, mv.haveReason = strings.TrimPrefix(a, "--reason="), true
 		case a == "--actor":
 			v, ok := flagValue(args, i)
 			if !ok {
-				return t14ArgparseErr(moveUsage, "move",
+				return nil, t14ArgparseErr(moveUsage, "move",
 					"argument --actor: expected one argument")
 			}
-			actor = v
+			mv.actor = v
 			i++
 		case strings.HasPrefix(a, "--actor="):
-			actor = strings.TrimPrefix(a, "--actor=")
+			mv.actor = strings.TrimPrefix(a, "--actor=")
 		case a == "--adjacent":
 			v, ok := flagValue(args, i)
 			if !ok {
-				return t14ArgparseErr(moveUsage, "move",
+				return nil, t14ArgparseErr(moveUsage, "move",
 					"argument --adjacent: expected one argument")
 			}
-			adjacent, adjacentSet = v, true
+			mv.adjacent, mv.adjacentSet = v, true
 			i++
 		case strings.HasPrefix(a, "--adjacent="):
-			adjacent = strings.TrimPrefix(a, "--adjacent=")
-			adjacentSet = true // r7: the =-form of an EMPTY value still
+			mv.adjacent = strings.TrimPrefix(a, "--adjacent=")
+			mv.adjacentSet = true // r7: the =-form of an EMPTY value still
 			// SET the flag — --adjacent= with --adjacent-clear is the same
 			// contradiction, and an unset flag must never read as silence.
 		case a == "--adjacent-clear":
-			adjacentClear = true
+			mv.adjacentClear = true
 		case strings.HasPrefix(a, "--adjacent-clear="):
-			return t14ArgparseErr(moveUsage, "move",
+			return nil, t14ArgparseErr(moveUsage, "move",
 				"argument --adjacent-clear: ignored explicit argument %s",
 				validation.PyReprStr(strings.TrimPrefix(a, "--adjacent-clear=")))
 		case a == "--of" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			duplicateOf, haveOf = strings.TrimSpace(args[i+1]), true
+			mv.duplicateOf, mv.haveOf = strings.TrimSpace(args[i+1]), true
 			i++
 		case strings.HasPrefix(a, "--of="):
 			// even an empty value counts as the flag being passed: the
 			// route refusal below keys on presence, not on the value
-			duplicateOf, haveOf = strings.TrimSpace(
+			mv.duplicateOf, mv.haveOf = strings.TrimSpace(
 				strings.TrimPrefix(a, "--of=")), true
 		case a == "--of":
-			return t14ArgparseErr(moveUsage, "move",
+			return nil, t14ArgparseErr(moveUsage, "move",
 				"argument --of: expected one argument")
 		case strings.HasPrefix(a, "-"):
-			unknown = append(unknown, moveUnk{i, a})
+			mv.unknown = append(mv.unknown, moveUnk{i, a})
 		default:
-			pos = append(pos, a)
-			posIdx = append(posIdx, i)
+			mv.pos = append(mv.pos, a)
+			mv.posIdx = append(mv.posIdx, i)
 		}
 	}
+	return mv, nil
+}
+
+// moveRequireArgs enforces the required positionals and --reason, then
+// reports the remaining unknown tokens in ARGV order.
+func moveRequireArgs(mv *moveFlags) error {
 	// argparse checks the subparser's required arguments BEFORE the root
 	// parser's "unrecognized arguments" (parse_known_args): `move --bogus`
 	// reports the missing positionals, not --bogus.
 	missing := []string{}
-	if len(pos) < 1 {
+	if len(mv.pos) < 1 {
 		missing = append(missing, "campaign")
 	}
-	if len(pos) < 2 {
+	if len(mv.pos) < 2 {
 		missing = append(missing, "finding")
 	}
-	if len(pos) < 3 {
+	if len(mv.pos) < 3 {
 		missing = append(missing, "to_status")
 	}
-	if !haveReason {
+	if !mv.haveReason {
 		missing = append(missing, "--reason")
 	}
 	if len(missing) > 0 {
@@ -154,56 +186,68 @@ func moveCmd(root string, args []string, r *Runner) error {
 			"the following arguments are required: %s", strings.Join(missing, ", "))
 	}
 	// Positionals are assigned greedily; the overflow is unrecognized.
-	if len(pos) > 3 {
-		for j, t := range pos[3:] {
-			unknown = append(unknown, moveUnk{posIdx[3+j], t})
+	if len(mv.pos) > 3 {
+		for j, t := range mv.pos[3:] {
+			mv.unknown = append(mv.unknown, moveUnk{mv.posIdx[3+j], t})
 		}
-		pos = pos[:3]
+		mv.pos = mv.pos[:3]
 	}
-	if len(unknown) > 0 {
-		sort.Slice(unknown, func(i, j int) bool {
-			return unknown[i].idx < unknown[j].idx
+	if len(mv.unknown) > 0 {
+		sort.Slice(mv.unknown, func(i, j int) bool {
+			return mv.unknown[i].idx < mv.unknown[j].idx
 		})
-		toks := make([]string, len(unknown))
-		for i, u := range unknown {
+		toks := make([]string, len(mv.unknown))
+		for i, u := range mv.unknown {
 			toks[i] = u.tok
 		}
 		return t14Unrecognized(strings.Join(toks, " "))
 	}
+	return nil
+}
+
+// moveValidateFlags applies the flag-level refusals and the actor default,
+// in cli.py's order.
+func moveValidateFlags(mv *moveFlags) error {
 	// Round-3 chief item 4: --of is only ever consumed by a move to
 	// DUPLICATE — the merge writes the dedup pointer, and the reopen
 	// (DUPLICATE -> HYPOTHESIS) clears that pointer without ever reading
 	// --of. On any other to_status the flag would be silently dropped at
 	// exit 0, so it is refused here, before the campaign is even opened,
 	// naming the only route that consumes it.
-	if haveOf && pos[2] != "DUPLICATE" {
+	if mv.haveOf && mv.pos[2] != "DUPLICATE" {
 		return t14ExitErr(2, "move: --of records the duplicate-of pointer "+
 			"of a move to DUPLICATE — %s is not one, so there is no merge "+
-			"pointer to write: drop --of\n", validation.PyReprStr(pos[2]))
+			"pointer to write: drop --of\n", validation.PyReprStr(mv.pos[2]))
 	}
-	if actor == "" {
-		actor = "cli" // args.actor or "cli"
+	if mv.actor == "" {
+		mv.actor = "cli" // args.actor or "cli"
 	}
 	// r6 (critic issue 5): --adjacent and --adjacent-clear are two answers
 	// to one question; the library branch clears first and the named
 	// property would vanish silently. The CLI refuses the combination —
 	// flags are never inert here.
-	if (adjacentSet || adjacent != "") && adjacentClear {
+	if (mv.adjacentSet || mv.adjacent != "") && mv.adjacentClear {
 		return t14ArgparseErr(moveUsage, "move",
 			"--adjacent and --adjacent-clear are mutually exclusive — name"+
 				" the new adjacent property, or clear it, not both")
 	}
-	c, err := state.Open(root, pos[0])
+	return nil
+}
+
+// moveApplyTransition opens the campaign, performs the transition and prints
+// the outcome and the dying-grants warning.
+func moveApplyTransition(root string, mv *moveFlags, r *Runner) error {
+	c, err := state.Open(root, mv.pos[0])
 	if err != nil {
 		return err
 	}
 	// r14: capture the grants BEFORE the move — the terminal law kills
 	// them, and both doors into a terminal must say so (supersede got
 	// the warning in r13; `move` was the mute twin).
-	before, beforeErr := findings.LoadFinding(c, pos[1])
-	f, err := findings.TransitionWith(c, pos[1], pos[2], reason,
-		findings.TransitionOpts{Actor: actor, Adjacent: adjacent,
-			AdjacentClear: adjacentClear, DuplicateOf: duplicateOf})
+	before, beforeErr := findings.LoadFinding(c, mv.pos[1])
+	f, err := findings.TransitionWith(c, mv.pos[1], mv.pos[2], mv.reason,
+		findings.TransitionOpts{Actor: mv.actor, Adjacent: mv.adjacent,
+			AdjacentClear: mv.adjacentClear, DuplicateOf: mv.duplicateOf})
 	if err != nil {
 		if moveHandlerError(err) {
 			return t14ExitErr(2, "move failed: %s\n", err)
@@ -214,14 +258,14 @@ func moveCmd(root string, args []string, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(r.Out, "%s: %s (evidence level %s)\n", pos[1],
+	fmt.Fprintf(r.Out, "%s: %s (evidence level %s)\n", mv.pos[1],
 		validation.ObjStr(f, "status"), level)
 	if beforeErr == nil {
 		// survivor nil: the row itself carries its grants onward only
 		// while LIVE — a terminal row answers nothing, so "still
 		// listed" proves nothing here (unlike supersede, where a
 		// successor genuinely re-grants).
-		warnDyingGrants(r.Err, pos[1], validation.ObjStr(f, "status"), before, nil)
+		warnDyingGrants(r.Err, mv.pos[1], validation.ObjStr(f, "status"), before, nil)
 	}
 	return nil
 }

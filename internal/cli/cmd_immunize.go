@@ -12,6 +12,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"websec/internal/validation"
@@ -42,121 +43,19 @@ func immunizeCmd(root string, args []string, r *Runner) error {
 	}
 
 	ensureSeams()
-	pocExec, patch, mutations, bypass, actor := "", "", "", "", ""
-	havePOC, havePatch, haveMutations, haveBypass := false, false, false, false
-	var pos []string
-	var posIdx []int
-	var unknown []immunizeUnk
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch {
-		case a == "--poc-exec" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			pocExec, havePOC = args[i+1], true
-			i++
-		case strings.HasPrefix(a, "--poc-exec="):
-			pocExec, havePOC = strings.TrimPrefix(a, "--poc-exec="), true
-		case a == "--patch" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			patch, havePatch = args[i+1], true
-			i++
-		case strings.HasPrefix(a, "--patch="):
-			patch, havePatch = strings.TrimPrefix(a, "--patch="), true
-		case a == "--mutations" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			mutations, haveMutations = args[i+1], true
-			i++
-		case strings.HasPrefix(a, "--mutations="):
-			mutations, haveMutations = strings.TrimPrefix(a, "--mutations="), true
-		case a == "--bypass" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			bypass, haveBypass = args[i+1], true
-			i++
-		case strings.HasPrefix(a, "--bypass="):
-			bypass, haveBypass = strings.TrimPrefix(a, "--bypass="), true
-		case a == "--actor" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			actor = args[i+1]
-			i++
-		case strings.HasPrefix(a, "--actor="):
-			actor = strings.TrimPrefix(a, "--actor=")
-		case a == "--poc-exec":
-			return t14ArgparseErr(t21ImmunizeUsage, "immunize",
-				"argument --poc-exec: expected one argument")
-		case a == "--patch":
-			return t14ArgparseErr(t21ImmunizeUsage, "immunize",
-				"argument --patch: expected one argument")
-		case a == "--mutations":
-			return t14ArgparseErr(t21ImmunizeUsage, "immunize",
-				"argument --mutations: expected one argument")
-		case a == "--bypass":
-			return t14ArgparseErr(t21ImmunizeUsage, "immunize",
-				"argument --bypass: expected one argument")
-		case a == "--actor":
-			return t14ArgparseErr(t21ImmunizeUsage, "immunize",
-				"argument --actor: expected one argument")
-		case strings.HasPrefix(a, "-"):
-			unknown = append(unknown, immunizeUnk{i, a})
-		default:
-			pos = append(pos, a)
-			posIdx = append(posIdx, i)
-		}
-	}
-	// argparse checks the subparser's required arguments BEFORE the root
-	// parser's "unrecognized arguments" (parse_known_args).
-	missing := []string{}
-	if len(pos) < 1 {
-		missing = append(missing, "campaign")
-	}
-	if len(pos) < 2 {
-		missing = append(missing, "finding")
-	}
-	if !havePOC {
-		missing = append(missing, "--poc-exec")
-	}
-	if !havePatch {
-		missing = append(missing, "--patch")
-	}
-	if !haveMutations {
-		missing = append(missing, "--mutations")
-	}
-	if len(missing) > 0 {
-		return t14ArgparseErr(t21ImmunizeUsage, "immunize",
-			"the following arguments are required: %s", strings.Join(missing, ", "))
-	}
-	// Positionals are assigned greedily; the overflow is unrecognized.
-	if len(pos) > 2 {
-		for j, t := range pos[2:] {
-			unknown = append(unknown, immunizeUnk{posIdx[2+j], t})
-		}
-		pos = pos[:2]
-	}
-	if len(unknown) > 0 {
-		sort.Slice(unknown, func(i, j int) bool {
-			return unknown[i].idx < unknown[j].idx
-		})
-		toks := make([]string, len(unknown))
-		for i, u := range unknown {
-			toks[i] = u.tok
-		}
-		return t14Unrecognized(strings.Join(toks, " "))
-	}
-	if actor == "" {
-		actor = "cli" // args.actor or "cli"
-	}
-	// [m.strip() for m in args.mutations.split(";") if m.strip()]
-	parsed := []string{}
-	for _, m := range strings.Split(mutations, ";") {
-		if s := strings.TrimSpace(m); s != "" {
-			parsed = append(parsed, s)
-		}
-	}
-	var bypassPtr *string
-	if haveBypass {
-		bypassPtr = &bypass
-	}
-	c, err := state.Open(root, pos[0])
+	fl, err := immunizeParseFlags(args)
 	if err != nil {
 		return err
 	}
-	o := immunize.Options{Patch: patch, POCExecID: pocExec,
-		Mutations: parsed, Actor: actor, Bypass: bypassPtr}
-	f, err := immunize.Immunize(c, pos[1], o)
+	if err := immunizeRequireArgs(fl); err != nil {
+		return err
+	}
+	o := immunizeBuildOptions(fl)
+	c, err := state.Open(root, fl.pos[0])
+	if err != nil {
+		return err
+	}
+	fnd, err := immunize.Immunize(c, fl.pos[1], o)
 	if err != nil {
 		var ie *immunize.InputError
 		if errors.As(err, &ie) {
@@ -164,20 +63,165 @@ func immunizeCmd(root string, args []string, r *Runner) error {
 		}
 		return err
 	}
+	immunizePrintResult(r.Out, fl.pos[1], fnd)
+	return nil
+}
+
+// immunizeFlags carries the parsed `immunize` command line: the flag values,
+// their presence bits, and the positional/unknown tokens still to be checked.
+type immunizeFlags struct {
+	pocExec       string
+	patch         string
+	mutations     string
+	bypass        string
+	actor         string
+	havePOC       bool
+	havePatch     bool
+	haveMutations bool
+	haveBypass    bool
+	pos           []string
+	posIdx        []int
+	unknown       []immunizeUnk
+}
+
+// immunizeParseFlags scans the raw arguments with cli.py's hand-rolled loop.
+func immunizeParseFlags(args []string) (*immunizeFlags, error) {
+	fl := &immunizeFlags{}
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--poc-exec" && i+1 < len(args) && !looksLikeOption(args[i+1]):
+			fl.pocExec, fl.havePOC = args[i+1], true
+			i++
+		case strings.HasPrefix(a, "--poc-exec="):
+			fl.pocExec, fl.havePOC = strings.TrimPrefix(a, "--poc-exec="), true
+		case a == "--patch" && i+1 < len(args) && !looksLikeOption(args[i+1]):
+			fl.patch, fl.havePatch = args[i+1], true
+			i++
+		case strings.HasPrefix(a, "--patch="):
+			fl.patch, fl.havePatch = strings.TrimPrefix(a, "--patch="), true
+		case a == "--mutations" && i+1 < len(args) && !looksLikeOption(args[i+1]):
+			fl.mutations, fl.haveMutations = args[i+1], true
+			i++
+		case strings.HasPrefix(a, "--mutations="):
+			fl.mutations, fl.haveMutations = strings.TrimPrefix(a, "--mutations="), true
+		case a == "--bypass" && i+1 < len(args) && !looksLikeOption(args[i+1]):
+			fl.bypass, fl.haveBypass = args[i+1], true
+			i++
+		case strings.HasPrefix(a, "--bypass="):
+			fl.bypass, fl.haveBypass = strings.TrimPrefix(a, "--bypass="), true
+		case a == "--actor" && i+1 < len(args) && !looksLikeOption(args[i+1]):
+			fl.actor = args[i+1]
+			i++
+		case strings.HasPrefix(a, "--actor="):
+			fl.actor = strings.TrimPrefix(a, "--actor=")
+		case a == "--poc-exec":
+			return nil, t14ArgparseErr(t21ImmunizeUsage, "immunize",
+				"argument --poc-exec: expected one argument")
+		case a == "--patch":
+			return nil, t14ArgparseErr(t21ImmunizeUsage, "immunize",
+				"argument --patch: expected one argument")
+		case a == "--mutations":
+			return nil, t14ArgparseErr(t21ImmunizeUsage, "immunize",
+				"argument --mutations: expected one argument")
+		case a == "--bypass":
+			return nil, t14ArgparseErr(t21ImmunizeUsage, "immunize",
+				"argument --bypass: expected one argument")
+		case a == "--actor":
+			return nil, t14ArgparseErr(t21ImmunizeUsage, "immunize",
+				"argument --actor: expected one argument")
+		case strings.HasPrefix(a, "-"):
+			fl.unknown = append(fl.unknown, immunizeUnk{i, a})
+		default:
+			fl.pos = append(fl.pos, a)
+			fl.posIdx = append(fl.posIdx, i)
+		}
+	}
+	return fl, nil
+}
+
+// immunizeRequireArgs enforces the required positionals and flags, then
+// reports the remaining unknown tokens in ARGV order.
+func immunizeRequireArgs(fl *immunizeFlags) error {
+	// argparse checks the subparser's required arguments BEFORE the root
+	// parser's "unrecognized arguments" (parse_known_args).
+	missing := []string{}
+	if len(fl.pos) < 1 {
+		missing = append(missing, "campaign")
+	}
+	if len(fl.pos) < 2 {
+		missing = append(missing, "finding")
+	}
+	if !fl.havePOC {
+		missing = append(missing, "--poc-exec")
+	}
+	if !fl.havePatch {
+		missing = append(missing, "--patch")
+	}
+	if !fl.haveMutations {
+		missing = append(missing, "--mutations")
+	}
+	if len(missing) > 0 {
+		return t14ArgparseErr(t21ImmunizeUsage, "immunize",
+			"the following arguments are required: %s", strings.Join(missing, ", "))
+	}
+	// Positionals are assigned greedily; the overflow is unrecognized.
+	if len(fl.pos) > 2 {
+		for j, t := range fl.pos[2:] {
+			fl.unknown = append(fl.unknown, immunizeUnk{fl.posIdx[2+j], t})
+		}
+		fl.pos = fl.pos[:2]
+	}
+	if len(fl.unknown) > 0 {
+		sort.Slice(fl.unknown, func(i, j int) bool {
+			return fl.unknown[i].idx < fl.unknown[j].idx
+		})
+		toks := make([]string, len(fl.unknown))
+		for i, u := range fl.unknown {
+			toks[i] = u.tok
+		}
+		return t14Unrecognized(strings.Join(toks, " "))
+	}
+	return nil
+}
+
+// immunizeBuildOptions applies the actor default and turns the parsed flags
+// into the library's Options (mutations split, bypass pointer).
+func immunizeBuildOptions(fl *immunizeFlags) immunize.Options {
+	if fl.actor == "" {
+		fl.actor = "cli" // args.actor or "cli"
+	}
+	// [m.strip() for m in args.mutations.split(";") if m.strip()]
+	parsed := []string{}
+	for _, m := range strings.Split(fl.mutations, ";") {
+		if s := strings.TrimSpace(m); s != "" {
+			parsed = append(parsed, s)
+		}
+	}
+	var bypassPtr *string
+	if fl.haveBypass {
+		bypassPtr = &fl.bypass
+	}
+	return immunize.Options{Patch: fl.patch, POCExecID: fl.pocExec,
+		Mutations: parsed, Actor: fl.actor, Bypass: bypassPtr}
+}
+
+// immunizePrintResult writes the patch-verification outcome and, when a
+// bypass was found, the repair instruction.
+func immunizePrintResult(out io.Writer, findingID string, f validation.Value) {
 	pv := validation.ObjAt(validation.ObjAt(f, "verification"), "patch_verified")
 	stateText := "BYPASS FOUND"
 	if immunize.IsImmunized(f) {
 		stateText = "IMMUNIZED"
 	}
-	fmt.Fprintf(r.Out, "%s: %s — patch blocks the fork PoC (%s) and %s "+
-		"boundary mutations\n", pos[1], stateText, validation.ObjStr(pv, "artifact_id"),
+	fmt.Fprintf(out, "%s: %s — patch blocks the fork PoC (%s) and %s "+
+		"boundary mutations\n", findingID, stateText, validation.ObjStr(pv, "artifact_id"),
 		scalarStr(validation.ObjAt(pv, "boundary_mutations_tested")))
 	if pyTruthyCLI(validation.ObjAt(pv, "boundary_bypass_found")) {
-		fmt.Fprintf(r.Out, "  BYPASS: %s — fix the patch and re-verify; the "+
+		fmt.Fprintf(out, "  BYPASS: %s — fix the patch and re-verify; the "+
 			"bounty gate fails until it holds\n",
 			truncateStr(validation.ObjStr(pv, "bypass"), 80))
 	}
-	return nil
 }
 
 // truncateStr is Python's s[:n].

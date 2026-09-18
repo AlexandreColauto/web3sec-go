@@ -560,97 +560,160 @@ func probeWarningLines(surface validation.Value) []string {
 	return lines
 }
 
+// probesListView carries the shared probesList context: the parsed flags,
+// the campaign, the runner and the loaded surface artifacts.
+type probesListView struct {
+	a            *probesArgs
+	c            *state.Campaign
+	r            *Runner
+	surface      *validation.Value
+	axisFilter   *probes.AxisScope
+	summary      *validation.Value
+	index        *validation.Value
+	planPtr      *validation.Value
+	dispositions validation.Value
+}
+
 // probesList is cli.py _probes_list.
 func probesList(a *probesArgs, c *state.Campaign, r *Runner) error {
-	surface, err := probes.CampaignSurface(c)
+	lv := &probesListView{a: a, c: c, r: r}
+	if err := probesListLoad(lv); err != nil {
+		return err
+	}
+	if err := probesListAxisFilter(lv); err != nil {
+		return err
+	}
+	if err := probesListContext(lv); err != nil {
+		return err
+	}
+	if lv.a.asJSON {
+		return probesListJSON(lv)
+	}
+	probesListTable(lv)
+	t29PrintProbeClosure(lv.c, lv.planPtr, nil, false, lv.r.Out)
+	return nil
+}
+
+// probesListLoad reads the recorded probe surface, refusing to continue
+// without one.
+func probesListLoad(lv *probesListView) error {
+	surface, err := probes.CampaignSurface(lv.c)
 	if err != nil {
 		return err
 	}
 	if surface == nil {
 		return t14ExitErr(2, "probes: no probe surface for %s — run "+
-			"`webv2 probes %s run` first\n", c.CampaignID, c.CampaignID)
+			"`webv2 probes %s run` first\n", lv.c.CampaignID, lv.c.CampaignID)
 	}
-	var axisFilter *probes.AxisScope
-	if a.axis != nil {
-		axisFilter = probes.AxisScopeOf(*a.axis)
-		if axisFilter == nil {
-			return t14ExitErr(2, "probes: unknown axis %s; registered: %s "+
-				"(or their lens ids %s)\n", validation.PyReprStr(*a.axis),
-				strings.Join(t29AxisNames(), ", "),
-				strings.Join(t29LensIDs(), ", "))
-		}
+	lv.surface = surface
+	return nil
+}
+
+// probesListAxisFilter resolves the --axis flag into a scope, refusing an
+// unregistered axis.
+func probesListAxisFilter(lv *probesListView) error {
+	if lv.a.axis == nil {
+		return nil
 	}
-	summary, err := probes.SurfaceSummary(c, nil)
+	axisFilter := probes.AxisScopeOf(*lv.a.axis)
+	if axisFilter == nil {
+		return t14ExitErr(2, "probes: unknown axis %s; registered: %s "+
+			"(or their lens ids %s)\n", validation.PyReprStr(*lv.a.axis),
+			strings.Join(t29AxisNames(), ", "),
+			strings.Join(t29LensIDs(), ", "))
+	}
+	lv.axisFilter = axisFilter
+	return nil
+}
+
+// probesListContext loads the summary, the structural index, the readonly
+// plan (its absence is tolerated) and the row dispositions.
+func probesListContext(lv *probesListView) error {
+	summary, err := probes.SurfaceSummary(lv.c, nil)
 	if err != nil {
 		return err
 	}
 	if summary == nil {
 		return t14ExitErr(2, "probes: no probe surface for %s — run "+
-			"`webv2 probes %s run` first\n", c.CampaignID, c.CampaignID)
+			"`webv2 probes %s run` first\n", lv.c.CampaignID, lv.c.CampaignID)
 	}
-	index, err := probes.CampaignIndex(c)
+	lv.summary = summary
+	index, err := probes.CampaignIndex(lv.c)
 	if err != nil {
 		return err
 	}
-	plan, err := planner.LoadPlanReadonly(c)
+	lv.index = index
+	plan, err := planner.LoadPlanReadonly(lv.c)
 	var planPtr *validation.Value
 	if err == nil {
 		planPtr = &plan
 	}
-	dispositions := probes.RowDispositions(planPtr, *surface)
-	if a.asJSON {
-		rows := []validation.Value{}
-		for _, row := range t14List(*surface, "rows").A {
-			if axisFilter != nil && !t14InList(validation.ObjStr(row, "axis"), axisFilter.Axes) {
-				continue
-			}
-			d := validation.ObjAt(dispositions, validation.ObjStr(row, "row_id"))
-			rows = append(rows, validation.VObj(
-				validation.KV{K: "row_id", V: validation.ObjAt(row, "row_id")},
-				validation.KV{K: "probe", V: validation.ObjAt(row, "probe")},
-				validation.KV{K: "axis", V: validation.ObjAt(row, "axis")},
-				validation.KV{K: "lens", V: validation.ObjAt(row, "lens")},
-				validation.KV{K: "tier", V: validation.ObjAt(row, "tier")},
-				validation.KV{K: "rank", V: validation.ObjAt(row, "rank")},
-				validation.KV{K: "assertion_gap", V: validation.ObjAt(row, "assertion_gap")},
-				validation.KV{K: "anchors", V: strListValue(probes.RowAnchorPairs(row, index))},
-				validation.KV{K: "priority_id", V: validation.ObjAt(d, "priority_id")},
-				validation.KV{K: "status", V: validation.ObjAt(d, "status")},
-				validation.KV{K: "dispositioned", V: validation.VBool(objBool(d, "dispositioned"))},
-				validation.KV{K: "reason", V: validation.ObjAt(d, "reason")},
-				validation.KV{K: "anchor", V: validation.ObjAt(d, "anchor")}))
+	lv.planPtr = planPtr
+	lv.dispositions = probes.RowDispositions(planPtr, *lv.surface)
+	return nil
+}
+
+// probesListJSON is the --json branch: the machine-readable table.
+func probesListJSON(lv *probesListView) error {
+	surface, axisFilter, index := lv.surface, lv.axisFilter, lv.index
+	rows := []validation.Value{}
+	for _, row := range t14List(*surface, "rows").A {
+		if axisFilter != nil && !t14InList(validation.ObjStr(row, "axis"), axisFilter.Axes) {
+			continue
 		}
-		axes := []validation.Value{}
-		for _, ax := range t14List(*surface, "axes").A {
-			if axisFilter != nil && !t14InList(validation.ObjStr(ax, "axis"), axisFilter.Axes) {
-				continue
-			}
-			axes = append(axes, ax)
-		}
-		t14PrintJSON(r.Out, validation.VObj(
-			validation.KV{K: "campaign_id", V: validation.ObjAt(*surface, "campaign_id")},
-			validation.KV{K: "index_sha", V: validation.ObjAt(*surface, "index_sha")},
-			validation.KV{K: "current_index_sha", V: validation.ObjAt(*summary, "current_index_sha")},
-			validation.KV{K: "stale", V: validation.ObjAt(*summary, "stale")},
-			validation.KV{K: "rows", V: validation.ObjAt(*summary, "rows")},
-			validation.KV{K: "dispositioned", V: validation.ObjAt(*summary, "dispositioned")},
-			validation.KV{K: "open", V: validation.ObjAt(*summary, "open")},
-			validation.KV{K: "axes", V: validation.VArr(axes...)},
-			validation.KV{K: "surface_rows", V: validation.VArr(rows...)}))
-		return nil
+		d := validation.ObjAt(lv.dispositions, validation.ObjStr(row, "row_id"))
+		rows = append(rows, validation.VObj(
+			validation.KV{K: "row_id", V: validation.ObjAt(row, "row_id")},
+			validation.KV{K: "probe", V: validation.ObjAt(row, "probe")},
+			validation.KV{K: "axis", V: validation.ObjAt(row, "axis")},
+			validation.KV{K: "lens", V: validation.ObjAt(row, "lens")},
+			validation.KV{K: "tier", V: validation.ObjAt(row, "tier")},
+			validation.KV{K: "rank", V: validation.ObjAt(row, "rank")},
+			validation.KV{K: "assertion_gap", V: validation.ObjAt(row, "assertion_gap")},
+			validation.KV{K: "anchors", V: strListValue(probes.RowAnchorPairs(row, index))},
+			validation.KV{K: "priority_id", V: validation.ObjAt(d, "priority_id")},
+			validation.KV{K: "status", V: validation.ObjAt(d, "status")},
+			validation.KV{K: "dispositioned", V: validation.VBool(objBool(d, "dispositioned"))},
+			validation.KV{K: "reason", V: validation.ObjAt(d, "reason")},
+			validation.KV{K: "anchor", V: validation.ObjAt(d, "anchor")}))
 	}
+	axes := []validation.Value{}
+	for _, ax := range t14List(*surface, "axes").A {
+		if axisFilter != nil && !t14InList(validation.ObjStr(ax, "axis"), axisFilter.Axes) {
+			continue
+		}
+		axes = append(axes, ax)
+	}
+	t14PrintJSON(lv.r.Out, validation.VObj(
+		validation.KV{K: "campaign_id", V: validation.ObjAt(*surface, "campaign_id")},
+		validation.KV{K: "index_sha", V: validation.ObjAt(*surface, "index_sha")},
+		validation.KV{K: "current_index_sha", V: validation.ObjAt(*lv.summary, "current_index_sha")},
+		validation.KV{K: "stale", V: validation.ObjAt(*lv.summary, "stale")},
+		validation.KV{K: "rows", V: validation.ObjAt(*lv.summary, "rows")},
+		validation.KV{K: "dispositioned", V: validation.ObjAt(*lv.summary, "dispositioned")},
+		validation.KV{K: "open", V: validation.ObjAt(*lv.summary, "open")},
+		validation.KV{K: "axes", V: validation.VArr(axes...)},
+		validation.KV{K: "surface_rows", V: validation.VArr(rows...)}))
+	return nil
+}
+
+// probesListTable is the console branch: the summary line, the per-axis
+// lines and the (capped) row table.
+func probesListTable(lv *probesListView) {
+	out := lv.r.Out
+	surface, axisFilter := lv.surface, lv.axisFilter
 	stale := ""
-	if objBool(*summary, "stale") {
+	if objBool(*lv.summary, "stale") {
 		stale = " — stale?"
 	}
-	fmt.Fprintf(r.Out, "probe surface: %d rows (%d dispositioned, %d open)%s\n",
-		objInt(*summary, "rows"), objInt(*summary, "dispositioned"),
-		objInt(*summary, "open"), stale)
-	for _, line := range probeAxisLines(*surface, axisFilter, a.all) {
-		fmt.Fprintln(r.Out, line)
+	fmt.Fprintf(out, "probe surface: %d rows (%d dispositioned, %d open)%s\n",
+		objInt(*lv.summary, "rows"), objInt(*lv.summary, "dispositioned"),
+		objInt(*lv.summary, "open"), stale)
+	for _, line := range probeAxisLines(*surface, axisFilter, lv.a.all) {
+		fmt.Fprintln(out, line)
 	}
 	for _, line := range probeWarningLines(*surface) {
-		fmt.Fprintln(r.Out, line)
+		fmt.Fprintln(out, line)
 	}
 	// The console table is capped: a surface is an obligation list, not a
 	// transcript. The summary line points at the complete machine-readable
@@ -665,12 +728,12 @@ func probesList(a *probesArgs, c *state.Campaign, r *Runner) error {
 	}
 	for i, row := range selected {
 		if i == consoleRowCap {
-			fmt.Fprintf(r.Out,
+			fmt.Fprintf(out,
 				"  … +%d more rows — use --json for the full table\n",
 				len(selected)-consoleRowCap)
 			break
 		}
-		d := validation.ObjAt(dispositions, validation.ObjStr(row, "row_id"))
+		d := validation.ObjAt(lv.dispositions, validation.ObjStr(row, "row_id"))
 		stateStr := "open (not emitted)"
 		switch {
 		case objBool(d, "dispositioned"):
@@ -684,19 +747,17 @@ func probesList(a *probesArgs, c *state.Campaign, r *Runner) error {
 		if prio == "" {
 			prio = "—"
 		}
-		anchors := strings.Join(probes.RowAnchorPairs(row, index), ", ")
+		anchors := strings.Join(probes.RowAnchorPairs(row, lv.index), ", ")
 		if anchors == "" {
 			anchors = "—"
 		}
-		fmt.Fprintf(r.Out, "    %s rank %d tier %d gap %d %s — %s %s\n",
+		fmt.Fprintf(out, "    %s rank %d tier %d gap %d %s — %s %s\n",
 			validation.ObjStr(row, "row_id"), objInt(row, "rank"), objInt(row, "tier"),
 			objInt(row, "assertion_gap"), anchors, prio, stateStr)
 		if reason := validation.ObjStr(d, "reason"); reason != "" {
-			fmt.Fprintf(r.Out, "        reason: %s\n", reason)
+			fmt.Fprintf(out, "        reason: %s\n", reason)
 		}
 	}
-	t29PrintProbeClosure(c, planPtr, nil, false, r.Out)
-	return nil
 }
 
 // t29PrintProbeClosure is _print_probe_closure (cmd_answered.go owns the

@@ -13,6 +13,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 
@@ -36,44 +37,11 @@ func rankCmd(root string, args []string, r *Runner) error {
 	}
 
 	ensureSeams()
-	var pos []string
-	var posIdx []int
-	var unknown []immunizeUnk
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch {
-		case strings.HasPrefix(a, "-"):
-			unknown = append(unknown, immunizeUnk{i, a})
-		default:
-			pos = append(pos, a)
-			posIdx = append(posIdx, i)
-		}
+	rp, err := rankParseArgs(args)
+	if err != nil {
+		return err
 	}
-	missing := []string{}
-	if len(pos) < 1 {
-		missing = append(missing, "campaign")
-	}
-	if len(missing) > 0 {
-		return t14ArgparseErr(rankUsage, "rank",
-			"the following arguments are required: %s", strings.Join(missing, ", "))
-	}
-	if len(pos) > 1 {
-		for j, t := range pos[1:] {
-			unknown = append(unknown, immunizeUnk{posIdx[1+j], t})
-		}
-		pos = pos[:1]
-	}
-	if len(unknown) > 0 {
-		sort.Slice(unknown, func(i, j int) bool {
-			return unknown[i].idx < unknown[j].idx
-		})
-		toks := make([]string, len(unknown))
-		for i, u := range unknown {
-			toks[i] = u.tok
-		}
-		return t14Unrecognized(strings.Join(toks, " "))
-	}
-	c, err := state.Open(root, pos[0])
+	c, err := state.Open(root, rp.pos[0])
 	if err != nil {
 		return err
 	}
@@ -81,33 +49,119 @@ func rankCmd(root string, args []string, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	// the policy's submission_budget.rank_by, when the campaign is scoped
-	rankBy := "acceptance"
-	var budgetNote string
-	st, err := c.State()
+	pv, err := rankLoadPolicyView(c)
 	if err != nil {
 		return err
 	}
+	actionable, heldBack := rankActionable(live)
+	entries := rankComputeEntries(actionable, pv.rankBy, pv.policy)
+	if len(entries) == 0 {
+		if heldBack > 0 {
+			fmt.Fprintf(r.Out, "no candidate findings to rank (%d "+
+				"disproof/informational row(s): outcomes, not "+
+				"candidates — the scorecard still counts them)\n",
+				heldBack)
+			return nil
+		}
+		fmt.Fprintln(r.Out, "no live findings to rank")
+		return nil
+	}
+	rankPrintTable(r.Out, entries, heldBack, pv)
+	return nil
+}
+
+// rankParsed carries the parsed `rank` command line: the collected
+// positionals and the unrecognized tokens still to be checked.
+type rankParsed struct {
+	pos     []string
+	posIdx  []int
+	unknown []immunizeUnk
+}
+
+// rankParseArgs scans the raw arguments with cli.py's hand-rolled loop.
+func rankParseArgs(args []string) (*rankParsed, error) {
+	rp := &rankParsed{}
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case strings.HasPrefix(a, "-"):
+			rp.unknown = append(rp.unknown, immunizeUnk{i, a})
+		default:
+			rp.pos = append(rp.pos, a)
+			rp.posIdx = append(rp.posIdx, i)
+		}
+	}
+	missing := []string{}
+	if len(rp.pos) < 1 {
+		missing = append(missing, "campaign")
+	}
+	if len(missing) > 0 {
+		return nil, t14ArgparseErr(rankUsage, "rank",
+			"the following arguments are required: %s", strings.Join(missing, ", "))
+	}
+	if len(rp.pos) > 1 {
+		for j, t := range rp.pos[1:] {
+			rp.unknown = append(rp.unknown, immunizeUnk{rp.posIdx[1+j], t})
+		}
+		rp.pos = rp.pos[:1]
+	}
+	if len(rp.unknown) > 0 {
+		sort.Slice(rp.unknown, func(i, j int) bool {
+			return rp.unknown[i].idx < rp.unknown[j].idx
+		})
+		toks := make([]string, len(rp.unknown))
+		for i, u := range rp.unknown {
+			toks[i] = u.tok
+		}
+		return nil, t14Unrecognized(strings.Join(toks, " "))
+	}
+	return rp, nil
+}
+
+// rankPolicyView carries the policy-derived settings one rank run uses: the
+// campaign state, the ranking key, the budget note and the hoisted policy.
+type rankPolicyView struct {
+	st         validation.Value
+	rankBy     string
+	budgetNote string
+	policy     validation.Value
+}
+
+// rankLoadPolicyView reads the campaign state and resolves the policy's
+// rank_by key and submission-budget note.
+func rankLoadPolicyView(c *state.Campaign) (rankPolicyView, error) {
+	// the policy's submission_budget.rank_by, when the campaign is scoped
+	pv := rankPolicyView{rankBy: "acceptance", policy: validation.VNull()}
+	st, err := c.State()
+	if err != nil {
+		return pv, err
+	}
+	pv.st = st
 	// policy is hoisted: the budget read below and the G3 priors gate
 	// both resolve from the one loaded policy (absent/unloadable = VNull
 	// = today's behavior for both).
-	policy := validation.VNull()
 	if p := validation.ObjStr(st, "policy_path"); p != "" {
 		if loaded, perr := bounty.LoadPolicy(p); perr == nil {
-			policy = loaded
+			pv.policy = loaded
 		}
 	}
-	if sb := validation.ObjAt(policy, "submission_budget"); sb.Kind ==
+	if sb := validation.ObjAt(pv.policy, "submission_budget"); sb.Kind ==
 		validation.Obj {
 		if rb := validation.ObjStr(sb, "rank_by"); rb == "severity" {
-			rankBy = "severity"
+			pv.rankBy = "severity"
 		}
 		if mf := validation.ObjAt(sb, "max_findings"); mf.Kind == validation.Int &&
 			mf.I > 0 {
-			budgetNote = fmt.Sprintf(
+			pv.budgetNote = fmt.Sprintf(
 				", submission budget %d", mf.I)
 		}
 	}
+	return pv, nil
+}
+
+// rankActionable filters the live findings down to the rankable rows,
+// reporting how many DISPROVED / INFORMATIONAL rows were held back.
+func rankActionable(live []validation.Value) ([]validation.Value, int) {
 	// r5 (critic): rank answers "which findings MATTER". A DISPROVED or
 	// INFORMATIONAL row stays in the ledger (the calibration law counts
 	// disproofs as outcomes) but is not a candidate — a disproved row is
@@ -122,6 +176,13 @@ func rankCmd(root string, args []string, r *Runner) error {
 		}
 		actionable = append(actionable, f)
 	}
+	return actionable, heldBack
+}
+
+// rankComputeEntries runs the acceptance ranking, applying the policy-gated
+// G3 priors when they are enabled.
+func rankComputeEntries(actionable []validation.Value, rankBy string,
+	policy validation.Value) []risk.AcceptanceEntry {
 	entries := risk.AcceptanceRanking(actionable, rankBy)
 	if bounty.PriorsEnabled(policy) {
 		// G3 wPrior, policy-gated OFF by default: a store failure
@@ -132,34 +193,30 @@ func rankCmd(root string, args []string, r *Runner) error {
 		entries = risk.AcceptanceRankingWithPriors(actionable, rankBy,
 			priors, global)
 	}
-	if len(entries) == 0 {
-		if heldBack > 0 {
-			fmt.Fprintf(r.Out, "no candidate findings to rank (%d "+
-				"disproof/informational row(s): outcomes, not "+
-				"candidates — the scorecard still counts them)\n",
-				heldBack)
-			return nil
-		}
-		fmt.Fprintln(r.Out, "no live findings to rank")
-		return nil
-	}
+	return entries
+}
+
+// rankPrintTable writes the held-back note, the ranking header and the
+// qualified rows, then names the critic-disqualified ids below the table.
+func rankPrintTable(out io.Writer, entries []risk.AcceptanceEntry,
+	heldBack int, pv rankPolicyView) {
 	if heldBack > 0 {
-		fmt.Fprintf(r.Out, "held back: %d disproof/informational row(s) "+
+		fmt.Fprintf(out, "held back: %d disproof/informational row(s) "+
 			"— outcomes, not candidates (scorecard still counts them)\n",
 			heldBack)
 	}
 	keyName := "acceptance"
-	if rankBy == "severity" {
+	if pv.rankBy == "severity" {
 		keyName = "severity"
 	}
-	fmt.Fprintf(r.Out, "acceptance ranking — %d live finding(s) "+
-		"(key: %s%s)\n", len(entries), keyName, budgetNote)
+	fmt.Fprintf(out, "acceptance ranking — %d live finding(s) "+
+		"(key: %s%s)\n", len(entries), keyName, pv.budgetNote)
 	// A campaign with no policy is UNSCORED: the ranking is a severity order,
 	// not a submission order. Say so rather than let it read as advice.
-	if p := validation.ObjStr(st, "policy_path"); p == "" {
-		fmt.Fprint(r.Out, rankUnscopedNote)
+	if p := validation.ObjStr(pv.st, "policy_path"); p == "" {
+		fmt.Fprint(out, rankUnscopedNote)
 	}
-	fmt.Fprintln(r.Out, "  #  id  score  band  evidence  critic  title")
+	fmt.Fprintln(out, "  #  id  score  band  evidence  critic  title")
 	i := 0
 	var dq []string
 	for _, e := range entries {
@@ -168,15 +225,14 @@ func rankCmd(root string, args []string, r *Runner) error {
 			continue
 		}
 		i++
-		fmt.Fprintf(r.Out, "  %d  %s  %s  %s  %s  %s  %s\n",
+		fmt.Fprintf(out, "  %d  %s  %s  %s  %s  %s  %s\n",
 			i, rankID(e), rankScore(e), rankBand(e), rankEvidence(e),
 			rankCritic(e), rankTitle(e))
 	}
 	if len(dq) > 0 {
-		fmt.Fprintf(r.Out, "disqualified (critic disproved): %s\n",
+		fmt.Fprintf(out, "disqualified (critic disproved): %s\n",
 			strings.Join(dq, ", "))
 	}
-	return nil
 }
 
 // rankUnscopedNote is the loud line an unscoped campaign prints above its
