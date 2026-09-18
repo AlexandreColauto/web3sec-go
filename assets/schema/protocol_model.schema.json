@@ -433,7 +433,11 @@
         "required": ["id"],
         "properties": {
           "id": { "type": "string" },
-          "kind": { "enum": ["chainlink", "twap", "spot-amm", "pyth", "custom", "manual", "sequencer-uptime"] },
+          "kind": { "enum": ["chainlink", "twap", "spot-amm", "pyth", "custom", "manual", "sequencer-uptime", "data-availability", "other"] },
+          "kind_note": {
+            "type": "string",
+            "description": "the provenance note for a `kind` the enum cannot name precisely: WHAT the oracle actually is and WHO supplied the fact. REQUIRED BY CONVENTION when kind is \"other\" (the catch-all must never stand alone) and strongly wanted for \"data-availability\" (name the DA layer: blobs, Celestia, EigenDA); free text and optional for every value the enum already names. Advisory only — no consumer branches on it — and never inferred, defaulted, or backfilled: absent means the operator supplied none."
+          },
           "feeds": { "type": "array", "items": { "type": "string" } },
           "staleness_guard": { "type": ["boolean", "null"] },
           "deviation_guard": { "type": ["boolean", "null"] },
