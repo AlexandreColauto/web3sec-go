@@ -21,15 +21,9 @@ import (
 
 // PriceTable is the PRICING section: {checked, problems, ok} or ErrSkip.
 func PriceTable(c *state.Campaign) (validation.Value, error) {
-	events, err := c.Events()
+	priceEvents, err := priceCollectEvents(c)
 	if err != nil {
 		return validation.Value{}, err
-	}
-	var priceEvents []validation.Value
-	for _, e := range events {
-		if validation.ObjStr(e, "type") == "price.set" {
-			priceEvents = append(priceEvents, e)
-		}
 	}
 	tablePath := filepath.Join(c.Dir, "prices.json")
 	rows, fileFound, err := readPriceRows(tablePath)
@@ -39,13 +33,61 @@ func PriceTable(c *state.Campaign) (validation.Value, error) {
 	if !fileFound && len(priceEvents) == 0 {
 		return validation.Value{}, ErrSkip // never priced anything
 	}
-	// Log order = decision order: the LAST price.set per id governs.
-	type logged struct {
-		data validation.Value
+	pt := &priceAudit{c: c, priceEvents: priceEvents, rows: rows,
+		fileFound: fileFound, have: map[string]bool{}}
+	pt.priceBuildLastMap()
+	pt.priceCheckRows()
+	pt.priceCheckMissing()
+	return validation.VObj(
+		KV("checked", validation.VInt(int64(len(rows)+len(priceEvents)))),
+		KV("problems", validation.VArr(pt.problems...)),
+		KV("ok", validation.VBool(len(pt.problems) == 0)),
+	), nil
+}
+
+// priceAudit carries the price table reconciliation's shared state: the
+// log's price.set events, the file's rows, whether the file was found,
+// the row ids the file holds, the accumulated problems, and the log's
+// last decision per price_id in first-seen order.
+type priceAudit struct {
+	c           *state.Campaign
+	priceEvents []validation.Value
+	rows        []validation.Value
+	fileFound   bool
+	have        map[string]bool
+	problems    []validation.Value
+	last        map[string]priceLogged
+	order       []string
+}
+
+// priceLogged is one price_id's governing decision: the event's data
+// object.
+type priceLogged struct {
+	data validation.Value
+}
+
+// priceCollectEvents reads the event log once and keeps the price.set
+// decisions, in log order.
+func priceCollectEvents(c *state.Campaign) ([]validation.Value, error) {
+	events, err := c.Events()
+	if err != nil {
+		return nil, err
 	}
-	last := map[string]logged{}
-	var order []string
-	for _, e := range priceEvents {
+	var priceEvents []validation.Value
+	for _, e := range events {
+		if validation.ObjStr(e, "type") == "price.set" {
+			priceEvents = append(priceEvents, e)
+		}
+	}
+	return priceEvents, nil
+}
+
+// priceBuildLastMap folds the log to the LAST price.set per price_id, in
+// first-seen order.
+func (pt *priceAudit) priceBuildLastMap() {
+	// Log order = decision order: the LAST price.set per id governs.
+	pt.last = map[string]priceLogged{}
+	for _, e := range pt.priceEvents {
 		rv := validation.ObjAt(e, "ref")
 		id := ""
 		if rv.Kind == validation.Str {
@@ -54,19 +96,22 @@ func PriceTable(c *state.Campaign) (validation.Value, error) {
 		if id == "" {
 			continue
 		}
-		if _, seen := last[id]; !seen {
-			order = append(order, id)
+		if _, seen := pt.last[id]; !seen {
+			pt.order = append(pt.order, id)
 		}
-		last[id] = logged{validation.ObjAt(e, "data")}
+		pt.last[id] = priceLogged{validation.ObjAt(e, "data")}
 	}
-	var problems []validation.Value
-	have := map[string]bool{}
-	for _, row := range rows {
+}
+
+// priceCheckRows polices each file row against the log's last decision
+// for it: ghost ids, drifted fields, set_by.
+func (pt *priceAudit) priceCheckRows() {
+	for _, row := range pt.rows {
 		id := validation.ObjStr(row, "price_id")
-		have[id] = true
-		lg, ok := last[id]
+		pt.have[id] = true
+		lg, ok := pt.last[id]
 		if !ok {
-			problems = append(problems, validation.VStr(fmt.Sprintf(
+			pt.problems = append(pt.problems, validation.VStr(fmt.Sprintf(
 				"PRICING: %s: prices.json carries a row the log never "+
 					"priced (ghost price_id)", id)))
 			continue
@@ -75,7 +120,7 @@ func PriceTable(c *state.Campaign) (validation.Value, error) {
 			got := validation.ObjAt(row, field)
 			want := validation.ObjAt(lg.data, field)
 			if !pyEqual(got, want) {
-				problems = append(problems, validation.VStr(fmt.Sprintf(
+				pt.problems = append(pt.problems, validation.VStr(fmt.Sprintf(
 					"PRICING: %s: %s is %s in prices.json but the last "+
 						"price.set logged %s — the table was edited "+
 						"outside the ledger", id, field,
@@ -87,30 +132,30 @@ func PriceTable(c *state.Campaign) (validation.Value, error) {
 		// whitespace never false-positives but "Mallory" does (r5).
 		rowBy, logBy := validation.ObjStr(row, "set_by"), validation.ObjStr(lg.data, "actor")
 		if pyStripStr(rowBy) != pyStripStr(logBy) {
-			problems = append(problems, validation.VStr(fmt.Sprintf(
+			pt.problems = append(pt.problems, validation.VStr(fmt.Sprintf(
 				"PRICING: %s: set_by is %s in prices.json but the last "+
 					"price.set logged %s — the table was edited outside "+
 					"the ledger", id, validation.PyRepr(validation.VStr(rowBy)),
 				validation.PyRepr(validation.VStr(logBy)))))
 		}
 	}
-	for _, id := range order {
-		if !have[id] {
-			problems = append(problems, validation.VStr(fmt.Sprintf(
+}
+
+// priceCheckMissing reports the mirror direction: a price_id the log
+// priced that the file lost, and a table missing entirely.
+func (pt *priceAudit) priceCheckMissing() {
+	for _, id := range pt.order {
+		if !pt.have[id] {
+			pt.problems = append(pt.problems, validation.VStr(fmt.Sprintf(
 				"PRICING: %s: the log priced this id but prices.json has "+
 					"no such row", id)))
 		}
 	}
-	if !fileFound {
-		problems = append(problems, validation.VStr(
+	if !pt.fileFound {
+		pt.problems = append(pt.problems, validation.VStr(
 			"PRICING: price events exist but prices.json is missing "+
 				"entirely"))
 	}
-	return validation.VObj(
-		KV("checked", validation.VInt(int64(len(rows)+len(priceEvents)))),
-		KV("problems", validation.VArr(problems...)),
-		KV("ok", validation.VBool(len(problems) == 0)),
-	), nil
 }
 
 // readPriceRows loads the table file if present: rows, found.

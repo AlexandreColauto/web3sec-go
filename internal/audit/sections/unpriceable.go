@@ -22,9 +22,40 @@ import (
 
 // Unpriceable is audit.py section 14: {checked, problems, ok}.
 func Unpriceable(c *state.Campaign) (validation.Value, error) {
-	events, err := c.Events()
+	decisions, err := unpriceableCollectDecisions(c)
 	if err != nil {
 		return validation.Value{}, err
+	}
+	ua := &unpriceableAudit{c: c, decisions: decisions}
+	if err := ua.unpriceableCheckFiles(); err != nil {
+		return validation.Value{}, err
+	}
+	ua.unpriceableCheckMirror()
+	// 'checked' keeps its ported meaning (files examined); the mirror
+	// scan reports, it does not inflate the counter.
+	return validation.VObj(
+		KV("checked", validation.VInt(int64(ua.checked))),
+		KV("problems", validation.VArr(ua.problems...)),
+		KV("ok", validation.VBool(len(ua.problems) == 0)),
+	), nil
+}
+
+// unpriceableAudit carries the unpriceable section's shared context: the
+// campaign under audit, the log's impact decisions in log order, and the
+// accumulated problems and checked counter.
+type unpriceableAudit struct {
+	c         *state.Campaign
+	decisions []validation.Value
+	problems  []validation.Value
+	checked   int
+}
+
+// unpriceableCollectDecisions reads the event log once and keeps the
+// impact decisions the section polices, in log order.
+func unpriceableCollectDecisions(c *state.Campaign) ([]validation.Value, error) {
+	events, err := c.Events()
+	if err != nil {
+		return nil, err
 	}
 	var decisions []validation.Value
 	for _, e := range events {
@@ -33,65 +64,82 @@ func Unpriceable(c *state.Campaign) (validation.Value, error) {
 			decisions = append(decisions, e)
 		}
 	}
-	var problems []validation.Value
-	checked := 0
+	return decisions, nil
+}
+
+// unpriceableCheckFiles walks the finding files and polices each
+// priceable=false decision the FILE carries against the log.
+func (ua *unpriceableAudit) unpriceableCheckFiles() error {
 	// r43a: findingFiles refuses on a finding store it cannot list; that
 	// refusal must reach the audit as a refusal rather than this section
 	// silently checking zero findings.
-	files, err := findingFiles(c)
+	files, err := findingFiles(ua.c)
 	if err != nil {
-		return validation.Value{}, err
+		return err
 	}
 	for _, p := range files {
-		fdata, err := validation.ReadJson(p)
-		if err != nil {
-			// unreadable/invalid: section 4 already reports it
-			continue
-		}
-		imp := validation.ObjAt(fdata, "economic_impact")
-		if imp.Kind != validation.Obj {
-			continue
-		}
-		if pv := validation.ObjAt(imp, "priceable"); pv.Kind != validation.Bool || pv.B {
-			continue
-		}
-		checked++
-		fid := validation.ObjStr(fdata, "finding_id")
-		if fid == "" {
-			fid = strings.TrimSuffix(filepath.Base(p), ".json")
-		}
-		var mine []validation.Value
-		for _, e := range decisions {
-			if validation.ObjStr(e, "ref") == fid {
-				mine = append(mine, e)
-			}
-		}
-		if len(mine) == 0 {
-			problems = append(problems, validation.VStr(fmt.Sprintf(
-				"finding %s records economic_impact.priceable=false with "+
-					"no finding.unpriceable event — the decision was "+
-					"hand-edited", fid)))
-			continue
-		}
-		last := mine[len(mine)-1]
-		if validation.ObjStr(last, "type") != "finding.unpriceable" {
-			problems = append(problems, validation.VStr(fmt.Sprintf(
-				"finding %s records economic_impact.priceable=false but "+
-					"the log's latest impact decision is a priced "+
-					"finding.impact_recorded — projection drifted from "+
-					"the log", fid)))
-			continue
-		}
-		recorded := validation.ObjAt(validation.ObjAt(last, "data"), "ceiling")
-		ceiling := validation.ObjAt(imp, "ceiling")
-		if !pyEqual(recorded, ceiling) {
-			problems = append(problems, validation.VStr(fmt.Sprintf(
-				"finding %s records ceiling %s but the log's last "+
-					"finding.unpriceable event cites %s — projection "+
-					"drifted from the log", fid, validation.PyRepr(ceiling),
-				validation.PyRepr(recorded))))
+		ua.unpriceableCheckFile(p)
+	}
+	return nil
+}
+
+// unpriceableCheckFile checks one finding file's economic_impact against
+// the log's impact decisions for it.
+func (ua *unpriceableAudit) unpriceableCheckFile(p string) {
+	fdata, err := validation.ReadJson(p)
+	if err != nil {
+		// unreadable/invalid: section 4 already reports it
+		return
+	}
+	imp := validation.ObjAt(fdata, "economic_impact")
+	if imp.Kind != validation.Obj {
+		return
+	}
+	if pv := validation.ObjAt(imp, "priceable"); pv.Kind != validation.Bool || pv.B {
+		return
+	}
+	ua.checked++
+	fid := validation.ObjStr(fdata, "finding_id")
+	if fid == "" {
+		fid = strings.TrimSuffix(filepath.Base(p), ".json")
+	}
+	var mine []validation.Value
+	for _, e := range ua.decisions {
+		if validation.ObjStr(e, "ref") == fid {
+			mine = append(mine, e)
 		}
 	}
+	if len(mine) == 0 {
+		ua.problems = append(ua.problems, validation.VStr(fmt.Sprintf(
+			"finding %s records economic_impact.priceable=false with "+
+				"no finding.unpriceable event — the decision was "+
+				"hand-edited", fid)))
+		return
+	}
+	last := mine[len(mine)-1]
+	if validation.ObjStr(last, "type") != "finding.unpriceable" {
+		ua.problems = append(ua.problems, validation.VStr(fmt.Sprintf(
+			"finding %s records economic_impact.priceable=false but "+
+				"the log's latest impact decision is a priced "+
+				"finding.impact_recorded — projection drifted from "+
+				"the log", fid)))
+		return
+	}
+	recorded := validation.ObjAt(validation.ObjAt(last, "data"), "ceiling")
+	ceiling := validation.ObjAt(imp, "ceiling")
+	if !pyEqual(recorded, ceiling) {
+		ua.problems = append(ua.problems, validation.VStr(fmt.Sprintf(
+			"finding %s records ceiling %s but the log's last "+
+				"finding.unpriceable event cites %s — projection "+
+				"drifted from the log", fid, validation.PyRepr(ceiling),
+			validation.PyRepr(recorded))))
+	}
+}
+
+// unpriceableCheckMirror polices the mirror direction: a decision erased
+// from the file while the log's last word for it is still
+// finding.unpriceable.
+func (ua *unpriceableAudit) unpriceableCheckMirror() {
 	// r6: the mirror direction. The loop above polices a FILE decision the
 	// LOG contradicts; a decision ERASED from the file (priceable true or
 	// absent) while the chain's last word is still finding.unpriceable is
@@ -99,12 +147,12 @@ func Unpriceable(c *state.Campaign) (validation.Value, error) {
 	// ghost and lost rows from day one, the finding file gets its now. The
 	// gate already refuses to credit an erased decision (it reads the
 	// file); what was missing was that the AUDIT stays silent about it.
-	for _, e := range decisions {
+	for _, e := range ua.decisions {
 		if validation.ObjStr(e, "type") != "finding.unpriceable" {
 			continue
 		}
 		fid := validation.ObjStr(e, "ref")
-		fdata, ok := findingFileOf(c, fid)
+		fdata, ok := findingFileOf(ua.c, fid)
 		if !ok {
 			continue // findings section reports the missing file
 		}
@@ -118,7 +166,7 @@ func Unpriceable(c *state.Campaign) (validation.Value, error) {
 		// But was it later retracted the proper way? The decisions list is
 		// log order; this event's own finding's LAST impact decision wins.
 		last := ""
-		for _, e2 := range decisions {
+		for _, e2 := range ua.decisions {
 			if validation.ObjStr(e2, "ref") == fid {
 				last = validation.ObjStr(e2, "type")
 			}
@@ -126,19 +174,12 @@ func Unpriceable(c *state.Campaign) (validation.Value, error) {
 		if last != "finding.unpriceable" {
 			continue
 		}
-		problems = append(problems, validation.VStr(fmt.Sprintf(
+		ua.problems = append(ua.problems, validation.VStr(fmt.Sprintf(
 			"finding %s: the log's last impact decision is a recorded "+
 				"unpriceable, but the file does not carry it "+
 				"(priceable false absent?) — the decision was erased by "+
 				"hand-edit", fid)))
 	}
-	// 'checked' keeps its ported meaning (files examined); the mirror
-	// scan reports, it does not inflate the counter.
-	return validation.VObj(
-		KV("checked", validation.VInt(int64(checked))),
-		KV("problems", validation.VArr(problems...)),
-		KV("ok", validation.VBool(len(problems) == 0)),
-	), nil
 }
 
 // findingFileOf resolves a finding id to its stored file; the path is

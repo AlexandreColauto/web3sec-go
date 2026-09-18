@@ -32,9 +32,39 @@ func snapshotStoreRefusal(verb, path string, err error) error {
 // Snapshots is audit.py section 6. checked counts the pin dirs with a
 // readable source.content_hash.
 func Snapshots(c *state.Campaign) (validation.Value, error) {
-	var problems []validation.Value
-	checked := 0
-	snapsRoot := filepath.Join(c.Dir, "snapshots")
+	sa := &snapAudit{c: c, snapsRoot: filepath.Join(c.Dir, "snapshots")}
+	paths, err := sa.snapListStore()
+	if err != nil {
+		return validation.Value{}, err
+	}
+	for _, snapDir := range paths {
+		if err := sa.snapCheckPin(snapDir); err != nil {
+			return validation.Value{}, err
+		}
+	}
+	if err := sa.snapCheckGhosts(); err != nil {
+		return validation.Value{}, err
+	}
+	return validation.VObj(
+		KV("checked", validation.VInt(int64(sa.checked))),
+		KV("problems", validation.VArr(sa.problems...)),
+		KV("ok", validation.VBool(len(sa.problems) == 0)),
+	), nil
+}
+
+// snapAudit carries the snapshots section's shared context: the campaign
+// under audit, the snapshot store root, and the accumulated problems and
+// checked counter.
+type snapAudit struct {
+	c         *state.Campaign
+	snapsRoot string
+	problems  []validation.Value
+	checked   int
+}
+
+// snapListStore lists the snapshot store's pin dirs, refusing a store it
+// cannot list and folding absence to an empty listing.
+func (sa *snapAudit) snapListStore() ([]string, error) {
 	// r44b P1-b: this was `if _, err := os.Stat(snapsRoot); err == nil {
 	// entries, _ := os.ReadDir(snapsRoot) }` — the ReadDir error was
 	// DISCARDED, so a snapshots/ store that could not be listed was
@@ -44,10 +74,10 @@ func Snapshots(c *state.Campaign) (validation.Value, error) {
 	// trusting it" verified ZERO pins and passed, exit 0. Absence stays a
 	// fact (a campaign that never pinned has no store and audits green);
 	// a store that cannot be listed refuses, naming the path and the errno.
-	entries, rerr := os.ReadDir(snapsRoot)
+	entries, rerr := os.ReadDir(sa.snapsRoot)
 	if rerr != nil {
 		if !os.IsNotExist(rerr) {
-			return validation.Value{}, snapshotStoreRefusal("listed", snapsRoot,
+			return nil, snapshotStoreRefusal("listed", sa.snapsRoot,
 				rerr)
 		}
 		entries = nil // absent store: an empty campaign, not a refusal
@@ -55,106 +85,124 @@ func Snapshots(c *state.Campaign) (validation.Value, error) {
 	// Python sorts the child Paths (full path string) ascending.
 	paths := make([]string, 0, len(entries))
 	for _, e := range entries {
-		paths = append(paths, filepath.Join(snapsRoot, e.Name()))
+		paths = append(paths, filepath.Join(sa.snapsRoot, e.Name()))
 	}
 	sort.Strings(paths)
-	for _, snapDir := range paths {
-		st, sterr := os.Stat(snapDir)
-		if sterr != nil {
-			if os.IsNotExist(sterr) {
-				// Listed, then gone: absence.
-				continue
-			}
-			// r44b: this used to `continue` on ANY stat error, so a pin
-			// dir this run could not inspect was silently dropped from
-			// `checked` — the same fold as the store itself.
-			return validation.Value{}, snapshotStoreRefusal("read", snapDir,
-				sterr)
+	return paths, nil
+}
+
+// snapCheckPin verifies one pin dir: the layout filter, the manifest's
+// presence and readability, then the content checks.
+func (sa *snapAudit) snapCheckPin(snapDir string) error {
+	st, sterr := os.Stat(snapDir)
+	if sterr != nil {
+		if os.IsNotExist(sterr) {
+			// Listed, then gone: absence.
+			return nil
 		}
-		if !st.IsDir() {
-			continue // the layout filter: snapshots/ holds pin dirs
+		// r44b: this used to `continue` on ANY stat error, so a pin
+		// dir this run could not inspect was silently dropped from
+		// `checked` — the same fold as the store itself.
+		return snapshotStoreRefusal("read", snapDir,
+			sterr)
+	}
+	if !st.IsDir() {
+		return nil // the layout filter: snapshots/ holds pin dirs
+	}
+	name := filepath.Base(snapDir)
+	meta := filepath.Join(snapDir, "snapshot.json")
+	if _, merr := os.Stat(meta); merr != nil {
+		if !os.IsNotExist(merr) {
+			// r44b: an unreadable pin dir (mode 000 on snapshots/<id>,
+			// EIO) made os.Stat(meta) fail with EACCES and the section
+			// reported "missing snapshot.json" — a claim about the
+			// file's ABSENCE drawn from a read failure.
+			return snapshotStoreRefusal("read", meta,
+				merr)
 		}
-		name := filepath.Base(snapDir)
-		meta := filepath.Join(snapDir, "snapshot.json")
-		if _, merr := os.Stat(meta); merr != nil {
-			if !os.IsNotExist(merr) {
-				// r44b: an unreadable pin dir (mode 000 on snapshots/<id>,
-				// EIO) made os.Stat(meta) fail with EACCES and the section
-				// reported "missing snapshot.json" — a claim about the
-				// file's ABSENCE drawn from a read failure.
-				return validation.Value{}, snapshotStoreRefusal("read", meta,
-					merr)
-			}
-			problems = append(problems, validation.VStr(
-				fmt.Sprintf("%s: missing snapshot.json", name)))
-			continue
+		sa.problems = append(sa.problems, validation.VStr(
+			fmt.Sprintf("%s: missing snapshot.json", name)))
+		return nil
+	}
+	snap, perr := validation.ReadJson(meta)
+	recorded := validation.ObjAt(validation.ObjAt(snap, "source"), "content_hash")
+	if perr != nil || recorded.Kind != validation.Str {
+		// r44b: an I/O failure on the manifest is a READ failure, not
+		// a content verdict — Python's os errors are uncaught there
+		// and the port must not turn EACCES into "unusable content".
+		// Only the not-exist shape (the file vanished between the stat
+		// and the read) keeps the message below.
+		var pe *os.PathError
+		if perr != nil && !os.IsNotExist(perr) &&
+			errors.As(perr, &pe) {
+			return snapshotStoreRefusal("read", meta,
+				perr)
 		}
-		snap, perr := validation.ReadJson(meta)
-		recorded := validation.ObjAt(validation.ObjAt(snap, "source"), "content_hash")
-		if perr != nil || recorded.Kind != validation.Str {
-			// r44b: an I/O failure on the manifest is a READ failure, not
-			// a content verdict — Python's os errors are uncaught there
-			// and the port must not turn EACCES into "unusable content".
-			// Only the not-exist shape (the file vanished between the stat
-			// and the read) keeps the message below.
-			var pe *os.PathError
-			if perr != nil && !os.IsNotExist(perr) &&
-				errors.As(perr, &pe) {
-				return validation.Value{}, snapshotStoreRefusal("read", meta,
-					perr)
-			}
-			// Python catches (KeyError, ValueError): a missing
-			// source/content_hash is a KeyError; invalid JSON is a
-			// JSONDecodeError (a ValueError). Both -> unreadable.
-			problems = append(problems, validation.VStr(
-				fmt.Sprintf("%s: unreadable snapshot.json (missing or invalid content_hash)", name)))
-			continue
-		}
-		checked++
-		actual, _, err := snapshot.ContentHash(snapDir)
+		// Python catches (KeyError, ValueError): a missing
+		// source/content_hash is a KeyError; invalid JSON is a
+		// JSONDecodeError (a ValueError). Both -> unreadable.
+		sa.problems = append(sa.problems, validation.VStr(
+			fmt.Sprintf("%s: unreadable snapshot.json (missing or invalid content_hash)", name)))
+		return nil
+	}
+	return sa.snapCheckPinHashes(name, snapDir, snap, recorded)
+}
+
+// snapCheckPinHashes re-hashes the pinned copy with the same
+// length-prefixed digest used at pin time and recomputes the
+// self-describing manifest (where present) from disk.
+func (sa *snapAudit) snapCheckPinHashes(name, snapDir string,
+	snap, recorded validation.Value) error {
+	sa.checked++
+	actual, _, err := snapshot.ContentHash(snapDir)
+	if err != nil {
+		return err
+	}
+	if actual != recorded.S {
+		sa.problems = append(sa.problems, validation.VStr(
+			fmt.Sprintf("%s: content hash mismatch (stored %s..., actual %s...) — the pinned copy was modified after pinning",
+				name, trunc12(recorded.S), actual[:12])))
+	}
+	// The self-describing manifest (where present).
+	manifest := validation.ObjAt(snap, "manifest")
+	if manifest.Kind == validation.Obj && len(manifest.O) > 0 {
+		actualRoot, err := snapshot.SourceMerkleRoot(snapDir)
 		if err != nil {
-			return validation.Value{}, err
+			return err
 		}
-		if actual != recorded.S {
-			problems = append(problems, validation.VStr(
-				fmt.Sprintf("%s: content hash mismatch (stored %s..., actual %s...) — the pinned copy was modified after pinning",
-					name, trunc12(recorded.S), actual[:12])))
+		manifestRoot := validation.ObjStr(manifest, "source_merkle_root")
+		if actualRoot != manifestRoot {
+			sa.problems = append(sa.problems, validation.VStr(
+				fmt.Sprintf("%s: manifest source_merkle_root mismatch (stored %s..., actual %s...)",
+					name, trunc12(manifestRoot), actualRoot[:12])))
 		}
-		// The self-describing manifest (where present).
-		manifest := validation.ObjAt(snap, "manifest")
-		if manifest.Kind == validation.Obj && len(manifest.O) > 0 {
-			actualRoot, err := snapshot.SourceMerkleRoot(snapDir)
-			if err != nil {
-				return validation.Value{}, err
-			}
-			manifestRoot := validation.ObjStr(manifest, "source_merkle_root")
-			if actualRoot != manifestRoot {
-				problems = append(problems, validation.VStr(
-					fmt.Sprintf("%s: manifest source_merkle_root mismatch (stored %s..., actual %s...)",
-						name, trunc12(manifestRoot), actualRoot[:12])))
-			}
-			manifestMH := validation.ObjStr(manifest, "manifest_hash")
-			// Recompute metal hash over the manifest's own fields
-			// (excluding manifest_hash itself).
-			fields := withoutKey(manifest, "manifest_hash")
-			actualMH := snapshot.ManifestHash(fields)
-			if actualMH != manifestMH {
-				problems = append(problems, validation.VStr(
-					fmt.Sprintf("%s: manifest_hash does not match the manifest's own fields — the manifest was edited after pinning",
-						name)))
-			}
+		manifestMH := validation.ObjStr(manifest, "manifest_hash")
+		// Recompute metal hash over the manifest's own fields
+		// (excluding manifest_hash itself).
+		fields := withoutKey(manifest, "manifest_hash")
+		actualMH := snapshot.ManifestHash(fields)
+		if actualMH != manifestMH {
+			sa.problems = append(sa.problems, validation.VStr(
+				fmt.Sprintf("%s: manifest_hash does not match the manifest's own fields — the manifest was edited after pinning",
+					name)))
 		}
 	}
+	return nil
+}
+
+// snapCheckGhosts verifies the campaign's projection only names pin dirs
+// the store holds.
+func (sa *snapAudit) snapCheckGhosts() error {
 	// r4 (critic): an active_snapshot the projection names but the store
 	// does not hold is a ghost pin — every later integrity read trusts it.
 	// Corrupt CONTENT was caught; a missing DIRECTORY was not. The
 	// round-3 law applies: disclose loudly (audit goes RED; doctor
 	// already says exists:false), do not block ingest over a deleted dir
 	// the operator may be mid-recovery from.
-	if st, serr := c.State(); serr == nil {
+	if st, serr := sa.c.State(); serr == nil {
 		active := validation.ObjStr(st, "active_snapshot_id")
 		for _, name := range referencedSnapshotIDs(st) {
-			pinPath := filepath.Join(snapsRoot, name)
+			pinPath := filepath.Join(sa.snapsRoot, name)
 			_, derr := os.Stat(pinPath)
 			if derr == nil {
 				continue
@@ -164,7 +212,7 @@ func Snapshots(c *state.Campaign) (validation.Value, error) {
 				// answered "no ghost" for every stat error — a pin whose
 				// presence could not be decided is not a pin the section
 				// may call present.
-				return validation.Value{}, snapshotStoreRefusal("read",
+				return snapshotStoreRefusal("read",
 					pinPath, derr)
 			}
 			// r13: one message must not claim "active" for an
@@ -174,17 +222,13 @@ func Snapshots(c *state.Campaign) (validation.Value, error) {
 			if name == active {
 				role = "names as active"
 			}
-			problems = append(problems, validation.VStr(
+			sa.problems = append(sa.problems, validation.VStr(
 				name+": the campaign "+role+" this snapshot but "+
 					"snapshots/"+name+" does not exist — re-pin (`webv2 "+
 					"snap`) or the ledger pins are ghosts"))
 		}
 	}
-	return validation.VObj(
-		KV("checked", validation.VInt(int64(checked))),
-		KV("problems", validation.VArr(problems...)),
-		KV("ok", validation.VBool(len(problems) == 0)),
-	), nil
+	return nil
 }
 
 // referencedSnapshotIDs is the set of snapshot ids the campaign's

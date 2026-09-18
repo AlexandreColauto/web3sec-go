@@ -23,18 +23,42 @@ func Execs(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.Value{}, err
 	}
-	var problems []validation.Value
+	ea := &execAudit{c: c}
+	if err := ea.execCheckRecords(execs); err != nil {
+		return validation.Value{}, err
+	}
+	if err := ea.execCheckEvents(execs); err != nil {
+		return validation.Value{}, err
+	}
+	return validation.VObj(
+		KV("checked", validation.VInt(int64(len(execs)))),
+		KV("problems", validation.VArr(ea.problems...)),
+		KV("ok", validation.VBool(len(ea.problems) == 0)),
+	), nil
+}
+
+// execAudit carries the exec records section's shared context: the
+// campaign under audit and the accumulated problems.
+type execAudit struct {
+	c        *state.Campaign
+	problems []validation.Value
+}
+
+// execCheckRecords validates each exec record against
+// "sandbox_execution" and re-checks a valid record's artifact hashes
+// against the output files on disk.
+func (ea *execAudit) execCheckRecords(execs []validation.Value) error {
 	for _, rec := range execs {
 		eid := getStrOr(rec, "exec_id", "?")
 		if err := validation.Validate(rec, "sandbox_execution", 1); err != nil {
 			var se *validation.SchemaError
 			if errors.As(err, &se) {
-				problems = append(problems, validation.VStr(
+				ea.problems = append(ea.problems, validation.VStr(
 					fmt.Sprintf("%s: %s", eid, se.Msg)))
 				continue
 			}
 			// A non-schema error (schema missing, etc.) propagates.
-			return validation.Value{}, err
+			return err
 		}
 		if eid == "?" {
 			eid = ""
@@ -46,22 +70,28 @@ func Execs(c *state.Campaign) (validation.Value, error) {
 		for _, h := range hashes.O {
 			name := h.K
 			stored := h.V.S
-			p := filepath.Join(c.ExecsDir, eid, name)
+			p := filepath.Join(ea.c.ExecsDir, eid, name)
 			if _, err := os.Stat(p); err != nil {
-				problems = append(problems, validation.VStr(
+				ea.problems = append(ea.problems, validation.VStr(
 					fmt.Sprintf("%s: missing output file %s", eid, name)))
 				continue
 			}
 			actual, err := validation.Sha256File(p)
 			if err != nil {
-				return validation.Value{}, err
+				return err
 			}
 			if actual != stored {
-				problems = append(problems, validation.VStr(
+				ea.problems = append(ea.problems, validation.VStr(
 					fmt.Sprintf("%s: %s hash mismatch after execution", eid, name)))
 			}
 		}
 	}
+	return nil
+}
+
+// execCheckEvents runs the ledger->disk direction (r13) and its refusal
+// contract (r44c) over the exec events, in the original code order.
+func (ea *execAudit) execCheckEvents(execs []validation.Value) error {
 	// r13: the mirror direction the projection law demands for execs —
 	// the ledger CLAIMS an execution happened (sandbox.exec.registered
 	// names the EXEC id); deleting execs/EXEC-*/ wholesale left the
@@ -81,9 +111,9 @@ func Execs(c *state.Campaign) (validation.Value, error) {
 	// failure, not an absence. A read error is a refusal: this section
 	// exists to find the ledger/record divergence, and skipping the ledger
 	// half on an unreadable ledger silently drops exactly that residue.
-	evts, err := c.Events()
+	evts, err := ea.c.Events()
 	if err != nil {
-		return validation.Value{}, err
+		return err
 	}
 	seen := map[string]bool{}
 	for _, rec := range execs {
@@ -112,17 +142,13 @@ func Execs(c *state.Campaign) (validation.Value, error) {
 		if eid == "" || seen[eid] {
 			continue
 		}
-		problems = append(problems, validation.VStr(
+		ea.problems = append(ea.problems, validation.VStr(
 			fmt.Sprintf("%s: the ledger records exec %s but no "+
 				"exec record survives on disk — delete the events "+
 				"only through a sanctioned verb, never the store",
 				typ, eid)))
 	}
-	return validation.VObj(
-		KV("checked", validation.VInt(int64(len(execs)))),
-		KV("problems", validation.VArr(problems...)),
-		KV("ok", validation.VBool(len(problems) == 0)),
-	), nil
+	return nil
 }
 
 // getStrOr renders a key the way Python's f"{d.get(k, dflt)}" would: the
