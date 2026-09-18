@@ -57,98 +57,141 @@ var checkClasses = map[string]string{
 
 const defaultClass = "logic-error"
 
+// toPayloadsRow is one rendered payload plus its sort keys.
+type toPayloadsRow struct {
+	path  string
+	line  int64
+	check string
+	out   validation.Value
+}
+
+// toPayloadsSite is one anchorable instance location.
+type toPayloadsSite struct {
+	path string
+	line int64
+}
+
+// toPayloadsState carries the payload rows across the sections of
+// ToPayloads.
+type toPayloadsState struct {
+	rows []toPayloadsRow
+}
+
 // ToPayloads renders every admitted Aderyn issue as a hypothesis payload, in
 // deterministic (path, line, detector) order. An issue whose every instance is
 // unanchorable is dropped, exactly as the Slither adapter drops a flag with no
 // location.
 func ToPayloads(doc validation.Value) ([]validation.Value, error) {
-	type row struct {
-		path  string
-		line  int64
-		check string
-		out   validation.Value
-	}
-	var rows []row
 	issues := valsOf(validation.ObjAt(validation.ObjAt(doc, "high_issues"), "issues"))
+	s := &toPayloadsState{}
 	for _, r := range issues {
-		check := validation.ObjStr(r, "detector_name")
-		if check == "" {
-			return nil, fmt.Errorf("aderyn: issue without 'detector_name' id")
+		if err := s.toPayloadsAddIssue(r); err != nil {
+			return nil, err
 		}
-		desc := strings.TrimSpace(validation.ObjStr(r, "description"))
-		if desc == "" {
-			continue
-		}
-		type site struct {
-			path string
-			line int64
-		}
-		var sites []site
-		for _, inst := range valsOf(validation.ObjAt(r, "instances")) {
-			p := validation.ObjStr(inst, "contract_path")
-			ln := validation.ObjAt(inst, "line_no")
-			if p == "" || ln.Kind != validation.Int {
-				continue // a location we cannot anchor is noise
-			}
-			sites = append(sites, site{p, ln.I})
-		}
-		if len(sites) == 0 {
-			continue // a flag with no location cannot anchor; drop it
-		}
-		sort.Slice(sites, func(i, j int) bool {
-			if sites[i].path != sites[j].path {
-				return sites[i].path < sites[j].path
-			}
-			return sites[i].line < sites[j].line
-		})
-		affected := make([]validation.Value, 0, len(sites))
-		for _, s := range sites {
-			affected = append(affected, validation.VObj(
-				kv("path", validation.VStr(s.path)),
-				kv("lines", validation.VArr(
-					validation.VInt(s.line), validation.VInt(s.line))),
-				kv("entry_point", validation.VBool(false))))
-		}
-		cls, ok := checkClasses[check]
-		if !ok {
-			cls = defaultClass
-		}
-		title := "Aderyn " + check + ": " + firstLine(desc)
-		if utf8.RuneCountInString(title) > 120 {
-			title = string([]rune(title)[:117]) + "..."
-		}
-		out := validation.VObj(
-			kv("title", validation.VStr(title)),
-			kv("root_cause", validation.VObj(
-				kv("class", validation.VStr(cls)),
-				kv("description", validation.VStr(clip(desc, 900))),
-				kv("mechanism", validation.VStr("static pattern: aderyn/"+check)))),
-			kv("affected", validation.VArr(affected...)),
-			kv("attacker", validation.VObj(
-				kv("profile", validation.VStr("static analysis (Aderyn)")),
-				kv("capabilities", validation.VArr()))),
-			kv("evidence", validation.VArr()),
-			kv("provenance", validation.VObj(
-				kv("discovered_by", validation.VStr("sast/aderyn")),
-				kv("sast_tools", validation.VArr(
-					validation.VStr("aderyn:"+check))))),
-		)
-		rows = append(rows, row{sites[0].path, sites[0].line, check, out})
 	}
-	sort.SliceStable(rows, func(i, j int) bool {
-		if rows[i].path != rows[j].path {
-			return rows[i].path < rows[j].path
+	return s.toPayloadsSorted(), nil
+}
+
+// toPayloadsAddIssue renders one Aderyn issue into a payload row.
+func (s *toPayloadsState) toPayloadsAddIssue(r validation.Value) error {
+	check := validation.ObjStr(r, "detector_name")
+	if check == "" {
+		return fmt.Errorf("aderyn: issue without 'detector_name' id")
+	}
+	desc := strings.TrimSpace(validation.ObjStr(r, "description"))
+	if desc == "" {
+		return nil
+	}
+	sites := toPayloadsSites(r)
+	if len(sites) == 0 {
+		return nil // a flag with no location cannot anchor; drop it
+	}
+	affected := toPayloadsAffected(sites)
+	cls, ok := checkClasses[check]
+	if !ok {
+		cls = defaultClass
+	}
+	out := toPayloadsPayload(check, desc, cls, affected)
+	s.rows = append(s.rows, toPayloadsRow{sites[0].path, sites[0].line, check, out})
+	return nil
+}
+
+// toPayloadsSites collects an issue's anchorable instances, sorted by
+// (path, line).
+func toPayloadsSites(r validation.Value) []toPayloadsSite {
+	var sites []toPayloadsSite
+	for _, inst := range valsOf(validation.ObjAt(r, "instances")) {
+		p := validation.ObjStr(inst, "contract_path")
+		ln := validation.ObjAt(inst, "line_no")
+		if p == "" || ln.Kind != validation.Int {
+			continue // a location we cannot anchor is noise
 		}
-		if rows[i].line != rows[j].line {
-			return rows[i].line < rows[j].line
+		sites = append(sites, toPayloadsSite{p, ln.I})
+	}
+	sort.Slice(sites, func(i, j int) bool {
+		if sites[i].path != sites[j].path {
+			return sites[i].path < sites[j].path
 		}
-		return rows[i].check < rows[j].check
+		return sites[i].line < sites[j].line
 	})
-	out := make([]validation.Value, 0, len(rows))
-	for _, r := range rows {
+	return sites
+}
+
+// toPayloadsAffected renders the issue's affected-locations array.
+func toPayloadsAffected(sites []toPayloadsSite) []validation.Value {
+	affected := make([]validation.Value, 0, len(sites))
+	for _, s := range sites {
+		affected = append(affected, validation.VObj(
+			kv("path", validation.VStr(s.path)),
+			kv("lines", validation.VArr(
+				validation.VInt(s.line), validation.VInt(s.line))),
+			kv("entry_point", validation.VBool(false))))
+	}
+	return affected
+}
+
+// toPayloadsPayload renders the hypothesis payload object for one issue.
+func toPayloadsPayload(check, desc, cls string,
+	affected []validation.Value) validation.Value {
+	title := "Aderyn " + check + ": " + firstLine(desc)
+	if utf8.RuneCountInString(title) > 120 {
+		title = string([]rune(title)[:117]) + "..."
+	}
+	return validation.VObj(
+		kv("title", validation.VStr(title)),
+		kv("root_cause", validation.VObj(
+			kv("class", validation.VStr(cls)),
+			kv("description", validation.VStr(clip(desc, 900))),
+			kv("mechanism", validation.VStr("static pattern: aderyn/"+check)))),
+		kv("affected", validation.VArr(affected...)),
+		kv("attacker", validation.VObj(
+			kv("profile", validation.VStr("static analysis (Aderyn)")),
+			kv("capabilities", validation.VArr()))),
+		kv("evidence", validation.VArr()),
+		kv("provenance", validation.VObj(
+			kv("discovered_by", validation.VStr("sast/aderyn")),
+			kv("sast_tools", validation.VArr(
+				validation.VStr("aderyn:"+check))))),
+	)
+}
+
+// toPayloadsSorted orders the rows by (path, line, check) and strips the
+// sort keys.
+func (s *toPayloadsState) toPayloadsSorted() []validation.Value {
+	sort.SliceStable(s.rows, func(i, j int) bool {
+		if s.rows[i].path != s.rows[j].path {
+			return s.rows[i].path < s.rows[j].path
+		}
+		if s.rows[i].line != s.rows[j].line {
+			return s.rows[i].line < s.rows[j].line
+		}
+		return s.rows[i].check < s.rows[j].check
+	})
+	out := make([]validation.Value, 0, len(s.rows))
+	for _, r := range s.rows {
 		out = append(out, r.out)
 	}
-	return out, nil
+	return out
 }
 
 // firstLine is the text up to the first newline, trimmed.

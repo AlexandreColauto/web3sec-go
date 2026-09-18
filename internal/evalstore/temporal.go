@@ -139,6 +139,22 @@ func PartitionHealth(cases []validation.Value) (excluded []validation.Value, pro
 // string would be a second, drifting source of truth. The locked
 // PartitionHealth signature is the wrapper above.
 func PartitionHealthFull(cases []validation.Value) Health {
+	s := &partitionHealthState{rows: partitionHealthRows(cases)}
+	s.partitionHealthTemporal()
+	s.partitionHealthNearDup()
+	return s.partitionHealthCollect()
+}
+
+// partitionHealthState carries the per-row health state and the problem
+// lines across the passes of PartitionHealthFull.
+type partitionHealthState struct {
+	rows     []*healthRow
+	problems []string
+}
+
+// partitionHealthRows builds one healthRow per case: partition flags,
+// deployed_at parsing, dup key, manual provenance.
+func partitionHealthRows(cases []validation.Value) []*healthRow {
 	rows := make([]*healthRow, 0, len(cases))
 	for _, c := range cases {
 		r := &healthRow{c: c, id: validation.ObjStr(c, "case_id"),
@@ -168,22 +184,23 @@ func PartitionHealthFull(cases []validation.Value) Health {
 		}
 		rows = append(rows, r)
 	}
+	return rows
+}
 
-	problems := []string{}
-
-	// Temporal pass: a held-out row is excluded iff it is STRICTLY older
-	// than some dev row — identical dates rank, so the same-day backfill
-	// the shipped suite carries is not a mass exclusion. The comparator
-	// set is filtered to rows with REAL provenance first (locked ordering
-	// rule, above): a manual dev row's date is a build stamp and cannot
-	// witness, so it never causes an exclusion — though a manual held-out
-	// row can still be excluded by a non-manual dev row. Rows with no
-	// usable comparators simply rank.
-	for _, h := range rows {
+// partitionHealthTemporal runs the temporal pass: a held-out row is excluded
+// iff it is STRICTLY older than some dev row — identical dates rank, so the
+// same-day backfill the shipped suite carries is not a mass exclusion. The
+// comparator set is filtered to rows with REAL provenance first (locked
+// ordering rule, above): a manual dev row's date is a build stamp and cannot
+// witness, so it never causes an exclusion — though a manual held-out row can
+// still be excluded by a non-manual dev row. Rows with no usable comparators
+// simply rank.
+func (s *partitionHealthState) partitionHealthTemporal() {
+	for _, h := range s.rows {
 		if !h.held || h.excluded {
 			continue
 		}
-		for _, d := range rows {
+		for _, d := range s.rows {
 			if !d.dev || d.excluded || d.manual {
 				continue
 			}
@@ -193,17 +210,19 @@ func PartitionHealthFull(cases []validation.Value) Health {
 			}
 		}
 	}
+}
 
-	// Near-dup pass: only rows still standing are scanned, for the same
-	// reason a row gets one reason — reporting an already-excluded row as
-	// a duplicate of the very rows it was dropped against would read like
-	// a second, independent defect.
-	for _, h := range rows {
+// partitionHealthNearDup runs the near-dup pass: only rows still standing
+// are scanned, for the same reason a row gets one reason — reporting an
+// already-excluded row as a duplicate of the very rows it was dropped
+// against would read like a second, independent defect.
+func (s *partitionHealthState) partitionHealthNearDup() {
+	for _, h := range s.rows {
 		if !h.held || h.excluded {
 			continue
 		}
 		best, bestRow := 0.0, (*healthRow)(nil)
-		for _, ref := range rows {
+		for _, ref := range s.rows {
 			if !ref.ref || ref.excluded {
 				continue
 			}
@@ -219,9 +238,14 @@ func PartitionHealthFull(cases []validation.Value) Health {
 			h.other, h.score = bestRow.id, best
 		}
 	}
+}
 
-	excluded := make([]Exclusion, 0, len(rows))
-	for _, r := range rows {
+// partitionHealthCollect renders the exclusions with their problem lines
+// and canonicalizes the report order.
+func (s *partitionHealthState) partitionHealthCollect() Health {
+	problems := []string{}
+	excluded := make([]Exclusion, 0, len(s.rows))
+	for _, r := range s.rows {
 		if !r.excluded {
 			continue
 		}

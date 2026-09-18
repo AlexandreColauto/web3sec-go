@@ -132,31 +132,66 @@ func clusterDigest(seed int, cluster string) string {
 // MixReport is mix_report: taxonomy mix vs target, pivot share vs ~1/3, source
 // mix, partition counts, dedup collisions, aggregated warnings.
 func MixReport() (validation.Value, error) {
-	store, err := LoadStore()
-	if err != nil {
+	s := &mixReportState{}
+	if err := s.mixReportLoad(); err != nil {
 		return validation.VNull(), err
 	}
-	examples := validation.ObjAt(store, "examples").A
-	curated := []validation.Value{}
-	for _, e := range examples {
+	s.mixReportTaxonomy()
+	s.mixReportPivot()
+	s.mixReportSources()
+	s.mixReportPartitions()
+	s.mixReportCollisions()
+	s.mixReportWarnings()
+	return s.mixReportRender(), nil
+}
+
+// mixReportState carries the store snapshot and the computed report sections
+// across the methods of MixReport.
+type mixReportState struct {
+	examples []validation.Value
+	curated  []validation.Value
+	n        int
+
+	taxRows         []validation.KV
+	pivotShare      float64
+	sourceRows      []validation.KV
+	partitionCounts map[string]int
+	collisions      int
+	warnings        []string
+}
+
+// mixReportLoad loads the store and filters the curated examples.
+func (s *mixReportState) mixReportLoad() error {
+	store, err := LoadStore()
+	if err != nil {
+		return err
+	}
+	s.examples = validation.ObjAt(store, "examples").A
+	s.curated = []validation.Value{}
+	for _, e := range s.examples {
 		if validation.ObjStr(e, "status") == "curated" {
-			curated = append(curated, e)
+			s.curated = append(s.curated, e)
 		}
 	}
-	n := len(curated)
-	taxRows := []validation.KV{}
+	s.n = len(s.curated)
+	return nil
+}
+
+// mixReportTaxonomy computes the taxonomy-vs-target section.
+func (s *mixReportState) mixReportTaxonomy() {
+	s.taxRows = []validation.KV{}
 	for _, tt := range TaxonomyTargets {
 		count := 0
-		for _, e := range curated {
+		for _, e := range s.curated {
 			if validation.ObjStr(e, "taxonomy") == tt.Taxonomy {
 				count++
 			}
 		}
 		pct := 0.0
-		if n > 0 {
-			pct = validation.PyRound(100.0*float64(count)/float64(n), 1)
+		if s.n > 0 {
+			pct = validation.PyRound(100.0*float64(count)/float64(s.n), 1)
 		}
-		taxRows = append(taxRows, validation.KV{K: tt.Taxonomy,
+		s.taxRows = append(s.taxRows, validation.KV{K: tt.Taxonomy,
 			V: validation.VObj(
 				validation.KV{K: "count", V: validation.VInt(int64(count))},
 				validation.KV{K: "pct", V: validation.VFloat(pct)},
@@ -164,59 +199,79 @@ func MixReport() (validation.Value, error) {
 				validation.KV{K: "gap",
 					V: validation.VFloat(validation.PyRound(tt.Target-pct, 1))})})
 	}
+}
+
+// mixReportPivot computes the pivot share against the ~1/3 target.
+func (s *mixReportState) mixReportPivot() {
 	withPivot := 0
-	for _, e := range curated {
+	for _, e := range s.curated {
 		if intOf(validation.ObjAt(validation.ObjAt(e, "structured"), "pivot_count")) >= 1 {
 			withPivot++
 		}
 	}
-	pivotShare := 0.0
-	if n > 0 {
-		pivotShare = validation.PyRound(100.0*float64(withPivot)/float64(n), 1)
+	s.pivotShare = 0.0
+	if s.n > 0 {
+		s.pivotShare = validation.PyRound(100.0*float64(withPivot)/float64(s.n), 1)
 	}
-	sourceRows := []validation.KV{}
+}
+
+// mixReportSources computes the source-mix section (first-seen key order).
+func (s *mixReportState) mixReportSources() {
+	s.sourceRows = []validation.KV{}
 	sourceSeen := map[string]bool{}
-	for _, e := range curated {
+	for _, e := range s.curated {
 		k := objStrDefault(validation.ObjAt(e, "source"), "kind", "unknown")
 		if !sourceSeen[k] {
 			sourceSeen[k] = true
-			sourceRows = append(sourceRows, validation.KV{K: k,
+			s.sourceRows = append(s.sourceRows, validation.KV{K: k,
 				V: validation.VInt(0)})
 		}
 	}
 	counts := map[string]int{}
-	for _, e := range curated {
+	for _, e := range s.curated {
 		counts[objStrDefault(validation.ObjAt(e, "source"), "kind", "unknown")]++
 	}
-	for i := range sourceRows {
-		sourceRows[i].V = validation.VInt(int64(counts[sourceRows[i].K]))
+	for i := range s.sourceRows {
+		s.sourceRows[i].V = validation.VInt(int64(counts[s.sourceRows[i].K]))
 	}
-	partitionCounts := map[string]int{"training": 0, "held-out": 0, "unsplit": 0}
-	for _, e := range examples {
+}
+
+// mixReportPartitions counts examples per partition (curated vs unsplit).
+func (s *mixReportState) mixReportPartitions() {
+	s.partitionCounts = map[string]int{"training": 0, "held-out": 0, "unsplit": 0}
+	for _, e := range s.examples {
 		p := validation.ObjAt(e, "partition")
 		if validation.ObjStr(e, "status") != "curated" || p.Kind == validation.Null {
-			partitionCounts["unsplit"]++
+			s.partitionCounts["unsplit"]++
 			continue
 		}
-		partitionCounts[p.S]++
+		s.partitionCounts[p.S]++
 	}
+}
+
+// mixReportCollisions counts duplicate-signature collisions.
+func (s *mixReportState) mixReportCollisions() {
 	sigs := map[string]int{}
-	for _, e := range curated {
+	for _, e := range s.curated {
 		sigs[ExampleSignature(e)]++
 	}
-	collisions := 0
+	s.collisions = 0
 	for _, c := range sigs {
 		if c >= 2 {
-			collisions++
+			s.collisions++
 		}
 	}
-	warnings := []string{}
-	for _, e := range examples {
+}
+
+// mixReportWarnings aggregates the warn: lint lines of non-rejected examples.
+func (s *mixReportState) mixReportWarnings() {
+	s.warnings = []string{}
+	for _, e := range s.examples {
 		if validation.ObjStr(e, "status") == "rejected" {
 			continue
 		}
 		others := []validation.Value{}
-		for _, x := range curated {
+		for _, x := range s.curated {
 			if validation.ObjStr(x, "id") != validation.ObjStr(e, "id") {
 				others = append(others, x)
 			}
@@ -224,22 +279,26 @@ func MixReport() (validation.Value, error) {
 		for _, r := range LintExample(e, others,
 			objStrDefault(e, "status", "draft")) {
 			if len(r) >= 5 && r[:5] == "warn:" {
-				warnings = append(warnings, validation.ObjStr(e, "id")+": "+r)
+				s.warnings = append(s.warnings, validation.ObjStr(e, "id")+": "+r)
 			}
 		}
 	}
+}
+
+// mixReportRender assembles the report object in its locked key order.
+func (s *mixReportState) mixReportRender() validation.Value {
 	return validation.VObj(
-		validation.KV{K: "taxonomy_mix", V: validation.VObj(taxRows...)},
-		validation.KV{K: "pivot_share_pct", V: validation.VFloat(pivotShare)},
+		validation.KV{K: "taxonomy_mix", V: validation.VObj(s.taxRows...)},
+		validation.KV{K: "pivot_share_pct", V: validation.VFloat(s.pivotShare)},
 		validation.KV{K: "pivot_target_pct", V: validation.VFloat(PivotTargetPct)},
-		validation.KV{K: "source_mix", V: validation.VObj(sourceRows...)},
+		validation.KV{K: "source_mix", V: validation.VObj(s.sourceRows...)},
 		validation.KV{K: "partition_counts", V: validation.VObj(
 			validation.KV{K: "training",
-				V: validation.VInt(int64(partitionCounts["training"]))},
+				V: validation.VInt(int64(s.partitionCounts["training"]))},
 			validation.KV{K: "held-out",
-				V: validation.VInt(int64(partitionCounts["held-out"]))},
+				V: validation.VInt(int64(s.partitionCounts["held-out"]))},
 			validation.KV{K: "unsplit",
-				V: validation.VInt(int64(partitionCounts["unsplit"]))})},
-		validation.KV{K: "dedup_collisions", V: validation.VInt(int64(collisions))},
-		validation.KV{K: "warnings", V: validation.StrArr(warnings)}), nil
+				V: validation.VInt(int64(s.partitionCounts["unsplit"]))})},
+		validation.KV{K: "dedup_collisions", V: validation.VInt(int64(s.collisions))},
+		validation.KV{K: "warnings", V: validation.StrArr(s.warnings)})
 }
