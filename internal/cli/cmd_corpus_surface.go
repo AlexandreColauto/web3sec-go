@@ -10,7 +10,7 @@ package cli
 // port) default to Python's absent-store behavior until those packages land;
 // the wiring one-liners belong in ensureSeams() beside the other Set* calls.
 // Cross-twin parity is otherwise byte-identical over the real DeFiHackLabs
-// corpus (.scratch/t27/cross_twin.py).
+// corpus (cross_twin.py [untracked]).
 
 import (
 	"fmt"

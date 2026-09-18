@@ -2,7 +2,7 @@ package cli
 
 // P2 CLI tests — `execs` (ord 38) and `classify` (ord 60). The list line,
 // the two refusals and the classify block are byte-for-byte from
-// .scratch/t20/capture_cli.py.
+// capture_cli.py [untracked].
 
 import (
 	"os"

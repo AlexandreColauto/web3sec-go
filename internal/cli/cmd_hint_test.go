@@ -2,7 +2,7 @@ package cli
 
 // T14 cmd_hint tests: the recorded line, the content floor, the argparse
 // errors, and the Python-compatible JSONL serializer the hint store uses.
-// Vectors captured from the live Python CLI (.scratch/t14/py5.json).
+// Vectors captured from the live Python CLI (py5.json [untracked]).
 
 import (
 	"os"

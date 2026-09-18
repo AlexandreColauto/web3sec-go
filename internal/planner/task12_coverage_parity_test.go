@@ -1,5 +1,5 @@
 // task12_coverage_parity_test.go — Task 12 follow-up, from the independent
-// Phase C review (.scratch/sdd/task-10-12-review.md, Task 12 "the
+// Phase C review (docs/sdd/task-10-12-review.md, Task 12 "the
 // coverage-ledger read-by-path" section).
 //
 // The queue score reads the coverage ledger by PATH instead of importing

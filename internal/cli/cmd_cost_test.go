@@ -1,6 +1,6 @@
 // T26 cmd_cost tests: the record line, the argparse surface, and the
 // costs.jsonl row. Vectors captured from the live Python CLI via
-// .scratch/t26/parity.py (cost_* steps, 121/121 byte-exact).
+// parity.py [untracked] (cost_* steps, 121/121 byte-exact).
 package cli
 
 import (

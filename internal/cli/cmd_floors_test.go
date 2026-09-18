@@ -2,7 +2,7 @@ package cli
 
 // T14 cmd_floors tests: the list table (with and without overrides), set,
 // unset, and the parser's parent-flag placement. Vectors captured from the
-// live Python CLI (.scratch/t14/py5.json twin run).
+// live Python CLI (py5.json [untracked] twin run).
 
 import (
 	"strings"

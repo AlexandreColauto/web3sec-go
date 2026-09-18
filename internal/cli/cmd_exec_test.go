@@ -1,7 +1,7 @@
 package cli
 
 // P2 CLI tests — `exec` (ord 40). Every expected byte below is captured from
-// the live Python twin by .scratch/t20/capture_cli.py (and the argparse
+// the live Python twin by capture_cli.py [untracked] (and the argparse
 // errors by the same script's error cases).
 
 import (

@@ -5,7 +5,7 @@ package cli
 // that needs a model: exit 3, the summary JSON (needs_model stripped), and
 // the HALTED block naming the prompt, the budget class and the context
 // blocks. The bytes below were captured from the live Python reference
-// (.scratch/t30/py-run.out) and pinned here; only the prompt path is
+// (py-run.out [untracked]) and pinned here; only the prompt path is
 // derived, because it embeds the twin's repo root (KNOWN_DIVERGENCES D4).
 
 import (

@@ -1,5 +1,5 @@
 // T26 cmd_yields tests: the per-trajectory yield table and the TOTAL line.
-// Vectors captured from the live Python CLI (.scratch/t26/parity.py, step
+// Vectors captured from the live Python CLI (parity.py [untracked], step
 // `yields`, byte-exact).
 package cli
 

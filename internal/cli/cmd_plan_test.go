@@ -2,7 +2,7 @@ package cli
 
 // T14 cmd_plan tests: bootstrap, the read-only view (note on stderr, view on
 // stdout), --rebuild, and the --json shape. Vectors captured from the live
-// Python CLI (.scratch/t14/py3.json).
+// Python CLI (py3.json [untracked]).
 
 import (
 	"encoding/json"

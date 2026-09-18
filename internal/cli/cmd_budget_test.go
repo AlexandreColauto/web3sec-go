@@ -2,7 +2,7 @@ package cli
 
 // T14 cmd_budget tests: the ceiling/discovery report, --set/--clear, the
 // argparse float/int errors, and the money formatter. Vectors captured from
-// the live Python CLI (.scratch/t14/py5.json twin run).
+// the live Python CLI (py5.json [untracked] twin run).
 
 import (
 	"strings"

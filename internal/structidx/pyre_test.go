@@ -1,6 +1,6 @@
 // pyre_test.go: the engine is validated against spans produced by the LIVE
 // Python `re` module over the exact patterns structural_index.py compiles
-// (.scratch/t25/gen_vectors.py). Any divergence in lookaround, lazy
+// (gen_vectors.py [untracked]). Any divergence in lookaround, lazy
 // quantifiers or multiline anchors fails here before it can reach an
 // artifact.
 package structidx

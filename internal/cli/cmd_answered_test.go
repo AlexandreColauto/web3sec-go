@@ -2,7 +2,7 @@ package cli
 
 // T14 cmd_answered tests: the closure-provenance rules (reason required),
 // the Q-* and L-* routes, and the plan-missing guard. Vectors captured from
-// the live Python CLI (.scratch/t14/py5.json twin run).
+// the live Python CLI (py5.json [untracked] twin run).
 
 import (
 	"strings"

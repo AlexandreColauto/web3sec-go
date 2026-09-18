@@ -5,10 +5,10 @@ package cli
 // Ports: tests/test_cli.py::test_unknown_campaign_is_a_clean_error (the
 // unknown-campaign shape every command shares), tests/test_dedup_*.py via
 // the command's report shape, and the argparse surface captured from the
-// Python reference by .scratch/t15/usage_blocks.py.
+// Python reference by usage_blocks.py [untracked].
 //
 // The unported shared-memory/learning readers are seam-injected here exactly
-// as the parity probe does (.scratch/t15/goprobe.go): the tests consult the
+// as the parity probe does (goprobe.go [untracked]): the tests consult the
 // same files the Python twin consults, never a fake store.
 
 import (
@@ -104,7 +104,7 @@ func t15GlobalRow(t *testing.T, memoryID, bugClass string) {
 }
 
 // wireTestSharedMemory installs shared_memory.load_shared_memory's contract
-// over one directory (the probe's seam, see .scratch/t15/goprobe.go).
+// over one directory (the probe's seam, see goprobe.go [untracked]).
 func wireTestSharedMemory(t *testing.T, dir string) {
 	t.Helper()
 	findings.SetSharedMemoryRows(func(string) ([]validation.Value, error) {

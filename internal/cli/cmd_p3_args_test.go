@@ -2,7 +2,7 @@ package cli
 
 // T25 argparse-parity tests: every entry in testdata/p3_args_golden.json was
 // captured from the LIVE Python CLI (scripts mint them via
-// .scratch/t25/gen_cli_golden.py) and pins exit code + stdout + stderr for
+// gen_cli_golden.py [untracked]) and pins exit code + stdout + stderr for
 // the index/sinks/forkdiff/baseline argument surface: the help action,
 // option-arity errors, missing-required ordering, unrecognized-argument
 // ordering and the `--` separator's positional-absorption rule.

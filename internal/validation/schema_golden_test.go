@@ -1,6 +1,6 @@
-// Code generated from .scratch/oq3/probe.py output (Python
+// Code generated from probe.py [untracked] output (Python
 // jsonschema 4.26.0, CPython 3.14) over all 27 schemas. DO NOT
-// EDIT BY HAND; regenerate with .scratch/oq3/gen_golden.py.
+// EDIT BY HAND; regenerate with gen_golden.py [untracked].
 package validation
 
 import (

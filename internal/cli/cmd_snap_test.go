@@ -8,7 +8,7 @@ package cli
 // TestManifestAttachRefreshesRoots), so this test pins the Go CLI's flag
 // effect end to end: the pin members on disk, the spec 5.3 manifest roots,
 // the two events, and the printed summary lines. The cross-twin byte
-// comparison lives in .scratch/t32/d19_probe.py.
+// comparison lives in d19_probe.py [untracked].
 
 import (
 	"encoding/json"

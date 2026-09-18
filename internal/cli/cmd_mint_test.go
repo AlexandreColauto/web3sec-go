@@ -1,7 +1,7 @@
 package cli
 
 // P2 CLI tests — `mint` (ord 43). Every expected byte is captured from the
-// live Python twin by .scratch/t20/capture_cli.py.
+// live Python twin by capture_cli.py [untracked].
 
 import (
 	"strings"

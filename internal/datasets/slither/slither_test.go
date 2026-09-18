@@ -9,11 +9,11 @@
 //	trim      : testdata/slither_sample.json keeps WHOLE rows #2 (reentrancy-eth),
 //	            #3 (low-level-calls, Informational) and #4 (unchecked-lowlevel)
 //	            verbatim — no field inside a kept row was edited. The trimming
-//	            script (.scratch/trim.py) splices the original source text of
+//	            script (trim.py [untracked]) splices the original source text of
 //	            each kept row, so the kept rows are byte-identical to the
 //	            capture above.
 //	tolerant  : testdata/slither_tolerant.json is hand-trimmed over the same
-//	            capture (see .scratch/mktolerant.py) to pin the loader's drop
+//	            capture (see mktolerant.py [untracked]) to pin the loader's drop
 //	            rules: is_dependency element, lines:[] element, an element with
 //	            an empty filename_relative, an Informational row and a row with
 //	            no `elements` key at all.

@@ -5,7 +5,7 @@ package sandbox
 // env.py is not owned by this wave; internal/sandbox carries a faithful
 // transcription as the seam default so cmd_exec / cmd_classify are
 // byte-exact against the live Python. The expected values below were
-// captured from the reference by .scratch/t20/capture_cli.py.
+// captured from the reference by capture_cli.py [untracked].
 
 import (
 	"encoding/json"

@@ -1,5 +1,5 @@
 // Port of tests/test_pipeline.py plus the byte-exact contracts the Python
-// twin generates into testdata/ (gen: .scratch/t11/gen-vectors.py).
+// twin generates into testdata/ (gen: gen-vectors.py [untracked]).
 //
 // The unported collaborators (orchestrator / adapter / completion /
 // maximization) are wired through the package seams with deterministic stubs

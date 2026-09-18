@@ -14,7 +14,7 @@ import (
 	"websec/internal/validation"
 )
 
-// generated from CPython 3.14 json.loads (see .scratch/t14/jsonerr.json)
+// generated from CPython 3.14 json.loads (see jsonerr.json [untracked])
 var t14JSONErrVectors = []struct{ doc, want string }{
 	{"", "Expecting value: line 1 column 1 (char 0)"},
 	{" ", "Expecting value: line 1 column 2 (char 1)"},

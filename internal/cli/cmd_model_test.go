@@ -1,7 +1,7 @@
 package cli
 
 // T14 cmd_model tests: load/validate, the no-file summary, and the --json
-// view. Vectors captured from the live Python CLI (.scratch/t14/py3.json).
+// view. Vectors captured from the live Python CLI (py3.json [untracked]).
 
 import (
 	"os"

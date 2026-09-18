@@ -1,5 +1,5 @@
 // P1 audit-parity vectors: every expected value here was produced by the
-// LIVE Python twin (web3sec-final) via .scratch/t15/gen_vectors.py and is
+// LIVE Python twin (web3sec-final) via gen_vectors.py [untracked] and is
 // committed in testdata/p1_audit_vectors.json. Each scenario ships the exact
 // campaign files the Python audit ran on, so the Go twin audits byte-identical
 // state/log bytes; the pretty-printed section oracles are

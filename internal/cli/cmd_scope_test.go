@@ -2,7 +2,7 @@ package cli
 
 // T14 cmd_scope tests — plus the shared T14 fixture helpers (the T14 command
 // files own no other test file that could hold them). Every expected string
-// was captured from the live Python CLI; see .scratch/t14/py3.json.
+// was captured from the live Python CLI; see py3.json [untracked].
 
 import (
 	"os"

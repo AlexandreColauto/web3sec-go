@@ -4,7 +4,7 @@ package probes
 // testdata/golden is the ORDER-PRESERVING JSON dump of the LIVE Python module
 // (webv2/probes.py) for one (fixture tree, probe / knobs / vector) input. The
 // port must reproduce each byte-for-byte. Regenerate with
-// `.scratch/t29/refdump.py` in web3sec-final; never hand-edit a golden.
+// `refdump.py [untracked]` in web3sec-final; never hand-edit a golden.
 
 import (
 	"fmt"

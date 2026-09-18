@@ -72,7 +72,7 @@ func woRepr(k WorkOrderKey) string {
 }
 
 // workOrderVectors are generated from the live Python (webv2.risk.work_order_key
-// repr, CPython 3.14) — see .scratch/wave35/work_order.json.
+// repr, CPython 3.14) — see work_order.json [untracked].
 var workOrderVectors = []struct {
 	doc  string
 	want string

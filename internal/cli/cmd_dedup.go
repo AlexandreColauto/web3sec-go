@@ -110,7 +110,7 @@ func plainPositionals(args []string, cmd string, n int, names ...string) ([]stri
 // then `webv2 <cmd>: error: <message>`. The P0 commands render Go's own
 // usage block instead (D11); the P1b commands reproduce argparse's block
 // byte-for-byte — every block below is captured from the Python reference
-// by .scratch/t15/usage_blocks.py — for the errors argparse raises INSIDE a
+// by usage_blocks.py [untracked] — for the errors argparse raises INSIDE a
 // subparser (missing required arguments, invalid choice, expected one
 // argument). An unrecognized extra positional is raised by the ROOT parser
 // in Python (`webv2: error: unrecognized arguments: X` + a usage block

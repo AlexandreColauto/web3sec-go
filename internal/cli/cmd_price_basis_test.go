@@ -1,7 +1,7 @@
 // T26 cmd_price_basis tests: the receipt that pins a finding's USD figures
 // to a price row (Python's setdefault("economic_impact", {}) path) and the
 // two failure modes. Vectors captured from the live Python CLI
-// (.scratch/t26/parity.py, steps price_basis*, byte-exact).
+// (parity.py [untracked], steps price_basis*, byte-exact).
 package cli
 
 import (

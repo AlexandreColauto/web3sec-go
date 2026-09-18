@@ -10,7 +10,7 @@
 //	trim      : testdata/aderyn_sample.json keeps the full envelope and ALL
 //	            16 low_issues rows verbatim; high_issues keeps only issue #2
 //	            (reentrancy-state-change) — whole rows removed, no field of a
-//	            kept row was edited (.scratch/trim.py splices the capture's
+//	            kept row was edited (trim.py [untracked] splices the capture's
 //	            original source text).
 package aderyn
 

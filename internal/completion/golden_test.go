@@ -1,5 +1,5 @@
 // Golden vectors for the 13 completion proofs: oracles generated from the
-// LIVE Python twin by .scratch/t12/gen-vectors.py across three campaign
+// LIVE Python twin by gen-vectors.py [untracked] across three campaign
 // states (empty / partial / complete) plus a waive() replay. Every proof
 // bundle is compared as the exact `json.dumps(..., ensure_ascii=False)`
 // string Python printed — key order, em-dashes, repr() and slices included.

@@ -1,7 +1,7 @@
 package cli
 
 // P2 CLI tests — `classify` (ord 60). The verdict block and both refusals
-// are byte-for-byte from .scratch/t20/capture_cli.py.
+// are byte-for-byte from capture_cli.py [untracked].
 
 import (
 	"testing"

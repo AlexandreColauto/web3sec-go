@@ -1,7 +1,7 @@
 // golden_test.go: the cross-twin golden vectors for the orchestrator facade.
 //
 // internal/orchestrator/testdata/oracles.json is produced by
-// .scratch/t13/gen-vectors.py, which runs the LIVE Python twin over fixture
+// gen-vectors.py [untracked], which runs the LIVE Python twin over fixture
 // campaigns and records, for every method: the return value, the raised
 // message, the post-state (campaign_state.json) and the event log, all as
 // json.dumps(..., ensure_ascii=False, indent=2). This test materializes the

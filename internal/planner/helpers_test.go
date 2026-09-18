@@ -22,7 +22,7 @@ var (
 )
 
 // oracles is testdata/oracles.json, the Python-side contract recorded by
-// .scratch/t9/gen-vectors.py.
+// gen-vectors.py [untracked].
 func oracles(t *testing.T) validation.Value {
 	t.Helper()
 	oracleOnce.Do(func() {

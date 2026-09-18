@@ -28,7 +28,7 @@ import (
 // test_confirmed_finding_reopens_the_lens_whose_family_it_hit.
 //
 // The expected artifacts are NOT hand-transcribed: they are recorded from the
-// live Python twin by .scratch/t9fix/gen.py, which drives the very test bodies
+// live Python twin by gen.py [untracked], which drives the very test bodies
 // (helpers imported out of tests/) and writes
 // testdata/scenario_oracles.json. The Go fixtures below replay the same
 // scenario steps with the same pinned clock (WEBV2_NOW) and the same

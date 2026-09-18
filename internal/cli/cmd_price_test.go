@@ -1,5 +1,5 @@
 // T26 cmd_price tests: set/table, the money formats, and the error surface.
-// Vectors captured from the live Python CLI (.scratch/t26/parity.py, steps
+// Vectors captured from the live Python CLI (parity.py [untracked], steps
 // price_*, byte-exact).
 package cli
 
