@@ -19,14 +19,25 @@ import (
 	"websec/internal/validation"
 )
 
-// t15SeedInvariant is invariants.seed_from_model with one statement.
-func t15SeedInvariant(t *testing.T, c *state.Campaign, invID, statement string) {
+// t15SeedInvariant is invariants.seed_from_model with one statement. The
+// optional appliesTo binds the invariant to a contract; with none the entry
+// is unbound exactly as before (seed_from_model defaults applies_to to []).
+func t15SeedInvariant(t *testing.T, c *state.Campaign, invID, statement string,
+	appliesTo ...string) {
 	t.Helper()
-	model := validation.VObj(kvT("invariants", validation.VArr(
-		validation.VObj(
-			kvT("id", validation.VStr(invID)),
-			kvT("statement", validation.VStr(statement)),
-		))))
+	entry := validation.VObj(
+		kvT("id", validation.VStr(invID)),
+		kvT("statement", validation.VStr(statement)),
+	)
+	if len(appliesTo) > 0 {
+		targets := make([]validation.Value, len(appliesTo))
+		for i, s := range appliesTo {
+			targets[i] = validation.VStr(s)
+		}
+		entry.O = validation.SetOrAppend(entry.O, "applies_to",
+			validation.VArr(targets...))
+	}
+	model := validation.VObj(kvT("invariants", validation.VArr(entry)))
 	if _, err := invariants.SeedFromModel(c, model); err != nil {
 		t.Fatalf("seed model: %v", err)
 	}
@@ -35,7 +46,9 @@ func t15SeedInvariant(t *testing.T, c *state.Campaign, invID, statement string) 
 // t15ExecRecord writes one finished EXEC record (sandbox.register_exec is a
 // later phase; the ledger row is written directly, as port_test.go does). Its
 // captured stdout names INV-1 — the honest output the relevance gate requires
-// of the exec the CLI registers as the check artifact.
+// of the exec the CLI registers as the check artifact — and its recorded
+// command targets the Vault contract, so the exec-relevance gate accepts it
+// for an INV-1 bound to Vault (see TestInvariantVerifyExec).
 func t15ExecRecord(t *testing.T, c *state.Campaign, execID string) string {
 	t.Helper()
 	dir := filepath.Join(c.ExecsDir, execID)
@@ -54,7 +67,7 @@ func t15ExecRecord(t *testing.T, c *state.Campaign, execID string) string {
 		kvT("profile", validation.VStr("docker-networkless")),
 		kvT("finding_id", validation.VNull()),
 		kvT("artifact_id", validation.VNull()),
-		kvT("command", validation.VStr("forge test")),
+		kvT("command", validation.VStr("forge test --match-contract Vault")),
 		kvT("policy_verdict", validation.VObj(
 			kvT("allowed", validation.VBool(true)),
 			kvT("violations", validation.VArr()))),
@@ -149,7 +162,8 @@ func TestInvariantVerifyArtifactRelevanceGate(t *testing.T) {
 
 func TestInvariantVerifyExec(t *testing.T) {
 	c, root := t15Campaign(t, "inv")
-	t15SeedInvariant(t, c, "INV-1", "totalAssets monotone except withdraw")
+	t15SeedInvariant(t, c, "INV-1", "totalAssets monotone except withdraw",
+		"Vault")
 	t15ExecRecord(t, c, "EXEC-0000000001")
 	code, out, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
 		"INV-1", "--exec", "EXEC-0000000001")

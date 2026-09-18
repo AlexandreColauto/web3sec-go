@@ -17,19 +17,33 @@ import (
 	"websec/internal/validation"
 )
 
-// execCamp is the `exec_camp` fixture: a seeded INV-008 and one finished exec.
-func execCamp(t *testing.T, execID string) (*state.Campaign, string,
-	validation.Value) {
+// execCamp is the `exec_camp` fixture: a seeded INV-008 bound to the optional
+// applies_to target, and one finished exec. The exec-relevance gate reads what
+// the exec RAN, so a binding makes its recorded command target that contract;
+// with no binding the historical untargeted fixture is unchanged.
+func execCamp(t *testing.T, execID string, appliesTo ...string) (*state.Campaign,
+	string, validation.Value) {
 	t.Helper()
 	c, root := t15Campaign(t, "inv-exec")
-	t15SeedInvariant(t, c, "INV-008", "liveness: the fee accumulator holds")
-	return c, root, invExecRecord(t, c, execID)
+	t15SeedInvariant(t, c, "INV-008", "liveness: the fee accumulator holds",
+		appliesTo...)
+	command := "forge test --match-test test_liveness"
+	if len(appliesTo) > 0 {
+		command = "forge test --match-contract " + appliesTo[0]
+	}
+	return c, root, invExecRecord(t, c, execID, command)
 }
 
 // invExecRecord is conftest's sandboxed_exec shape: BOTH capture files exist
-// (stdout holds the run, stderr starts empty) and the record is finished.
-func invExecRecord(t *testing.T, c *state.Campaign, execID string) validation.Value {
+// (stdout holds the run, stderr starts empty) and the record is finished. The
+// optional command overrides the recorded command line.
+func invExecRecord(t *testing.T, c *state.Campaign, execID string,
+	command ...string) validation.Value {
 	t.Helper()
+	cmd := "forge test --match-test test_liveness"
+	if len(command) > 0 {
+		cmd = command[0]
+	}
 	dir := filepath.Join(c.ExecsDir, execID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
@@ -50,7 +64,7 @@ func invExecRecord(t *testing.T, c *state.Campaign, execID string) validation.Va
 		kvT("profile", validation.VStr("docker-networkless")),
 		kvT("finding_id", validation.VNull()),
 		kvT("artifact_id", validation.VNull()),
-		kvT("command", validation.VStr("forge test --match-test test_liveness")),
+		kvT("command", validation.VStr(cmd)),
 		kvT("policy_verdict", validation.VObj(
 			kvT("allowed", validation.VBool(true)),
 			kvT("violations", validation.VArr()))),
@@ -105,7 +119,7 @@ func artifactPathOf(t *testing.T, c *state.Campaign, aid string) string {
 
 // Port of test_invariant_verify_exec_happy_path.
 func TestInvariantVerifyExecHappyPath(t *testing.T) {
-	c, root, rec := execCamp(t, "EXEC-0000000001")
+	c, root, rec := execCamp(t, "EXEC-0000000001", "Staking")
 	code, out, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
 		"INV-008", "--exec", objStr(rec, "exec_id"))
 	if code != 0 {
@@ -134,7 +148,7 @@ func TestInvariantVerifyExecHappyPath(t *testing.T) {
 
 // Port of test_invariant_verify_exec_rerun_refreshes_the_same_artifact.
 func TestInvariantVerifyExecRerunRefreshesTheSameArtifact(t *testing.T) {
-	c, root, rec := execCamp(t, "EXEC-0000000001")
+	c, root, rec := execCamp(t, "EXEC-0000000001", "Staking")
 	execID := objStr(rec, "exec_id")
 	code, _, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
 		"INV-008", "--exec", execID)
@@ -180,7 +194,7 @@ func TestInvariantVerifyExecRerunRefreshesTheSameArtifact(t *testing.T) {
 
 // Port of test_invariant_verify_exec_falls_back_to_the_stderr_log.
 func TestInvariantVerifyExecFallsBackToTheStderrLog(t *testing.T) {
-	c, root, rec := execCamp(t, "EXEC-0000000001")
+	c, root, rec := execCamp(t, "EXEC-0000000001", "Staking")
 	if err := os.Remove(objStr(rec, "stdout_path")); err != nil {
 		t.Fatal(err)
 	}
@@ -312,20 +326,37 @@ func TestInvariantVerifyExecUnknownInvariantExits2(t *testing.T) {
 	}
 }
 
-// TestInvariantVerifyExecRelevanceGate: the --exec path still lands
-// end-to-end when the exec's captured output names the invariant it
-// verifies, and refuses a generic run that names nothing. The artifact's
-// registry note (which always carries the id) is metadata, never evidence —
-// if it counted, every --exec would satisfy the gate.
+// TestInvariantVerifyExecRelevanceGate: the --exec path is bound twice over.
+// (a) the exec-relevance gate: a whole-suite `forge test` targeted no
+// applies_to contract, so the citation is refused before the verification axis
+// moves — the captured output cannot decide this, because a Foundry suite log
+// names every contract it printed. (b) once the exec did target the contract,
+// Task 4's byte gate still applies: a captured log naming nothing is refused,
+// and the artifact's registry note (which always carries the id) is metadata,
+// never evidence. (c) the honest rerun lands.
 func TestInvariantVerifyExecRelevanceGate(t *testing.T) {
-	c, root, rec := execCamp(t, "EXEC-0000000001")
+	c, root, rec := execCamp(t, "EXEC-0000000001", "Staking")
 	execID := objStr(rec, "exec_id")
-	// (a) a generic output log: registered as the artifact, then refused.
+	// (a) an untargeted whole-suite exec whose log names the invariant.
+	suite := invExecRecord(t, c, "EXEC-0000000002", "forge test")
+	code, _, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
+		"INV-008", "--exec", objStr(suite, "exec_id"))
+	if code != 2 {
+		t.Fatalf("untargeted exec: exit %d, want 2 (%q)", code, errS)
+	}
+	if !strings.Contains(errS,
+		"does not target any applies_to contract of INV-008 (no-target-match)") {
+		t.Fatalf("untargeted exec stderr %q", errS)
+	}
+	if got := objStr(invEntry(t, c, "INV-008"), "status"); got != "UNVERIFIED" {
+		t.Fatalf("untargeted exec status %q, want UNVERIFIED", got)
+	}
+	// (b) a targeted exec with a generic output log.
 	if err := os.WriteFile(objStr(rec, "stdout_path"),
 		[]byte("PASS: test_liveness\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	code, _, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
+	code, _, errS = run(t, "--root", root, "invariant-verify", c.CampaignID,
 		"INV-008", "--exec", execID)
 	if code != 2 {
 		t.Fatalf("generic output: exit %d, want 2 (%q)", code, errS)
@@ -336,7 +367,7 @@ func TestInvariantVerifyExecRelevanceGate(t *testing.T) {
 	if got := objStr(invEntry(t, c, "INV-008"), "status"); got != "UNVERIFIED" {
 		t.Fatalf("generic output status %q, want UNVERIFIED", got)
 	}
-	// (b) the honest rerun: the captured output names the invariant.
+	// (c) the honest rerun: the captured output names the invariant.
 	if err := os.WriteFile(objStr(rec, "stdout_path"),
 		[]byte("INV-008: the fee accumulator holds — PASS: test_liveness\n"),
 		0o644); err != nil {

@@ -155,10 +155,16 @@ func findingWithInvariant(t *testing.T, c *state.Campaign, invID string) validat
 var execSeq int
 
 // testExec is the conftest `sandboxed_exec` equivalent (sandbox.register_exec
-// lands with P2): it writes the EXEC ledger record directly.
+// lands with P2): it writes the EXEC ledger record directly. The optional
+// command overrides the historical recorded command line — the field the
+// exec-relevance gate reads.
 func testExec(t *testing.T, c *state.Campaign, profile, findingID string,
-	exitStatus int64, stdout string) validation.Value {
+	exitStatus int64, stdout string, command ...string) validation.Value {
 	t.Helper()
+	cmd := "forge test --match-test test_exploit"
+	if len(command) > 0 {
+		cmd = command[0]
+	}
 	execSeq++
 	execID := fmt.Sprintf("EXEC-%010x", execSeq)
 	dir := filepath.Join(c.ExecsDir, execID)
@@ -183,7 +189,7 @@ func testExec(t *testing.T, c *state.Campaign, profile, findingID string,
 		kv("profile", validation.VStr(profile)),
 		kv("finding_id", fidV),
 		kv("artifact_id", validation.VNull()),
-		kv("command", validation.VStr("forge test --match-test test_exploit")),
+		kv("command", validation.VStr(cmd)),
 		kv("exit_status", validation.VInt(exitStatus)),
 		kv("stdout_path", validation.VStr(stdoutPath)),
 		kv("stderr_path", validation.VStr(stderrPath)),

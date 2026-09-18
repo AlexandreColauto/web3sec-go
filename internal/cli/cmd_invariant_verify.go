@@ -95,6 +95,16 @@ func runInvariantVerify(root string, args []string, r *Runner) int {
 		if code != 0 {
 			return code
 		}
+		// The exec-relevance gate: the cited exec must have RUN something
+		// bound to this invariant's applies_to contracts. A full-suite log
+		// names every contract it printed, so the recorded command decides —
+		// and the refusal lands before the verification axis can move.
+		if ok, reason := invariants.ExecTouchesInvariant(c, invID, execID); !ok {
+			fmt.Fprintf(r.Err, "invariant verify failed: cited exec %s does not "+
+				"target any applies_to contract of %s (%s)\n", execID, invID,
+				reason)
+			return 2
+		}
 	}
 	entry, err := invariants.VerifyInvariantStatement(c, invID, artifact)
 	if err != nil {
