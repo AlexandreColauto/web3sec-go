@@ -46,7 +46,11 @@ instead of implying a guarantee.
 `vm-snapshot`, `fork-runner`) execute a real `docker run` whose network and
 filesystem policy are the flags in `internal/sandbox/profiles.go`
 (`profileNetwork`, `profileFilesystem`). For those profiles the container is
-the enforcement mechanism.
+the enforcement mechanism. One exception: `vm-snapshot` is declared but not
+available in this build — `ProfileAvailable` returns false for it
+unconditionally ("requires external VM infrastructure", `profiles.go`) — so
+no container execution happens for it; the profile is carried for
+forward-compatibility only.
 
 **Is not:** host profiles (`host-readonly`, `halmos`, `forge-fuzz`,
 `minicertora`) run **on your host, unconfined** (`HostProfile`,
@@ -109,7 +113,8 @@ hunting: `run` executes the deterministic stages and **halts at the first model
 stage** (exit 3, `internal/cli/cmd_run.go`), requiring an operator-supplied
 artifact to continue. The campaign path makes no outbound network call except
 one JSON-RPC POST to the operator-supplied fork endpoint
-(`FORK_RPC_URL`/`WEBV2_FORK_RPC_URL`, `internal/envgo/env.go`). There is no
+(`FORK_RPC_URL` — read at `internal/envgo/env.go`; its `http.NewRequest` is
+the only non-test outbound HTTP call site in `internal/`). There is no
 telemetry.
 
 ## Reporting a vulnerability
