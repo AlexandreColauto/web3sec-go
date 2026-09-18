@@ -254,7 +254,7 @@ a docker daemon:
   readable);
 - `exec` refuses before burning a run — the walkthrough asserts that
   refusal when no daemon is present and the real EXEC record when one is;
-- `sequence run` additionally needs a fork-runner RPC (`WEBV2_FORK_RPC_URL`);
+- `sequence run` additionally needs a fork-runner RPC (`FORK_RPC_URL`);
   `sequence verify` works without it.
 
 `WEBV2_SOLC_DIR` / `WEBV2_DOCKER_IMAGE` / `WEBV2_DOCKER_TESTS` behave as the

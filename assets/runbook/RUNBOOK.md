@@ -41,7 +41,7 @@ docs/MINICERTORA_INTEGRATION.md in the source tree); `docker` with a **running**
 evidence — the container profiles execute a real `docker run` in
 `$WEBV2_DOCKER_IMAGE`, default `ghcr.io/foundry-rs/foundry:latest`); an
 optional `gvisor` and a fork-RPC endpoint for `fork-runner` (point
-`FORK_RPC_URL` / `WEBV2_FORK_RPC_URL` at your anvil fork).
+`FORK_RPC_URL` at your anvil fork).
 
 `solc` is downloaded by the container on first use. With the network cut
 (networkless / gvisor / vm-snapshot profiles), a missing solc binary is an
@@ -1689,7 +1689,7 @@ check the artifact if you meant to ground a reading.
 |-----|---------|
 | `WEBV2_DOCKER_IMAGE` | the container image for the docker profiles (default `ghcr.io/foundry-rs/foundry:latest`) |
 | `WEBV2_SOLC_DIR` | a host dir with the svm solc layout, bind-mounted to the container's `~/.svm` (for network-cut profiles) |
-| `FORK_RPC_URL` / `WEBV2_FORK_RPC_URL` | the anvil fork RPC for `fork-runner` (E5/E6) |
+| `FORK_RPC_URL` | the anvil fork RPC for `fork-runner` (E5/E6) |
 | `WEBV2_GLOBAL_MEMORY_DIR` | the user-global shared-memory tier (default `~/.webv2/shared-memory`) |
 
 ## Hard rules for the operator
