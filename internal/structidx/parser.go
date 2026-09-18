@@ -73,7 +73,6 @@ var (
 	reIdent       = regexp.MustCompile(`[A-Za-z_][\p{L}\p{N}_]*`)
 	reArraySuffix = regexp.MustCompile(`\[[^\]]*\]`)
 	reCallee      = regexp.MustCompile(`\b([A-Za-z_][\p{L}\p{N}_]*)[\t\n\v\f\r \x{1c}-\x{1f}\x{85}\p{Z}]*\(`)
-	reFlashLoan   = regexp.MustCompile(`(?i)^flashLoan`)
 )
 
 // The patterns Python compiles with constructs RE2 lacks: lookahead,
