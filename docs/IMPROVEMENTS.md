@@ -5008,3 +5008,143 @@ each ships negative controls at the API and CLI layers.
   live comments and release script; generated and frozen historical
   documents keep their counts as dated records.
 
+## Production-readiness wave (2026-09-17/18)
+
+The trust-boundary hardening plan
+(`docs/superpowers/plans/2026-09-17-trust-boundary-hardening.md`, committed as
+`e4a3dc01`) closed the integrity defects, the operator-friction items and the
+cockpit gaps from the C-7f1005ecd5 evaluation. Every row below is a landed
+commit on `production-readiness`; the per-task reports and the independent
+reviews live in `.scratch/sdd/` (untracked evidence). No row claims a score.
+
+### Phase A — verified integrity defects
+
+- **Duplicate keys are refused, not last-wins** (`115ba97f`, `b00532ca`; Tasks 1
+  and 16). The JSON object parser (`internal/jval/parse.go`) and the YAML
+  mapping parser (`internal/validation/yaml.go`) both refuse a key repeated in
+  one mapping, so neither reader can silently disagree with the canonical
+  writer about which value survived.
+- **Host sandbox profiles disclose their real network posture** (`b47d893e`;
+  Task 2). `environment.network_access` and the exec preview now read
+  `networkLabel()`: host profiles (host-readonly, halmos, forge-fuzz,
+  minicertora) record `host (unconfined — nothing enforces network-off)`, while
+  container profiles keep `profileNetwork` verbatim because the container's
+  `--network` IS the enforcement. The `sandbox_execution` schema enum was
+  widened with the honest label (as r36 F5 did for the filesystem label) and
+  the asset manifest was resynced.
+- **A state machine with no liveness invariant is refused** (`bbe5a030`; Task 3,
+  the G-01 gap). `SeedFromModel` refuses before any registry write, naming every
+  uncovered machine in model order:
+  `state machine(s) <names> have no liveness invariant (one per machine — stage 37)`.
+- **`invariant-verify` binds evidence to the invariant it names** (`37511ec8`,
+  `521eecfd`, `f13ae1df`; Task 4). A registered artifact flips an invariant only
+  when its bytes name the normalized invariant id or one of the entry's
+  `applies_to` targets (word-boundary, case-insensitive); a non-naming or
+  unreadable artifact is refused. The result is recorded as an operator
+  attestation — `verification_method: "operator-attestation"` on both the
+  registry entry and the `invariant.verified` event — and the Python-twin
+  fixture re-pin is additive (one key), verified before any byte changed.
+
+### Phase B — bookkeeping friction
+
+- **artifact-register dedup by resolved path** (`1e6412e5`; Task 5). The plan's
+  premise was wrong and the commit says so: `RegisterOrRefreshKeptGhosts`
+  already resolved both sides (the incoming spelling once, every stored row via
+  `resolveArtifactPath` before comparing), so no production change was needed;
+  the commit lands the regression pin plus a counterfactual proof (routing the
+  verb back through `RegisterArtifact` turns it red).
+- **`index` refreshes the registry inside one lock window** (`f837a26a`;
+  Task 6). A rebuild that changes `structural_index.json` updates the registry
+  row and logs `artifact.refreshed` in a single campaign-lock window; an
+  unchanged tree writes neither, so concurrent rebuilds no longer emit one event
+  per run for one rewrite.
+- **Next-actions are copyable commands** (`dae1c42f`, `b77eb7fa`; Task 7). The
+  phase catalog and the proof teeth mint runnable `webv2 …` lines instead of
+  Python-API pseudo-calls, and the law covers every minter in `briefing.go`
+  (probe rows, lens routing, divergence gate, integrity, cost ceiling, E6
+  queue, …): `webv2 …  # reason`, with no parenthesis anywhere in the line. The
+  27 `next_actions` oracles were deliberately re-recorded in the same commit.
+- **Re-pin exclusions are summarized with the exact count** (`bd14d44b`; Task 8).
+  Past `excludedInlineCap = 10` the console prints
+  `N paths excluded (first 10): … (+M more)`; the uncapped list stays in the
+  record (`source.excluded`, `snapshot.excluded`), and `--json` is still refused
+  on the mutating path.
+- **A missing toolchain classifies ENVIRONMENT** (`eb44603a`, `6fdec840`;
+  Task 9). An absent solc/forge/cast/anvil/docker CLI, or the shell's own
+  `command not found`, routes to ENVIRONMENT with a fix-naming note, checked
+  before the setup heuristic; a missing Solidity library (`forge-std`,
+  `module not found`) stays SETUP. The fix round added the leading word boundary
+  (`broadcast` is not `cast`) and put `logicHit` above the tool-absence arm, so
+  an echoed not-found cannot outrank an assertion failure.
+
+### Phase C — the cockpit enforces coverage
+
+- **Open questions compile into the work queue, and the brief shows them**
+  (`cbdd93d5`, `fabc7d18`; Task 10). Every unresolved `open_questions` entry
+  naming a contract (`blocks` or the tolerated `applies_to`) becomes the
+  priority `resolve open question Q-…: <text>`; a supplied operator plan is
+  never rewritten, and an empty or reference-free list leaves the queue
+  byte-identical. The Phase C review found the brief half missing — the
+  question's text reached only `webv2 plan --json` and the queue-debt counts —
+  so `briefing.NextActions` now renders one line per open row
+  (`webv2 plan <cid> --json  # resolve open question Q-…: <text>`), gated on the
+  row's `status: open`, so an answered priority stops rendering it.
+- **A cold probe surface is a standing brief warning** (`c15a1291`; Task 11).
+  While the phase is DISCOVERY and no `probes.emit` event is on record, the
+  brief prints `webv2 probes <cid> run --emit  # cold probe surface — …`. It
+  gates nothing, the surface artifact is deliberately not consulted, and an
+  unreadable ledger stays silent rather than claiming "no emit".
+- **Queue ordering inside a slot is additive risk-weighted** (`1a03c8ca`,
+  `4fa0aef0`; Task 12). `untouched*1.0 + severity*2.0 + openQuestions*1.5` with
+  the model's severity vocabulary (critical 3 / high 2 / medium 1 / low 0),
+  named constants, slot class still the primary key, ties alphabetical and
+  deterministic across runs; never multiplicative, because a product drops a
+  critical consensus contract the moment one factor is zero. The coverage ledger
+  is read by path (importing `internal/coverage` from `planner` closes a
+  test-binary cycle), and `4fa0aef0` pins that duplicated predicate against
+  `coverage.RefreshGaps` on the two known divergent rows.
+
+### Phase D — supply chain, threat model, docs
+
+- **The release gate requires a successful dependency scan** (`32ce5578`,
+  `fc9241d4`, `ac11de2c`, `e303fbd3`, `0f881e55`; Task 13).
+  `scripts/security-check.sh` is strict by default — a missing scanner or any
+  nonzero scan is INCOMPLETE, never PASS; `--development` may skip only a
+  missing scanner — and `scripts/release.sh` runs it as its final step. The
+  first strict run reported 10 called advisories; `ac11de2c` bumped
+  `golang.org/x/text` to v0.39.0 (GO-2026-5970) and the toolchain to go1.26.6
+  (the nine stdlib fixes), after which the same scanner reports PASS. `fc9241d4`
+  introduced the repo-cache convention in security-check (default form),
+  `e303fbd3` forced it with plain exports, and `0f881e55` extended the same
+  rule to `scripts/release.sh` and `scripts/runbook-walkthrough.sh` — as
+  `scripts/verify-full.sh` already did — so an inherited read-only GOPATH cannot
+  make a gate die on a cache it cannot write.
+- **SECURITY.md states the threat model** (`7287e5bb`; Task 14). The trust core
+  (hash chain, atomic tmp+rename writes, process lock, one-writer law), what the
+  sandbox IS (container profiles: docker network/fs flags) and IS NOT (host
+  profiles run unconfined; deny rules are static regex tripwires, not a
+  boundary), the E-cap semantics (host profiles never back E4+, containers cap
+  at E4, fork-runner reaches E5, floors never lower on their own), and the
+  supported platform (Linux only — GOOS=darwin and GOOS=windows both fail to
+  build).
+- **README and RUNBOOK reconciled with the shipped behavior** (`a79c3fb6`;
+  Task 15): only the rows this branch demonstrably invalidated — the snapshot
+  prune exclusion wording and its 10-path console cap, the `classify`
+  ENVIRONMENT tool-absence parenthetical and its two boundaries, and the release
+  script's strict dependency scan.
+- **Plan bookkeeping**: the approved v2 plan (`e4a3dc01`), Task 16 added from the
+  Task 1 review (`78f755bb`) and the errata/evidence-legacy corrections
+  (`913b089e`) are the wave's written contract; per-task reports and the
+  independent reviews stay in `.scratch/sdd/`.
+
+### Honest limitations (recorded, not claimed away)
+
+- Discovery performance (the 0/2 benchmark) is **not** claimed fixed by this
+  wave; it needs held-out measurement.
+- The queue's `coverageSwept` remains a second copy of coverage's "worked"
+  predicate: `4fa0aef0` pins the two known divergences (a `swept` row with zero
+  trajectory counts, an `excluded` row) instead of sharing one implementation,
+  because the shared import is a test-binary cycle.
+- Nothing here is a security guarantee: the container is the boundary, and its
+  hardening is upstream's.
+
