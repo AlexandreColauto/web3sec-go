@@ -37,7 +37,10 @@ func nextPrioritySeq(plan validation.Value) int {
 func probePriority(pid string, row validation.Value, surfaceSha string,
 	index *validation.Value) validation.Value {
 	band, risk := ProbeRisk(row)
-	question, _ := RowQuestion(row, index)
+	question, err := RowQuestion(row, index)
+	if err != nil {
+		question = "" // unknown probe: the question is absent, not invented
+	}
 	return validation.VObj(
 		kv("id", validation.VStr(pid)),
 		kv("question", validation.VStr(question)),
@@ -123,7 +126,10 @@ func EmitRows(c *state.Campaign, plan validation.Value, surface validation.Value
 			updated = append(updated, validation.PyStr(vGet(existing, "id")))
 		}
 		band, risk := ProbeRisk(row)
-		question, _ := RowQuestion(row, index)
+		question, err := RowQuestion(row, index)
+		if err != nil {
+			question = "" // unknown probe: the question is absent, not invented
+		}
 		vSet(&existing, "question", validation.VStr(question))
 		vSet(&existing, "risk", validation.VFloat(risk))
 		vSet(&existing, "trajectories", validation.StrArr([]string{"lifecycle"}))

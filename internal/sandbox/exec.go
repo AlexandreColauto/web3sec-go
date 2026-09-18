@@ -1329,7 +1329,10 @@ func AllExecs(c *state.Campaign) ([]validation.Value, error) {
 
 // shaFile is _sha.
 func shaFile(path string) string {
-	digest, _ := shaFileErr(path)
+	digest, err := shaFileErr(path)
+	if err != nil {
+		return "" // best-effort: shaFileErr exists for callers that must know
+	}
 	return digest
 }
 

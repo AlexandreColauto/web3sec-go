@@ -61,7 +61,7 @@ func risesAboveBaseline(finding validation.Value, level string) bool {
 	if err != nil {
 		return false
 	}
-	e0, _ := LevelIndex("E0")
+	e0 := levelIndexValue("E0")
 	if li <= e0 {
 		return false
 	}

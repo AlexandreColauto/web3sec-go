@@ -237,6 +237,18 @@ func LevelIndex(level string) (int, error) {
 		validation.PyReprStr(level), strings.Join(EVIDENCE_ORDER, "/"))
 }
 
+// levelIndexValue is LevelIndex for a level already known to be on the ladder:
+// a ladder constant, or a name FindingLevel returned (it indexes EVIDENCE_ORDER,
+// so its result is always valid). An unknown level yields 0 — the same value
+// LevelIndex returns beside its error, which these call sites were discarding.
+func levelIndexValue(level string) int {
+	i, err := LevelIndex(level)
+	if err != nil {
+		return 0
+	}
+	return i
+}
+
 // GateRequirement is one gate requirement: a set of satisfying evidence types
 // (nil — any type) and a minimum level. Decision names a NAMED DECISION that
 // stands in for the clause's evidence ("unpriceable": some economic impacts
@@ -367,7 +379,7 @@ func IsExecutionLevel(level string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	base, _ := LevelIndex("E4")
+	base := levelIndexValue("E4")
 	return lvl >= base && level != "E7", nil
 }
 
@@ -383,8 +395,8 @@ func EvidenceDeficit(finding validation.Value, status string, campaign *state.Ca
 			return nil
 		}
 		need := clauses[0].MinLevel
-		h, _ := LevelIndex(have)
-		n, _ := LevelIndex(need)
+		h := levelIndexValue(have)
+		n := levelIndexValue(need)
 		if h >= n {
 			return nil
 		}

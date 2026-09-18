@@ -372,7 +372,7 @@ func ReachabilityDiagnostic(campaign *state.Campaign, minLevel string,
 	if err != nil {
 		return nil, err
 	}
-	e5, _ := LevelIndex("E5")
+	e5 := levelIndexValue("E5")
 	if li < e5 {
 		return []string{}, nil
 	}
@@ -396,7 +396,7 @@ func ReachabilityDiagnostic(campaign *state.Campaign, minLevel string,
 				"sequence PoCs (`webv2 sequence run`) alike; pin one "+
 				"(`webv2 snap`) or record a floor override (`webv2 floors set`)")
 	}
-	e6, _ := LevelIndex("E6")
+	e6 := levelIndexValue("E6")
 	if li >= e6 && !hasChain {
 		// Class-aware: the cross-chain-witness requirement applies only to
 		// classes whose E6 flavor IS a cross-chain witness. Campaign-level
@@ -609,7 +609,7 @@ func (g *gateRun) evidenceFloor(finding validation.Value) (string, error) {
 	if err != nil {
 		return floor, err
 	}
-	e5, _ := LevelIndex("E5")
+	e5 := levelIndexValue("E5")
 	if fi < e5 {
 		return floor, nil
 	}
@@ -632,7 +632,7 @@ func (g *gateRun) reproductionTier(repro validation.Value, floor string) {
 	if err != nil {
 		return
 	}
-	e5, _ := LevelIndex("E5")
+	e5 := levelIndexValue("E5")
 	if fi < e5 {
 		return
 	}

@@ -249,15 +249,21 @@ func privilegesOf(finding validation.Value) validation.Value {
 // values because Python passes the caller's int/float identity through to
 // the result (an int stays an int in the stored finding).
 func EconomicRisk(maxLossUSD, extractableUSD, capitalRequiredUSD validation.Value) validation.Value {
-	out, _ := economicRisk(maxLossUSD, extractableUSD, capitalRequiredUSD)
+	out, err := economicRisk(maxLossUSD, extractableUSD, capitalRequiredUSD)
+	if err != nil {
+		return validation.VNull() // economic_risk's contract: null on unusable input
+	}
 	return out
 }
 
 // EconomicRiskFloat is the nil-tolerant numeric form of EconomicRisk for
 // callers that hold Go floats (nil = Python None).
 func EconomicRiskFloat(maxLossUSD, extractableUSD, capitalRequiredUSD *float64) validation.Value {
-	out, _ := economicRisk(optNum(maxLossUSD), optNum(extractableUSD),
+	out, err := economicRisk(optNum(maxLossUSD), optNum(extractableUSD),
 		optNum(capitalRequiredUSD))
+	if err != nil {
+		return validation.VNull() // economic_risk's contract: null on unusable input
+	}
 	return out
 }
 

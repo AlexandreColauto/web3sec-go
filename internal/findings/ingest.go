@@ -388,7 +388,7 @@ func ingestHypothesis(campaign *state.Campaign, payload validation.Value,
 		if err != nil {
 			return validation.VNull(), err
 		}
-		if e0, _ := LevelIndex("E0"); topIdx > e0 {
+		if e0 := levelIndexValue("E0"); topIdx > e0 {
 			if err := chargeSlot(campaign, &p, lint); err != nil {
 				return validation.VNull(), err
 			}
@@ -579,7 +579,7 @@ func AddEvidence(campaign *state.Campaign, findingID string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	e4, _ := LevelIndex("E4")
+	e4 := levelIndexValue("E4")
 	if li >= e4 {
 		if _, err := snapshot.AssertSnapshotCompatible(campaign, finding,
 			true); err != nil {
