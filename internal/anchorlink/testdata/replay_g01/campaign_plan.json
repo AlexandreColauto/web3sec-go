@@ -1,0 +1,44 @@
+{
+  "campaign_id": "C-replay0000",
+  "created_at": "2026-09-18T15:54:17.147933+00:00",
+  "snapshot_id": "src-replay-g01",
+  "strategy_note": "reduced replay fixture: the G-01 shape only",
+  "priorities": [
+    {
+      "id": "LC-008",
+      "question": "review adversarial lifecycle rollup/BatchLifecycle (commit → challenge → finalize → prove) — no covering finding",
+      "risk": 0.9,
+      "components": ["rollup/BatchLifecycle"],
+      "invariant_ids": [],
+      "required_context": ["structural_index", "protocol_model"],
+      "trajectories": ["lifecycle"],
+      "recommended_stages": [],
+      "budget_class": "cheap",
+      "status": "open"
+    },
+    {
+      "id": "Q-008",
+      "question": "Is the unvalidated trust boundary Batch submitter -> Rollup exploitable?",
+      "risk": 0.8,
+      "components": ["Rollup"],
+      "invariant_ids": [],
+      "required_context": ["structural_index", "protocol_model"],
+      "trajectories": ["integration", "code"],
+      "recommended_stages": [],
+      "budget_class": "standard",
+      "status": "open"
+    },
+    {
+      "id": "Q-999",
+      "question": "closed decoy that names Rollup",
+      "risk": 0.1,
+      "components": ["Rollup"],
+      "invariant_ids": [],
+      "required_context": ["protocol_model"],
+      "trajectories": ["code"],
+      "recommended_stages": [],
+      "budget_class": "cheap",
+      "status": "closed"
+    }
+  ]
+}

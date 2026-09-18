@@ -233,9 +233,12 @@ priorities co-name a function, the output ends with the L-03 lens line
 (enforcement-timing) so the operator is pointed at the question the stores
 conspired to hide. **Acceptance test ships in B8's commit** (plan-review
 F4): a fixture-replay over the C-f4e27261f7 artifacts asserting
-`anchors <C> Rollup.sol#commitBatch` returns rows 34589e8588/594befa6cf +
-open priorities Q-008/Q-050/Q-098/Q-100, and `anchors <C>
-L1ERC20Gateway.sol#onDropMessage` returns row a047e6509f. The premise is
+`anchors <C> Rollup.sol#commitBatch` returns row 34589e8588 + the
+path-level open priorities Q-008/Q-050/Q-098/Q-100 (priorities carry no
+function coordinates, so they are members of the PATH match — B7 review
+finding 1), and bare `anchors <C> Rollup.sol` adds 594befa6cf and the
+rest; `anchors <C> L1ERC20Gateway.sol#onDropMessage` returns row
+a047e6509f. The premise is
 already measured (§5): both golds sat in the pre-hypothesis surface, so
 this test must pass, not merely exist.
 
@@ -340,10 +343,13 @@ probe_surface.json + campaign_plan.json + protocol_model.json):
   burn-vs-transfer sibling disagreement at `_deposit#122`); a sibling row
   on the ETH gateway's drop path too.
 - **Q5: no backfill needed** — the join computes from existing artifacts;
-  the model maps names→snapshot paths with 0 basename collisions (57
-  contracts), LC components name state machines, Q components name
-  contracts, and probe rows carry contract+consumer+asserter+lines.
-  Canonical key = `path#Function` (B7).
+  the model maps names→snapshot paths (name keys are NOT unique: Tree,
+  Verify, GatewayBase, OwnableBase each cover two paths — an earlier
+  "0 collisions" reading collapsed duplicates through a dict and the B7
+  fan-out rule is therefore load-bearing), LC components name state
+  machines, Q components name contracts, and probe rows carry
+  contract+consumer+asserter+lines. Canonical key = `path#Function`
+  (B7, shipped in internal/anchorlink).
 - **Q4 stays open** until implementation (fixture grep for convergence),
   but the decision is already conservative: B7 renders add no stdout lines.
 - **Implication for the thesis (review §1):** both supply-side and

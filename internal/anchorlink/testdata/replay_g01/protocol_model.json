@@ -1,0 +1,53 @@
+{
+  "protocol_id": "morph",
+  "name": "Morph L2 Rollup (reduced replay fixture)",
+  "snapshot_id": "src-replay-g01",
+  "contracts": [
+    {
+      "name": "Rollup",
+      "path": "l1/rollup/Rollup.sol",
+      "role": "core",
+      "entry_points": [
+        "commitBatch",
+        "revertBatch",
+        "challengeState",
+        "proveState",
+        "finalizeBatch",
+        "claimReward"
+      ]
+    },
+    {
+      "name": "L1MessageQueueWithGasPriceOracle",
+      "path": "l1/rollup/L1MessageQueueWithGasPriceOracle.sol",
+      "role": "core",
+      "entry_points": ["popCrossDomainMessage", "appendCrossDomainMessage"]
+    },
+    {
+      "name": "L1ERC20Gateway",
+      "path": "l1/gateways/L1ERC20Gateway.sol",
+      "role": "bridge",
+      "entry_points": ["depositERC20", "finalizeWithdrawERC20", "onDropMessage"]
+    },
+    {
+      "name": "L1ERC20Gateway",
+      "path": "l2/gateways/L1ERC20Gateway.sol",
+      "role": "bridge",
+      "entry_points": ["depositERC20", "finalizeWithdrawERC20", "onDropMessage"]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "rollup/BatchLifecycle",
+      "states": [
+        {"id": "Nonexistent", "description": "no batch at index i", "terminal": false},
+        {"id": "Committed", "description": "committedBatches[i] != 0", "terminal": false},
+        {"id": "Finalized", "description": "finalizedStateRoots[i] != 0", "terminal": true},
+        {"id": "Reverted", "description": "committedBatches[i] == 0 after owner revertBatch", "terminal": true}
+      ],
+      "transitions": [
+        {"from": "Nonexistent", "to": "Committed", "trigger": "commitBatch", "actor": "ActiveStaker"},
+        {"from": "Committed", "to": "Finalized", "trigger": "finalizeBatch", "actor": "anyone"}
+      ]
+    }
+  ]
+}

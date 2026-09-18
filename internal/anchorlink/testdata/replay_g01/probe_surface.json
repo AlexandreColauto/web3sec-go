@@ -1,0 +1,59 @@
+{
+  "campaign_id": "C-replay0000",
+  "snapshot_id": "src-replay-g01",
+  "parse_version": "3",
+  "index_sha": "0000000000000000000000000000000000000000000000000000000000000000",
+  "generated_at": "2026-09-18T16:07:56.340227+00:00",
+  "per_axis": 12,
+  "total": 2,
+  "floor": 3,
+  "axes": [],
+  "rows": [
+    {
+      "row_id": "34589e8588",
+      "probe": "assertion-strength",
+      "axis": "enforcement-timing",
+      "lens": "L-03",
+      "tier": 0,
+      "rank": 1,
+      "assertion_gap": 4,
+      "gate": "OnlyActiveStaker",
+      "why": "commitBatch#204 guards ['prev:state:root'] with a SENTINEL check (batchDataInput.prevStateRoot != bytes32(0)) — any non-zero value passes it.",
+      "siblings": [
+        {"contract": "Rollup", "line": 204, "test_double": false}
+      ],
+      "contract": "Rollup",
+      "consumer": "commitBatch",
+      "consumer_line": 204,
+      "asserter": "finalizeBatch",
+      "asserter_line": 496,
+      "concept_keys": ["prev:state:root"],
+      "own_class": 0,
+      "assert_class": 4,
+      "own_form": "sentinel",
+      "own_guard_text": "batchDataInput.prevStateRoot != bytes32(0)"
+    },
+    {
+      "row_id": "a047e6509f",
+      "probe": "custody-primitive",
+      "axis": "custody-primitive",
+      "lens": "L-04",
+      "tier": 0,
+      "rank": 1,
+      "assertion_gap": 3,
+      "gate": "onDropMessage",
+      "why": "the burn-vs-transfer sibling disagreement at _deposit#122",
+      "siblings": [
+        {"contract": "L1ERC20Gateway", "line": 122, "test_double": false}
+      ],
+      "contract": "L1ERC20Gateway",
+      "consumer": "onDropMessage",
+      "consumer_line": 74,
+      "asserter": "finalizeWithdrawERC20",
+      "asserter_line": 108
+    }
+  ],
+  "missing": [],
+  "warnings": [],
+  "stats": {"probes": 2, "sites": 40, "rows": 2, "emitted": 2}
+}

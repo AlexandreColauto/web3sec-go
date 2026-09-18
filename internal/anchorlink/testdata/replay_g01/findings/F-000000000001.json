@@ -1,0 +1,26 @@
+{
+  "finding_id": "F-000000000001",
+  "title": "commitBatch authentication is a stub: any active staker commits arbitrary state/withdrawal roots",
+  "root_cause": {
+    "class": "access-control",
+    "description": "Batch submission authentication is unimplemented: Rollup._getBLSMsgHash returns bytes32(0) and the sequencer set is caller-supplied.",
+    "mechanism": "commitBatch -> verifySignature always passes"
+  },
+  "affected": [
+    {
+      "path": "contracts/contracts/l1/rollup/Rollup.sol",
+      "contract": "Rollup",
+      "function": "commitBatch",
+      "lines": [204, 320],
+      "entry_point": true
+    },
+    {
+      "path": "contracts/contracts/l1/rollup/Rollup.sol",
+      "contract": "Rollup",
+      "function": "_getBLSMsgHash",
+      "lines": [657, 662]
+    }
+  ],
+  "status": "CONFIRMED",
+  "trajectory": "code"
+}
