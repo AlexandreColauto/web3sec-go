@@ -1,10 +1,13 @@
 package cli
 
 // cmd_ingest: `webv2 ingest [campaign] --json-file F [--example] [--trajectory T]
-// [--stage S] [--answers-priority Q] [--priority-outcome O] [--json] [--lint]`
-// — ingest a model-produced hypothesis payload: schema-validated,
+// [--stage S] [--answers-priority Q] [--priority-outcome O] [--json] [--lint]
+// [--no-hints]` — ingest a model-produced hypothesis payload: schema-validated,
 // dedup-fingerprinted, intake-checked, with the taxonomy advisory and intake
 // warnings logged WITH the finding. cli.py cmd_ingest verbatim.
+//
+// `--no-hints` (B9) suppresses the write-time hygiene note; it is documented
+// in the verb's help and implemented in hints.go.
 //
 // `--lint` (wave N, T4) threads a lint flag into the SAME run function and the
 // same orchestrator call: the payload travels the exact real pipeline (schema
@@ -27,6 +30,7 @@ package cli
 
 import (
 	"websec/internal/orchestrator"
+	"websec/internal/validation"
 )
 
 func runIngest(root string, args []string, r *Runner) error {
@@ -78,6 +82,10 @@ func runIngest(root string, args []string, r *Runner) error {
 		return t14ExitErr(2, "")
 	}
 	printIngestResult(r, c, f, a.asJSON)
+	// B9: the capped, suppressible write-time hygiene note. It rides stderr,
+	// AFTER the success bytes above (stdout is untouched), and it can never
+	// fail this run — emitWriteHints is void and swallows every read error.
+	emitWriteHints(c, []validation.Value{f}, a.noHints, r.Err)
 	return nil
 }
 

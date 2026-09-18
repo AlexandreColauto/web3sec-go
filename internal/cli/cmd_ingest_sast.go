@@ -52,6 +52,7 @@ func runIngestSast(root string, c *state.Campaign, a *ingestArgs, r *Runner) err
 		stage = lane.stage
 	}
 	var created []string
+	var made []validation.Value
 	for _, p := range payloads {
 		f, err := orch.Ingest(p, orchestrator.IngestOpts{
 			Trajectory: a.trajectory, Stage: stage, Lint: a.lint})
@@ -60,6 +61,7 @@ func runIngestSast(root string, c *state.Campaign, a *ingestArgs, r *Runner) err
 			return t14ExitErr(2, "")
 		}
 		created = append(created, validation.ObjStr(f, "finding_id"))
+		made = append(made, f)
 	}
 	// The SAST lane prints the same summary under --lint as a real run (T4:
 	// lint prints exactly what ingest would print); the lane's own per-payload
@@ -69,5 +71,10 @@ func runIngestSast(root string, c *state.Campaign, a *ingestArgs, r *Runner) err
 	for _, id := range created {
 		fmt.Fprintf(r.Out, "  %s\n", id)
 	}
+	// B9: the lane is an `ingest --json-file` success too, so the hygiene note
+	// runs here as well — over EVERY hypothesis the lane created, one capped
+	// block (the cap is what keeps a detector run's 50 findings from becoming
+	// 50 notes). It rides stderr after the summary above; stdout is untouched.
+	emitWriteHints(c, made, a.noHints, r.Err)
 	return nil
 }

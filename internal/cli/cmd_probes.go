@@ -34,6 +34,8 @@ positional arguments:
                     dispositions, blind keys
     blank           record the named decision that closes a BLIND axis, citing
                     a key the probe actually published
+    pending         the undispositioned rows, ranked, one line each with the
+                    exact 'answered' command that discharges it (B10b)
 
 options:
   -h, --help        show this help message and exit
@@ -100,6 +102,9 @@ type probesArgs struct {
 	anchorBlind *string
 	reason      *string
 	actor       *string
+	// max is `probes <c> pending --max N` (B10b): the console cap. nil means
+	// the pendingCap default; --json ignores it.
+	max *int
 }
 
 func runProbes(root string, args []string, r *Runner) error {
@@ -116,6 +121,8 @@ func runProbes(root string, args []string, r *Runner) error {
 		return probesRun(a, c, r)
 	case "blank":
 		return probesBlank(a, c, r)
+	case "pending":
+		return probesPending(a, c, r)
 	default:
 		return probesList(a, c, r)
 	}
@@ -142,7 +149,12 @@ func parseProbes(args []string, r *Runner) (*probesArgs, error) {
 		}
 		a.cmd = arg
 		i++
-		if !t14InList(a.cmd, []string{"run", "list", "blank"}) {
+		// `pending` (B10b) is accepted here but deliberately ABSENT from the
+		// invalid-choice text below: that message is the pinned argparse error
+		// for an existing form (`probes <c> bogus`), and its bytes are
+		// contractual. The verb's own help text and the runbook name the new
+		// subcommand; the choice list stays as it was.
+		if !t14InList(a.cmd, []string{"run", "list", "blank", "pending"}) {
 			return nil, t14ArgparseErr(t29ProbesUsage, "probes",
 				"argument probes_cmd: invalid choice: %s (choose from %s)",
 				validation.PyReprStr(a.cmd), "'run', 'list', 'blank'")
@@ -160,6 +172,8 @@ func parseProbes(args []string, r *Runner) (*probesArgs, error) {
 		perr = parseProbesRun(a, rest, r)
 	case "blank":
 		perr = parseProbesBlank(a, rest, r)
+	case "pending":
+		perr = parseProbesPending(a, rest, r)
 	case "list":
 		perr = parseProbesList(a, rest, r)
 	}

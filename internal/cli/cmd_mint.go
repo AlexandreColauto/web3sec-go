@@ -1,10 +1,14 @@
 package cli
 
 // cmd_mint: `webv2 mint <campaign> <finding> --exec E --description D
-// [--tier T] [--type TYPE]` — record a successful reproduction attempt AND
-// mint its evidence in one call (forge-meaningfulness checked, type
-// validated against the schema enum). Idempotent per exec: re-minting the
-// same exec is a no-op that returns the finding unchanged.
+// [--tier T] [--type TYPE] [--verify-reruns] [--no-hints]` — record a
+// successful reproduction attempt AND mint its evidence in one call
+// (forge-meaningfulness checked, type validated against the schema enum).
+// Idempotent per exec: re-minting the same exec is a no-op that returns the
+// finding unchanged.
+//
+// `--no-hints` (B9) suppresses the write-time hygiene note; it is documented
+// in the verb's help and implemented in hints.go.
 
 import (
 	"errors"
@@ -22,6 +26,7 @@ const mintHelp = `usage: webv2 mint [-h] --exec EXEC_ID --description DESCRIPTIO
                   [--tier {T1,T2,T3,T4}]
                   [--type {balance-delta,differential,fork-test,foundry-test,fuzz,historical-analog,invariant-test,manual,reachability,reasoning,static-analysis,symbolic-witness,trace,unit-test}]
                   [--verify-reruns]
+                  [--no-hints]
                   campaign finding
 
 positional arguments:
@@ -36,6 +41,11 @@ options:
   --type {balance-delta,differential,fork-test,foundry-test,fuzz,historical-analog,invariant-test,manual,reachability,reasoning,static-analysis,symbolic-witness,trace,unit-test}
   --verify-reruns       re-run the PoC 3x and record the variance advisory
                         (fail-open; needs a container runtime)
+  --no-hints            suppress the write-time hygiene note (the <=3 stderr
+                        lines naming undispositioned surface rows / open plan
+                        priorities that share the finding's affected[] anchors);
+                        the environment switch WEBV2_NO_HINTS=1 does the same
+                        (only the literal 1)
 `
 
 // mintTiers is the argparse choice list for --tier (declaration order).
@@ -70,6 +80,7 @@ type mintParsed struct {
 	haveTier     bool
 	haveType     bool
 	verifyReruns bool
+	noHints      bool
 }
 
 // mintParseArgs scans the raw arguments with cli.py's hand-rolled loop and
@@ -122,6 +133,8 @@ func mintParseArgs(root string, args []string, r *Runner) (*mintParsed, int) {
 			m.etype, m.haveType = strings.TrimPrefix(a, "--type="), true
 		case a == "--verify-reruns":
 			m.verifyReruns = true
+		case a == "--no-hints":
+			m.noHints = true
 		case a == "-h" || a == "--help":
 			fmt.Fprint(r.Out, mintHelp)
 			return nil, 0
@@ -266,6 +279,10 @@ func mintExecute(root string, r *Runner, c *state.Campaign, m *mintParsed) int {
 	}
 	fmt.Fprintf(r.Out, "%s: minted %s evidence from %s — level %s\n",
 		m.pos[1], label, m.execID, level)
+	// B9: the same capped, suppressible hygiene note ingest prints — the
+	// finding's affected[] anchors are compared against the campaign's
+	// surface and plan. stderr, after the success line; stdout is untouched.
+	emitWriteHints(c, []validation.Value{out}, m.noHints, r.Err)
 	return 0
 }
 

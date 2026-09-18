@@ -223,7 +223,18 @@ only if the operator named a different workspace.
    graph-memory recall + reproduction + snapshot compatibility, refuses
    anything less, and lists the deficits diagnostically. Before attempting the
    move, `gate <C-id> F-xxx` dry-runs that same gate on ONE finding (read-only):
-   exactly which checks stand between it and CONFIRMED, and what fixes each. A
+   exactly which checks stand between it and CONFIRMED, and what fixes each.
+   One more check bites here and nowhere else: an UNDISPOSITIONED probe-surface
+   row of tier 0 (or assertion_gap >= 3) that cites the SAME code anchor as this
+   finding's own `affected[]` entries is a machine question about that code, and
+   `move <C-id> F-xxx CONFIRMED` refuses until it is answered — `gate <C-id>
+   F-xxx` lists it as `probe-surface-undispositioned[<row-id>]` with the exact
+   fix. Discharge it with
+   `answered <C-id> <Q-id> answered --reason "<why the row is safe — cite the
+   row's own code>" --anchor <field>` (a probe row's closure must name the field
+   it claims is safe). A row no priority claims yet is minted first with
+   `probes <C-id> run --emit`. Rows on unrelated anchors never block a promotion,
+   and a campaign with no probe surface sees no new check at all. A
    CONFIRMED high/critical finding is an ANCHOR: confirming one AUTO-ADDS an
    ANCHOR re-scan priority to the plan — re-scan that finding's own lifecycle
    before declaring the surface swept.

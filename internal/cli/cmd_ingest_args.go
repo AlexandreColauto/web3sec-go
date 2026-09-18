@@ -17,6 +17,7 @@ const t14IngestUsage = `usage: webv2 ingest [-h] [--json-file JSON_FILE] [--exam
                     [--json]
                     [--from {slither,aderyn}]
                     [--lint]
+                    [--no-hints]
                     [campaign]
 `
 
@@ -27,6 +28,7 @@ const t14IngestHelp = `usage: webv2 ingest [-h] [--json-file JSON_FILE] [--examp
                     [--json]
                     [--from {slither,aderyn}]
                     [--lint]
+                    [--no-hints]
                     [campaign]
 
 positional arguments:
@@ -59,6 +61,11 @@ options:
                         a real ingest would print — accept or refuse — but
                         write nothing: no state change, no events, no
                         finding files (exit 0 accepted / 2 refused)
+  --no-hints            suppress the write-time hygiene note (the <=3 stderr
+                        lines naming undispositioned surface rows / open plan
+                        priorities that share the payload's affected[] anchors);
+                        the environment switch WEBV2_NO_HINTS=1 does the same
+                        (only the literal 1)
 `
 
 // t14IngestOutcomes is the --priority-outcome choice list.
@@ -76,6 +83,7 @@ type ingestArgs struct {
 	priorityOutcome string
 	asJSON          bool
 	lint            bool
+	noHints         bool
 }
 
 // parseIngest is the argparse layer. ingest has no required argument, so a
@@ -118,6 +126,10 @@ func parseIngestScan(args []string, a *ingestArgs, r *Runner) (pos []string, hel
 		}
 		if arg == "--lint" {
 			a.lint = true
+			continue
+		}
+		if arg == "--no-hints" {
+			a.noHints = true
 			continue
 		}
 		name, val, hasVal := splitFlag(arg)

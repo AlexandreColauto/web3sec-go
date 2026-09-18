@@ -67,6 +67,15 @@ options:
                         the value recorded is the row's real anchor. Refused
                         on an L-* lens route (a lens entry is not a probe
                         row)
+  --rows ROWID,ROWID    B10b probe-row batch: the surface row ids to discharge
+                        (the ids 'probes <campaign> pending' prints), one
+                        status for all of them. Replaces the priority
+                        positionals. --reason-all is legal here only when
+                        EVERY named row is tier>0 and assertion_gap<3 — a
+                        tier-0 or gap>=3 row is discharged one-per-call, with
+                        its own --anchor and a reason citing its own code.
+                        --anchor still applies to every row; a row whose probe
+                        does not produce it refuses and nothing is written
   --passes VALUE       sentinel-guarded rows only: the value that passes the
                         check (the row's guard is a zero-check that cannot
                         express the truth of the value it guards). Required to
@@ -168,6 +177,11 @@ type answeredArgs struct {
 	actor             string
 	overrideDismissal bool
 	overrideReason    *string
+	// rowsRaw is the `--rows` value as typed; rows is it parsed (B10b). When
+	// rows is non-nil the route is the probe-row batch and the priority
+	// positionals are empty — the row ids name the work, not the Q-* ids.
+	rowsRaw *string
+	rows    []string
 }
 
 var answeredStatuses = []string{"open", "assigned", "answered",
@@ -243,6 +257,14 @@ func answeredFlag(args []string, i int, a *answeredArgs,
 	if arg == "--interim" && i+1 < len(args) && !looksLikeOption(args[i+1]) {
 		v := args[i+1]
 		a.interim = &v
+		return 1, false, true, nil
+	}
+	// B10b: --rows takes a comma-separated row-id list, so it carries the same
+	// looksLikeOption guard --passes does — `--rows --anchor consumer` is a
+	// missing value, never a row named "--anchor".
+	if arg == "--rows" && i+1 < len(args) && !looksLikeOption(args[i+1]) {
+		v := args[i+1]
+		a.rowsRaw = &v
 		return 1, false, true, nil
 	}
 	if arg == "--finding" && i+1 < len(args) && !looksLikeOption(args[i+1]) {
@@ -334,6 +356,7 @@ func answeredEq(a *answeredArgs, arg string) (bool, error) {
 		{"--reconcile", &a.reconcile},
 		{"--anchor", &a.anchor}, {"--passes", &a.passes},
 		{"--interim", &a.interim}, {"--finding", &a.finding},
+		{"--rows", &a.rowsRaw},
 		{"--override-reason", &a.overrideReason},
 	} {
 		if strings.HasPrefix(arg, f.name+"=") {
@@ -354,6 +377,12 @@ func answeredEq(a *answeredArgs, arg string) (bool, error) {
 // the status is a priority, so `answered C Q-001 answered` keeps its old
 // shape while `answered C P1 P2 P3 status` closes a batch.
 func finishAnswered(a *answeredArgs, pos []string) (*answeredArgs, error) {
+	// B10b: the `--rows` form is its own positional shape (campaign + status,
+	// no priority), so it branches before the priority arithmetic below — every
+	// byte of the existing errors stays where it was.
+	if a.rowsRaw != nil {
+		return finishAnsweredRows(a, pos)
+	}
 	if len(pos) == 0 {
 		return nil, t14ArgparseErr(t14AnsweredUsage, "answered",
 			"the following arguments are required: %s",
@@ -386,4 +415,63 @@ func finishAnswered(a *answeredArgs, pos []string) (*answeredArgs, error) {
 			"'"+strings.Join(answeredStatuses, "', '")+"'")
 	}
 	return a, nil
+}
+
+// finishAnsweredRows is the `--rows` positional shape (B10b): campaign and
+// status, no priority — the row ids name the work. Everything that can be
+// refused is refused here, before the plan is even read.
+func finishAnsweredRows(a *answeredArgs, pos []string) (*answeredArgs, error) {
+	rows, err := parseAnsweredRows(*a.rowsRaw)
+	if err != nil {
+		return nil, err
+	}
+	a.rows = rows
+	switch {
+	case len(pos) == 0:
+		return nil, t14ArgparseErr(t14AnsweredUsage, "answered",
+			"the following arguments are required: %s", "campaign, status")
+	case len(pos) == 1:
+		return nil, t14ArgparseErr(t14AnsweredUsage, "answered",
+			"the following arguments are required: %s", "status")
+	case len(pos) > 2:
+		return nil, t14ExitErr(2, "answered: --rows names the probe rows "+
+			"to discharge, so it takes no priority positional (got %s); "+
+			"drop the priority and pass the row ids to --rows\n",
+			validation.PyReprStr(pos[1]))
+	}
+	a.campaign = pos[0]
+	a.status = pos[1]
+	if !t14InList(a.status, answeredStatuses) {
+		return nil, t14ArgparseErr(t14AnsweredUsage, "answered",
+			"argument status: invalid choice: %s (choose from %s)",
+			validation.PyReprStr(a.status),
+			"'"+strings.Join(answeredStatuses, "', '")+"'")
+	}
+	return a, nil
+}
+
+// parseAnsweredRows splits the --rows value into row ids, preserving the
+// operator's order (the refusal names rows in the order given) and refusing a
+// blank list, a blank element and a repeated id: a batch that names the same
+// row twice would write the same status twice and print two lines for one
+// obligation.
+func parseAnsweredRows(raw string) ([]string, error) {
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	seen := map[string]bool{}
+	for _, part := range parts {
+		rid := strings.TrimSpace(part)
+		if rid == "" {
+			return nil, t14ExitErr(2, "answered: --rows takes a "+
+				"comma-separated list of surface row ids — got %s\n",
+				validation.PyReprStr(raw))
+		}
+		if seen[rid] {
+			return nil, t14ExitErr(2, "answered: --rows names row %s "+
+				"twice — one status per row, named once\n", rid)
+		}
+		seen[rid] = true
+		out = append(out, rid)
+	}
+	return out, nil
 }

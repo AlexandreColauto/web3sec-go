@@ -214,6 +214,10 @@ func ConfirmationGateClauses(campaign *state.Campaign,
 	if err := g.invariants(finding); err != nil {
 		return nil, err
 	}
+	// B10(a): the anchor blind-spot check sits last before claim-drift, so a
+	// campaign without a probe surface appends nothing and the clause set it
+	// prints is byte-identical (gate_probe_anchor.go).
+	g.probeAnchor(finding)
 	return g.claimDrift(finding)
 }
 

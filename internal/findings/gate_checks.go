@@ -40,6 +40,47 @@ func (g *gateRun) satisfied(checkID string, subject *string) {
 		Remediation: g.remediation(checkID), Subject: subject})
 }
 
+// failWith appends a failing clause whose remediation is computed from the
+// finding at hand instead of read from the static catalog. B10(a) is the one
+// check that needs it: its heal names the ROW'S OWN priority, which no static
+// entry can carry — and GATE_REMEDIATION is byte-pinned to its 11 ids by
+// bounty's TestGateExplainCatalogByteExact, so the catalog is not the place
+// for a per-row command. The per-row heal is still a real command, pinned by
+// TestProbeAnchorHealNamesRealCommand.
+func (g *gateRun) failWith(checkID, message, remediation string,
+	subject *string) {
+	g.out = append(g.out, Clause{CheckID: checkID, OK: false, Message: message,
+		Remediation: remediation, Subject: subject})
+}
+
+// probeAnchor is the B10(a) forcing function's clause: one clause per
+// undispositioned high-risk surface row that cites this finding's own anchor,
+// subject = the row id (the shape invariant-unverified uses for its
+// per-invariant clauses). gate_probe_anchor.go carries the rule.
+//
+// SKIPPED ENTIRELY (no clause at all) when the campaign has no protocol
+// model, no probe surface or no campaign plan: the clause set, the count the
+// dry run prints and the refusal text are then exactly what they were before
+// this check existed.
+func (g *gateRun) probeAnchor(finding validation.Value) {
+	if g.campaign == nil {
+		return
+	}
+	spots, ran := ProbeAnchorBlindSpots(g.campaign, finding)
+	if !ran {
+		return
+	}
+	if len(spots) == 0 {
+		g.satisfied(ProbeAnchorCheckID, nil)
+		return
+	}
+	for _, spot := range spots {
+		subj := spot.RowID
+		g.failWith(ProbeAnchorCheckID, spot.Message(),
+			spot.Heal(g.campaign.CampaignID), &subj)
+	}
+}
+
 func (g *gateRun) criticVerdict(ver validation.Value) {
 	v := validation.ObjAt(ver, "critic_verdict")
 	if v.Kind != validation.Str || v.S != "confirmed" {
