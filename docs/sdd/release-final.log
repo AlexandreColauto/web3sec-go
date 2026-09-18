@@ -1,0 +1,36 @@
+
+=== 1/4 build: CGO_ENABLED=0 go build -trimpath -ldflags '-s -w' -o dist/webv2 ===
+ok: /home/xand/Projects/dsh-plugins/websec2/web3sec-go/.worktrees/production-readiness/dist/webv2
+
+=== 2/4 static + standalone ===
+/home/xand/Projects/dsh-plugins/websec2/web3sec-go/.worktrees/production-readiness/dist/webv2: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, Go BuildID=0NllhuJ6GnD5K6qfE81D/KT1Hh1ud5N36q2_EopLQ/GW_IaKyNkbkelbfqZqpm/WkDg1cAc3AV3izYM1-kt, BuildID[sha1]=44c28fb610641939c956298c48bf423eab355583, stripped
+ok: build metadata CGO_ENABLED=0
+ok: static, no shared-library dependencies
+
+=== 3/4 standalone from a scratch dir with NO repo access ===
+--- webv2 --help
+usage: webv2 [--root DIR] <command> [args]
+
+Commands (in fixed order):
+--- webv2 selftest (embedded assets, no module tree)
+web3sec-go self-check (fast — pass --full for the go test suite)
+============================================================
+[PASS] build-sweep  embedded assets ok: 32 schemas, 54 stage prompts, 10 playbooks, 13 archetypes, 83 commands
+[PASS] walkthrough  done. campaign kept at /tmp/webv2-walkthrough-2089167790/campaigns/C-1a8038422a
+[PASS] cli-audit    audit PASS: event_log=0 problem(s), artifacts=0 problem(s), execs=0 problem(s), findings=0 problem(s), projection=0 prob
+============================================================
+ALL PASS
+--- webv2 ingest --example (embedded schema legend)
+--- mini walkthrough (init -> snap -> index -> probes run -> audit -> verify -> brief)
+audit PASS: event_log=0 problem(s), artifacts=0 problem(s), execs=0 problem(s), findings=0 problem(s), projection=0 problem(s), snapshots=0 problem(s), relations=0 problem(s), floor_policy=0 problem(s), stage_completions=0 problem(s), baselines=0 problem(s), invariant_verification=0 problem(s), sequence_coverage=0 problem(s), probe_surface=0 problem(s), unpriceable=0 problem(s)
+ok: mini walkthrough clean in /tmp/tmp.SBNGmyEJO8/work (campaign C-34dc291381)
+
+=== 4/4 release artifact ===
+binary: /home/xand/Projects/dsh-plugins/websec2/web3sec-go/.worktrees/production-readiness/dist/webv2
+sha256: f8d75ad544409dc4a2bac93d155abd7227e45f5924005403b759aede5eec6db2
+size:   20017314 bytes (20M)
+
+security-check: running /home/xand/Projects/dsh-plugins/websec2/web3sec-go/.worktrees/production-readiness/.scratch/gomod/bin/govulncheck ./... from /home/xand/Projects/dsh-plugins/websec2/web3sec-go/.worktrees/production-readiness
+No vulnerabilities found.
+security-check: PASS
+RELEASE OK: static single binary, embedded assets served, standalone walkthrough clean
