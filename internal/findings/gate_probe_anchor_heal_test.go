@@ -170,8 +170,12 @@ func probeAnchorRiskVectors() []struct {
 	}
 }
 
-// TestProbeAnchorHighRiskVectorsMatchPlanner is the copy-vs-source pin.
-func TestProbeAnchorHighRiskVectorsMatchPlanner(t *testing.T) {
+// TestProbeAnchorHighRiskSourceMatchesVectors pins planner.HighRiskRow (the
+// source of truth) against the vector table; the COPY (gateHighRiskRow) is
+// pinned against the same table in gate_probe_anchor_copy_test.go — the
+// internal test package, where it is reachable (round-2 review, B10a
+// finding 1: a test that only exercised planner never looked at the copy).
+func TestProbeAnchorHighRiskSourceMatchesVectors(t *testing.T) {
 	checked := 0
 	for _, v := range probeAnchorRiskVectors() {
 		checked++

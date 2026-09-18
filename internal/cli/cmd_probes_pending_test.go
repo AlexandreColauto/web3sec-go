@@ -112,6 +112,38 @@ func TestProbesPendingPinsTheRankedDrainLines(t *testing.T) {
 	}
 }
 
+// TestProbesPendingRanksGapDescending closes the mutation the round-2 review
+// proved survives the suite: every fixture row shares gap 4, so flipping the
+// middle rank key (cmd_probes_pending.go "a.gap > b.gap") kept everything
+// green. Three SAME-tier rows get three distinct gaps (9/4/1); the view is
+// read as an id permutation against the untouched byte pin — any rank-key
+// change other than gap-descending changes the permutation, including a
+// tie-break shift the naive pairwise index check would sleep through.
+func TestProbesPendingRanksGapDescending(t *testing.T) {
+	ws, c, _ := t30Setup(t)
+	t30SetRowTierGap(t, c, "81dfad6492", 0, 1) // fixture FIRST row: sinks
+	t30SetRowTierGap(t, c, "66c7d14d35", 0, 4) // mid tier-0 row
+	t30SetRowTierGap(t, c, "b6fe31cdf7", 0, 9) // fixture third: rises to top
+	code, out, errS := run(t, "--root", ws, "probes", t29CID, "pending")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	// gap 9 first; the four untouched gap-4 rows keep their relative rank
+	// order; the demoted gap-1 row trails the whole tier-0 group.
+	want := []string{"b6fe31cdf7", "66c7d14d35",
+		"63904ecbc1", "46ebc2a5a1", "748abbf715", "81dfad6492",
+		"d549f9e66a", "d6e1821dc6", "dd489a9a69", "954d79770b"}
+	var got []string
+	for _, l := range strings.Split(strings.TrimSuffix(out, "\n"), "\n")[1:] {
+		if i := strings.Index(l, " | "); i > 0 {
+			got = append(got, l[:i])
+		}
+	}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("pending order = %v, want %v (gap-desc within tier)", got, want)
+	}
+}
+
 // TestProbesPendingCapPointerAndMax pins the console cap: the default cap is
 // 20, --max N selects N lines, and a truncated list points at --json.
 func TestProbesPendingCapPointerAndMax(t *testing.T) {
