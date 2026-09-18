@@ -1,0 +1,82 @@
+F1 mechanism measurement — why the -race build spends the lock budget
+=====================================================================
+
+Instrumentation: temporary, test-only stage timestamps written by the worker
+processes themselves (lmwWorker / lockWorker), plus the parent test's own
+start/return times. The instrumented test file was reverted with
+`git checkout -- internal/state/processlock_r13_test.go`; nothing in the
+committed tree carries the instrumentation.
+
+--- Run A: TestConcurrentLoadModifyWritesLoseNothing (6 workers), -race, budget 50s
+    (scaled, so all six complete; with the production 5s budget the sixth fails)
+
+per-worker stage log (.scratch/r13diag/lmw-<i>.txt, i = worker index):
+
+lmw-0.txt
+start              pid=956114 07:25:01.633435   97.294µs
+prelock            pid=956114 07:25:01.633563  158.437µs
+locked             pid=956114 07:25:06.699183    5.065779506s
+logged-then-exit   pid=956114 07:25:06.708760    5.075356091s
+lmw-1.txt
+start              pid=956112 07:25:01.628599  144.512µs
+prelock            pid=956112 07:25:01.628730  205.788µs
+locked             pid=956112 07:25:04.668260    3.039737175s
+logged-then-exit   pid=956112 07:25:04.676477    3.04795234s
+lmw-2.txt
+start              pid=956111 07:25:01.628544  132.209µs
+prelock            pid=956111 07:25:01.628697  207.024µs
+locked             pid=956111 07:25:01.628741  249.748µs
+logged-then-exit   pid=956111 07:25:01.635683    7.192576ms
+lmw-3.txt
+start              pid=956110 07:25:01.628588  172.075µs
+prelock            pid=956110 07:25:01.628724  236.404µs
+locked             pid=956110 07:25:03.652151    2.023665014s
+logged-then-exit   pid=956110 07:25:03.661898    2.033411625s
+lmw-4.txt
+start              pid=956113 07:25:01.629878   96.415µs
+prelock            pid=956113 07:25:01.630008  161.003µs
+locked             pid=956113 07:25:02.640012    1.010165608s
+logged-then-exit   pid=956113 07:25:02.649340    1.019493891s
+lmw-5.txt
+start              pid=956109 07:25:01.633335  100.948µs
+prelock            pid=956109 07:25:01.633466  162.996µs
+locked             pid=956109 07:25:05.681643    4.048340881s
+logged-then-exit   pid=956109 07:25:05.690045    4.056741721s
+
+Reading: every critical section is 7.2ms of real work (lock -> State -> edit ->
+SaveState -> Log). The lock is then held for ~1.004s MORE by each worker, and
+the next worker acquires it exactly one teardown later:
+
+  worker 2 done 01.6357  ->  worker 4 locks 02.6400   (+1.0043s)
+  worker 4 done 02.6493  ->  worker 3 locks 03.6522   (+1.0029s)
+  worker 3 done 03.6619  ->  worker 1 locks 04.6683   (+1.0064s)
+  worker 1 done 04.6765  ->  worker 5 locks 05.6816   (+1.0051s)
+  worker 5 done 05.6900  ->  worker 0 locks 06.6992   (+1.0092s)
+
+lmwWorker ends in os.Exit(0), so its `defer c.UnlockProcess()` never runs and
+the kernel releases the flock only when the process dies. The ~1.004s between
+"last write" and "next lock" is therefore process teardown under -race.
+
+--- Run B: TestConcurrentLoggersKeepOneLedger (6 workers), -race — the control,
+    because this worker does NOT hold the lock past its write (Log's own
+    deferred unlock releases it):
+
+worker diag (.scratch/r13diag/logger.txt):
+worker-start       pid=956376 07:25:32.772157
+worker-before-exit pid=956376 07:25:32.778994   (7ms of work)
+... five more workers, all started within 5ms, all done within 112ms
+
+parent test's view of the same worker (it reports when CombinedOutput returns):
+DIAG logger worker 4 pid=956376 started=07:25:32.756607 returned=07:25:33.780988
+elapsed=1.024382728s
+
+Reading: 7ms of work, then 1.002s before the process is reaped. The teardown
+cost is ~1.0s per process in this -race test binary, independent of the lock.
+That is why the budget — not the lock hold — ran out in
+TestConcurrentLoadModifyWritesLoseNothing: 6 workers serialize at ~1s each
+because each holds the lock until death, and the sixth needs >5s.
+
+Conclusion: the r13/r14/r15 fail-loud law was never violated. The 5s wall-clock
+budget was being spent on race-detector teardown, so the fix scales the budget in
+-race test builds only (commit 1130e324) and pins the production value with
+TestLockBudgetMatchesBuild.

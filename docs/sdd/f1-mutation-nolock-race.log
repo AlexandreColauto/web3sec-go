@@ -1,0 +1,5 @@
+--- FAIL: TestConcurrentLoadModifyWritesLoseNothing (1.09s)
+    processlock_r13_test.go:189: state lost an update: 1 rows, want 6
+FAIL
+FAIL	websec/internal/state	1.114s
+FAIL

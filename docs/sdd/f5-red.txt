@@ -1,0 +1,7 @@
+--- FAIL: TestQueueOpenQuestionCountedOncePerRow (0.00s)
+    task12_queue_scoring_test.go:172: one question naming TWO components of one row scored openQ=2, want 1 (counted once per row)
+--- FAIL: TestQueueMultiComponentQuestionDoesNotInflateRank (0.00s)
+    task12_queue_scoring_test.go:211: queue order = [Q-002 Q-001] — a row whose single open question names two components must not outrank the one-component spelling of the same question (counted once per row)
+FAIL
+FAIL	websec/internal/planner	0.011s
+FAIL
