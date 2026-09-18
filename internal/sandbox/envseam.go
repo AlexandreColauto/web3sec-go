@@ -403,47 +403,69 @@ func SandboxPreflight(c *state.Campaign, workdir, profile *string) (
 // defaultSandboxPreflight is env.sandbox_preflight verbatim.
 func defaultSandboxPreflight(c *state.Campaign, workdir, profile *string) (
 	validation.Value, error) {
-	var checks []validation.KV
-	var issues, warnings []validation.Value
+	p := &preflightRun{c: c, workdir: workdir, profile: profile}
+	p.container = profile != nil && !HostProfile(*profile)
+	p.preflightCheckContainer()
+	p.preflightCheckCompiler()
+	p.preflightCheckWorkdir()
+	return p.preflightResult(), nil
+}
 
-	check := func(name, status, detail string, fix *string) {
-		var fixV validation.Value = validation.VNull()
+// preflightRun carries the shared state of one sandbox_preflight across
+// the preflightXxx helpers below — the former defaultSandboxPreflight
+// locals, verbatim, in the former order.
+type preflightRun struct {
+	c         *state.Campaign
+	workdir   *string
+	profile   *string
+	container bool
+	checks    []validation.KV
+	issues    []validation.Value
+	warnings  []validation.Value
+}
+
+// check appends one named check and, for a fail/warn, its operator-facing
+// issue/warning line (the former defaultSandboxPreflight closure).
+func (p *preflightRun) check(name, status, detail string, fix *string) {
+	var fixV validation.Value = validation.VNull()
+	if fix != nil {
+		fixV = validation.VStr(*fix)
+	}
+	p.checks = append(p.checks, validation.KV{K: name, V: validation.VObj(
+		validation.KV{K: "status", V: validation.VStr(status)},
+		validation.KV{K: "detail", V: validation.VStr(detail)},
+		validation.KV{K: "fix", V: fixV})})
+	if status == "fail" || status == "warn" {
+		line := name + ": " + detail
 		if fix != nil {
-			fixV = validation.VStr(*fix)
+			line += " — fix: " + *fix
 		}
-		checks = append(checks, validation.KV{K: name, V: validation.VObj(
-			validation.KV{K: "status", V: validation.VStr(status)},
-			validation.KV{K: "detail", V: validation.VStr(detail)},
-			validation.KV{K: "fix", V: fixV})})
-		if status == "fail" || status == "warn" {
-			line := name + ": " + detail
-			if fix != nil {
-				line += " — fix: " + *fix
-			}
-			if status == "fail" {
-				issues = append(issues, validation.VStr(line))
-			} else {
-				warnings = append(warnings, validation.VStr(line))
-			}
+		if status == "fail" {
+			p.issues = append(p.issues, validation.VStr(line))
+		} else {
+			p.warnings = append(p.warnings, validation.VStr(line))
 		}
 	}
+}
 
-	container := profile != nil && !HostProfile(*profile)
-	if !container {
+// preflightCheckContainer runs the docker/image checks: na on a host
+// profile, the daemon and image probes on a container profile.
+func (p *preflightRun) preflightCheckContainer() {
+	if !p.container {
 		host := "host-readonly"
-		if profile != nil {
-			host = *profile
+		if p.profile != nil {
+			host = *p.profile
 		}
-		check("docker", "na",
+		p.check("docker", "na",
 			host+" executes on the host — no container involved", nil)
-		check("image", "na", "no container image involved", nil)
-		check("solc", "na", "no container to compile in", nil)
+		p.check("image", "na", "no container image involved", nil)
+		p.check("solc", "na", "no container to compile in", nil)
 	} else {
 		daemon := dockerDaemonOK()
 		if daemon {
-			check("docker", "ok", "daemon answering", nil)
+			p.check("docker", "ok", "daemon answering", nil)
 		} else {
-			check("docker", "fail", "docker daemon not answering", strPtr(
+			p.check("docker", "fail", "docker daemon not answering", strPtr(
 				"start the docker daemon (container profiles are the only "+
 					"honest execution path — evidence produced un-sandboxed "+
 					"cannot be minted at E4+)"))
@@ -454,34 +476,38 @@ func defaultSandboxPreflight(c *state.Campaign, workdir, profile *string) (
 				detail := strAt(img, "image") + " present locally" +
 					map[bool]string{true: " (digest-pinned)",
 						false: " (tag reference — may float)"}[boolAt(img, "pinned")]
-				check("image", "ok", detail, nil)
+				p.check("image", "ok", detail, nil)
 			} else {
 				fix := "docker pull " + strAt(img, "image")
 				if !boolAt(img, "pinned") {
 					fix += " and pin by digest"
 				}
-				check("image", "warn", strAt(img, "image")+
+				p.check("image", "warn", strAt(img, "image")+
 					" not present locally — the first run will pull it "+
 					"(a floating tag may pull a different build than the PoC "+
 					"assumes)", &fix)
 			}
 		} else {
-			check("image", "na", "daemon down — image check skipped", nil)
+			p.check("image", "na", "daemon down — image check skipped", nil)
 		}
 	}
+}
 
-	version, perr := pinnedCompiler(c)
+// preflightCheckCompiler runs the solc checks against the active
+// snapshot's compiler pin.
+func (p *preflightRun) preflightCheckCompiler() {
+	version, perr := pinnedCompiler(p.c)
 	if perr != nil {
-		check("solc", "fail", "the active snapshot's pin manifest cannot be "+
+		p.check("solc", "fail", "the active snapshot's pin manifest cannot be "+
 			"read, so the compiler pin cannot be judged: "+perr.Error(), nil)
 	} else if version == nil {
-		check("solc", "na", "no compiler pinned by the active snapshot — "+
+		p.check("solc", "na", "no compiler pinned by the active snapshot — "+
 			"nothing to check against", nil)
 	} else if !SolcVersionPin(*version) {
 		// The pin is target-repo input: it may not be joined into a host path.
 		fix := "set foundry.toml's solc to a release (for example 0.8.24) — " +
 			"webv2 only uses a version as the svm cache path component"
-		check("solc", "fail", "the active snapshot pins compiler "+
+		p.check("solc", "fail", "the active snapshot pins compiler "+
 			SolcPinText(*version)+", which is not a solc version — "+
 			"refusing to treat it as an svm cache path", &fix)
 	} else {
@@ -489,26 +515,26 @@ func defaultSandboxPreflight(c *state.Campaign, workdir, profile *string) (
 		if svm == nil {
 			fix := "set WEBV2_SOLC_DIR to a host dir with the svm layout (" +
 				*version + "/solc-" + *version + ") or preinstall the image"
-			check("solc", "warn", "solc "+*version+" pinned by foundry.toml "+
+			p.check("solc", "warn", "solc "+*version+" pinned by foundry.toml "+
 				"but WEBV2_SOLC_DIR is unset — an offline container cannot "+
 				"download it; the image must ship it (`webv2 env doctor` "+
 				"probes that)", &fix)
 		} else {
 			binary := filepath.Join(*svm, *version, "solc-"+*version)
 			if fileExists(binary) {
-				check("solc", "ok", "solc "+*version+
+				p.check("solc", "ok", "solc "+*version+
 					" present in the svm cache "+*svm, nil)
 			} else {
 				fix := "place the solc binary at " + binary + " (svm layout: " +
 					*version + "/solc-" + *version + ") or preinstall it in " +
 					"the image (`webv2 env doctor` probes the image)"
-				if profile != nil && *profile == "fork-runner" {
-					check("solc", "warn", "solc "+*version+
+				if p.profile != nil && *p.profile == "fork-runner" {
+					p.check("solc", "warn", "solc "+*version+
 						" missing from the svm cache "+*svm+" — the "+
 						"fork-runner bridge may still reach the registry, "+
 						"but that is not guaranteed", &fix)
 				} else {
-					check("solc", "fail", "solc "+*version+" pinned by "+
+					p.check("solc", "fail", "solc "+*version+" pinned by "+
 						"foundry.toml but missing from the svm cache "+
 						*svm+" — this profile's container has no network "+
 						"and cannot download it", &fix)
@@ -516,40 +542,46 @@ func defaultSandboxPreflight(c *state.Campaign, workdir, profile *string) (
 			}
 		}
 	}
+}
 
-	if workdir == nil {
+// preflightCheckWorkdir validates the bind source (a nil workdir is na).
+func (p *preflightRun) preflightCheckWorkdir() {
+	if p.workdir == nil {
 		detail := "no workdir given — "
-		if container {
+		if p.container {
 			detail += "container uses a tmpfs"
 		} else {
 			detail += "the host shell uses the current directory"
 		}
-		check("workdir", "na", detail, nil)
+		p.check("workdir", "na", detail, nil)
 	} else {
-		p := *workdir
-		if !pathExists(p) {
-			check("workdir", "fail", "workdir "+p+" does not exist — a "+
+		wd := *p.workdir
+		if !pathExists(wd) {
+			p.check("workdir", "fail", "workdir "+wd+" does not exist — a "+
 				"missing bind source fails the whole run", strPtr(
-				"create "+p+" or point --workdir at an existing directory"))
-		} else if !isDirPath(p) {
-			check("workdir", "fail", "workdir "+p+" is not a directory",
-				strPtr("point --workdir at a directory ("+p+" is a file)"))
+				"create "+wd+" or point --workdir at an existing directory"))
+		} else if !isDirPath(wd) {
+			p.check("workdir", "fail", "workdir "+wd+" is not a directory",
+				strPtr("point --workdir at a directory ("+wd+" is a file)"))
 		} else {
-			check("workdir", "ok", "binds "+resolvedPath(p), nil)
+			p.check("workdir", "ok", "binds "+resolvedPath(wd), nil)
 		}
 	}
+}
 
+// preflightResult renders the sandbox_preflight object.
+func (p *preflightRun) preflightResult() validation.Value {
 	var profileV validation.Value = validation.VNull()
-	if profile != nil {
-		profileV = validation.VStr(*profile)
+	if p.profile != nil {
+		profileV = validation.VStr(*p.profile)
 	}
 	return validation.VObj(
 		validation.KV{K: "profile", V: profileV},
-		validation.KV{K: "checks", V: validation.VObj(checks...)},
-		validation.KV{K: "issues", V: validation.VArr(issues...)},
-		validation.KV{K: "warnings", V: validation.VArr(warnings...)},
-		validation.KV{K: "ok", V: validation.VBool(len(issues) == 0)},
-	), nil
+		validation.KV{K: "checks", V: validation.VObj(p.checks...)},
+		validation.KV{K: "issues", V: validation.VArr(p.issues...)},
+		validation.KV{K: "warnings", V: validation.VArr(p.warnings...)},
+		validation.KV{K: "ok", V: validation.VBool(len(p.issues) == 0)},
+	)
 }
 
 // pinnedCompiler is the compiler version the active snapshot's toolchain
