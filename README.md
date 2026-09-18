@@ -14,7 +14,9 @@ twin-issue log, test accounting map) live frozen under `docs/archive/`.
 
 ## Quick start
 
-Requires Go 1.26+ and, for the sandboxed-exec paths, a running Docker daemon.
+Requires Go 1.26.2+ (the module floor: `go.mod` declares `go 1.26.2` and pins
+`toolchain go1.26.6`) and, for the sandboxed-exec paths, a running Docker
+daemon.
 
 ```bash
 git clone <this repo> && cd web3sec-go
@@ -130,7 +132,7 @@ docs/LEANNESS_REVIEW.md  the port-scaffolding removal plan (wave F)
 | legacy compatibility | `scripts/verify-full.sh` step 9 | Go reads a reference-written campaign, all 14 rendered sections clean (16 registered; `eval` and `price_table` are presence-gated) |
 | prover scorecard | `python3 scripts/minicertora-scorecard.py --self-test` | the L6b instrument parses tool lines, joins them to evalsuite cases, and reproduces its pinned fixture rows byte-for-byte (plus a shape audit of every fixture line) |
 | dependency scan | `scripts/security-check.sh` | govulncheck: nothing this code calls is a known vulnerability; a missing scanner or findings is INCOMPLETE/failed, never PASS |
-| release | `scripts/release.sh` | static binary, embedded assets, standalone |
+| release | `scripts/release.sh` | static binary, embedded assets, standalone — and, as its final strict step, the dependency scan (a missing scanner or a finding fails the release) |
 
 ### Prover scorecard (L6b, operator-run)
 
@@ -194,9 +196,12 @@ campaign prices, so its pinned surface is those 14 plus `price_table`.
 `scripts/check-golden.py` pins exactly that and knows the conditional tail
 is conditional.
 
-`scripts/verify-full.sh` runs every gate above except the release build in
-one fail-fast sequence — a clone of this repo alone runs it green (the two
-ambient fixtures below add coverage, they are not required to pass).
+`scripts/verify-full.sh` runs the unit, golden, walkthrough and legacy gates
+above — thirteen ordered steps — in one fail-fast sequence. It deliberately
+excludes the release build, the operator-run scans (real containers, prover
+scorecard) and the dependency scan: `scripts/security-check.sh` is called by
+`scripts/release.sh`, not by this gate. A clone of this repo alone runs it green
+(the two ambient fixtures below add coverage, they are not required to pass).
 
 Two ambient prerequisites are *not* part of a default clone, and the tests
 that need them SKIP with a reason rather than fail without them:

@@ -24,7 +24,7 @@ webv2 selftest --full     # adds the ported suite (go test ./...). One-time / de
 Build a fresh release binary (static, CGO-free, assets embedded):
 
 ```bash
-scripts/release.sh        # -> dist/webv2  (build + static proof + standalone walkthrough; exit 0 only when green)
+scripts/release.sh        # -> dist/webv2  (build + static proof + standalone walkthrough + the strict dependency scan last; exit 0 only when all of it is green)
 ```
 
 Install it where your shell finds it (first PATH entry shadows any other
@@ -234,11 +234,14 @@ projection with it: no half-pin, no lying row, the error says so.
 - **The pin sets scope, and the prune is recorded.** Every pin prunes
   bulk/generated directories by default (`data/`, `datasets/`, `.scratch/`,
   `webv2-workspace/`, `build/`, `dist/`, Python tooling caches). `--exclude`
-  adds names at any path depth. Whatever is dropped is **not hidden**: the
-  top-level names land in the snapshot's `source.excluded`, a
-  `snapshot.excluded` log event, and an `EXCLUDED from the pin` console line.
-  If one of those names is in scope, re-pin with a tighter target — a silent
-  scope drop is how target drift happens.
+  adds names at any path depth. Whatever is dropped is **not hidden**: every
+  pruned path (its relative subpath, at whatever depth it matched) lands in the
+  snapshot's `source.excluded` and a `snapshot.excluded` log event, and the
+  console prints an `EXCLUDED from the pin` line. That console line is bounded:
+  at most 10 paths are named inline; above the cap it prints the exact count
+  and the first 10 — `N paths excluded (first 10): … (+M more — the full list is
+  in the record's source.excluded)`. If one of those names is in scope, re-pin
+  with a tighter target — a silent scope drop is how target drift happens.
 - **Unverified deployments flag coverage gaps** — audit the deployed code, not
   the repository. Re-pinning identical content verifies the existing copy's
   hash; a mutated pin refuses the run instead of being silently reused.
@@ -940,9 +943,16 @@ stream — and a capped capture is marked in the record with the true byte
 counts and a truncation flag, so a consumer can never mistake it for the
 whole output; the mint gate's rule above is about the forge summary.)
 - A FAILED exec is classified on the spot: **ENVIRONMENT** (daemon down, image
-  missing, solc download cut — fix the environment, do NOT spend a
-  fresh-context retry), **SETUP** (retry in a fresh context with the failure
-  record), **LOGIC** (the only class that argues the hypothesis).
+  missing, solc download cut, **or a missing toolchain binary** — an absent
+  `solc`, `forge`/`cast`/`anvil`, or docker CLI, and a shell's own "command not
+  found"; the note names the fix, so install the tool, confirm with
+  `webv2 env doctor`, and do NOT spend a fresh-context retry — a fresh context
+  does not install a binary), **SETUP** (retry in a fresh context with the
+  failure record), **LOGIC** (the only class that argues the hypothesis). A
+  missing Solidity *library* (`forge-std`, "module not found") stays SETUP:
+  that is repository setup, not the box. And absence evidence does not outrank
+  a logic signal — a capture that merely echoes a subprocess "not found" while
+  an assertion fails is LOGIC.
 - `verify --exec` enforces **independence** (a fresh exec + a reporter
   different from the original reproducer) — that is E6.
 - `gate <C-xxx> F-xxx` dry-runs the CONFIRMED gate on ONE finding (read-only,
@@ -1567,7 +1577,7 @@ webv2 verify <C> --scaffold halmos|forge-fuzz|minicertora --invariant INV-xxx   
 webv2 verify <C> --harness-result INV-xxx --exec EXEC-xxx [--kind halmos|forge-fuzz|minicertora]   # map a harness run to its rung: counterexample / PROVEN-BOUNDED / inconclusive (bounded — never an unbounded proof)
 webv2 verify <C> --post-patch F-xxx --exec EXEC-xxx [--snapshot SNAP-xxx]   # regress a finding against a post-patch run: still_reproducible / fixed / indeterminate (fail-open; status never moves; --finding/--verifier/--description are ignored)
 webv2 audit <C> [--json]                                           full integrity audit
-webv2 brief <C> [--json] [--deep]                                  operator cockpit (where it is + decisions waiting; pure view)
+webv2 brief <C> [--json] [--deep]                                  operator cockpit (where it is + decisions waiting; pure view; every next-action line is a copyable `webv2` command — run `webv2 prove <C> --stage <stage>` for the per-item detail a line's `# n missing` counts)
 webv2 scorecard <C> [--json] [--no-surface]                        one read-only view: surface, findings, process, eval
 
 webv2 move <C> <finding> TO_STATUS --reason R [--actor A] [--adjacent SIBLING] [--adjacent-clear] [--of FINDING]   # the ONLY status-transition path; --of REQUIRED for DUPLICATE (target exists, != self)
