@@ -219,22 +219,25 @@ func phaseActions(phase, cid string) []string {
 	case "CAMPAIGN_PLANNING":
 		return []string{"webv2 plan " + cid + " <plan.json>"}
 	case "DISCOVERY":
-		return []string{
+		return []string{"webv2 run " + cid,
 			"webv2 plan " + cid,
 			"webv2 ingest " + cid + " --json-file <payload.json>",
 			"webv2 prioritize " + cid}
 	case "CANDIDATE_INTEL":
 		return []string{"webv2 dedup " + cid,
 			"webv2 resolve-candidate " + cid + " <finding> <other>" +
-				" --verdict <same|distinct> --note <note>"}
+				" --verdict <same-or-distinct> --note <note>"}
 	case "HOSTILE_REVIEW":
 		return []string{"webv2 run " + cid,
 			"webv2 verdict " + cid + " <finding> --verdict <verdict>" +
 				" --reason <reason>"}
 	case "REPRODUCTION":
-		return []string{"webv2 repro-queue " + cid,
-			"webv2 mint " + cid + " <finding> --exec <EXEC-id>" +
-				" --description <description>"}
+		// mint closes the phase proof (it records the reproduction attempt
+		// + its evidence, which proofs2.go reads); repro-queue is the
+		// read-only view of the same queue, so it follows.
+		return []string{"webv2 mint " + cid + " <finding> --exec <EXEC-id>" +
+			" --description <description>",
+			"webv2 repro-queue " + cid}
 	case "CHAINING":
 		return []string{"webv2 chains " + cid,
 			"webv2 chain " + cid + " <finding> <other>"}
@@ -244,14 +247,40 @@ func phaseActions(phase, cid string) []string {
 			"webv2 ladder " + cid + " waive <finding> --reason <reason>" +
 				" --actor <actor>"}
 	case "INDEPENDENT_VERIFICATION":
-		return []string{"webv2 run " + cid,
+		// The phase proof (completion/proofs2.go, independent-verification)
+		// needs verification.independent_reproduction.status == "matches"
+		// with a named verifier — written only by reproduction.
+		// MintIndependentEvidence, reachable from the CLI solely through
+		// `verify --exec` (cmd_verify.go: --exec requires --verifier and
+		// --description). So `verify` LEADS: it is the command whose recorded
+		// effect the proof reads. `mint` follows as the follow-up that
+		// records the FORGE evidence the independent run traces to (it
+		// cannot set the proof's field, so it must not lead); `run` drives
+		// the stage.
+		return []string{"webv2 verify " + cid + " --finding <finding>" +
+			" --exec <EXEC-id> --verifier <verifier>" +
+			" --description <description>",
 			"webv2 mint " + cid + " <finding> --exec <EXEC-id>" +
-				" --description <description>"}
+				" --description <description>",
+			"webv2 run " + cid}
 	case "RISK_CALIBRATION":
-		return []string{"webv2 rank " + cid}
+		// `rank` is read-only by contract (cmd_rank.go: nothing is written):
+		// on its own it cannot advance the phase. The proof
+		// (proofs2.go, risk-calibration) reads risk.validated.band per
+		// CONFIRMED finding, and risk-calibration is a deterministic
+		// pipeline stage — `run` is the command that closes it, exactly as
+		// for the sibling stage phases. rank stays as the informational
+		// score view.
+		return []string{"webv2 run " + cid,
+			"webv2 rank " + cid}
 	case "MAINNET_FORK_POC":
+		// exec produces the fork run; the proof (proofs2.go,
+		// mainnet-fork-poc) needs a PROVEN fork-test mint tracing to it, so
+		// the mint follow-up carries the type the proof reads.
 		return []string{"webv2 exec " + cid + " --command <command>" +
-			" --profile <profile>"}
+			" --profile <profile>",
+			"webv2 mint " + cid + " <finding> --exec <EXEC-id>" +
+				" --description <description> --type fork-test"}
 	case "BOUNTY_GATE":
 		return []string{"webv2 gate " + cid,
 			"webv2 gate --explain <check>"}

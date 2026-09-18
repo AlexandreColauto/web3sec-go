@@ -672,7 +672,7 @@
     {
      "op": "next_actions",
      "args": {},
-     "oracle": "[\n  \"webv2 plan C-oracle00001\",\n  \"webv2 ingest C-oracle00001 --json-file <payload.json>\",\n  \"webv2 prioritize C-oracle00001\",\n  \"webv2 prove C-oracle00001 --stage discovery  # 18 missing\"\n]"
+     "oracle": "[\n  \"webv2 run C-oracle00001\",\n  \"webv2 plan C-oracle00001\",\n  \"webv2 ingest C-oracle00001 --json-file <payload.json>\",\n  \"webv2 prioritize C-oracle00001\",\n  \"webv2 prove C-oracle00001 --stage discovery  # 18 missing\"\n]"
     },
     {
      "op": "status",
@@ -784,7 +784,7 @@
     {
      "op": "next_actions",
      "args": {},
-     "oracle": "[\n  \"webv2 repro-queue C-oracle00001\",\n  \"webv2 mint C-oracle00001 <finding> --exec <EXEC-id> --description <description>\",\n  \"webv2 run C-oracle00001  # reproduction proof holds; the stage auto-completes\"\n]"
+     "oracle": "[\n  \"webv2 mint C-oracle00001 <finding> --exec <EXEC-id> --description <description>\",\n  \"webv2 repro-queue C-oracle00001\",\n  \"webv2 run C-oracle00001  # reproduction proof holds; the stage auto-completes\"\n]"
     },
     {
      "op": "ingest",
@@ -919,7 +919,7 @@
     {
      "op": "next_actions",
      "args": {},
-     "oracle": "[\n  \"webv2 dedup C-oracle00001\",\n  \"webv2 resolve-candidate C-oracle00001 <finding> <other> --verdict <same|distinct> --note <note>\",\n  \"webv2 run C-oracle00001  # dedup proof holds; the stage auto-completes\"\n]"
+     "oracle": "[\n  \"webv2 dedup C-oracle00001\",\n  \"webv2 resolve-candidate C-oracle00001 <finding> <other> --verdict <same-or-distinct> --note <note>\",\n  \"webv2 run C-oracle00001  # dedup proof holds; the stage auto-completes\"\n]"
     }
    ],
    "finding_placeholders": [],
@@ -2552,14 +2552,14 @@
      "args": {
       "phase": "DISCOVERY"
      },
-     "oracle": "[\n  \"webv2 plan C-oracle00001\",\n  \"webv2 ingest C-oracle00001 --json-file <payload.json>\",\n  \"webv2 prioritize C-oracle00001\",\n  \"webv2 prove C-oracle00001 --stage discovery  # 17 missing\"\n]"
+     "oracle": "[\n  \"webv2 run C-oracle00001\",\n  \"webv2 plan C-oracle00001\",\n  \"webv2 ingest C-oracle00001 --json-file <payload.json>\",\n  \"webv2 prioritize C-oracle00001\",\n  \"webv2 prove C-oracle00001 --stage discovery  # 17 missing\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "CANDIDATE_INTEL"
      },
-     "oracle": "[\n  \"webv2 dedup C-oracle00001\",\n  \"webv2 resolve-candidate C-oracle00001 <finding> <other> --verdict <same|distinct> --note <note>\",\n  \"webv2 run C-oracle00001  # dedup proof holds; the stage auto-completes\"\n]"
+     "oracle": "[\n  \"webv2 dedup C-oracle00001\",\n  \"webv2 resolve-candidate C-oracle00001 <finding> <other> --verdict <same-or-distinct> --note <note>\",\n  \"webv2 run C-oracle00001  # dedup proof holds; the stage auto-completes\"\n]"
     },
     {
      "op": "next_actions",
@@ -2573,7 +2573,7 @@
      "args": {
       "phase": "REPRODUCTION"
      },
-     "oracle": "[\n  \"webv2 repro-queue C-oracle00001\",\n  \"webv2 mint C-oracle00001 <finding> --exec <EXEC-id> --description <description>\",\n  \"webv2 run C-oracle00001  # reproduction proof holds; the stage auto-completes\"\n]"
+     "oracle": "[\n  \"webv2 mint C-oracle00001 <finding> --exec <EXEC-id> --description <description>\",\n  \"webv2 repro-queue C-oracle00001\",\n  \"webv2 run C-oracle00001  # reproduction proof holds; the stage auto-completes\"\n]"
     },
     {
      "op": "next_actions",
@@ -2594,21 +2594,21 @@
      "args": {
       "phase": "INDEPENDENT_VERIFICATION"
      },
-     "oracle": "[\n  \"webv2 run C-oracle00001\",\n  \"webv2 mint C-oracle00001 <finding> --exec <EXEC-id> --description <description>\",\n  \"webv2 prove C-oracle00001 --stage independent-verification  # 4 missing\"\n]"
+     "oracle": "[\n  \"webv2 verify C-oracle00001 --finding <finding> --exec <EXEC-id> --verifier <verifier> --description <description>\",\n  \"webv2 mint C-oracle00001 <finding> --exec <EXEC-id> --description <description>\",\n  \"webv2 run C-oracle00001\",\n  \"webv2 prove C-oracle00001 --stage independent-verification  # 4 missing\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "RISK_CALIBRATION"
      },
-     "oracle": "[\n  \"webv2 rank C-oracle00001\",\n  \"webv2 prove C-oracle00001 --stage risk-calibration  # 4 missing\"\n]"
+     "oracle": "[\n  \"webv2 run C-oracle00001\",\n  \"webv2 rank C-oracle00001\",\n  \"webv2 prove C-oracle00001 --stage risk-calibration  # 4 missing\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "MAINNET_FORK_POC"
      },
-     "oracle": "[\n  \"webv2 exec C-oracle00001 --command <command> --profile <profile>\",\n  \"webv2 prove C-oracle00001 --stage mainnet-fork-poc  # 4 missing\"\n]"
+     "oracle": "[\n  \"webv2 exec C-oracle00001 --command <command> --profile <profile>\",\n  \"webv2 mint C-oracle00001 <finding> --exec <EXEC-id> --description <description> --type fork-test\",\n  \"webv2 prove C-oracle00001 --stage mainnet-fork-poc  # 4 missing\"\n]"
     },
     {
      "op": "next_actions",

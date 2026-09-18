@@ -28,6 +28,16 @@
 // dispatchGolden (the tooling was deleted, not committed), and nothing else in
 // this file moved.
 //
+// Task 7 fix round 1 re-recorded 9 further next_actions oracles the same way
+// (deduped/gates/ingested/model/planned + phases steps 5,6,8,11,12,13): the
+// review round found RISK_CALIBRATION led with read-only `rank` (C-1) and
+// INDEPENDENT_VERIFICATION led with `mint`, which cannot close its proof
+// (I-1) — the catalog now leads with the proof-closing command (`run`,
+// `verify --exec`) and DISCOVERY/MAINNET_FORK_POC gained their missing run /
+// fork-test mint lines, while `<same|distinct>` became `<same-or-distinct>`
+// (M-3) and REPRODUCTION leads with `mint` for the same proof-closing
+// property. Go-authored like the 27 above; no other snapshot moved.
+//
 // The three seams a replay must supply (structural index, adapter context,
 // independent-evidence minting) are installed with fakes whose recorded
 // call-site arguments are compared against the Python recorder's — so the

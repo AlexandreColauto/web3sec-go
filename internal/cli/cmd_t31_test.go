@@ -106,7 +106,11 @@ func TestCLIBriefRendersMemoryRecall(t *testing.T) {
 	}
 }
 
-var recallRe = regexp.MustCompile("`(webv2 recall [^`]*)`")
+// Task 7 fix round 1 (I-2): the next-action recall line is itself the
+// command now (`webv2 recall …  # memory recall pending …`), so the remedy
+// regex matches the backticked gate-message form AND the command-first form
+// (stopping at the reason comment).
+var recallRe = regexp.MustCompile("`?(webv2 recall [^`\\n]*?)(?:  # |`|$)")
 
 func TestEveryPrintedRecallRemedyIsExecutable(t *testing.T) {
 	root, cid, c := noopCamp(t)

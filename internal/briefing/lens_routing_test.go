@@ -79,11 +79,24 @@ func m6Actions(t *testing.T, brief validation.Value) []string {
 	return actions
 }
 
-func hasPrefixAction(actions []string, prefix string) string {
+// hasReasonAction returns the first action whose `# reason` suffix starts
+// with prefix. Task 7 fix round 1 (I-2): every minted line leads with its
+// command and the prose moved into the reason, so the routing markers are
+// matched on the reason, not the line prefix.
+func hasReasonAction(actions []string, prefix string) string {
 	for _, a := range actions {
-		if strings.HasPrefix(a, prefix) {
+		if i := strings.Index(a, "  # "); i >= 0 &&
+			strings.HasPrefix(a[i+4:], prefix) {
 			return a
 		}
+	}
+	return ""
+}
+
+// actionReason is the reason suffix of one emitted line ("" when bare).
+func actionReason(a string) string {
+	if i := strings.Index(a, "  # "); i >= 0 {
+		return a[i+4:]
 	}
 	return ""
 }
@@ -91,24 +104,24 @@ func hasPrefixAction(actions []string, prefix string) string {
 func TestUntouchedL03RoutesToEnforce(t *testing.T) {
 	actions := m6Actions(t, m6Brief(
 		m6Lens("L-03", "open", m6Probe(3, 0, 3, false))))
-	got := hasPrefixAction(actions, "L-03 open with 0/3 rows dispositioned")
+	got := hasReasonAction(actions, "L-03 open with 0/3 rows dispositioned")
 	if got == "" {
 		t.Fatalf("no L-03 routing line: %v", actions)
 	}
-	if !strings.Contains(got, "webv2 enforce "+t35ProbeCID) {
-		t.Fatalf("L-03 line does not name the enforce table: %q", got)
+	if !strings.HasPrefix(got, "webv2 enforce "+t35ProbeCID) {
+		t.Fatalf("L-03 line does not lead with the enforce table: %q", got)
 	}
 }
 
 func TestUntouchedL04WithoutSurfaceRoutesToSymmetry(t *testing.T) {
 	actions := m6Actions(t, m6Brief(
 		m6Lens("L-04", "open", validation.VNull())))
-	got := hasPrefixAction(actions, "L-04 has no probe surface")
+	got := hasReasonAction(actions, "L-04 has no probe surface")
 	if got == "" {
 		t.Fatalf("no L-04 routing line: %v", actions)
 	}
-	if !strings.Contains(got, "webv2 symmetry "+t35ProbeCID) {
-		t.Fatalf("L-04 line does not name the symmetry matrix: %q", got)
+	if !strings.HasPrefix(got, "webv2 symmetry "+t35ProbeCID) {
+		t.Fatalf("L-04 line does not lead with the symmetry matrix: %q", got)
 	}
 }
 
@@ -121,8 +134,9 @@ func TestWorkedClosedAndTablelessLensesStaySilent(t *testing.T) {
 		// L-02 has no table verb: its trust rows ride the per-row actions
 		m6Lens("L-02", "open", m6Probe(2, 0, 2, false))))
 	for _, a := range actions {
-		if strings.HasPrefix(a, "L-01 ") || strings.HasPrefix(a, "L-02 ") ||
-			strings.HasPrefix(a, "L-03 ") {
+		r := actionReason(a)
+		if strings.HasPrefix(r, "L-01 ") || strings.HasPrefix(r, "L-02 ") ||
+			strings.HasPrefix(r, "L-03 ") {
 			t.Fatalf("unexpected lens routing line: %q (all: %v)", a, actions)
 		}
 	}
@@ -133,7 +147,7 @@ func TestNoDivergenceMeansNoRouting(t *testing.T) {
 	brief.O = validation.SetOrAppend(brief.O, "divergence", validation.VNull())
 	actions := m6Actions(t, brief)
 	for _, a := range actions {
-		if strings.HasPrefix(a, "L-0") {
+		if strings.HasPrefix(actionReason(a), "L-0") {
 			t.Fatalf("routing line without divergence data: %q", a)
 		}
 	}
@@ -183,7 +197,7 @@ func TestSkewWarnsOnBuildMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := hasPrefixAction(actions, "framework skew:")
+	got := hasReasonAction(actions, "framework skew:")
 	if got == "" {
 		t.Fatalf("no skew line for a mismatched pin: %v", actions)
 	}
@@ -203,7 +217,7 @@ func TestSkewSilentOnMatchAndGrandfather(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := hasPrefixAction(actions, "framework skew:"); got != "" {
+	if got := hasReasonAction(actions, "framework skew:"); got != "" {
 		t.Fatalf("skew line for a matching pin: %q", got)
 	}
 	// pre-stamp campaign (no key): silent — the grandfather rule
@@ -212,7 +226,7 @@ func TestSkewSilentOnMatchAndGrandfather(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := hasPrefixAction(actions, "framework skew:"); got != "" {
+	if got := hasReasonAction(actions, "framework skew:"); got != "" {
 		t.Fatalf("skew line for a pre-stamp pin: %q", got)
 	}
 }

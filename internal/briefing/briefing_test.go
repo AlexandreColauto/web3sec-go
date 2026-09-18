@@ -1424,7 +1424,9 @@ func TestTwoHighestConsequenceItemsLeadTheDivergenceGate(t *testing.T) {
 		if i >= 2 {
 			break
 		}
-		lead[objStr(r, "action")] = true
+		// Task 7 fix round 1 (I-2): next_actions mint the ledger's
+		// command field; the action prose moved to the `# reason`.
+		lead[objStr(r, "command")] = true
 	}
 	acts := objStringList(t, b, "next_actions")
 	leadIdx, divIdx := []int{}, []int{}
@@ -1432,7 +1434,7 @@ func TestTwoHighestConsequenceItemsLeadTheDivergenceGate(t *testing.T) {
 		if lead[a] {
 			leadIdx = append(leadIdx, i)
 		}
-		if stringsHasPrefix(a, "divergence gate open — ") {
+		if stringsContains(a, "  # divergence gate open — ") {
 			divIdx = append(divIdx, i)
 		}
 	}
@@ -1479,10 +1481,11 @@ func TestTheQueueLeadsBothKindsWhenItIsHighConsequence(t *testing.T) {
 		}
 	}
 	acts := objStringList(t, b, "next_actions")
-	if acts[0] != objStr(objAt(attQueue(t, att), "oldest"), "action") {
+	// I-2 re-pin: next_actions mint the command field, not the action prose
+	if acts[0] != objStr(objAt(attQueue(t, att), "oldest"), "command") {
 		t.Errorf("acts[0] = %q, want the queue action", acts[0])
 	}
-	if acts[1] != objStr(listAt(attInvariants(t, att), "items")[0], "action") {
+	if acts[1] != objStr(listAt(attInvariants(t, att), "items")[0], "command") {
 		t.Errorf("acts[1] = %q, want the INV-008 action", acts[1])
 	}
 	for _, a := range acts {
@@ -1514,12 +1517,13 @@ func TestADisplacedQueueActionIsReEmittedRightAfterTheLead(t *testing.T) {
 			t.Errorf("ranked[%d].kind = %q, want invariant", i, k)
 		}
 	}
-	q := objStr(objAt(attQueue(t, att), "oldest"), "action")
+	// I-2 re-pin: the command field, not the action prose
+	q := objStr(objAt(attQueue(t, att), "oldest"), "command")
 	acts := objStringList(t, b, "next_actions")
-	if acts[0] != objStr(listAt(attInvariants(t, att), "items")[0], "action") {
+	if acts[0] != objStr(listAt(attInvariants(t, att), "items")[0], "command") {
 		t.Errorf("acts[0] = %q", acts[0])
 	}
-	if acts[1] != objStr(listAt(attInvariants(t, att), "items")[1], "action") {
+	if acts[1] != objStr(listAt(attInvariants(t, att), "items")[1], "command") {
 		t.Errorf("acts[1] = %q", acts[1])
 	}
 	if acts[2] != q {
@@ -1534,7 +1538,7 @@ func TestADisplacedQueueActionIsReEmittedRightAfterTheLead(t *testing.T) {
 	if count != 1 {
 		t.Errorf("queue action emitted %d times, want exactly 1", count)
 	}
-	third := objStr(listAt(attInvariants(t, att), "items")[2], "action")
+	third := objStr(listAt(attInvariants(t, att), "items")[2], "command")
 	found := false
 	for _, a := range acts {
 		if a == third {
@@ -1555,16 +1559,19 @@ func TestTheCriticalInvariantLeadsAnOpenLensLine(t *testing.T) {
 	acts := objStringList(t, b, "next_actions")
 	lens := []int{}
 	for i, a := range acts {
-		if stringsHasPrefix(a, "divergence gate open — L-") {
+		if stringsContains(a, "  # divergence gate open — L-") {
 			lens = append(lens, i)
 		}
 	}
 	if len(lens) == 0 {
 		t.Fatalf("the fixture must keep an open lens line")
 	}
-	lead := objStr(listAt(att, "ranked")[0], "action")
-	if !stringsHasPrefix(lead, "verify INV-008 (unverified ") {
-		t.Errorf("lead = %q", lead)
+	// I-2 re-pin: next_actions mint the command field (the ledger's own
+	// action/line prose stays pinned by the ledger tests)
+	lead := objStr(listAt(att, "ranked")[0], "command")
+	leadProse := objStr(listAt(att, "ranked")[0], "action")
+	if !stringsHasPrefix(leadProse, "verify INV-008 (unverified ") {
+		t.Errorf("ledger action prose = %q", leadProse)
 	}
 	leadAt := -1
 	for i, a := range acts {
@@ -1625,7 +1632,8 @@ func TestClosedCampaignHasNoDebtLines(t *testing.T) {
 		if stringsContains(a, "untouched") {
 			t.Errorf("closed campaign still suggests untouched work: %q", a)
 		}
-		if stringsHasPrefix(a, "verify INV-") {
+		// I-2 re-pin: the invariant nag now rides the command field
+		if stringsContains(a, "invariant-verify") {
 			t.Errorf("closed campaign still suggests verification: %q", a)
 		}
 	}

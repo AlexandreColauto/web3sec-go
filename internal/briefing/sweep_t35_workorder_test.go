@@ -208,14 +208,17 @@ func TestE6ViewKeepsMandatoryWorkFirst(t *testing.T) {
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("verification queue = %v, want %v", got, want)
 	}
-	manLine := "independently verify " + objStr(man, "finding_id")
-	optLine := "independently verify " + objStr(opt, "finding_id")
+	// Task 7 fix round 1 (I-2): the E6 line is command-first —
+	// `webv2 verify …  # independently verify <fid> …` — so the finding
+	// marker rides the reason suffix.
+	manLine := "# independently verify " + objStr(man, "finding_id")
+	optLine := "# independently verify " + objStr(opt, "finding_id")
 	manI, optI := -1, -1
 	for i, a := range objAt(b, "next_actions").A {
-		if hasPrefix(a.S, manLine) {
+		if strings.Contains(a.S, manLine) {
 			manI = i
 		}
-		if hasPrefix(a.S, optLine) {
+		if strings.Contains(a.S, optLine) {
 			optI = i
 		}
 	}

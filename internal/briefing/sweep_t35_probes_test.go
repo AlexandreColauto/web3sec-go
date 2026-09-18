@@ -147,10 +147,13 @@ func TestBriefFeedsOpenProbeRowsAheadOfGenericItems(t *testing.T) {
 		}
 	}
 	actions := strListOf(objAt(b, "next_actions"))
+	// Task 7 fix round 1 (I-2): the probe-row lines are command-first
+	// (`webv2 answered|probes …  # work|emit probe row …`), so the marker
+	// rides the reason suffix.
 	probeActions := []string{}
 	for _, a := range actions {
-		if strings.HasPrefix(a, "work probe row ") ||
-			strings.HasPrefix(a, "emit probe row ") {
+		if strings.Contains(a, "  # work probe row ") ||
+			strings.Contains(a, "  # emit probe row ") {
 			probeActions = append(probeActions, a)
 		}
 	}
@@ -177,9 +180,9 @@ func TestBriefFeedsOpenProbeRowsAheadOfGenericItems(t *testing.T) {
 	}
 	generic := []string{}
 	for _, a := range actions {
-		if strings.HasPrefix(a, "work probe row ") ||
-			strings.HasPrefix(a, "emit probe row ") ||
-			strings.HasPrefix(a, "divergence gate open") {
+		if strings.Contains(a, "  # work probe row ") ||
+			strings.Contains(a, "  # emit probe row ") ||
+			strings.Contains(a, "  # divergence gate open") {
 			continue
 		}
 		generic = append(generic, a)
@@ -258,14 +261,16 @@ func TestNextActionsRanksProbeRowsByTheProbeRankKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// I-2 re-pin: the row id now lives in the reason suffix
 	probeIDs := []string{}
 	for _, a := range actions {
-		if !strings.HasPrefix(a, "work probe row ") &&
-			!strings.HasPrefix(a, "emit probe row ") {
+		if !strings.Contains(a, "  # work probe row ") &&
+			!strings.Contains(a, "  # emit probe row ") {
 			continue
 		}
-		rest := strings.TrimPrefix(strings.TrimPrefix(a, "work probe row "),
-			"emit probe row ")
+		reason := a[strings.Index(a, "  # ")+4:]
+		rest := strings.TrimPrefix(strings.TrimPrefix(reason,
+			"work probe row "), "emit probe row ")
 		probeIDs = append(probeIDs, strings.SplitN(rest, " ", 2)[0])
 	}
 	want := []string{"bbbbbbbbbb", "aaaaaaaaaa", "dddddddddd", "cccccccccc"}
@@ -292,9 +297,10 @@ func TestAGrandfatheredBriefDoesNotGainPhaseGuidance(t *testing.T) {
 	if len(ranked) == 0 {
 		t.Fatal("no attention lead")
 	}
-	if actions[0] != objStr(ranked[0], "action") {
+	// I-2 re-pin: next_actions mint the ledger's command field
+	if actions[0] != objStr(ranked[0], "command") {
 		t.Fatalf("actions[0] = %q, want the attention lead %q", actions[0],
-			objStr(ranked[0], "action"))
+			objStr(ranked[0], "command"))
 	}
 	if len(actions) != 4 {
 		t.Fatalf("len(actions) = %d, want 4: %v", len(actions), actions)
@@ -314,7 +320,7 @@ func TestAGrandfatheredBriefDoesNotGainPhaseGuidance(t *testing.T) {
 		guidance[g] = true
 	}
 	for _, a := range actions {
-		if strings.HasPrefix(a, "divergence gate open — L-") {
+		if strings.Contains(a, "  # divergence gate open — L-") {
 			divLines++
 		}
 		if guidance[a] {
@@ -359,7 +365,8 @@ func TestAttentionDebtDoesNotSuppressThePhaseGuidanceFallback(t *testing.T) {
 	if len(ranked) == 0 {
 		t.Fatal("no attention lead")
 	}
-	lead := objStr(ranked[0], "action")
+	// I-2 re-pin: the command field, not the action prose
+	lead := objStr(ranked[0], "command")
 	count := 0
 	for _, a := range actions {
 		if a == lead {
@@ -383,7 +390,7 @@ func TestAttentionDebtDoesNotSuppressThePhaseGuidanceFallback(t *testing.T) {
 	}
 	phase := []string{}
 	for _, a := range actions {
-		if strings.HasPrefix(a, "divergence gate open — ") {
+		if strings.Contains(a, "  # divergence gate open — ") {
 			divLines++
 		}
 		if guidance[a] {

@@ -71,12 +71,14 @@ func t35RecordCheck(t *testing.T, c *state.Campaign, fid string,
 	}
 }
 
-// t35CorpusLines is the brief's rendered corpus lines.
+// t35CorpusLines is the brief's rendered corpus lines. Task 7 fix round 1
+// (I-2): the line is command-first now — `webv2 recall …  # corpus: …` — so
+// the reason suffix is the marker, not the line prefix.
 func t35CorpusLines(t *testing.T, b validation.Value) []string {
 	t.Helper()
 	out := []string{}
 	for _, a := range objAt(b, "next_actions").A {
-		if strings.HasPrefix(a.S, "corpus:") {
+		if strings.Contains(a.S, "  # corpus: ") {
 			out = append(out, a.S)
 		}
 	}
@@ -178,7 +180,9 @@ func TestBriefCorpusCommandNamesCampaignAndCountsExtraFindings(t *testing.T) {
 		" --finding "+first) {
 		t.Errorf("line %q lacks the deterministic command", lines[0])
 	}
-	if !strings.Contains(lines[0], "(+1 more finding(s))") {
+	if !strings.Contains(lines[0], "— 1 more findings") {
+		// re-pinned deliberately (Task 7 fix round 1, I-2): the paren-free
+		// reason suffix rewords the old "(+1 more finding(s))"
 		t.Errorf("line %q lacks the extra-findings count", lines[0])
 	}
 	if got := objAt(objAt(b, "corpus_recall"), "irrelevant_checks").I; got != 2 {

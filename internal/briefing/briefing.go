@@ -2049,15 +2049,35 @@ func integrityDetail(integ validation.Value) string {
 	return out
 }
 
+// webv2Action renders one copyable next action: the command first, the
+// reason as a shell comment. Task 7's law is render-boundary-wide (review
+// round 1, I-2): every line briefing.go mints must be pasteable, so prose
+// rides the `# reason` suffix instead of leading the line.
+func webv2Action(command, reason string) string {
+	if reason == "" {
+		return command
+	}
+	return command + "  # " + noParens(reason)
+}
+
+// noParens keeps interpolated prose inside a `# reason` comment from
+// tripping the no-parenthesis law — the plan's own test regex is `\(` and
+// it reads the whole line; brackets carry the same meaning to an operator.
+func noParens(s string) string {
+	return strings.NewReplacer("(", "[", ")", "]").Replace(s)
+}
+
 // NextActions is _next_actions: the prioritized, concrete work list.
 func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, error) {
 	actions := []string{}
 	cb := asObj(objAt(brief, "campaign"))
 	integ := asObj(objAt(brief, "integrity"))
 	if objBool(cb, "closed") {
+		cid := campaign.CampaignID
 		if objAt(integ, "ok").Kind == validation.Bool && !objAt(integ, "ok").B {
-			actions = append(actions, "FIX INTEGRITY FIRST (trust issue, fix "+
-				"even though the pass is closed): "+integrityDetail(integ))
+			actions = append(actions, webv2Action("webv2 doctor "+cid,
+				"FIX INTEGRITY FIRST — trust issue, fix even though the "+
+					"pass is closed: "+integrityDetail(integ)))
 		}
 		st, err := campaign.State()
 		if err != nil {
@@ -2071,9 +2091,10 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		if why == "" {
 			why = "no reason recorded"
 		}
-		actions = append(actions, fmt.Sprintf("campaign marked COMPLETE by %s "+
-			"— %s; the pass is closed by decision (resume by running a stage "+
-			"command, e.g. webv2 run)", who, why))
+		actions = append(actions, webv2Action("webv2 status "+cid,
+			fmt.Sprintf("pass marked COMPLETE by %s — %s; the pass is "+
+				"closed by decision — resume by running a stage command, "+
+				"e.g. webv2 run", who, why)))
 		proofs, err := completion.AllProofStatus(campaign)
 		if err != nil {
 			return nil, err
@@ -2086,37 +2107,25 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 			if !objBool(pr.V, "authoritative") || objBool(pr.V, "done") {
 				continue
 			}
-			missing := listAt(pr.V, "missing")
-			if len(missing) > 2 {
-				missing = missing[:2]
-			}
-			parts := []string{}
-			for _, m := range missing {
-				if m.Kind == validation.Str {
-					parts = append(parts, m.S)
-				} else {
-					parts = append(parts, validation.PyRepr(m))
-				}
-			}
-			joined := ""
-			for i, s := range parts {
-				if i > 0 {
-					joined += "; "
-				}
-				joined += s
-			}
-			openProofs = append(openProofs, pr.K+": "+joined)
+			openProofs = append(openProofs, pr.K)
 		}
 		limit := len(openProofs)
 		if limit > 6 {
 			limit = 6
 		}
-		for _, p := range openProofs[:limit] {
-			actions = append(actions, "(open completion proof — noted, NOT "+
-				"blocking) "+p)
+		for _, stage := range openProofs[:limit] {
+			// the per-proof missing-item prose the old line inlined is
+			// exactly what `prove --stage` prints (Task 7's trade-off)
+			actions = append(actions, webv2Action(
+				"webv2 prove "+cid+" --stage "+stage,
+				"open completion proof — noted, NOT blocking"))
 		}
 		return actions, nil
 	}
+
+	// cid for every open-branch mint: the campaign pointer may be nil
+	// (hand-built briefs), the brief's own campaign_id is the fallback.
+	cid := lensActionCampaign(brief, campaign)
 
 	// probe surface: the ranked open rows lead
 	if ps := objAt(brief, "probe_surface"); ps.Kind == validation.Obj {
@@ -2139,12 +2148,18 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 				if len([]rune(why)) > 80 {
 					why = string([]rune(why)[:77]) + "…"
 				}
-				actions = append(actions, fmt.Sprintf("work probe row %s — %s: "+
-					"%s (%s)", rid, where, name, why))
+				// a promoted row IS a plan priority: the attention queue
+				// works its oldest untouched question with the same verb
+				actions = append(actions, webv2Action("webv2 answered "+cid+
+					" "+objStr(r, "priority_id")+
+					" answered --reason <reason> --actor <actor>",
+					fmt.Sprintf("work probe row %s — %s: %s — %s",
+						rid, where, name, why)))
 			} else {
-				actions = append(actions, fmt.Sprintf("emit probe row %s — %s: "+
-					"`webv2 probes %s run --emit` turns it into a plan "+
-					"obligation", rid, where, campaign.CampaignID))
+				actions = append(actions, webv2Action(
+					"webv2 probes "+cid+" run --emit",
+					fmt.Sprintf("emit probe row %s — %s: %s — emitting it "+
+						"turns it into a plan obligation", rid, where, name)))
 			}
 		}
 	}
@@ -2158,7 +2173,6 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	// structural index directly (no surface needed). L-02 has no table
 	// verb — its trust rows are already listed per-row above.
 	if div := objAt(brief, "divergence"); div.Kind == validation.Obj {
-		cid := lensActionCampaign(brief, campaign)
 		for _, l := range listAt(div, "lenses") {
 			lid := objStr(l, "id")
 			table, ok := lensMechanicalTable[lid]
@@ -2172,10 +2186,10 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 				// already named by the divergence missing entries;
 				// route to the table instead.
 				if ps := objAt(brief, "probe_surface"); ps.Kind == validation.Obj {
-					actions = append(actions, fmt.Sprintf(
-						"%s has no probe surface for its axes — work it "+
-							"directly off the index: `%s`", lid,
-						fmt.Sprintf(table, cid)))
+					actions = append(actions, webv2Action(
+						fmt.Sprintf(table, cid),
+						lid+" has no probe surface for its axes — "+
+							"work it directly off the index"))
 				}
 				continue
 			}
@@ -2187,11 +2201,10 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 			if disp != 0 || open == 0 {
 				continue
 			}
-			actions = append(actions, fmt.Sprintf(
-				"%s open with 0/%d rows dispositioned (%d open) — run "+
-					"the mechanical table before theorizing: `%s`",
-				lid, intField(probe, "rows"), open,
-				fmt.Sprintf(table, cid)))
+			actions = append(actions, webv2Action(fmt.Sprintf(table, cid),
+				fmt.Sprintf("%s open with 0/%d rows dispositioned, %d "+
+					"open — run the mechanical table before theorizing",
+					lid, intField(probe, "rows"), open)))
 		}
 	}
 
@@ -2210,9 +2223,9 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	// criticality coverage
 	if crit := objAt(brief, "criticality"); crit.Kind == validation.Obj {
 		for _, name := range listAt(crit, "uncovered_consensus_critical") {
-			actions = append(actions, fmt.Sprintf("open %s — "+
-				"consensus-critical, untouched by any priority/finding/exec",
-				valueText(name)))
+			actions = append(actions, webv2Action("webv2 run "+cid,
+				fmt.Sprintf("open %s — consensus-critical, untouched by "+
+					"any priority/finding/exec", valueText(name))))
 		}
 	}
 
@@ -2226,9 +2239,15 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 			for _, p := range listAt(sibPlan, "priorities") {
 				if objStr(p, "status") == "open" &&
 					objStr(p, "sibling_of") != "" {
-					actions = append(actions, fmt.Sprintf(
+					pid := objStr(p, "id")
+					cmd := "webv2 run " + cid
+					if pid != "" {
+						cmd = "webv2 answered " + cid + " " + pid +
+							" answered --reason <reason> --actor <actor>"
+					}
+					actions = append(actions, webv2Action(cmd, fmt.Sprintf(
 						"work sibling of %s: %s", objStr(p, "sibling_of"),
-						objStr(p, "question")))
+						objStr(p, "question"))))
 				}
 			}
 		}
@@ -2236,6 +2255,10 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 
 	// the attention ledger leads the queue
 	attentionLead := map[string]bool{}
+	// the attention-minted lines themselves: the generic filter must not
+	// count them as "something else to do" (they carry no `# reason` — the
+	// ledger block already renders the prose beside the command)
+	attentionLines := map[string]bool{}
 	if att := objAt(brief, "attention"); att.Kind == validation.Obj {
 		ranked := listAt(att, "ranked")
 		lead := ranked
@@ -2243,8 +2266,9 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 			lead = lead[:2]
 		}
 		for _, item := range lead {
-			if a := objStr(item, "action"); a != "" {
-				actions = append(actions, a)
+			if cmd := objStr(item, "command"); cmd != "" {
+				actions = append(actions, cmd)
+				attentionLines[cmd] = true
 			}
 			ident := objStr(item, "priority_id")
 			if ident == "" {
@@ -2253,9 +2277,12 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 			attentionLead[ident] = true
 		}
 		for _, item := range ranked[minInt(2, len(ranked)):] {
-			if objStr(item, "kind") == "queue" && objStr(item, "action") != "" &&
+			if objStr(item, "kind") == "queue" &&
+				objStr(item, "command") != "" &&
 				!attentionLead[objStr(item, "priority_id")] {
-				actions = append(actions, objStr(item, "action"))
+				cmd := objStr(item, "command")
+				actions = append(actions, cmd)
+				attentionLines[cmd] = true
 			}
 		}
 	}
@@ -2272,8 +2299,10 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 			if len(what) > 80 {
 				what = what[:80]
 			}
-			actions = append(actions, fmt.Sprintf("divergence gate open — %s: %s",
-				objStr(m, "subject"), string(what)))
+			actions = append(actions, webv2Action(
+				"webv2 probes "+cid+" run --emit",
+				fmt.Sprintf("divergence gate open — %s: %s",
+					objStr(m, "subject"), string(what))))
 		}
 	}
 
@@ -2281,17 +2310,20 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	if att := objAt(brief, "attention"); att.Kind == validation.Obj {
 		items := listAt(asObj(objAt(att, "invariants")), "items")
 		for _, item := range items {
-			if objBool(item, "high_consequence") && objStr(item, "action") != "" &&
+			if objBool(item, "high_consequence") &&
+				objStr(item, "command") != "" &&
 				!attentionLead[objStr(item, "invariant_id")] {
-				actions = append(actions, objStr(item, "action"))
+				cmd := objStr(item, "command")
+				actions = append(actions, cmd)
+				attentionLines[cmd] = true
 			}
 		}
 	}
 
 	// integrity, if not checked deep
 	if objAt(integ, "ok").Kind == validation.Bool && !objAt(integ, "ok").B {
-		actions = append(actions, "FIX INTEGRITY FIRST: "+
-			integrityDetail(integ))
+		actions = append(actions, webv2Action("webv2 doctor "+cid,
+			"FIX INTEGRITY FIRST: "+integrityDetail(integ)))
 	}
 
 	// cost ceiling
@@ -2301,18 +2333,25 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		limit := objAt(b, "max_total_cost_usd")
 		if spent.Kind != validation.Null && limit.Kind != validation.Null &&
 			floatOf(spent) > floatOf(limit) {
-			actions = append(actions, fmt.Sprintf("cost ceiling exceeded: "+
-				"$%s spent vs $%s limit — raise max_total_cost_usd or stop; "+
-				"the pipeline will not run past the ceiling",
-				pyCommaFloat(floatOf(spent), 2), pyCommaFloat(floatOf(limit), 2)))
+			actions = append(actions, webv2Action(
+				"webv2 budget "+cid+" --set <max-usd> --actor <actor>",
+				fmt.Sprintf("cost ceiling exceeded: $%s spent vs $%s "+
+					"limit — raise max_total_cost_usd or stop; the "+
+					"pipeline will not run past the ceiling",
+					pyCommaFloat(floatOf(spent), 2),
+					pyCommaFloat(floatOf(limit), 2))))
 		}
 	}
 
 	// chains ready to materialize
 	for _, ch := range listAt(objAt(brief, "findings"), "materializable_chains") {
-		actions = append(actions, fmt.Sprintf("materialize chain %s — all "+
-			"members confirmed, not yet a chain",
-			validation.PyRepr(objAt(ch, "members"))))
+		members := strListOf(objAt(ch, "members"))
+		cmd := "webv2 run " + cid
+		if len(members) >= 2 {
+			cmd = "webv2 chain " + cid + " " + strings.Join(members, " ")
+		}
+		actions = append(actions, webv2Action(cmd,
+			"materialize chain — all members confirmed, not yet a chain"))
 	}
 
 	// the E6 queue
@@ -2325,18 +2364,21 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		}
 		tag := "defence in depth"
 		if objBool(q, "mandatory") {
-			tag = "MANDATORY (effective floor " + need + ")"
+			tag = "MANDATORY, effective floor " + need
 		}
-		actions = append(actions, fmt.Sprintf("independently verify %s (at "+
-			"%s, needs %s — %s)", objStr(q, "finding_id"),
-			objStr(q, "evidence_level"), need, tag))
+		fid := objStr(q, "finding_id")
+		actions = append(actions, webv2Action("webv2 verify "+cid+
+			" --finding "+fid+" --exec <EXEC-id> --verifier <verifier>"+
+			" --description <description>",
+			fmt.Sprintf("independently verify %s at %s, needs %s — %s",
+				fid, objStr(q, "evidence_level"), need, tag)))
 	}
 
 	// memory recall
 	for _, fid := range listAt(objAt(brief, "findings"), "memory_recall_pending") {
-		actions = append(actions, fmt.Sprintf("%s: memory recall pending — "+
-			"run `webv2 recall %s --finding %s` (critic + repro already in "+
-			"place)", valueText(fid), campaign.CampaignID, valueText(fid)))
+		actions = append(actions, webv2Action("webv2 recall "+cid+
+			" --finding "+valueText(fid),
+			"memory recall pending — critic + repro already in place"))
 	}
 
 	// corpus recall (B3/D2): a recorded check that cites no structurally-
@@ -2351,7 +2393,7 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		}
 		more := ""
 		if len(fids) > 1 {
-			more = fmt.Sprintf(" (+%d more finding(s))", len(fids)-1)
+			more = fmt.Sprintf(" — %d more findings", len(fids)-1)
 		}
 		detail := ""
 		labelOnly := objInt(cr, "label_only_checks")
@@ -2366,25 +2408,33 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 				verb = "shares"
 			}
 			detail = fmt.Sprintf(" — %d %s only a non-discriminative class "+
-				"label (%s): the corpus has rows in that class, the label "+
+				"label %s: the corpus has rows in that class, the label "+
 				"alone is not lineage overlap", labelOnly, verb, labels)
 		}
 		noun, verb := "checks", "cite"
 		if n == 1 {
 			noun, verb = "check", "cites"
 		}
-		actions = append(actions, fmt.Sprintf("corpus: %d memory %s %s no "+
-			"overlapping row%s — inspect: webv2 recall %s --finding %s%s",
-			n, noun, verb, detail, campaign.CampaignID, first, more))
+		actions = append(actions, webv2Action("webv2 recall "+cid+
+			" --finding "+first,
+			fmt.Sprintf("corpus: %d memory %s %s no overlapping row%s%s",
+				n, noun, verb, detail, more)))
 	}
 
 	// structurally unreachable findings
 	for _, r := range listAt(objAt(brief, "findings"), "structurally_unreachable") {
-		actions = append(actions, fmt.Sprintf("%s is structurally stuck at "+
-			"%s (effective floor %s): %s — pin the target or record the "+
-			"decision with `webv2 floors set`", objStr(r, "finding_id"),
-			objStr(r, "level"), objStr(r, "floor"),
-			strings.Join(strListOf(objAt(r, "missing")), "; ")))
+		floor := objStr(r, "floor")
+		floorArg := floor
+		if floorArg == "" || floorArg == "None" {
+			floorArg = "<E4-E7>"
+		}
+		actions = append(actions, webv2Action("webv2 floors "+cid+
+			" set --actor <actor> --reason <reason> <class_> "+floorArg,
+			fmt.Sprintf("%s is structurally stuck at %s, effective floor %s"+
+				": %s — pin the target or record the decision",
+				objStr(r, "finding_id"), objStr(r, "level"),
+				orQuestion(floor),
+				strings.Join(strListOf(objAt(r, "missing")), "; "))))
 	}
 
 	// bounty gate
@@ -2392,38 +2442,50 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		for _, x := range listAt(bv, "evaluated") {
 			fid := objStr(x, "finding_id")
 			if objBool(x, "submission_ready") {
-				actions = append(actions, fmt.Sprintf("submit %s — gate "+
-					"passed, submission ready", fid))
+				// submission itself happens off-CLI; the report is the
+				// command step that precedes it
+				actions = append(actions, webv2Action("webv2 report "+cid,
+					"submit "+fid+" — gate passed, submission ready"))
 				continue
 			}
 			if objBool(x, "eligible") {
-				actions = append(actions, fmt.Sprintf("finish %s for "+
-					"submission: %s", fid,
-					strings.Join(strListOf(objAt(x, "blocking_reasons")), "; ")))
+				actions = append(actions, webv2Action("webv2 run "+cid,
+					fmt.Sprintf("finish %s for submission: %s", fid,
+						strings.Join(strListOf(objAt(x, "blocking_reasons")),
+							"; "))))
 			}
 		}
 	}
 
 	// gate deficits
 	for _, d := range listAt(objAt(brief, "findings"), "gate_deficits") {
-		actions = append(actions, fmt.Sprintf("advance %s (%s, %s): %s",
-			objStr(d, "finding_id"), objStr(d, "status"), objStr(d, "level"),
-			objStr(d, "deficit")))
+		actions = append(actions, webv2Action("webv2 run "+cid, fmt.Sprintf(
+			"advance %s — %s, %s: %s", objStr(d, "finding_id"),
+			objStr(d, "status"), objStr(d, "level"), objStr(d, "deficit"))))
 	}
 
 	// pending memory promotion
 	for _, m := range listAt(brief, "pending_memory") {
-		actions = append(actions, fmt.Sprintf("human decision on %s "+
-			"(%s/%s): approve or reject", objStr(m, "memory_id"),
-			objStr(m, "kind"), objStr(m, "status")))
+		actions = append(actions, webv2Action("webv2 memory "+cid+
+			" --approve "+objStr(m, "memory_id"),
+			fmt.Sprintf("human decision on %s — %s/%s: approve or reject",
+				objStr(m, "memory_id"), objStr(m, "kind"),
+				objStr(m, "status"))))
 	}
 
 	// terminal states
 	for _, t := range listAt(brief, "terminals") {
-		actions = append(actions, fmt.Sprintf("terminal state reachable: -> "+
-			"%s via %s (capital $%s)", objStr(t, "terminal_capability"),
-			strings.Join(strListOf(objAt(t, "path")), " -> "),
-			pyCommaFloat(floatOf(objAt(t, "capital_usd")), 0)))
+		path := strListOf(objAt(t, "path"))
+		cmd := "webv2 terminals " + cid
+		if len(path) > 0 {
+			// the work command: demonstrate the terminal capability on the
+			// last finding of the path
+			cmd = "webv2 exploit " + cid + " " + path[len(path)-1] + " --paid"
+		}
+		actions = append(actions, webv2Action(cmd, fmt.Sprintf(
+			"terminal state reachable: -> %s via %s — capital $%s",
+			objStr(t, "terminal_capability"), strings.Join(path, " -> "),
+			pyCommaFloat(floatOf(objAt(t, "capital_usd")), 0))))
 	}
 
 	generic := []string{}
@@ -2432,11 +2494,20 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		// surface ...") are surface-derived mechanical work, same family
 		// as the probe-row actions — they must not count as "something
 		// else to do", or they would suppress the phase-guidance fallback
-		// on exactly the untouched-surface campaigns they route.
-		if !hasAnyPrefix(a, "work probe row ", "emit probe row ",
+		// on exactly the untouched-surface campaigns they route. The
+		// markers ride the `# reason` suffix now that every minted line
+		// leads with its command (I-2); attention-ledger lines carry no
+		// reason — they are excluded by identity.
+		if attentionLines[a] {
+			continue
+		}
+		reason := ""
+		if i := strings.Index(a, "  # "); i >= 0 {
+			reason = a[i+4:]
+		}
+		if !hasAnyPrefix(reason, "work probe row ", "emit probe row ",
 			"L-01 ", "L-03 ", "L-04 ",
-			"divergence gate open — ", "work the oldest untouched question ",
-			"verify INV-") {
+			"divergence gate open — ") {
 			generic = append(generic, a)
 		}
 	}
@@ -2475,10 +2546,17 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 				if planned <= 0 {
 					continue
 				}
-				actions = append(actions, "lens "+lens+
+				// the advisory stat rides the lens's mechanical-table
+				// command where one exists — a weak average is worked by
+				// walking the table, exactly like the M6 routing
+				cmd := "webv2 run " + cid
+				if table, ok := lensMechanicalTable[lens]; ok {
+					cmd = fmt.Sprintf(table, cid)
+				}
+				actions = append(actions, webv2Action(cmd, "lens "+lens+
 					" batting average — "+
 					wilson.Format(int(confirmed), int(planned),
-						"precision"))
+						"precision")))
 			}
 		}
 	}
@@ -2540,10 +2618,10 @@ func skewAction(brief validation.Value, campaign *state.Campaign) string {
 	if pinned == "" || pinned == running {
 		return ""
 	}
-	return fmt.Sprintf("framework skew: snapshot %s pinned with build %s "+
-		"but running build %s — probe-surface semantics may differ: "+
-		"re-pin (`webv2 snap %s <target>`) or run the pinning build",
-		sid, pinned, running, campaign.CampaignID)
+	return webv2Action("webv2 snap "+campaign.CampaignID+" <target>",
+		fmt.Sprintf("framework skew: snapshot %s pinned with build %s "+
+			"but running build %s — probe-surface semantics may differ; "+
+			"re-pin or run the pinning build", sid, pinned, running))
 }
 
 // pinBuild is the framework_build the snapshot's pin event recorded, or ""

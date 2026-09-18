@@ -82,7 +82,9 @@ func TestBriefSurfacesOpenSiblingPriority(t *testing.T) {
 	acts := strListOf(objAt(b, "next_actions"))
 	found := false
 	for _, a := range acts {
-		if strings.HasPrefix(a, "work sibling of F-001:") &&
+		// Task 7 fix round 1 (I-2): command-first line, reason carries
+		// the sibling marker
+		if strings.Contains(a, "  # work sibling of F-001:") &&
 			strings.Contains(a, "other root") &&
 			strings.Count(strings.ToLower(a), "sibling of f-001") == 1 {
 			found = true

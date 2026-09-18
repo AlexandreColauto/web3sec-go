@@ -172,11 +172,15 @@ func TestLensBattingFlagOnRenders(t *testing.T) {
 	batSetPolicy(t, camp, true)
 	b := build(t, camp, false)
 	lines := batLines(b)
+	// Task 7 fix round 1 (I-2): the advisory stat rides its lens's
+	// mechanical-table command (webv2 run when the lens has no table
+	// verb), and the reason is paren-free — the wilson CI brackets.
+	cid := camp.CampaignID
 	want := []string{
-		"lens L-01 batting average — " +
-			"precision: 0/40 (95% CI 0.0–8.8%)",
-		"lens L-02 batting average — " +
-			"precision: 5/12 (95% CI 19.3–68.0%)",
+		"webv2 enforce " + cid + " <cursor-variable>  # lens L-01 " +
+			"batting average — precision: 0/40 [95% CI 0.0–8.8%]",
+		"webv2 run " + cid + "  # lens L-02 batting average — " +
+			"precision: 5/12 [95% CI 19.3–68.0%]",
 	}
 	if len(lines) != len(want) {
 		t.Fatalf("batting lines = %v, want %v", lines, want)

@@ -40,11 +40,16 @@ func TestBriefSurfacesReachabilityForStuckClass(t *testing.T) {
 	}
 	named := false
 	for _, a := range objAt(b, "next_actions").A {
-		if strings.Contains(a.S, fid) && strings.Contains(a.S, "floors set") {
+		// Task 7 fix round 1 (I-2): the line leads with the real command
+		// (`webv2 floors <C> set …`), so "floors set" is no longer a
+		// contiguous substring — the command head and the stuck reason
+		// are checked separately.
+		if strings.Contains(a.S, fid) && strings.Contains(a.S, "floors") &&
+			strings.Contains(a.S, " set ") {
 			named = true
 		}
 	}
 	if !named {
-		t.Errorf("no next action names %s with `floors set`", fid)
+		t.Errorf("no next action names %s with the floors set command", fid)
 	}
 }
