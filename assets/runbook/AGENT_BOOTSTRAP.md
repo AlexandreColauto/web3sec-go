@@ -153,7 +153,11 @@ only if the operator named a different workspace.
    --actor NAME`); L-04 additionally requires `--symmetry "fam=primitive;..."`
    (a blank primitive does not count). **Lens closure is mechanical: produce
    the table before the sentence** — build the surface with `probes <C-id> run
-   --emit`, read it with `probes <C-id> list [--axis L-0n] [--all]`, discharge
+   --emit`, read it with `probes <C-id> list [--axis L-0n] [--all]`, drain the
+   worklist with `probes <C-id> pending` (ranked; each row prints the exact
+   `answered` command that discharges it — `answered <C-id> --rows ROWID,ROWID
+   <status> --reason-all R --anchor FIELD` is the batch form, legal only when
+   every named row is tier>0 and assertion_gap<3), discharge
    a row with `answered <C-id> Q-xxx <status> --anchor <field> --reason "..."`
    (the anchor must come from that row's own probe enum), close a BLIND axis
    with `probes <C-id> blank --axis L-0n --anchor-blind <key> --reason "..."

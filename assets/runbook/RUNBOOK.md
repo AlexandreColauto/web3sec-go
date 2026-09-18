@@ -317,6 +317,7 @@ webv2 probes <C-xxx> run --emit                       # + turn every emitted row
 webv2 probes <C-xxx> run --emit --per-axis N --total N   # the quota knobs (a 0 quota is refused, exit 2)
 webv2 probes <C-xxx> list [--axis L-0n|AXIS] [--all] [--json]
 webv2 probes <C-xxx> blank --axis L-0n|AXIS --anchor-blind K --reason "..." --actor NAME
+webv2 probes <C-xxx> pending [--max N] [--json]       # the undispositioned rows, ranked (tier asc, gap desc, then convergence count), each with the exact answered command that discharges it
 ```
 
 Every value flag above takes argparse's two spellings interchangeably:
@@ -363,6 +364,20 @@ what survived its discriminator:
 `not-applicable` and `deprioritized` discharge a row; each **requires**
 `--anchor <field>`, machine-checked against the row's own probe enum and real
 value; the recorded `closed_ref` becomes that anchor's citation.
+
+**The queue has a shape, so work it from the top.** `probes <C-xxx> pending`
+lists every row the plan does not (or no longer) disposition, ranked by risk
+(tier, then how far the row's assertion runs past its evidence, then how many
+of the three stores — the surface, the plan, a filed finding — converge on the
+row's own anchor). Each line ends in the exact `answered` command that row's
+own data implies, anchor included; `--max N` prints N lines and `--json` is the
+uncapped machine view. When several rows are safe to discharge the same way,
+name them together — `answered <C-xxx> --rows ROWID,ROWID <status>
+--reason-all "…" --anchor <field>` — but the bulk route is refused when ANY
+named row is tier 0 or has `assertion_gap >= 3`: those are discharged
+one-per-call, with a reason that cites their own code. A row whose shape moved
+since it was dispositioned is pending again (`stale`), and a stale surface keeps
+its lens open.
 
 **A dismissal close to the money has to run — and has to name something.**
 A row that is tier 0, or whose `assertion_gap` is 3 or more (the row asserts
@@ -1596,7 +1611,8 @@ webv2 index <C> --src SRC                                          rebuild the s
 webv2 model <C> [file] [--json] [--example] [--facts P] [--facts-observed-at D]    load a protocol model (seeds invariants) / show the loaded one; --example prints a valid template; --facts merges operator-supplied DNS/dependency facts (offline only, no lookup)
 webv2 plan <C> [file] [--rebuild] [--json]                         read-only plan view; --rebuild archives + regenerates (both polarities of every lifecycle transition belong in it — §4c/§5)
 webv2 answered <C> <priority|L-0X> [<priority>...] <status> [--reason R] [--reason-all R] [--ref R] [--anchor FIELD] [--families a,b,c] [--symmetry fam=prim;...] [--actor A]   # one status over ONE OR MORE rows: gates run per row all-or-nothing (first refusal names its row, zero mutations)
-webv2 probes <C> run [--emit --per-axis N --total N] | list [--axis L-0n|AXIS] [--all] [--json] | blank --axis L-0n|AXIS --anchor-blind K --reason R --actor A
+webv2 probes <C> run [--emit --per-axis N --total N] | list [--axis L-0n|AXIS] [--all] [--json] | blank --axis L-0n|AXIS --anchor-blind K --reason R --actor A | pending [--max N] [--json]
+webv2 answered <C> --rows ROWID,ROWID <status> --reason-all R --anchor FIELD [--actor A]   # the same discharge over probe rows named by id; refused unless EVERY row is tier>0 and assertion_gap<3
 webv2 ingest <C> --json-file F (or -) [--trajectory T] [--stage S] [--answers-priority Q-xxx]   |  webv2 ingest --example
 webv2 prompts {list,show} [name]                                   print the embedded stage prompts (no framework checkout needed; show accepts full name, stem, or stage number)
 webv2 schema [--list] [<name>]                                     print an embedded validation schema, byte-for-byte (finding, protocol_model, bounty_policy, ...); no name (or --list) names them all
