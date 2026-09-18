@@ -327,3 +327,246 @@ artifact, `critic-round-1.md`, plus this closure record.
   the workers still hold the campaign lock until they exit — which is what the
   test intends to exercise.
 - No push, no merge, no delegation was performed in this wave.
+
+---
+
+# Wave 2 — the step-12 RED and the two SECURITY.md minors
+
+- **Branch:** `production-readiness`, worktree `.worktrees/production-readiness`.
+- **Base:** `4382e586`. **Commits added by this wave:** `2e9ff576`, `656d2e4b`.
+- **Scope:** the DoD's last red gate (verify-full step 12) and the two minor
+  findings the Task 14/15 review filed against SECURITY.md. No push, no merge,
+  no delegation.
+
+## Commit `2e9ff576` — fix(release): verify-full step 12 accepts presence-gated sections.
+
+### Symptom (reproduced on the pristine tree, then fixed)
+
+Step 12 went RED fail-fast, before step 13 could run:
+
+```
+AssertionError: P3 smoke audit: 15 sections, want 14
+FAIL [step 12: smoke audit --json sections]
+```
+
+Steps 9 and 11 were GREEN at 14 in the same run. The committed
+`docs/sdd/verify-full-final.log` (pre-fix) recorded exactly that, and the
+fresh reproduction is `.scratch/sdd/verify-full-before.log`.
+
+### Root cause verified from the audit code FIRST (not inferred from the message)
+
+| claim | evidence |
+| --- | --- |
+| `price_table` is genuinely presence-gated | `pricetable.go:40` — `return validation.Value{}, ErrSkip // never priced anything`; pinned by `pricetable_test.go:27` |
+| `eval` is gated the same way | `eval.go:140` — `return validation.Value{}, ErrSkip` |
+| a skipped section is omitted from the report | `audit.go:88` — `if errors.Is(err, sections.ErrSkip) { continue }` |
+| the 14 base sections are order-pinned | `register.go:26-39` registers them in reference order; registration order IS report order (`RegisterAuditSection` → `SectionNames`); `audit_test.go:85` and `p1_sections_test.go:236` pin the registry tail (`eval`, then `price_table`, appended past the 14) |
+| step 12 is what makes the price registry non-empty | its own body runs `price <C> set ETH 3000 …` before `audit --json` |
+
+So the assertion was stale, not the product: 15 is the CORRECT render for a
+campaign that priced, and 14 is the correct render for one that did not.
+
+### Measured on the live surface (the binary verify-full built, against the three campaigns it leaves behind)
+
+| report | sections | price_table | eval |
+| --- | --- | --- | --- |
+| step 12 `C-10ab2d8738` (priced) | **15** | yes | no |
+| step 11 `C-50abeacbb3` (never priced) | **14** | no | no |
+| step 9 legacy `C-45488bdaf5` (never priced) | **14** | no | no |
+
+and the rendered order is exactly registry order (… `unpriceable`,
+`price_table`). Raw captures: `.scratch/sdd/step{9,11,12}-*sections.json`.
+
+### The fix
+
+`p2_sections_ok` (shared by steps 9/11/12) now asserts the **14 unconditional
+sections, in registration order, plus any of the documented presence-gated
+extras** (`eval`, `price_table`) that render — and nothing else. It is
+deliberately NOT relaxed to a count of 15: a bare 15 would let a never-priced
+campaign that silently grew a fake row pass. It mirrors the allowance
+`scripts/check-golden.py`'s `check_audit` already makes (EXPECTED_SECTIONS =
+the 14 unconditional rows + the optional presence-gated tail; its own run shows
+15 at step 164 and 14 at step 194) — the helper comment cites it, and the
+hard failures stay hard: missing base row, unknown name, and the order of
+whatever renders.
+
+### Proof the gate still bites — 10/10 mutation cases
+
+Run with the python body extracted verbatim from the script
+(`.scratch/sdd/p2_sections_ok_mutation_test.py`, `.scratch/sdd/p2_sections_ok_body.py`):
+
+- PASS as required: 14 base; base+`price_table` (the real step-12 capture);
+  base+`eval`; base+`eval`+`price_table`.
+- FAIL as required: missing base row; **unknown 15th name at count==15**;
+  base reorder; gated tail out of order; gated row spliced into the base run;
+  empty report.
+
+### verify-full to COMPLETION
+
+`VERIFY-FULL GREEN: all 13 steps pass` — step 12 now reports
+`ok P3 smoke audit: 15 audit sections = 14 base + presence-gated
+['price_table']`, step 11 `14 audit sections = 14 base (no presence-gated
+section rendered)`, step 13 walkthrough green. The green log is committed at
+`docs/sdd/verify-full-final.log` (byte-identical to
+`.scratch/sdd/verify-full-final.log`), replacing the step-12 RED the previous
+wave committed.
+
+**Same-pass honesty fix:** the four stale "(15 registered; `eval` is
+presence-gated)" comments in verify-full.sh (the registry carries **16**:
+14 base + `eval` + `price_table`) and the step-12 row claiming "all 14 rendered
+sections" are corrected in the same commit.
+
+## Commit `656d2e4b` — docs: correct fork RPC env var and vm-snapshot availability note.
+
+Both findings were re-verified against the code before editing; the review's
+line numbers were checked, not trusted.
+
+**(1) The phantom `WEBV2_FORK_RPC_URL`.** `rg WEBV2_FORK_RPC_URL` returns zero
+hits in code — it exists only in prose (SECURITY.md, RUNBOOK.md,
+runbook-go-notes.md). The code reads `FORK_RPC_URL` only: `envgo/env.go:266`
+(`ForkRPCProbe`), `sandbox/profiles.go:341` (the fork-runner container env),
+`findings/gate.go:408` (the E5/E6 reachability demand). The `WEBV2_` prefix is
+real only for `WEBV2_SOLC_DIR`. SECURITY.md now names the one variable that
+exists and cites the outbound call site: `http.NewRequest` at
+`envgo/env.go:241` is the **only** non-test outbound HTTP call site in
+`internal/` (the non-test `http.*` hits are exactly 2, both on that one
+request: `NewRequest` at :241 and the `http.Client` at :246).
+
+**(2) `vm-snapshot`.** `ProfileAvailable` returns false for it
+**unconditionally** (`profiles.go:282`, `// vm-snapshot requires external VM
+infrastructure`), so it can never execute; and `BuildContainerArgv` has no
+`vm-snapshot` branch — were it ever reached it would take the fork-runner
+`else` arm (bridge + host-gateway), contradicting its recorded
+`profileNetwork: none`. One honest clause added: the profile is declared, no
+container execution is available for it in this build, and it is carried for
+forward-compatibility only. The `Is:` paragraph no longer implies a
+`docker run` for it.
+
+**Left out on purpose (flagged, not silently skipped).** The same phantom name
+still appears in `assets/runbook/RUNBOOK.md` (lines 44 and 1692) and
+`docs/runbook-go-notes.md:257`. RUNBOOK.md is manifest-pinned — correcting it
+requires an `assets` manifest resync (verify-full step 6), which is a different
+change than the SECURITY.md minor this task scoped. `scripts/p2-docker-e2e.sh`
+(comment at :319, assertion at :330) also still says "15 registered"; its
+14-section assertion remains CORRECT because that campaign never prices (the
+script contains no `price`/`cost` invocation), and that script is not part of
+the 13-step gate.
+
+## Gates after both commits — all green
+
+Evidence: `.scratch/sdd/gates-after-both.log`.
+
+| gate | result |
+| --- | --- |
+| `go test ./... -count=1` | exit 0 — 127 packages `ok`, 0 `FAIL` |
+| `go vet ./...` | exit 0 — no output |
+| `scripts/golden.sh` | exit 0 — `GOLDEN GREEN` (196 steps, 179 events, chain intact; audit surface 14/15/14 at steps 07/164/194, i.e. the presence-gated tail behaving exactly as documented) |
+| `bash scripts/security-check-test.sh` | exit 0 — `56 passed, 0 failed` |
+
+## Honest limits of this wave
+
+- `scripts/legacy` is untouched: no diff, no fixture edit.
+- The **tracked** `docs/sdd/critic-round1-fixes.md` copy of this report is NOT
+  updated by this wave. The task scoped the report to `.scratch/sdd/` and
+  pinned the two commits to exact paths, so the committed copy still ends with
+  the previous wave's "verify-full is still RED at step 12 … the DoD checkbox
+  cannot be checked" limit — which is now FALSE. Everything else in that copy
+  remains true; the operator should re-run the SDD copy step (or ask) so the
+  durable trail carries this closure.
+- The step-12 change is a **gate** fix, not a product change: no section, no
+  registry entry, no audit output changed. The product behaviour it encodes
+  (presence gating) was already pinned by Go unit tests; the gate now agrees
+  with them instead of contradicting them.
+- `p2_sections_ok` stays a surface-shape check. It does not re-derive WHY
+  `price_table` rendered — the Go tests own that — so a campaign that priced
+  nothing yet somehow produced a prices.json row is caught by
+  `PriceTable`'s own reconciliation (and its tests), not here.
+- No push, no merge, no delegation.
+
+---
+
+# Wave 2 addendum — 2026-09-18: the two flagged leftovers are closed, verify-full GREEN
+
+Everything above stands as written except the two limits this addendum names
+and closes. Both were flagged rather than silently skipped by the Wave-2
+section; this is the wave that closes them.
+
+## Commit `64b6eefa` — docs: correct fork RPC env var in runbook and notes.
+
+Closes "Left out on purpose" (Wave 2). The phantom `WEBV2_FORK_RPC_URL` is
+gone from both prose files, so the correction `656d2e4b` made in SECURITY.md
+now holds in prose repo-wide.
+
+| file:line | before | after |
+| --- | --- | --- |
+| `assets/runbook/RUNBOOK.md:44` | `` `FORK_RPC_URL` / `WEBV2_FORK_RPC_URL` `` | `` `FORK_RPC_URL` `` |
+| `assets/runbook/RUNBOOK.md:1692` (env table) | `` `FORK_RPC_URL` / `WEBV2_FORK_RPC_URL` `` | `` `FORK_RPC_URL` `` |
+| `docs/runbook-go-notes.md:257` | `` (`WEBV2_FORK_RPC_URL`) `` | `` (`FORK_RPC_URL`) `` |
+
+`rg WEBV2_FORK_RPC_URL assets/runbook/RUNBOOK.md docs/runbook-go-notes.md` now
+exits 1 (no hits). The name survives only in the review records that FILED the
+finding (`.scratch/sdd/task-14-15-review.md`, `docs/sdd/task-14-15-review.md`),
+which quote it as the defect — not in prose asserting the variable exists.
+
+**Manifest resync.** RUNBOOK.md is manifest-pinned, so the fix needed the
+asset resync the previous wave deferred: `python3 scripts/sync-asset-manifest.py`
+— the documented equivalent of verify-full step 6's
+`go test ./assets -run TestAssetPackManifest -count=1` (there is no Makefile;
+verify-full.sh invokes that test directly). The diff is exactly the one
+`RUNBOOK.md` entry: sha256 `f1843f46…943b807` -> `41e40478…52de53`, size
+110383 -> 110337 bytes. `--check` reports "asset manifest is current" and
+`go test ./assets/... -count=1` is `ok websec/assets` (exit 0). No other pack's
+bytes changed.
+
+## The tracked trail copy — refreshed
+
+`.scratch/sdd/critic-round1-fixes.md` is the live copy; the tracked
+`docs/sdd/critic-round1-fixes.md` was a byte-prefix of it (first 329 lines,
+17195 bytes — `cmp` confirmed the prefix before the refresh), i.e. it ended at
+the Wave-1 limits and never received the Wave-2 section at all. It is now
+copied over, byte-identical (`cmp` clean), and committed by exact path.
+
+**Superseded claim, called out so no reader is misled:** the Wave-1 bullet
+above that says "verify-full is still RED at step 12 … the DoD checkbox cannot
+be checked" is HISTORICAL — true of the tree before `2e9ff576`. That commit
+fixed the stale assertion; verify-full is **GREEN, all 13 steps**
+(`VERIFY-FULL GREEN: all 13 steps pass`, step 12 reporting `15 audit sections =
+14 base + presence-gated ['price_table']`), evidence committed by `2e9ff576` at
+`docs/sdd/verify-full-final.log`, byte-identical to
+`.scratch/sdd/verify-full-final.log` (re-checked with `cmp` in this wave).
+
+## Final gates at this HEAD — all green
+
+Run at `64b6eefa`; the only commit after it is docs-only, so the numbers carry
+unchanged to the refreshed-tree HEAD. Raw logs: `.scratch/sdd/wave3-*.log`
+(untracked).
+
+| gate | result |
+| --- | --- |
+| `go test ./... -count=1` | exit 0 — **71 packages `ok`, 0 `FAIL`** (73 packages total; 2 report `[no test files]`) |
+| `go vet ./...` | exit 0 — no output |
+| `scripts/golden.sh` | exit 0 — `GOLDEN GREEN: Go run validates (exit codes, tree + event chain, audit surface)` |
+| `scripts/runbook-walkthrough.sh` | exit 0 — **`walkthrough: 150 passed, 0 failed`** |
+| `bash scripts/security-check-test.sh` | exit 0 — **`56 passed, 0 failed`** |
+
+**Correction to the Wave-2 gate table above.** Its "127 packages `ok`" line is
+a counting artifact, not a package count: 127 is the number of `ok`-prefixed
+lines in `.scratch/sdd/gates-after-both.log`, which concatenates the `go test`
+section with `scripts/golden.sh`'s and `security-check-test.sh`'s own `ok`
+lines (the security-check suite alone contributes 56). The repo has **73** Go
+packages; the real `go test ./... -count=1` result is 71 `ok` + 2
+`[no test files]`, 0 `FAIL`, exit 0 — the line the table above records from a
+clean, single-command capture.
+
+## Honest limits of this addendum
+
+- `scripts/legacy` is untouched: no diff, no fixture edit.
+- No push, no merge, no delegation.
+- `scripts/p2-docker-e2e.sh` still says "15 registered" (comment :321,
+  assertion :330, re-measured in this wave — the Wave-2 text's ":319" was the
+  block start). Its 14-section assertion remains CORRECT for a campaign that
+  never prices, and the script is not part of the 13-step gate — left as found,
+  still disclosed.
+- verify-full itself was not re-run in this wave; its committed green log
+  (`docs/sdd/verify-full-final.log`, from `2e9ff576`) is the evidence, and the
+  five gates above were re-run green at `64b6eefa` on this tree.
