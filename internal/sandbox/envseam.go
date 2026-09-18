@@ -72,14 +72,16 @@ var (
 )
 
 // toolAbsentRe builds the absence pattern for ONE binary (an alternation for
-// the foundry tools). The trailing delimiter is load-bearing: `forge-std`,
-// `forge-std/Test.sol` and `lib/forge/` are a missing Solidity LIBRARY —
-// repository setup, already a setup signal — and a bare `\bforge\b` would
-// swallow them into the environment class. `missing` is admitted only for the
-// compiler/foundry binaries: a missing docker IMAGE is not a missing docker
-// CLI, and only the latter is a toolchain absence.
+// the foundry tools). BOTH boundaries are load-bearing: the trailing
+// delimiter keeps `forge-std`, `forge-std/Test.sol` and `lib/forge/` out (a
+// missing Solidity LIBRARY is repository setup, already a setup signal), and
+// the LEADING `\b` keeps `cast` inside `broadcast`/`forecast`/`recast` out (a
+// missing broadcast artifact is repository setup too, task-9 review F1).
+// `missing` is admitted only for the compiler/foundry binaries: a missing
+// docker IMAGE is not a missing docker CLI, and only the latter is a
+// toolchain absence.
 func toolAbsentRe(tool string, allowMissing bool) *regexp.Regexp {
-	tok := `(?:` + tool + `)[\s:,;)"'\]}]`
+	tok := `\b(?:` + tool + `)[\s:,;)"'\]}]`
 	missing := ""
 	if allowMissing {
 		missing = tok + `[^\n]{0,60}?\bmissing\b|`
@@ -190,6 +192,9 @@ func defaultClassifyFailure(rec validation.Value) validation.Value {
 	}
 	// Task 9: absence EVIDENCE outranks the setup heuristic below — "Error:
 	// solc 0.8.24 is not installed" is a missing binary, not a broken build.
+	// It does NOT outrank a logic signal (task-9 review F2): a capture that
+	// merely ECHOES a subprocess not-found while an assertion fails is
+	// hypothesis space, and LOGIC is the only class that argues it.
 	toolAbsent := toolAbsentNote(text)
 	if toolAbsent != "" {
 		signals = append(signals, toolAbsentSignal)
@@ -209,12 +214,12 @@ func defaultClassifyFailure(rec validation.Value) validation.Value {
 		cls = "environment"
 	case dockerHit:
 		cls = "environment"
+	case logicHit:
+		cls = "logic"
 	case toolAbsent != "":
 		cls = "environment"
 	case setupHit:
 		cls = "setup"
-	case logicHit:
-		cls = "logic"
 	default:
 		cls = "unknown"
 	}

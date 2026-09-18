@@ -67,6 +67,20 @@ func TestClassifyFailureVerdicts(t *testing.T) {
 		{"missing-library-stays-setup", "forge test",
 			"Error: Source \"forge-std/Test.sol\" not found: File not found.\n",
 			1, "setup", "compilation/setup error pattern"},
+		// F1 (task-9 review, finding 1): "cast" inside "broadcast" is not
+		// the foundry binary — a missing broadcast artifact is repository
+		// setup, not an absent toolchain.
+		{"broadcast-not-found-stays-setup", "forge test",
+			"Error: broadcast not found for script deploy\n",
+			1, "setup", "compilation/setup error pattern"},
+		// F2 (task-9 review, finding 2): a hypothesis-space assertion
+		// outranks a merely-echoed subprocess not-found.
+		{"echoed-not-found-with-assertion-stays-logic", "forge test",
+			"sh: 1: helper.sh: command not found\nassertion failed: x != y\n",
+			1, "logic", "assertion/logic failure pattern in output"},
+		{"missing-solc-colon-not-installed", "forge test",
+			"solc: not installed\n",
+			1, "environment", "toolchain binary absent (not found / not installed)"},
 		{"setup", "forge test", "Error: compilation failed\n",
 			1, "setup", "compilation/setup error pattern"},
 		{"logic", "forge test", "assertion failed: x != y\n",
