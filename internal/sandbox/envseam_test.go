@@ -53,6 +53,20 @@ func TestClassifyFailureVerdicts(t *testing.T) {
 			"Failed to install solc 0.8.36: error sending request for url " +
 				"(https://binaries.soliditylang.org/linux-amd64/list.json)\n",
 			1, "environment", "solc download failure pattern (offline container)"},
+		// Task 9 (production-readiness plan §Task 9): a MISSING toolchain
+		// binary is ENVIRONMENT per RUNBOOK §0/§6a — and a missing Solidity
+		// LIBRARY stays SETUP (repository setup, not the box).
+		{"missing-solc", "forge test",
+			"Error: solc 0.8.24 is not installed. Install it with " +
+				"`svm install 0.8.24`\n",
+			1, "environment", "toolchain binary absent (not found / not installed)"},
+		{"missing-forge", "forge test", "sh: 1: forge: not found\n",
+			1, "environment", "toolchain binary absent (not found / not installed)"},
+		{"missing-docker", "forge test", "docker: command not found\n",
+			1, "environment", "toolchain binary absent (not found / not installed)"},
+		{"missing-library-stays-setup", "forge test",
+			"Error: Source \"forge-std/Test.sol\" not found: File not found.\n",
+			1, "setup", "compilation/setup error pattern"},
 		{"setup", "forge test", "Error: compilation failed\n",
 			1, "setup", "compilation/setup error pattern"},
 		{"logic", "forge test", "assertion failed: x != y\n",
@@ -110,6 +124,14 @@ func TestClassifyFailureNotes(t *testing.T) {
 		if strAt(got, "class") != "environment" {
 			t.Errorf("exit %d: class = %q", code, strAt(got, "class"))
 		}
+	}
+	// Task 9: an absent toolchain binary is environment AND its note names
+	// the fix (never the bare "fix the environment" shrug).
+	absent := classify(t, "forge test",
+		"Error: solc 0.8.24 is not installed\n", 1)
+	if strAt(absent, "class") != "environment" ||
+		!strings.Contains(strAt(absent, "note"), "WEBV2_SOLC_DIR") {
+		t.Errorf("absent solc = %s", validation.CanonCompact(absent))
 	}
 }
 

@@ -1,6 +1,8 @@
 // classifier.go: env.classify_failure — the exec failure classifier. It is
 // what stops an environment failure from burning the finding's
-// fresh-context retry budget: a fresh context does not fix a missing image.
+// fresh-context retry budget: a fresh context does not fix a missing image,
+// and (RUNBOOK §0/§6a, Task 9) it does not fix a missing toolchain binary
+// either — an absent solc/forge/docker is ENVIRONMENT, not SETUP.
 package envgo
 
 import (
@@ -32,7 +34,97 @@ var (
 	solcErrRe = regexp.MustCompile(`(?i)binaries\.soliditylang\.org|` +
 		`failed to download solc|error sending request for url ` +
 		`\(?https?://[^\s\p{Z})]*solc|\.svm/0\.`)
+
+	// Task 9 (production-readiness plan §Task 9): the TOOLCHAIN BINARY itself
+	// is absent — solc, the foundry tools, or the docker client. RUNBOOK §0:
+	// "with the network cut …, a missing solc binary is an environment
+	// failure, not a harness bug"; §6a names ENVIRONMENT (daemon down, image
+	// missing, solc download cut) as the class that must NOT spend the
+	// finding's fresh-context retry. Only absence EVIDENCE for those binaries
+	// matches: a missing Solidity LIBRARY (forge-std, "module not found") is
+	// repository setup, and a compile error is the hypothesis losing a round —
+	// both keep their class.
+	solcAbsentRe   = toolAbsentRe(`solc`, true)
+	forgeAbsentRe  = toolAbsentRe(`forge|cast|anvil`, true)
+	dockerAbsentRe = toolAbsentRe(`docker`, false)
+	// shellAbsentRe is the shell/exec layer's "I could not find the command"
+	// with no binary named: POSIX sh/dash (`sh: 1: jq: not found`), bash
+	// (`bash: jq: command not found`), Go's exec (`executable file not
+	// found in $PATH`). The box lacks a binary the run needs, so it is the
+	// environment — never the hypothesis.
+	shellAbsentRe = regexp.MustCompile(`(?im)` +
+		`command not found|executable file not found|` +
+		`^[^\n]{0,80}: not found$`)
 )
+
+// toolAbsentRe builds the absence pattern for ONE binary (an alternation for
+// the foundry tools). The trailing delimiter is load-bearing: `forge-std`,
+// `forge-std/Test.sol` and `lib/forge/` are a missing Solidity LIBRARY —
+// repository setup, already a setup signal — and a bare `\bforge\b` would
+// swallow them into the environment class. `missing` is admitted only for the
+// compiler/foundry binaries: a missing docker IMAGE is not a missing docker
+// CLI, and only the latter is a toolchain absence.
+func toolAbsentRe(tool string, allowMissing bool) *regexp.Regexp {
+	tok := `(?:` + tool + `)[\s:,;)"'\]}]`
+	missing := ""
+	if allowMissing {
+		missing = tok + `[^\n]{0,60}?\bmissing\b|`
+	}
+	return regexp.MustCompile(`(?i)` +
+		tok + `[^\n]{0,60}?\bnot (?:be )?found\b|` +
+		tok + `[^\n]{0,60}?\bnot installed\b|` +
+		tok + `[^\n]{0,60}?\bcannot (?:be )?found\b|` +
+		missing +
+		`\bnot (?:be )?found\b[^\n]{0,60}?` + tok + `|` +
+		`\bnot installed\b[^\n]{0,60}?` + tok + `|` +
+		`\bcannot find\b[^\n]{0,20}?` + tok + `|` +
+		`\bno ` + tok + `[^\n]{0,40}?\b(?:installed|found)\b`)
+}
+
+// toolAbsentSignal is the evidence line `classify` prints for an absent
+// toolchain binary, so the class never travels without what produced it.
+const toolAbsentSignal = "toolchain binary absent (not found / not installed)"
+
+// The fix-naming notes, one per absent binary. Every one of them names the
+// fix AND the retry discipline (§6a: do NOT spend a fresh-context retry).
+const (
+	noteSolcAbsent = "the solc binary is MISSING on this box — nothing can " +
+		"compile: preinstall it into the image's svm cache " +
+		"(~/.svm/<version>/solc-<version>) or set WEBV2_SOLC_DIR (host dir " +
+		"bind-mounted to /home/foundry/.svm), then confirm with " +
+		"`webv2 env doctor`; do NOT spend a fresh-context retry"
+	noteFoundryAbsent = "the foundry toolchain (forge/cast/anvil) is not on " +
+		"this box's PATH — install it with `foundryup` (or preinstall it in " +
+		"the image), then confirm with `webv2 env doctor`; do NOT spend a " +
+		"fresh-context retry"
+	noteDockerAbsent = "the docker side of this run is missing — either the " +
+		"docker CLI is not on this box's PATH or the image it needs is not " +
+		"there: install the docker CLI (or use the host-readonly profile, " +
+		"which needs no docker) and pull the pinned image; `webv2 env " +
+		"doctor` shows the CLI, the daemon and the image; do NOT spend a " +
+		"fresh-context retry"
+	noteToolAbsent = "a toolchain binary this run needs is not on this box — " +
+		"install it (solc into the image's svm cache or WEBV2_SOLC_DIR; " +
+		"foundry via `foundryup`; the docker CLI for container profiles), " +
+		"then confirm with `webv2 env doctor`; do NOT spend a " +
+		"fresh-context retry"
+)
+
+// toolAbsentNote returns the fix-naming note for the absent toolchain binary
+// the text evidences, or "" when there is no absence evidence.
+func toolAbsentNote(text string) string {
+	switch {
+	case solcAbsentRe.MatchString(text):
+		return noteSolcAbsent
+	case forgeAbsentRe.MatchString(text):
+		return noteFoundryAbsent
+	case dockerAbsentRe.MatchString(text):
+		return noteDockerAbsent
+	case shellAbsentRe.MatchString(text):
+		return noteToolAbsent
+	}
+	return ""
+}
 
 // ClassifyFailure is classify_failure: classify a FAILED exec record
 // (exit != 0) by cause. Classification signals are listed so the operator
@@ -57,6 +149,12 @@ func ClassifyFailure(rec validation.Value) validation.Value {
 	if dockerHit {
 		signals = append(signals, "docker/daemon/network error pattern in output")
 	}
+	// Task 9: absence EVIDENCE outranks the setup heuristic below — "Error:
+	// solc 0.8.24 is not installed" is a missing binary, not a broken build.
+	toolAbsent := toolAbsentNote(text)
+	if toolAbsent != "" {
+		signals = append(signals, toolAbsentSignal)
+	}
 	setupHit := setupErrRe.MatchString(text) || errorNotAssert(text)
 	if setupHit {
 		signals = append(signals, "compilation/setup error pattern")
@@ -72,6 +170,8 @@ func ClassifyFailure(rec validation.Value) validation.Value {
 		cls = "environment"
 	case dockerHit:
 		cls = "environment"
+	case toolAbsent != "":
+		cls = "environment"
 	case setupHit:
 		cls = "setup"
 	case logicHit:
@@ -86,6 +186,12 @@ func ClassifyFailure(rec validation.Value) validation.Value {
 				"(~/.svm/<version>/solc-<version>) or set WEBV2_SOLC_DIR "+
 				"(host dir bind-mounted to /home/foundry/.svm); do NOT "+
 				"spend a fresh-context retry")
+	}
+	// A docker/daemon or solc-download failure that ALSO shows absence text
+	// keeps its own, more specific note (the two only co-occur in
+	// contradictory captures); the absence note owns the pure cases.
+	if cls == "environment" && toolAbsent != "" && !dockerHit {
+		return classifyResult(cls, signals, toolAbsent)
 	}
 	notes := map[string]string{
 		"environment": "fix the environment; do NOT spend a fresh-context " +
