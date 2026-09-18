@@ -49,12 +49,18 @@ func runSupersede(root string, args []string, r *Runner) int {
 	return t14Dispatch(root, r, func() error { return supersedeCmd(root, args, r) })
 }
 
-func supersedeCmd(root string, args []string, r *Runner) error {
-	oldID, actor := "", "model"
-	haveOld := false
-	var pos []string
-	var posIdx []int
-	var unknown []immunizeUnk
+// supersedeArgs carries the parsed flags and positionals of supersedeCmd.
+type supersedeArgs struct {
+	oldID, actor string
+	haveOld      bool
+	pos          []string
+	posIdx       []int
+	unknown      []immunizeUnk
+}
+
+// supersedeParseFlags is the argparse token scan of supersedeCmd; a
+// consumed -h/--help prints the help block and reports help=true.
+func (s *supersedeArgs) parseFlags(args []string, r *Runner) (help bool, err error) {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
@@ -62,67 +68,110 @@ func supersedeCmd(root string, args []string, r *Runner) error {
 			// argparse's help action fires while parsing, before required
 			// arguments are checked, and exits 0.
 			fmt.Fprint(r.Out, supersedeHelp)
-			return nil
+			return true, nil
 		case a == "--of" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			// trimmed at the parse layer, the way `move --of` trims: the
 			// recorded pointer must not carry spelling whitespace
-			oldID, haveOld = strings.TrimSpace(args[i+1]), true
+			s.oldID, s.haveOld = strings.TrimSpace(args[i+1]), true
 			i++
 		case strings.HasPrefix(a, "--of="):
-			oldID, haveOld = strings.TrimSpace(
+			s.oldID, s.haveOld = strings.TrimSpace(
 				strings.TrimPrefix(a, "--of=")), true
 		case a == "--of":
-			return t14ArgparseErr(supersedeUsage, "supersede",
+			return false, t14ArgparseErr(supersedeUsage, "supersede",
 				"argument --of: expected one argument")
 		case a == "--actor" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			actor = args[i+1]
+			s.actor = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--actor="):
-			actor = strings.TrimPrefix(a, "--actor=")
+			s.actor = strings.TrimPrefix(a, "--actor=")
 		case a == "--actor":
-			return t14ArgparseErr(supersedeUsage, "supersede",
+			return false, t14ArgparseErr(supersedeUsage, "supersede",
 				"argument --actor: expected one argument")
 		case strings.HasPrefix(a, "-"):
-			unknown = append(unknown, immunizeUnk{i, a})
+			s.unknown = append(s.unknown, immunizeUnk{i, a})
 		default:
-			pos = append(pos, a)
-			posIdx = append(posIdx, i)
+			s.pos = append(s.pos, a)
+			s.posIdx = append(s.posIdx, i)
 		}
 	}
+	return false, nil
+}
+
+// supersedeCheckRequired is argparse's required-arguments check.
+func (s *supersedeArgs) checkRequired() error {
 	// argparse checks the subparser's required arguments BEFORE the root
 	// parser's "unrecognized arguments" (parse_known_args).
 	missing := []string{}
-	if len(pos) < 1 {
+	if len(s.pos) < 1 {
 		missing = append(missing, "campaign")
 	}
-	if len(pos) < 2 {
+	if len(s.pos) < 2 {
 		missing = append(missing, "new_finding")
 	}
-	if !haveOld {
+	if !s.haveOld {
 		missing = append(missing, "--of")
 	}
 	if len(missing) > 0 {
 		return t14ArgparseErr(supersedeUsage, "supersede",
 			"the following arguments are required: %s", strings.Join(missing, ", "))
 	}
+	return nil
+}
+
+// supersedeFoldOverflow trims surplus positionals into the unrecognized list.
+func (s *supersedeArgs) foldOverflow() {
 	// Positionals are assigned greedily; the overflow is unrecognized.
-	if len(pos) > 2 {
-		for j, t := range pos[2:] {
-			unknown = append(unknown, immunizeUnk{posIdx[2+j], t})
+	if len(s.pos) > 2 {
+		for j, t := range s.pos[2:] {
+			s.unknown = append(s.unknown, immunizeUnk{s.posIdx[2+j], t})
 		}
-		pos = pos[:2]
+		s.pos = s.pos[:2]
 	}
-	if len(unknown) > 0 {
-		sort.Slice(unknown, func(i, j int) bool {
-			return unknown[i].idx < unknown[j].idx
+}
+
+// supersedeRejectUnknown reports unrecognized tokens in argv order.
+func (s *supersedeArgs) rejectUnknown() error {
+	if len(s.unknown) > 0 {
+		sort.Slice(s.unknown, func(i, j int) bool {
+			return s.unknown[i].idx < s.unknown[j].idx
 		})
-		toks := make([]string, len(unknown))
-		for i, u := range unknown {
+		toks := make([]string, len(s.unknown))
+		for i, u := range s.unknown {
 			toks[i] = u.tok
 		}
 		return t14Unrecognized(strings.Join(toks, " "))
 	}
-	c, err := t14Open(root, pos[0])
+	return nil
+}
+
+// supersedeReport counts the re-parented evidence rows and prints the
+// supersede confirmation line.
+func supersedeReport(r *Runner, oldID, newID string, newFinding validation.Value) {
+	reparented := 0
+	for _, it := range validation.ObjAt(newFinding, "evidence").A {
+		if validation.ObjStr(it, "re_parented_from") == oldID {
+			reparented++
+		}
+	}
+	fmt.Fprintf(r.Out, "superseded %s by %s (%d evidence items re-parented)\n",
+		oldID, newID, reparented)
+}
+
+func supersedeCmd(root string, args []string, r *Runner) error {
+	s := &supersedeArgs{actor: "model"}
+	help, err := s.parseFlags(args, r)
+	if err != nil || help {
+		return err
+	}
+	if err := s.checkRequired(); err != nil {
+		return err
+	}
+	s.foldOverflow()
+	if err := s.rejectUnknown(); err != nil {
+		return err
+	}
+	c, err := t14Open(root, s.pos[0])
 	if err != nil {
 		return err
 	}
@@ -132,8 +181,8 @@ func supersedeCmd(root string, args []string, r *Runner) error {
 	// proposals. That is right (terminal rows answer nothing) but was
 	// SILENT: warn loudly when the retired row carried grants the
 	// successor does not, and name the one command that matters.
-	oldFinding, oldErr := findings.LoadFinding(c, oldID)
-	newFinding, err := findings.Supersede(c, pos[1], oldID, actor)
+	oldFinding, oldErr := findings.LoadFinding(c, s.oldID)
+	newFinding, err := findings.Supersede(c, s.pos[1], s.oldID, s.actor)
 	if err != nil {
 		var rej *findings.RejectedError
 		if errors.As(err, &rej) {
@@ -145,16 +194,9 @@ func supersedeCmd(root string, args []string, r *Runner) error {
 		}
 		return err
 	}
-	reparented := 0
-	for _, it := range validation.ObjAt(newFinding, "evidence").A {
-		if validation.ObjStr(it, "re_parented_from") == oldID {
-			reparented++
-		}
-	}
-	fmt.Fprintf(r.Out, "superseded %s by %s (%d evidence items re-parented)\n",
-		oldID, pos[1], reparented)
+	supersedeReport(r, s.oldID, s.pos[1], newFinding)
 	if oldErr == nil {
-		warnDyingGrants(r.Err, oldID, "SUPERSEDED", oldFinding, &newFinding)
+		warnDyingGrants(r.Err, s.oldID, "SUPERSEDED", oldFinding, &newFinding)
 	}
 	return nil
 }

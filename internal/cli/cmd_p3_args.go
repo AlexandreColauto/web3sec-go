@@ -62,18 +62,23 @@ type argSpec struct {
 	deferExtras bool
 }
 
+// parseState carries the loop-local bookkeeping of parse.
+type parseState struct {
+	sepIdx     int  // index in sp.extras of a pending `--`
+	afterSep   bool // seen `--`: everything is positional or extra
+	posIdx     int  // next positional slot
+	lastPosIdx int  // argv index of the positional token consumed last
+	lastOptIdx int  // argv index of the last recognized option token
+}
+
 // parse runs the spec over args. It returns the first failure in argparse's
 // precedence order, or nil when the command may run.
 func (sp *argSpec) parse(args []string) error {
-	sepIdx := -1 // index in sp.extras of a pending `--`
-	afterSep := false
-	posIdx := 0
-	lastPosIdx := -1 // argv index of the positional token consumed last
-	lastOptIdx := -1 // argv index of the last recognized option token
+	st := &parseState{sepIdx: -1, lastPosIdx: -1, lastOptIdx: -1}
 	for i := 0; i < len(args); i++ {
 		a := args[i]
-		if !afterSep && a == "--" {
-			afterSep = true
+		if !st.afterSep && a == "--" {
+			st.afterSep = true
 			// argparse's positional patterns are `-*A-*`, so a `--` that
 			// immediately FOLLOWS a positional matched after the last
 			// option is swallowed by that positional's span
@@ -81,71 +86,107 @@ func (sp *argSpec) parse(args []string) error {
 			// an unrecognized argument (`baseline list --`,
 			// `index c --src x --`). A `--` consumed before a positional
 			// is swallowed later, when that positional is matched.
-			if lastPosIdx == i-1 && lastPosIdx > lastOptIdx {
+			if st.lastPosIdx == i-1 && st.lastPosIdx > st.lastOptIdx {
 				continue
 			}
-			sepIdx = len(sp.extras)
+			st.sepIdx = len(sp.extras)
 			sp.extras = append(sp.extras, a)
 			continue
 		}
-		if !afterSep {
-			if explicit, ok := helpToken(a); ok {
-				if explicit != "" {
-					return t14ArgparseErr(sp.usage, sp.prog,
-						"argument -h/--help: ignored explicit argument %s",
-						quoteSingle(explicit))
-				}
-				sp.helpSeen = true
+		if !st.afterSep {
+			next, consumed, err := sp.parseOption(args, i, st)
+			if err != nil {
+				return err
+			}
+			if sp.helpSeen {
 				return nil
 			}
-			if dst := sp.valNamed(a); dst != nil {
-				fname, val, hasVal := splitFlag(a)
-				optIdx := i
-				if !hasVal {
-					next, ok := flagValue(args, i)
-					if !ok {
-						return t14ArgparseErr(sp.usage, sp.prog,
-							"argument %s: expected one argument", fname)
-					}
-					val = next
-					i++
-				}
-				dst.val, dst.seen = val, true
-				if dst.append {
-					dst.multi = append(dst.multi, val)
-				}
-				lastOptIdx = optIdx
-				continue
-			}
-			if dst := sp.flagNamed(a); dst != nil {
-				fname, val, hasVal := splitFlag(a)
-				if hasVal {
-					return t14ArgparseErr(sp.usage, sp.prog,
-						"argument %s: ignored explicit argument %s",
-						fname, quoteSingle(val))
-				}
-				dst.set = true
-				lastOptIdx = i
-				continue
-			}
-			if looksLikeOption(a) {
-				sp.extras = append(sp.extras, a)
+			if consumed {
+				i = next
 				continue
 			}
 		}
-		if posIdx < len(sp.pos) {
-			sp.pos[posIdx].val, sp.pos[posIdx].seen = a, true
-			posIdx++
-			lastPosIdx = i
-			if sepIdx >= 0 {
-				// A positional consumed after `--` swallows the separator.
-				sp.extras = append(sp.extras[:sepIdx], sp.extras[sepIdx+1:]...)
-				sepIdx = -1
-			}
-			continue
-		}
-		sp.extras = append(sp.extras, a)
+		sp.parsePositional(a, i, st)
 	}
+	if err := sp.parseCheckMissing(); err != nil {
+		return err
+	}
+	return sp.parseCheckExtras()
+}
+
+// parseOption consumes one option token at args[i]: -h/--help, a value
+// option, a store_true flag, or an unrecognized option-looking token (an
+// extra). It returns the index of the last argv token it consumed and
+// whether the token was recognized; an unrecognized non-option token falls
+// through to the positional matcher.
+func (sp *argSpec) parseOption(args []string, i int, st *parseState) (next int, consumed bool, err error) {
+	a := args[i]
+	if explicit, ok := helpToken(a); ok {
+		if explicit != "" {
+			return i, true, t14ArgparseErr(sp.usage, sp.prog,
+				"argument -h/--help: ignored explicit argument %s",
+				quoteSingle(explicit))
+		}
+		sp.helpSeen = true
+		return i, true, nil
+	}
+	if dst := sp.valNamed(a); dst != nil {
+		fname, val, hasVal := splitFlag(a)
+		optIdx := i
+		if !hasVal {
+			value, ok := flagValue(args, i)
+			if !ok {
+				return i, true, t14ArgparseErr(sp.usage, sp.prog,
+					"argument %s: expected one argument", fname)
+			}
+			val = value
+			i++
+		}
+		dst.val, dst.seen = val, true
+		if dst.append {
+			dst.multi = append(dst.multi, val)
+		}
+		st.lastOptIdx = optIdx
+		return i, true, nil
+	}
+	if dst := sp.flagNamed(a); dst != nil {
+		fname, val, hasVal := splitFlag(a)
+		if hasVal {
+			return i, true, t14ArgparseErr(sp.usage, sp.prog,
+				"argument %s: ignored explicit argument %s",
+				fname, quoteSingle(val))
+		}
+		dst.set = true
+		st.lastOptIdx = i
+		return i, true, nil
+	}
+	if looksLikeOption(a) {
+		sp.extras = append(sp.extras, a)
+		return i, true, nil
+	}
+	return i, false, nil
+}
+
+// parsePositional consumes a as the next positional while one is still open;
+// otherwise it records the token as unrecognized.
+func (sp *argSpec) parsePositional(a string, i int, st *parseState) {
+	if st.posIdx < len(sp.pos) {
+		sp.pos[st.posIdx].val, sp.pos[st.posIdx].seen = a, true
+		st.posIdx++
+		st.lastPosIdx = i
+		if st.sepIdx >= 0 {
+			// A positional consumed after `--` swallows the separator.
+			sp.extras = append(sp.extras[:st.sepIdx], sp.extras[st.sepIdx+1:]...)
+			st.sepIdx = -1
+		}
+		return
+	}
+	sp.extras = append(sp.extras, a)
+}
+
+// parseCheckMissing is argparse's required-arguments check: positionals
+// first, then options in declaration order.
+func (sp *argSpec) parseCheckMissing() error {
 	var missing []string
 	for _, p := range sp.pos {
 		if !p.seen {
@@ -162,6 +203,12 @@ func (sp *argSpec) parse(args []string) error {
 			"the following arguments are required: %s",
 			strings.Join(missing, ", "))
 	}
+	return nil
+}
+
+// parseCheckExtras reports unrecognized arguments unless the decision is
+// deferred to the caller.
+func (sp *argSpec) parseCheckExtras() error {
 	if len(sp.extras) > 0 && !sp.deferExtras {
 		return t14Unrecognized(strings.Join(sp.extras, " "))
 	}

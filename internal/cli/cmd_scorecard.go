@@ -543,14 +543,18 @@ func scPlural(n int, noun string) string {
 	return fmt.Sprintf("%d %ss", n, noun)
 }
 
-func (v *scorecardView) print(w io.Writer) {
+// printCampaign is the "campaign" section of print.
+func (v *scorecardView) printCampaign(w io.Writer) {
 	fmt.Fprintln(w, "campaign")
 	scRow(w, "id: %s", v.id)
 	scRow(w, "program: %s", v.program)
 	scRow(w, "phase: %s", v.phase)
 	scRow(w, "created_at: %s", v.createdAt)
 	scRow(w, "updated_at: %s", v.updatedAt)
+}
 
+// printSurface is the "surface" section of print.
+func (v *scorecardView) printSurface(w io.Writer) {
 	if !v.surfaceOff {
 		fmt.Fprintln(w, "surface")
 		if !v.hasPin {
@@ -569,7 +573,10 @@ func (v *scorecardView) print(w io.Writer) {
 				scPlural(lines, "line"))
 		}
 	}
+}
 
+// printFindings is the "findings" section of print.
+func (v *scorecardView) printFindings(w io.Writer) {
 	fmt.Fprintln(w, "findings")
 	scRow(w, "live findings: %d", v.live)
 	if v.live == 0 {
@@ -585,7 +592,10 @@ func (v *scorecardView) print(w io.Writer) {
 	scRow(w, "floor-overridden ladder rows: %d of %d", v.floorOverrides,
 		v.floorRows)
 	scRow(w, "blank attestations: %d", v.blankAttestations)
+}
 
+// printProcess is the "process" section of print.
+func (v *scorecardView) printProcess(w io.Writer) {
 	fmt.Fprintln(w, "process")
 	scRow(w, "events: %d", v.events)
 	scRow(w, "phase history: %d", v.phaseHistory)
@@ -603,7 +613,10 @@ func (v *scorecardView) print(w io.Writer) {
 	if v.hasWall {
 		scRow(w, "wall time (created_at -> updated_at): %s", v.wall)
 	}
+}
 
+// printEval is the "eval" section of print.
+func (v *scorecardView) printEval(w io.Writer) {
 	fmt.Fprintln(w, "eval")
 	if v.goldPath != "" {
 		scRow(w, "%s", goldPackProvenance(v.goldPath, v.goldDigest,
@@ -635,11 +648,23 @@ func (v *scorecardView) print(w io.Writer) {
 			"denominator",
 			strings.TrimPrefix(r.AdjustedPrecisionLine, "precision: "))
 	}
+}
 
+// printContainment is the "containment" section of print.
+func (v *scorecardView) printContainment(w io.Writer) {
 	if v.contained {
 		fmt.Fprintln(w, "containment")
 		scRow(w, "WARNING: %s", snapshot.ContainmentWarning)
 	}
+}
+
+func (v *scorecardView) print(w io.Writer) {
+	v.printCampaign(w)
+	v.printSurface(w)
+	v.printFindings(w)
+	v.printProcess(w)
+	v.printEval(w)
+	v.printContainment(w)
 }
 
 // scS is the empty string for 1 (so the repro row reads "1 live finding", not

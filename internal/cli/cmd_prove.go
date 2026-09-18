@@ -16,6 +16,13 @@ import (
 	"websec/internal/validation"
 )
 
+// proveRun carries the shared context of the two `prove` output paths.
+type proveRun struct {
+	root string
+	r    *Runner
+	c    *state.Campaign
+}
+
 func runProve(root string, args []string, r *Runner) int {
 	if helpRequested(r.Out, "prove", args) {
 		return 0
@@ -48,56 +55,47 @@ func runProve(root string, args []string, r *Runner) int {
 	if err != nil {
 		return r.withErr(root, func() error { return err })
 	}
+	p := &proveRun{root: root, r: r, c: c}
 	if haveStage {
-		// r5 (critic issue 5): "no proof declared" is a statement about a
-		// REAL stage; for a typo it is indistinguishable from silence.
-		// Membership costs a loop over the canonical table — refuse a
-		// non-stage and list what IS a stage.
-		if !isKnownStage(stage) {
-			fmt.Fprintf(r.Err, "prove refused: %q is not a campaign stage; "+
-				"stages are: %s\n", stage,
-				strings.Join(knownStageIDs(), ", "))
-			return 2
-		}
-		pr, err := completion.ProofStatus(c, stage)
-		if err != nil {
-			return r.withErr(root, func() error { return err })
-		}
-		if pr.Kind == validation.Null {
-			fmt.Fprintf(r.Out, "%s: no completion proof declared "+
-				"(deterministic stage without an advisory proof)\n", stage)
-			return 0
-		}
-		// feedback-triage A6: the reference dumped the raw proof JSON here
-		// — the operator asking "is this stage provably done?" got a wall
-		// of nested dicts. Print the same human-readable line the
-		// no--stage view uses; the exit code remains the done/not-done
-		// verdict (intentional divergence from the reference).
-		mark := "open "
-		if pyTruthyCLI(validation.ObjAt(pr, "done")) {
-			mark = "DONE "
-		}
-		auth := "advisory"
-		if pyTruthyCLI(validation.ObjAt(pr, "authoritative")) {
-			auth = "authoritative"
-		}
-		line := fmt.Sprintf("%s %s [%s]", pyLeft(stage, 26), mark, auth)
-		if !pyTruthyCLI(validation.ObjAt(pr, "done")) {
-			missing := strListCLI(validation.ObjAt(pr, "missing"))
-			if len(missing) > 3 {
-				missing = missing[:3]
-			}
-			line += " — " + strings.Join(missing, "; ")
-		}
-		fmt.Fprintln(r.Out, line)
-		if !pyTruthyCLI(validation.ObjAt(pr, "done")) {
-			return 1
-		}
+		return p.runStage(stage)
+	}
+	return p.runAll()
+}
+
+// runStage is the --stage path: one stage's proof, with the exit code as the
+// done/not-done verdict.
+func (p *proveRun) runStage(stage string) int {
+	// r5 (critic issue 5): "no proof declared" is a statement about a
+	// REAL stage; for a typo it is indistinguishable from silence.
+	// Membership costs a loop over the canonical table — refuse a
+	// non-stage and list what IS a stage.
+	if !isKnownStage(stage) {
+		fmt.Fprintf(p.r.Err, "prove refused: %q is not a campaign stage; "+
+			"stages are: %s\n", stage,
+			strings.Join(knownStageIDs(), ", "))
+		return 2
+	}
+	pr, err := completion.ProofStatus(p.c, stage)
+	if err != nil {
+		return p.r.withErr(p.root, func() error { return err })
+	}
+	if pr.Kind == validation.Null {
+		fmt.Fprintf(p.r.Out, "%s: no completion proof declared "+
+			"(deterministic stage without an advisory proof)\n", stage)
 		return 0
 	}
-	rows, err := completion.AllProofStatus(c)
+	p.printRow(stage, pr)
+	if !pyTruthyCLI(validation.ObjAt(pr, "done")) {
+		return 1
+	}
+	return 0
+}
+
+// runAll is the no--stage path: every stage's proof, sorted by stage id.
+func (p *proveRun) runAll() int {
+	rows, err := completion.AllProofStatus(p.c)
 	if err != nil {
-		return r.withErr(root, func() error { return err })
+		return p.r.withErr(p.root, func() error { return err })
 	}
 	ids := make([]string, 0, len(rows.O))
 	for _, kv := range rows.O {
@@ -107,28 +105,38 @@ func runProve(root string, args []string, r *Runner) int {
 	for _, sid := range ids {
 		pr, _ := fieldAtCLI(rows, sid)
 		if pr.Kind == validation.Null {
-			fmt.Fprintf(r.Out, "%s (no proof)\n", pyLeft(sid, 26))
+			fmt.Fprintf(p.r.Out, "%s (no proof)\n", pyLeft(sid, 26))
 			continue
 		}
-		mark := "open "
-		if pyTruthyCLI(validation.ObjAt(pr, "done")) {
-			mark = "DONE "
-		}
-		auth := "advisory"
-		if pyTruthyCLI(validation.ObjAt(pr, "authoritative")) {
-			auth = "authoritative"
-		}
-		line := fmt.Sprintf("%s %s [%s]", pyLeft(sid, 26), mark, auth)
-		if !pyTruthyCLI(validation.ObjAt(pr, "done")) {
-			missing := strListCLI(validation.ObjAt(pr, "missing"))
-			if len(missing) > 3 {
-				missing = missing[:3]
-			}
-			line += " — " + strings.Join(missing, "; ")
-		}
-		fmt.Fprintln(r.Out, line)
+		p.printRow(sid, pr)
 	}
 	return 0
+}
+
+// printRow prints the human-readable proof line shared by both paths.
+// feedback-triage A6: the reference dumped the raw proof JSON here — the
+// operator asking "is this stage provably done?" got a wall of nested
+// dicts. Print the same human-readable line the no--stage view uses; the
+// exit code remains the done/not-done verdict (intentional divergence from
+// the reference).
+func (p *proveRun) printRow(sid string, pr validation.Value) {
+	mark := "open "
+	if pyTruthyCLI(validation.ObjAt(pr, "done")) {
+		mark = "DONE "
+	}
+	auth := "advisory"
+	if pyTruthyCLI(validation.ObjAt(pr, "authoritative")) {
+		auth = "authoritative"
+	}
+	line := fmt.Sprintf("%s %s [%s]", pyLeft(sid, 26), mark, auth)
+	if !pyTruthyCLI(validation.ObjAt(pr, "done")) {
+		missing := strListCLI(validation.ObjAt(pr, "missing"))
+		if len(missing) > 3 {
+			missing = missing[:3]
+		}
+		line += " — " + strings.Join(missing, "; ")
+	}
+	fmt.Fprintln(p.r.Out, line)
 }
 
 // pyLeft is Python's f"{s:26s}": left-aligned, padded to width.

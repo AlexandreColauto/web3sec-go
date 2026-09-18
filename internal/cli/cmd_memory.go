@@ -66,18 +66,113 @@ options:
   --pattern TEXT     the pattern the row records (default: finding title)
 `
 
+// memoryBuildSpec builds the argparse spec of `memory`.
+func memoryBuildSpec() *argSpec {
+	return &argSpec{
+		prog:  "memory",
+		usage: memoryUsage,
+		vals: []*valOpt{{name: "--approve"}, {name: "--by"},
+			{name: "--reflect"}, {name: "--round"}, {name: "--reject"},
+			{name: "--reason"}, {name: "--rejection-class"},
+			{name: "--queue-finding"}, {name: "--kind"}, {name: "--pattern"}},
+		pos: []*posOpt{{name: "campaign"}},
+	}
+}
+
+// memoryCheckFlags rejects the flag combinations argparse-style mutual
+// exclusivity forbids: the four actions are mutually exclusive and several
+// flags only make sense with the action that consumes them.
+func memoryCheckFlags(sp *argSpec) error {
+	reflect, round, reject := sp.vals[2].val, sp.vals[3].val, sp.vals[4].val
+	reason, rejectClass := sp.vals[5].val, sp.vals[6].val
+	approve := sp.vals[0].val
+	queueFinding, kind, pattern := sp.vals[7].val, sp.vals[8].val, sp.vals[9].val
+	// The first three actions are mutually exclusive; each carries flags
+	// that only make sense with it. `--queue-finding` (D4) is the fourth
+	// action, excluded from --approve/--reflect/--reject just below.
+	actions := 0
+	for _, set := range []bool{approve != "", reflect != "", reject != ""} {
+		if set {
+			actions++
+		}
+	}
+	if actions > 1 {
+		return t14ArgparseErr(memoryUsage, "memory",
+			"argument --approve: not allowed with --reflect or --reject")
+	}
+	if reason != "" && reject == "" {
+		return t14ArgparseErr(memoryUsage, "memory",
+			"argument --reason: only meaningful with --reject")
+	}
+	if rejectClass != "" && reject == "" {
+		return t14ArgparseErr(memoryUsage, "memory",
+			"argument --rejection-class: only meaningful with --reject")
+	}
+	if round != "" && reflect == "" {
+		return t14ArgparseErr(memoryUsage, "memory",
+			"argument --round: only meaningful with --reflect")
+	}
+	if queueFinding != "" &&
+		(approve != "" || reflect != "" || reject != "") {
+		return t14ArgparseErr(memoryUsage, "memory",
+			"argument --queue-finding: not allowed with --approve, "+
+				"--reflect or --reject")
+	}
+	if kind != "" && queueFinding == "" {
+		return t14ArgparseErr(memoryUsage, "memory",
+			"argument --kind: only meaningful with --queue-finding")
+	}
+	if pattern != "" && queueFinding == "" {
+		return t14ArgparseErr(memoryUsage, "memory",
+			"argument --pattern: only meaningful with --queue-finding")
+	}
+	return nil
+}
+
+// memoryRunAction dispatches the explicit action flags; it reports whether
+// one of them fired (the fall-through is the listing view).
+func memoryRunAction(c *state.Campaign, sp *argSpec, by string, r *Runner) (bool, error) {
+	if approve := sp.vals[0].val; approve != "" {
+		return true, memoryApprove(c, approve, by, r)
+	}
+	if reflect := sp.vals[2].val; reflect != "" {
+		return true, memoryReflect(c, reflect, sp.vals[3].val, r)
+	}
+	if reject := sp.vals[4].val; reject != "" {
+		return true, memoryReject(c, reject, sp.vals[5].val, sp.vals[6].val, r)
+	}
+	if queueFinding := sp.vals[7].val; queueFinding != "" {
+		return true, memoryQueueFinding(c, queueFinding, sp.vals[8].val, sp.vals[9].val, r)
+	}
+	return false, nil
+}
+
+// memoryList prints the campaign's memory rows (or the empty-store notice).
+func memoryList(c *state.Campaign, r *Runner) error {
+	rows, err := learning.AllMemory(c)
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		fmt.Fprint(r.Out, "memory: no rows yet — nothing to show\n")
+		fmt.Fprintf(r.Out, "next: a disproved ladder rung queues a "+
+			"negative memory row — webv2 ladder %s disprove <F-...> "+
+			"<RUNG> --reason '...'\n", c.CampaignID)
+		return nil
+	}
+	for _, m := range rows {
+		fmt.Fprintf(r.Out, "%s [%s/%s] promotion=%s  %s\n",
+			validation.ObjStr(m, "memory_id"), validation.ObjStr(m, "kind"),
+			validation.ObjStr(m, "status"), validation.ObjStr(m, "promotion_status"),
+			pyHead(validation.ObjStr(m, "pattern"), 80))
+	}
+	return nil
+}
+
 func runMemory(root string, args []string, r *Runner) int {
 	ensureSeams()
 	return t14Dispatch(root, r, func() error {
-		sp := &argSpec{
-			prog:  "memory",
-			usage: memoryUsage,
-			vals: []*valOpt{{name: "--approve"}, {name: "--by"},
-				{name: "--reflect"}, {name: "--round"}, {name: "--reject"},
-				{name: "--reason"}, {name: "--rejection-class"},
-				{name: "--queue-finding"}, {name: "--kind"}, {name: "--pattern"}},
-			pos: []*posOpt{{name: "campaign"}},
-		}
+		sp := memoryBuildSpec()
 		if err := sp.parse(args); err != nil {
 			return err
 		}
@@ -93,79 +188,14 @@ func runMemory(root string, args []string, r *Runner) int {
 		if by == "" {
 			by = "unknown"
 		}
-		reflect, round, reject := sp.vals[2].val, sp.vals[3].val, sp.vals[4].val
-		reason, rejectClass := sp.vals[5].val, sp.vals[6].val
-		approve := sp.vals[0].val
-		queueFinding, kind, pattern := sp.vals[7].val, sp.vals[8].val, sp.vals[9].val
-		// The first three actions are mutually exclusive; each carries flags
-		// that only make sense with it. `--queue-finding` (D4) is the fourth
-		// action, excluded from --approve/--reflect/--reject just below.
-		actions := 0
-		for _, set := range []bool{approve != "", reflect != "", reject != ""} {
-			if set {
-				actions++
-			}
-		}
-		if actions > 1 {
-			return t14ArgparseErr(memoryUsage, "memory",
-				"argument --approve: not allowed with --reflect or --reject")
-		}
-		if reason != "" && reject == "" {
-			return t14ArgparseErr(memoryUsage, "memory",
-				"argument --reason: only meaningful with --reject")
-		}
-		if rejectClass != "" && reject == "" {
-			return t14ArgparseErr(memoryUsage, "memory",
-				"argument --rejection-class: only meaningful with --reject")
-		}
-		if round != "" && reflect == "" {
-			return t14ArgparseErr(memoryUsage, "memory",
-				"argument --round: only meaningful with --reflect")
-		}
-		if queueFinding != "" &&
-			(approve != "" || reflect != "" || reject != "") {
-			return t14ArgparseErr(memoryUsage, "memory",
-				"argument --queue-finding: not allowed with --approve, "+
-					"--reflect or --reject")
-		}
-		if kind != "" && queueFinding == "" {
-			return t14ArgparseErr(memoryUsage, "memory",
-				"argument --kind: only meaningful with --queue-finding")
-		}
-		if pattern != "" && queueFinding == "" {
-			return t14ArgparseErr(memoryUsage, "memory",
-				"argument --pattern: only meaningful with --queue-finding")
-		}
-		if approve != "" {
-			return memoryApprove(c, approve, by, r)
-		}
-		if reflect != "" {
-			return memoryReflect(c, reflect, round, r)
-		}
-		if reject != "" {
-			return memoryReject(c, reject, reason, rejectClass, r)
-		}
-		if queueFinding != "" {
-			return memoryQueueFinding(c, queueFinding, kind, pattern, r)
-		}
-		rows, err := learning.AllMemory(c)
-		if err != nil {
+		if err := memoryCheckFlags(sp); err != nil {
 			return err
 		}
-		if len(rows) == 0 {
-			fmt.Fprint(r.Out, "memory: no rows yet — nothing to show\n")
-			fmt.Fprintf(r.Out, "next: a disproved ladder rung queues a "+
-				"negative memory row — webv2 ladder %s disprove <F-...> "+
-				"<RUNG> --reason '...'\n", c.CampaignID)
-			return nil
+		handled, err := memoryRunAction(c, sp, by, r)
+		if handled || err != nil {
+			return err
 		}
-		for _, m := range rows {
-			fmt.Fprintf(r.Out, "%s [%s/%s] promotion=%s  %s\n",
-				validation.ObjStr(m, "memory_id"), validation.ObjStr(m, "kind"),
-				validation.ObjStr(m, "status"), validation.ObjStr(m, "promotion_status"),
-				pyHead(validation.ObjStr(m, "pattern"), 80))
-		}
-		return nil
+		return memoryList(c, r)
 	})
 }
 

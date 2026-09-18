@@ -363,12 +363,30 @@ func printIngestResult(r *Runner, campaign *state.Campaign, f validation.Value,
 // successful scan.
 func parseIngest(args []string, r *Runner) (*ingestArgs, error) {
 	a := &ingestArgs{}
-	var pos []string
+	pos, help, err := parseIngestScan(args, a, r)
+	if err != nil {
+		return nil, err
+	}
+	if help {
+		return nil, nil
+	}
+	if err := parseIngestValidate(a, pos); err != nil {
+		return nil, err
+	}
+	if len(pos) == 1 {
+		a.campaign = pos[0]
+	}
+	return a, nil
+}
+
+// parseIngestScan is the argparse token loop; a consumed -h/--help prints
+// the help block and reports help=true.
+func parseIngestScan(args []string, a *ingestArgs, r *Runner) (pos []string, help bool, err error) {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "-h" || arg == "--help" {
 			fmt.Fprint(r.Out, t14IngestHelp)
-			return nil, nil
+			return nil, true, nil
 		}
 		if arg == "--example" {
 			a.example = true
@@ -383,29 +401,11 @@ func parseIngest(args []string, r *Runner) (*ingestArgs, error) {
 			continue
 		}
 		name, val, hasVal := splitFlag(arg)
-		switch name {
-		case "--json-file", "--trajectory", "--stage", "--answers-priority",
-			"--priority-outcome":
-			if !hasVal {
-				if i+1 >= len(args) {
-					return nil, t14ArgparseErr(t14IngestUsage, "ingest",
-						"argument %s: expected one argument", name)
-				}
-				val = args[i+1]
-				i++
-			}
-		case "--from":
-			// argparse refuses to consume a token that looks like another
-			// option, so `--from --json-file x` is "expected one argument".
-			if !hasVal {
-				if i+1 >= len(args) || looksLikeOption(args[i+1]) {
-					return nil, t14ArgparseErr(t14IngestUsage, "ingest",
-						"argument --from: expected one argument")
-				}
-				val = args[i+1]
-				i++
-			}
+		val, n, err := parseIngestValue(args, i, name, val, hasVal)
+		if err != nil {
+			return nil, false, err
 		}
+		i += n
 		switch name {
 		case "--json-file":
 			a.jsonFile = val
@@ -419,7 +419,7 @@ func parseIngest(args []string, r *Runner) (*ingestArgs, error) {
 			a.answersPriority = val
 		case "--priority-outcome":
 			if !t14InList(val, t14IngestOutcomes) {
-				return nil, t14ArgparseErr(t14IngestUsage, "ingest",
+				return nil, false, t14ArgparseErr(t14IngestUsage, "ingest",
 					"argument --priority-outcome: invalid choice: %s "+
 						"(choose from %s)", validation.PyReprStr(val),
 					"'answered', 'not-applicable', 'deprioritized'")
@@ -427,14 +427,48 @@ func parseIngest(args []string, r *Runner) (*ingestArgs, error) {
 			a.priorityOutcome = val
 		default:
 			if strings.HasPrefix(arg, "-") {
-				return nil, t14Unrecognized(arg)
+				return nil, false, t14Unrecognized(arg)
 			}
 			pos = append(pos, arg)
 		}
 	}
+	return pos, false, nil
+}
+
+// parseIngestValue consumes the separate-argument form of an option value at
+// args[i]; it returns the value and how many extra argv tokens were consumed.
+func parseIngestValue(args []string, i int, name, val string, hasVal bool) (string, int, error) {
+	switch name {
+	case "--json-file", "--trajectory", "--stage", "--answers-priority",
+		"--priority-outcome":
+		if !hasVal {
+			if i+1 >= len(args) {
+				return "", 0, t14ArgparseErr(t14IngestUsage, "ingest",
+					"argument %s: expected one argument", name)
+			}
+			return args[i+1], 1, nil
+		}
+	case "--from":
+		// argparse refuses to consume a token that looks like another
+		// option, so `--from --json-file x` is "expected one argument".
+		if !hasVal {
+			if i+1 >= len(args) || looksLikeOption(args[i+1]) {
+				return "", 0, t14ArgparseErr(t14IngestUsage, "ingest",
+					"argument --from: expected one argument")
+			}
+			return args[i+1], 1, nil
+		}
+	}
+	return val, 0, nil
+}
+
+// parseIngestValidate runs the cross-flag checks that follow the token scan:
+// the --from lane choice, its parse-time --json-file dependency and the
+// surplus-positional rejection.
+func parseIngestValidate(a *ingestArgs, pos []string) error {
 	if a.from != "" {
 		if _, ok := sastLanes[a.from]; !ok {
-			return nil, t14ArgparseErr(t14IngestUsage, "ingest",
+			return t14ArgparseErr(t14IngestUsage, "ingest",
 				"argument --from: invalid choice: %s (choose from %s)",
 				validation.PyReprStr(a.from), quotedList(sastTools))
 		}
@@ -443,16 +477,13 @@ func parseIngest(args []string, r *Runner) (*ingestArgs, error) {
 	// fire before any command body, so a campaign that cannot be opened never
 	// shadows the missing flag.
 	if a.from != "" && a.jsonFile == "" {
-		return nil, t14ExitErr(2,
+		return t14ExitErr(2,
 			"argument --from: --json-file is required with --from\n")
 	}
 	if len(pos) > 1 {
-		return nil, t14Unrecognized(strings.Join(pos[1:], " "))
+		return t14Unrecognized(strings.Join(pos[1:], " "))
 	}
-	if len(pos) == 1 {
-		a.campaign = pos[0]
-	}
-	return a, nil
+	return nil
 }
 
 // t14ReadPayload is json.loads(sys.stdin.read()) for "-", else
