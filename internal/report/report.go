@@ -805,14 +805,83 @@ func chainAssumptionsBlock(campaign *state.Campaign) []string {
 	return L
 }
 
+// reportBuilder carries the shared context of one Generate run — the
+// campaign, its loaded inputs (state, policy, findings, chains, memory,
+// events) and the output line slice — so every report section is a short
+// method appending to L in the same order the monolith did.
+type reportBuilder struct {
+	campaign       *state.Campaign
+	st             validation.Value
+	policy         validation.Value
+	all            []validation.Value
+	provenChains   []validation.Value
+	unprovenChains []validation.Value
+	mem            []validation.Value
+	evts           []validation.Value
+	confirmed      []validation.Value
+	chainF         []validation.Value
+	ready          []validation.Value
+	disproved      int
+	duplicates     int
+	outOfScope     int
+	L              []string
+}
+
 // Generate is generate(): write report.md, register/refresh the artifact and
 // log report.generated. Returns the report path.
 func Generate(campaign *state.Campaign) (string, error) {
+	r := &reportBuilder{campaign: campaign}
 	st, err := campaign.State()
 	if err != nil {
 		return "", err
 	}
-	policyPath := validation.ObjStr(st, "policy_path")
+	r.st = st
+	if err := r.runBountyGate(); err != nil {
+		return "", err
+	}
+	if err := r.loadInputs(); err != nil {
+		return "", err
+	}
+	r.writeHeader()
+	if err := r.writeProtocolEconomics(); err != nil {
+		return "", err
+	}
+	r.writeChainAssumptions()
+	if err := r.writeCoverage(); err != nil {
+		return "", err
+	}
+	r.writeComponentSurfaces()
+	if err := r.writePrivilegedAndProbeSurfaces(); err != nil {
+		return "", err
+	}
+	r.classifyFindings()
+	r.writeResults()
+	r.writeCostAttribution()
+	r.writeAllFindingsTable()
+	r.writeAnswerQuality()
+	if err := r.writeRootCauseClusters(); err != nil {
+		return "", err
+	}
+	if err := r.writeHypothesisLenses(); err != nil {
+		return "", err
+	}
+	r.writeLivenessFindings()
+	if err := r.writeConfirmedSections(); err != nil {
+		return "", err
+	}
+	r.writeProvenChains()
+	r.writeUnprovenChains()
+	r.writeDismissed()
+	r.writeDismissedWithReach()
+	r.writeDispositionReview()
+	r.writeLearningQueue()
+	return r.persist()
+}
+
+// runBountyGate re-runs the bounty gate over every CONFIRMED/CHAIN finding
+// when a policy is configured, storing the policy for the Results section.
+func (r *reportBuilder) runBountyGate() error {
+	policyPath := validation.ObjStr(r.st, "policy_path")
 	// policy is hoisted out of the if-block: the Results section's precision
 	// block (A3) reads its submission_budget even when the gate re-run above
 	// had nothing to do.
@@ -820,89 +889,105 @@ func Generate(campaign *state.Campaign) (string, error) {
 	if policyPath != "" && fileExists(policyPath) {
 		p, err := bounty.LoadPolicy(policyPath)
 		if err != nil {
-			return "", err
+			return err
 		}
 		policy = p
-		all, err := findings.LoadAllFindings(campaign)
+		all, err := findings.LoadAllFindings(r.campaign)
 		if err != nil {
-			return "", err
+			return err
 		}
 		for _, f := range all {
 			status := validation.ObjStr(f, "status")
 			if status != "CONFIRMED" && status != "CHAIN" {
 				continue
 			}
-			if _, err := bounty.EvaluateBountyGate(campaign,
+			if _, err := bounty.EvaluateBountyGate(r.campaign,
 				validation.ObjStr(f, "finding_id"), policy, true); err != nil {
-				return "", err
+				return err
 			}
 		}
 	}
-	all, err := findings.LoadAllFindings(campaign)
+	r.policy = policy
+	return nil
+}
+
+// loadInputs loads the findings, the chain store (split by provenance), the
+// learning memory and the event log.
+func (r *reportBuilder) loadInputs() error {
+	all, err := findings.LoadAllFindings(r.campaign)
 	if err != nil {
-		return "", err
+		return err
 	}
+	r.all = all
 	// r43a: a report renders "no materialized chains" only when the chain
 	// store really is empty; an unreadable store refuses, naming the path.
-	chainPaths, err := validation.ListPrefixedOptional(campaign.ChainsDir,
+	chainPaths, err := validation.ListPrefixedOptional(r.campaign.ChainsDir,
 		"CHAIN-", ".json")
 	if err != nil {
-		return "", fmt.Errorf("the chain store %s cannot be listed: %v",
-			campaign.ChainsDir, err)
+		return fmt.Errorf("the chain store %s cannot be listed: %v",
+			r.campaign.ChainsDir, err)
 	}
 	sort.Strings(chainPaths)
 	chains := []validation.Value{}
 	for _, p := range chainPaths {
 		doc, err := validation.ReadJson(p)
 		if err != nil {
-			return "", err
+			return err
 		}
 		chains = append(chains, doc)
 	}
 	// B3: a chain doc is either evidence-confirmed (the materialization hard
 	// gate) or hypothesis-level ("unproven"). The split is by field
 	// presence: pre-B3 docs carry no provenance key at all and stay proven.
-	provenChains, unprovenChains := splitChainsByProvenance(chains)
-	mem, err := learning.AllMemory(campaign)
+	r.provenChains, r.unprovenChains = splitChainsByProvenance(chains)
+	mem, err := learning.AllMemory(r.campaign)
 	if err != nil {
-		return "", err
+		return err
 	}
+	r.mem = mem
+	evts, err := r.campaign.Events()
+	if err != nil {
+		return err
+	}
+	r.evts = evts
+	return nil
+}
 
-	evts, err := campaign.Events()
-	if err != nil {
-		return "", err
-	}
+// writeHeader emits the state-head marker and the campaign banner.
+func (r *reportBuilder) writeHeader() {
 	var headHash validation.Value = validation.VNull()
-	if len(evts) > 0 {
-		if h := validation.ObjAt(evts[len(evts)-1], "event_hash"); h.Kind != validation.Null {
+	if len(r.evts) > 0 {
+		if h := validation.ObjAt(r.evts[len(r.evts)-1], "event_hash"); h.Kind != validation.Null {
 			headHash = h
 		}
 	}
+	r.L = append(r.L, "<!-- state-head: "+validation.PyStr(headHash)+" -->")
+	r.L = append(r.L, "# Security Research Report — "+validation.ObjStr(r.st, "program"))
+	r.L = append(r.L, "")
+	r.L = append(r.L, fmt.Sprintf("- campaign: `%s`", validation.ObjStr(r.st, "campaign_id")))
+	r.L = append(r.L, fmt.Sprintf("- phase: **%s** (pass %s)", validation.ObjStr(r.st, "phase"),
+		validation.PyStr(validation.ObjAt(validation.AsObj(validation.ObjAt(r.st, "budget")), "pass"))))
+	r.L = append(r.L, fmt.Sprintf("- active snapshot: `%s`",
+		validation.PyStr(validation.ObjAt(r.st, "active_snapshot_id"))))
+	r.L = append(r.L, fmt.Sprintf("- generated: %s", state.NowIso()))
+	r.L = append(r.L, "")
+}
 
-	L := []string{}
-	L = append(L, "<!-- state-head: "+validation.PyStr(headHash)+" -->")
-	L = append(L, "# Security Research Report — "+validation.ObjStr(st, "program"))
-	L = append(L, "")
-	L = append(L, fmt.Sprintf("- campaign: `%s`", validation.ObjStr(st, "campaign_id")))
-	L = append(L, fmt.Sprintf("- phase: **%s** (pass %s)", validation.ObjStr(st, "phase"),
-		validation.PyStr(validation.ObjAt(validation.AsObj(validation.ObjAt(st, "budget")), "pass"))))
-	L = append(L, fmt.Sprintf("- active snapshot: `%s`",
-		validation.PyStr(validation.ObjAt(st, "active_snapshot_id"))))
-	L = append(L, fmt.Sprintf("- generated: %s", state.NowIso()))
-	L = append(L, "")
-
-	modelPath := filepath.Join(campaign.ArtifactsDir, "protocol_model.json")
+// writeProtocolEconomics renders the economic-model section from the
+// protocol model artifact, presence-gated on the artifact file.
+func (r *reportBuilder) writeProtocolEconomics() error {
+	modelPath := filepath.Join(r.campaign.ArtifactsDir, "protocol_model.json")
 	if fileExists(modelPath) {
 		model, err := validation.ReadJson(modelPath)
 		if err != nil {
-			return "", err
+			return err
 		}
 		econ := economics.EconomicSummary(model)
-		L = append(L, "## Protocol economics")
-		L = append(L, "")
+		r.L = append(r.L, "## Protocol economics")
+		r.L = append(r.L, "")
 		if gaps := listAt(econ, "equation_gaps"); len(gaps) > 0 {
-			L = append(L, "| equation | missing |")
-			L = append(L, "|---|---|")
+			r.L = append(r.L, "| equation | missing |")
+			r.L = append(r.L, "|---|---|")
 			shown := gaps
 			if len(shown) > 12 {
 				shown = shown[:12]
@@ -912,10 +997,10 @@ func Generate(campaign *state.Campaign) (string, error) {
 				if len(eq) > 60 {
 					eq = eq[:60]
 				}
-				L = append(L, fmt.Sprintf("| `%s` | %s |", string(eq),
+				r.L = append(r.L, fmt.Sprintf("| `%s` | %s |", string(eq),
 					strings.Join(strList(validation.ObjAt(g, "missing")), ", ")))
 			}
-			L = append(L, "")
+			r.L = append(r.L, "")
 		}
 		if risky := listAt(econ, "risky_assets"); len(risky) > 0 {
 			names := []string{}
@@ -926,56 +1011,64 @@ func Generate(campaign *state.Campaign) (string, error) {
 			for _, a := range shown {
 				names = append(names, validation.ObjStr(a, "asset"))
 			}
-			L = append(L, fmt.Sprintf("- risky assets "+
+			r.L = append(r.L, fmt.Sprintf("- risky assets "+
 				"(fee-on-transfer/rebasing/odd-decimals): %d — %s", len(risky),
 				strings.Join(names, ", ")))
 		}
 		gaps := len(listAt(econ, "equation_gaps"))
-		L = append(L, fmt.Sprintf("> %d equation(s) with no enforcement or "+
+		r.L = append(r.L, fmt.Sprintf("> %d equation(s) with no enforcement or "+
 			"no known break path — the economic model is unfinished, not safe",
 			gaps))
-		L = append(L, "")
+		r.L = append(r.L, "")
 	}
+	return nil
+}
 
-	// G10 assumption table (Task 4): the per-hop declared table plus
-	// ASSUMPTION GAP lines, beside the economics model section.
-	// Presence-gated (the additive convention) — a chains-only legacy
-	// campaign gains no bytes.
-	L = append(L, chainAssumptionsBlock(campaign)...)
+// G10 assumption table (Task 4): the per-hop declared table plus
+// ASSUMPTION GAP lines, beside the economics model section.
+// Presence-gated (the additive convention) — a chains-only legacy
+// campaign gains no bytes.
+func (r *reportBuilder) writeChainAssumptions() {
+	r.L = append(r.L, chainAssumptionsBlock(r.campaign)...)
+}
 
-	covPath := filepath.Join(campaign.ArtifactsDir, "coverage.json")
+// writeCoverage renders the coverage summary table and the thin-coverage
+// subsection from the coverage.json artifact, presence-gated on the file
+// and on a non-empty summary object.
+func (r *reportBuilder) writeCoverage() error {
+	covPath := filepath.Join(r.campaign.ArtifactsDir, "coverage.json")
 	if fileExists(covPath) {
 		cov, err := validation.ReadJson(covPath)
 		if err != nil {
-			return "", err
+			return err
 		}
 		s := validation.AsObj(validation.ObjAt(cov, "summary"))
 		if len(s.O) > 0 {
-			L = append(L, "## Coverage")
-			L = append(L, "")
-			L = append(L, "| metric | value |")
-			L = append(L, "|---|---|")
+			r.L = append(r.L, "## Coverage")
+			r.L = append(r.L, "")
+			r.L = append(r.L, "| metric | value |")
+			r.L = append(r.L, "|---|---|")
 			for _, k := range s.O {
 				if k.K == "unknown_note" {
 					continue
 				}
-				L = append(L, fmt.Sprintf("| %s | %s |",
+				r.L = append(r.L, fmt.Sprintf("| %s | %s |",
 					strings.ReplaceAll(k.K, "_", " "), validation.PyStr(k.V)))
 			}
-			L = append(L, "")
+			r.L = append(r.L, "")
 			note := "unknown ≠ secure"
 			if v := validation.ObjAt(s, "unknown_note"); v.Kind != validation.Null {
 				note = validation.PyStr(v)
 			}
-			L = append(L, "> "+note)
-			L = append(L, "")
-			thin, err := coverage.ThinCoverage(campaign, 2)
+			r.L = append(r.L, "> "+note)
+			r.L = append(r.L, "")
+			thin, err := coverage.ThinCoverage(r.campaign, 2)
 			if err != nil {
-				return "", err
+				return err
 			}
 			if len(thin) > 0 {
-				L = append(L, "### Thin coverage (fewer than 2 trajectories)")
-				L = append(L, "")
+				r.L = append(r.L, "### Thin coverage (fewer than 2 trajectories)")
+				r.L = append(r.L, "")
 				shown := thin
 				if len(shown) > 20 {
 					shown = shown[:20]
@@ -985,62 +1078,79 @@ func Generate(campaign *state.Campaign) (string, error) {
 					if trajs == "" {
 						trajs = "none"
 					}
-					L = append(L, fmt.Sprintf("- `%s` — status %s, "+
+					r.L = append(r.L, fmt.Sprintf("- `%s` — status %s, "+
 						"trajectories: %s", validation.ObjStr(t, "path"),
 						validation.ObjStr(t, "status"), trajs))
 				}
-				L = append(L, "")
+				r.L = append(r.L, "")
 			}
 		}
 	}
+	return nil
+}
 
-	// G9 opaque surfaces (Task 6): the tracked-but-opaque component
-	// block, beside the Coverage scope section. Presence-gated (the
-	// additive convention) — a component-free campaign gains no bytes.
-	L = append(L, componentSurfacesBlock(campaign)...)
-	priv, err := PrivilegedSection(campaign)
-	if err != nil {
-		return "", err
-	}
-	L = append(L, priv...)
-	ps, err := ProbeSurfaceSection(campaign)
-	if err != nil {
-		return "", err
-	}
-	L = append(L, ps...)
+// G9 opaque surfaces (Task 6): the tracked-but-opaque component
+// block, beside the Coverage scope section. Presence-gated (the
+// additive convention) — a component-free campaign gains no bytes.
+func (r *reportBuilder) writeComponentSurfaces() {
+	r.L = append(r.L, componentSurfacesBlock(r.campaign)...)
+}
 
-	confirmed := []validation.Value{}
-	chainF := []validation.Value{}
-	ready := []validation.Value{}
-	disproved, duplicates, outOfScope := 0, 0, 0
-	for _, f := range all {
+// writePrivilegedAndProbeSurfaces appends the privileged-actor track and
+// the probe-surface section, both section helpers over the campaign.
+func (r *reportBuilder) writePrivilegedAndProbeSurfaces() error {
+	priv, err := PrivilegedSection(r.campaign)
+	if err != nil {
+		return err
+	}
+	r.L = append(r.L, priv...)
+	ps, err := ProbeSurfaceSection(r.campaign)
+	if err != nil {
+		return err
+	}
+	r.L = append(r.L, ps...)
+	return nil
+}
+
+// classifyFindings buckets the findings by status and collects the
+// submission-ready set for the Results section.
+func (r *reportBuilder) classifyFindings() {
+	r.confirmed = []validation.Value{}
+	r.chainF = []validation.Value{}
+	r.ready = []validation.Value{}
+	r.disproved, r.duplicates, r.outOfScope = 0, 0, 0
+	for _, f := range r.all {
 		switch validation.ObjStr(f, "status") {
 		case "CONFIRMED":
-			confirmed = append(confirmed, f)
+			r.confirmed = append(r.confirmed, f)
 		case "CHAIN":
-			chainF = append(chainF, f)
+			r.chainF = append(r.chainF, f)
 		case "DISPROVED":
-			disproved++
+			r.disproved++
 		case "DUPLICATE":
-			duplicates++
+			r.duplicates++
 		case "OUT_OF_SCOPE":
-			outOfScope++
+			r.outOfScope++
 		}
 		if pyTruthyInt64Only(validation.ObjAt(validation.AsObj(validation.ObjAt(f, "bounty")), "submission_ready")) {
-			ready = append(ready, f)
+			r.ready = append(r.ready, f)
 		}
 	}
+}
 
-	L = append(L, "## Results")
-	L = append(L, "")
-	if len(confirmed) > 0 {
+// writeResults renders the Results section: the confirmed summary line,
+// the chain counts, the precision block and the submission-ready line.
+func (r *reportBuilder) writeResults() {
+	r.L = append(r.L, "## Results")
+	r.L = append(r.L, "")
+	if len(r.confirmed) > 0 {
 		type clsCount struct {
 			cls string
 			n   int
 		}
 		order := []string{}
 		counts := map[string]int{}
-		for _, f := range confirmed {
+		for _, f := range r.confirmed {
 			cls := validation.ObjStr(validation.ObjAt(f, "root_cause"), "class")
 			if cls == "" {
 				cls = "unclassified"
@@ -1056,59 +1166,67 @@ func Generate(campaign *state.Campaign) (string, error) {
 		}
 		sort.SliceStable(rows, func(i, j int) bool { return rows[i].n > rows[j].n })
 		parts := []string{}
-		for _, r := range rows {
+		for _, rr := range rows {
 			// G12: a mapped class names its pinned OWASP id; an unmapped
 			// class renders bare (presence-gated, zero byte move).
-			if sfx := classweights.ClassAliasSuffix(r.cls); sfx != "" {
-				parts = append(parts, fmt.Sprintf("%d %s %s", r.n, r.cls, sfx))
+			if sfx := classweights.ClassAliasSuffix(rr.cls); sfx != "" {
+				parts = append(parts, fmt.Sprintf("%d %s %s", rr.n, rr.cls, sfx))
 			} else {
-				parts = append(parts, fmt.Sprintf("%d %s", r.n, r.cls))
+				parts = append(parts, fmt.Sprintf("%d %s", rr.n, rr.cls))
 			}
 		}
-		L = append(L, fmt.Sprintf("- **confirmed: %d** — %s", len(confirmed),
+		r.L = append(r.L, fmt.Sprintf("- **confirmed: %d** — %s", len(r.confirmed),
 			strings.Join(parts, ", ")))
 	} else {
-		L = append(L, "- **confirmed: 0**")
+		r.L = append(r.L, "- **confirmed: 0**")
 	}
-	L = append(L, fmt.Sprintf("- chains materialized: **%d**", len(provenChains)))
+	r.L = append(r.L, fmt.Sprintf("- chains materialized: **%d**", len(r.provenChains)))
 	// B3: presence-gated — an unproven chain is a lead, and the count line
 	// above must never absorb it.
-	if len(unprovenChains) > 0 {
-		L = append(L, fmt.Sprintf("- unproven chains (hypothesis-level): %d — "+
-			"leads only, never counted as confirmed", len(unprovenChains)))
+	if len(r.unprovenChains) > 0 {
+		r.L = append(r.L, fmt.Sprintf("- unproven chains (hypothesis-level): %d — "+
+			"leads only, never counted as confirmed", len(r.unprovenChains)))
 	}
-	L = append(L, fmt.Sprintf("- disproved: %d  - duplicates: %d  "+
-		"- out-of-scope: %d", disproved, duplicates, outOfScope))
-	L = append(L, "")
-	L = append(L, precisionBlock(campaign, all, policy)...)
-	if policy.Kind == validation.Obj && len(policy.O) > 0 {
-		L = append(L, fmt.Sprintf("- submission (bounty gate): **%d** of %d "+
+	r.L = append(r.L, fmt.Sprintf("- disproved: %d  - duplicates: %d  "+
+		"- out-of-scope: %d", r.disproved, r.duplicates, r.outOfScope))
+	r.L = append(r.L, "")
+	r.L = append(r.L, precisionBlock(r.campaign, r.all, r.policy)...)
+	if r.policy.Kind == validation.Obj && len(r.policy.O) > 0 {
+		r.L = append(r.L, fmt.Sprintf("- submission (bounty gate): **%d** of %d "+
 			"confirmed are submission-ready — the gate measures submission "+
 			"packaging (patch immunization, program policy), not finding severity",
-			len(ready), len(confirmed)))
-		L = append(L, "")
+			len(r.ready), len(r.confirmed)))
+		r.L = append(r.L, "")
 	}
+}
 
-	// G13 cost attribution, presence-gated (the additive convention): a
-	// campaign with zero lens-carrying cost rows and no plan lens data
-	// renders no bytes here at all — no header, no table.
-	if ly, err := costs.LensYield(campaign); err == nil && len(ly) > 0 {
-		L = append(L, lensYieldBlock(campaign, ly)...)
+// G13 cost attribution, presence-gated (the additive convention): a
+// campaign with zero lens-carrying cost rows and no plan lens data
+// renders no bytes here at all — no header, no table.
+func (r *reportBuilder) writeCostAttribution() {
+	if ly, err := costs.LensYield(r.campaign); err == nil && len(ly) > 0 {
+		r.L = append(r.L, lensYieldBlock(r.campaign, ly)...)
 	}
+}
 
-	// D1 (2026-09-10): the operator's single view of EVERY finding. The
-	// precision block above is capped by the submission budget, skips
-	// DUPLICATE/OUT_OF_SCOPE, and renders only when scores exist — so a
-	// 23-finding campaign could be counted in one line and otherwise invisible
-	// (the post-mortem's report showed `confirmed: 0` while 23 findings were
-	// critic-confirmed). This table has no gate beyond "there are findings":
-	// the point is that nothing is hidden. Deterministic: sorted by acceptance
-	// score descending, then by finding id.
-	if len(all) > 0 {
-		L = append(L, allFindingsTable(all)...)
+// D1 (2026-09-10): the operator's single view of EVERY finding. The
+// precision block above is capped by the submission budget, skips
+// DUPLICATE/OUT_OF_SCOPE, and renders only when scores exist — so a
+// 23-finding campaign could be counted in one line and otherwise invisible
+// (the post-mortem's report showed `confirmed: 0` while 23 findings were
+// critic-confirmed). This table has no gate beyond "there are findings":
+// the point is that nothing is hidden. Deterministic: sorted by acceptance
+// score descending, then by finding id.
+func (r *reportBuilder) writeAllFindingsTable() {
+	if len(r.all) > 0 {
+		r.L = append(r.L, allFindingsTable(r.all)...)
 	}
+}
 
-	planPath := filepath.Join(campaign.ArtifactsDir, "campaign_plan.json")
+// writeAnswerQuality renders the plan's answer-quality section,
+// presence-gated on the campaign_plan.json artifact carrying priorities.
+func (r *reportBuilder) writeAnswerQuality() {
+	planPath := filepath.Join(r.campaign.ArtifactsDir, "campaign_plan.json")
 	if fileExists(planPath) {
 		plan, err := validation.ReadJson(planPath)
 		if err != nil {
@@ -1116,8 +1234,8 @@ func Generate(campaign *state.Campaign) (string, error) {
 		}
 		priorities := listAt(plan, "priorities")
 		if len(priorities) > 0 {
-			L = append(L, "## Answer quality")
-			L = append(L, "")
+			r.L = append(r.L, "## Answer quality")
+			r.L = append(r.L, "")
 			flagged := []string{}
 			answered, na, openN := 0, 0, 0
 			for _, p := range priorities {
@@ -1160,7 +1278,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 					openN++
 				}
 			}
-			L = append(L, fmt.Sprintf("- plan: %d priorities — %d answered, "+
+			r.L = append(r.L, fmt.Sprintf("- plan: %d priorities — %d answered, "+
 				"%d not-applicable, %d still open", len(priorities), answered,
 				na, openN))
 			for _, p := range priorities {
@@ -1169,40 +1287,44 @@ func Generate(campaign *state.Campaign) (string, error) {
 					if len(question) > 100 {
 						question = question[:100]
 					}
-					L = append(L, fmt.Sprintf("- **%s** (open, sibling of %s): %s",
+					r.L = append(r.L, fmt.Sprintf("- **%s** (open, sibling of %s): %s",
 						validation.ObjStr(p, "id"), validation.ObjStr(p, "sibling_of"), string(question)))
 				}
 			}
 			if len(flagged) > 0 {
-				L = append(L, fmt.Sprintf("- **%d closure(s) lack evidence** "+
+				r.L = append(r.L, fmt.Sprintf("- **%d closure(s) lack evidence** "+
 					"(flagged):", len(flagged)))
-				L = append(L, flagged...)
+				r.L = append(r.L, flagged...)
 			} else {
-				L = append(L, "- all closed priorities carry a reason; every "+
+				r.L = append(r.L, "- all closed priorities carry a reason; every "+
 					"'answered' priority is linked to evidence (ref or finding)")
 			}
-			L = append(L, "")
+			r.L = append(r.L, "")
 		}
 	}
+}
 
-	clusterView, err := relations.RootCauseClusters(campaign)
+// writeRootCauseClusters renders the root-cause cluster section from the
+// relations view, presence-gated on at least one cluster.
+func (r *reportBuilder) writeRootCauseClusters() error {
+	clusterView, err := relations.RootCauseClusters(r.campaign)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if clusters := listAt(clusterView, "clusters"); len(clusters) > 0 {
-		L = append(L, "## Root-cause clusters")
-		L = append(L, "")
+		r.L = append(r.L, "## Root-cause clusters")
+		r.L = append(r.L, "")
 		for _, cl := range clusters {
 			members := listAt(cl, "members")
-			L = append(L, fmt.Sprintf("### `%s` — %d findings share this "+
+			r.L = append(r.L, fmt.Sprintf("### `%s` — %d findings share this "+
 				"root cause", validation.ObjStr(cl, "class"), len(members)))
-			L = append(L, "")
+			r.L = append(r.L, "")
 			if validation.ObjStr(cl, "description") != "" {
-				L = append(L, "- root cause: "+validation.ObjStr(cl, "description"))
+				r.L = append(r.L, "- root cause: "+validation.ObjStr(cl, "description"))
 			}
 			subs := listAt(cl, "subclusters")
 			if len(subs) >= 2 {
-				L = append(L, "- **one bug, several gates** — a fix at one "+
+				r.L = append(r.L, "- **one bug, several gates** — a fix at one "+
 					"attack surface does NOT close the others; each surface "+
 					"below needs its own fix (and its own verification)")
 			}
@@ -1224,26 +1346,31 @@ func Generate(campaign *state.Campaign) (string, error) {
 					}
 					line += " (immunized: " + strings.Join(quoted, ", ") + ")"
 				}
-				L = append(L, line)
+				r.L = append(r.L, line)
 			}
 			for _, e := range listAt(cl, "attested_causation") {
-				L = append(L, fmt.Sprintf("- attested causation: `%s` "+
+				r.L = append(r.L, fmt.Sprintf("- attested causation: `%s` "+
 					"caused_by `%s` (attested by %s)", validation.ObjStr(e, "src"),
 					validation.ObjStr(e, "dst"), validation.ObjStr(e, "actor")))
 			}
-			L = append(L, "")
+			r.L = append(r.L, "")
 		}
 	}
+	return nil
+}
 
+// writeHypothesisLenses renders the plan's hypothesis-lens section,
+// presence-gated on the plan carrying lenses.
+func (r *reportBuilder) writeHypothesisLenses() error {
 	var planPtr *validation.Value
-	if plan, err := planner.LoadPlanReadonly(campaign); err == nil {
+	if plan, err := planner.LoadPlanReadonly(r.campaign); err == nil {
 		planPtr = &plan
 	}
 	if planPtr != nil && len(listAt(*planPtr, "lenses")) > 0 {
 		plan := *planPtr
-		div, err := planner.DivergenceStatusFor(campaign, plan, nil)
+		div, err := planner.DivergenceStatusFor(r.campaign, plan, nil)
 		if err != nil {
-			return "", err
+			return err
 		}
 		lines := []string{"", "## Hypothesis lenses", ""}
 		named := strList(validation.ObjAt(div, "named_classes"))
@@ -1258,11 +1385,11 @@ func Generate(campaign *state.Campaign) (string, error) {
 			reason := strings.TrimSpace(validation.ObjStr(l, "closed_reason"))
 			tail := ""
 			if reason != "" {
-				r := []rune(reason)
-				if len(r) > 120 {
-					r = r[:120]
+				rr := []rune(reason)
+				if len(rr) > 120 {
+					rr = rr[:120]
 				}
-				tail = " — " + string(r)
+				tail = " — " + string(rr)
 			}
 			ref := ""
 			if validation.ObjStr(l, "closed_ref") != "" {
@@ -1284,15 +1411,19 @@ func Generate(campaign *state.Campaign) (string, error) {
 					strings.Join(strList(validation.ObjAt(s, "primitives")), ", ")))
 			}
 		}
-		L = append(L, strings.Join(lines, "\n"))
+		r.L = append(r.L, strings.Join(lines, "\n"))
 	}
+	return nil
+}
 
-	// B2: the liveness-findings subsection — one row per liveness finding
-	// (any status), with the incentive answer (who_profits) at a glance so
-	// a freeze finding cannot sit at HYPOTHESIS without its adversarial-game
-	// clause being visible. Presence-gated: no liveness finding, no section.
+// writeLivenessFindings renders the B2 liveness-findings subsection — one
+// row per liveness finding (any status), with the incentive answer
+// (who_profits) at a glance so a freeze finding cannot sit at HYPOTHESIS
+// without its adversarial-game clause being visible. Presence-gated: no
+// liveness finding, no section.
+func (r *reportBuilder) writeLivenessFindings() {
 	livenessRows := []validation.Value{}
-	for _, f := range all {
+	for _, f := range r.all {
 		if findings.IsLivenessFinding(f) {
 			livenessRows = append(livenessRows, f)
 		}
@@ -1302,8 +1433,8 @@ func Generate(campaign *state.Campaign) (string, error) {
 			return validation.ObjStr(livenessRows[i], "finding_id") <
 				validation.ObjStr(livenessRows[j], "finding_id")
 		})
-		L = append(L, "### LIVENESS FINDINGS — who profits from the freeze")
-		L = append(L, "")
+		r.L = append(r.L, "### LIVENESS FINDINGS — who profits from the freeze")
+		r.L = append(r.L, "")
 		for _, f := range livenessRows {
 			ag := validation.AsObj(validation.ObjAt(f, "adversarial_game"))
 			who := "UNANSWERED (gate check15)"
@@ -1312,83 +1443,93 @@ func Generate(campaign *state.Campaign) (string, error) {
 					who = wp
 				}
 			}
-			L = append(L, fmt.Sprintf("- `%s` (%s): %s",
+			r.L = append(r.L, fmt.Sprintf("- `%s` (%s): %s",
 				validation.ObjStr(f, "finding_id"), validation.ObjStr(f, "status"), who))
 		}
-		L = append(L, "")
+		r.L = append(r.L, "")
 	}
+}
 
-	sortedConfirmed := append([]validation.Value{}, confirmed...)
+// writeConfirmedSections renders one finding section per CONFIRMED finding,
+// ordered by descending risk score.
+func (r *reportBuilder) writeConfirmedSections() error {
+	sortedConfirmed := append([]validation.Value{}, r.confirmed...)
 	sort.SliceStable(sortedConfirmed, func(i, j int) bool {
 		return riskScore(sortedConfirmed[i]) > riskScore(sortedConfirmed[j])
 	})
 	for _, f := range sortedConfirmed {
-		sec, err := findingSection(campaign, f, "CONFIRMED", all)
+		sec, err := findingSection(r.campaign, f, "CONFIRMED", r.all)
 		if err != nil {
-			return "", err
+			return err
 		}
-		L = append(L, sec...)
+		r.L = append(r.L, sec...)
 	}
+	return nil
+}
 
-	for _, ch := range provenChains {
+// writeProvenChains renders one CHAIN section per evidence-confirmed chain.
+func (r *reportBuilder) writeProvenChains() {
+	for _, ch := range r.provenChains {
 		var sf validation.Value
 		foundSF := false
-		for _, f := range chainF {
+		for _, f := range r.chainF {
 			if validation.ObjStr(validation.ObjAt(f, "dedup_meta"), "chain_id") == validation.ObjStr(ch, "chain_id") {
 				sf = f
 				foundSF = true
 				break
 			}
 		}
-		L = append(L, fmt.Sprintf("### CHAIN: %s", validation.ObjStr(ch, "title")))
-		L = append(L, "")
-		L = append(L, fmt.Sprintf("- id: `%s` — status %s, evidence floor %s",
+		r.L = append(r.L, fmt.Sprintf("### CHAIN: %s", validation.ObjStr(ch, "title")))
+		r.L = append(r.L, "")
+		r.L = append(r.L, fmt.Sprintf("- id: `%s` — status %s, evidence floor %s",
 			validation.ObjStr(ch, "chain_id"), validation.ObjStr(ch, "status"),
 			validation.PyStr(validation.ObjAt(ch, "evidence_floor"))))
 		quoted := []string{}
 		for _, m := range strList(validation.ObjAt(ch, "members")) {
 			quoted = append(quoted, "`"+m+"`")
 		}
-		L = append(L, "- members: "+strings.Join(quoted, ", "))
+		r.L = append(r.L, "- members: "+strings.Join(quoted, ", "))
 		if validation.ObjStr(ch, "narrative") != "" {
-			L = append(L, "- narrative: "+validation.ObjStr(ch, "narrative"))
+			r.L = append(r.L, "- narrative: "+validation.ObjStr(ch, "narrative"))
 		}
 		for _, lnk := range listAt(ch, "capability_links") {
-			L = append(L, fmt.Sprintf("- `%s` grants *%s* → `%s` requires it",
+			r.L = append(r.L, fmt.Sprintf("- `%s` grants *%s* → `%s` requires it",
 				validation.ObjStr(lnk, "from_finding"), validation.ObjStr(lnk, "granted"),
 				validation.ObjStr(lnk, "to_finding")))
 		}
 		if foundSF {
-			L = append(L, fmt.Sprintf("- super-finding: `%s`",
+			r.L = append(r.L, fmt.Sprintf("- super-finding: `%s`",
 				validation.ObjStr(sf, "finding_id")))
 		}
-		L = append(L, "")
+		r.L = append(r.L, "")
 	}
+}
 
-	// B3: the unproven (hypothesis-level) chains get their own clearly marked
-	// section — never the CHAIN: heading, never the submission count. Each
-	// hop carries its member's evidence level. Presence-gated: a campaign
-	// without an unproven chain gains no bytes.
-	if len(unprovenChains) > 0 {
-		L = append(L, "## Unproven chains (hypothesis-level)")
-		L = append(L, "")
-		L = append(L, "These are LEADS, not results: at least one member is "+
+// writeUnprovenChains renders the B3 unproven (hypothesis-level) chains in
+// their own clearly marked section — never the CHAIN: heading, never the
+// submission count. Each hop carries its member's evidence level.
+// Presence-gated: a campaign without an unproven chain gains no bytes.
+func (r *reportBuilder) writeUnprovenChains() {
+	if len(r.unprovenChains) > 0 {
+		r.L = append(r.L, "## Unproven chains (hypothesis-level)")
+		r.L = append(r.L, "")
+		r.L = append(r.L, "These are LEADS, not results: at least one member is "+
 			"not independently CONFIRMED, so nothing here counts as "+
 			"evidence-confirmed and nothing here enters the submission table.")
-		L = append(L, "")
-		for _, ch := range unprovenChains {
-			L = append(L, fmt.Sprintf("### UNPROVEN CHAIN: %s", validation.ObjStr(ch, "title")))
-			L = append(L, "")
-			L = append(L, fmt.Sprintf("- id: `%s` — provenance %s, evidence floor %s",
+		r.L = append(r.L, "")
+		for _, ch := range r.unprovenChains {
+			r.L = append(r.L, fmt.Sprintf("### UNPROVEN CHAIN: %s", validation.ObjStr(ch, "title")))
+			r.L = append(r.L, "")
+			r.L = append(r.L, fmt.Sprintf("- id: `%s` — provenance %s, evidence floor %s",
 				validation.ObjStr(ch, "chain_id"), validation.PyStr(validation.ObjAt(ch, "provenance")),
 				validation.PyStr(validation.ObjAt(ch, "evidence_floor"))))
 			quoted := []string{}
 			for _, m := range strList(validation.ObjAt(ch, "members")) {
 				quoted = append(quoted, "`"+m+"`")
 			}
-			L = append(L, "- members: "+strings.Join(quoted, ", "))
+			r.L = append(r.L, "- members: "+strings.Join(quoted, ", "))
 			if validation.ObjStr(ch, "narrative") != "" {
-				L = append(L, "- narrative: "+validation.ObjStr(ch, "narrative"))
+				r.L = append(r.L, "- narrative: "+validation.ObjStr(ch, "narrative"))
 			}
 			for _, lnk := range listAt(ch, "capability_links") {
 				line := fmt.Sprintf("- `%s` grants *%s* → `%s` requires it",
@@ -1397,7 +1538,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 				if lvl := validation.ObjStr(lnk, "link_evidence"); lvl != "" {
 					line += " (from-member evidence " + lvl + ")"
 				}
-				L = append(L, line)
+				r.L = append(r.L, line)
 			}
 			if t := validation.AsObj(validation.ObjAt(ch, "terminal")); len(t.O) > 0 {
 				// An unproven chain has no super-finding, hence no
@@ -1414,13 +1555,16 @@ func Generate(campaign *state.Campaign) (string, error) {
 						"but this chain is a hypothesis-level lead, so no " +
 						"price is asserted"
 				}
-				L = append(L, fmt.Sprintf("- terminal: *%s* via `%s` — %s",
+				r.L = append(r.L, fmt.Sprintf("- terminal: *%s* via `%s` — %s",
 					cap, validation.ObjStr(t, "via_finding"), note))
 			}
-			L = append(L, "")
+			r.L = append(r.L, "")
 		}
 	}
+}
 
+// writeDismissed renders the dismissed-candidates roster with reasons.
+func (r *reportBuilder) writeDismissed() {
 	dismissed := []validation.Value{}
 	// r6 (critic issue 4): INFORMATIONAL was missing here — an informational
 	// row rendered in the tables above but never in "dismissed candidates
@@ -1432,53 +1576,59 @@ func Generate(campaign *state.Campaign) (string, error) {
 	// completed it) — a hand list that only ever drifts now, so it asks
 	// the law itself. SUPERSEDED stays by the law's own definition; the
 	// r6 comment above stands.
-	for _, f := range all {
+	for _, f := range r.all {
 		if findings.IsTerminal(validation.ObjStr(f, "status")) {
 			dismissed = append(dismissed, f)
 		}
 	}
 	if len(dismissed) > 0 {
-		L = append(L, "## Dismissed candidates (with reasons)")
-		L = append(L, "")
+		r.L = append(r.L, "## Dismissed candidates (with reasons)")
+		r.L = append(r.L, "")
 		for _, f := range dismissed {
 			hist := listAt(f, "history")
 			last := validation.VObj()
 			if len(hist) > 0 {
 				last = validation.AsObj(hist[len(hist)-1])
 			}
-			L = append(L, fmt.Sprintf("- `%s` **%s** — %s",
+			r.L = append(r.L, fmt.Sprintf("- `%s` **%s** — %s",
 				validation.ObjStr(f, "finding_id"), validation.ObjStr(f, "status"), validation.ObjStr(f, "title")))
 			reason := "n/a"
 			if v := validation.ObjAt(last, "reason"); v.Kind != validation.Null {
 				reason = validation.PyStr(v)
 			}
-			L = append(L, "  - reason: "+reason)
+			r.L = append(r.L, "  - reason: "+reason)
 		}
-		L = append(L, "")
+		r.L = append(r.L, "")
 	}
+}
 
-	// dismissed-with-strong-reaching: the false-negative direction of the
-	// dismissal area. A dismissed finding a high-risk probe row still
-	// reaches is the queue nobody asked for: the row says "look here" and
-	// the finding says "never mind". Presence-gated (the additive
-	// convention): renders only when (a) at least one finding carries a
-	// terminal-dismissal status and (b) at least one high-risk probe row
-	// reaches a dismissed finding — otherwise the campaign gains no bytes.
-	if reach := dismissedWithReach(campaign, all); len(reach) > 0 {
-		L = append(L, reach...)
+// writeDismissedWithReach appends the dismissed-with-strong-reaching
+// subsection: the false-negative direction of the dismissal area. A
+// dismissed finding a high-risk probe row still reaches is the queue
+// nobody asked for: the row says "look here" and the finding says "never
+// mind". Presence-gated (the additive convention): renders only when (a)
+// at least one finding carries a terminal-dismissal status and (b) at
+// least one high-risk probe row reaches a dismissed finding — otherwise
+// the campaign gains no bytes.
+func (r *reportBuilder) writeDismissedWithReach() {
+	if reach := dismissedWithReach(r.campaign, r.all); len(reach) > 0 {
+		r.L = append(r.L, reach...)
 	}
+}
 
-	// B4 disposition review: high-risk probe rows dismissed with dismissal
-	// vocabulary, plus the explicit overrides of that gate. Presence-gated
-	// (the additive convention): it renders only when something was flagged
-	// or overridden, so a campaign with clean closures gains no bytes.
+// writeDispositionReview renders the B4 disposition review: high-risk probe
+// rows dismissed with dismissal vocabulary, plus the explicit overrides of
+// that gate. Presence-gated (the additive convention): it renders only when
+// something was flagged or overridden, so a campaign with clean closures
+// gains no bytes.
+func (r *reportBuilder) writeDispositionReview() {
 	var flags []planner.DismissalFlag
 	var dispErr error
-	if planV, perr := planner.LoadPlanReadonly(campaign); perr == nil {
-		flags, dispErr = planner.DispositionReview(campaign, planV)
+	if planV, perr := planner.LoadPlanReadonly(r.campaign); perr == nil {
+		flags, dispErr = planner.DispositionReview(r.campaign, planV)
 	}
 	overrides := []validation.Value{}
-	if evts, eerr := campaign.Events(); eerr == nil {
+	if evts, eerr := r.campaign.Events(); eerr == nil {
 		for _, e := range evts {
 			if validation.ObjStr(e, "type") == "probe.dismissal_overridden" {
 				overrides = append(overrides, e)
@@ -1486,58 +1636,66 @@ func Generate(campaign *state.Campaign) (string, error) {
 		}
 	}
 	if dispErr == nil && (len(flags) > 0 || len(overrides) > 0) {
-		L = append(L, "## Disposition review")
-		L = append(L, "")
+		r.L = append(r.L, "## Disposition review")
+		r.L = append(r.L, "")
 		for _, f := range flags {
-			L = append(L, fmt.Sprintf("- `%s` (row %s, tier %d, gap %d): %s — dismissal vocabulary: %s",
+			r.L = append(r.L, fmt.Sprintf("- `%s` (row %s, tier %d, gap %d): %s — dismissal vocabulary: %s",
 				f.Priority, f.RowID, f.Tier, f.Gap, f.Reason,
 				strings.Join(f.Phrases, ", ")))
 		}
 		for _, e := range overrides {
 			data := validation.ObjAt(e, "data")
-			L = append(L, fmt.Sprintf("- OVERRIDDEN `%s` (row %s) by %s: %s",
+			r.L = append(r.L, fmt.Sprintf("- OVERRIDDEN `%s` (row %s) by %s: %s",
 				validation.ObjStr(e, "ref"), validation.ObjStr(data, "row_id"),
 				validation.ObjStr(data, "actor"),
 				validation.ObjStr(data, "override_reason")))
 		}
-		L = append(L, "")
+		r.L = append(r.L, "")
 	}
+}
 
-	if len(mem) > 0 {
-		L = append(L, "## Learning queue")
-		L = append(L, "")
-		L = append(L, "| id | kind | status | promotion |")
-		L = append(L, "|---|---|---|---|")
-		for _, m := range mem {
-			L = append(L, fmt.Sprintf("| `%s` | %s | %s | %s |",
+// writeLearningQueue renders the learning-memory table and the pending
+// approval note, presence-gated on any memory entries.
+func (r *reportBuilder) writeLearningQueue() {
+	if len(r.mem) > 0 {
+		r.L = append(r.L, "## Learning queue")
+		r.L = append(r.L, "")
+		r.L = append(r.L, "| id | kind | status | promotion |")
+		r.L = append(r.L, "|---|---|---|---|")
+		for _, m := range r.mem {
+			r.L = append(r.L, fmt.Sprintf("| `%s` | %s | %s | %s |",
 				validation.ObjStr(m, "memory_id"), validation.ObjStr(m, "kind"), validation.ObjStr(m, "status"),
 				validation.ObjStr(m, "promotion_status")))
 		}
 		pending := 0
-		for _, m := range mem {
+		for _, m := range r.mem {
 			if validation.ObjStr(m, "promotion_status") == "pending" {
 				pending++
 			}
 		}
 		if pending > 0 {
-			L = append(L, "")
-			L = append(L, fmt.Sprintf("> %d candidate(s) awaiting human "+
+			r.L = append(r.L, "")
+			r.L = append(r.L, fmt.Sprintf("> %d candidate(s) awaiting human "+
 				"approval — nothing enters long-term memory without it.",
 				pending))
 		}
-		L = append(L, "")
+		r.L = append(r.L, "")
 	}
+}
 
-	out := filepath.Join(campaign.Dir, "report.md")
-	if err := os.WriteFile(out, []byte(strings.Join(L, "\n")+"\n"), 0o644); err != nil {
+// persist writes report.md, registers/refreshes the artifact and logs
+// report.generated, returning the report path.
+func (r *reportBuilder) persist() (string, error) {
+	out := filepath.Join(r.campaign.Dir, "report.md")
+	if err := os.WriteFile(out, []byte(strings.Join(r.L, "\n")+"\n"), 0o644); err != nil {
 		return "", err
 	}
-	if _, err := campaign.RegisterOrRefresh("report", out, "", nil,
+	if _, err := r.campaign.RegisterOrRefresh("report", out, "", nil,
 		"report regenerated (view over current findings)"); err != nil {
 		return "", err
 	}
 	data := validation.VObj(kv("path", validation.VStr(out)))
-	if _, err := campaign.Log("report.generated", nil, &data); err != nil {
+	if _, err := r.campaign.Log("report.generated", nil, &data); err != nil {
 		return "", err
 	}
 	return out, nil
