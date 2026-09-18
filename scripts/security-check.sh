@@ -51,6 +51,12 @@ fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$script_dir/.." && pwd)"
 
+# Caches under .scratch so the scanner works in sandboxed environments where
+# $HOME is not writable (same rule as scripts/release.sh and verify-full.sh).
+export GOCACHE="${GOCACHE:-$root/.scratch/gocache}"
+export GOPATH="${GOPATH:-$root/.scratch/gomod}"
+export GOMODCACHE="${GOMODCACHE:-$GOPATH/pkg/mod}"
+
 scanner="$(command -v govulncheck || true)"
 if [ -z "$scanner" ]; then
   printf 'security-check: INCOMPLETE - govulncheck was not found on PATH\n' >&2

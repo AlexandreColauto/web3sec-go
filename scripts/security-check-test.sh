@@ -73,13 +73,17 @@ OUT=""
 STUB_MSG=""
 ARGV_LOG="$TMP/argv.log"
 PWD_LOG="$TMP/pwd.log"
+ENV_LOG="$TMP/env.log"
+# Extra NAME=value assignments handed to the next run_check via env -i.
+ENV_ARGS=()
 
 run_check() { # $1 = child PATH, remaining args = gate arguments
   local pathv="$1"; shift
-  "$RM_BIN" -f "$ARGV_LOG" "$PWD_LOG"
+  "$RM_BIN" -f "$ARGV_LOG" "$PWD_LOG" "$ENV_LOG"
   local status=0
   OUT="$("$ENV_BIN" -i PATH="$pathv" STUB_MSG="$STUB_MSG" \
-        STUB_ARGV_LOG="$ARGV_LOG" STUB_PWD_LOG="$PWD_LOG" \
+        STUB_ARGV_LOG="$ARGV_LOG" STUB_PWD_LOG="$PWD_LOG" STUB_ENV_LOG="$ENV_LOG" \
+        "${ENV_ARGS[@]}" \
         "$BASH_BIN" "$CHECK" "$@" 2>&1)" || status=$?
   STATUS="$status"
 }
@@ -91,6 +95,9 @@ make_stub() { # $1 = dir, $2 = exit status
     printf '#!%s\n' "$BASH_BIN"
     printf '%s\n' 'printf "%s\n" "$*" > "$STUB_ARGV_LOG"'
     printf '%s\n' 'pwd > "$STUB_PWD_LOG"'
+    printf '%s\n' 'printf "GOCACHE=%s\n" "${GOCACHE:-<unset>}" > "$STUB_ENV_LOG"'
+    printf '%s\n' 'printf "GOPATH=%s\n" "${GOPATH:-<unset>}" >> "$STUB_ENV_LOG"'
+    printf '%s\n' 'printf "GOMODCACHE=%s\n" "${GOMODCACHE:-<unset>}" >> "$STUB_ENV_LOG"'
     printf '%s\n' 'printf "%s\n" "$STUB_MSG"'
     printf 'exit %s\n' "$st"
   } > "$d/govulncheck"
@@ -122,6 +129,28 @@ assert_has "3 stub exit 0: PASS" "$OUT" "security-check: PASS"
 assert_has "3 stub exit 0: scanner output forwarded" "$OUT" "no vulnerabilities found"
 assert_eq "3 stub exit 0: scanner argv" "$(read_log "$ARGV_LOG")" "./..."
 assert_eq "3 stub exit 0: scanner cwd is repository root" "$(read_log "$PWD_LOG")" "$ROOT"
+assert_has "3 stub exit 0: GOCACHE defaults under repo .scratch" \
+  "$(read_log "$ENV_LOG")" "GOCACHE=$ROOT/.scratch/gocache"
+assert_has "3 stub exit 0: GOPATH defaults under repo .scratch" \
+  "$(read_log "$ENV_LOG")" "GOPATH=$ROOT/.scratch/gomod"
+assert_has "3 stub exit 0: GOMODCACHE defaults under repo .scratch" \
+  "$(read_log "$ENV_LOG")" "GOMODCACHE=$ROOT/.scratch/gomod/pkg/mod"
+
+# --- 3b. an operator-preset Go cache env is never clobbered -----------------
+ENV_ARGS=(
+  GOCACHE="$TMP/preset-gocache"
+  GOPATH="$TMP/preset-gopath"
+  GOMODCACHE="$TMP/preset-modcache"
+)
+run_check "$STUB_PATH"
+assert_eq "3b preset Go env: exit status" "$STATUS" "0"
+assert_has "3b preset Go env: GOCACHE preserved" \
+  "$(read_log "$ENV_LOG")" "GOCACHE=$TMP/preset-gocache"
+assert_has "3b preset Go env: GOPATH preserved" \
+  "$(read_log "$ENV_LOG")" "GOPATH=$TMP/preset-gopath"
+assert_has "3b preset Go env: GOMODCACHE preserved" \
+  "$(read_log "$ENV_LOG")" "GOMODCACHE=$TMP/preset-modcache"
+ENV_ARGS=()
 
 # --- 4. stub scanner exit 1 with a finding ----------------------------------
 make_stub "$TMP/stub-finding" 1
@@ -185,6 +214,22 @@ run_check "$STUB_PATH" --development extra
 assert_eq "6 --development plus extra: exit status" "$STATUS" "2"
 assert_lacks "6 --development plus extra: never PASS" "$OUT" "PASS"
 assert_not_invoked "6 --development plus extra: no scanner invocation"
+
+# --- 7. an unusable HOME never changes the gate's verdict -------------------
+# $HOME=/nonexistent cannot host a Go build cache: the repo-local convention
+# must keep the scan runnable, and strict mode must still fail closed.
+ENV_ARGS=(HOME=/nonexistent)
+run_check "$SAFE_BIN"
+assert_eq "7 missing scanner, HOME=/nonexistent: exit status" "$STATUS" "2"
+assert_has "7 missing scanner, HOME=/nonexistent: INCOMPLETE" "$OUT" "INCOMPLETE"
+assert_lacks "7 missing scanner, HOME=/nonexistent: never PASS" "$OUT" "PASS"
+
+STUB_MSG="govulncheck: no vulnerabilities found"
+run_check "$STUB_PATH"
+assert_eq "7 stub exit 0, HOME=/nonexistent: exit status" "$STATUS" "0"
+assert_has "7 stub exit 0, HOME=/nonexistent: repo-local GOCACHE" \
+  "$(read_log "$ENV_LOG")" "GOCACHE=$ROOT/.scratch/gocache"
+ENV_ARGS=()
 
 # --- summary ----------------------------------------------------------------
 printf '\n%s\n' "----------------------------------------"
