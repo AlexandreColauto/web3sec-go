@@ -339,6 +339,9 @@ func DefaultPlanFromModel(campaign *state.Campaign,
 		bootstrapRisky(b, risky)
 	}
 	bootstrapRoles(b, model)
+	// Task 10: the model's OWN open questions compile into the queue. Last,
+	// so every pre-existing question keeps its Q-number byte-for-byte.
+	bootstrapOpenQuestions(b, model)
 	plan := validation.VObj(
 		kv("campaign_id", validation.VStr(campaign.CampaignID)),
 		kv("created_at", validation.VStr(nowIso())),
@@ -470,6 +473,64 @@ func bootstrapRoles(b *planBuilder, model validation.Value) {
 			strings.Join(caps, "; ")+"` that violates user expectations?", 0.8,
 			[]string{role}, []string{"attacker"}, addOpts{budget: "cheap"})
 	}
+}
+
+// bootstrapOpenQuestions compiles the protocol model's OWN open questions
+// into plan priorities (Task 10). The model already records what it could not
+// decide; before this, those questions were rendered by `coverage` as gaps
+// and then never worked — the queue did not carry them, so nothing in the
+// campaign ever answered them.
+//
+// Only questions that NAME something are compiled: a `blocks` or `applies_to`
+// contract reference is what makes the question actionable (it names the
+// surface the answer changes). A question with no reference, and one already
+// marked `resolved`, produce nothing — an empty or reference-free
+// open_questions list leaves the queue byte-identical.
+//
+// The minted question text is `resolve open question <id>: <text>` so the row
+// the operator must answer names itself: the id in the text is the id of the
+// very priority that carries it, which is what `webv2 answered <campaign>
+// <id> answered …` takes.
+func bootstrapOpenQuestions(b *planBuilder, model validation.Value) {
+	for _, q := range listOf(model, "open_questions") {
+		if pyTruthyBigNonEmpty(objAt(q, "resolved")) {
+			continue
+		}
+		text := objStr(q, "question")
+		if text == "" {
+			continue
+		}
+		refs := openQuestionRefs(q)
+		if len(refs) == 0 {
+			continue
+		}
+		id := qid(b.qi + 1)
+		// risk 0.9 / cheap: an unresolved question about a named surface is
+		// answerable by a look at the code or the deployment — it belongs in
+		// the `now` slot, ahead of generic index work.
+		b.add(q, "resolve open question "+id+": "+text, 0.9, refs,
+			[]string{"drift", "code"}, addOpts{budget: "cheap"})
+	}
+}
+
+// openQuestionRefs is the contract references an open question names: the
+// `blocks` list the schema defines plus the `applies_to` spelling other
+// producers use. Declaration order is kept (deterministic output), duplicates
+// and empty strings are dropped.
+func openQuestionRefs(q validation.Value) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, key := range []string{"blocks", "applies_to"} {
+		for _, ref := range listOf(q, key) {
+			s := pyStr(ref)
+			if s == "" || seen[s] {
+				continue
+			}
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // floatOrInt is a numeric Value as float64 (only used for presence checks).
