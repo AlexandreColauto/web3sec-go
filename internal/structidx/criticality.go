@@ -75,46 +75,68 @@ func critHit(name string, tokens map[string]bool) bool {
 	return false
 }
 
-// CriticalityRank is criticality_rank.
-func CriticalityRank(model, index validation.Value) []validation.Value {
-	// State machines name states, not contracts, so the machine NAME is the
-	// primary host signal, backed by every string the machine mentions.
+// critRankState carries the model/index context shared by CriticalityRank's
+// section builders (plus the token pools they produce).
+type critRankState struct {
+	model    validation.Value
+	index    validation.Value
+	smTokens map[string]bool
+	critical map[string]bool
+	oracle   map[string]bool
+	upgrades map[string]bool
+	drains   map[string]bool
+	ext      map[string]bool
+	sinks    map[string]bool
+}
+
+// critRankSMTokens collects the state-machine token pool. State machines name
+// states, not contracts, so the machine NAME is the primary host signal,
+// backed by every string the machine mentions.
+func (cr *critRankState) critRankSMTokens() {
 	smTokens := map[string]bool{}
-	for _, sm := range objList(validation.ObjAt(model, "state_machines")) {
+	for _, sm := range objList(validation.ObjAt(cr.model, "state_machines")) {
 		unionInto(smTokens, critTokens(validation.ObjAt(sm, "name")))
-		for _, s := range objList(validation.ObjAt(sm, "states")) {
+		for _, st := range objList(validation.ObjAt(sm, "states")) {
 			// States are objects ({id, terminal, ...}), not bare strings —
 			// critTokens is string-only, so tokenize the state's id (the
 			// state name); a bare-string state still works via the fallback.
-			if s.Kind == validation.Obj {
-				unionInto(smTokens, critTokens(validation.ObjAt(s, "id")))
+			if st.Kind == validation.Obj {
+				unionInto(smTokens, critTokens(validation.ObjAt(st, "id")))
 			} else {
-				unionInto(smTokens, critTokens(s))
+				unionInto(smTokens, critTokens(st))
 			}
 		}
-		for _, t := range objList(validation.ObjAt(sm, "transitions")) {
+		for _, tr := range objList(validation.ObjAt(sm, "transitions")) {
 			for _, key := range []string{"contract", "on", "from", "to",
 				"trigger", "actor"} {
-				unionInto(smTokens, critTokens(validation.ObjAt(t, key)))
+				unionInto(smTokens, critTokens(validation.ObjAt(tr, key)))
 			}
-			for _, g := range objList(validation.ObjAt(t, "guards")) {
+			for _, g := range objList(validation.ObjAt(tr, "guards")) {
 				unionInto(smTokens, critTokens(g))
 			}
 		}
 	}
+	cr.smTokens = smTokens
+}
 
-	// Critical mutating edges: relations carry from/rel/to (+via).
+// critRankCritical collects the critical mutating edges: relations carry
+// from/rel/to (+via).
+func (cr *critRankState) critRankCritical() {
 	critical := map[string]bool{}
-	for _, e := range protocolgraph.CriticalEdges(model) {
+	for _, e := range protocolgraph.CriticalEdges(cr.model) {
 		for _, key := range []string{"contract", "from", "to", "via"} {
 			unionInto(critical, critTokens(validation.ObjAt(e, key)))
 		}
 	}
+	cr.critical = critical
+}
 
-	// Oracles carry id/feeds[]/manipulable_by; feeds is a LIST, so each entry
-	// is tokenized individually.
+// critRankOracles collects the oracle token pool: oracles carry
+// id/feeds[]/manipulable_by; feeds is a LIST, so each entry is tokenized
+// individually.
+func (cr *critRankState) critRankOracles() {
 	oracle := map[string]bool{}
-	for _, o := range protocolgraph.OracleChain(model) {
+	for _, o := range protocolgraph.OracleChain(cr.model) {
 		unionInto(oracle, critTokens(validation.ObjAt(o, "id")))
 		unionInto(oracle, critTokens(validation.ObjAt(o, "contract")))
 		unionInto(oracle, critTokens(validation.ObjAt(o, "manipulable_by")))
@@ -127,10 +149,14 @@ func CriticalityRank(model, index validation.Value) []validation.Value {
 			}
 		}
 	}
+	cr.oracle = oracle
+}
 
-	// Upgrade gap: a contract named in upgrade_paths can change deployed code.
+// critRankUpgrades collects the upgrade gap pool: a contract named in
+// upgrade_paths can change deployed code.
+func (cr *critRankState) critRankUpgrades() {
 	upgrades := map[string]bool{}
-	for _, u := range objList(validation.ObjAt(model, "upgrade_paths")) {
+	for _, u := range objList(validation.ObjAt(cr.model, "upgrade_paths")) {
 		if u.Kind == validation.Obj {
 			for _, key := range []string{"contract", "proxy", "implementation",
 				"target", "admin", "timelock", "initializer", "gap_risk"} {
@@ -140,49 +166,65 @@ func CriticalityRank(model, index validation.Value) []validation.Value {
 			unionInto(upgrades, critTokens(u))
 		}
 	}
+	cr.upgrades = upgrades
+}
 
-	// Drain-capable actors (who_can returns actor dicts keyed by id).
+// critRankDrains collects drain-capable actors (who_can returns actor dicts
+// keyed by id).
+func (cr *critRankState) critRankDrains() {
 	drains := map[string]bool{}
-	for _, a := range protocolgraph.WhoCan(model, "can_drain") {
+	for _, a := range protocolgraph.WhoCan(cr.model, "can_drain") {
 		if a.Kind == validation.Obj {
 			unionInto(drains, critTokens(validation.ObjAt(a, "id")))
 		}
 	}
+	cr.drains = drains
+}
 
-	// External/risky assets surface only the asset id — the holder signal
-	// lives on the raw model assets' held_by list, so read both.
+// critRankExt collects external/risky assets, which surface only the asset id
+// — the holder signal lives on the raw model assets' held_by list, so read
+// both.
+func (cr *critRankState) critRankExt() {
 	ext := map[string]bool{}
-	for _, a := range protocolgraph.ExternalAssets(model) {
+	for _, a := range protocolgraph.ExternalAssets(cr.model) {
 		if a.Kind == validation.Obj {
 			unionInto(ext, critTokens(validation.ObjAt(a, "asset")))
 			unionInto(ext, critTokens(validation.ObjAt(a, "contract")))
 		}
 	}
-	for _, a := range objList(validation.ObjAt(model, "assets")) {
+	for _, a := range objList(validation.ObjAt(cr.model, "assets")) {
 		if a.Kind == validation.Obj {
 			for _, h := range objList(validation.ObjAt(a, "held_by")) {
 				unionInto(ext, critTokens(h))
 			}
 		}
 	}
+	cr.ext = ext
+}
 
-	// Sinks surface function ids ("path#Contract.fn"); tolerate an index with
-	// empty/absent nodes.
+// critRankSinks collects sinks' function ids ("path#Contract.fn"); tolerate an
+// index with empty/absent nodes.
+func (cr *critRankState) critRankSinks() {
 	sinks := map[string]bool{}
-	if len(objList(validation.ObjAt(index, "nodes"))) > 0 {
-		for _, n := range SinkFunctions(index) {
+	if len(objList(validation.ObjAt(cr.index, "nodes"))) > 0 {
+		for _, n := range SinkFunctions(cr.index) {
 			unionInto(sinks, critTokens(validation.ObjAt(n, "contract")))
 			unionInto(sinks, critTokens(validation.ObjAt(n, "function_id")))
 		}
 	}
+	cr.sinks = sinks
+}
 
+// critRankRows builds the per-contract rows against the collected pools, then
+// sorts and renders them.
+func (cr *critRankState) critRankRows() []validation.Value {
 	type row struct {
 		contract string
 		tier     string
 		reasons  []string
 	}
 	rows := []row{}
-	for _, c := range objList(validation.ObjAt(model, "contracts")) {
+	for _, c := range objList(validation.ObjAt(cr.model, "contracts")) {
 		name := validation.ObjStr(c, "name")
 		if name == "" {
 			name = validation.ObjStr(c, "path")
@@ -192,25 +234,25 @@ func CriticalityRank(model, index validation.Value) []validation.Value {
 		}
 		reasons := []string{}
 		tier := "peripheral"
-		if critHit(name, smTokens) {
+		if critHit(name, cr.smTokens) {
 			tier = "consensus-critical"
 			reasons = append(reasons, "hosts a state machine")
 		}
-		if critHit(name, critical) {
+		if critHit(name, cr.critical) {
 			tier = "consensus-critical"
 			reasons = append(reasons, "critical mutating edge")
 		}
-		if critHit(name, oracle) {
+		if critHit(name, cr.oracle) {
 			tier = "consensus-critical"
 			reasons = append(reasons, "oracle role")
 		}
-		if critHit(name, upgrades) {
+		if critHit(name, cr.upgrades) {
 			tier = "consensus-critical"
 			reasons = append(reasons, "upgrade gap")
 		}
 		if tier != "consensus-critical" &&
-			(critHit(name, ext) || critHit(name, sinks) ||
-				critHit(name, drains)) {
+			(critHit(name, cr.ext) || critHit(name, cr.sinks) ||
+				critHit(name, cr.drains)) {
 			tier = "value-holding"
 			reasons = append(reasons, "value-holding / drain-reachable")
 		}
@@ -236,6 +278,19 @@ func CriticalityRank(model, index validation.Value) []validation.Value {
 		))
 	}
 	return out
+}
+
+// CriticalityRank is criticality_rank.
+func CriticalityRank(model, index validation.Value) []validation.Value {
+	cr := critRankState{model: model, index: index}
+	cr.critRankSMTokens()
+	cr.critRankCritical()
+	cr.critRankOracles()
+	cr.critRankUpgrades()
+	cr.critRankDrains()
+	cr.critRankExt()
+	cr.critRankSinks()
+	return cr.critRankRows()
 }
 
 // objList is a list-typed accessor that also tolerates a scalar where a list

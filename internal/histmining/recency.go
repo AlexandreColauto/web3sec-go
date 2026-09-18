@@ -96,41 +96,52 @@ var errIndexNotWired = notWiredError(
 // recencyLogFormat is git log's pretty format for the recency walk.
 const recencyLogFormat = `--pretty=format:@%H%x00%ad`
 
-func RecencyScores(c *state.Campaign, target, snapshotRoot string) (
-	validation.Value, error) {
-	idx, err := indexAPI.EnsureFreshIndex(c, snapshotRoot)
-	if err != nil {
-		return validation.VNull(), err
-	}
-	var fns []validation.Value
-	for _, n := range validation.ObjAt(idx, "nodes").A {
+// recencyState carries the shared context of RecencyScores' sections.
+type recencyState struct {
+	c                *state.Campaign
+	target           string
+	idx              validation.Value
+	fns              []validation.Value
+	sinkFiles        map[string]bool
+	assetWriterFiles map[string]bool
+	entryFiles       map[string]bool
+	now              time.Time
+}
+
+// recencyIndexSets collects the index-derived file sets: sink files, asset
+// writer files and entry-point files.
+func (rc *recencyState) recencyIndexSets() {
+	for _, n := range validation.ObjAt(rc.idx, "nodes").A {
 		if validation.ObjStr(n, "kind") == "function" {
-			fns = append(fns, n)
+			rc.fns = append(rc.fns, n)
 		}
 	}
-	sinkFiles := map[string]bool{}
-	for _, s := range indexAPI.SinkFunctions(idx) {
-		sinkFiles[strings.SplitN(validation.ObjStr(s, "function_id"), "#", 2)[0]] = true
+	rc.sinkFiles = map[string]bool{}
+	for _, s := range indexAPI.SinkFunctions(rc.idx) {
+		rc.sinkFiles[strings.SplitN(validation.ObjStr(s, "function_id"), "#", 2)[0]] = true
 	}
-	assetWriterFiles := map[string]bool{}
-	for _, n := range fns {
+	rc.assetWriterFiles = map[string]bool{}
+	for _, n := range rc.fns {
 		// C0: reconciled writers (the raw writes_storage omits statement writes).
-		for _, v := range indexAPI.WritersOf(idx, n) {
+		for _, v := range indexAPI.WritersOf(rc.idx, n) {
 			if assetVarRe.MatchString(v) {
-				assetWriterFiles[strings.SplitN(validation.ObjStr(n, "id"), "#", 2)[0]] = true
+				rc.assetWriterFiles[strings.SplitN(validation.ObjStr(n, "id"), "#", 2)[0]] = true
 				break
 			}
 		}
 	}
-	entryFiles := map[string]bool{}
-	for _, n := range fns {
+	rc.entryFiles = map[string]bool{}
+	for _, n := range rc.fns {
 		if truthy(validation.ObjAt(n, "is_entry_point")) {
-			entryFiles[validation.ObjStr(n, "path")] = true
+			rc.entryFiles[validation.ObjStr(n, "path")] = true
 		}
 	}
+}
 
-	// one pass over the git log: file -> most recent commit date
-	raw := Git(target, "log", "-n", strconv.Itoa(LogCap), recencyLogFormat,
+// recencyLastChanged makes one pass over the git log: file -> most recent
+// commit date.
+func (rc *recencyState) recencyLastChanged() map[string]string {
+	raw := Git(rc.target, "log", "-n", strconv.Itoa(LogCap), recencyLogFormat,
 		"--date=short", "--name-only")
 	lastChanged := map[string]string{}
 	curDate := ""
@@ -151,17 +162,27 @@ func RecencyScores(c *state.Campaign, target, snapshotRoot string) (
 			}
 		}
 	}
+	return lastChanged
+}
 
-	// The clock is pinned like every other one in the tool (WEBV2_NOW via
-	// state.NowIso) so the day-delta score is reproducible in the golden
-	// suite; a bare time.Now here was the one component that could not be.
+// recencyNow pins the clock like every other one in the tool (WEBV2_NOW via
+// state.NowIso) so the day-delta score is reproducible in the golden suite; a
+// bare time.Now here was the one component that could not be.
+func (rc *recencyState) recencyNow() {
 	now := time.Now().UTC()
 	if t, err := time.Parse(time.RFC3339, state.NowIso()); err == nil {
 		now = t.UTC()
 	}
+	rc.now = now
+}
+
+// recencyScoreFiles scores every index path by exposure weight and recency,
+// in sorted-path order.
+func (rc *recencyState) recencyScoreFiles(
+	lastChanged map[string]string) ([]validation.Value, int64) {
 	paths := []string{}
 	seenPath := map[string]bool{}
-	for _, n := range validation.ObjAt(idx, "nodes").A {
+	for _, n := range validation.ObjAt(rc.idx, "nodes").A {
 		p := validation.ObjStr(n, "path")
 		if p == "" || seenPath[p] {
 			continue
@@ -174,9 +195,9 @@ func RecencyScores(c *state.Campaign, target, snapshotRoot string) (
 	changedInWindow := int64(0)
 	for _, path := range paths {
 		weight := 0.25
-		if sinkFiles[path] || assetWriterFiles[path] {
+		if rc.sinkFiles[path] || rc.assetWriterFiles[path] {
 			weight = 1.0
-		} else if entryFiles[path] {
+		} else if rc.entryFiles[path] {
 			weight = 0.5
 		}
 		changed, hasChanged := lastChanged[path]
@@ -184,7 +205,7 @@ func RecencyScores(c *state.Campaign, target, snapshotRoot string) (
 		score := 0.0
 		if hasChanged {
 			if d, err := time.Parse("2006-01-02", changed); err == nil {
-				days := int64(now.Sub(d).Hours() / 24)
+				days := int64(rc.now.Sub(d).Hours() / 24)
 				daysAgo = &days
 				score = validation.PythonRound(weight*maxF(0,
 					1-float64(days)/RecencyWindowDays), 4)
@@ -209,6 +230,13 @@ func RecencyScores(c *state.Campaign, target, snapshotRoot string) (
 			validation.KV{K: "score", V: validation.VFloat(score)},
 		))
 	}
+	return filesOut, changedInWindow
+}
+
+// recencyReport sorts the scored files, builds the recency report, writes the
+// artifact and registers/logs it.
+func (rc *recencyState) recencyReport(filesOut []validation.Value,
+	changedInWindow int64) (validation.Value, error) {
 	sort.SliceStable(filesOut, func(i, j int) bool {
 		si, sj := floatField(filesOut[i], "score"), floatField(filesOut[j], "score")
 		if si != sj {
@@ -220,7 +248,7 @@ func RecencyScores(c *state.Campaign, target, snapshotRoot string) (
 	if len(hot) > 25 {
 		hot = hot[:25]
 	}
-	snapID, err := c.ActiveSnapshotIDOrNone()
+	snapID, err := rc.c.ActiveSnapshotIDOrNone()
 	if err != nil {
 		return validation.VNull(), err
 	}
@@ -231,7 +259,7 @@ func RecencyScores(c *state.Campaign, target, snapshotRoot string) (
 	report := validation.VObj(
 		validation.KV{K: "generated_at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "snapshot_id", V: validation.VStr(snapV)},
-		validation.KV{K: "target", V: validation.VStr(target)},
+		validation.KV{K: "target", V: validation.VStr(rc.target)},
 		validation.KV{K: "files", V: validation.VArr(filesOut...)},
 		validation.KV{K: "hot_files", V: validation.VArr(hot...)},
 		validation.KV{K: "stats", V: validation.VObj(
@@ -240,20 +268,39 @@ func RecencyScores(c *state.Campaign, target, snapshotRoot string) (
 				V: validation.VInt(changedInWindow)},
 			validation.KV{K: "scanned_commits", V: validation.VInt(LogCap)})},
 	)
-	out := filepath.Join(c.ArtifactsDir, "recency.json")
+	out := filepath.Join(rc.c.ArtifactsDir, "recency.json")
 	if err := validation.WriteJson(out, report, ""); err != nil {
 		return validation.VNull(), err
 	}
 	reason := strconv.Itoa(len(filesOut)) + " files scored"
-	if _, err := c.RegisterOrRefresh("recency", out, "", nil, reason); err != nil {
+	if _, err := rc.c.RegisterOrRefresh("recency", out, "", nil, reason); err != nil {
 		return validation.VNull(), err
 	}
 	data := validation.VObj(validation.KV{K: "files",
 		V: validation.VInt(int64(len(filesOut)))})
-	if _, err := c.Log("recency.scored", nil, &data); err != nil {
+	if _, err := rc.c.Log("recency.scored", nil, &data); err != nil {
 		return validation.VNull(), err
 	}
 	return report, nil
+}
+
+// RecencyScores is recency_scores: score every source file in the snapshot
+// tree by (days since last change) x (exposure weight). Writes the recency
+// artifact. A stale stored index is rebuilt first (ensure_fresh_index), so
+// the file set — and every downstream score — tracks the active pin.
+// recencyLogFormat is git log's pretty format for the recency walk.
+func RecencyScores(c *state.Campaign, target, snapshotRoot string) (
+	validation.Value, error) {
+	idx, err := indexAPI.EnsureFreshIndex(c, snapshotRoot)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	rc := recencyState{c: c, target: target, idx: idx}
+	rc.recencyIndexSets()
+	lastChanged := rc.recencyLastChanged()
+	rc.recencyNow()
+	filesOut, changedInWindow := rc.recencyScoreFiles(lastChanged)
+	return rc.recencyReport(filesOut, changedInWindow)
 }
 
 func maxF(a, b float64) float64 {

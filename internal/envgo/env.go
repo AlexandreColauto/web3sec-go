@@ -357,63 +357,74 @@ func pyHead(s string, n int) string {
 
 // --- the doctor -------------------------------------------------------------
 
-// Doctor is doctor(campaign=None): one read-only pass over the execution
-// environment. With a campaign, the result is cross-checked against what the
-// campaign's evidence floor actually REQUIRES.
-func Doctor(campaign *state.Campaign) (validation.Value, error) {
-	var issues []validation.Value
-	image := dockerProbe(nil)
-	rpc := ForkRPCProbe(nil, 5.0)
-	profiles := validation.VObj()
-	e4 := []validation.Value{}
+// doctorState carries the probe results shared by Doctor's sections.
+type doctorState struct {
+	campaign *state.Campaign
+	image    validation.Value
+	rpc      validation.Value
+	profiles validation.Value
+	e4       []validation.Value
+	issues   []validation.Value
+}
+
+// doctorProbeProfiles probes each sandbox profile, records the per-profile
+// availability map and appends the base issues: no E4-capable profile, the
+// image not pulled locally, and the fork RPC unreachable.
+func (dc *doctorState) doctorProbeProfiles() {
+	dc.profiles = validation.VObj()
+	dc.e4 = []validation.Value{}
 	for _, p := range sandbox.Profiles {
 		ok := sandbox.ProfileAvailable(p)
-		profiles.O = append(profiles.O, validation.KV{K: p,
+		dc.profiles.O = append(dc.profiles.O, validation.KV{K: p,
 			V: validation.VBool(ok)})
 		if ok && !sandbox.HostProfile(p) {
-			e4 = append(e4, validation.VStr(p))
+			dc.e4 = append(dc.e4, validation.VStr(p))
 		}
 	}
-	if len(e4) == 0 {
-		issues = append(issues, validation.VStr("no E4-capable profile "+
+	if len(dc.e4) == 0 {
+		dc.issues = append(dc.issues, validation.VStr("no E4-capable profile "+
 			"available — reproduction evidence cannot be minted at all "+
 			"(start the docker daemon: the container profiles are the only "+
 			"honest execution path)"))
 	}
-	if !boolAt(image, "present") && boolAt(image, "daemon") {
-		line := "image " + validation.PyReprStr(strAt(image, "image")) +
+	if !boolAt(dc.image, "present") && boolAt(dc.image, "daemon") {
+		line := "image " + validation.PyReprStr(strAt(dc.image, "image")) +
 			" not pulled locally — the first container run will pull it"
-		if !boolAt(image, "pinned") {
+		if !boolAt(dc.image, "pinned") {
 			line += "; a floating tag may pull a different build than the " +
 				"PoC assumes"
 		}
-		issues = append(issues, validation.VStr(line))
+		dc.issues = append(dc.issues, validation.VStr(line))
 	}
-	if !boolAt(rpc, "reachable") {
-		issues = append(issues, validation.VStr("fork RPC unreachable ("+
-			strAt(rpc, "error")+") — E5+ fork evidence and the fork-runner "+
+	if !boolAt(dc.rpc, "reachable") {
+		dc.issues = append(dc.issues, validation.VStr("fork RPC unreachable ("+
+			strAt(dc.rpc, "error")+") — E5+ fork evidence and the fork-runner "+
 			"profile are dead until a fork is running and FORK_RPC_URL "+
 			"points at it"))
 	}
+}
 
-	result := validation.VObj(
+// doctorResult assembles the base doctor result object.
+func (dc *doctorState) doctorResult() validation.Value {
+	return validation.VObj(
 		validation.KV{K: "docker", V: validation.VObj(
 			validation.KV{K: "cli", V: validation.VBool(hasDockerCLI())},
 			validation.KV{K: "daemon", V: validation.VBool(
-				boolAt(image, "daemon"))},
-			validation.KV{K: "image", V: image})},
-		validation.KV{K: "fork_rpc", V: rpc},
-		validation.KV{K: "profiles", V: profiles},
-		validation.KV{K: "e4_capable", V: validation.VArr(e4...)},
-		validation.KV{K: "issues", V: validation.VArr(issues...)},
-		validation.KV{K: "ok", V: validation.VBool(len(issues) == 0)},
+				boolAt(dc.image, "daemon"))},
+			validation.KV{K: "image", V: dc.image})},
+		validation.KV{K: "fork_rpc", V: dc.rpc},
+		validation.KV{K: "profiles", V: dc.profiles},
+		validation.KV{K: "e4_capable", V: validation.VArr(dc.e4...)},
+		validation.KV{K: "issues", V: validation.VArr(dc.issues...)},
+		validation.KV{K: "ok", V: validation.VBool(len(dc.issues) == 0)},
 	)
-	if campaign == nil {
-		result.O = append(result.O, validation.KV{K: "solc",
-			V: validation.VNull()})
-		return result, nil
-	}
-	req, err := CampaignRequirements(campaign)
+}
+
+// doctorCampaign cross-checks the result against what the campaign's evidence
+// floor actually REQUIRES.
+func (dc *doctorState) doctorCampaign(result validation.Value) (
+	validation.Value, error) {
+	req, err := CampaignRequirements(dc.campaign)
 	if err != nil {
 		return validation.VNull(), err
 	}
@@ -423,14 +434,14 @@ func Doctor(campaign *state.Campaign) (validation.Value, error) {
 	// container the floor loop was about to refuse. Pre-run the same
 	// floor comparison and record the per-profile fit (appended after
 	// solc: the Python-compatible key prefix is untouched).
-	fit, err := profileFit(profiles, strAt(req, "max_confirm_floor"))
+	fit, err := profileFit(dc.profiles, strAt(req, "max_confirm_floor"))
 	if err != nil {
 		return validation.VNull(), err
 	}
 	result.O = append(result.O, validation.KV{K: "campaign", V: req})
 	all := append([]validation.Value{}, validation.ObjAt(result, "issues").A...)
 	all = append(all, validation.ObjAt(req, "issues").A...)
-	solc, err := SolcProbe(campaign, image)
+	solc, err := SolcProbe(dc.campaign, dc.image)
 	if err != nil {
 		return validation.VNull(), err
 	}
@@ -448,6 +459,23 @@ func Doctor(campaign *state.Campaign) (validation.Value, error) {
 	result.O = append(result.O, validation.KV{K: "profile_fit", V: fit})
 	result = setKey(result, "ok", validation.VBool(len(all) == 0))
 	return result, nil
+}
+
+// Doctor is doctor(campaign=None): one read-only pass over the execution
+// environment. With a campaign, the result is cross-checked against what the
+// campaign's evidence floor actually REQUIRES.
+func Doctor(campaign *state.Campaign) (validation.Value, error) {
+	dc := doctorState{campaign: campaign}
+	dc.image = dockerProbe(nil)
+	dc.rpc = ForkRPCProbe(nil, 5.0)
+	dc.doctorProbeProfiles()
+	result := dc.doctorResult()
+	if dc.campaign == nil {
+		result.O = append(result.O, validation.KV{K: "solc",
+			V: validation.VNull()})
+		return result, nil
+	}
+	return dc.doctorCampaign(result)
 }
 
 // profileMaxLevel is the highest evidence level each E4-capable profile can
