@@ -19,15 +19,87 @@ package cli
 // "<ID>: kind=K path=P" — and the kept-row disclosure rides stderr, the
 // documented convention for warnings. A kept ghost means the path now holds
 // two rows, and the verb says so.
+//
+// B2 (feedback-triage-morph-r2, 2026-09-17): three hygiene fixes, all in this
+// file. (1) --kind is validated EARLY, against the campaign_state schema
+// document's own artifact-row enum (SchemaEnumValues, internal/validation/
+// schema_enum.go) — a wrong kind used to parse here as a free string and die
+// LATE as a raw schema wall (exit 1, the whole 32-value enum dumped at
+// artifacts/1/kind); it is now the house argparse refusal, exit 2, with the
+// allowed values in schema document order. (2) An EMPTY file is refused at
+// this verb — right after the os.Stat below — because an empty artifact is a
+// row with no evidence behind it; the two state-layer twins
+// (internal/state/artifacts.go:50 RegisterArtifact,
+// internal/state/artifacts_register.go:84 RegisterOrRefreshKeptGhosts) stay
+// existence-only ON PURPOSE: they also serve `--exec` auto-registration and
+// the harness-scaffold minters. There is deliberately NO --allow-empty
+// bypass: a real placeholder is `printf '{}' > f.json` away, and a flag
+// pressed reflexively defeats the check it bypasses. (3) The help block
+// (artifactRegisterHelp below) advertises [--kind K] [--note N] — the
+// registry line used to hide a flag that exists.
 
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"websec/internal/state"
 	"websec/internal/validation"
 )
+
+// artifactRegisterKindPath is the campaign_state schema path whose enum is the
+// registry's closed kind set: `artifacts[]` is the items schema of the
+// `artifacts` array and `kind` its enum member
+// (assets/schema/campaign_state.schema.json, artifacts[].kind). The CLI must
+// not carry its own copy of that list — the schema document is the registry's
+// contract, and a kind added to it must become registrable with no code edit.
+const artifactRegisterKindPath = "artifacts[]/kind"
+
+// artifactRegisterKinds reads the artifact-row kind enum, in schema document
+// order (the order the refusal text below lists the values in). A missing
+// enum is a hard error, not an empty allow-list: if the schema ever moves the
+// property, "every kind is invalid" would be the worst possible way to find
+// out.
+func artifactRegisterKinds() ([]string, error) {
+	vals, ok, err := validation.SchemaEnumValues("campaign_state",
+		artifactRegisterKindPath)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("campaign_state schema: no artifact kind enum "+
+			"at %s", artifactRegisterKindPath)
+	}
+	out := make([]string, 0, len(vals))
+	for _, v := range vals {
+		out = append(out, validation.LegendValue(v))
+	}
+	return out, nil
+}
+
+// artifactRegisterHelp is `webv2 artifact-register --help`: argparse's block
+// shape (usage, positionals, options) like the sibling artifact-prune help,
+// with the kind list's home named so the operator can read the full enum
+// without a failing register. Printed by helpRequested through
+// verbHelpBlocks (internal/cli/cli.go); the usage line stays byte-identical
+// to argparseUsageBlocks["artifact-register"], which is what a usage ERROR
+// renders.
+const artifactRegisterHelp = `usage: webv2 artifact-register [-h] [--kind KIND] [--note NOTE] campaign path
+
+positional arguments:
+  campaign     the campaign whose registry the row joins
+  path         the file to register; it must exist and hold at least one byte
+
+options:
+  -h, --help   show this help message and exit
+  --kind KIND  the artifact row's kind (default: other). Common kinds: recon,
+               protocol-model, plan, hypothesis, finding, poc, trace, coverage,
+               report, harness, detector, sequence-poc, disclosure, other. The
+               full list is the artifact-row kind enum in the campaign_state
+               schema: ` + "`webv2 schema campaign_state`" + ` (artifacts[]/kind).
+  --note NOTE  free-form note recorded on the artifact row
+`
 
 // artifactRegisterRefreshReason is the reason the re-registration logs on the
 // artifact.refreshed event: register_or_refresh's own default (the reference
@@ -49,6 +121,13 @@ func artifactRowWasRefreshed(row validation.Value) bool {
 
 // artifactRegisterParse parses the flag loop and the positional count,
 // returning the positionals plus the --kind/--note values.
+//
+// B2: --kind is validated HERE, after the loop and before the positional
+// count — argparse checks an option's choices while it consumes the option,
+// so an invalid --kind outranks "the following arguments are required", and
+// (the point of the fix) it refuses before state.Open: no campaign is opened,
+// no row is written, exit 2 with the fix list. The allowed values are read
+// from the campaign_state schema document on every call, never a Go literal.
 func artifactRegisterParse(args []string) ([]string, string, string, error) {
 	var pos []string
 	kind, note := "other", ""
@@ -76,6 +155,18 @@ func artifactRegisterParse(args []string) ([]string, string, string, error) {
 		default:
 			pos = append(pos, a)
 		}
+	}
+	kinds, err := artifactRegisterKinds()
+	if err != nil {
+		return nil, "", "", err
+	}
+	if !slices.Contains(kinds, kind) {
+		// The refusal names the schema's own values in document order: the
+		// operator gets the fix list WITH the refusal instead of the late raw
+		// schema wall (exit 1, the whole enum dumped at artifacts/1/kind).
+		return nil, "", "", argErrf("artifact-register",
+			"argument --kind: invalid kind %s; choose from: %s",
+			quoteSingle(kind), strings.Join(kinds, ", "))
 	}
 	if len(pos) != 2 {
 		missing := []string{}
@@ -150,8 +241,25 @@ func runArtifactRegister(root string, args []string, r *Runner) int {
 		return r.withErr(root, func() error { return err })
 	}
 	path := pos[1]
-	if _, statErr := os.Stat(path); statErr != nil {
+	fi, statErr := os.Stat(path)
+	if statErr != nil {
 		fmt.Fprintf(r.Err, "artifact register failed: no such file: %s\n", path)
+		return 2
+	}
+	// B2: an EMPTY file is refused, here at the verb — the authoritative
+	// place — right after the existence check and BEFORE anything is written
+	// (the campaign was opened read-only above; no row, no event). A row is a
+	// citation the audit re-hashes, so a zero-byte artifact is a citation to
+	// nothing; `/dev/null` is the spelling that made this visible (it exists,
+	// so the existence check passed and a row was minted). NO --allow-empty
+	// bypass: an operator who really wants a placeholder writes `{}` into the
+	// file, and a flag pressed reflexively defeats the check it bypasses.
+	// The state-layer twins stay existence-only on purpose (artifacts.go:50,
+	// artifacts_register.go:84): `--exec` auto-registration and the
+	// harness-scaffold minters register files the CLI never sees.
+	if fi.Size() == 0 {
+		fmt.Fprintf(r.Err, "artifact register failed: empty artifact: %s\n",
+			path)
 		return 2
 	}
 	snap, err := c.ActiveSnapshotIDOrNone()
@@ -189,6 +297,7 @@ func runArtifactRegister(root string, args []string, r *Runner) int {
 
 func init() {
 	register(command{ord: 23, name: "artifact-register",
-		line: "artifact-register <campaign> <path>  register an artifact",
-		run:  runArtifactRegister})
+		line: "artifact-register <campaign> <path> [--kind K] [--note N]  " +
+			"register an artifact",
+		run: runArtifactRegister})
 }

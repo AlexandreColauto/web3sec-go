@@ -165,6 +165,34 @@ func SchemaEnumLegend(name string) ([]string, error) {
 	return EnumLegend(schema), nil
 }
 
+// SchemaEnumValues is the closed enum at `path` in the named schema document,
+// in schema document order — the path-addressed read of the SAME walker
+// SchemaEnumPaths exposes as a legend (schema_enum.go:67). The CLI's early
+// --kind refusal (internal/cli/cmd_artifact_register.go) is its first caller:
+// the allow-list must be the schema's own array, never a hand-maintained copy
+// that a schema edit can drift from.
+//
+// ok is false when the schema holds no enum at that path. That is a real
+// answer, not an error: the caller decides what a moved/renamed property
+// means, because returning an empty allow-list here would silently turn
+// "the property moved" into "every value is invalid".
+func SchemaEnumValues(name, path string) (values []Value, ok bool, err error) {
+	raw, err := ReadSchemaFile(name)
+	if err != nil {
+		return nil, false, err
+	}
+	schema, err := ParseOrdered(raw)
+	if err != nil {
+		return nil, false, err
+	}
+	for _, p := range SchemaEnumPaths(schema) {
+		if p.Path == path {
+			return p.Values, true, nil
+		}
+	}
+	return nil, false, nil
+}
+
 // LegendValue is _legend_value: one enum value as an operator types it (JSON
 // literals, not Python).
 func LegendValue(v Value) string {

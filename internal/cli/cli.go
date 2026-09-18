@@ -206,6 +206,18 @@ var verbUsageConstants = map[string]string{
 	"rank":     rankUsage,
 }
 
+// verbHelpBlocks are the verbs whose `-h`/`--help` block is RICHER than the
+// usage line argparse renders on a usage error: argparse prints `usage: ...`
+// alone for an error but the full help for -h, so the two texts are separate
+// artifacts and only the error one is pinned byte-for-byte against the Python
+// twin (argparseUsageBlocks). A verb belongs here once its help body must
+// document flags and pointers the operator needs; its first line must stay
+// the argparseUsageBlocks usage line, so help and error cannot disagree about
+// the signature. (B2: artifact-register.)
+var verbHelpBlocks = map[string]string{
+	"artifact-register": artifactRegisterHelp,
+}
+
 // helpRequested writes cmd's usage block for -h/--help and reports whether the
 // caller must stop with success (exit 0). It must be the first thing a verb
 // entry does: argparse answers help before it looks at anything else.
@@ -219,11 +231,15 @@ func helpRequested(out io.Writer, cmd string, args []string) bool {
 	return false
 }
 
-// helpUsageText is the block `webv2 <cmd> -h` prints: the captured argparse
-// block when the verb has one, its usage constant otherwise, and for the few
-// verbs with neither, a usage line derived from the command registry — so the
-// text can never drift from the registered signature.
+// helpUsageText is the block `webv2 <cmd> -h` prints: the verb's own help
+// block when it has one, the captured argparse usage block otherwise, its
+// usage constant when there is neither, and for the few verbs with nothing at
+// all, a usage line derived from the command registry — so the text can never
+// drift from the registered signature.
 func helpUsageText(cmd string) string {
+	if b, ok := verbHelpBlocks[cmd]; ok {
+		return b
+	}
 	if b, ok := argparseUsageBlocks[cmd]; ok {
 		return b
 	}
