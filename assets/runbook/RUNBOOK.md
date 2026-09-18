@@ -556,7 +556,7 @@ webv2 plan <C-xxx> --rebuild                # archive the outgoing plan to super
 webv2 answered <C-xxx> Q-xxx answered --reason "..." --ref EXEC-xxx   # close a plan priority
 webv2 answered <C-xxx> Q-xxx not-applicable --reason "considered, doesn't apply"
 webv2 deferred <C-xxx> [--json]              # sweep: tier-0 closures that defer the check (anchor asserter / consequence vocabulary) without pricing it — report only
-webv2 ingest <C-xxx> --json-file payload.json [--trajectory T] [--stage S] [--answers-priority Q-xxx]
+webv2 ingest <C-xxx> --json-file payload.json [--trajectory T] [--stage S] [--answers-priority Q-xxx] [--no-hints]
 webv2 ingest <C-xxx> --from slither --json-file slither.json   # detector lane: every Medium/High/Critical check becomes a HYPOTHESIS with provenance.sast_tools
 webv2 ingest <C-xxx> --from aderyn --json-file aderyn.json     # detector lane (aderyn): every high_issues row becomes a HYPOTHESIS with provenance.sast_tools
 webv2 ingest --example                       # the validated payload template (PURE JSON on stdout; legend on stderr)
@@ -576,6 +576,21 @@ CONFIRMED gate runs (instance `floors set` overrides included), and a class
 stricter than the loosest known class also prints the class-floor advisory, so
 a taxonomy choice is never a silent evidence wall. **Never
 hand-write a finding file** — ingest is the only path in.
+
+**Write-time hygiene note (B9).** A successful `ingest --json-file` (the
+`--from slither|aderyn` lane included) and a successful `mint` end by resolving
+the payload's `affected[]` files onto the model's canonical paths and naming —
+on **stderr**, at most **three** lines, most specific first — every
+**undispositioned surface row** and **open plan priority** that shares one of
+those anchors. Each line names the row/priority id, its one-line why (the row's
+own `why`, truncated), and ends with the smallest command that discharges it: a
+claimed row answers through the priority that claims it
+(`webv2 answered <C> <Q-id> answered --reason '<why>' --anchor <field>` — a probe
+disposition must name its anchor), a row no priority claims yet is emitted first
+(`webv2 probes <C> run --emit`), and a priority closes directly
+(`webv2 answered <C> <Q-id> answered --reason '<why>'`). Nothing matches, nothing
+prints; the whole note is silenced by `--no-hints` or `WEBV2_NO_HINTS=1` (both
+ingest and mint).
 
 Three finding fields are machine-read by the eval join (`scorecard --gold`)
 and by dedup — write them like identifiers, not prose:
@@ -1613,7 +1628,7 @@ webv2 plan <C> [file] [--rebuild] [--json]                         read-only pla
 webv2 answered <C> <priority|L-0X> [<priority>...] <status> [--reason R] [--reason-all R] [--ref R] [--anchor FIELD] [--families a,b,c] [--symmetry fam=prim;...] [--actor A]   # one status over ONE OR MORE rows: gates run per row all-or-nothing (first refusal names its row, zero mutations)
 webv2 probes <C> run [--emit --per-axis N --total N] | list [--axis L-0n|AXIS] [--all] [--json] | blank --axis L-0n|AXIS --anchor-blind K --reason R --actor A | pending [--max N] [--json]
 webv2 answered <C> --rows ROWID,ROWID <status> --reason-all R --anchor FIELD [--actor A]   # the same discharge over probe rows named by id; refused unless EVERY row is tier>0 and assertion_gap<3
-webv2 ingest <C> --json-file F (or -) [--trajectory T] [--stage S] [--answers-priority Q-xxx]   |  webv2 ingest --example
+webv2 ingest <C> --json-file F (or -) [--trajectory T] [--stage S] [--answers-priority Q-xxx] [--no-hints]   |  webv2 ingest --example
 webv2 prompts {list,show} [name]                                   print the embedded stage prompts (no framework checkout needed; show accepts full name, stem, or stage number)
 webv2 schema [--list] [<name>]                                     print an embedded validation schema, byte-for-byte (finding, protocol_model, bounty_policy, ...); no name (or --list) names them all
 
